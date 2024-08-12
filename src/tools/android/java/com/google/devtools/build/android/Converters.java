@@ -85,6 +85,20 @@ public final class Converters {
     }
   }
 
+  /** Converter for {@link UnvalidatedAndroidDirectories}. Compatible with JCommander. */
+  public static class CompatUnvalidatedAndroidDirectoriesConverter
+      implements IStringConverter<UnvalidatedAndroidDirectories> {
+    @Override
+    public UnvalidatedAndroidDirectories convert(String input) throws ParameterException {
+      try {
+        return UnvalidatedAndroidDirectories.valueOf(input);
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(
+            String.format("invalid UnvalidatedAndroidDirectories: %s", e.getMessage()), e);
+      }
+    }
+  }
+
   /** Converter for {@link UnvalidatedAndroidDirectories}. */
   public static class UnvalidatedAndroidDirectoriesConverter
       extends Converter.Contextless<UnvalidatedAndroidDirectories> {
@@ -354,6 +368,35 @@ public final class Converters {
 
   /**
    * Validating converter for a list of Paths. A Path is considered valid if it resolves to a file.
+   *
+   * <p>Compatible with JCommander.
+   */
+  @Deprecated // Not _actually_ deprecated (see cl/162194755).
+  public static class CompatPathListConverter implements IStringConverter<List<Path>> {
+    private final CompatPathConverter baseConverter;
+
+    public CompatPathListConverter() {
+      this(false);
+    }
+
+    public CompatPathListConverter(boolean mustExist) {
+      this.baseConverter = new CompatPathConverter(mustExist);
+    }
+
+    @Override
+    public List<Path> convert(String input) throws ParameterException {
+      List<Path> list = new ArrayList<>();
+      for (String piece : input.split(":")) {
+        if (!piece.isEmpty()) {
+          list.add(baseConverter.convert(piece));
+        }
+      }
+      return Collections.unmodifiableList(list);
+    }
+  }
+
+  /**
+   * Validating converter for a list of Paths. A Path is considered valid if it resolves to a file.
    */
   @Deprecated
   public static class PathListConverter extends Converter.Contextless<List<Path>> {
@@ -562,6 +605,24 @@ public final class Converters {
     }
   }
 
+  /** Converts a list of static library strings into paths. Compatible with JCommander. */
+  @Deprecated
+  public static class CompatStaticLibraryListConverter
+      implements IStringConverter<List<StaticLibrary>> {
+    static final Splitter SPLITTER = Splitter.on(File.pathSeparatorChar);
+
+    static final CompatStaticLibraryConverter libraryConverter = new CompatStaticLibraryConverter();
+
+    @Override
+    public List<StaticLibrary> convert(String input) throws ParameterException {
+      final ImmutableList.Builder<StaticLibrary> builder = ImmutableList.<StaticLibrary>builder();
+      for (String path : SPLITTER.splitToList(input)) {
+        builder.add(libraryConverter.convert(path));
+      }
+      return builder.build();
+    }
+  }
+
   /** Converts a list of static library strings into paths. */
   @Deprecated
   public static class StaticLibraryListConverter
@@ -585,6 +646,16 @@ public final class Converters {
     }
   }
 
+  /** Converts a list of static library strings into paths. Compatible with JCommander. */
+  public static class CompatStaticLibraryConverter implements IStringConverter<StaticLibrary> {
+    static final CompatPathConverter pathConverter = new CompatPathConverter(true);
+
+    @Override
+    public StaticLibrary convert(String input) throws ParameterException {
+      return StaticLibrary.from(pathConverter.convert(input));
+    }
+  }
+
   /** Converts a static library string into path. */
   public static class StaticLibraryConverter extends Converter.Contextless<StaticLibrary> {
 
@@ -598,6 +669,24 @@ public final class Converters {
     @Override
     public String getTypeDescription() {
       return "Static resource library.";
+    }
+  }
+
+  /** Converts a string of resources and manifest into paths. Compatible with JCommander. */
+  public static class CompatCompiledResourcesConverter
+      implements IStringConverter<CompiledResources> {
+    static final CompatPathConverter pathConverter = new CompatPathConverter(true);
+    static final Pattern COMPILED_RESOURCE_FORMAT = Pattern.compile("(.+):(.+)");
+
+    @Override
+    public CompiledResources convert(String input) throws ParameterException {
+      final Matcher matched = COMPILED_RESOURCE_FORMAT.matcher(input);
+      if (!matched.find()) {
+        throw new ParameterException("Expected format <resources zip>:<manifest>");
+      }
+      Path resources = pathConverter.convert(matched.group(1));
+      Path manifest = pathConverter.convert(matched.group(2));
+      return CompiledResources.from(resources, manifest);
     }
   }
 
