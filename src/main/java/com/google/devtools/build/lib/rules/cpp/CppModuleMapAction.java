@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
@@ -147,7 +149,8 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     //  module map action, the generated map still contains mapped paths, which then results in
     //  compilation failures. This should be very rare as #include doesn't allow to disambiguate
     //  between headers from different configurations but with identical root-relative paths.
-    final PathMapper pathMapper = PathMappers.create(this, getOutputPathsMode());
+    final PathMapper pathMapper =
+        PathMappers.create(this, getOutputPathsMode(), /* isStarlarkAction= */ false);
     return out -> {
       OutputStreamWriter content = new OutputStreamWriter(out, StandardCharsets.ISO_8859_1);
       PathFragment fragment = pathMapper.map(cppModuleMap.getArtifact().getExecPath());
@@ -263,8 +266,8 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     };
   }
 
-  private static Iterable<Artifact> expandedHeaders(ArtifactExpander artifactExpander,
-      Iterable<Artifact> unexpandedHeaders) {
+  private static Iterable<Artifact> expandedHeaders(
+      ArtifactExpander artifactExpander, Iterable<Artifact> unexpandedHeaders) {
     List<Artifact> expandedHeaders = new ArrayList<>();
     for (Artifact unexpandedHeader : unexpandedHeaders) {
       if (unexpandedHeader.isTreeArtifact()) {
@@ -327,7 +330,8 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   protected void computeKey(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fp) {
+      Fingerprint fp)
+      throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
     fp.addInt(privateHeaders.size());
     for (Artifact artifact : privateHeaders) {
@@ -360,7 +364,13 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     fp.addBoolean(compiledModule);
     fp.addBoolean(generateSubmodules);
     fp.addBoolean(externDependencies);
-    PathMappers.addToFingerprint(getMnemonic(), getExecutionInfo(), getOutputPathsMode(), fp);
+    PathMappers.addToFingerprint(
+        getMnemonic(),
+        getExecutionInfo(),
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        actionKeyContext,
+        getOutputPathsMode(),
+        fp);
   }
 
   @Override
