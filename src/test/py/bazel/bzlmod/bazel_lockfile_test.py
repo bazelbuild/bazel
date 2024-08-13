@@ -2597,6 +2597,12 @@ class BazelLockfileTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     self.assertIn('LAZYEVAL_KEY=None', stderr)
 
+  def testLockFileVersionIsCorrectWithUsePlusFlag(self):
+    self.RunBazel(['mod', 'graph', '--incompatible_use_plus_in_repo_names'])
+    self.RunBazel(['clean', '--expunge'])
+    self.RunBazel(['mod', 'graph', '--incompatible_use_plus_in_repo_names',
+                   '--lockfile_mode=error'])
+
 
 if __name__ == '__main__':
   absltest.main()
