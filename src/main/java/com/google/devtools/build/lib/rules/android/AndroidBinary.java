@@ -70,7 +70,6 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.android.AndroidBinaryMobileInstall.MobileInstallResourceApks;
 import com.google.devtools.build.lib.rules.android.AndroidRuleClasses.MultidexMode;
 import com.google.devtools.build.lib.rules.android.ProguardHelper.ProguardOutput;
 import com.google.devtools.build.lib.rules.android.ZipFilterBuilder.CheckHashMismatchMode;
@@ -377,10 +376,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     Artifact proguardMapping = ruleContext.getPrerequisiteArtifact("proguard_apply_mapping");
 
-    MobileInstallResourceApks mobileInstallResourceApks =
-        AndroidBinaryMobileInstall.createMobileInstallResourceApks(
-            ruleContext, dataContext, manifest);
-
     Artifact manifestValidation = null;
     boolean shouldValidateMinSdk = getMinSdkVersion(ruleContext) > 0;
     if (ruleContext.isAttrDefined("$validate_manifest", LABEL) && shouldValidateMinSdk) {
@@ -440,7 +435,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
         androidSemantics,
         nativeLibs,
         resourceApk,
-        mobileInstallResourceApks,
         resourceClasses,
         ImmutableList.of(),
         ImmutableList.of(),
@@ -462,7 +456,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
       AndroidSemantics androidSemantics,
       NativeLibs nativeLibs,
       ResourceApk resourceApk,
-      @Nullable MobileInstallResourceApks mobileInstallResourceApks,
       JavaTargetAttributes resourceClasses,
       ImmutableList<Artifact> apksUnderTest,
       ImmutableList<Artifact> additionalMergedManifests,
@@ -939,25 +932,6 @@ public abstract class AndroidBinary implements RuleConfiguredTargetFactory {
 
     if (oneVersionEnforcementArtifact != null) {
       builder.addOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL, oneVersionEnforcementArtifact);
-    }
-
-    if (mobileInstallResourceApks != null) {
-      AndroidBinaryMobileInstall.addMobileInstall(
-          ruleContext,
-          builder,
-          androidDexInfo == null
-              ? dexingOutput.javaResourceJar
-              : androidDexInfo.getJavaResourceJar(),
-          finalShardDexZips,
-          javaSemantics,
-          nativeLibs,
-          resourceApk,
-          mobileInstallResourceApks,
-          resourceExtractor,
-          nativeLibsAar,
-          signingKeys,
-          signingLineage,
-          additionalMergedManifests);
     }
 
     if (manifestValidation != null) {
