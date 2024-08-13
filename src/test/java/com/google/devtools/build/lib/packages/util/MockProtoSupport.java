@@ -41,7 +41,7 @@ public final class MockProtoSupport {
   }
 
   private static void registerProtoToolchain(MockToolsConfig config) throws IOException {
-    config.append("WORKSPACE", "register_toolchains('//tools/proto/toolchains:all')");
+    config.append("MODULE.bazel", "register_toolchains('//tools/proto/toolchains:all')");
     config.create(
         "tools/proto/toolchains/BUILD",
         TestConstants.LOAD_PROTO_TOOLCHAIN,
@@ -355,15 +355,6 @@ public final class MockProtoSupport {
   }
 
   public static void setupWorkspace(MockToolsConfig config) throws IOException {
-    if (TestConstants.PRODUCT_NAME.equals("bazel")) {
-      config.append(
-          "WORKSPACE",
-          "local_repository(",
-          "    name = 'rules_proto',",
-          "    path = 'third_party/bazel_rules/rules_proto',",
-          ")");
-    }
-
     config.create(
         "third_party/bazel_rules/rules_proto/proto/BUILD",
         """

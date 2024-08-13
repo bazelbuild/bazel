@@ -16,10 +16,10 @@
 //src/test/java/com/google/devtools/build/lib/rules/cpp:StarlarkCcCommonTest
 //src/test/java/com/google/devtools/build/lib/rules/java:JavaStarlarkApiTest
 //src/test/java/com/google/devtools/build/lib/rules/proto:BazelProtoCommonTest
+//src/test/java/com/google/devtools/build/lib/rules/proto:ProtoLangToolchainTest
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/rules/proto:ProtoLangToolchainTest
 //src/test/java/com/google/devtools/build/lib/rules/repository:RepositoryTests
 //src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract:StarlarkDocExtractTests
 //src/test/java/com/google/devtools/build/lib/runtime:ConfigCommandTest
