@@ -580,7 +580,7 @@ class BazelWindowsTest(test_base.TestBase):
     )
     # Check for "tests failed" exit code
     self.AssertExitCode(exit_code, 3, stderr, stdout)
-    self.assertIn('-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --', stderr)
+    self.assertIn('-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --', stdout)
 
   def testMakeVariableForDumpbinExecutable(self):
     if not self.IsWindows():
