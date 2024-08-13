@@ -1714,7 +1714,7 @@ public abstract class AbstractQueryTest<T> {
             .build());
   }
 
-  private void useReducedSetOfRules() throws Exception {
+  protected void useReducedSetOfRules() throws Exception {
     helper.clearAllFiles();
     helper.useRuleClassProvider(analysisMock.createRuleClassProvider());
     helper.writeFile("/workspace/embedded_tools/BUILD");

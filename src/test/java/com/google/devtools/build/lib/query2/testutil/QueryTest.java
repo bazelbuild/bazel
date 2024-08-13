@@ -373,6 +373,7 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
 
   @Test
   public void testIgnoredPackagePrefixes() throws Exception {
+    useReducedSetOfRules();
     writeFile(helper.getIgnoredPackagePrefixesFile().getPathString(), "a/b", "a/c");
     writeFile("a/BUILD", "filegroup(name = 'a')");
     writeFile("b/BUILD", "filegroup(name = 'b')");
