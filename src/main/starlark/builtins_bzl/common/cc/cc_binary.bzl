@@ -789,7 +789,7 @@ def _impl(ctx):
     providers.append(RunEnvironmentInfo(
         environment = cc_helper.get_expanded_env(ctx, {}),
         # cc_binary does not have env_inherit attr.
-        inherited_environment = [],
+        inherited_environment = ctx.attr.env_inherit,
     ))
 
     return providers

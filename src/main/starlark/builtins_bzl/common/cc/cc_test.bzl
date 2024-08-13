@@ -92,8 +92,6 @@ _cc_test_attrs.update(
             "@" + paths.join(semantics.get_platforms_root(), "os:watchos"),
         ],
     ),
-    # Starlark tests don't get `env_inherit` by default.
-    env_inherit = attr.string_list(),
     stamp = attr.int(values = [-1, 0, 1], default = 0, doc = stamp_doc),
     linkstatic = attr.bool(default = False, doc = linkstatic_doc),
 )

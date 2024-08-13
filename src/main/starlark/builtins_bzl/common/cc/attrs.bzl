@@ -384,6 +384,7 @@ this option is off.
 """,
     ),
     "env": attr.string_dict(),
+    "env_inherit": attr.string_list(),
     "distribs": attr.string_list(),
     "licenses": attr.license() if hasattr(attr, "license") else attr.string_list(),
     "_cc_binary": attr.bool(),

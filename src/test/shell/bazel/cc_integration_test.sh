@@ -1315,6 +1315,32 @@ EOF
   FOO=1 bazel test //pkg:foo_test &> "$TEST_log" || fail "Should have inherited FOO env."
 }
 
+function test_env_inherit_cc_binary() {
+  mkdir pkg
+  cat > pkg/BUILD <<EOF
+cc_binary(
+  name = 'foo_bin',
+  srcs = ['foo_bin.cc'],
+  env_inherit = ['FOO'],
+)
+EOF
+
+  cat > pkg/foo_bin.cc <<EOF
+#include <stdlib.h>
+
+int main() {
+  auto foo = getenv("FOO");
+  if (foo == nullptr) {
+    return 1;
+  }
+  return 0;
+}
+EOF
+
+  bazel test //pkg:foo_bin &> "$TEST_log" && fail "Did not fail as expected. ENV leak?" || true
+  FOO=1 bazel test //pkg:foo_bin &> "$TEST_log" || fail "Should have inherited FOO env."
+}
+
 function test_env_attr_cc_binary() {
   mkdir pkg
   cat > pkg/BUILD <<EOF
