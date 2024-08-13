@@ -537,20 +537,21 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
    */
   @Test
   @TestParameters({
-    "{sibling: false, generated: false, expectedFlags:" + " ['-Iexternal/foo']}",
+    "{sibling: false, generated: false, expectedFlags:" + " ['-Iexternal/foo\\+']}",
     "{sibling: false, generated: true, expectedFlags:"
-        + " ['-Ibl?azel?-out/k8-fastbuild/bin/external/foo']}",
-    "{sibling: true, generated: false,expectedFlags:" + " ['-I../foo']}",
-    "{sibling: true, generated: true, expectedFlags:" + " ['-Ibl?azel?-out/foo/k8-fastbuild/bin']}",
+        + " ['-Ibl?azel?-out/k8-fastbuild/bin/external/foo\\+']}",
+    "{sibling: true, generated: false,expectedFlags:" + " ['-I../foo\\+']}",
+    "{sibling: true, generated: true, expectedFlags:" + " ['-Ibl?azel?-out/foo\\+/k8-fastbuild/bin']}",
   })
   public void protoCommonCompile_externalProtoLibrary(
       boolean sibling, boolean generated, List<String> expectedFlags) throws Exception {
     if (sibling) {
       setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
-    scratch.appendFile("WORKSPACE", "local_repository(name = 'foo', path = '/foo')");
-    invalidatePackages();
-    scratch.file("/foo/WORKSPACE");
+    scratch.appendFile("MODULE.bazel",
+        "bazel_dep(name = 'foo')",
+        "local_path_override(module_name = 'foo', path = '/foo')");
+    scratch.file("/foo/MODULE.bazel", "module(name = 'foo')");
     scratch.file(
         "/foo/e/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
@@ -564,6 +565,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         "load('//foo:generate.bzl', 'compile_rule')",
         "proto_library(name = 'proto', srcs = ['A.proto'], deps = ['@foo//e:e'])",
         "compile_rule(name = 'simple', proto_dep = ':proto')");
+    invalidatePackages();
     useConfiguration(
         "--platforms=" + TestConstants.PLATFORM_LABEL,
         "--experimental_platform_in_output_dir",
