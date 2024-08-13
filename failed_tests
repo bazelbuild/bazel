@@ -19,10 +19,10 @@
 //src/test/java/com/google/devtools/build/lib/rules/proto:ProtoLangToolchainTest
 //src/test/java/com/google/devtools/build/lib/rules/repository:RepositoryTests
 //src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract:StarlarkDocExtractTests
+//src/test/java/com/google/devtools/build/lib/runtime:ConfigCommandTest
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/runtime:ConfigCommandTest
 //src/test/java/com/google/devtools/build/lib/skyframe/packages:BazelPackageLoaderTest
 //src/test/java/com/google/devtools/build/lib/skyframe/toolchains:RegisteredExecutionPlatformsFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe/toolchains:RegisteredToolchainsFunctionTest
@@ -42,7 +42,6 @@
 //src/test/java/com/google/devtools/build/lib/starlark:BindTest
 //src/test/java/com/google/devtools/build/lib/starlark:StarlarkRuleClassFunctionsTest
 //src/test/java/com/google/devtools/build/lib/starlark:StarlarkTests
-
 //src/test/java/com/google/devtools/build/lib/rules/apple:AppleRulesTests
 //src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest
 //src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests
