@@ -7,11 +7,11 @@
 //src/test/java/com/google/devtools/build/lib/query2/cquery:GraphOutputFormatterCallbackTest
 //src/test/java/com/google/devtools/build/lib/query2/cquery:ProtoOutputFormatterCallbackTest
 //src/test/java/com/google/devtools/build/lib/query2/cquery:TransitionsOutputFormatterTest
+//src/test/java/com/google/devtools/build/lib/query2/engine:AllTests
+//src/test/java/com/google/devtools/build/lib/repository:RepositoryTests
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/query2/engine:AllTests
-//src/test/java/com/google/devtools/build/lib/repository:RepositoryTests
 //src/test/java/com/google/devtools/build/lib/rules/android:AndroidBinaryTest
 //src/test/java/com/google/devtools/build/lib/rules/apple:AppleRulesTests
 //src/test/java/com/google/devtools/build/lib/rules/cpp:CcCommonTest
