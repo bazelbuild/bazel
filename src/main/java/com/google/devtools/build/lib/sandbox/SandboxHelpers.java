@@ -134,18 +134,8 @@ public final class SandboxHelpers {
       SandboxInputs inputs,
       Set<PathFragment> inputsToCreate,
       Set<PathFragment> dirsToCreate,
-      Path workDir)
-      throws IOException, InterruptedException {
-    cleanExisting(root, inputs, inputsToCreate, dirsToCreate, workDir, /* treeDeleter= */ null);
-  }
-
-  public static void cleanExisting(
-      Path root,
-      SandboxInputs inputs,
-      Set<PathFragment> inputsToCreate,
-      Set<PathFragment> dirsToCreate,
       Path workDir,
-      @Nullable TreeDeleter treeDeleter)
+      TreeDeleter treeDeleter)
       throws IOException, InterruptedException {
     cleanExisting(
         root,
@@ -163,7 +153,7 @@ public final class SandboxHelpers {
       Set<PathFragment> inputsToCreate,
       Set<PathFragment> dirsToCreate,
       Path workDir,
-      @Nullable TreeDeleter treeDeleter,
+      TreeDeleter treeDeleter,
       @Nullable SandboxContents sandboxContents)
       throws IOException, InterruptedException {
     Path inaccessibleHelperDir = workDir.getRelative(INACCESSIBLE_HELPER_DIR);
@@ -216,7 +206,7 @@ public final class SandboxHelpers {
       Set<PathFragment> dirsToCreate,
       Path workDir,
       Set<PathFragment> prefixDirs,
-      @Nullable TreeDeleter treeDeleter,
+      TreeDeleter treeDeleter,
       SandboxContents stashContents)
       throws IOException, InterruptedException {
     Path execroot = workDir.getParentDirectory();
@@ -254,12 +244,7 @@ public final class SandboxHelpers {
             dirent.getValue());
         dirsToCreate.remove(pathRelativeToWorkDir);
       } else {
-        if (treeDeleter == null) {
-          // TODO(bazel-team): Use async tree deleter for workers too
-          absPath.deleteTree();
-        } else {
-          treeDeleter.deleteTree(absPath);
-        }
+        treeDeleter.deleteTree(absPath);
       }
     }
   }
