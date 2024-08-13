@@ -24,7 +24,7 @@ bazel_dep(name = "blake3", version = "1.5.1.bcr.1")
 bazel_dep(name = "sqlite3", version = "3.42.0.bcr.1")
 bazel_dep(name = "zlib", version = "1.3.1.bcr.3")
 bazel_dep(name = "rules_cc", version = "0.0.9")
-bazel_dep(name = "rules_java", version = "7.7.2")
+bazel_dep(name = "rules_java", version = "7.9.0")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
 bazel_dep(name = "rules_proto", version = "6.0.0")
 bazel_dep(name = "rules_jvm_external", version = "6.0")
@@ -42,13 +42,6 @@ single_version_override(
     module_name = "rules_jvm_external",
     patch_strip = 1,
     patches = ["//third_party:rules_jvm_external_6.0.patch"],
-)
-
-archive_override(
-    module_name = "rules_java",
-    urls = ["https://github.com/bazelbuild/rules_java/archive/7c5b15400c5edc84badc86f6cc77c7f3d1a100b7.tar.gz"],
-    integrity = "sha256-5vPxG/VC1WPLv9gzfKW7wVjI8mBAA8QM6V/Pu6k5wvQ=",
-    strip_prefix = "rules_java-7c5b15400c5edc84badc86f6cc77c7f3d1a100b7",
 )
 
 local_path_override(
