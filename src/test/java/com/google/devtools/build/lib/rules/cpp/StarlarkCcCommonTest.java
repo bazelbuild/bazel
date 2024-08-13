@@ -6508,9 +6508,10 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     }
     createFilesForTestingCompilation(
         scratch, "tools/build_defs/foo", /* compileProviderLines= */ "");
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "local_repository(name='r', path='/r')");
-    scratch.file("/r/WORKSPACE");
+    scratch.appendFile("MODULE.bazel",
+        "bazel_dep(name = 'r')",
+        "local_path_override(module_name = 'r', path = '/r')");
+    scratch.file("/r/MODULE.bazel", "module(name = 'r')");
     scratch.file(
         "/r/p/BUILD",
         """
