@@ -19,7 +19,6 @@
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/rules/proto:BazelProtoLibraryTesttestAssetsInExternalRepository
 //src/test/java/com/google/devtools/build/lib/rules/proto:ProtoLangToolchainTest
 //src/test/java/com/google/devtools/build/lib/rules/repository:RepositoryTests
 //src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract:StarlarkDocExtractTests
@@ -47,3 +46,4 @@
 //src/test/java/com/google/devtools/build/lib/rules/apple:AppleRulesTests
 //src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest
 //src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests
+//src/test/java/com/google/devtools/build/lib/rules/proto:BazelProtoLibraryTest
