@@ -13,7 +13,6 @@
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/rules/apple:AppleRulesTests
 //src/test/java/com/google/devtools/build/lib/rules/cpp:CcCommonTest
 //src/test/java/com/google/devtools/build/lib/rules/cpp:CompileBuildVariablesTest
 //src/test/java/com/google/devtools/build/lib/rules/cpp:LibrariesToLinkCollectorTest
@@ -46,3 +45,5 @@
 //src/test/java/com/google/devtools/build/lib/starlark:BindTest
 //src/test/java/com/google/devtools/build/lib/starlark:StarlarkRuleClassFunctionsTest
 //src/test/java/com/google/devtools/build/lib/starlark:StarlarkTests
+
+//src/test/java/com/google/devtools/build/lib/rules/apple:AppleRulesTests
