@@ -18,10 +18,10 @@
 //src/test/java/com/google/devtools/build/lib/rules/proto:BazelProtoCommonTest
 //src/test/java/com/google/devtools/build/lib/rules/proto:ProtoLangToolchainTest
 //src/test/java/com/google/devtools/build/lib/rules/repository:RepositoryTests
+//src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract:StarlarkDocExtractTests
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract:StarlarkDocExtractTests
 //src/test/java/com/google/devtools/build/lib/runtime:ConfigCommandTest
 //src/test/java/com/google/devtools/build/lib/skyframe/packages:BazelPackageLoaderTest
 //src/test/java/com/google/devtools/build/lib/skyframe/toolchains:RegisteredExecutionPlatformsFunctionTest
