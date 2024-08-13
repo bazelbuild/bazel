@@ -29,17 +29,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
-import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
+import com.google.devtools.build.lib.bazel.bzlmod.*;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
@@ -250,6 +240,11 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
                     new RegistryFunction(registryFactory, directories.getWorkspace()))
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
                 .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
+                .put(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
+                .put(
+                    SkyFunctions.SINGLE_EXTENSION_EVAL,
+                    new SingleExtensionEvalFunction(directories, ImmutableMap::of))
+                .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
                 .put(
                     SkyFunctions.MODULE_EXTENSION_REPO_MAPPING_ENTRIES,
                     new ModuleExtensionRepoMappingEntriesFunction())
@@ -361,12 +356,12 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
         "    pass",
         "broken_repo = repository_rule(implementation = _impl)");
     scratch.overwriteFile(
-        rootPath.getRelative("WORKSPACE").getPathString(),
-        "load('repo_rule.bzl', 'broken_repo')",
+        rootPath.getRelative("MODULE.bazel").getPathString(),
+        "broken_repo = use_repo_rule('//:repo_rule.bzl', 'broken_repo')",
         "broken_repo(name = 'broken')");
 
     StoredEventHandler eventHandler = new StoredEventHandler();
-    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createUnvalidated("broken"));
+    SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createUnvalidated("+_repo_rules+broken"));
     // Make it be evaluated every time, as we are testing evaluation.
     differencer.invalidate(ImmutableSet.of(key));
     EvaluationContext evaluationContext =
@@ -388,7 +383,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
   @Test
   public void loadRepositoryNotDefined() throws Exception {
     // WORKSPACE is empty
-    scratch.overwriteFile(rootPath.getRelative("WORKSPACE").getPathString(), "");
+    scratch.overwriteFile(rootPath.getRelative("MODULE.bazel").getPathString(), "");
 
     StoredEventHandler eventHandler = new StoredEventHandler();
     SkyKey key = RepositoryDirectoryValue.key(RepositoryName.createUnvalidated("foo"));
@@ -411,6 +406,9 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
   @Test
   public void loadRepositoryFromBzlmod() throws Exception {
+    PrecomputedValue.STARLARK_SEMANTICS.set(
+        differencer,
+        StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_WORKSPACE, true).build());
     scratch.overwriteFile(
         rootPath.getRelative("MODULE.bazel").getPathString(),
         "module(name='aaa',version='0.1')",
