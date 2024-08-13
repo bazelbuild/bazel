@@ -63,9 +63,12 @@ public class ParsedFlagsFunction implements SkyFunction {
         starlarkFlags.add(flagSetting);
       }
     }
-    // The StarlarkOptionsParser needs a native options parser just to inject its Starlark flag
-    // values. It doesn't actually parse anything with the native parser.
-    OptionsParser fakeNativeParser = OptionsParser.builder().build();
+    // The StarlarkOptionsParser needs a native options parser to handle some forms of value
+    // conversion and as a place to inject the flag values.
+    // TODO: https://github.com/bazelbuild/bazel/issues/22365 - Clean this up as part of a general
+    // rewrite.
+    OptionsParser fakeNativeParser =
+        OptionsParser.builder().withConversionContext(key.packageContext()).build();
     StarlarkOptionsParser starlarkFlagParser =
         StarlarkOptionsParser.builder()
             .buildSettingLoader(new SkyframeTargetLoader(env, key.packageContext()))
