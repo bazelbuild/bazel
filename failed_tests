@@ -14,10 +14,10 @@
 //src/test/java/com/google/devtools/build/lib/rules/cpp:CompileBuildVariablesTest
 //src/test/java/com/google/devtools/build/lib/rules/cpp:LibrariesToLinkCollectorTest
 //src/test/java/com/google/devtools/build/lib/rules/cpp:StarlarkCcCommonTest
+//src/test/java/com/google/devtools/build/lib/rules/java:JavaStarlarkApiTest
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/rules/java:JavaStarlarkApiTest
 //src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest
 //src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests
 //src/test/java/com/google/devtools/build/lib/rules/proto:BazelProtoCommonTest
