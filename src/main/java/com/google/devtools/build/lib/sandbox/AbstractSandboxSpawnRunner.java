@@ -91,7 +91,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   @Override
   public final SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, InterruptedException {
+      throws ExecException, InterruptedException, ForbiddenActionInputException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     context.report(SpawnSchedulingEvent.create(getName()));
 
@@ -115,11 +115,6 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       FailureDetail failureDetail =
           SandboxHelpers.createFailureDetail(
               "I/O exception during sandboxed execution", Code.EXECUTION_IO_EXCEPTION);
-      throw new UserExecException(e, failureDetail);
-    } catch (ForbiddenActionInputException e) {
-      FailureDetail failureDetail =
-          SandboxHelpers.createFailureDetail(
-              "Forbidden input found during sandboxed execution", Code.FORBIDDEN_INPUT);
       throw new UserExecException(e, failureDetail);
     }
   }
