@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -75,6 +76,12 @@ public interface RemotePathResolver {
    */
   Path outputPathToLocalPath(String outputPath);
 
+  /** Resolves the local {@link Path} for the {@link ActionInput}. */
+  default Path outputPathToLocalPath(ActionInput actionInput) {
+    String outputPath = localPathToOutputPath(actionInput.getExecPath());
+    return outputPathToLocalPath(outputPath);
+  }
+
   /** Creates the default {@link RemotePathResolver}. */
   static RemotePathResolver createDefault(Path execRoot) {
     return new DefaultRemotePathResolver(execRoot);
@@ -131,6 +138,11 @@ public interface RemotePathResolver {
     @Override
     public Path outputPathToLocalPath(String outputPath) {
       return execRoot.getRelative(outputPath);
+    }
+
+    @Override
+    public Path outputPathToLocalPath(ActionInput actionInput) {
+      return ActionInputHelper.toInputPath(actionInput, execRoot);
     }
   }
 
@@ -212,6 +224,10 @@ public interface RemotePathResolver {
       return getBase().getRelative(outputPath);
     }
 
+    @Override
+    public Path outputPathToLocalPath(ActionInput actionInput) {
+      return ActionInputHelper.toInputPath(actionInput, execRoot);
+    }
   }
 
   /**
