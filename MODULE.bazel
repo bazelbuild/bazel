@@ -67,7 +67,7 @@ single_version_override(
 bazel_dep(name = "apple_support", version = "1.8.1")
 bazel_dep(name = "c-ares", version = "1.15.0")
 bazel_dep(name = "rules_go", version = "0.39.1")
-bazel_dep(name = "rules_kotlin", version = "1.9.0")
+bazel_dep(name = "rules_kotlin", version = "1.9.6")
 bazel_dep(name = "upb", version = "0.0.0-20220923-a547704")
 single_version_override(
     module_name = "upb",
