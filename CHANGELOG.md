@@ -1,3 +1,20 @@
+## Release 8.0.0-pre.20240807.1 (2024-08-13)
+
+```
+Baseline: 300c5867b7d2da1ba32abc20e95662096c2a7a08
+```
+
+Important changes:
+
+  - Bazel no longer has the android_ndk_repository rule. Use
+    https://github.com/bazelbuild/rules_android_ndk instead. See
+    https://github.com/bazelbuild/bazel/issues/23199
+  - Bazel no longer has the android_local_test rule. Use
+    https://github.com/bazelbuild/rules_android instead. See
+    https://github.com/bazelbuild/bazel/issues/23199
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, JKutscha, Xdng Yng.
+
 ## Release 7.3.0 (2024-08-12)
 
 ```
