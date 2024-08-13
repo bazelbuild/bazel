@@ -9,10 +9,10 @@
 //src/test/java/com/google/devtools/build/lib/query2/cquery:TransitionsOutputFormatterTest
 //src/test/java/com/google/devtools/build/lib/query2/engine:AllTests
 //src/test/java/com/google/devtools/build/lib/repository:RepositoryTests
+//src/test/java/com/google/devtools/build/lib/rules/android:AndroidBinaryTest
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/rules/android:AndroidBinaryTest
 //src/test/java/com/google/devtools/build/lib/rules/apple:AppleRulesTests
 //src/test/java/com/google/devtools/build/lib/rules/cpp:CcCommonTest
 //src/test/java/com/google/devtools/build/lib/rules/cpp:CompileBuildVariablesTest
@@ -22,7 +22,7 @@
 //src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest
 //src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests
 //src/test/java/com/google/devtools/build/lib/rules/proto:BazelProtoCommonTest
-//src/test/java/com/google/devtools/build/lib/rules/proto:BazelProtoLibraryTest
+//src/test/java/com/google/devtools/build/lib/rules/proto:BazelProtoLibraryTesttestAssetsInExternalRepository
 //src/test/java/com/google/devtools/build/lib/rules/proto:ProtoLangToolchainTest
 //src/test/java/com/google/devtools/build/lib/rules/repository:RepositoryTests
 //src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract:StarlarkDocExtractTests
