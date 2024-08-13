@@ -695,7 +695,7 @@ public class RemoteSpawnRunner implements SpawnRunner {
       }
     }
 
-    remoteExecutionService.uploadOutputs(action, result, () -> {});
+    remoteExecutionService.uploadOutputs(action, result);
     return result;
   }
 
