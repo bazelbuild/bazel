@@ -10,11 +10,11 @@
 //src/test/java/com/google/devtools/build/lib/query2/engine:AllTests
 //src/test/java/com/google/devtools/build/lib/repository:RepositoryTests
 //src/test/java/com/google/devtools/build/lib/rules/android:AndroidBinaryTest
+//src/test/java/com/google/devtools/build/lib/rules/cpp:CcCommonTest
+//src/test/java/com/google/devtools/build/lib/rules/cpp:CompileBuildVariablesTest
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/rules/cpp:CcCommonTest
-//src/test/java/com/google/devtools/build/lib/rules/cpp:CompileBuildVariablesTest
 //src/test/java/com/google/devtools/build/lib/rules/cpp:LibrariesToLinkCollectorTest
 //src/test/java/com/google/devtools/build/lib/rules/cpp:StarlarkCcCommonTest
 //src/test/java/com/google/devtools/build/lib/rules/java:JavaStarlarkApiTest
