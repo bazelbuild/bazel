@@ -66,6 +66,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -658,7 +659,25 @@ public class StandaloneTestStrategy extends TestStrategy {
     try {
       spawnResults = resolver.exec(spawn, actionExecutionContext.withFileOutErr(fileOutErr));
       testResultDataBuilder = TestResultData.newBuilder();
-      testResultDataBuilder.setCachable(true).setTestPassed(true).setStatus(BlazeTestStatus.PASSED);
+      if (actionExecutionContext
+          .getPathResolver()
+          .convertPath(resolvedPaths.getExitSafeFile())
+          .exists()) {
+        testResultDataBuilder
+            .setCachable(false)
+            .setTestPassed(false)
+            .setStatus(BlazeTestStatus.FAILED);
+        fileOutErr
+            .getErrorStream()
+            .write(
+                "-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --\n"
+                    .getBytes(StandardCharsets.UTF_8));
+      } else {
+        testResultDataBuilder
+            .setCachable(true)
+            .setTestPassed(true)
+            .setStatus(BlazeTestStatus.PASSED);
+      }
     } catch (SpawnExecException e) {
       if (e.isCatastrophic()) {
         closeSuppressed(e, streamed);
