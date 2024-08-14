@@ -578,6 +578,7 @@ public class BuiltinsInjectionTest extends BuildViewTestCase {
         dummy_symbol = None
         print("In bzl: overridable_symbol :: %s" % overridable_symbol)
         """);
+    setBuildLanguageOptionsWithBuiltinsStaging("--enable_workspace");
 
     buildAndAssertSuccess();
     // Builtins for WORKSPACE bzls are populated the same as for BUILD bzls.
