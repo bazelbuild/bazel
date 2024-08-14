@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.runtime.commands.TestCommand;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.FetchCommand.Code;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
@@ -282,12 +281,7 @@ public final class VendorCommand implements BlazeCommand {
     // Traverse the graph created from build to collect repos and vendor them
     ImmutableList<SkyKey> targetKeys =
         buildResult.getActualTargets().stream()
-            .map(
-                target ->
-                    ConfiguredTargetKey.builder()
-                        .setConfigurationKey(target.getConfigurationKey())
-                        .setLabel(target.getLabel())
-                        .build())
+            .map(target -> target.getLookupKey())
             .collect(toImmutableList());
     InMemoryGraph inMemoryGraph = env.getSkyframeExecutor().getEvaluator().getInMemoryGraph();
     ImmutableSet<RepositoryName> reposToVendor = collectReposFromTargets(inMemoryGraph, targetKeys);

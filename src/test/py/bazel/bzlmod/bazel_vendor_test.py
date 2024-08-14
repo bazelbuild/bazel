@@ -809,6 +809,14 @@ class BazelVendorTest(test_base.TestBase):
         ' bar!\n',
     )
 
+  def testVendorAliasTarget(self):
+    self.ScratchFile("foo/file.txt")
+    self.ScratchFile('foo/BUILD', ['alias(name="foo", actual="file.txt")'])
+
+    # This should not fail
+    # Regression test for https://github.com/bazelbuild/bazel/issues/23300
+    self.RunBazel(['vendor', '//foo/...', '--vendor_dir=vendor'])
+
 
 if __name__ == '__main__':
   absltest.main()
