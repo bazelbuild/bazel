@@ -27,10 +27,10 @@
 //src/test/java/com/google/devtools/build/lib/skyframe/toolchains:ToolchainResolutionFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe/toolchains:ToolchainsForTargetsTest
 //src/test/java/com/google/devtools/build/lib/skyframe:BuiltinsInjectionTest
+//src/test/java/com/google/devtools/build/lib/skyframe:BzlLoadFunctionTest
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/skyframe:BzlLoadFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe:ContainingPackageLookupFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe:FileFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe:LocalRepositoryLookupFunctionTest

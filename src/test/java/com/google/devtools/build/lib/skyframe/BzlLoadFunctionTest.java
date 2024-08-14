@@ -120,16 +120,14 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
   @Test
   public void testLoadFromStarlarkFileInRemoteRepo() throws Exception {
     scratch.overwriteFile(
-        "WORKSPACE",
-        "local_repository(",
-        "    name = 'a_remote_repo',",
-        "    path = '/a_remote_repo'",
-        ")");
-    scratch.file("/a_remote_repo/WORKSPACE");
+        "MODULE.bazel",
+        "bazel_dep(name = 'a_remote_repo')",
+        "local_path_override(module_name = 'a_remote_repo', path = '/a_remote_repo')");
+    scratch.file("/a_remote_repo/MODULE.bazel", "module(name = 'a_remote_repo')");
     scratch.file("/a_remote_repo/remote_pkg/BUILD");
     scratch.file("/a_remote_repo/remote_pkg/ext1.bzl", "load(':ext2.bzl', 'CONST')");
     scratch.file("/a_remote_repo/remote_pkg/ext2.bzl", "CONST = 17");
-    checkSuccessfulLookup("@a_remote_repo//remote_pkg:ext1.bzl");
+    checkSuccessfulLookup("@@a_remote_repo+//remote_pkg:ext1.bzl");
   }
 
   @Test
@@ -434,6 +432,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadFromExternalRepoInWorkspaceFileAllowed() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     Path p =
         scratch.overwriteFile(
             "WORKSPACE",
@@ -826,12 +825,10 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
     // @repo//pkg:foo1.bzl and @//pkg:foo2.bzl both try to access @repo//lib:bar.bzl. Test that when
     // bar.bzl declares a visibility allowing "//pkg", it means @repo//pkg and *not* @//pkg.
     scratch.overwriteFile(
-        "WORKSPACE", //
-        "local_repository(",
-        "    name = 'repo',",
-        "    path = 'repo'",
-        ")");
-    scratch.file("repo/WORKSPACE");
+        "MODULE.bazel", //
+        "bazel_dep(name = 'repo')",
+        "local_path_override(module_name = 'repo', path = 'repo')");
+    scratch.file("repo/MODULE.bazel", "module(name = 'repo')");
     scratch.file("repo/pkg/BUILD");
     scratch.file(
         "repo/pkg/foo1.bzl", //
@@ -848,14 +845,14 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "pkg/foo2.bzl", //
         "load(\"@repo//lib:bar.bzl\", \"x\")");
 
-    checkSuccessfulLookup("@repo//pkg:foo1.bzl");
+    checkSuccessfulLookup("@@repo+//pkg:foo1.bzl");
     assertNoEvents();
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
         "//pkg:foo2.bzl", "module //pkg:foo2.bzl contains .bzl load visibility violations");
     assertContainsEvent(
-        "Starlark file @@repo//lib:bar.bzl is not visible for loading from package //pkg.");
+        "Starlark file @@repo+//lib:bar.bzl is not visible for loading from package //pkg.");
   }
 
   // TODO(#16365): This test case can be deleted once --incompatible_package_group_has_public_syntax
@@ -892,16 +889,14 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
         "--incompatible_fix_package_group_reporoot_syntax=false");
 
     scratch.overwriteFile(
-        "WORKSPACE", //
-        "local_repository(",
-        "    name = 'repo',",
-        "    path = 'repo'",
-        ")");
-    scratch.file("repo/WORKSPACE");
+        "MODULE.bazel", //
+        "bazel_dep(name = 'repo')",
+        "local_path_override(module_name = 'repo', path = 'repo')");
+    scratch.file("repo/MODULE.bazel", "module(name = 'repo')");
     scratch.file("repo/a/BUILD");
     scratch.file(
         "repo/a/foo.bzl", //
-        "load(\"@//b:bar.bzl\", \"x\")");
+        "load(\"@@//b:bar.bzl\", \"x\")");
     scratch.file("b/BUILD");
     scratch.file(
         "b/bar.bzl",
@@ -912,9 +907,9 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     checkFailingLookup(
-        "@repo//a:foo.bzl", "module @@repo//a:foo.bzl contains .bzl load visibility violations");
+        "@@repo+//a:foo.bzl", "module @@repo+//a:foo.bzl contains .bzl load visibility violations");
     assertContainsEvent(
-        "Starlark file //b:bar.bzl is not visible for loading from package @@repo//a.");
+        "Starlark file //b:bar.bzl is not visible for loading from package @@repo+//a.");
   }
 
   @Test
@@ -1076,6 +1071,7 @@ public class BzlLoadFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testLoadBzlFileFromWorkspaceWithRemapping() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     Path p =
         scratch.overwriteFile(
             "WORKSPACE",
