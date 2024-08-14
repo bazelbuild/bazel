@@ -702,7 +702,7 @@ public final class Crosstool {
         MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + "/BUILD",
         Joiner.on("\n").join(crosstoolBuild.build()));
     config.append(
-        "WORKSPACE",
+        "MODULE.bazel",
         "register_toolchains('//" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + ":all')");
     config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
   }

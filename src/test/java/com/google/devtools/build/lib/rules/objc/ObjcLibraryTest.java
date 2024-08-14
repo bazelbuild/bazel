@@ -782,12 +782,11 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
 
   @Test
   public void testIncludesDirs_inExternalRepo_resolvesSiblingLayout() throws Exception {
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"),
-        "local_repository(name = 'lib_external', path = 'lib_external')");
-    invalidatePackages();
-
-    scratch.file("lib_external/WORKSPACE");
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name='lib_external')",
+        "local_path_override(module_name = 'lib_external', path = 'lib_external')");
+    scratch.file("lib_external/MODULE.bazel", "module(name='lib_external')");
     scratch.file(
         "lib_external/BUILD",
         """
@@ -802,13 +801,14 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
         """);
     scratch.file("lib_external/a.m");
     scratch.file("lib_external/bar/b.h");
+    invalidatePackages();
 
     setBuildLanguageOptions("--experimental_sibling_repository_layout");
 
-    CommandAction compileAction = compileAction("@lib_external//:lib", "a.o");
+    CommandAction compileAction = compileAction("@@lib_external+//:lib", "a.o");
     String actionArgs = Joiner.on("").join(removeConfigFragment(compileAction.getArguments()));
 
-    assertThat(actionArgs).contains("-I../lib_external/bar");
+    assertThat(actionArgs).contains("-I../lib_external+/bar");
   }
 
   @Test
