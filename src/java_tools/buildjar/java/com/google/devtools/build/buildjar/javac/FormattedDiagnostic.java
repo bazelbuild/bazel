@@ -24,6 +24,7 @@ import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.JCDiagnostic;
 import com.sun.tools.javac.util.JavacMessages;
 import com.sun.tools.javac.util.Log;
+import java.io.File;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Optional;
@@ -140,7 +141,7 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
       if (workDir.toString().isEmpty()) {
         this.workDirPattern = null;
       } else {
-        this.workDirPattern = Pattern.compile("^" + Pattern.quote(workDir.toString()) + "/");
+        this.workDirPattern = Pattern.compile("^" + Pattern.quote(workDir + File.separator));
       }
     }
 

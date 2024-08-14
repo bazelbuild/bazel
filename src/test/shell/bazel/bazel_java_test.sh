@@ -1986,7 +1986,7 @@ EOF
     --extra_toolchains=//pkg:java_toolchain_definition \
     >& $TEST_log && fail "build succeeded"
   # Verify that the working directory is only stripped from source file paths.
-  expect_log "^pkg/Lib.java:3: error:"
+  expect_log "^pkg[\\/]Lib.java:3: error:"
   expect_log "^    String a = 5; // __sandbox/1/_main/pkg/Lib.java:3: error: incompatible types: int cannot be converted to String"
 }
 
@@ -2117,6 +2117,11 @@ EOF
 }
 
 function test_one_version() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+    # TODO: Enable test after the next java_tools release.
+    return 0
+  fi
+
   # TODO: Remove patch on rules_java and add test for prebuilt tool after the next release.
   cat << 'EOF' > MODULE.bazel
 bazel_dep(
