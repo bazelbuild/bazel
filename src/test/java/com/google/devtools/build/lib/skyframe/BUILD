@@ -741,6 +741,7 @@ java_test(
     name = "ConfigurationsForTargetsTest",
     timeout = "short",
     srcs = ["ConfigurationsForTargetsTest.java"],
+    shard_count = 2,
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
