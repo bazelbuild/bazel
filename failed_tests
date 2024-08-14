@@ -33,12 +33,10 @@
 //src/test/java/com/google/devtools/build/lib/skyframe:LocalRepositoryLookupFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe:PackageFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe:RepositoryMappingFunctionTest
+//src/test/java/com/google/devtools/build/lib/skyframe:WorkspaceNameFunctionTest
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/skyframe:PackageLookupFunctionTest
-//src/test/java/com/google/devtools/build/lib/skyframe:RuleContextTest
-//src/test/java/com/google/devtools/build/lib/skyframe:WorkspaceNameFunctionTest
 //src/test/java/com/google/devtools/build/lib/starlark:BindTest
 //src/test/java/com/google/devtools/build/lib/starlark:StarlarkRuleClassFunctionsTest
 //src/test/java/com/google/devtools/build/lib/starlark:StarlarkTests
@@ -46,3 +44,5 @@
 //src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest
 //src/test/java/com/google/devtools/build/lib/rules/objc:ObjcRulesTests
 //src/test/java/com/google/devtools/build/lib/rules/proto:BazelProtoLibraryTest
+//src/test/java/com/google/devtools/build/lib/skyframe:PackageLookupFunctionTest
+//src/test/java/com/google/devtools/build/lib/skyframe:RuleContextTest
