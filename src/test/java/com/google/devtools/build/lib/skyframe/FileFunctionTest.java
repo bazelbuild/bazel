@@ -456,9 +456,6 @@ public class FileFunctionTest {
         getFilesSeenAndAssertValueChangesIfContentsOfFileChanges(externalPath, true, "a"));
     assertThat(seenFiles)
         .containsExactly(
-            rootedPath("WORKSPACE"),
-            rootedPath("WORKSPACE.bazel"),
-            rootedPath("WORKSPACE.bzlmod"),
             rootedPath("a"),
             rootedPath(""),
             rootedPath("/output_base"),
