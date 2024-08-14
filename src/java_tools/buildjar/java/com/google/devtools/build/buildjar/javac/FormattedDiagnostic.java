@@ -24,8 +24,10 @@ import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.JCDiagnostic;
 import com.sun.tools.javac.util.JavacMessages;
 import com.sun.tools.javac.util.Log;
+import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
@@ -120,14 +122,26 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
     private final boolean failFast;
     private final Optional<WerrorCustomOption> werrorCustomOption;
     private final Context context;
+    // Strips the (non-hermetic) working directory from paths in diagnostics when using multiplex
+    // sandboxing.
+    @Nullable private final Pattern workDirPattern;
 
     private boolean werror = false;
 
-    Listener(boolean failFast, Optional<WerrorCustomOption> werrorCustomOption, Context context) {
+    Listener(
+        boolean failFast,
+        Optional<WerrorCustomOption> werrorCustomOption,
+        Context context,
+        Path workDir) {
       this.failFast = failFast;
       this.werrorCustomOption = werrorCustomOption;
       // retrieve context values later, in case it isn't initialized yet
       this.context = context;
+      if (workDir.toString().isEmpty()) {
+        this.workDirPattern = null;
+      } else {
+        this.workDirPattern = Pattern.compile("^" + Pattern.quote(workDir.toString()) + "/");
+      }
     }
 
     @Override
@@ -146,6 +160,9 @@ public class FormattedDiagnostic implements Diagnostic<JavaFileObject> {
             formatted.replaceFirst(
                 formatter.formatKind(jcDiagnostic, locale),
                 messages.getLocalizedString(locale, "compiler.err.error"));
+      }
+      if (workDirPattern != null) {
+        formatted = workDirPattern.matcher(formatted).replaceAll("");
       }
       LintCategory lintCategory = jcDiagnostic.getLintCategory();
       FormattedDiagnostic formattedDiagnostic =
