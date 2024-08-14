@@ -219,7 +219,7 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void aspectCommandLineRepoLabel() throws Exception {
-    scratch.overwriteFile(
+    scratch.appendFile(
         "MODULE.bazel",
         "bazel_dep(name='local')",
         "local_path_override(module_name='local', path='local/repo')");
