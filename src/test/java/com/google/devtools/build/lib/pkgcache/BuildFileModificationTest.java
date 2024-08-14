@@ -70,7 +70,7 @@ public class BuildFileModificationTest extends FoundationTestCase {
 
   @Before
   public final void initializeSkyframeExecutor() {
-    AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithMinimalBuiltinModules();
+    AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithoutBuiltinModules();
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     BlazeDirectories directories =
         new BlazeDirectories(

@@ -96,6 +96,16 @@ public abstract class AnalysisMock extends LoadingMock {
     };
   }
 
+  public static AnalysisMock getAnalysisMockWithoutBuiltinModules() {
+    return new AnalysisMock.Delegate(AnalysisMock.get()) {
+      @Override
+      public ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
+          BlazeDirectories directories) {
+        return ImmutableMap.of();
+      }
+    };
+  }
+
   @Override
   public String getProductName() {
     return TestConstants.PRODUCT_NAME;

@@ -1722,7 +1722,7 @@ public final class LoadingPhaseRunnerTest {
       this.workspace = fs.getPath("/workspace");
       workspace.createDirectory();
       mockToolsConfig = new MockToolsConfig(workspace);
-      AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithMinimalBuiltinModules();
+      AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithoutBuiltinModules();
       analysisMock.setupMockClient(mockToolsConfig);
       BlazeDirectories directories =
           new BlazeDirectories(
