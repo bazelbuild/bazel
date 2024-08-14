@@ -63,6 +63,7 @@ add_to_bazelrc "test --notest_loasd"
 #### HELPER FUNCTIONS ##################################################
 
 function write_py_files() {
+  add_rules_python "MODULE.bazel"
   mkdir -p py || fail "mkdir py failed"
 
   cat > py/BUILD <<'EOF'
@@ -461,11 +462,13 @@ EOF
   bazel run //${pkg}:a
   local tmpdir_value
   tmpdir_value="$(cat "${TEST_TMPDIR}/tmpdir_value")"
+  expected_prefix="${TEST_TMPDIR}"
   if ${is_windows}; then
     # Work-around replacing the path with a short DOS path.
     tmpdir_value="$(cygpath -m -l "${tmpdir_value}")"
+    expected_prefix="${bazel_root}"
   fi
-  assert_starts_with "${TEST_TMPDIR}/" "${tmpdir_value}"
+  assert_starts_with "${expected_prefix}/" "${tmpdir_value}"
 }
 
 function test_blaze_run_with_custom_test_tmpdir() {

@@ -409,18 +409,15 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
   /** Tests that when multiple rule match a target, language-specific rules take precedence. */
   @Test
   public void testRuleChoiceLanguagePreferences() throws Exception {
-    String srcs = "srcs = [ 'a.cc', 'a.c', 'a.h', 'a.java', 'a.py', 'a.txt' ])";
+    String srcs = "srcs = [ 'a.cc', 'a.c', 'a.h', 'a.py', 'a.txt' ])";
     scratch.file(
         "a/BUILD",
         "genrule(name = 'gen_rule', cmd = '', outs = [ 'out' ], " + srcs,
-        "cc_library(name = 'cc_rule', " + srcs,
-        "java_library(name = 'java_rule', " + srcs);
+        "cc_library(name = 'cc_rule', " + srcs);
 
     assertThat(parseListCompileOneDep("a/a.cc")).containsExactlyElementsIn(labels("//a:cc_rule"));
     assertThat(parseListCompileOneDep("a/a.c")).containsExactlyElementsIn(labels("//a:cc_rule"));
     assertThat(parseListCompileOneDep("a/a.h")).containsExactlyElementsIn(labels("//a:cc_rule"));
-    assertThat(parseListCompileOneDep("a/a.java"))
-        .containsExactlyElementsIn(labels("//a:java_rule"));
     assertThat(parseListCompileOneDep("a/a.txt")).containsExactlyElementsIn(labels("//a:gen_rule"));
   }
 

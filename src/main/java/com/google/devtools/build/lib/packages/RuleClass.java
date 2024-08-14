@@ -498,7 +498,7 @@ public class RuleClass implements RuleClassData {
         this.overlappable = overlappable;
 
         switch (predicateType) {
-          case All_EXCEPT:
+          case All_EXCEPT -> {
             Predicate<String> containing = only(ruleClassNames).asPredicateOfRuleClass();
             ruleClassNamePredicate =
                 new DescribedPredicate<>(Predicates.not(containing), "all but " + containing);
@@ -506,8 +506,8 @@ public class RuleClass implements RuleClassData {
                 new DescribedPredicate<>(
                     Predicates.compose(ruleClassNamePredicate, RuleClass::getName),
                     ruleClassNamePredicate.toString());
-            break;
-          case ONLY:
+          }
+          case ONLY -> {
             ruleClassNamePredicate =
                 new DescribedPredicate<>(
                     Predicates.in(ruleClassNames), StringUtil.joinEnglishList(ruleClassNames));
@@ -515,15 +515,16 @@ public class RuleClass implements RuleClassData {
                 new DescribedPredicate<>(
                     Predicates.compose(ruleClassNamePredicate, RuleClass::getName),
                     ruleClassNamePredicate.toString());
-            break;
-          case UNSPECIFIED:
+          }
+          case UNSPECIFIED -> {
             ruleClassNamePredicate = Predicates.alwaysTrue();
             ruleClassPredicate = Predicates.alwaysTrue();
-            break;
-          default:
-            // This shouldn't happen normally since the constructor is private and within this file.
-            throw new IllegalArgumentException(
-                "Predicate type was not specified when constructing a RuleClassNamePredicate.");
+          }
+          default ->
+              // This shouldn't happen normally since the constructor is private and within this
+              // file.
+              throw new IllegalArgumentException(
+                  "Predicate type was not specified when constructing a RuleClassNamePredicate.");
         }
       }
 

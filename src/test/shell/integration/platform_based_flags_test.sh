@@ -56,9 +56,16 @@ if "$is_windows"; then
 fi
 
 function set_up() {
+  # Clean the bazelrc since some tests modify it
+  write_default_bazelrc
+}
+
+function write_flags() {
+  local -r pkg="$1"
+
   # Create some flags for testing, and some rules to check the values.
-  mkdir -p pbf
-  cat > pbf/sample_flag.bzl <<EOF
+  mkdir -p "${pkg}"
+  cat > "${pkg}"/sample_flag.bzl <<EOF
 BuildSettingInfo = provider(fields = ["value"])
 
 def _sample_flag_impl(ctx):
@@ -82,7 +89,7 @@ show_sample_flag = rule(
 EOF
 
   # Create a transition on platform.
-  cat > pbf/transition.bzl <<EOF
+  cat > "${pkg}"/transition.bzl <<EOF
 def _platform_transition_impl(settings, attr):
     # Change the platform.
     new_platform = attr.platform
@@ -123,8 +130,8 @@ change_platform = rule(
 )
 EOF
 
-  cat > pbf/BUILD <<EOF
-load(":sample_flag.bzl", "sample_flag", "show_sample_flag")
+  cat > "${pkg}"/BUILD <<EOF
+load(":sample_flag.bzl", "sample_flag")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -139,103 +146,141 @@ sample_flag(
     name = "flag",
     build_setting_default = "default_value_for_flag",
 )
-
-show_sample_flag(
-    name = "show",
-    flag = ":flag",
-)
 EOF
 }
 
 # No platform flags, just verifying the flags.
 function test_sample_flag() {
-  bazel build //pbf:show &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show: value = "default_value_for_flag"'
+  local -r pkg="$FUNCNAME"
+  write_flags "pbf"
+  mkdir -p "$pkg"
 
-  bazel build --//pbf:flag=cli //pbf:show &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show: value = "cli"'
+  cat > "$pkg/BUILD" <<EOF
+load("//pbf:sample_flag.bzl", "show_sample_flag")
+
+show_sample_flag(
+    name = "show",
+    flag = "//pbf:flag",
+)
+EOF
+
+  bazel build //$pkg:show &> $TEST_log || fail "bazel failed"
+  expect_log "//$pkg:show: value = \"default_value_for_flag\""
+
+  bazel build --//pbf:flag=cli //$pkg:show &> $TEST_log || fail "bazel failed"
+  expect_log "//$pkg:show: value = \"cli\""
 }
 
 # Set the platform at the CLI, see changed flag value.
 function test_platform_flag() {
   local -r pkg="$FUNCNAME"
+  write_flags "pbf"
   mkdir -p "$pkg"
 
   cat > "$pkg/BUILD" <<EOF
+load("//pbf:sample_flag.bzl", "show_sample_flag")
+
 platform(
     name = "pbf_demo",
     flags = [
         "--//pbf:flag=platform",
     ],
 )
+
+show_sample_flag(
+    name = "show",
+    flag = "//pbf:flag",
+)
 EOF
 
-  bazel build --platforms="//$pkg:pbf_demo" //pbf:show &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show: value = "platform"'
+  bazel build --platforms="//$pkg:pbf_demo" //$pkg:show &> $TEST_log || fail "bazel failed"
+  expect_log "//${pkg}:show: value = \"platform\""
 }
 
 # Set the platform and the flag at the CLI, see the platform value.
 function test_platform_flag_and_override() {
   local -r pkg="$FUNCNAME"
+  write_flags "pbf"
   mkdir -p "$pkg"
 
   cat > "$pkg/BUILD" <<EOF
+load("//pbf:sample_flag.bzl", "show_sample_flag")
+
 platform(
     name = "pbf_demo",
     flags = [
         "--//pbf:flag=platform",
     ],
 )
+
+show_sample_flag(
+    name = "show",
+    flag = "//pbf:flag",
+)
 EOF
 
-  bazel build --//pbf:flag=cli --platforms="//$pkg:pbf_demo" //pbf:show &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show: value = "platform"'
+  bazel build --//pbf:flag=cli --platforms="//$pkg:pbf_demo" //$pkg:show &> $TEST_log || fail "bazel failed"
+  expect_log "//$pkg:show: value = \"platform\""
 }
 
 # Inherit the flags from a parent platform.
 function test_inherit() {
   local -r pkg="$FUNCNAME"
+  write_flags "pbf"
   mkdir -p "$pkg"
 
   cat > "$pkg/BUILD" <<EOF
+load("//pbf:sample_flag.bzl", "show_sample_flag")
+
 platform(
     name = "parent",
     flags = [
         "--//pbf:flag=parent",
     ],
 )
+
 platform(
     name = "pbf_demo",
     parents = [":parent"],
 )
+
+show_sample_flag(
+    name = "show",
+    flag = "//pbf:flag",
+)
 EOF
 
-  bazel build --platforms="//$pkg:pbf_demo" //pbf:show &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show: value = "parent"'
+  bazel build --platforms="//$pkg:pbf_demo" //$pkg:show &> $TEST_log || fail "bazel failed"
+  expect_log "//$pkg:show: value = \"parent\""
 }
 
 # Inherit the flags from a parent platform but override.
 function test_inherit_override() {
-  cat > pbf/sample_flag2.bzl <<EOF
-load(':sample_flag.bzl', BuildSettingInfo1 = 'BuildSettingInfo')
+  local -r pkg="$FUNCNAME"
+  write_flags "pbf"
+  mkdir -p "$pkg"
+
+  mkdir -p "$pkg/flag"
+  cat > $pkg/flag/other_flag.bzl <<EOF
+load('//pbf:sample_flag.bzl', BuildSettingInfo1 = 'BuildSettingInfo')
 BuildSettingInfo2 = provider(fields = ["value"])
 
-def _sample_flag2_impl(ctx):
+def _other_flag_impl(ctx):
     return BuildSettingInfo2(value = ctx.build_setting_value)
 
-sample_flag2 = rule(
-    implementation = _sample_flag2_impl,
+other_flag = rule(
+    implementation = _other_flag_impl,
     build_setting = config.string(flag = True),
 )
 
-def _show_sample_flag2_impl(ctx):
+def _show_other_flag_impl(ctx):
     value1 = ctx.attr.flag1[BuildSettingInfo1].value
     value2 = ctx.attr.flag2[BuildSettingInfo2].value
     print("%s: value1 = \"%s\""% (ctx.label, value1))
     print("%s: value2 = \"%s\""% (ctx.label, value2))
 
-show_sample_flag2 = rule(
-    implementation = _show_sample_flag2_impl,
+show_other_flag = rule(
+    implementation = _show_other_flag_impl,
     attrs = {
         "flag1": attr.label(providers = [BuildSettingInfo1]),
         "flag2": attr.label(providers = [BuildSettingInfo2]),
@@ -243,32 +288,30 @@ show_sample_flag2 = rule(
 )
 EOF
 
-cat >> pbf/BUILD <<EOF
-load(":sample_flag2.bzl", "sample_flag2", "show_sample_flag2")
+  cat > $pkg/flag/BUILD <<EOF
+load(":other_flag.bzl", "other_flag")
 
-sample_flag2(
-    name = "flag2",
-    build_setting_default = "default_value_for_flag2",
+package(
+    default_visibility = ["//visibility:public"],
 )
 
-show_sample_flag2(
-    name = "show2",
-    flag1 = ":flag",
-    flag2 = ":flag2",
+other_flag(
+    name = "other",
+    build_setting_default = "default_value_for_flag2",
 )
 EOF
 
-  local -r pkg="$FUNCNAME"
-  mkdir -p "$pkg"
-
   cat > "$pkg/BUILD" <<EOF
+load("//$pkg/flag:other_flag.bzl", "show_other_flag")
+
 platform(
     name = "parent",
     flags = [
         "--//pbf:flag=parent",
-        "--//pbf:flag2=parent",
+        "--//${pkg}/flag:other=parent",
     ],
 )
+
 platform(
     name = "pbf_demo",
     parents = [":parent"],
@@ -276,62 +319,86 @@ platform(
         "--//pbf:flag=child",
     ],
 )
+
+show_other_flag(
+    name = "show_other",
+    flag1 = "//pbf:flag",
+    flag2 = "//${pkg}/flag:other",
+)
 EOF
 
-  bazel build --platforms="//$pkg:pbf_demo" //pbf:show2 &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show2: value1 = "child"'
-  expect_log '//pbf:show2: value2 = "parent"'
+  bazel build --platforms="//$pkg:pbf_demo" //$pkg:show_other &> $TEST_log || fail "bazel failed"
+  expect_log "//$pkg:show_other: value1 = \"child\""
+  expect_log "//$pkg:show_other: value2 = \"parent\""
 }
 
 # Set the platform in an rcfile, see changed flag value.
-function ignore_test_rcfile() {
+function test_rcfile() {
   local -r pkg="$FUNCNAME"
+  write_flags "pbf"
   mkdir -p "$pkg"
 
   cat > "$pkg/BUILD" <<EOF
+load("//pbf:sample_flag.bzl", "show_sample_flag")
+
 platform(
     name = "pbf_demo",
     flags = [
         "--//pbf:flag=platform",
     ],
+)
+
+show_sample_flag(
+    name = "show",
+    flag = "//pbf:flag",
 )
 EOF
 
   add_to_bazelrc "common --platforms=//$pkg:pbf_demo"
 
-  bazel build //pbf:show &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show: value = "platform"'
+  bazel build //$pkg:show &> $TEST_log || fail "bazel failed"
+  expect_log "//$pkg:show: value = \"platform\""
 }
 
 # Set the platform in an rcfile, see changed flag value.
-function ignore_test_rcfile_config() {
+function test_rcfile_config() {
   local -r pkg="$FUNCNAME"
+  write_flags "pbf"
   mkdir -p "$pkg"
 
   cat > "$pkg/BUILD" <<EOF
+load("//pbf:sample_flag.bzl", "show_sample_flag")
+
 platform(
     name = "pbf_demo",
     flags = [
         "--//pbf:flag=platform",
     ],
 )
+
+show_sample_flag(
+    name = "show",
+    flag = "//pbf:flag",
+)
 EOF
 
   add_to_bazelrc "common:pbf --platforms=//$pkg:pbf_demo"
 
-  bazel build //pbf:show &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show: value = "default_value_for_flag"'
+  bazel build //$pkg:show &> $TEST_log || fail "bazel failed"
+  expect_log "//$pkg:show: value = \"default_value_for_flag\""
 
-  bazel build --config=pbf //pbf:show &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show: value = "platform"'
+  bazel build --config=pbf //$pkg:show &> $TEST_log || fail "bazel failed"
+  expect_log "//$pkg:show: value = \"platform\""
 }
 
 # Change the platform in a transition, see changed flag value.
 function test_transition() {
   local -r pkg="$FUNCNAME"
+  write_flags "pbf"
   mkdir -p "$pkg"
 
   cat > "$pkg/BUILD" <<EOF
+load("//pbf:sample_flag.bzl", "show_sample_flag")
 load("//pbf:transition.bzl", "change_platform")
 
 platform(
@@ -344,20 +411,27 @@ platform(
 change_platform(
     name = "with_transition",
     platform = ":pbf_demo",
-    target = "//pbf:show",
+    target = ":show",
+)
+
+show_sample_flag(
+    name = "show",
+    flag = "//pbf:flag",
 )
 EOF
 
   bazel build //$pkg:with_transition &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show: value = "via_transition"'
+  expect_log "//$pkg:show: value = \"via_transition\""
 }
 
 # Change the platform and the flag in a transition, see direct value.
 function test_transition_override() {
   local -r pkg="$FUNCNAME"
+  write_flags "pbf"
   mkdir -p "$pkg"
 
   cat > "$pkg/BUILD" <<EOF
+load("//pbf:sample_flag.bzl", "show_sample_flag")
 load("//pbf:transition.bzl", "change_platform")
 
 platform(
@@ -371,20 +445,27 @@ change_platform(
     name = "with_transition",
     platform = ":pbf_demo",
     flag_value = "direct",
-    target = "//pbf:show",
+    target = ":show",
+)
+
+show_sample_flag(
+    name = "show",
+    flag = "//pbf:flag",
 )
 EOF
 
   bazel build //$pkg:with_transition &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show: value = "via_transition"'
+  expect_log "//$pkg:show: value = \"via_transition\""
 }
 
 # Change the platform in a transition, mapping is not applied.
 function test_transition_ignores_mapping() {
   local -r pkg="$FUNCNAME"
+  write_flags "pbf"
   mkdir -p "$pkg"
 
   cat > "$pkg/BUILD" <<EOF
+load("//pbf:sample_flag.bzl", "show_sample_flag")
 load("//pbf:transition.bzl", "change_platform")
 
 platform(
@@ -397,7 +478,12 @@ platform(
 change_platform(
     name = "with_transition",
     platform = ":pbf_demo",
-    target = "//pbf:show",
+    target = ":show",
+)
+
+show_sample_flag(
+    name = "show",
+    flag = "//pbf:flag",
 )
 EOF
 
@@ -408,46 +494,64 @@ platforms:
 EOF
 
   bazel build --platform_mappings="$pkg/platform_mappings" //$pkg:with_transition &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show: value = "via_transition"'
+  expect_log "//$pkg:show: value = \"via_transition\""
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/22995
 function test_cache_invalidation() {
   local -r pkg="$FUNCNAME"
+  write_flags "pbf"
   mkdir -p "$pkg"
 
   cat > "$pkg/BUILD" <<EOF
+load("//pbf:sample_flag.bzl", "show_sample_flag")
+
 platform(
     name = "pbf_demo",
     flags = [
         "--//pbf:flag=first",
     ],
 )
+
+show_sample_flag(
+    name = "show",
+    flag = "//pbf:flag",
+)
 EOF
 
-  bazel build --platforms="//$pkg:pbf_demo" //pbf:show &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show: value = "first"'
+  bazel build --platforms="//$pkg:pbf_demo" //$pkg:show &> $TEST_log || fail "bazel failed"
+  expect_log "//$pkg:show: value = \"first\""
 
   # Now change the platform definition.
   cat > "$pkg/BUILD" <<EOF
+load("//pbf:sample_flag.bzl", "show_sample_flag")
+
 platform(
     name = "pbf_demo",
     flags = [
         "--//pbf:flag=second",
     ],
 )
+
+show_sample_flag(
+    name = "show",
+    flag = "//pbf:flag",
+)
 EOF
 
-  bazel build --platforms="//$pkg:pbf_demo" //pbf:show &> $TEST_log || fail "bazel failed"
-  expect_log '//pbf:show: value = "second"'
+  bazel build --platforms="//$pkg:pbf_demo" //$pkg:show &> $TEST_log || fail "bazel failed"
+  expect_log "//$pkg:show: value = \"second\""
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/23147
 function test_reset_starlark_flag_to_default() {
   local -r pkg="$FUNCNAME"
+  write_flags "pbf"
   mkdir -p "$pkg"
 
   cat > "$pkg/BUILD" <<EOF
+load("//pbf:sample_flag.bzl", "show_sample_flag")
+
 platform(
     name = "pbf_demo",
     flags = [
@@ -455,13 +559,18 @@ platform(
         "--//pbf:flag=default_value_for_flag",
     ],
 )
+
+show_sample_flag(
+    name = "show",
+    flag = "//pbf:flag",
+)
 EOF
 
-  bazel build --//pbf:flag=cli --platforms="//$pkg:pbf_demo" //pbf:show &> $TEST_log || fail "bazel failed"
+  bazel build --//pbf:flag=cli --platforms="//$pkg:pbf_demo" //$pkg:show &> $TEST_log || fail "bazel failed"
 
   # Ensure the default value is seen.
-  expect_not_log '//pbf:show: value = "platform"'
-  expect_log '//pbf:show: value = "default_value_for_flag"'
+  expect_not_log "//$pkg:show: value = \"platform\""
+  expect_log "//$pkg:show: value = \"default_value_for_flag\""
 
   # Check that the now-default Starlark flag is not present in the
   # configuration.
@@ -469,6 +578,92 @@ EOF
     bazel config "${config}" &> $TEST_log
     expect_not_log "//pbf:flag:.*default_value_for_flag" "Found default value for //pbf:flag in config ${config}"
   done
+}
+
+function is_bazel() {
+  [ $TEST_WORKSPACE == "_main" ]
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/23115
+function test_module_label_flag() {
+  # Only bazel supports modules.
+  is_bazel || return 0
+
+  local -r pkg="$FUNCNAME"
+  mkdir -p "$pkg"
+
+  # Create another module that defines a label flag.
+  mkdir -p "$pkg/flags"
+  cat > "$pkg/flags/MODULE.bazel" <<EOF
+module(name = "flags")
+EOF
+
+  write_flags "${pkg}/flags/pbf"
+  cat >>${pkg}/flags/rule.bzl <<EOF
+load('//pbf:sample_flag.bzl', 'BuildSettingInfo')
+def _impl(ctx):
+    value = ctx.attr.value
+    return BuildSettingInfo(value = value)
+
+sample_value = rule(
+    implementation = _impl,
+    attrs = {
+        "value": attr.string(),
+    },
+)
+EOF
+  cat >>${pkg}/flags/BUILD <<EOF
+load(":rule.bzl", "sample_value")
+
+package(default_visibility = ["//visibility:public"])
+
+label_flag(
+    name = "label_flag",
+    build_setting_default = ":default",
+)
+
+sample_value(
+    name = "default",
+    value = "default",
+)
+
+sample_value(
+    name = "alt",
+    value = "alt",
+)
+EOF
+
+  # Refer to the module from the base.
+  cat > MODULE.bazel <<EOF
+module(name = "main")
+
+bazel_dep(name = "flags")
+
+local_path_override(
+    module_name = "flags",
+    path = "${pkg}/flags",
+)
+EOF
+
+  cat >> $pkg/BUILD <<EOF
+load("@flags//pbf:sample_flag.bzl", "show_sample_flag")
+
+platform(
+    name = "pbf_demo",
+    flags = [
+        # Test setting the value to a label in the module.
+        "--@flags//:label_flag=@flags//:alt",
+    ],
+)
+
+show_sample_flag(
+    name = "show",
+    flag = "@flags//:label_flag",
+)
+EOF
+
+  bazel build --platforms="//$pkg:pbf_demo" //$pkg:show &> $TEST_log || fail "bazel failed"
+  expect_log "//${pkg}:show: value = \"alt\""
 }
 
 run_suite "Tests for platform based flags"

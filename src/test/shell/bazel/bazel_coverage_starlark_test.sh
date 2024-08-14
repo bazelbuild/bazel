@@ -27,7 +27,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 function get_coverage_file_path_from_test_log() {
   local ending_part="$(sed -n -e '/PASSED/,$p' "$TEST_log")"
 
-  local coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
+  local coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9+\.\_\-]+\.dat$" <<< "$ending_part")
   [[ -e "$coverage_file_path" ]] || fail "Coverage output file does not exist!"
   echo "$coverage_file_path"
 }

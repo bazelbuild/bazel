@@ -104,9 +104,16 @@ public abstract class AbstractMockJavaSupport {
               )
               """);
         }
+
+        @Override
+        public String getLoadStatementForRule(String ruleName) {
+          return "load('@rules_java//java:" + ruleName + ".bzl', '" + ruleName + "')";
+        }
       };
 
   public abstract void setupRulesJava(
       MockToolsConfig mockToolsConfig, Function<String, String> runfilesResolver)
       throws IOException;
+
+  public abstract String getLoadStatementForRule(String ruleName);
 }

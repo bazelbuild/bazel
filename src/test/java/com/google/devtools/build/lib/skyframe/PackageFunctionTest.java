@@ -130,9 +130,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   private final CustomInMemoryFs fs = new CustomInMemoryFs(new ManualClock());
 
-  private void preparePackageLoading(Path... roots) {
-    preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.getDefaults(BuildLanguageOptions.class), roots);
+  private void preparePackageLoading(Path... roots) throws Exception {
+    preparePackageLoadingWithCustomStarklarkSemanticsOptions(parseBuildLanguageOptions(), roots);
   }
 
   private void preparePackageLoadingWithCustomStarklarkSemanticsOptions(
@@ -521,7 +520,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
                 ImmutableList.of(Root.fromPath(rootDirectory)),
                 BazelSkyframeExecutorConstants.BUILD_FILES_BY_PRIORITY),
             packageOptions,
-            Options.getDefaults(BuildLanguageOptions.class),
+            parseBuildLanguageOptions(),
             UUID.randomUUID(),
             ImmutableMap.of(),
             QuiescingExecutorsImpl.forTesting(),
@@ -1323,9 +1322,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testGlobAllowEmpty_starlarkOption() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.parse(BuildLanguageOptions.class, "--incompatible_disallow_empty_glob=false")
-            .getOptions(),
-        rootDirectory);
+        parseBuildLanguageOptions("--incompatible_disallow_empty_glob=false"), rootDirectory);
 
     scratch.file("pkg/BUILD", "x = " + "glob(['*.foo'])");
     invalidatePackages();
@@ -1366,9 +1363,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testGlobDisallowEmpty_starlarkOption_wasNonEmptyAndBecomesEmpty() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.parse(BuildLanguageOptions.class, "--incompatible_disallow_empty_glob=true")
-            .getOptions(),
-        rootDirectory);
+        parseBuildLanguageOptions("--incompatible_disallow_empty_glob=true"), rootDirectory);
 
     scratch.file("pkg/BUILD", "x = " + "glob(['*.foo'])");
     scratch.file("pkg/blah.foo");
@@ -1425,9 +1420,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testGlobDisallowEmpty_starlarkOption_wasEmptyAndStaysEmpty() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.parse(BuildLanguageOptions.class, "--incompatible_disallow_empty_glob=true")
-            .getOptions(),
-        rootDirectory);
+        parseBuildLanguageOptions("--incompatible_disallow_empty_glob=true"), rootDirectory);
 
     scratch.file("pkg/BUILD", "x = " + "glob(['*.foo'])");
     invalidatePackages();
@@ -1489,9 +1482,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   public void testGlobDisallowEmpty_starlarkOption_wasEmptyDueToExcludeAndStaysEmpty()
       throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.parse(BuildLanguageOptions.class, "--incompatible_disallow_empty_glob=true")
-            .getOptions(),
-        rootDirectory);
+        parseBuildLanguageOptions("--incompatible_disallow_empty_glob=true"), rootDirectory);
 
     scratch.file("pkg/BUILD", "x = glob(include=['*.foo'], exclude=['blah.*'])");
     scratch.file("pkg/blah.foo");
@@ -1550,9 +1541,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
   @Test
   public void testGlobDisallowEmpty_starlarkOption_wasEmptyAndBecomesNonEmpty() throws Exception {
     preparePackageLoadingWithCustomStarklarkSemanticsOptions(
-        Options.parse(BuildLanguageOptions.class, "--incompatible_disallow_empty_glob=true")
-            .getOptions(),
-        rootDirectory);
+        parseBuildLanguageOptions("--incompatible_disallow_empty_glob=true"), rootDirectory);
 
     scratch.file("pkg/BUILD", "x = " + "glob(['*.foo'])");
     invalidatePackages();

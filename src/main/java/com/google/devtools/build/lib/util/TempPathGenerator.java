@@ -11,13 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.remote.util;
+package com.google.devtools.build.lib.util;
 
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.concurrent.ThreadSafe;
 
-/** A generator that generate temporary path under a given directory. */
+/** Generates temporary paths under a given directory. */
 @ThreadSafe
 public class TempPathGenerator {
   private final Path tempDir;
@@ -27,7 +27,7 @@ public class TempPathGenerator {
     this.tempDir = tempDir;
   }
 
-  /** Generates a temporary path */
+  /** Generates a temporary path. */
   public Path generateTempPath() {
     return tempDir.getChild(index.getAndIncrement() + ".tmp");
   }

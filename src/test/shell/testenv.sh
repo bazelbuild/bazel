@@ -27,6 +27,10 @@ function is_darwin() {
   [[ "${PLATFORM}" =~ darwin ]]
 }
 
+function is_windows() {
+  [[ "${PLATFORM}" =~ msys ]]
+}
+
 function _log_base() {
   prefix=$1
   shift
@@ -47,7 +51,7 @@ if ! type rlocation &> /dev/null; then
 fi
 
 # Set some environment variables needed on Windows.
-if [[ $PLATFORM =~ msys ]]; then
+if is_windows; then
   # TODO(philwo) remove this once we have a Bazel release that includes the CL
   # moving the Windows-specific TEST_TMPDIR into TestStrategy.
   TEST_TMPDIR_BASENAME="$(basename "$TEST_TMPDIR")"
@@ -86,7 +90,9 @@ BAZEL_RUNFILES="$TEST_SRCDIR/_main"
 
 # WORKSPACE file
 workspace_file="${BAZEL_RUNFILES}/WORKSPACE"
-distdir_bzl_file="${BAZEL_RUNFILES}/distdir.bzl"
+
+# Where to register toolchains
+TOOLCHAIN_REGISTRAION_FILE="MODULE.bazel"
 
 # Tools directory location
 tools_dir="$(dirname $(rlocation io_bazel/tools/BUILD))"
@@ -219,6 +225,10 @@ if [[ "$RUNNING_IN_BAZEL_SANDBOX" == 1 ]]; then
   # --sandbox_add_mount_pair option but is the only place other than
   # $TEST_TMPDIR where we are guaranteed to be able to write.
   bazel_root="/tmp/output_user_root"
+elif is_windows; then
+  # Create a shorter bazel root on Windows to avoid long path issue.
+  mkdir -p C:/tmp
+  bazel_root=$(mktemp -d "C:/tmp/bazel_root_XXXXXX")
 else
   # OS X has a limit in the pipe length, so force the root to a shorter one
   bazel_root="${TEST_TMPDIR}/root"
@@ -256,7 +266,7 @@ function try_with_timeout() {
 }
 
 function setup_localjdk_javabase() {
-  if [[ $PLATFORM =~ msys ]]; then
+  if is_windows; then
     jdk_binary=local_jdk/bin/java.exe
   else
     jdk_binary=local_jdk/bin/java
@@ -266,7 +276,7 @@ function setup_localjdk_javabase() {
     echo "error: failed to find $jdk_binary, make sure you have java \
 installed or pass --java_runtime_verison=XX with the correct version" >&2
   fi
-  if [[ $PLATFORM =~ msys ]]; then
+  if is_windows; then
     jdk_dir="$(cygpath -m $(cd ${jdk_binary_rlocation}/../..; pwd))"
   else
     jdk_dir="$(dirname $(dirname ${jdk_binary_rlocation}))"
@@ -295,6 +305,9 @@ build --incompatible_use_toolchain_resolution_for_java_rules
 # Enable Bzlmod in all shell integration tests
 common --enable_bzlmod
 
+# Disable WORKSPACE in all shell integration tests
+common --noenable_workspace
+
 # Verify compatibility before the flip (https://github.com/bazelbuild/bazel/issues/12821)
 common --nolegacy_external_runfiles
 
@@ -316,60 +329,6 @@ EOF
     cat >> "$TEST_TMPDIR/bazelrc" <<EOF
 build --sandbox_add_mount_pair=${bazel_root}
 EOF
-  fi
-
-  if [[ -n ${TEST_REPOSITORY_HOME:-} ]]; then
-    echo "testenv.sh: Using shared repositories from $TEST_REPOSITORY_HOME."
-
-    repos=(
-        "android_tools_for_testing"
-        "android_gmaven_r8"
-        "bazel_skylib"
-        "bazel_toolchains"
-        "com_google_protobuf"
-        "openjdk_linux_aarch64_vanilla"
-        "openjdk_linux_vanilla"
-        "openjdk_macos_x86_64_vanilla"
-        "openjdk_macos_aarch64_vanilla"
-        "openjdk_win_vanilla"
-        "remote_coverage_tools"
-        "remote_java_tools"
-        "remote_java_tools_darwin_x86_64"
-        "remote_java_tools_darwin_arm64"
-        "remote_java_tools_linux"
-        "remote_java_tools_windows"
-        "remotejdk11_linux"
-        "remotejdk11_linux_aarch64"
-        "remotejdk11_linux_ppc64le"
-        "remotejdk11_linux_s390x"
-        "remotejdk11_macos"
-        "remotejdk11_macos_aarch64"
-        "remotejdk11_win"
-        "remotejdk11_win_arm64"
-        "remotejdk17_linux"
-        "remotejdk17_linux_s390x"
-        "remotejdk17_macos"
-        "remotejdk17_macos_aarch64"
-        "remotejdk17_win"
-        "remotejdk17_win_arm64"
-        "remotejdk21_linux"
-        "remotejdk21_macos"
-        "remotejdk21_macos_aarch64"
-        "remotejdk21_win"
-        "remotejdk21_win_arm64"
-        "rules_cc"
-        "rules_java"
-        "rules_java_builtin_for_testing"
-        "rules_license"
-        "rules_proto"
-        "rules_python"
-        "rules_pkg"
-        "rules_testing"
-    )
-    for repo in "${repos[@]}"; do
-      reponame="${repo%"_for_testing"}"
-      echo "common --override_repository=$reponame=$TEST_REPOSITORY_HOME/$repo" >> $TEST_TMPDIR/bazelrc
-    done
   fi
 
   if [[ -n ${REPOSITORY_CACHE:-} ]]; then
@@ -580,124 +539,71 @@ function setup_objc_test_support() {
   IOS_SDK_VERSION=$(xcrun --sdk iphoneos --show-sdk-version)
 }
 
-function setup_skylib_support() {
-  mkdir -p rules/private
-  touch rules/private/BUILD
-  cat >> WORKSPACE << EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{bazel_skylib}
-
-load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
-bazel_skylib_workspace()
-EOF
-}
-
-function add_rules_cc_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_cc}
-EOF
-}
-
-function add_rules_java_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_java}
-EOF
-}
-
-function add_rules_license_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_license}
-EOF
-}
-
-function add_rules_pkg_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_pkg}
-EOF
-}
-
-function add_rules_proto_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_proto}
-EOF
-}
-
-function add_rules_python_to_workspace() {
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_python}
-EOF
-}
-
-function add_rules_testing_to_workspace() {
-  mkdir lib
-  touch lib/BUILD
-  cat >> "$1"<<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-{rules_testing}
-EOF
-}
-
-function create_workspace_with_default_repos() {
-  write_workspace_file "${1:-WORKSPACE}" "${2:-main}"
-  workspace_file=${1:-WORKSPACE}
-  write_workspace_file "${workspace_file}" "${2:-main}"
-  write_default_lockfile "$(dirname ${workspace_file})/MODULE.bazel.lock"
-  echo "$1"
-}
-
-# Write the default WORKSPACE file, wiping out any custom WORKSPACE setup.
-function write_workspace_file() {
-  cat > "$1" << EOF
-workspace(name = "$2")
-EOF
-  add_rules_cc_to_workspace "WORKSPACE"
-  add_rules_java_to_workspace "WORKSPACE"
-  add_rules_license_to_workspace "WORKSPACE"
-  add_rules_pkg_to_workspace "WORKSPACE"
-  add_rules_proto_to_workspace "WORKSPACE"
-  add_rules_python_to_workspace "WORKSPACE"
-
-  maybe_setup_python_windows_workspace
-}
-
-# If the current platform is Windows, registers our custom Windows Python
-# toolchain. Otherwise does nothing.
-#
-# Since this modifies the WORKSPACE file, it must be called between test cases.
-function maybe_setup_python_windows_workspace() {
-  if [[ ! $PLATFORM =~ msys ]]; then
-    return
+# Extract the module version used in the default lock file.
+function get_version_from_default_lock_file() {
+  lockfile=$(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock)
+  module=$1
+  local version=$(sed -n "s|.*modules/$module/\([^/]*\)/source\.json.*|\1|p" "$lockfile")
+  if [[ -z $version ]]; then
+      log_fatal "Version not found for module $module in $lockfile"
+  else
+      echo "$version"
   fi
+}
 
-  # --extra_toolchains has left-to-right precedence semantics, but the bazelrc
-  # is processed before the command line. This means that any matching
-  # toolchains added to the bazelrc will always take precedence over toolchains
-  # set up by test cases. Instead, we add the toolchain to WORKSPACE so that it
-  # has lower priority than whatever is passed on the command line.
-  cat >> WORKSPACE << EOF
-register_toolchains("//tools/python/windows:py_toolchain")
+function add_bazel_dep() {
+  version=$(get_version_from_default_lock_file "$1")
+  cat >> "$2" <<EOF
+bazel_dep(name = "$1", version = "$version")
 EOF
 }
 
-# Set up a lockfile to avoid accessing BCR for tests with a clean workspace.
-function write_default_lockfile() {
-  module_lockfile=${1:-MODULE.bazel.lock}
-  touch "$(dirname ${module_lockfile})/MODULE.bazel"
-  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) ${module_lockfile}
+function add_platforms() {
+  add_bazel_dep "platforms" "$1"
+}
+
+function add_bazel_skylib() {
+  add_bazel_dep "bazel_skylib" "$1"
+}
+
+function add_rules_cc() {
+  add_bazel_dep "rules_cc" "$1"
+}
+
+function add_rules_java() {
+  add_bazel_dep "rules_java" "$1"
+}
+
+function add_rules_python() {
+  add_bazel_dep "rules_python" "$1"
+}
+
+function add_rules_proto() {
+  add_bazel_dep "rules_proto" "$1"
+}
+
+function add_rules_license() {
+  add_bazel_dep "rules_license" "$1"
+}
+
+function add_protobuf() {
+  add_bazel_dep "protobuf" "$1"
+}
+
+function add_rules_testing() {
+  # Keep the version the same as the one in the root MODULE.bazel file.
+  cat >> "$1" <<EOF
+bazel_dep(name = "rules_testing", version = "0.6.0")
+EOF
+}
+
+# Set up MODULE.bazel and MODULE.bazel.lock to avoid accessing BCR for tests with a clean workspace.
+# Note: this function echos the MODULE.bazel file path.
+function setup_module_dot_bazel() {
+  module_dot_bazel=${1:-MODULE.bazel}
+  touch $module_dot_bazel
+  cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) "$(dirname ${module_dot_bazel})/MODULE.bazel.lock"
+  echo $module_dot_bazel
 }
 
 workspaces=()
@@ -712,9 +618,8 @@ function create_new_workspace() {
 
   copy_tools_directory
 
-  write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
-
-  write_default_lockfile "MODULE.bazel.lock"
+  # Suppress the echo from setup_module_dot_bazel
+  setup_module_dot_bazel > /dev/null
 
   maybe_setup_python_windows_tools
 }
@@ -729,7 +634,7 @@ function setup_clean_workspace() {
   [ "${new_workspace_dir}" = "${WORKSPACE_DIR}" ] \
     || log_fatal "Failed to create workspace"
 
-  if [[ $PLATFORM =~ msys ]]; then
+  if is_windows; then
     export BAZEL_SH="$(cygpath --windows /bin/bash)"
   fi
 }
@@ -750,8 +655,8 @@ function cleanup_workspace() {
         try_with_timeout rm -fr "$i"
       fi
     done
-    write_workspace_file "WORKSPACE" "$WORKSPACE_NAME"
-    write_default_lockfile "MODULE.bazel.lock"
+    # Suppress the echo from setup_module_dot_bazel
+    setup_module_dot_bazel > /dev/null
   fi
   for i in "${workspaces[@]}"; do
     if [ "$i" != "${WORKSPACE_DIR:-}" ]; then
@@ -861,6 +766,7 @@ create_and_cd_client
 
 function disable_bzlmod() {
   add_to_bazelrc "common --noenable_bzlmod"
+  add_to_bazelrc "common --enable_workspace"
 }
 
 # Creates a fake Python default runtime that just outputs a marker string
@@ -868,7 +774,7 @@ function disable_bzlmod() {
 function use_fake_python_runtimes_for_testsuite() {
   # The stub script template automatically appends ".exe" to the Python binary
   # name if it doesn't already end in ".exe", ".com", or ".bat".
-  if [[ $PLATFORM =~ msys ]]; then
+  if is_windows; then
     PYTHON3_FILENAME="python3.bat"
   else
     PYTHON3_FILENAME="python3.sh"
@@ -907,7 +813,7 @@ toolchain(
 EOF
 
   # Windows .bat has uppercase ECHO and no shebang.
-  if [[ $PLATFORM =~ msys ]]; then
+  if is_windows; then
     cat > tools/python/$PYTHON3_FILENAME << EOF
 @ECHO I am Python 3
 EOF

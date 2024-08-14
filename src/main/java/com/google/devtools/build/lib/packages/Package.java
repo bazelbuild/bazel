@@ -122,21 +122,19 @@ public class Package {
   /** Sentinel value for package overhead being empty. */
   private static final long PACKAGE_OVERHEAD_UNSET = -1;
 
-  /**
-   * The collection of all targets defined in this package, indexed by name.
-   *
-   * <p>Note that a target and a macro may share the same name.
-   */
-  // TODO(#19922): Change these semantics to disallow name conflicts between macros and targets
-  // except in the (common) case of a main target of a macro.
+  /** The collection of all targets defined in this package, indexed by name. */
+  // TODO(bazel-team): Clarify what this map contains when a rule and its output both share the same
+  // name.
   private ImmutableSortedMap<String, Target> targets;
 
   /**
    * The collection of all symbolic macro instances defined in this package, indexed by their {@link
    * MacroInstance#getId id} (not name).
    */
-  // TODO(#19922): Enforce that macro namespaces are "exclusive", meaning that target names may only
-  // suffix a macro name when the target is created (transitively) within the macro.
+  // TODO(#19922): Consider enforcing that macro namespaces are "exclusive", meaning that target
+  // names may only suffix a macro name when the target is created (transitively) within the macro.
+  // This would be a major change that would break the (common) use case where a BUILD file
+  // declares both "foo" and "foo_test".
   private ImmutableSortedMap<String, MacroInstance> macros;
 
   public PackageArgs getPackageArgs() {
@@ -956,8 +954,10 @@ public class Package {
 
     private final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
 
-    // All targets added to the package. We use SnapshottableBiMap to help track insertion order of
-    // Rule targets, for use by native.existing_rules().
+    // All targets added to the package.
+    //
+    // We use SnapshottableBiMap to help track insertion order of Rule targets, for use by
+    // native.existing_rules().
     private BiMap<String, Target> targets =
         new SnapshottableBiMap<>(target -> target instanceof Rule);
 
@@ -966,24 +966,34 @@ public class Package {
     private final Map<String, MacroInstance> macros = new LinkedHashMap<>();
 
     /**
-     * A stack representing currently executing symbolic macros, outermost first.
+     * Represents the innermost currently executing symbolic macro, or null if none are running.
      *
-     * <p>This is used to help enforce naming rules.
+     * <p>Logically, this is the top entry of a stack of frames where each frame corresponds to a
+     * nested symbolic macro invocation. In actuality, symbolic macros do not necessarily run
+     * eagerly when they are invoked, so this is not really a call stack per se. We leave it to the
+     * pkgbuilder client to set the current frame, so that the choice of whether to push and pop, or
+     * process a worklist of queued evaluations, is up to them.
      *
-     * <p>It is also used to determine whether or not any symbolic macro is currently running, which
-     * influences which APIs are available. See user documentation on {@code macro()} ({@link
-     * StarlarkRuleFunctionsApi#macro}).
+     * <p>The state of this field is used to determine what Starlark APIs are available (see user
+     * documentation on {@code macro()} at {@link StarlarkRuleFunctionsApi#macro}), and to help
+     * enforce naming requirements on targets and macros.
      */
-    // TODO(#19922): This stack model may need adjusting when we have macros that execute at the
-    // end of a package (deferred/lazy evaluation and finalizers). In that case, the stack doesn't
-    // represent actively executing macros, but just the instantiation path to a macro.
-    private final List<MacroStackFrame> macroStack = new ArrayList<>();
+    private MacroFrame currentMacroFrame = null;
 
-    /** An element of macroStack. */
-    private static class MacroStackFrame {
+    /**
+     * Represents the state of a running symbolic macro (see {@link #currentMacroFrame}).
+     * Semi-opaque.
+     */
+    static class MacroFrame {
       final MacroInstance macroInstance;
+      // Most name conflicts are caught by checking the keys of the `targets` and `macros` maps.
+      // It is not a conflict for a target or macro to have the same name as the macro it is
+      // declared in, yet such a target or macro may still conflict with siblings in the same macro.
+      // We use this bool to track whether or not a newly introduced macro, M, having the same name
+      // as its parent (the current macro), would clash with an already defined sibling of M.
+      private boolean mainSubmacroHasBeenDefined = false;
 
-      MacroStackFrame(MacroInstance macroInstance) {
+      MacroFrame(MacroInstance macroInstance) {
         this.macroInstance = macroInstance;
       }
     }
@@ -1200,7 +1210,7 @@ public class Package {
       boolean bad = false;
       if (ctx instanceof Builder builder) {
         bad |= !allowBuild && !builder.isRepoRulePackage();
-        bad |= !allowSymbolicMacros && builder.currentlyInMacro();
+        bad |= !allowSymbolicMacros && builder.currentMacroFrame != null;
         bad |= !allowWorkspace && builder.isRepoRulePackage();
         if (!bad) {
           return builder;
@@ -1575,6 +1585,16 @@ public class Package {
       return new Rule(pkg, label, ruleClass, location, interiorCallStack);
     }
 
+    /**
+     * Inserts a target into the targets map. Returns the previous target if one was present, or
+     * null.
+     */
+    @CanIgnoreReturnValue
+    @Nullable
+    private Target addOrReplaceTarget(Target target) {
+      return targets.put(target.getName(), target);
+    }
+
     @Nullable
     Target getTarget(String name) {
       return targets.get(name);
@@ -1600,7 +1620,7 @@ public class Package {
           "Replacement target belongs to package '%s', expected '%s'",
           newTarget.getPackage(),
           pkg);
-      Target oldTarget = targets.put(newTarget.getName(), newTarget);
+      Target oldTarget = addOrReplaceTarget(newTarget);
       if (newTarget instanceof Rule) {
         List<Label> ruleLabelsForOldTarget = ruleLabels.remove(oldTarget);
         if (ruleLabelsForOldTarget != null) {
@@ -1698,8 +1718,7 @@ public class Package {
       if (!((InputFile) cacheInstance).isVisibilitySpecified()
           || cacheInstance.getVisibility() != visibility
           || !Objects.equals(cacheInstance.getLicense(), license)) {
-        targets.put(
-            filename,
+        addOrReplaceTarget(
             new VisibilityLicenseSpecifiedInputFile(
                 pkg, cacheInstance.getLabel(), cacheInstance.getLocation(), visibility, license));
       }
@@ -1735,7 +1754,7 @@ public class Package {
               eventHandler,
               location);
       checkTargetName(group);
-      targets.put(group.getName(), group);
+      addOrReplaceTarget(group);
 
       if (group.containsErrors()) {
         setContainsErrors();
@@ -1775,7 +1794,7 @@ public class Package {
         EventHandler eventHandler,
         Location location)
         throws NameConflictException, LabelSyntaxException {
-      Preconditions.checkState(!currentlyInMacro());
+      Preconditions.checkState(currentMacroFrame == null);
 
       if (hasDuplicateLabels(environments, name, "environments", location, eventHandler)
           || hasDuplicateLabels(defaults, name, "defaults", location, eventHandler)) {
@@ -1786,7 +1805,7 @@ public class Package {
       EnvironmentGroup group =
           new EnvironmentGroup(createLabel(name), pkg, environments, defaults, location);
       checkTargetName(group);
-      targets.put(group.getName(), group);
+      addOrReplaceTarget(group);
 
       // Invariant: once group is inserted into targets, it must also:
       // (a) be inserted into environmentGroups, or
@@ -1853,9 +1872,9 @@ public class Package {
     private void addRuleInternal(Rule rule) {
       Preconditions.checkArgument(rule.getPackage() == pkg);
       for (OutputFile outputFile : rule.getOutputFiles()) {
-        targets.put(outputFile.getName(), outputFile);
+        addOrReplaceTarget(outputFile);
       }
-      targets.put(rule.getName(), rule);
+      addOrReplaceTarget(rule);
       if (rule.containsErrors()) {
         this.setContainsErrors();
       }
@@ -1882,7 +1901,7 @@ public class Package {
       checkRuleAndOutputs(rule, labels);
       addRuleInternal(rule);
       ruleLabels.put(rule, labels);
-      if (currentlyInMacro()) {
+      if (currentMacroFrame != null) {
         rulesCreatedInMacros.add(rule);
       }
     }
@@ -1890,48 +1909,33 @@ public class Package {
     /** Adds a symbolic macro instance to the package. */
     public void addMacro(MacroInstance macro) throws NameConflictException {
       checkMacroName(macro);
-      macros.put(macro.getId(), macro);
+      Object prev = macros.put(macro.getId(), macro);
+      Preconditions.checkState(prev == null);
+      // Track whether a main submacro has been seen yet. Conflict checking for this is done in
+      // checkMacroName().
+      if (currentMacroFrame != null) {
+        if (macro.getName().equals(currentMacroFrame.macroInstance.getName())) {
+          currentMacroFrame.mainSubmacroHasBeenDefined = true;
+        }
+      }
     }
 
-    /** Pushes a macro instance onto the stack of currently executing symbolic macros. */
-    public void pushMacro(MacroInstance macro) {
-      macroStack.add(new MacroStackFrame(macro));
-    }
-
-    /** Pops the stack of currently executing symbolic macros. */
-    public MacroInstance popMacro() {
-      return macroStack.remove(macroStack.size() - 1).macroInstance;
-    }
-
-    /** Returns whether we're currently executing at least one symbolic macro. */
-    private boolean currentlyInMacro() {
-      return !macroStack.isEmpty();
+    /** Returns the current macro frame, or null if there is no currently running symbolic macro. */
+    @Nullable
+    MacroFrame getCurrentMacroFrame() {
+      return currentMacroFrame;
     }
 
     /**
-     * Returns the stack frame corresponding to the innermost currently executing macro, or null if
-     * not in a macro.
+     * Sets the current macro frame and returns the old one.
+     *
+     * <p>Either the new or old frame may be null, indicating no currently running symbolic macro.
      */
     @Nullable
-    private MacroStackFrame currentMacroFrame() {
-      return macroStack.isEmpty() ? null : Iterables.getLast(macroStack);
-    }
-
-    /** Returns the innermost currently executing symbolic macro, or null if not in a macro. */
-    @Nullable
-    public MacroInstance currentMacro() {
-      @Nullable MacroStackFrame frame = currentMacroFrame();
-      return frame == null ? null : frame.macroInstance;
-    }
-
-    /**
-     * Returns the name of the innermost currently executing symbolic macro, or null if not in a
-     * macro.
-     */
-    @Nullable
-    private String currentMacroName() {
-      @Nullable MacroInstance macro = currentMacro();
-      return macro == null ? null : macro.getName();
+    MacroFrame setCurrentMacroFrame(@Nullable MacroFrame frame) {
+      MacroFrame prev = currentMacroFrame;
+      currentMacroFrame = frame;
+      return prev;
     }
 
     void addRegisteredExecutionPlatforms(List<TargetPattern> platforms) {
@@ -2104,7 +2108,7 @@ public class Package {
      * <p>There must not already be a target with the same name (i.e., this is not idempotent).
      */
     private void addInputFile(InputFile inputFile) {
-      Target prev = targets.put(inputFile.getLabel().getName(), inputFile);
+      Target prev = addOrReplaceTarget(inputFile);
       Preconditions.checkState(prev == null);
     }
 
@@ -2219,6 +2223,9 @@ public class Package {
      * Throws {@link NameConflictException} if the given name of a declared object (target or
      * submacro) inside a symbolic macro does not follow the required prefix-based naming
      * convention.
+     *
+     * <p>This is purely a string operation and does not reference actual targets and macros. See
+     * {@link #nameIsWithinMacroNamespace}.
      */
     private void checkDeclaredNameValidForMacro(
         String what, String declaredName, String enclosingMacroName) throws NameConflictException {
@@ -2236,28 +2243,35 @@ public class Package {
      * Throws {@link NameConflictException} if the given target's name can't be added, either
      * because of a conflict or because of a violation of symbolic macro naming rules (if
      * applicable).
+     *
+     * <p>The given target must *not* have already been added (via {@link #addOrReplaceTarget}).
      */
-    private void checkTargetName(Target added) throws NameConflictException {
-      checkForExistingTargetName(added);
+    private void checkTargetName(Target target) throws NameConflictException {
+      checkForExistingTargetName(target);
 
-      if (currentlyInMacro()) {
-        checkDeclaredNameValidForMacro("target", added.getName(), currentMacroName());
+      checkForExistingMacroName(target.getName(), "target");
+
+      if (currentMacroFrame != null) {
+        checkDeclaredNameValidForMacro(
+            "target", target.getName(), currentMacroFrame.macroInstance.getName());
       }
     }
 
     /**
      * Throws {@link NameConflictException} if the given target's name matches that of an existing
-     * target in the package.
+     * target in the package, or an existing macro in the package that is not its ancestor.
+     *
+     * <p>The given target must *not* have already been added (via {@link #addOrReplaceTarget}).
      */
-    private void checkForExistingTargetName(Target added) throws NameConflictException {
-      Target existing = targets.get(added.getName());
+    private void checkForExistingTargetName(Target target) throws NameConflictException {
+      Target existing = targets.get(target.getName());
       if (existing == null) {
         return;
       }
 
-      String subject = String.format("%s '%s'", added.getTargetKind(), added.getName());
-      if (added instanceof OutputFile addedOutput) {
-        subject += String.format(" in rule '%s'", addedOutput.getGeneratingRule().getName());
+      String subject = String.format("%s '%s'", target.getTargetKind(), target.getName());
+      if (target instanceof OutputFile givenOutput) {
+        subject += String.format(" in rule '%s'", givenOutput.getGeneratingRule().getName());
       }
 
       String object =
@@ -2274,32 +2288,61 @@ public class Package {
     /**
      * Throws {@link NameConflictException} if the given macro's name can't be added, either because
      * of a conflict or because of a violation of symbolic macro naming rules (if applicable).
+     *
+     * <p>The given macro must *not* have already been added (via {@link #addMacro}).
      */
-    private void checkMacroName(MacroInstance added) throws NameConflictException {
-      checkForExistingMacroName(added);
+    private void checkMacroName(MacroInstance macro) throws NameConflictException {
+      String name = macro.getName();
 
-      if (currentlyInMacro()) {
-        checkDeclaredNameValidForMacro("submacro", added.getName(), currentMacroName());
+      // A macro can share names with its main target but no other target. Since the macro hasn't
+      // even been added yet, it hasn't run, and its main target is not yet defined. Therefore, any
+      // match in the targets map represents a real conflict.
+      Target existingTarget = targets.get(name);
+      if (existingTarget != null) {
+        throw new NameConflictException(
+            String.format("macro '%s' conflicts with an existing target.", name));
+      }
+
+      checkForExistingMacroName(name, "macro");
+
+      if (currentMacroFrame != null) {
+        checkDeclaredNameValidForMacro("submacro", name, currentMacroFrame.macroInstance.getName());
       }
     }
 
     /**
-     * Throws {@link NameConflictException} if the given macro's name matches that of an existing
-     * macro in the package.
+     * Throws {@link NameConflictException} if the given name (of a hypothetical target or macro)
+     * matches the name of an existing macro in the package, and the existing macro is not currently
+     * executing (i.e. on the macro stack).
+     *
+     * <p>{@code what} must be either "macro" or "target".
      */
-    private void checkForExistingMacroName(MacroInstance added) throws NameConflictException {
+    private void checkForExistingMacroName(String name, String what) throws NameConflictException {
       // Macros are indexed by id, not name, so we can't just use macros.get() directly.
       // Instead, we reason that if at least one macro by the given name exists, then there is one
       // with an id suffix of ":1".
-      MacroInstance existing = macros.get(added.getName() + ":1");
+      MacroInstance existing = macros.get(name + ":1");
       if (existing == null) {
         return;
       }
 
-      // TODO(#19922): Add definition location info for the existing object, like we have in the
-      // case for rules.
+      // A conflict is still ok if it's only with enclosing macros. It's enough to check that 1) we
+      // have the same name as the immediately enclosing macro (relying inductively on the check
+      // that was done when that macro was added), and 2) there is no sibling macro of the same name
+      // already defined in the current frame.
+      if (currentMacroFrame != null) {
+        if (name.equals(currentMacroFrame.macroInstance.getName())
+            && !currentMacroFrame.mainSubmacroHasBeenDefined) {
+          return;
+        }
+      }
+
+      // TODO(#19922): Add definition location info for the existing object, like we have in
+      // checkForExistingTargetName. Complicated by the fact that there may be more than one macro
+      // of that name.
       throw new NameConflictException(
-          String.format("macro '%s' conflicts with existing macro", added.getName()));
+          String.format(
+              "%s '%s' conflicts with an existing macro (and was not created by it)", what, name));
     }
 
     /**

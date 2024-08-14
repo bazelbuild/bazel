@@ -13,16 +13,6 @@ alias(
 
 android_tools_defaults_jar(name = "android_jar")
 
-android_library(
-    name = "incremental_stub_application",
-    exports = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_stub_application"],
-)
-
-android_library(
-    name = "incremental_split_stub_application",
-    exports = ["//src/tools/android/java/com/google/devtools/build/android/incrementaldeployment:incremental_split_stub_application"],
-)
-
 alias(
     name = "busybox",
     actual = "//src/tools/android/java/com/google/devtools/build/android:ResourceProcessorBusyBox",
@@ -216,49 +206,6 @@ py_binary(
     srcs = ["instrumentation_test_check.py"],
     python_version = "PY3",
     deps = ["//third_party/py/abseil"],
-)
-
-py_binary(
-    name = "build_incremental_dexmanifest",
-    srcs = [":build_incremental_dexmanifest.py"],
-    python_version = "PY3",
-    deps = [],
-)
-
-py_binary(
-    name = "build_split_manifest",
-    srcs = ["build_split_manifest.py"],
-    python_version = "PY3",
-    deps = [
-        "//third_party/py/abseil",
-    ],
-)
-
-py_binary(
-    name = "incremental_install",
-    srcs = ["incremental_install.py"],
-    python_version = "PY3",
-    deps = [
-        "//third_party/py/abseil",
-    ],
-)
-
-py_binary(
-    name = "strip_resources",
-    srcs = ["strip_resources.py"],
-    python_version = "PY3",
-    deps = [
-        "//third_party/py/abseil",
-    ],
-)
-
-py_binary(
-    name = "stubify_manifest",
-    srcs = ["stubify_manifest.py"],
-    python_version = "PY3",
-    deps = [
-        "//third_party/py/abseil",
-    ],
 )
 
 py_binary(

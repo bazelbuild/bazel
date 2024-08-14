@@ -179,7 +179,6 @@ EOF
 }
 
 function test_sandbox_expands_tree_artifacts_in_runfiles_tree() {
-  create_workspace_with_default_repos WORKSPACE
 
   cat > def.bzl <<'EOF'
 def _mkdata_impl(ctx):
@@ -235,7 +234,6 @@ EOF
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/6262.
 function test_create_tree_artifact_outputs() {
-  create_workspace_with_default_repos WORKSPACE
 
   cat > def.bzl <<'EOF'
 def _r(ctx):
@@ -261,7 +259,6 @@ EOF
 # Regression test for https://github.com/bazelbuild/bazel/issues/20032 and
 # https://github.com/bazelbuild/bazel/issues/22260.
 function test_permissionless_tree_artifact() {
-  create_workspace_with_default_repos WORKSPACE
 
   cat > def.bzl <<'EOF'
 def _r(ctx):
@@ -288,7 +285,6 @@ EOF
 function test_empty_tree_artifact_as_inputs() {
   # Test that when an empty tree artifact is the input, an empty directory is
   # created in the sandbox for action to read.
-  create_workspace_with_default_repos WORKSPACE
 
   mkdir -p pkg
 
@@ -387,7 +383,6 @@ function test_add_mount_pair_tmp_source() {
     return 0
   fi
 
-  create_workspace_with_default_repos WORKSPACE
 
   local mounted=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
   trap "rm -fr $mounted" EXIT
@@ -421,7 +416,6 @@ function test_add_mount_pair_tmp_target() {
     return 0
   fi
 
-  create_workspace_with_default_repos WORKSPACE
 
   local source_dir=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
   trap "rm -fr $source_dir" EXIT
@@ -457,7 +451,6 @@ function test_add_mount_pair_tmp_target_and_source() {
     return 0
   fi
 
-  create_workspace_with_default_repos WORKSPACE
 
   local mounted=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
   trap "rm -fr $mounted" EXIT
@@ -493,10 +486,8 @@ function test_symlink_with_output_base_under_tmp() {
   local repo=$(mktemp -d "/tmp/bazel_mounted.XXXXXXXX")
   trap "rm -fr $repo" EXIT
 
-  touch WORKSPACE
-
   mkdir -p $repo/pkg
-  touch $repo/WORKSPACE
+  touch $repo/REPO.bazel
   cat > $repo/pkg/es1 <<'EOF'
 EXTERNAL_SOURCE_CONTENT
 EOF
@@ -514,7 +505,8 @@ EOF
   mkdir -p $repo/examples
   cd $repo/examples || fail "cd $repo/examples failed"
 
-  cat > WORKSPACE <<EOF
+  cat > MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "repo",
     path = "$repo",
@@ -567,7 +559,6 @@ function test_symlink_to_directory_absolute_path() {
     return 0
   fi
 
-  create_workspace_with_default_repos WORKSPACE
 
   mkdir -p /tmp/tree/{a,b}
   touch /tmp/tree/{a,b}/file
@@ -614,7 +605,6 @@ function test_symlink_to_directory_with_output_base_under_tmp() {
     return 0
   fi
 
-  create_workspace_with_default_repos WORKSPACE
 
   mkdir -p pkg
   cat > pkg/BUILD <<'EOF'
@@ -663,7 +653,6 @@ function test_tmpfs_path_under_tmp() {
     return 0
   fi
 
-  create_workspace_with_default_repos WORKSPACE
 
   local tmpfs=$(mktemp -d "/tmp/bazel_tmpfs.XXXXXXXX")
   trap "rm -fr $tmpfs" EXIT
@@ -713,7 +702,8 @@ function test_hermetic_tmp_under_tmp {
   mkdir -p "${temp_dir}/output-base"
 
   cd "${temp_dir}/workspace"
-  cat > WORKSPACE <<EOF
+  cat > MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name="repo", path="${temp_dir}/repo")
 EOF
 
@@ -743,7 +733,7 @@ genrule(
     "  echo reading $$i",
     "  cat $$i >> $@",
     "done",
-    "for i in a/s a/go b/s b/go ../repo/c/s ../repo/c/go; do",
+    "for i in a/s a/go b/s b/go ../+_repo_rules+repo/c/s ../+_repo_rules+repo/c/go; do",
     "  echo reading $$RUNFILES/$$i",
     "  cat $$RUNFILES/$$i >> $@",
     "done",
@@ -754,7 +744,7 @@ EOF
   touch a/bin.sh
   chmod +x a/bin.sh
 
-  touch ../repo/WORKSPACE
+  touch ../repo/REPO.bazel
   cat > ../repo/c/BUILD <<'EOF'
 exports_files(["s"])
 genrule(
@@ -779,7 +769,6 @@ EOF
 
   touch "a/s" "../package-path/b/s" "../repo/c/s"
 
-  cat WORKSPACE
   bazel \
     --output_base="${temp_dir}/output-base" \
     build \
@@ -790,7 +779,6 @@ EOF
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/21215
 function test_copy_input_symlinks() {
-  create_workspace_with_default_repos WORKSPACE
 
   cat > MODULE.bazel <<'EOF'
 repo = use_repo_rule("//pkg:repo.bzl", "repo")

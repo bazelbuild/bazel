@@ -4302,9 +4302,10 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   public void initializer_failsCreatingAnotherRule() throws Exception {
     scratch.file(
         "initializer_testing/b.bzl",
+        analysisMock.javaSupport().getLoadStatementForRule("java_library"),
         """
         def initializer(name, srcs = [], deps = []):
-            native.java_library(name = "jl", srcs = ["a.java"])
+            java_library(name = "jl", srcs = ["a.java"])
             return {"srcs": srcs, "deps": deps}
 
         def impl(ctx):

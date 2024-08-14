@@ -47,7 +47,7 @@ public class BzlmodRepoRuleValue implements SkyValue {
   }
 
   /** Represents an unsuccessful repository lookup. */
-  public static final class RepoRuleNotFoundValue extends BzlmodRepoRuleValue {
+  private static final class RepoRuleNotFoundValue extends BzlmodRepoRuleValue {
     private RepoRuleNotFoundValue() {
       super(/*pkg=*/ null, /*ruleName=*/ null);
     }
@@ -58,7 +58,7 @@ public class BzlmodRepoRuleValue implements SkyValue {
     }
   }
 
-  public static final RepoRuleNotFoundValue REPO_RULE_NOT_FOUND_VALUE = new RepoRuleNotFoundValue();
+  public static final BzlmodRepoRuleValue REPO_RULE_NOT_FOUND_VALUE = new RepoRuleNotFoundValue();
 
   /** Argument for the SkyKey to request a BzlmodRepoRuleValue. */
   @AutoCodec

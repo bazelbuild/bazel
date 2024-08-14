@@ -198,20 +198,20 @@ public abstract sealed class Artifact
     return ((DerivedArtifact) artifact).getGeneratingActionKey();
   }
 
-  public static Iterable<SkyKey> keys(Iterable<Artifact> artifacts) {
-    return artifacts instanceof Collection<Artifact> collection
+  public static <T extends Artifact> Iterable<SkyKey> keys(Iterable<T> artifacts) {
+    return artifacts instanceof Collection<T> collection
         ? keys(collection)
         : Iterables.transform(artifacts, Artifact::key);
   }
 
-  public static Collection<SkyKey> keys(Collection<Artifact> artifacts) {
-    return artifacts instanceof List<Artifact> list
+  public static <T extends Artifact> Collection<SkyKey> keys(Collection<T> artifacts) {
+    return artifacts instanceof List<T> list
         ? keys(list)
         // Use Collections2 instead of Iterables#transform to ensure O(1) size().
         : Collections2.transform(artifacts, Artifact::key);
   }
 
-  public static List<SkyKey> keys(List<Artifact> artifacts) {
+  public static <T extends Artifact> List<SkyKey> keys(List<T> artifacts) {
     return Lists.transform(artifacts, Artifact::key);
   }
 

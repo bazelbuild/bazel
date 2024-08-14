@@ -85,6 +85,7 @@ import com.google.devtools.build.lib.server.PidFileWatcher;
 import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.ShutdownHooks;
 import com.google.devtools.build.lib.server.signal.InterruptSignalHandler;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CustomExitCodePublisher;
 import com.google.devtools.build.lib.util.CustomFailureDetailPublisher;
@@ -137,6 +138,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
@@ -193,6 +195,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   // Workspace state (currently exactly one workspace per server)
   private BlazeWorkspace workspace;
+
+  @Nullable // not all environments provide this
+  private BiFunction<BlazeRuntime, BlazeDirectories, ObjectCodecRegistry>
+      analysisCodecRegistrySupplier;
 
   private BlazeRuntime(
       FileSystem fileSystem,
@@ -1447,6 +1453,21 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   public RepositoryRemoteExecutorFactory getRepositoryRemoteExecutorFactory() {
     return repositoryRemoteExecutorFactory;
+  }
+
+  public void initAnalysisCodecRegistry(
+      BiFunction<BlazeRuntime, BlazeDirectories, ObjectCodecRegistry>
+          analysisCodecRegistrySupplier) {
+    this.analysisCodecRegistrySupplier = analysisCodecRegistrySupplier;
+  }
+
+  @Nullable
+  public ObjectCodecRegistry getAnalysisCodecRegistry() {
+    if (analysisCodecRegistrySupplier == null) {
+      return null;
+    }
+    // The first call to this method can be somewhat expensive so it is hidden behind a supplier.
+    return analysisCodecRegistrySupplier.apply(this, workspace.getDirectories());
   }
 
   /**

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoC
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ObjectInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.PrimitiveInfo;
 import java.lang.reflect.Array;
+import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -185,8 +186,8 @@ public final class Fingerprinter {
       if (obj instanceof Map) {
         return outputMapEntries((Map<?, ?>) obj, out);
       }
-      if (obj instanceof Iterable) {
-        return outputIterableElements((Iterable<?>) obj, out);
+      if (obj instanceof Collection) {
+        return outputCollectionElements((Collection<?>) obj, out);
       }
       return outputObjectFields(obj, out);
     } finally {
@@ -260,7 +261,7 @@ public final class Fingerprinter {
     return cycleOwnerIndex;
   }
 
-  private int outputIterableElements(Iterable<?> iterable, StringBuilder out) {
+  private int outputCollectionElements(Collection<?> iterable, StringBuilder out) {
     int cycleOwnerIndex = Integer.MAX_VALUE;
     boolean isFirst = true;
     for (Object elt : iterable) {

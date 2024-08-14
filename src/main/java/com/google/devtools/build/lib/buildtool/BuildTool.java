@@ -820,7 +820,7 @@ public class BuildTool {
   }
 
   /** Returns the project directories found in a project file. */
-  private static PathFragmentPrefixTrie getWorkingSetMatcherForSkyfocus(
+  public static PathFragmentPrefixTrie getWorkingSetMatcherForSkyfocus(
       Label projectFile, SkyframeExecutor skyframeExecutor, ExtendedEventHandler eventHandler)
       throws InvalidConfigurationException {
     ProjectValue.Key key = new ProjectValue.Key(projectFile);

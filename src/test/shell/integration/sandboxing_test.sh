@@ -24,8 +24,6 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-disable_bzlmod
-
 function set_up() {
   add_to_bazelrc "build --spawn_strategy=sandboxed"
   add_to_bazelrc "build --genrule_strategy=sandboxed"
@@ -352,6 +350,7 @@ EOF
   cat << 'EOF' >> examples/genrule/datafile
 this is a datafile
 EOF
+  local WORKSPACE_NAME=$TEST_WORKSPACE
   # The workspace name is initialized in testenv.sh; use that var rather than
   # hardcoding it here. The extra sed pass is so we can selectively expand that
   # one var while keeping the rest of the heredoc literal.
@@ -1061,6 +1060,7 @@ EOF
   file_inode_a=$(awk '/The file inode is/ {print $5}' ${test_output})
 
   local output_base="$(bazel info output_base)"
+  local WORKSPACE_NAME=$TEST_WORKSPACE
   local stashed_test_dir="${output_base}/sandbox/sandbox_stash/TestRunner/6/execroot/$WORKSPACE_NAME"
   touch $(find "$stashed_test_dir/$out_directory/" -name a.sh.runfiles -type d)"/$WORKSPACE_NAME/pkg/file4.txt"
 

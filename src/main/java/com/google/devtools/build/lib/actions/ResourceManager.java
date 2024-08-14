@@ -510,19 +510,15 @@ public class ResourceManager implements ResourceEstimator {
     WaitingRequest waitingRequest =
         new WaitingRequest(request, new ResourceLatch(new CountDownLatch(1), /* worker= */ null));
     switch (request.getPriority()) {
-      case LOCAL:
-        localRequests.addLast(waitingRequest);
-        break;
-      case DYNAMIC_WORKER:
-        // Dynamic requests should be LIFO, because we are more likely to win the race on newer
-        // actions.
-        dynamicWorkerRequests.addFirst(waitingRequest);
-        break;
-      case DYNAMIC_STANDALONE:
-        // Dynamic requests should be LIFO, because we are more likely to win the race on newer
-        // actions.
-        dynamicStandaloneRequests.addFirst(waitingRequest);
-        break;
+      case LOCAL -> localRequests.addLast(waitingRequest);
+      case DYNAMIC_WORKER ->
+          // Dynamic requests should be LIFO, because we are more likely to win the race on newer
+          // actions.
+          dynamicWorkerRequests.addFirst(waitingRequest);
+      case DYNAMIC_STANDALONE ->
+          // Dynamic requests should be LIFO, because we are more likely to win the race on newer
+          // actions.
+          dynamicStandaloneRequests.addFirst(waitingRequest);
     }
     return waitingRequest.getResourceLatch();
   }

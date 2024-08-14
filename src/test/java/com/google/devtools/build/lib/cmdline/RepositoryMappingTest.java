@@ -89,4 +89,13 @@ public final class RepositoryMappingTest {
     assertThat(mapping.get("C")).isEqualTo(RepositoryName.create("C_mapped"));
     assertThat(mapping.get("D")).isEqualTo(RepositoryName.create("D"));
   }
+
+  @Test
+  public void unknownRepoDidYouMean() throws LabelSyntaxException {
+    RepositoryMapping mapping =
+        RepositoryMapping.create(
+            ImmutableMap.of("foo", RepositoryName.create("foo_internal")), RepositoryName.MAIN);
+    assertThat(mapping.get("boo").getNameWithAt())
+        .isEqualTo("@@[unknown repo 'boo' requested from @@ (did you mean 'foo'?)]");
+  }
 }

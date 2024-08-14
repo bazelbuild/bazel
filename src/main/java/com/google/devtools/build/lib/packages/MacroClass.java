@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.packages.Package.Builder.MacroFrame;
 import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -200,11 +201,11 @@ public final class MacroClass {
     String name = (String) Preconditions.checkNotNull(attrValues.get("name"));
     // Determine the id for this macro. If we're in another macro by the same name, increment the
     // number, otherwise use 1 for the number.
-    @Nullable MacroInstance parentMacro = pkgBuilder.currentMacro();
+    @Nullable MacroFrame parentMacroFrame = pkgBuilder.getCurrentMacroFrame();
     int sameNameDepth =
-        parentMacro == null || !name.equals(parentMacro.getName())
+        parentMacroFrame == null || !name.equals(parentMacroFrame.macroInstance.getName())
             ? 1
-            : parentMacro.getSameNameDepth() + 1;
+            : parentMacroFrame.macroInstance.getSameNameDepth() + 1;
 
     return new MacroInstance(this, attrValues, sameNameDepth);
   }
@@ -260,8 +261,9 @@ public final class MacroClass {
       // ruleClassProvider)`. In that case we'll need to consider how to get access to the
       // ConfiguredRuleClassProvider. For instance, we could put it in the builder.
 
+      MacroFrame childMacroFrame = new MacroFrame(macro);
+      @Nullable MacroFrame parentMacroFrame = builder.setCurrentMacroFrame(childMacroFrame);
       try {
-        builder.pushMacro(macro);
         Starlark.call(
             thread,
             macro.getMacroClass().getImplementation(),
@@ -275,8 +277,9 @@ public final class MacroClass {
                     /* location= */ null, ex.getMessageWithStack(), Code.STARLARK_EVAL_ERROR));
         builder.setContainsErrors();
       } finally {
-        MacroInstance top = builder.popMacro();
-        Preconditions.checkState(top == macro, "inconsistent macro stack state");
+        // Restore the previously running symbolic macro's state (if any).
+        @Nullable MacroFrame top = builder.setCurrentMacroFrame(parentMacroFrame);
+        Preconditions.checkState(top == childMacroFrame, "inconsistent macro stack state");
       }
     }
   }

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.actions;
 import static com.google.devtools.build.lib.actions.Artifact.OMITTED_FOR_SERIALIZATION;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
@@ -31,15 +32,71 @@ import com.google.devtools.build.lib.skyframe.serialization.SerializationContext
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 
-/** Codec implementations for {@link Artifact} subclasses. */
-final class ArtifactCodecs {
+/**
+ * Codec implementations for {@link Artifact} subclasses.
+ *
+ * <p>Each Artifact's codec implementation is split into two codecs: the main codec that handles the
+ * individual fields, and a value-sharing codec.
+ */
+public final class ArtifactCodecs {
 
-  @SuppressWarnings("unused") // Codec used by reflection.
+  public static final ImmutableList<ObjectCodec<? extends Artifact>> VALUE_SHARING_CODECS =
+      ImmutableList.of(
+          new DerivedArtifactValueSharingCodec(),
+          new SourceArtifactValueSharingCodec(),
+          new SpecialArtifactValueSharingCodec());
+
+  @Keep
+  private static final class DerivedArtifactValueSharingCodec
+      extends DeferredObjectCodec<DerivedArtifact> {
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<DerivedArtifact> getEncodedClass() {
+      return DerivedArtifact.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, DerivedArtifact obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          obj, /* distinguisher= */ null, DerivedArtifactCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public DeferredValue<DerivedArtifact> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      SimpleDeferredValue<DerivedArtifact> value = SimpleDeferredValue.create();
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          DerivedArtifactCodec.INSTANCE,
+          value,
+          SimpleDeferredValue::set);
+      return value;
+    }
+  }
+
+  /**
+   * {@link ObjectCodec} for {@link DerivedArtifact}.
+   *
+   * <p>To be kept in sync with {@link SpecialArtifactCodec}.
+   */
+  @Keep // Used by reflection.
   private static final class DerivedArtifactCodec extends DeferredObjectCodec<DerivedArtifact> {
+
+    private static final DerivedArtifactCodec INSTANCE = new DerivedArtifactCodec();
 
     @Override
     public Class<DerivedArtifact> getEncodedClass() {
@@ -132,9 +189,48 @@ final class ArtifactCodecs {
     return root.getExecPath().getRelative(rootRelativePath);
   }
 
+  @Keep
+  private static final class SourceArtifactValueSharingCodec
+      extends DeferredObjectCodec<SourceArtifact> {
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<SourceArtifact> getEncodedClass() {
+      return SourceArtifact.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, SourceArtifact obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          obj, /* distinguisher= */ null, SourceArtifactCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public DeferredValue<SourceArtifact> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      SimpleDeferredValue<SourceArtifact> value = SimpleDeferredValue.create();
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          SourceArtifactCodec.INSTANCE,
+          value,
+          SimpleDeferredValue::set);
+      return value;
+    }
+  }
+
   /** {@link ObjectCodec} for {@link SourceArtifact} */
-  @SuppressWarnings("unused") // Used by reflection.
+  @Keep // Used by reflection.
   private static final class SourceArtifactCodec extends DeferredObjectCodec<SourceArtifact> {
+
+    private static final SourceArtifactCodec INSTANCE = new SourceArtifactCodec();
 
     @Override
     public Class<SourceArtifact> getEncodedClass() {
@@ -192,9 +288,52 @@ final class ArtifactCodecs {
     }
   }
 
-  // Keep in sync with DerivedArtifactCodec.
-  @SuppressWarnings("unused") // Used by reflection.
+  @Keep
+  private static final class SpecialArtifactValueSharingCodec
+      extends DeferredObjectCodec<SpecialArtifact> {
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<SpecialArtifact> getEncodedClass() {
+      return SpecialArtifact.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, SpecialArtifact obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          obj, /* distinguisher= */ null, SpecialArtifactCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public DeferredValue<SpecialArtifact> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      SimpleDeferredValue<SpecialArtifact> value = SimpleDeferredValue.create();
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          SpecialArtifactCodec.INSTANCE,
+          value,
+          SimpleDeferredValue::set);
+      return value;
+    }
+  }
+
+  /**
+   * {@link ObjectCodec} for {@link SpecialArtifact}.
+   *
+   * <p>To be kept in sync with {@link DerivedArtifactCodec}.
+   */
+  @Keep // Used by reflection.
   private static final class SpecialArtifactCodec extends DeferredObjectCodec<SpecialArtifact> {
+
+    private static final SpecialArtifactCodec INSTANCE = new SpecialArtifactCodec();
 
     @Override
     public Class<SpecialArtifact> getEncodedClass() {

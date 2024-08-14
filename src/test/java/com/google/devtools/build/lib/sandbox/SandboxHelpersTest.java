@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.exec.BinTools;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -66,6 +67,8 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link SandboxHelpers}. */
 @RunWith(JUnit4.class)
 public class SandboxHelpersTest {
+
+  private final TreeDeleter treeDeleter = new SynchronousTreeDeleter();
 
   private final Scratch scratch = new Scratch();
   private Path execRoot;
@@ -281,7 +284,8 @@ public class SandboxHelpersTest {
             ImmutableMap.of(input1, inputTxt, input2, inputTxt, input3, inputTxt, input4, inputTxt),
             ImmutableMap.of(),
             ImmutableMap.of());
-    SandboxHelpers.cleanExisting(rootDir, inputs2, inputsToCreate, dirsToCreate, execRoot);
+    SandboxHelpers.cleanExisting(
+        rootDir, inputs2, inputsToCreate, dirsToCreate, execRoot, treeDeleter);
     assertThat(dirsToCreate).containsExactly(inputDir2, inputDir3, outputDir);
     assertThat(execRoot.getRelative("existing/directory/with").exists()).isTrue();
     assertThat(execRoot.getRelative("partial").exists()).isTrue();
