@@ -31,10 +31,10 @@
 //src/test/java/com/google/devtools/build/lib/skyframe:ContainingPackageLookupFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe:FileFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe:LocalRepositoryLookupFunctionTest
+//src/test/java/com/google/devtools/build/lib/skyframe:PackageFunctionTest
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/skyframe:PackageFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe:PackageLookupFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe:RepositoryMappingFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe:RuleContextTest

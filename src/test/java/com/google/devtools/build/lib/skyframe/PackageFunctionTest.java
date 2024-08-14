@@ -985,6 +985,7 @@ public class PackageFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testBadWorkspaceFile() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     Path workspacePath = scratch.overwriteFile("WORKSPACE", "junk");
     SkyKey skyKey = PackageIdentifier.createInMainRepo("external");
     getSkyframeExecutor()
