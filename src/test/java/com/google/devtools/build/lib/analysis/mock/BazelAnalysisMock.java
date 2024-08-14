@@ -113,11 +113,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
   public ImmutableList<String> getWorkspaceRepos() {
     return ImmutableList.of(
         "android_gmaven_r8",
-        "bazel_tools",
         "com_google_protobuf",
         "local_config_platform",
         "local_config_xcode",
-        "platforms",
         "internal_platforms_do_not_use",
         "rules_java",
         "rules_java_builtin",

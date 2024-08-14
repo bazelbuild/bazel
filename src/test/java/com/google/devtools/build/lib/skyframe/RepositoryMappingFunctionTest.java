@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
-import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -60,13 +59,17 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   @Override
   protected AnalysisMock getAnalysisMock() {
     // Make sure we don't have built-in modules affecting the dependency graph.
-    return AnalysisMock.getAnalysisMockWithoutBuiltinModules();
+    return AnalysisMock.getAnalysisMockWithMinimalBuiltinModules();
   }
 
   private static RepositoryMappingValue valueForWorkspace(
-      ImmutableMap<String, RepositoryName> repositoryMapping) {
+      ImmutableMap<String, RepositoryName> repositoryMapping) throws Exception {
+    ImmutableMap.Builder<String, RepositoryName> allMappings = ImmutableMap.builder();
+    allMappings.putAll(repositoryMapping);
+    allMappings.put("bazel_tools", RepositoryName.create("bazel_tools"));
+    allMappings.put("platforms", RepositoryName.create("platforms"));
     return RepositoryMappingValue.createForWorkspaceRepo(
-        RepositoryMapping.createAllowingFallback(repositoryMapping));
+        RepositoryMapping.createAllowingFallback(allMappings.buildOrThrow()));
   }
 
   private static RepositoryMappingValue valueForBzlmod(
@@ -75,8 +78,12 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
       String associatedModuleName,
       String associatedModuleVersion)
       throws Exception {
+    ImmutableMap.Builder<String, RepositoryName> allMappings = ImmutableMap.builder();
+    allMappings.putAll(repositoryMapping);
+    allMappings.put("bazel_tools", RepositoryName.create("bazel_tools"));
+    allMappings.put("platforms", RepositoryName.create("platforms"));
     return RepositoryMappingValue.createForBzlmodRepo(
-        RepositoryMapping.create(repositoryMapping, ownerRepo),
+        RepositoryMapping.create(allMappings.buildOrThrow(), ownerRepo),
         associatedModuleName,
         Version.parse(associatedModuleVersion));
   }
@@ -84,12 +91,22 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
   private RepositoryMappingValue valueForRootModule(
       ImmutableMap<String, RepositoryName> repositoryMapping,
       String rootModuleName,
-      String rootModuleVersion)
+      String rootModuleVersion) throws Exception {
+    return valueForRootModule(repositoryMapping, rootModuleName, rootModuleVersion, false);
+  }
+
+  private RepositoryMappingValue valueForRootModule(
+      ImmutableMap<String, RepositoryName> repositoryMapping,
+      String rootModuleName,
+      String rootModuleVersion,
+      boolean needWorkspaceRepos)
       throws Exception {
     ImmutableMap.Builder<String, RepositoryName> allMappings = ImmutableMap.builder();
     allMappings.putAll(repositoryMapping);
-    for (String name : analysisMock.getWorkspaceRepos()) {
-      allMappings.put(name, RepositoryName.createUnvalidated(name));
+    if (needWorkspaceRepos) {
+      for (String name : analysisMock.getWorkspaceRepos()) {
+        allMappings.put(name, RepositoryName.createUnvalidated(name));
+      }
     }
     return valueForBzlmod(
         allMappings.buildOrThrow(), RepositoryName.MAIN, rootModuleName, rootModuleVersion);
@@ -97,6 +114,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testSimpleMapping() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     rewriteWorkspace(
         "workspace(name = 'good')",
         "local_repository(",
@@ -143,8 +161,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     RepositoryName.MAIN,
                     "aaa",
                     RepositoryName.MAIN,
-                    TestConstants.LEGACY_WORKSPACE_NAME,
-                    RepositoryName.MAIN,
                     "com_foo_bar_b",
                     RepositoryName.create("bbb+")),
                 "aaa",
@@ -171,8 +187,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     "",
                     RepositoryName.MAIN,
                     "haha",
-                    RepositoryName.MAIN,
-                    TestConstants.LEGACY_WORKSPACE_NAME,
                     RepositoryName.MAIN,
                     "com_foo_bar_b",
                     RepositoryName.create("bbb+")),
@@ -263,8 +277,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     RepositoryName.MAIN,
                     "aaa",
                     RepositoryName.MAIN,
-                    TestConstants.LEGACY_WORKSPACE_NAME,
-                    RepositoryName.MAIN,
                     "bbb1",
                     RepositoryName.create("bbb+1.0"),
                     "bbb2",
@@ -347,6 +359,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testMultipleRepositoriesWithMapping() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     rewriteWorkspace(
         "workspace(name = 'good')",
         "local_repository(",
@@ -390,6 +403,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testRepositoryWithMultipleMappings() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     rewriteWorkspace(
         "workspace(name = 'good')",
         "local_repository(",
@@ -417,6 +431,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testMixtureOfBothSystems_workspaceRepo() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     scratch.overwriteFile(
         "MODULE.bazel",
         "module(name='aaa',version='0.1')",
@@ -469,6 +484,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testMixtureOfBothSystems_mainRepo() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     scratch.overwriteFile(
         "MODULE.bazel", "module(name='aaa',version='0.1')", "bazel_dep(name='bbb',version='1.0')");
     registry
@@ -497,7 +513,8 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
                     "root", RepositoryName.MAIN,
                     "ws_repo", RepositoryName.create("ws_repo")),
                 "aaa",
-                "0.1"));
+                "0.1",
+                true));
   }
 
   @Test
@@ -534,6 +551,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testErrorWithMapping() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     reporter.removeHandler(failFastHandler);
     scratch.overwriteFile(
         "WORKSPACE",
@@ -557,6 +575,7 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void testExplicitMainRepoNameInMapping() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     scratch.overwriteFile(
         "WORKSPACE",
         "workspace(name = 'good')",
@@ -576,18 +595,6 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void builtinsRepo() throws Exception {
-    scratch.overwriteFile(
-        "MODULE.bazel",
-        // Add an explicit dependency on @bazel_tools since we're not using built-in modules in this
-        // test
-        "bazel_dep(name='bazel_tools',version='1.0')");
-    registry
-        .addModule(
-            createModuleKey("bazel_tools", "1.0"),
-            "module(name='bazel_tools',version='1.0')",
-            "bazel_dep(name='foo', version='1.0')")
-        .addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')");
-
     SkyKey builtinsKey = RepositoryMappingValue.key(RepositoryName.create("_builtins"));
     SkyKey toolsKey =
         RepositoryMappingValue.Key.create(ruleClassProvider.getToolsRepository(), false);

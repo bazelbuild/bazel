@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.FakeRegistry;
+import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleExtensionRepoMappingEntriesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
@@ -76,12 +77,21 @@ public abstract class AnalysisMock extends LoadingMock {
     }
   }
 
-  public static AnalysisMock getAnalysisMockWithoutBuiltinModules() {
+  public static AnalysisMock getAnalysisMockWithMinimalBuiltinModules() {
     return new AnalysisMock.Delegate(AnalysisMock.get()) {
       @Override
       public ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
           BlazeDirectories directories) {
-        return ImmutableMap.of();
+        return ImmutableMap.of("bazel_tools", LocalPathOverride.create(
+            directories
+                .getWorkingDirectory()
+                .getRelative("embedded_tools")
+                .getPathString()),
+            "platforms", LocalPathOverride.create(
+                directories
+                    .getWorkingDirectory()
+                    .getRelative("platforms_workspace")
+                    .getPathString()));
       }
     };
   }

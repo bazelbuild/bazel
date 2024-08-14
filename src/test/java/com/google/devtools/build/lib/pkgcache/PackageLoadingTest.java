@@ -78,7 +78,7 @@ public class PackageLoadingTest extends FoundationTestCase {
    *     this test performs, and the results compared to SkyFrame's result.
    */
   private void initializeSkyframeExecutor(boolean doPackageLoadingChecks) throws Exception {
-    AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithoutBuiltinModules();
+    AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithMinimalBuiltinModules();
     ConfiguredRuleClassProvider ruleClassProvider = analysisMock.createRuleClassProvider();
     BlazeDirectories directories =
         new BlazeDirectories(

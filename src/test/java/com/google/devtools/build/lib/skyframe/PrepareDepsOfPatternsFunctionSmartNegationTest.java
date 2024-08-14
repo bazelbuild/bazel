@@ -69,7 +69,7 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
 
   @Before
   public void setUp() throws Exception {
-    AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithoutBuiltinModules();
+    AnalysisMock analysisMock = AnalysisMock.getAnalysisMockWithMinimalBuiltinModules();
     BlazeDirectories directories =
         new BlazeDirectories(
             new ServerDirectories(
