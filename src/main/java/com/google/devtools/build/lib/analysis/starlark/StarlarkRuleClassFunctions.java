@@ -337,7 +337,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
   @Override
   public StarlarkCallable macro(
-      StarlarkFunction implementation, Dict<?, ?> attrs, Object doc, StarlarkThread thread)
+      StarlarkFunction implementation,
+      Dict<?, ?> attrs,
+      boolean finalizer,
+      Object doc,
+      StarlarkThread thread)
       throws EvalException {
     // Ordinarily we would use StarlarkMethod#enableOnlyWithFlag, but this doesn't work for
     // top-level symbols (due to StarlarkGlobalsImpl relying on the Starlark#addMethods overload
@@ -368,6 +372,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
       Attribute attr = descriptor.build(attrName);
       builder.addAttribute(attr);
+    }
+
+    if (finalizer) {
+      builder.setIsFinalizer();
     }
 
     return new MacroFunction(
@@ -1202,9 +1210,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       return null;
     }
 
-    // TODO(#19922): Define getDocumentation() and interaction with ModuleInfoExtractor, analogous
-    // to StarlarkRuleFunction.
-
     @Override
     public Object call(StarlarkThread thread, Tuple args, Dict<String, Object> kwargs)
         throws EvalException, InterruptedException {
@@ -1230,12 +1235,21 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
       MacroInstance macroInstance = macroClass.instantiateAndAddMacro(pkgBuilder, kwargs);
 
-      // TODO: #19922 - Instead of evaluating macros synchronously with their declaration, evaluate
-      // them lazily as the targets they declare are requested. But this would mean that targets
-      // declared in a symbolic macro are invisible to native.existing_rules() calls in a legacy
-      // macro. Therefore, this is blocked on either changing the semantics of existing_rules() or
-      // deprecating it entirely.
-      MacroClass.executeMacroImplementation(macroInstance, pkgBuilder, thread.getSemantics());
+      // Evaluate the macro now, if it's a finalizer. Otherwise, it will be evaluated at the end of
+      // the BUILD file evaluation.
+      //
+      // Non-finalizers must be evaluated synchronously with the call to instantiate the macro,
+      // because their side-effects must be visible to native.existing_rules() calls in legacy
+      // macros.
+      //
+      // TODO: #19922 - Once compatibility with native.existing_rules() in legacy macros is no
+      // longer a concern, we can make all symbolic macros use deferred evaluation rather than
+      // expanding them here. And when we have lazy evaluation, they won't even be expanded at the
+      // end of BUILD file evaluation, but rather at the end of package evaluation (which at that
+      // time would be a distinct skyfunction).
+      if (!macroClass.isFinalizer()) {
+        MacroClass.executeMacroImplementation(macroInstance, pkgBuilder, thread.getSemantics());
+      }
 
       return Starlark.NONE;
     }

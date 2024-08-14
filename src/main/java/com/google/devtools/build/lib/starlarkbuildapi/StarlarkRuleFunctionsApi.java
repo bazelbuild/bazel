@@ -242,6 +242,12 @@ site of the rule. Such attributes can be assigned a default value (as in
         // TODO: #19922 - Make good on the above threat of enforcing a cap on the number of
         // attributes.
         @Param(
+            name = "finalizer",
+            positional = false,
+            named = true,
+            defaultValue = "False",
+            doc = "Whether this macro is a finalizer."),
+        @Param(
             name = "doc",
             positional = false,
             named = true,
@@ -256,7 +262,11 @@ site of the rule. Such attributes can be assigned a default value (as in
       },
       useStarlarkThread = true)
   StarlarkCallable macro(
-      StarlarkFunction implementation, Dict<?, ?> attrs, Object doc, StarlarkThread thread)
+      StarlarkFunction implementation,
+      Dict<?, ?> attrs,
+      boolean finalizer,
+      Object doc,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(

@@ -83,6 +83,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkSemantics;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Location;
@@ -964,6 +965,17 @@ public class Package {
     // All instances of symbolic macros created during package construction, indexed by id (not
     // name).
     private final Map<String, MacroInstance> macros = new LinkedHashMap<>();
+
+    /**
+     * Ids of all symbolic macros that have been declared but not yet evaluated.
+     *
+     * <p>These are listed in the order they were declared. (This probably doesn't matter, but let's
+     * be protective against possible non-determinism.)
+     *
+     * <p>Generally, ordinary symbolic macros are evaluated eagerly and not added to this set, while
+     * finalizers are always use deferred evaluation and end up in here.
+     */
+    private final Set<String> unexpandedMacros = new LinkedHashSet<>();
 
     /**
      * Represents the innermost currently executing symbolic macro, or null if none are running.
@@ -1908,15 +1920,35 @@ public class Package {
 
     /** Adds a symbolic macro instance to the package. */
     public void addMacro(MacroInstance macro) throws NameConflictException {
+      Preconditions.checkState(
+          !isRepoRulePackage(), "Cannot instantiate symbolic macros in this context");
+
       checkMacroName(macro);
       Object prev = macros.put(macro.getId(), macro);
       Preconditions.checkState(prev == null);
+      unexpandedMacros.add(macro.getId());
+
       // Track whether a main submacro has been seen yet. Conflict checking for this is done in
       // checkMacroName().
       if (currentMacroFrame != null) {
         if (macro.getName().equals(currentMacroFrame.macroInstance.getName())) {
           currentMacroFrame.mainSubmacroHasBeenDefined = true;
         }
+      }
+    }
+
+    /**
+     * Marks a symbolic macro as having finished evaluating.
+     *
+     * <p>This will prevent the macro from being run by {@link #expandAllRemainingMacros}.
+     *
+     * <p>The macro must not have previously been marked complete.
+     */
+    public void markMacroComplete(MacroInstance macro) {
+      String id = macro.getId();
+      if (!unexpandedMacros.remove(id)) {
+        throw new IllegalArgumentException(
+            String.format("Macro id '%s' unknown or already marked complete", id));
       }
     }
 
@@ -1954,8 +1986,40 @@ public class Package {
       this.firstWorkspaceSuffixRegisteredToolchain = firstWorkspaceSuffixRegisteredToolchain;
     }
 
+    /**
+     * Ensures that all symbolic macros in the package have expanded.
+     *
+     * <p>This does not run any macro that has already been evaluated. It *does* run macros that are
+     * newly discovered during the operation of this method.
+     */
+    public void expandAllRemainingMacros(StarlarkSemantics semantics) throws InterruptedException {
+      // TODO: #19922 - Protect against unreasonable macro stack depth and large numbers of symbolic
+      // macros overall, for both the eager and deferred evaluation strategies.
+
+      // Note that this operation is idempotent for symmetry with build()/buildPartial(). Though
+      // it's not entirely clear that this is necessary.
+      while (!unexpandedMacros.isEmpty()) { // NB: collection mutated by body
+        String id = unexpandedMacros.iterator().next();
+        MacroInstance macro = macros.get(id);
+        MacroClass.executeMacroImplementation(macro, this, semantics);
+      }
+    }
+
     @CanIgnoreReturnValue
     private Builder beforeBuild(boolean discoverAssumedInputFiles) throws NoSuchPackageException {
+      // For correct semantics, we refuse to build a package that has declared symbolic macros that
+      // have not yet been expanded. (Currently finalizers are the only use case where this happens,
+      // but the Package logic is agnostic to that detail.)
+      //
+      // Production code should be calling expandAllRemainingMacros() to guarantee that nothing is
+      // left unexpanded. Tests that do not declare any symbolic macros need not make the call.
+      // Package deserialization doesn't have to do it either, since we shouldn't be evaluating
+      // symbolic macros on the deserialized result of an already evaluated package.
+      Preconditions.checkState(
+          unexpandedMacros.isEmpty(),
+          "Cannot build a package with unexpanded symbolic macros; call"
+              + " expandAllRemainingMacros()");
+
       if (ioException != null) {
         throw new NoSuchPackageException(
             getPackageIdentifier(), ioExceptionMessage, ioException, ioExceptionDetailedExitCode);
@@ -2047,6 +2111,7 @@ public class Package {
     // allow PackageFunction to delete targets that are found to violate the
     // label-crossing-subpackage-boundaries check. Is there a simpler way to express this idea that
     // doesn't make package-building a multi-stage process?
+    @CanIgnoreReturnValue
     public Builder buildPartial() throws NoSuchPackageException {
       if (alreadyBuilt) {
         return this;
@@ -2086,13 +2151,18 @@ public class Package {
       return pkg;
     }
 
+    /** Completes package construction. Idempotent. */
+    // TODO(brandjon): Do we actually care about idempotence?
     public Package build() throws NoSuchPackageException {
       return build(/* discoverAssumedInputFiles= */ true);
     }
 
     /**
-     * Build the package, optionally adding any labels in the package not already associated with a
-     * target as an input file.
+     * Constructs the package (or does nothing if it's already built) and returns it.
+     *
+     * @param discoverAssumedInputFiles whether to automatically add input file targets to this
+     *     package for "dangling labels", i.e. labels mentioned in this package that point to an
+     *     up-until-now non-existent target in this package
      */
     Package build(boolean discoverAssumedInputFiles) throws NoSuchPackageException {
       if (alreadyBuilt) {

@@ -566,10 +566,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   // Starlark-defined repository rules might technically be callable but we skip over that edge
   // case here.
 
-  // TODO: #19922 - This behavior is necessary to preserve compatibility with use cases for
-  // native.existing_rules(), but it's a blocker for making symbolic macro evaluation lazy.
   @Test
-  public void macroDeclaredTargetsAreVisibleToExistingRules() throws Exception {
+  public void existingRules_canSeeTargetsCreatedByOrdinaryMacros() throws Exception {
     scratch.file(
         "pkg/foo.bzl",
         """
@@ -591,6 +589,31 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
     assertContainsEvent("existing_rules() keys: [\"outer_target\", \"abc_lib\"]");
+  }
+
+  @Test
+  public void existingRules_cannotSeeTargetsCreatedByFinalizers() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            native.cc_binary(name = name + "_lib")
+        my_macro = macro(implementation=_impl, finalizer=True)
+        def query():
+            print("existing_rules() keys: %s" % native.existing_rules().keys())
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro", "query")
+        cc_library(name = "outer_target")
+        my_macro(name="abc")
+        query()
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertContainsEvent("existing_rules() keys: [\"outer_target\"]");
   }
 
   @Test
@@ -705,8 +728,6 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
   @Test
   public void noneAttrValue_doesNotSatisfyMandatoryRequirement() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
@@ -735,8 +756,6 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
   @Test
   public void noneAttrValue_disallowedWhenAttrDoesNotExist() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """

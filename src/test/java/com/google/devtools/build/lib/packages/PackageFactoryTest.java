@@ -1364,6 +1364,93 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertThat(pkg.getTarget("baz")).isInstanceOf(InputFile.class);
   }
 
+  private void defineTreeMacro(boolean deferredEvaluation) throws Exception {
+    // This recursive macro is handy for easily generating nested macros and for testing the limits
+    // of our evaluation. But we don't expect or aim to support users writing recursive macros
+    // generally.
+    // TODO: #19922 - We should just ban recursion.
+    scratch.file(
+        "pkg/tree_macro.bzl",
+        String.format(
+            """
+            def _impl(name, height, breadth):
+                if height == 0:
+                    native.cc_library(name = name)
+                else:
+                    for i in range(breadth):
+                        tree_macro(
+                            name = name + "_" + str(i + 1),
+                            height = height - 1,
+                            breadth = breadth,
+                        )
+
+            tree_macro = macro(
+                implementation = _impl,
+                attrs = {
+                    "height": attr.int(configurable=False),
+                    "breadth": attr.int(configurable=False),
+                },
+                finalizer = %s,
+            )
+            """,
+            deferredEvaluation ? "True" : "False"));
+  }
+
+  @Test
+  public void testSymbolicMacro_recursionAllowedWithEagerEvaluation() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+    defineTreeMacro(/* deferredEvaluation= */ false);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":tree_macro.bzl", "tree_macro")
+        tree_macro(
+            name = "abc",
+            height = 2,
+            breadth = 3,
+        )
+        """);
+
+    Package pkg = loadPackage("pkg");
+    assertThat(pkg.getTargets().keySet())
+        .containsAtLeast(
+            "abc_1_1", "abc_1_2", "abc_1_3", "abc_2_1", "abc_2_2", "abc_2_3", "abc_3_1", "abc_3_2",
+            "abc_3_3");
+  }
+
+  @Test
+  public void testSymbolicMacro_recursionAllowedWithDeferredEvaluation() throws Exception {
+    // TODO: #19922 - When we ban recursion and invert this test, we'll need another test that
+    // checks that deferred evaluation transitively expands submacros.
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+    defineTreeMacro(/* deferredEvaluation= */ true);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":tree_macro.bzl", "tree_macro")
+        tree_macro(
+            name = "abc",
+            height = 3,
+            breadth = 2,
+        )
+        """);
+
+    Package pkg = loadPackage("pkg");
+    assertThat(pkg.getTargets().keySet())
+        .containsAtLeast(
+            "abc_1_1_1",
+            "abc_1_1_2",
+            "abc_1_2_1",
+            "abc_1_2_2",
+            "abc_2_1_1",
+            "abc_2_1_2",
+            "abc_2_2_1",
+            "abc_2_2_2");
+  }
+
+  // TODO: #19922 - Add tests for graceful failure when the macro stack is too deep or there are too
+  // many macros overall, for both eager and deferred evaluation.
+
   @Test
   public void testGlobPatternExtractor() throws Exception {
     StarlarkFile file =

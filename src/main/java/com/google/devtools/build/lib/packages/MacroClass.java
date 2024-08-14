@@ -61,12 +61,17 @@ public final class MacroClass {
   private final StarlarkFunction implementation;
   // Implicit attributes are stored under their given name ("_foo"), not a mangled name ("$foo").
   private final ImmutableMap<String, Attribute> attributes;
+  private final boolean isFinalizer;
 
   public MacroClass(
-      String name, StarlarkFunction implementation, ImmutableMap<String, Attribute> attributes) {
+      String name,
+      StarlarkFunction implementation,
+      ImmutableMap<String, Attribute> attributes,
+      boolean isFinalizer) {
     this.name = name;
     this.implementation = implementation;
     this.attributes = attributes;
+    this.isFinalizer = isFinalizer;
   }
 
   /** Returns the macro's exported name. */
@@ -82,11 +87,20 @@ public final class MacroClass {
     return attributes;
   }
 
+  /**
+   * Returns whether this symbolic macro is a finalizer. All finalizers are run deferred to the end
+   * of the BUILD file's evaluation, rather than synchronously with their instantiation.
+   */
+  public boolean isFinalizer() {
+    return isFinalizer;
+  }
+
   /** Builder for {@link MacroClass}. */
   public static final class Builder {
     @Nullable private String name = null;
     private final StarlarkFunction implementation;
     private final ImmutableMap.Builder<String, Attribute> attributes = ImmutableMap.builder();
+    private boolean isFinalizer = false;
 
     public Builder(StarlarkFunction implementation) {
       this.implementation = implementation;
@@ -104,9 +118,16 @@ public final class MacroClass {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setIsFinalizer() {
+      this.isFinalizer = true;
+      return this;
+    }
+
     public MacroClass build() {
       Preconditions.checkNotNull(name);
-      return new MacroClass(name, implementation, attributes.buildOrThrow());
+      return new MacroClass(
+          name, implementation, attributes.buildOrThrow(), /* isFinalizer= */ isFinalizer);
     }
   }
 
@@ -280,6 +301,8 @@ public final class MacroClass {
         // Restore the previously running symbolic macro's state (if any).
         @Nullable MacroFrame top = builder.setCurrentMacroFrame(parentMacroFrame);
         Preconditions.checkState(top == childMacroFrame, "inconsistent macro stack state");
+        // Mark the macro as having completed, even if it was in error (or interrupted?).
+        builder.markMacroComplete(macro);
       }
     }
   }
