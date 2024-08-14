@@ -1422,55 +1422,63 @@ public class RemoteExecutionService {
         previousExecution.action.getSpawn().getOutputFiles().stream()
             .collect(toImmutableMap(output -> execRoot.getRelative(output.getExecPath()), o -> o));
     Map<Path, Path> realToTmpPath = new HashMap<>();
-    for (String output : action.getCommand().getOutputPathsList()) {
-      Path sourcePath =
-          previousExecution
-              .action
-              .getRemotePathResolver()
-              .outputPathToLocalPath(encodeBytestringUtf8(output));
-      ActionInput outputArtifact = previousOutputs.get(sourcePath);
-      Path tmpPath = tempPathGenerator.generateTempPath();
-      tmpPath.getParentDirectory().createDirectoryAndParents();
-      try {
-        if (outputArtifact.isDirectory()) {
-          tmpPath.createDirectory();
-          FileSystemUtils.copyTreesBelow(sourcePath, tmpPath, Symlinks.NOFOLLOW);
-        } else if (outputArtifact.isSymlink()) {
-          FileSystemUtils.ensureSymbolicLink(tmpPath, sourcePath.readSymbolicLink());
-        } else {
-          FileSystemUtils.copyFile(sourcePath, tmpPath);
-        }
-      } catch (FileNotFoundException e) {
-        // The spawn this action was deduplicated against failed to create an output file. If the
-        // output is mandatory, we cannot reuse the previous execution.
-        if (action.getSpawn().isMandatoryOutput(outputArtifact)) {
-          return null;
+    try {
+      for (String output : action.getCommand().getOutputPathsList()) {
+        Path sourcePath =
+            previousExecution
+                .action
+                .getRemotePathResolver()
+                .outputPathToLocalPath(encodeBytestringUtf8(output));
+        ActionInput outputArtifact = previousOutputs.get(sourcePath);
+        Path tmpPath = tempPathGenerator.generateTempPath();
+        tmpPath.getParentDirectory().createDirectoryAndParents();
+        try {
+          if (outputArtifact.isDirectory()) {
+            tmpPath.createDirectory();
+            FileSystemUtils.copyTreesBelow(sourcePath, tmpPath, Symlinks.NOFOLLOW);
+          } else if (outputArtifact.isSymlink()) {
+            FileSystemUtils.ensureSymbolicLink(tmpPath, sourcePath.readSymbolicLink());
+          } else {
+            FileSystemUtils.copyFile(sourcePath, tmpPath);
+          }
+
+          Path targetPath =
+              action.getRemotePathResolver().outputPathToLocalPath(encodeBytestringUtf8(output));
+          realToTmpPath.put(targetPath, tmpPath);
+        } catch (FileNotFoundException e) {
+          // The spawn this action was deduplicated against failed to create an output file. If the
+          // output is mandatory, we cannot reuse the previous execution.
+          if (action.getSpawn().isMandatoryOutput(outputArtifact)) {
+            return null;
+          }
         }
       }
 
-      Path targetPath =
-          action.getRemotePathResolver().outputPathToLocalPath(encodeBytestringUtf8(output));
-      realToTmpPath.put(targetPath, tmpPath);
+      // TODO: FileOutErr is action-scoped, not spawn-scoped, but this is not a problem for the
+      //  current use case of supporting deduplication of path mapped spawns:
+      //  1. Starlark and C++ compilation actions always create a single spawn.
+      //  2. Java compilation actions may run a fallback spawn, but reset the FileOutErr before
+      //     running it.
+      //  If this changes, we will need to introduce a spawn-scoped OutErr.
+      FileOutErr.dump(
+          previousExecution.action.getSpawnExecutionContext().getFileOutErr(),
+          action.getSpawnExecutionContext().getFileOutErr());
+
+      action
+          .getSpawnExecutionContext()
+          .lockOutputFiles(
+              previousSpawnResult.exitCode(),
+              previousSpawnResult.getFailureMessage(),
+              action.getSpawnExecutionContext().getFileOutErr());
+      // All outputs are created locally.
+      moveOutputsToFinalLocation(realToTmpPath.keySet(), realToTmpPath);
+    } catch (InterruptedException | IOException e) {
+      // Delete any copied output files.
+      for (Path tmpPath : realToTmpPath.values()) {
+        tmpPath.delete();
+      }
+      throw e;
     }
-
-    // TODO: FileOutErr is action-scoped, not spawn-scoped, but this is not a problem for the
-    //  current use case of supporting deduplication of path mapped spawns:
-    //  1. Starlark and C++ compilation actions always create a single spawn.
-    //  2. Java compilation actions may run a fallback spawn, but reset the FileOutErr before
-    //     running it.
-    //  If this changes, we will need to introduce a spawn-scoped OutErr.
-    FileOutErr.dump(
-        previousExecution.action.getSpawnExecutionContext().getFileOutErr(),
-        action.getSpawnExecutionContext().getFileOutErr());
-
-    action
-        .getSpawnExecutionContext()
-        .lockOutputFiles(
-            previousSpawnResult.exitCode(),
-            previousSpawnResult.getFailureMessage(),
-            action.getSpawnExecutionContext().getFileOutErr());
-    // All outputs are created locally.
-    moveOutputsToFinalLocation(realToTmpPath.keySet(), realToTmpPath);
 
     return previousSpawnResult;
   }
