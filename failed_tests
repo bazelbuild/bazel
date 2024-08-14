@@ -35,10 +35,10 @@
 //src/test/java/com/google/devtools/build/lib/skyframe:RepositoryMappingFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe:WorkspaceNameFunctionTest
 //src/test/java/com/google/devtools/build/lib/starlark:BindTest
+//src/test/java/com/google/devtools/build/lib/starlark:StarlarkRuleClassFunctionsTest
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/starlark:StarlarkRuleClassFunctionsTest
 //src/test/java/com/google/devtools/build/lib/starlark:StarlarkTests
 //src/test/java/com/google/devtools/build/lib/rules/apple:AppleRulesTests
 //src/test/java/com/google/devtools/build/lib/rules/objc:BazelJ2ObjcLibraryTest
