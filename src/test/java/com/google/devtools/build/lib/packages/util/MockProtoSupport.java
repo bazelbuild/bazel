@@ -41,7 +41,7 @@ public final class MockProtoSupport {
   }
 
   private static void registerProtoToolchain(MockToolsConfig config) throws IOException {
-    config.append("WORKSPACE", "register_toolchains('tools/proto/toolchains:all')");
+    config.append("WORKSPACE", "register_toolchains('//tools/proto/toolchains:all')");
     config.create(
         "tools/proto/toolchains/BUILD",
         TestConstants.LOAD_PROTO_TOOLCHAIN,

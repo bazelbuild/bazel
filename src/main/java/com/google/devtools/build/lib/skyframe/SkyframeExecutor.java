@@ -748,8 +748,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               throw new IllegalStateException("supposed to be unused");
             });
     map.put(SkyFunctions.EXTERNAL_PACKAGE, new ExternalPackageFunction(externalPackageHelper));
-    // Inject an empty default BAZEL_DEP_GRAPH SkyFunction for Blaze, it'll be overridden by
-    // BazelRepositoryModule in Bazel
+    // Inject an empty default BAZEL_DEP_GRAPH SkyFunction for unit tests.
     map.put(
         SkyFunctions.BAZEL_DEP_GRAPH,
         new SkyFunction() {
