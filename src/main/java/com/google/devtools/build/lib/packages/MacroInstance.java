@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import java.util.Map;
 
 /**
@@ -29,6 +31,8 @@ import java.util.Map;
  * <p>Macro instance names are not guaranteed to be unique within a package; see {@link #getId}.
  */
 public final class MacroInstance {
+
+  private final Package pkg;
 
   private final MacroClass macroClass;
 
@@ -45,12 +49,19 @@ public final class MacroInstance {
    * its name. For most instances it is 1, but for the main submacro of a parent macro it is one
    * more than the parent's depth.
    */
-  public MacroInstance(MacroClass macroClass, Map<String, Object> attrValues, int sameNameDepth) {
+  public MacroInstance(
+      Package pkg, MacroClass macroClass, Map<String, Object> attrValues, int sameNameDepth) {
+    this.pkg = pkg;
     this.macroClass = macroClass;
     this.attrValues = ImmutableMap.copyOf(attrValues);
     Preconditions.checkArgument(sameNameDepth > 0);
     this.sameNameDepth = sameNameDepth;
     Preconditions.checkArgument(macroClass.getAttributes().keySet().equals(attrValues.keySet()));
+  }
+
+  /** Returns the package this instance was created in. */
+  public Package getPackage() {
+    return pkg;
   }
 
   /** Returns the {@link MacroClass} (i.e. schema info) that this instance parameterizes. */
@@ -109,5 +120,20 @@ public final class MacroInstance {
    */
   public ImmutableMap<String, Object> getAttrValues() {
     return attrValues;
+  }
+
+  /**
+   * Logical tuple of the package and id within the package. Used to label the Starlark evaluation
+   * environment.
+   */
+  @AutoValue
+  abstract static class UniqueId {
+    static UniqueId create(PackageIdentifier packageId, String id) {
+      return new AutoValue_MacroInstance_UniqueId(packageId, id);
+    }
+
+    abstract PackageIdentifier packageId();
+
+    abstract String id();
   }
 }

@@ -16,12 +16,10 @@ package com.google.devtools.build.lib.packages;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Package.Builder.MacroFrame;
 import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
@@ -228,7 +226,7 @@ public final class MacroClass {
             ? 1
             : parentMacroFrame.macroInstance.getSameNameDepth() + 1;
 
-    return new MacroInstance(this, attrValues, sameNameDepth);
+    return pkgBuilder.createMacro(this, attrValues, sameNameDepth);
   }
 
   /**
@@ -269,7 +267,8 @@ public final class MacroClass {
               semantics,
               /* contextDescription= */ "",
               SymbolGenerator.create(
-                  MacroClassId.create(builder.getPackageIdentifier(), macro.getName())));
+                  MacroInstance.UniqueId.create(
+                      macro.getPackage().getPackageIdentifier(), macro.getId())));
       thread.setPrintHandler(Event.makeDebugPrintHandler(builder.getLocalEventHandler()));
 
       // TODO: #19922 - Technically the embedded SymbolGenerator field should use a different key
@@ -305,16 +304,5 @@ public final class MacroClass {
         builder.markMacroComplete(macro);
       }
     }
-  }
-
-  @AutoValue
-  abstract static class MacroClassId {
-    static MacroClassId create(PackageIdentifier id, String name) {
-      return new AutoValue_MacroClass_MacroClassId(id, name);
-    }
-
-    abstract PackageIdentifier packageId();
-
-    abstract String name();
   }
 }

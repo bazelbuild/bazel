@@ -1598,6 +1598,15 @@ public class Package {
     }
 
     /**
+     * Creates a new {@link MacroInstance} {@code m} where {@code m.getPackage()} is the {@link
+     * Package} associated with this {@link Builder}.
+     */
+    MacroInstance createMacro(
+        MacroClass macroClass, Map<String, Object> attrValues, int sameNameDepth) {
+      return new MacroInstance(pkg, macroClass, attrValues, sameNameDepth);
+    }
+
+    /**
      * Inserts a target into the targets map. Returns the previous target if one was present, or
      * null.
      */
