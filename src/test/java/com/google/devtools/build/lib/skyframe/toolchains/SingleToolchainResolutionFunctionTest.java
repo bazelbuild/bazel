@@ -91,7 +91,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
         ImmutableList.of("//constraints:linux"),
         ImmutableList.of("//constraints:linux"),
         "baz");
-    rewriteWorkspace(
+    rewriteModuleDotBazel(
         "register_toolchains(",
         "'//toolchain:toolchain_1',",
         "'//toolchain:toolchain_2',",
@@ -120,7 +120,7 @@ public class SingleToolchainResolutionFunctionTest extends ToolchainTestCase {
   @Test
   public void testResolution_noneFound() throws Exception {
     // Clear the toolchains.
-    rewriteWorkspace();
+    rewriteModuleDotBazel();
 
     SkyKey key =
         SingleToolchainResolutionValue.key(

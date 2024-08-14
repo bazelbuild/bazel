@@ -1191,6 +1191,16 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   }
 
   /**
+   * Rewrites the MODULE.bazel file
+   *
+   * <p>Triggers Skyframe to reinitialize everything.
+   */
+  public void rewriteModuleDotBazel(String... lines) throws Exception {
+    scratch.overwriteFile("MODULE.bazel", lines);
+    invalidatePackages();
+  }
+
+  /**
    * Create and return a configured scratch rule.
    *
    * @param packageName the package name of the rule.

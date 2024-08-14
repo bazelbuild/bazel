@@ -21,14 +21,14 @@
 //src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract:StarlarkDocExtractTests
 //src/test/java/com/google/devtools/build/lib/runtime:ConfigCommandTest
 //src/test/java/com/google/devtools/build/lib/skyframe/packages:BazelPackageLoaderTest
-
-^^ Fixed tests ^^
-
 //src/test/java/com/google/devtools/build/lib/skyframe/toolchains:RegisteredExecutionPlatformsFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe/toolchains:RegisteredToolchainsFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe/toolchains:SingleToolchainResolutionFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe/toolchains:ToolchainResolutionFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe/toolchains:ToolchainsForTargetsTest
+
+^^ Fixed tests ^^
+
 //src/test/java/com/google/devtools/build/lib/skyframe:BuiltinsInjectionTest
 //src/test/java/com/google/devtools/build/lib/skyframe:BzlLoadFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe:ContainingPackageLookupFunctionTest
