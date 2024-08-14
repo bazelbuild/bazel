@@ -198,4 +198,14 @@ public class CommandLinePathFactoryTest {
                 ImmutableMap.of("PATH", PATH_JOINER.join("/bin", "/does/not/exist", "/usr/bin")),
                 "a"));
   }
+
+  @Test
+  public void pathLookupWithInvalidPath() throws Exception {
+    CommandLinePathFactory factory = new CommandLinePathFactory(filesystem, ImmutableMap.of());
+
+    createExecutable("/bin/true");
+    var path = ImmutableMap.of(
+        "PATH", PATH_JOINER.join("", ".", "/bin"));
+    assertThat(factory.create(path, "true")).isEqualTo(filesystem.getPath("/bin/true"));
+  }
 }
