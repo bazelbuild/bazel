@@ -56,16 +56,11 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     mockEmbeddedTools(installBase);
     fetchExternalRepo(RepositoryName.create("bazel_tools"));
 
-    createWorkspaceFile("");
+    createModuleDotBazel("");
   }
 
-  private static String getDefaultWorkspaceContent() {
-    // Skip the WORKSPACE suffix to avoid loading rules_java
-    return "# __SKIP_WORKSPACE_SUFFIX__";
-  }
-
-  private void createWorkspaceFile(String content) throws Exception {
-    file("WORKSPACE", getDefaultWorkspaceContent(), content);
+  private void createModuleDotBazel(String... contents) throws Exception {
+    file("MODULE.bazel", contents);
   }
 
   private static void mockEmbeddedTools(Path embeddedBinaries) throws IOException {
@@ -151,37 +146,13 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   @Test
   public void simpleLocalRepositoryPackage() throws Exception {
-    createWorkspaceFile("local_repository(name = 'r', path='r')");
-    file("r/WORKSPACE", "workspace(name = 'r')");
+    createModuleDotBazel("bazel_dep(name = 'r')", "local_path_override(module_name = 'r', path='r')");
+    file("r/MODULE.bazel", "module(name = 'r')");
     file("r/good/BUILD", "sh_library(name = 'good')");
-    RepositoryName rRepoName = RepositoryName.create("r");
+    RepositoryName rRepoName = RepositoryName.create("r+");
     fetchExternalRepo(rRepoName);
 
     PackageIdentifier pkgId = PackageIdentifier.create(rRepoName, PathFragment.create("good"));
-    Package goodPkg;
-    RepositoryMapping repoMapping;
-    try (PackageLoader pkgLoader = newPackageLoader()) {
-      goodPkg = pkgLoader.loadPackage(pkgId);
-      repoMapping = pkgLoader.makeLoadingContext().getRepositoryMapping();
-    }
-    assertThat(goodPkg.containsErrors()).isFalse();
-    assertThat(goodPkg.getTarget("good").getAssociatedRule().getRuleClass())
-        .isEqualTo("sh_library");
-    assertThat(repoMapping.entries().get("r")).isEqualTo(rRepoName);
-    assertNoEvents(handler.getEvents());
-  }
-
-  @Test
-  public void newLocalRepository() throws Exception {
-    createWorkspaceFile(
-        "new_local_repository(name = 'r', path = '/r', "
-            + "build_file_content = 'sh_library(name = \"good\")')");
-    fs.getPath("/r").createDirectoryAndParents();
-    RepositoryName rRepoName = RepositoryName.create("r");
-    fetchExternalRepo(rRepoName);
-
-    PackageIdentifier pkgId =
-        PackageIdentifier.create(rRepoName, PathFragment.create(""));
     Package goodPkg;
     RepositoryMapping repoMapping;
     try (PackageLoader pkgLoader = newPackageLoader()) {

@@ -20,10 +20,10 @@
 //src/test/java/com/google/devtools/build/lib/rules/repository:RepositoryTests
 //src/test/java/com/google/devtools/build/lib/rules/starlarkdocextract:StarlarkDocExtractTests
 //src/test/java/com/google/devtools/build/lib/runtime:ConfigCommandTest
+//src/test/java/com/google/devtools/build/lib/skyframe/packages:BazelPackageLoaderTest
 
 ^^ Fixed tests ^^
 
-//src/test/java/com/google/devtools/build/lib/skyframe/packages:BazelPackageLoaderTest
 //src/test/java/com/google/devtools/build/lib/skyframe/toolchains:RegisteredExecutionPlatformsFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe/toolchains:RegisteredToolchainsFunctionTest
 //src/test/java/com/google/devtools/build/lib/skyframe/toolchains:SingleToolchainResolutionFunctionTest
