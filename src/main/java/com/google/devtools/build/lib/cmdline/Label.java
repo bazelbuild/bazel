@@ -800,4 +800,8 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
       return Label.createUnvalidated(pkgId, name);
     }
   }
+
+  public void foo() {
+
+  }
 }
