@@ -1339,6 +1339,11 @@ public class RemoteExecutionService {
       this.spawnResultFuture = SettableFuture.create();
     }
 
+    // TODO(#23288): Support deduplication for Java compilation actions, which is difficult due
+    //  to the potentially concurrent rewriting of paths in jdeps as well as the fallback spawn.
+    private static final Set<String> NON_DEDUPLICATABLE_ACTIONS =
+        ImmutableSet.of("Javac", "JavacTurbine", "Turbine");
+
     /**
      * Creates a new {@link LocalExecution} instance tracking the potential local execution of the
      * given {@link RemoteAction} if there is a chance that the same action will be executed by a
@@ -1351,6 +1356,9 @@ public class RemoteExecutionService {
     @Nullable
     public static LocalExecution createIfDeduplicatable(RemoteAction action) {
       if (action.getSpawn().getPathMapper().isNoop()) {
+        return null;
+      }
+      if (NON_DEDUPLICATABLE_ACTIONS.contains(action.getSpawn().getMnemonic())) {
         return null;
       }
       return new LocalExecution(action);
