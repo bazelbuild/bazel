@@ -13,18 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactCodecs;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.nestedset.DeferredNestedSetCodec;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
-import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import java.util.function.Supplier;
 
 /** A {@link BlazeModule} to store Skyframe serialization lifecycle hooks. */
 public class SerializationModule extends BlazeModule {
@@ -42,40 +34,12 @@ public class SerializationModule extends BlazeModule {
     // This is injected as a callback instead of evaluated eagerly to avoid forcing the somewhat
     // expensive AutoRegistry.get call on clients that don't require it.
     runtime.initAnalysisCodecRegistry(
-        createAnalysisCodecRegistrySupplier(
+        SerializationRegistrySetupHelpers.createAnalysisCodecRegistrySupplier(
             runtime,
-            CommonSerializationConstants.makeReferenceConstants(
+            SerializationRegistrySetupHelpers.makeReferenceConstants(
                 directories,
                 runtime.getRuleClassProvider(),
                 directories.getWorkspace().getBaseName())));
   }
 
-  /**
-   * Initializes an {@link ObjectCodecRegistry} for analysis serialization.
-   *
-   * <p>This gets injected into {@link BlazeRuntime} and made available to clients via {@link
-   * BlazeRuntime#getAnalysisCodecRegistry}.
-   *
-   * <p>TODO: move this to CommonSerializationConstants instead.
-   */
-  protected static Supplier<ObjectCodecRegistry> createAnalysisCodecRegistrySupplier(
-      BlazeRuntime runtime, ImmutableList<Object> additionalReferenceConstants) {
-    return () -> {
-      ObjectCodecRegistry.Builder builder =
-          AutoRegistry.get()
-              .getBuilder()
-              .addReferenceConstants(additionalReferenceConstants)
-              .computeChecksum(false)
-              .add(ArrayCodec.forComponentType(Artifact.class))
-              .add(new DeferredNestedSetCodec())
-              .add(Label.valueSharingCodec())
-              .add(PackageIdentifier.valueSharingCodec())
-              .add(ConfiguredTargetKey.valueSharingCodec());
-      builder =
-          CommonSerializationConstants.addStarlarkFunctionality(
-              builder, runtime.getRuleClassProvider());
-      ArtifactCodecs.VALUE_SHARING_CODECS.forEach(builder::add);
-      return builder.build();
-    };
-  }
 }

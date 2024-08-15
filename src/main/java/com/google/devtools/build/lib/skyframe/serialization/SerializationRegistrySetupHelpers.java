@@ -15,22 +15,36 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactCodecs;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.OutputDirectory;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.collect.nestedset.DeferredNestedSetCodec;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.StructProvider;
+import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.function.Supplier;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.syntax.Location;
 
-/** Objects that should be serialized as constants in Skyframe serialization. */
-public final class CommonSerializationConstants {
+/**
+ * Helpers for setting up the serialization registry (e.g. explicit codecs and constants).
+ *
+ * <p>The vast majority of codecs are automatically registered (see {@link AutoRegistry} and {@link
+ * CodecScanner}). This class provides methods to register additional codecs and constants,
+ * depending on the usage context.
+ */
+public final class SerializationRegistrySetupHelpers {
 
-  private CommonSerializationConstants() {}
+  private SerializationRegistrySetupHelpers() {}
 
   private static final ImmutableList<String> OUTPUT_PATHS =
       ImmutableList.of("k8-opt", "k8-fastbuild", "k8-debug");
@@ -103,5 +117,30 @@ public final class CommonSerializationConstants {
             ImmutableSortedMap.copyOf(starlarkEnv.getWorkspaceBzlNativeBindings()).values());
 
     return builder;
+  }
+
+  /**
+   * Initializes an {@link ObjectCodecRegistry} for analysis serialization.
+   *
+   * <p>This gets injected into {@link BlazeRuntime} and made available to clients via {@link
+   * BlazeRuntime#getAnalysisCodecRegistry}.
+   */
+  public static Supplier<ObjectCodecRegistry> createAnalysisCodecRegistrySupplier(
+      BlazeRuntime runtime, ImmutableList<Object> additionalReferenceConstants) {
+    return () -> {
+      ObjectCodecRegistry.Builder builder =
+          AutoRegistry.get()
+              .getBuilder()
+              .addReferenceConstants(additionalReferenceConstants)
+              .computeChecksum(false)
+              .add(ArrayCodec.forComponentType(Artifact.class))
+              .add(new DeferredNestedSetCodec())
+              .add(Label.valueSharingCodec())
+              .add(PackageIdentifier.valueSharingCodec())
+              .add(ConfiguredTargetKey.valueSharingCodec());
+      builder = addStarlarkFunctionality(builder, runtime.getRuleClassProvider());
+      ArtifactCodecs.VALUE_SHARING_CODECS.forEach(builder::add);
+      return builder.build();
+    };
   }
 }
