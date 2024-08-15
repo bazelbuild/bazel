@@ -864,26 +864,26 @@ public class CustomCommandLine extends AbstractCommandLine {
     }
 
     /**
-     * Adds an artifact by calling {@link Artifact#getExecPath}.
+     * Adds an artifact by calling {@link ActionInput#getExecPath}.
      *
-     * <p>Prefer this over manually calling {@link Artifact#getExecPath}, as it avoids storing a
+     * <p>Prefer this over manually calling {@link ActionInput#getExecPath}, as it avoids storing a
      * copy of the artifact path string.
      */
     @CanIgnoreReturnValue
-    public Builder addExecPath(@Nullable Artifact value) {
+    public Builder addExecPath(@Nullable ActionInput value) {
       return addObjectInternal(value);
     }
 
     /**
-     * Adds an artifact by calling {@link Artifact#getExecPath}.
+     * Adds an artifact by calling {@link ActionInput#getExecPath}.
      *
-     * <p>Prefer this over manually calling {@link Artifact#getExecPath}, as it avoids storing a
+     * <p>Prefer this over manually calling {@link ActionInput#getExecPath}, as it avoids storing a
      * copy of the artifact path string.
      *
      * <p>If the value is null, neither the arg nor the value is added.
      */
     @CanIgnoreReturnValue
-    public Builder addExecPath(@CompileTimeConstant String arg, @Nullable Artifact value) {
+    public Builder addExecPath(@CompileTimeConstant String arg, @Nullable ActionInput value) {
       return addObjectInternal(arg, value);
     }
 

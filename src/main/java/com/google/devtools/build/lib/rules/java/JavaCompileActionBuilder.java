@@ -282,7 +282,6 @@ public final class JavaCompileActionBuilder {
     if (compressJar) {
       result.add("--compress_jar");
     }
-    result.addExecPath("--output_deps_proto", outputs.depsProto());
     result.addExecPaths("--bootclasspath", bootClassPath.bootclasspath());
     if (bootClassPath.systemPath().isPresent()) {
       result.addPath("--system", bootClassPath.systemPath().get());

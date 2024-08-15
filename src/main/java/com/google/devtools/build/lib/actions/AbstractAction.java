@@ -668,7 +668,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
    * Returns artifacts that should be subject to path mapping (see {@link Spawn#getPathMapper()},
    * but aren't inputs of the action.
    */
-  public NestedSet<Artifact> getAdditionalArtifactsForPathMapping() {
+  public NestedSet<? extends ActionInput> getAdditionalArtifactsForPathMapping() {
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 }

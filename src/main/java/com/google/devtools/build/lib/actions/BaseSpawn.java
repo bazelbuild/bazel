@@ -81,7 +81,7 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public Collection<Artifact> getOutputFiles() {
+  public Collection<? extends ActionInput> getOutputFiles() {
     return action.getOutputs();
   }
 

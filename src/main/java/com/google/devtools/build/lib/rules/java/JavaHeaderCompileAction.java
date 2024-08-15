@@ -143,6 +143,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
           JavaCompileAction.createFullOutputDeps(
               spawnResult,
               outputDepsProto,
+              JavaCompileAction.getMappedOutputDepsProto(outputDepsProto),
               getInputs(),
               getAdditionalArtifactsForPathMapping(),
               context,

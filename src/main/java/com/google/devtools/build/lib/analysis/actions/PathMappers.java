@@ -14,12 +14,11 @@
 
 package com.google.devtools.build.lib.analysis.actions;
 
-
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.Action;
+import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
@@ -118,7 +117,7 @@ public final class PathMappers {
   public static void addToFingerprint(
       String mnemonic,
       Map<String, String> executionInfo,
-      NestedSet<Artifact> additionalArtifactsForPathMapping,
+      NestedSet<? extends ActionInput> additionalArtifactsForPathMapping,
       ActionKeyContext actionKeyContext,
       OutputPathsMode outputPathsMode,
       Fingerprint fingerprint)
