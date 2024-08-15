@@ -179,8 +179,6 @@ bazel_fragments["BazelConfigurarion$Options"] = fragment(
 
 bazel_fragments["BazelPythonConfiguration$Options"] = fragment(
     propagate = [
-        "//command_line_option:python2_path",
-        "//command_line_option:python3_path",
         "//command_line_option:python_top",
         "//command_line_option:python_path",
         "//command_line_option:experimental_python_import_all_repositories",
