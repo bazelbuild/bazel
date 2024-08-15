@@ -306,19 +306,25 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
             "com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue",
             "com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue",
             "com.google.devtools.build.lib.skyframe.ConfiguredTargetKey",
+            "com.google.devtools.build.lib.cmdline.Label",
             "java.lang.Object[]");
   }
 
   private void setupScenarioWithAspects() throws Exception {
     write(
-        "foo/file_count.bzl",
+        "foo/provider.bzl",
         """
 FileCountInfo = provider(
     fields = {
         'count' : 'number of files'
     }
 )
+""");
 
+    write(
+        "foo/file_count.bzl",
+        """
+load("//foo:provider.bzl", "FileCountInfo")
 def _file_count_aspect_impl(target, ctx):
     count = 0
     # Make sure the rule has a srcs attribute.

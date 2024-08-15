@@ -28,4 +28,12 @@ public class LabelCodecTest {
   public void testCodec() throws Exception {
     new SerializationTester(Label.parseCanonical("//foo/bar:baz")).runTests();
   }
+
+  @Test
+  public void sharedValueCodec_works() throws Exception {
+    new SerializationTester(Label.parseCanonical("//foo/bar:baz"))
+        .addCodec(Label.valueSharingCodec())
+        .makeMemoizingAndAllowFutureBlocking(true)
+        .runTests();
+  }
 }

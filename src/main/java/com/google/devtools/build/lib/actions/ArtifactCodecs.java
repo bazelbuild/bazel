@@ -45,6 +45,7 @@ import java.io.IOException;
  */
 public final class ArtifactCodecs {
 
+  // TODO: b/359437873 - generate with @AutoCodec.
   public static final ImmutableList<ObjectCodec<? extends Artifact>> VALUE_SHARING_CODECS =
       ImmutableList.of(
           new DerivedArtifactValueSharingCodec(),

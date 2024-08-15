@@ -661,6 +661,7 @@ public final class JavaInfo extends NativeInfo
     }
   }
 
+  // TODO: b/359437873 - generate with @AutoCodec.
   @Keep
   private static final class JavaInfoValueSharingCodec extends DeferredObjectCodec<JavaInfo> {
 
