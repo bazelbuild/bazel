@@ -43,9 +43,7 @@ import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.bugreport.Crash;
 import com.google.devtools.build.lib.bugreport.CrashContext;
-import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
-import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
 import com.google.devtools.build.lib.buildtool.CommandPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
@@ -324,27 +322,38 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     ImmutableSet.Builder<ProfilerTask> profiledTasksBuilder = ImmutableSet.builder();
     Profiler.Format format = Format.JSON_TRACE_FILE_FORMAT;
     Path profilePath = null;
-    UploadContext streamingContext = null;
+    InstrumentationOutput profile = null;
     try {
       if (tracerEnabled) {
         if (options.profilePath == null) {
+          String profileName = "command.profile.gz";
           format = Format.JSON_TRACE_FILE_COMPRESSED_FORMAT;
           if (bepOptions != null && bepOptions.streamingLogFileUploads) {
             BuildEventArtifactUploader buildEventArtifactUploader =
                 newUploader(env, bepOptions.buildEventUploadStrategy);
-            streamingContext = buildEventArtifactUploader.startUpload(LocalFileType.LOG, null);
-            out = streamingContext.getOutputStream();
+            profile =
+                new BuildEventArtifactInstrumentationOutput(
+                    profileName, buildEventArtifactUploader);
+            out = profile.createOutputStream();
           } else {
-            profilePath = workspace.getOutputBase().getRelative("command.profile.gz");
-            out = profilePath.getOutputStream();
+            profilePath = workspace.getOutputBase().getRelative(profileName);
+            profile = new LocalInstrumentationOutput(profileName, profilePath);
+            out = profile.createOutputStream();
           }
         } else {
           format =
               options.profilePath.toString().endsWith(".gz")
                   ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
                   : Format.JSON_TRACE_FILE_FORMAT;
+          String profileName =
+              (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT)
+                  ? "command.profile.gz"
+                  : "command.profile.json";
           profilePath = workspace.getWorkspace().getRelative(options.profilePath);
-          out = profilePath.getOutputStream(/* append= */ false, /* internal= */ true);
+          profile = new LocalInstrumentationOutput(profileName, profilePath);
+          out =
+              ((LocalInstrumentationOutput) profile)
+                  .createOutputStream(/* append= */ false, /* internal= */ true);
         }
         for (ProfilerTask profilerTask : ProfilerTask.values()) {
           if (!profilerTask.isVfs()
@@ -445,7 +454,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     } catch (IOException e) {
       eventHandler.handle(Event.error("Error while creating profile file: " + e.getMessage()));
     }
-    return new ProfilerStartedEvent(profilePath, streamingContext, format);
+    return new ProfilerStartedEvent(profile);
   }
 
   public FileSystem getFileSystem() {

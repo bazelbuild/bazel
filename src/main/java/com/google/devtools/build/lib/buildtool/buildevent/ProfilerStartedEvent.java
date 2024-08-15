@@ -13,46 +13,20 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool.buildevent;
 
-import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.lib.profiler.Profiler;
-import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.runtime.InstrumentationOutput;
 import javax.annotation.Nullable;
 
 /** This event is fired when the profiler is started. */
 public class ProfilerStartedEvent implements ExtendedEventHandler.Postable {
-  @Nullable private final Path profilePath;
-  @Nullable private final UploadContext streamingContext;
-  private final Profiler.Format format;
+  @Nullable private final InstrumentationOutput profile;
 
-  public ProfilerStartedEvent(
-      @Nullable Path profilePath,
-      @Nullable UploadContext streamingContext,
-      Profiler.Format format) {
-    this.profilePath = profilePath;
-    this.streamingContext = streamingContext;
-    this.format = format;
+  public ProfilerStartedEvent(@Nullable InstrumentationOutput profile) {
+    this.profile = profile;
   }
 
   @Nullable
-  public Path getProfilePath() {
-    return profilePath;
-  }
-
-  @Nullable
-  public UploadContext getStreamingContext() {
-    return streamingContext;
-  }
-
-  public String getName() {
-    switch (format) {
-      case JSON_TRACE_FILE_FORMAT -> {
-        return "command.profile.json";
-      }
-      case JSON_TRACE_FILE_COMPRESSED_FORMAT -> {
-        return "command.profile.gz";
-      }
-    }
-    throw new UnsupportedOperationException();
+  public InstrumentationOutput getProfile() {
+    return profile;
   }
 }
