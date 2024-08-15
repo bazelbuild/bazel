@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksu
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -25,7 +26,7 @@ import org.junit.runner.RunWith;
 @RunWith(TestParameterInjector.class)
 public final class ConfiguredTargetKeyTest extends BuildViewTestCase {
   @Test
-  public void testCodec() throws Exception {
+  public void testCodec(@TestParameter boolean useSharedValues) throws Exception {
     var nullConfigKey =
         createKey(
             /* useNullConfig= */ true,
@@ -52,14 +53,22 @@ public final class ConfiguredTargetKeyTest extends BuildViewTestCase {
             /* isToolchainKey= */ true,
             /* shouldApplyRuleTransition= */ false);
 
-    new SerializationTester(
-            nullConfigKey,
-            keyWithConfig,
-            keyWithFinalConfig,
-            toolchainKey,
-            toolchainKeyWithFinalConfig)
-        .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
-        .runTests();
+    var tester =
+        new SerializationTester(
+                nullConfigKey,
+                keyWithConfig,
+                keyWithFinalConfig,
+                toolchainKey,
+                toolchainKeyWithFinalConfig)
+            .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache());
+
+    if (useSharedValues) {
+      tester
+          .addCodec(ConfiguredTargetKey.valueSharingCodec())
+          .makeMemoizingAndAllowFutureBlocking(true);
+    }
+
+    tester.runTests();
   }
 
   private ConfiguredTargetKey createKey(

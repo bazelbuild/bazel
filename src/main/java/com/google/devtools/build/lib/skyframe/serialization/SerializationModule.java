@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.DeferredNestedSetCodec;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.WorkspaceBuilder;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import java.util.function.Supplier;
 
 /** A {@link BlazeModule} to store Skyframe serialization lifecycle hooks. */
@@ -68,7 +69,8 @@ public class SerializationModule extends BlazeModule {
               .add(ArrayCodec.forComponentType(Artifact.class))
               .add(new DeferredNestedSetCodec())
               .add(Label.valueSharingCodec())
-              .add(PackageIdentifier.valueSharingCodec());
+              .add(PackageIdentifier.valueSharingCodec())
+              .add(ConfiguredTargetKey.valueSharingCodec());
       builder =
           CommonSerializationConstants.addStarlarkFunctionality(
               builder, runtime.getRuleClassProvider());
