@@ -20,6 +20,7 @@ import com.google.devtools.build.lib.actions.ArtifactCodecs;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
+import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapImpl;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.OutputDirectory;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -137,7 +138,8 @@ public final class SerializationRegistrySetupHelpers {
               .add(new DeferredNestedSetCodec())
               .add(Label.valueSharingCodec())
               .add(PackageIdentifier.valueSharingCodec())
-              .add(ConfiguredTargetKey.valueSharingCodec());
+              .add(ConfiguredTargetKey.valueSharingCodec())
+              .add(TransitiveInfoProviderMapImpl.valueSharingCodec());
       builder = addStarlarkFunctionality(builder, runtime.getRuleClassProvider());
       ArtifactCodecs.VALUE_SHARING_CODECS.forEach(builder::add);
       return builder.build();
