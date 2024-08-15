@@ -14,16 +14,16 @@
 package com.google.devtools.build.lib.concurrent;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.concurrent.ConcurrentFifo.CAPACITY;
 import static com.google.devtools.build.lib.concurrent.PaddedAddresses.createPaddedBaseAddress;
 import static com.google.devtools.build.lib.concurrent.PaddedAddresses.getAlignedAddress;
-import static com.google.devtools.build.lib.concurrent.TaskFifo.CAPACITY;
 import static com.google.devtools.build.lib.testutil.TestUtils.WAIT_TIMEOUT_SECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.concurrent.TaskFifo.TaskWithSkippedAppends;
+import com.google.devtools.build.lib.concurrent.ConcurrentFifo.ElementWithSkippedAppends;
 import com.google.devtools.build.lib.unsafe.UnsafeProvider;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -38,7 +38,7 @@ import sun.misc.Unsafe;
 
 @RunWith(TestParameterInjector.class)
 @SuppressWarnings("SunApi") // TODO: b/359688989 - clean this up
-public final class TaskFifoTest {
+public final class ConcurrentFifoTest {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final int PARALLELISM = 10;
@@ -50,7 +50,7 @@ public final class TaskFifoTest {
   private long appendIndexAddress;
   private long takeIndexAddress;
 
-  private TaskFifo queue;
+  private ConcurrentFifo<Runnable> queue;
 
   @Before
   public void setUp() {
@@ -58,7 +58,7 @@ public final class TaskFifoTest {
     sizeAddress = getAlignedAddress(baseAddress, /* offset= */ 0);
     appendIndexAddress = getAlignedAddress(baseAddress, /* offset= */ 1);
     takeIndexAddress = getAlignedAddress(baseAddress, /* offset= */ 2);
-    queue = new TaskFifo(sizeAddress, appendIndexAddress, takeIndexAddress);
+    queue = new ConcurrentFifo<>(Runnable.class, sizeAddress, appendIndexAddress, takeIndexAddress);
   }
 
   @After
@@ -265,10 +265,10 @@ public final class TaskFifoTest {
     assertThat(queue.tryAppend(task1)).isTrue();
 
     // Verifies that append adds a wrapper to the task.
-    var wrappedTask = (TaskWithSkippedAppends) queue.getQueueForTesting()[0];
-    assertThat(wrappedTask.taskForTesting()).isEqualTo(task0);
+    var wrappedTask = (ElementWithSkippedAppends) queue.getQueueForTesting()[0];
+    assertThat(wrappedTask.element()).isEqualTo(task0);
     // Verifies that the skip count is 1.
-    assertThat(wrappedTask.skippedAppendCountForTesting()).isEqualTo(1);
+    assertThat(wrappedTask.skippedAppendCount()).isEqualTo(1);
 
     // Verifies that append in fact skips to the next index and appends there.
     assertThat(queue.getQueueForTesting()[1]).isEqualTo(task1);
@@ -284,9 +284,9 @@ public final class TaskFifoTest {
     assertThat(queue.tryAppend(task2)).isTrue();
 
     // Verifies that the skip count has been incremented to 2.
-    wrappedTask = (TaskWithSkippedAppends) queue.getQueueForTesting()[0];
-    assertThat(wrappedTask.taskForTesting()).isEqualTo(task0);
-    assertThat(wrappedTask.skippedAppendCountForTesting()).isEqualTo(2);
+    wrappedTask = (ElementWithSkippedAppends) queue.getQueueForTesting()[0];
+    assertThat(wrappedTask.element()).isEqualTo(task0);
+    assertThat(wrappedTask.skippedAppendCount()).isEqualTo(2);
     // Verifies that the append actually skipped to the next index.
     assertThat(queue.getQueueForTesting()[1]).isEqualTo(task2);
 
@@ -294,10 +294,10 @@ public final class TaskFifoTest {
 
     // Take skips to the task in the next position when it observes the wrapper.
     assertThat(queue.take()).isEqualTo(task2);
-    wrappedTask = (TaskWithSkippedAppends) queue.getQueueForTesting()[0];
-    assertThat(wrappedTask.taskForTesting()).isEqualTo(task0);
+    wrappedTask = (ElementWithSkippedAppends) queue.getQueueForTesting()[0];
+    assertThat(wrappedTask.element()).isEqualTo(task0);
     // Take decrements the skip counter.
-    assertThat(wrappedTask.skippedAppendCountForTesting()).isEqualTo(1);
+    assertThat(wrappedTask.skippedAppendCount()).isEqualTo(1);
     // Verifies that it took the task in the next position out of the queue.
     assertThat(queue.getQueueForTesting()[1]).isNull();
 
