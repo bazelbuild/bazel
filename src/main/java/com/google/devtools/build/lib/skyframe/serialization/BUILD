@@ -38,15 +38,30 @@ java_library(
 )
 
 java_library(
+    name = "serialization_module",
+    srcs = ["SerializationModule.java"],
+    deps = [
+        ":common_serialization_constants",
+        ":serialization",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
     name = "serialization",
     srcs = glob(
         ["**/*.java"],
         exclude = [
             "AbstractExportedStarlarkSymbolCodec.java",
             "CodecScanningConstants.java",
-            "SerializationConstants.java",
-            "VisibleForSerialization.java",
             "CommonSerializationConstants.java",
+            "SerializationConstants.java",
+            "SerializationModule.java",
+            "VisibleForSerialization.java",
         ],
     ),
     add_opens = [

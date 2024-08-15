@@ -138,8 +138,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Handler;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
@@ -197,8 +197,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   private BlazeWorkspace workspace;
 
   @Nullable // not all environments provide this
-  private BiFunction<BlazeRuntime, BlazeDirectories, ObjectCodecRegistry>
-      analysisCodecRegistrySupplier;
+  private Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier;
 
   private BlazeRuntime(
       FileSystem fileSystem,
@@ -1456,8 +1455,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   }
 
   public void initAnalysisCodecRegistry(
-      BiFunction<BlazeRuntime, BlazeDirectories, ObjectCodecRegistry>
-          analysisCodecRegistrySupplier) {
+      Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier) {
     this.analysisCodecRegistrySupplier = analysisCodecRegistrySupplier;
   }
 
@@ -1467,7 +1465,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       return null;
     }
     // The first call to this method can be somewhat expensive so it is hidden behind a supplier.
-    return analysisCodecRegistrySupplier.apply(this, workspace.getDirectories());
+    return analysisCodecRegistrySupplier.get();
   }
 
   /**
