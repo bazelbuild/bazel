@@ -18,6 +18,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactCodecs;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.collect.nestedset.DeferredNestedSetCodec;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -66,7 +67,8 @@ public class SerializationModule extends BlazeModule {
               .computeChecksum(false)
               .add(ArrayCodec.forComponentType(Artifact.class))
               .add(new DeferredNestedSetCodec())
-              .add(Label.valueSharingCodec());
+              .add(Label.valueSharingCodec())
+              .add(PackageIdentifier.valueSharingCodec());
       builder =
           CommonSerializationConstants.addStarlarkFunctionality(
               builder, runtime.getRuleClassProvider());

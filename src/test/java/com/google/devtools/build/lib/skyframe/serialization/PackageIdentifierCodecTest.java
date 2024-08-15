@@ -30,4 +30,12 @@ public class PackageIdentifierCodecTest {
     new SerializationTester(PackageIdentifier.create("foo", PathFragment.create("bar/baz")))
         .runTests();
   }
+
+  @Test
+  public void sharedValueCodec_works() throws Exception {
+    new SerializationTester(PackageIdentifier.create("foo", PathFragment.create("bar/baz")))
+        .addCodec(PackageIdentifier.valueSharingCodec())
+        .makeMemoizingAndAllowFutureBlocking(true)
+        .runTests();
+  }
 }

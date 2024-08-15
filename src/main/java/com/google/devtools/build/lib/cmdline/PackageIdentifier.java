@@ -20,15 +20,17 @@ import static com.google.devtools.build.lib.vfs.PathFragment.pathFragmentCodec;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ComparisonChain;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyKey.SkyKeyInterner;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -302,12 +304,87 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
         .result();
   }
 
-  public static Codec packageIdentifierCodec() {
-    return Codec.INSTANCE;
+  public static PackageIdentifierLeafCodec packageIdentifierCodec() {
+    return PackageIdentifierLeafCodec.INSTANCE;
   }
 
-  private static class Codec extends LeafObjectCodec<PackageIdentifier> {
-    private static final Codec INSTANCE = new Codec();
+  public static DeferredObjectCodec<PackageIdentifier> valueSharingCodec() {
+    return PackageIdentifierValueSharingCodec.INSTANCE;
+  }
+
+  // TODO: b/359437873 - generate with @AutoCodec.
+  private static class PackageIdentifierValueSharingCodec
+      extends DeferredObjectCodec<PackageIdentifier> {
+
+    private static final PackageIdentifierValueSharingCodec INSTANCE =
+        new PackageIdentifierValueSharingCodec();
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<PackageIdentifier> getEncodedClass() {
+      return PackageIdentifier.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, PackageIdentifier id, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          id, /* distinguisher= */ null, PackageIdentifierDeferredCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public DeferredValue<PackageIdentifier> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      SimpleDeferredValue<PackageIdentifier> value = SimpleDeferredValue.create();
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          PackageIdentifierDeferredCodec.INSTANCE,
+          value,
+          SimpleDeferredValue::set);
+      return value;
+    }
+  }
+
+  private static class PackageIdentifierDeferredCodec
+      extends DeferredObjectCodec<PackageIdentifier> {
+    private static final PackageIdentifierDeferredCodec INSTANCE =
+        new PackageIdentifierDeferredCodec();
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<PackageIdentifier> getEncodedClass() {
+      return PackageIdentifier.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, PackageIdentifier obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serializeLeaf(obj, packageIdentifierCodec(), codedOut);
+    }
+
+    @Override
+    public DeferredValue<PackageIdentifier> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      PackageIdentifier value = context.deserializeLeaf(codedIn, packageIdentifierCodec());
+      return () -> value;
+    }
+  }
+
+  private static class PackageIdentifierLeafCodec extends LeafObjectCodec<PackageIdentifier> {
+    private static final PackageIdentifierLeafCodec INSTANCE = new PackageIdentifierLeafCodec();
 
     @Override
     public Class<PackageIdentifier> getEncodedClass() {
