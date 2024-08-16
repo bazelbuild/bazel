@@ -90,4 +90,14 @@ public final class FakeRunfilesTree implements RunfilesTree {
   public String getWorkspaceName() {
     return runfiles.getPrefix();
   }
+
+  @Override
+  public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
+    return runfiles.getArtifacts();
+  }
+
+  @Override
+  public Map<PathFragment, Artifact> getAllSymlinksForLogging() {
+    return runfiles.getAllSymlinksForLogging(repoMappingManifest);
+  }
 }

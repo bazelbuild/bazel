@@ -58,7 +58,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -389,14 +388,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
             if (input instanceof Artifact && ((Artifact) input).isMiddlemanArtifact()) {
               RunfilesTree runfilesTree =
                   inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
-              builder.addDirectoryIds(
-                  // The runfiles symlink tree might not have been materialized on disk, so use the
-                  // mapping.
-                  logRunfilesDirectory(
-                      runfilesTree.getExecPath(),
-                      runfilesTree.getMapping(),
-                      inputMetadataProvider,
-                      fileSystem));
+              builder.addRunfilesTreeIds(
+                  logRunfilesTree(runfilesTree, inputMetadataProvider, fileSystem));
               continue;
             }
 
@@ -476,7 +469,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                     ExecLogEntry.Directory.newBuilder()
                         .setPath(input.getExecPathString())
                         .addAllFiles(
-                            expandDirectory(root, /* pathPrefix= */ null, inputMetadataProvider))));
+                            expandDirectory(root, /* pathPrefix= */ inputMetadataProvider))));
   }
 
   private int logRunfilesTree(
@@ -525,78 +518,19 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   }
 
   /**
-   * Logs a runfiles directory.
-   *
-   * <p>We can't use {@link #logDirectory} because the runfiles symlink tree might not have been
-   * materialized on disk. We must follow the mappings to the actual location of the artifacts.
-   *
-   * @param root the path to the runfiles directory
-   * @param mapping a map from runfiles-relative path to the underlying artifact, or null for an
-   *     empty file
-   * @return the entry ID of the {@link ExecLogEntry.Directory} describing the directory.
-   */
-  private int logRunfilesDirectory(
-      PathFragment root,
-      Map<PathFragment, Artifact> mapping,
-      InputMetadataProvider inputMetadataProvider,
-      FileSystem fileSystem)
-      throws IOException, InterruptedException {
-    return logEntry(
-        root.getPathString(),
-        () -> {
-          ExecLogEntry.Directory.Builder builder =
-              ExecLogEntry.Directory.newBuilder().setPath(root.getPathString());
-
-          for (Map.Entry<PathFragment, Artifact> entry : mapping.entrySet()) {
-            String runfilesPath = entry.getKey().getPathString();
-            Artifact input = entry.getValue();
-
-            if (input == null) {
-              // Empty file.
-              builder.addFiles(ExecLogEntry.File.newBuilder().setPath(runfilesPath));
-              continue;
-            }
-
-            Path path = fileSystem.getPath(execRoot.getRelative(input.getExecPath()));
-
-            if (isInputDirectory(input, path, inputMetadataProvider)) {
-              builder.addAllFiles(expandDirectory(path, runfilesPath, inputMetadataProvider));
-              continue;
-            }
-
-            Digest digest =
-                computeDigest(
-                    input,
-                    path,
-                    inputMetadataProvider,
-                    xattrProvider,
-                    digestHashFunction,
-                    /* includeHashFunctionName= */ false);
-
-            builder.addFiles(
-                ExecLogEntry.File.newBuilder().setPath(runfilesPath).setDigest(digest));
-          }
-
-          return ExecLogEntry.newBuilder().setDirectory(builder);
-        });
-  }
-
-  /**
    * Expands a directory.
    *
    * @param root the path to the directory
-   * @param pathPrefix a prefix to prepend to each child path
    * @return the list of files transitively contained in the directory
    */
   private List<ExecLogEntry.File> expandDirectory(
-      Path root, @Nullable String pathPrefix, InputMetadataProvider inputMetadataProvider)
+      Path root, InputMetadataProvider inputMetadataProvider)
       throws IOException, InterruptedException {
     ArrayList<ExecLogEntry.File> files = new ArrayList<>();
     visitDirectory(
         root,
         (child) -> {
-          String childPath = pathPrefix != null ? pathPrefix + "/" : "";
-          childPath += child.relativeTo(root).getPathString();
+          String childPath = child.relativeTo(root).getPathString();
 
           Digest digest =
               computeDigest(
@@ -615,7 +549,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           }
         });
 
-    Collections.sort(files, EXEC_LOG_ENTRY_FILE_COMPARATOR);
+    files.sort(EXEC_LOG_ENTRY_FILE_COMPARATOR);
 
     return files;
   }
