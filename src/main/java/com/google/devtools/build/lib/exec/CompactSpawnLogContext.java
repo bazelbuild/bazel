@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.github.luben.zstd.ZstdOutputStream;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -137,6 +138,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   }
 
   private final PathFragment execRoot;
+  private final String workspaceName;
   @Nullable private final RemoteOptions remoteOptions;
   private final DigestHashFunction digestHashFunction;
   private final XattrProvider xattrProvider;
@@ -158,11 +160,13 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   public CompactSpawnLogContext(
       Path outputPath,
       PathFragment execRoot,
+      String workspaceName,
       @Nullable RemoteOptions remoteOptions,
       DigestHashFunction digestHashFunction,
       XattrProvider xattrProvider)
       throws IOException, InterruptedException {
     this.execRoot = execRoot;
+    this.workspaceName = workspaceName;
     this.remoteOptions = remoteOptions;
     this.digestHashFunction = digestHashFunction;
     this.xattrProvider = xattrProvider;
@@ -185,7 +189,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
             ExecLogEntry.newBuilder()
                 .setInvocation(
                     ExecLogEntry.Invocation.newBuilder()
-                        .setHashFunctionName(digestHashFunction.toString())));
+                        .setHashFunctionName(digestHashFunction.toString())
+                        .setWorkspaceRunfilesDirectory(workspaceName)));
   }
 
   @Override
@@ -472,6 +477,51 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                         .setPath(input.getExecPathString())
                         .addAllFiles(
                             expandDirectory(root, /* pathPrefix= */ null, inputMetadataProvider))));
+  }
+
+  private int logRunfilesTree(
+      RunfilesTree runfilesTree, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
+      throws IOException, InterruptedException {
+    return logEntry(
+        runfilesTree.getExecPath().getPathString(),
+        () -> {
+          Preconditions.checkState(runfilesTree.getWorkspaceName().equals(workspaceName));
+
+          ExecLogEntry.RunfilesTree.Builder builder =
+              ExecLogEntry.RunfilesTree.newBuilder()
+                  .setPath(runfilesTree.getExecPath().getPathString());
+
+          builder.setArtifactsId(
+              logNestedSet(
+                  runfilesTree.getArtifactsAtCanonicalLocationsForLogging(),
+                  ImmutableList.of(),
+                  inputMetadataProvider,
+                  fileSystem,
+                  // The runfiles tree itself is shared, but the nested set is unique as it contains
+                  // the executable.
+                  /* shared= */ false));
+
+          for (Map.Entry<PathFragment, Artifact> entry :
+              runfilesTree.getAllSymlinksForLogging().entrySet()) {
+            PathFragment relativePath = entry.getKey();
+            Artifact artifact = entry.getValue();
+            Path path = fileSystem.getPath(execRoot.getRelative(relativePath));
+            ExecLogEntry.RunfilesTree.SymlinkTarget.Builder symlinkTarget =
+                ExecLogEntry.RunfilesTree.SymlinkTarget.newBuilder();
+            // Since these files have been consumed by the spawn, we trust their type without
+            // filesystem checks.
+            if (!artifact.isDirectory() && !artifact.isSymlink()) {
+              symlinkTarget.setFileId(logFile(artifact, path, inputMetadataProvider));
+            } else if (artifact.isDirectory()) {
+              // TODO(tjgq): Tighten once --incompatible_disallow_unsound_directory_outputs is gone.
+              symlinkTarget.setDirectoryId(logDirectory(artifact, path, inputMetadataProvider));
+            } else {
+              symlinkTarget.setUnresolvedSymlinkId(logUnresolvedSymlink(artifact, path));
+            }
+          }
+
+          return ExecLogEntry.newBuilder().setRunfilesTree(builder);
+        });
   }
 
   /**

@@ -45,4 +45,8 @@ public interface RunfilesTree {
 
   /** Returns the name of the workspace that the build is occurring in. */
   String getWorkspaceName();
+
+  NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging();
+
+  Map<PathFragment, Artifact> getAllSymlinksForLogging();
 }

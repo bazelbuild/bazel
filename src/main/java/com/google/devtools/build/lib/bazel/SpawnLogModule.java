@@ -104,6 +104,7 @@ public final class SpawnLogModule extends BlazeModule {
             new CompactSpawnLogContext(
                 outputPath,
                 env.getExecRoot().asFragment(),
+                env.getWorkspaceName(),
                 env.getOptions().getOptions(RemoteOptions.class),
                 env.getRuntime().getFileSystem().getDigestFunction(),
                 env.getXattrProvider());

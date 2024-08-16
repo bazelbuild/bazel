@@ -168,6 +168,16 @@ public final class RunfilesSupport {
     }
 
     @Override
+    public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
+      return runfiles.getArtifacts();
+    }
+
+    @Override
+    public Map<PathFragment, Artifact> getAllSymlinksForLogging() {
+      return runfiles.getAllSymlinksForLogging(repoMappingManifest);
+    }
+
+    @Override
     public RunfileSymlinksMode getSymlinksMode() {
       return runfileSymlinksMode;
     }

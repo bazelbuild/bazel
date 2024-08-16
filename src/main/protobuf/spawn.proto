@@ -269,10 +269,13 @@ message ExecLogEntry {
     // 2. If the path starts with "external/", drop the first component.
     //    If not, prepend the workspace runfiles directory (see Invocation).
     //
+    // In case of path collisions, later artifacts overwrite earlier ones and
+    // artifacts override symlinks.
+    //
     // The referenced set must not contain any runfile trees.
     // TODO: Document the procedure to obtain the canonical relative path
-    // with --experimental_sibling_repository_layout.
-    // TODO: Document the procedure for dealing with path collisions.
+    // with --experimental_sibling_repository_layout and
+    // --legacy_external_runfiles.
     int32 artifacts_id = 2;
     // The artifacts in the runfiles tree that are symlinked at custom
     // locations.
@@ -406,5 +409,6 @@ message ExecLogEntry {
     InputSet input_set = 6;
     Spawn spawn = 7;
     SymlinkAction symlink_action = 8;
+    RunfilesTree runfiles_tree = 9;
   }
 }

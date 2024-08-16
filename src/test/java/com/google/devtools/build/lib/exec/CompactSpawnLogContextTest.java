@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -167,6 +168,7 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     return new CompactSpawnLogContext(
         logPath,
         execRoot.asFragment(),
+        TestConstants.WORKSPACE_NAME,
         remoteOptions,
         DigestHashFunction.SHA256,
         SyscallCache.NO_CACHE);
