@@ -419,13 +419,7 @@ public abstract class SpawnLogContextTestBase {
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
     Artifact runfilesInput = ActionsTestUtil.createArtifact(rootDir, "sub/dir/script.py");
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
-    RunfilesTree runfilesTree =
-        createRunfilesTree(
-            runfilesRoot,
-            ImmutableMap.of(),
-            ImmutableMap.of(),
-            /* createEmptyFiles= */ true,
-            runfilesInput);
+    RunfilesTree runfilesTree = createRunfilesTree(runfilesRoot, runfilesInput);
 
     writeFile(runfilesInput, "abc");
 
@@ -1004,17 +998,18 @@ public abstract class SpawnLogContextTestBase {
   }
 
   protected static RunfilesTree createRunfilesTree(PathFragment root, Artifact... artifacts) {
-    return createRunfilesTree(root, ImmutableMap.of(), ImmutableMap.of(), false, artifacts);
+    return createRunfilesTree(
+        root, ImmutableMap.of(), ImmutableMap.of(), /* legacyExternalRunfiles= */ false, artifacts);
   }
 
   protected static RunfilesTree createRunfilesTree(
       PathFragment root,
       Map<String, Artifact> symlinks,
       Map<String, Artifact> rootSymlinks,
-      boolean createEmptyFiles,
+      boolean legacyExternalRunfiles,
       Artifact... artifacts) {
     Runfiles.Builder runfiles =
-        new Runfiles.Builder(TestConstants.WORKSPACE_NAME, /* legacyExternalRunfiles= */ true);
+        new Runfiles.Builder(TestConstants.WORKSPACE_NAME, legacyExternalRunfiles);
     runfiles.addArtifacts(Arrays.asList(artifacts));
     for (Map.Entry<String, Artifact> entry : symlinks.entrySet()) {
       runfiles.addSymlink(PathFragment.create(entry.getKey()), entry.getValue());
@@ -1022,9 +1017,7 @@ public abstract class SpawnLogContextTestBase {
     for (Map.Entry<String, Artifact> entry : rootSymlinks.entrySet()) {
       runfiles.addRootSymlink(PathFragment.create(entry.getKey()), entry.getValue());
     }
-    if (createEmptyFiles) {
-      runfiles.setEmptyFilesSupplier(BazelPyBuiltins.GET_INIT_PY_FILES);
-    }
+    runfiles.setEmptyFilesSupplier(BazelPyBuiltins.GET_INIT_PY_FILES);
     return new RunfilesSupport.RunfilesTreeImpl(root, runfiles.build());
   }
 

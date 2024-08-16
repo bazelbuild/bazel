@@ -98,6 +98,16 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     public Map<PathFragment, Artifact> getAllSymlinksForLogging() {
       return wrapped.getAllSymlinksForLogging();
     }
+
+    @Override
+    public NestedSet<String> getEmptyFilenamesForLogging() {
+      return wrapped.getEmptyFilenamesForLogging();
+    }
+
+    @Override
+    public boolean isLegacyExternalRunfiles() {
+      return wrapped.isLegacyExternalRunfiles();
+    }
   }
 
   /**

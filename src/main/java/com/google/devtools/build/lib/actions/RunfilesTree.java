@@ -49,4 +49,8 @@ public interface RunfilesTree {
   NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging();
 
   Map<PathFragment, Artifact> getAllSymlinksForLogging();
+
+  NestedSet<String> getEmptyFilenamesForLogging();
+
+  boolean isLegacyExternalRunfiles();
 }

@@ -100,4 +100,14 @@ public final class FakeRunfilesTree implements RunfilesTree {
   public Map<PathFragment, Artifact> getAllSymlinksForLogging() {
     return runfiles.getAllSymlinksForLogging(repoMappingManifest);
   }
+
+  @Override
+  public NestedSet<String> getEmptyFilenamesForLogging() {
+    return runfiles.getEmptyFilenames();
+  }
+
+  @Override
+  public boolean isLegacyExternalRunfiles() {
+    return runfiles.isLegacyExternalRunfiles();
+  }
 }

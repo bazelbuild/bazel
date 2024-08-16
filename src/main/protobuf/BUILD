@@ -316,6 +316,7 @@ proto_library(
     srcs = ["spawn.proto"],
     deps = [
         "@com_google_protobuf//:duration_proto",
+        "@com_google_protobuf//:empty_proto",
         "@com_google_protobuf//:timestamp_proto",
     ],
 )

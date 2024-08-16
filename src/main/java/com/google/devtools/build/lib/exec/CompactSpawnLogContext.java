@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.protobuf.Empty;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -62,6 +63,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.concurrent.ForkJoinPool;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
@@ -482,7 +484,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
           ExecLogEntry.RunfilesTree.Builder builder =
               ExecLogEntry.RunfilesTree.newBuilder()
-                  .setPath(runfilesTree.getExecPath().getPathString());
+                  .setPath(runfilesTree.getExecPath().getPathString())
+                  .setLegacyExternalRunfiles(runfilesTree.isLegacyExternalRunfiles());
 
           builder.setArtifactsId(
               logNestedSet(
@@ -511,6 +514,24 @@ public class CompactSpawnLogContext extends SpawnLogContext {
             } else {
               symlinkTarget.setUnresolvedSymlinkId(logUnresolvedSymlink(artifact, path));
             }
+            builder.putSymlinks(relativePath.getPathString(), symlinkTarget.build());
+          }
+
+          var emptyFilenames = runfilesTree.getEmptyFilenamesForLogging();
+          if (!emptyFilenames.isEmpty()) {
+            // This case is rare: it only applies to Python runfiles and only with
+            // --incompatible_default_to_explicit_init_py. We optimize for the common case and thus
+            // have to copy and sort the symlinks map here.
+            var symlinks = new TreeMap<>(builder.getSymlinksMap());
+            for (String emptyFilename : emptyFilenames.toList()) {
+              symlinks.put(
+                  PathFragment.create(workspaceName).getRelative(emptyFilename).getPathString(),
+                  ExecLogEntry.RunfilesTree.SymlinkTarget.newBuilder()
+                      .setEmptyFile(Empty.getDefaultInstance())
+                      .build());
+            }
+            builder.clearSymlinks();
+            builder.putAllSymlinks(symlinks);
           }
 
           return ExecLogEntry.newBuilder().setRunfilesTree(builder);

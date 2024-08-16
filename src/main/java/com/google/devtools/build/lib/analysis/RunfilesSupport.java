@@ -190,6 +190,16 @@ public final class RunfilesSupport {
     }
 
     @Override
+    public NestedSet<String> getEmptyFilenamesForLogging() {
+      return runfiles.getEmptyFilenames();
+    }
+
+    @Override
+    public boolean isLegacyExternalRunfiles() {
+      return runfiles.isLegacyExternalRunfiles();
+    }
+
+    @Override
     public RunfileSymlinksMode getSymlinksMode() {
       return runfileSymlinksMode;
     }

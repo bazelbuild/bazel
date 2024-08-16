@@ -14,19 +14,16 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.exec.Protos.ExecLogEntry;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.MessageInputStream;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayDeque;
@@ -35,7 +32,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
@@ -243,25 +239,13 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     inputs.stream()
         .flatMap(
             file ->
-                getRunfilesPaths(file.getPath())
+                getRunfilesPaths(file.getPath(), runfilesTree.getLegacyExternalRunfiles())
                     .map(
                         relativePath ->
                             file.toBuilder()
                                 .setPath(runfilesTree.getPath() + "/" + relativePath)
                                 .build()))
         .forEach(file -> builder.put(file.getPath(), file));
-    if (runfilesTree.getCreateInitPy()) {
-      Set<PathFragment> manifest =
-          Stream.concat(
-                  runfilesTree.getSymlinksMap().keySet().stream(),
-                  inputs.stream().flatMap(file -> getRunfilesPaths(file.getPath())))
-              .map(PathFragment::create)
-              .collect(toImmutableSet());
-      for (PathFragment emptyFilePath : BazelPyBuiltins.GET_INIT_PY_FILES.getExtraPaths(manifest)) {
-        String path = runfilesTree.getPath() + "/" + emptyFilePath.getPathString();
-        builder.put(path, File.newBuilder().setPath(path).build());
-      }
-    }
     String workspaceDir = runfilesTree.getPath() + "/" + workspaceRunfilesDirectory + "/";
     if (builder.keySet().stream().noneMatch(p -> p.startsWith(workspaceDir))) {
       String emptyRunfile = workspaceDir + ".runfile";
@@ -270,7 +254,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     return Pair.of(runfilesTree.getPath(), ImmutableList.copyOf(builder.values()));
   }
 
-  private Stream<String> getRunfilesPaths(String originalPath) {
+  private Stream<String> getRunfilesPaths(String originalPath, boolean legacyExternalRunfiles) {
     String path = originalPath;
     if (path.startsWith("bazel-out/") || path.startsWith("blaze-out/")) {
       // Trim the first three segments ("bazel-out/<config>/bin/") from the path.
@@ -278,10 +262,12 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
       path = path.substring(thirdSlash + 1);
     }
     if (path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX.getPathString())) {
-      return Stream.of(
-          path.substring(LabelConstants.EXTERNAL_PATH_PREFIX.getPathString().length()),
-          // --legacy_external_runfiles
-          workspaceRunfilesDirectory + "/" + path);
+      Stream.Builder<String> paths = Stream.builder();
+      paths.add(path.substring(LabelConstants.EXTERNAL_PATH_PREFIX.getPathString().length()));
+      if (legacyExternalRunfiles) {
+        paths.add(workspaceRunfilesDirectory + "/" + path);
+      }
+      return paths.build();
     }
     return Stream.of(workspaceRunfilesDirectory + "/" + path);
   }
@@ -289,6 +275,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
   private Collection<File> reconstructRunfilesSymlinkTarget(
       String newPath, ExecLogEntry.RunfilesTree.SymlinkTarget target) throws IOException {
     return switch (target.getTargetCase()) {
+      case EMPTY_FILE -> ImmutableList.of(File.newBuilder().setPath(newPath).build());
       case FILE_ID -> {
         var file = getFromMap(fileMap, target.getFileId());
         yield ImmutableList.of(file.toBuilder().setPath(newPath).build());

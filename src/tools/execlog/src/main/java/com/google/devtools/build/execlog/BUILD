@@ -31,7 +31,7 @@ java_library(
         "ExecLogConverter.java",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_reconstructor",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_context_utils",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:spawn_java_proto",

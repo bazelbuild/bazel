@@ -249,6 +249,9 @@ public final class Runfiles implements RunfilesApi {
   }
 
   public NestedSet<String> getEmptyFilenames() {
+    if (emptyFilesSupplier == DUMMY_EMPTY_FILES_SUPPLIER) {
+      return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+    }
     Set<PathFragment> manifestKeys =
         Streams.concat(
                 symlinks.toList().stream().map(SymlinkEntry::getPath),
@@ -396,6 +399,10 @@ public final class Runfiles implements RunfilesApi {
       checker.put(builder.manifest, REPO_MAPPING_MANIFEST_PATH, repoMappingManifest);
     }
     return builder.build();
+  }
+
+  public boolean isLegacyExternalRunfiles() {
+    return legacyExternalRunfiles;
   }
 
   /**
