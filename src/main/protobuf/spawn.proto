@@ -222,6 +222,13 @@ message ExecLogEntry {
   message Invocation {
     // The hash function used to compute digests.
     string hash_function_name = 1;
+
+    // The name of the subdirectory of the runfiles tree corresponding to the
+    // main repository (also known as the "workspace name").
+    //
+    // With --enable_bzlmod, this is always "_main", but can vary when using
+    // WORKSPACE.
+    string workspace_runfiles_directory = 2;
   }
 
   // An input or output file.
@@ -251,6 +258,35 @@ message ExecLogEntry {
     string target_path = 2;
   }
 
+  message RunfilesTree {
+    // The runfiles tree path.
+    string path = 1;
+    // The entry ID of the set of artifacts in the runfiles tree that are
+    // symlinked at their canonical locations relative to the tree path.
+    //
+    // The canonical relative path of an artifact is obtained as follows:
+    // 1. If the path starts with "bazel-out/", drop the first three components.
+    // 2. If the path starts with "external/", drop the first component.
+    //    If not, prepend the workspace runfiles directory (see Invocation).
+    //
+    // The referenced set must not contain any runfile trees.
+    // TODO: Document the procedure to obtain the canonical relative path
+    // with --experimental_sibling_repository_layout.
+    // TODO: Document the procedure for dealing with path collisions.
+    int32 artifacts_id = 2;
+    // The artifacts in the runfiles tree that are symlinked at custom
+    // locations.
+    map<string, SymlinkTarget> symlinks = 3;
+
+    message SymlinkTarget {
+      oneof target{
+        int32 file_id = 1;
+        int32 directory_id = 2;
+        int32 unresolved_symlink_id = 3;
+      }
+    }
+  }
+
   // A set of spawn inputs.
   // The contents of the set are the directly referenced files, directories and
   // symlinks in addition to the contents of all transitively referenced sets.
@@ -265,6 +301,8 @@ message ExecLogEntry {
     repeated int32 unresolved_symlink_ids = 3;
     // Entry IDs of other sets contained in this set.
     repeated int32 transitive_set_ids = 4;
+    // Entry IDs of runfile trees belonging to this set.
+    repeated int32 runfiles_tree_ids = 5;
   }
 
   // A spawn output.
