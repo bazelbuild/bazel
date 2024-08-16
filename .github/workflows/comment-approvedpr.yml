@@ -13,7 +13,7 @@ jobs:
       - name: Get GitHub Pull Request Reviewers
         uses: LiamPerson/get-reviews-action@v1.1.2  # Replace with desired version
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Filter Approved Reviewers
         run: |
@@ -22,7 +22,7 @@ jobs:
           
       - uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           script: |
                 env:
                 github.rest.issues.createComment({
