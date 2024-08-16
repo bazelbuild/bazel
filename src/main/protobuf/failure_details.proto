@@ -1148,6 +1148,7 @@ message SymlinkAction {
     EXECUTABLE_INPUT_CHECK_IO_EXCEPTION = 3 [(metadata) = { exit_code: 1 }];
     LINK_CREATION_IO_EXCEPTION = 4 [(metadata) = { exit_code: 1 }];
     LINK_TOUCH_IO_EXCEPTION = 5 [(metadata) = { exit_code: 1 }];
+    LINK_LOG_IO_EXCEPTION = 6 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
