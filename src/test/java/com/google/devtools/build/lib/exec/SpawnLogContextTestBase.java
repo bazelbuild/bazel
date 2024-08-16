@@ -16,13 +16,12 @@ package com.google.devtools.build.lib.exec;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.exec.SpawnLogContext.millisToProto;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -34,6 +33,7 @@ import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
@@ -42,8 +42,9 @@ import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
 import com.google.devtools.build.lib.exec.Protos.File;
@@ -69,11 +70,11 @@ import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.SortedMap;
+import java.util.TreeMap;
 import org.junit.Test;
 
 /** Base class for {@link SpawnLogContext} tests. */
@@ -342,7 +343,7 @@ public abstract class SpawnLogContextTestBase {
     writeFile(runfilesInput, "abc");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
-    RunfilesTree runfilesTree = createRunfilesTree(runfilesRoot, ImmutableMap.of(), runfilesInput);
+    RunfilesTree runfilesTree = createRunfilesTree(runfilesRoot, runfilesInput);
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
@@ -381,7 +382,7 @@ public abstract class SpawnLogContextTestBase {
     }
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
-    RunfilesTree runfilesTree = createRunfilesTree(runfilesRoot, ImmutableMap.of(), runfilesInput);
+    RunfilesTree runfilesTree = createRunfilesTree(runfilesRoot, runfilesInput);
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
@@ -416,10 +417,17 @@ public abstract class SpawnLogContextTestBase {
   @Test
   public void testRunfilesEmptyInput() throws Exception {
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
+    Artifact runfilesInput = ActionsTestUtil.createArtifact(rootDir, "sub/dir/script.py");
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
-    HashMap<String, Artifact> mapping = new HashMap<>();
-    mapping.put("__init__.py", null);
-    RunfilesTree runfilesTree = createRunfilesTree(runfilesRoot, mapping);
+    RunfilesTree runfilesTree =
+        createRunfilesTree(
+            runfilesRoot,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            /* createEmptyFiles= */ true,
+            runfilesInput);
+
+    writeFile(runfilesInput, "abc");
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
@@ -439,7 +447,12 @@ public abstract class SpawnLogContextTestBase {
     closeAndAssertLog(
         context,
         defaultSpawnExecBuilder()
-            .addInputs(File.newBuilder().setPath("out/foo.runfiles/__init__.py"))
+            .addInputs(File.newBuilder().setPath("out/foo.runfiles/_main/sub/__init__.py"))
+            .addInputs(File.newBuilder().setPath("out/foo.runfiles/_main/sub/dir/__init__.py"))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("out/foo.runfiles/_main/sub/dir/script.py")
+                    .setDigest(getDigest("abc")))
             .build());
   }
 
@@ -990,25 +1003,29 @@ public abstract class SpawnLogContextTestBase {
         .setMetrics(Protos.SpawnMetrics.getDefaultInstance());
   }
 
+  protected static RunfilesTree createRunfilesTree(PathFragment root, Artifact... artifacts) {
+    return createRunfilesTree(root, ImmutableMap.of(), ImmutableMap.of(), false, artifacts);
+  }
+
   protected static RunfilesTree createRunfilesTree(
-      PathFragment root, Map<String, Artifact> symlinks, Artifact... artifacts) {
-    LinkedHashMap<PathFragment, Artifact> symlinksByPath = new LinkedHashMap<>();
+      PathFragment root,
+      Map<String, Artifact> symlinks,
+      Map<String, Artifact> rootSymlinks,
+      boolean createEmptyFiles,
+      Artifact... artifacts) {
+    Runfiles.Builder runfiles =
+        new Runfiles.Builder(TestConstants.WORKSPACE_NAME, /* legacyExternalRunfiles= */ true);
+    runfiles.addArtifacts(Arrays.asList(artifacts));
     for (Map.Entry<String, Artifact> entry : symlinks.entrySet()) {
-      symlinksByPath.put(PathFragment.create(entry.getKey()), entry.getValue());
+      runfiles.addSymlink(PathFragment.create(entry.getKey()), entry.getValue());
     }
-    LinkedHashMap<PathFragment, Artifact> mapping = new LinkedHashMap<>(symlinksByPath);
-    PathFragment workspaceRoot = PathFragment.create(TestConstants.WORKSPACE_NAME);
-    for (Artifact artifact : artifacts) {
-      mapping.put(workspaceRoot.getRelative(artifact.getRunfilesPath()), artifact);
+    for (Map.Entry<String, Artifact> entry : rootSymlinks.entrySet()) {
+      runfiles.addRootSymlink(PathFragment.create(entry.getKey()), entry.getValue());
     }
-    RunfilesTree runfilesTree = mock(RunfilesTree.class);
-    when(runfilesTree.getWorkspaceName()).thenReturn(TestConstants.WORKSPACE_NAME);
-    when(runfilesTree.getExecPath()).thenReturn(root);
-    when(runfilesTree.getMapping()).thenReturn(mapping);
-    when(runfilesTree.getAllSymlinksForLogging()).thenReturn(symlinksByPath);
-    when(runfilesTree.getArtifactsAtCanonicalLocationsForLogging())
-        .thenReturn(NestedSetBuilder.wrap(Order.STABLE_ORDER, ImmutableList.copyOf(artifacts)));
-    return runfilesTree;
+    if (createEmptyFiles) {
+      runfiles.setEmptyFilesSupplier(BazelPyBuiltins.GET_INIT_PY_FILES);
+    }
+    return new RunfilesSupport.RunfilesTreeImpl(root, runfiles.build());
   }
 
   protected static InputMetadataProvider createInputMetadataProvider(Artifact... artifacts)
@@ -1039,10 +1056,16 @@ public abstract class SpawnLogContextTestBase {
 
   protected static SortedMap<PathFragment, ActionInput> createInputMap(
       RunfilesTree runfilesTree, ActionInput... actionInputs) throws Exception {
-    ImmutableSortedMap.Builder<PathFragment, ActionInput> builder =
-        ImmutableSortedMap.naturalOrder();
+    TreeMap<PathFragment, ActionInput> builder = new TreeMap<>();
 
     if (runfilesTree != null) {
+      new SpawnInputExpander(/* execRoot= */ null)
+          .addSingleRunfilesTreeToInputs(
+              runfilesTree,
+              builder,
+              treeArtifact -> ImmutableSortedSet.of(),
+              PathMapper.NOOP,
+              PathFragment.EMPTY_FRAGMENT);
       // Emulate SpawnInputExpander: expand runfiles, replacing nulls with empty inputs.
       PathFragment root = runfilesTree.getExecPath();
       for (Map.Entry<PathFragment, Artifact> entry : runfilesTree.getMapping().entrySet()) {
@@ -1067,7 +1090,7 @@ public abstract class SpawnLogContextTestBase {
         builder.put(actionInput.getExecPath(), actionInput);
       }
     }
-    return builder.buildOrThrow();
+    return ImmutableSortedMap.copyOf(builder);
   }
 
   protected static TreeArtifactValue createTreeArtifactValue(Artifact tree) throws Exception {

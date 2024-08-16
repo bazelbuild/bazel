@@ -272,7 +272,7 @@ java_library(
         "SpawnLogContext.java",
     ],
     deps = [
-        ":spawn_log_context_utils",
+        ":stable_sort",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
@@ -299,20 +299,37 @@ java_library(
 )
 
 java_library(
-    name = "spawn_log_context_utils",
+    name = "spawn_log_reconstructor",
     srcs = [
         "SpawnLogReconstructor.java",
-        "StableSort.java",
     ],
+    deps = [
+        ":stable_sort",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/profiler",
+        "//src/main/java/com/google/devtools/build/lib/util:pair",
+        "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:spawn_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "@zstd-jni",
+    ],
+)
+
+java_library(
+    name = "stable_sort",
+    srcs = ["StableSort.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:spawn_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "@zstd-jni",
     ],
 )
 

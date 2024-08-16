@@ -88,7 +88,8 @@ public final class RunfilesSupport {
   private static final String OUTPUT_MANIFEST_BASENAME = "MANIFEST";
   private static final String REPO_MAPPING_MANIFEST_EXT = ".repo_mapping";
 
-  private static class RunfilesTreeImpl implements RunfilesTree {
+  @VisibleForTesting
+  public static class RunfilesTreeImpl implements RunfilesTree {
 
     private static final WeakReference<Map<PathFragment, Artifact>> NOT_YET_COMPUTED =
         new WeakReference<>(null);
@@ -132,12 +133,11 @@ public final class RunfilesSupport {
     }
 
     @VisibleForTesting
-    public RunfilesTreeImpl(
-        PathFragment execPath, Runfiles runfiles, @Nullable Artifact repoMappingManifest) {
+    public RunfilesTreeImpl(PathFragment execPath, Runfiles runfiles) {
       this(
           execPath,
           runfiles,
-          repoMappingManifest,
+          /* repoMappingManifest= */ null,
           /* buildRunfileLinks= */ false,
           /* cacheMapping= */ false,
           RunfileSymlinksMode.EXTERNAL);

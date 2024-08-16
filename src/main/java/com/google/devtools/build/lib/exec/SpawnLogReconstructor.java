@@ -14,16 +14,19 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.exec.Protos.ExecLogEntry;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.MessageInputStream;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayDeque;
@@ -32,6 +35,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
@@ -235,7 +239,8 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
         builder.put(newPath, file);
       }
     }
-    reconstructInputs(runfilesTree.getArtifactsId()).values().stream()
+    Collection<File> inputs = reconstructInputs(runfilesTree.getArtifactsId()).values();
+    inputs.stream()
         .flatMap(
             file ->
                 getRunfilesPaths(file.getPath())
@@ -245,6 +250,23 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
                                 .setPath(runfilesTree.getPath() + "/" + relativePath)
                                 .build()))
         .forEach(file -> builder.put(file.getPath(), file));
+    if (runfilesTree.getCreateInitPy()) {
+      Set<PathFragment> manifest =
+          Stream.concat(
+                  runfilesTree.getSymlinksMap().keySet().stream(),
+                  inputs.stream().flatMap(file -> getRunfilesPaths(file.getPath())))
+              .map(PathFragment::create)
+              .collect(toImmutableSet());
+      for (PathFragment emptyFilePath : BazelPyBuiltins.GET_INIT_PY_FILES.getExtraPaths(manifest)) {
+        String path = runfilesTree.getPath() + "/" + emptyFilePath.getPathString();
+        builder.put(path, File.newBuilder().setPath(path).build());
+      }
+    }
+    String workspaceDir = runfilesTree.getPath() + "/" + workspaceRunfilesDirectory + "/";
+    if (builder.keySet().stream().noneMatch(p -> p.startsWith(workspaceDir))) {
+      String emptyRunfile = workspaceDir + ".runfile";
+      builder.put(emptyRunfile, File.newBuilder().setPath(emptyRunfile).build());
+    }
     return Pair.of(runfilesTree.getPath(), ImmutableList.copyOf(builder.values()));
   }
 
