@@ -35,7 +35,6 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -62,7 +61,7 @@ public final class ValidateAndLinkResourcesAction {
         names = "--compiledDep",
         listConverter = Converters.CompatPathListConverter.class,
         description = "Compiled resource dependencies to link.")
-    public List<Path> compiledDeps = new ArrayList<>();
+    public List<Path> compiledDeps = ImmutableList.of();
 
     /**
      * TODO(b/64570523): Still used by blaze. Will be removed as part of the command line cleanup.
@@ -93,7 +92,7 @@ public final class ValidateAndLinkResourcesAction {
         names = "--library",
         converter = Converters.CompatStaticLibraryConverter.class,
         description = "Static libraries to link against.")
-    public List<StaticLibrary> libraries = new ArrayList<>();
+    public List<StaticLibrary> libraries = ImmutableList.of();
 
     @Parameter(names = "--packageForR", description = "Package for the resources.")
     public String packageForR;
@@ -120,7 +119,7 @@ public final class ValidateAndLinkResourcesAction {
         names = "--resourceApks",
         listConverter = Converters.CompatPathListConverter.class,
         description = "List of reource only APK files to link against.")
-    public List<Path> resourceApks = new ArrayList<>();
+    public List<Path> resourceApks = ImmutableList.of();
   }
 
   public static void main(String[] args) throws Exception {

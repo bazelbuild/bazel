@@ -64,6 +64,24 @@ public final class Converters {
 
   /**
    * Converter for {@link UnvalidatedAndroidData}. Relies on {@code
+   * UnvalidatedAndroidData#valueOf(String)} to perform conversion and validation. Compatible with
+   * JCommander.
+   */
+  public static class CompatUnvalidatedAndroidDataConverter
+      implements IStringConverter<UnvalidatedAndroidData> {
+    @Override
+    public UnvalidatedAndroidData convert(String input) throws ParameterException {
+      try {
+        return UnvalidatedAndroidData.valueOf(input);
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(
+            String.format("invalid UnvalidatedAndroidData: %s", e.getMessage()), e);
+      }
+    }
+  }
+
+  /**
+   * Converter for {@link UnvalidatedAndroidData}. Relies on {@code
    * UnvalidatedAndroidData#valueOf(String)} to perform conversion and validation.
    */
   public static class UnvalidatedAndroidDataConverter
@@ -120,6 +138,20 @@ public final class Converters {
     }
   }
 
+  /** Converter for {@link DependencyAndroidData}. Compatible with JCommander. */
+  public static class CompatDependencyAndroidDataConverter
+      implements IStringConverter<DependencyAndroidData> {
+    @Override
+    public DependencyAndroidData convert(String input) throws ParameterException {
+      try {
+        return DependencyAndroidData.valueOf(input);
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(
+            String.format("invalid DependencyAndroidData: %s", e.getMessage()), e);
+      }
+    }
+  }
+
   /**
    * Converter for a list of {@link DependencyAndroidData}. Relies on {@code
    * DependencyAndroidData#valueOf(String)} to perform conversion and validation.
@@ -172,6 +204,20 @@ public final class Converters {
     }
   }
 
+  /** Converter for a single {@link SerializedAndroidData}. Compatible with JCommander. */
+  public static class CompatSerializedAndroidDataConverter
+      implements IStringConverter<SerializedAndroidData> {
+    @Override
+    public SerializedAndroidData convert(String input) throws ParameterException {
+      try {
+        return SerializedAndroidData.valueOf(input);
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(
+            String.format("invalid SerializedAndroidData: %s", e.getMessage()), e);
+      }
+    }
+  }
+
   /** Converter for a list of {@link SerializedAndroidData}. */
   public static class SerializedAndroidDataListConverter
       extends Converter.Contextless<List<SerializedAndroidData>> {
@@ -198,6 +244,22 @@ public final class Converters {
       return "a list of preparsed android data in the format "
           + SerializedAndroidData.EXPECTED_FORMAT
           + "[&...]";
+    }
+  }
+
+  /** A splitter class for JCommander flags that splits on ampersands ("&"). */
+  public static class AmpersandSplitter implements IParameterSplitter {
+    @Override
+    public List<String> split(String value) {
+      return ImmutableList.copyOf(value.split("&"));
+    }
+  }
+
+  /** A splitter class for JCommander flags that splits on colons (":"). */
+  public static class ColonSplitter implements IParameterSplitter {
+    @Override
+    public List<String> split(String value) {
+      return ImmutableList.copyOf(value.split(":"));
     }
   }
 

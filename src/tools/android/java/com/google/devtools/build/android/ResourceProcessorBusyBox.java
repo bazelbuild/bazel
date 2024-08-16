@@ -30,7 +30,6 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
@@ -234,7 +233,7 @@ public class ResourceProcessorBusyBox {
         args = paramsFilePreProcessor.preProcess(ImmutableList.of("@" + argFile));
       }
       jc.parse(args.toArray(new String[0]));
-      ArrayList<String> residue = new ArrayList<>(options.getResidue());
+      List<String> residue = options.getResidue();
 
       options.tool.call(residue.toArray(new String[0]));
     } catch (UserException e) {
