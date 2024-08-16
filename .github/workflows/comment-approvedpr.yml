@@ -10,17 +10,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Get GitHub Pull Request Reviewers
+        uses: LiamPerson/get-reviews-action@v1.1.2  # Replace with desired version
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: List Reviewers
+        run: |
+          cat reviews.json | jq '.reviews[] | .user.login'
+          
       - uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
                 env:
-                requested_reviewers: ${{ toJson(github.event.pull_request.requested_reviewers) }}
+                approved_reviewers=$(cat reviews.json | jq -r '.reviews[] | select(.state == "APPROVED") | .user.login')
+                echo "requested_reviewers=${approved_reviewers}" >> $GITHUB_ENV
                 github.rest.issues.createComment({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
                   issue_number: context.issue.number,
-                  body: `Hi @{requested_reviewers}, Since the PR has been approved. Please confirm if the approved PR should be internally merged! `
+                  body: `Hi @{approved_reviewers}, Since the PR has been approved. Please confirm if the approved PR should be internally merged! `
                 })
                 github.rest.issues.addLabels({
                   owner: context.repo.owner,
