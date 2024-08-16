@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.starlark.FunctionTransitionUtil;
@@ -94,6 +95,25 @@ public class ExecutionTransitionFactory
             .build();
 
     if (data.analysisData() == null) {
+      // TODO: https://github.com/bazelbuild/rules_license/issues/148 - This is a temporary hack to
+      // prevent the license() rule's license_kinds attribute from failing.
+      //
+      // license() rules are already configured in NoConfigTransition (see the PR that produced this
+      // comment). So when they traverse 'cfg = "exec"' on their license_kind attribute, without
+      // this special case they'd throw the below TransitionCreationException.
+      //
+      // What we really want is to remove 'cfg = "exec"' from license_kind's attribute definition
+      // because it's redundant (its purpose was to avoid unnecesary forking from target
+      // configurations, not to explicitly use the exec configuration). The problem is that the
+      // attribute's definition is in in rules_license Starlark code, but the code that makes its
+      // parent license() use NoConfigTransition is in Bazel. We need to wait until that code is
+      // in a proper Bazel release before to avoid accidental target forking.
+      //
+      // So the actionable is: when rules_license() users use a new enough Bazel version, remove
+      // 'cfg = exec"' from license()'s license_kinds() attribute, then remove this check.
+      if (dataWithTargetAttributes.attributes().has("license_kinds")) {
+        return NoConfigTransition.INSTANCE;
+      }
       throw new TransitionCreationException(
           "expected a Starlark exec transition definition, but was null");
     }
