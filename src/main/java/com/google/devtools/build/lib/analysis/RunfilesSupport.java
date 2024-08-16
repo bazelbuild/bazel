@@ -95,7 +95,7 @@ public final class RunfilesSupport {
 
     private final PathFragment execPath;
     private final Runfiles runfiles;
-    private final Artifact repoMappingManifest;
+    @Nullable private final Artifact repoMappingManifest;
 
     /**
      * The cached runfiles mapping. Possible values:
@@ -119,7 +119,7 @@ public final class RunfilesSupport {
     private RunfilesTreeImpl(
         PathFragment execPath,
         Runfiles runfiles,
-        Artifact repoMappingManifest,
+        @Nullable Artifact repoMappingManifest,
         boolean buildRunfileLinks,
         boolean cacheMapping,
         RunfileSymlinksMode runfileSymlinksMode) {
@@ -129,6 +129,18 @@ public final class RunfilesSupport {
       this.buildRunfileLinks = buildRunfileLinks;
       this.runfileSymlinksMode = runfileSymlinksMode;
       this.cachedMapping = cacheMapping ? NOT_YET_COMPUTED : null;
+    }
+
+    @VisibleForTesting
+    public RunfilesTreeImpl(
+        PathFragment execPath, Runfiles runfiles, @Nullable Artifact repoMappingManifest) {
+      this(
+          execPath,
+          runfiles,
+          repoMappingManifest,
+          /* buildRunfileLinks= */ false,
+          /* cacheMapping= */ false,
+          RunfileSymlinksMode.EXTERNAL);
     }
 
     @Override

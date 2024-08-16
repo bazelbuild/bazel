@@ -13,8 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.exec;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.exec.Protos.ExecLogEntry;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
@@ -26,11 +30,13 @@ import java.util.ArrayDeque;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** Reconstructs an execution log in expanded format from the compact format representation. */
@@ -42,6 +48,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
   private final HashMap<Integer, File> symlinkMap = new HashMap<>();
   private final HashMap<Integer, ExecLogEntry.InputSet> setMap = new HashMap<>();
   private String hashFunctionName = "";
+  private String workspaceRunfilesDirectory = "";
 
   public SpawnLogReconstructor(InputStream in) throws IOException {
     this.in = new ZstdInputStream(in);
@@ -53,11 +60,16 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     ExecLogEntry entry;
     while ((entry = ExecLogEntry.parseDelimitedFrom(in)) != null) {
       switch (entry.getTypeCase()) {
-        case INVOCATION -> hashFunctionName = entry.getInvocation().getHashFunctionName();
+        case INVOCATION -> {
+          hashFunctionName = entry.getInvocation().getHashFunctionName();
+          workspaceRunfilesDirectory = entry.getInvocation().getWorkspaceRunfilesDirectory();
+        }
         case FILE -> fileMap.put(entry.getId(), reconstructFile(entry.getFile()));
         case DIRECTORY -> dirMap.put(entry.getId(), reconstructDir(entry.getDirectory()));
         case UNRESOLVED_SYMLINK ->
             symlinkMap.put(entry.getId(), reconstructSymlink(entry.getUnresolvedSymlink()));
+        case RUNFILES_TREE ->
+            dirMap.put(entry.getId(), reconstructRunfilesDir(entry.getRunfilesTree()));
         case INPUT_SET -> setMap.put(entry.getId(), entry.getInputSet());
         case SPAWN -> {
           return reconstructSpawnExec(entry.getSpawn());
@@ -158,7 +170,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
           inputs.put(file.getPath(), file);
         }
       }
-      for (int dirId : set.getDirectoryIdsList()) {
+      for (int dirId : Iterables.concat(set.getDirectoryIdsList(), set.getRunfilesTreeIdsList())) {
         if (visited.add(dirId)) {
           Pair<String, Collection<File>> dir = getFromMap(dirMap, dirId);
           for (File dirFile : dir.getSecond()) {
@@ -210,6 +222,73 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
         .setPath(entry.getPath())
         .setSymlinkTargetPath(entry.getTargetPath())
         .build();
+  }
+
+  private Pair<String, Collection<File>> reconstructRunfilesDir(
+      ExecLogEntry.RunfilesTree runfilesTree) throws IOException {
+    var artifacts = reconstructInputs(runfilesTree.getArtifactsId());
+    LinkedHashMap<String, File> builder =
+        new LinkedHashMap<>(runfilesTree.getSymlinksCount() + artifacts.size());
+    for (var symlink : runfilesTree.getSymlinksMap().entrySet()) {
+      String newPath = runfilesTree.getPath() + "/" + symlink.getKey();
+      for (var file : reconstructRunfilesSymlinkTarget(newPath, symlink.getValue())) {
+        builder.put(newPath, file);
+      }
+    }
+    reconstructInputs(runfilesTree.getArtifactsId()).values().stream()
+        .flatMap(
+            file ->
+                getRunfilesPaths(file.getPath())
+                    .map(
+                        relativePath ->
+                            file.toBuilder()
+                                .setPath(runfilesTree.getPath() + "/" + relativePath)
+                                .build()))
+        .forEach(file -> builder.put(file.getPath(), file));
+    return Pair.of(runfilesTree.getPath(), ImmutableList.copyOf(builder.values()));
+  }
+
+  private Stream<String> getRunfilesPaths(String originalPath) {
+    String path = originalPath;
+    if (path.startsWith("bazel-out/") || path.startsWith("blaze-out/")) {
+      // Trim the first three segments ("bazel-out/<config>/bin/") from the path.
+      int thirdSlash = path.indexOf('/', path.indexOf('/', "bazel-out/".length()) + 1);
+      path = path.substring(thirdSlash + 1);
+    }
+    if (path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX.getPathString())) {
+      return Stream.of(
+          path.substring(LabelConstants.EXTERNAL_PATH_PREFIX.getPathString().length()),
+          // --legacy_external_runfiles
+          workspaceRunfilesDirectory + "/" + path);
+    }
+    return Stream.of(workspaceRunfilesDirectory + "/" + path);
+  }
+
+  private Collection<File> reconstructRunfilesSymlinkTarget(
+      String newPath, ExecLogEntry.RunfilesTree.SymlinkTarget target) throws IOException {
+    return switch (target.getTargetCase()) {
+      case FILE_ID -> {
+        var file = getFromMap(fileMap, target.getFileId());
+        yield ImmutableList.of(file.toBuilder().setPath(newPath).build());
+      }
+      case UNRESOLVED_SYMLINK_ID -> {
+        var symlink = getFromMap(symlinkMap, target.getUnresolvedSymlinkId());
+        yield ImmutableList.of(symlink.toBuilder().setPath(newPath).build());
+      }
+      case DIRECTORY_ID -> {
+        var dir = getFromMap(dirMap, target.getDirectoryId());
+        yield dir.getSecond().stream()
+            .map(
+                file ->
+                    file.toBuilder()
+                        .setPath(newPath + file.getPath().substring(dir.getFirst().length()))
+                        .build())
+            .collect(toImmutableList());
+      }
+      default ->
+          throw new IOException(
+              String.format("unknown target type %d", target.getTargetCase().getNumber()));
+    };
   }
 
   private static <T> T getFromMap(Map<Integer, T> map, int id) throws IOException {

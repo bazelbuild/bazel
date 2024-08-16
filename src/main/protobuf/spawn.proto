@@ -282,7 +282,7 @@ message ExecLogEntry {
     map<string, SymlinkTarget> symlinks = 3;
 
     message SymlinkTarget {
-      oneof target{
+      oneof target {
         int32 file_id = 1;
         int32 directory_id = 2;
         int32 unresolved_symlink_id = 3;

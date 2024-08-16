@@ -71,6 +71,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.SortedMap;
 import org.junit.Test;
@@ -363,7 +364,9 @@ public abstract class SpawnLogContextTestBase {
         context,
         defaultSpawnExecBuilder()
             .addInputs(
-                File.newBuilder().setPath("out/foo.runfiles/data.txt").setDigest(getDigest("abc")))
+                File.newBuilder()
+                    .setPath("out/foo.runfiles/_main/data.txt")
+                    .setDigest(getDigest("abc")))
             .build());
   }
 
@@ -404,7 +407,7 @@ public abstract class SpawnLogContextTestBase {
                     ? ImmutableList.of()
                     : ImmutableList.of(
                         File.newBuilder()
-                            .setPath("out/foo.runfiles/dir/data.txt")
+                            .setPath("out/foo.runfiles/_main/dir/data.txt")
                             .setDigest(getDigest("abc"))
                             .build()))
             .build());
@@ -989,13 +992,19 @@ public abstract class SpawnLogContextTestBase {
 
   protected static RunfilesTree createRunfilesTree(
       PathFragment root, Map<String, Artifact> symlinks, Artifact... artifacts) {
-    HashMap<PathFragment, Artifact> symlinksByPath = new HashMap<>();
+    LinkedHashMap<PathFragment, Artifact> symlinksByPath = new LinkedHashMap<>();
     for (Map.Entry<String, Artifact> entry : symlinks.entrySet()) {
       symlinksByPath.put(PathFragment.create(entry.getKey()), entry.getValue());
+    }
+    LinkedHashMap<PathFragment, Artifact> mapping = new LinkedHashMap<>(symlinksByPath);
+    PathFragment workspaceRoot = PathFragment.create(TestConstants.WORKSPACE_NAME);
+    for (Artifact artifact : artifacts) {
+      mapping.put(workspaceRoot.getRelative(artifact.getRunfilesPath()), artifact);
     }
     RunfilesTree runfilesTree = mock(RunfilesTree.class);
     when(runfilesTree.getWorkspaceName()).thenReturn(TestConstants.WORKSPACE_NAME);
     when(runfilesTree.getExecPath()).thenReturn(root);
+    when(runfilesTree.getMapping()).thenReturn(mapping);
     when(runfilesTree.getAllSymlinksForLogging()).thenReturn(symlinksByPath);
     when(runfilesTree.getArtifactsAtCanonicalLocationsForLogging())
         .thenReturn(NestedSetBuilder.wrap(Order.STABLE_ORDER, ImmutableList.copyOf(artifacts)));

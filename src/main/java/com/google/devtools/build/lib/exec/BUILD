@@ -305,6 +305,7 @@ java_library(
         "StableSort.java",
     ],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/profiler",
         "//src/main/java/com/google/devtools/build/lib/util:pair",
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
