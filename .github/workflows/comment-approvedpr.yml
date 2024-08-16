@@ -11,11 +11,15 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Get GitHub Pull Request Reviewers
-        uses: LiamPerson/get-reviews-action@v1.1.2
-      - name: List Reviewers
+        uses: LiamPerson/get-reviews-action@v1.1.2  # Replace with desired version
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Filter Approved Reviewers
         run: |
           approved_reviewers=$(cat reviews.json | jq -r '.reviews[] | select(.state == "APPROVED") | .user.login')
-          echo "requested_reviewers=${approved_reviewers}"
+          echo "requested_reviewers=${approved_reviewers}" >> $GITHUB_ENV
+          
       - uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
