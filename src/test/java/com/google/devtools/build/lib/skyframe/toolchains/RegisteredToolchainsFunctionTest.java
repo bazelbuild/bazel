@@ -207,6 +207,73 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
                 + "target does not provide the DeclaredToolchainInfo provider");
   }
 
+  // Test confirming that targets with the kind `toolchain rule` will be properly rejected if they
+  // don't provide the DeclaredToolchainInfo provider.
+  @Test
+  public void testRegisteredToolchains_fakeToolchain() throws Exception {
+    rewriteWorkspace("register_toolchains('//error:not_a_toolchain')");
+    scratch.file(
+        "error/fake_toolchain.bzl",
+        """
+        def _fake_impl(ctx):
+          pass
+
+        toolchain = rule(implementation = _fake_impl)
+        """);
+    scratch.file(
+        "error/BUILD",
+        """
+        load(':fake_toolchain.bzl', fake_toolchain='toolchain')
+        fake_toolchain(name = 'not_a_toolchain')
+        """);
+
+    // Request the toolchains.
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    EvaluationResult<RegisteredToolchainsValue> result =
+        requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(toolchainsKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(
+            "invalid registered toolchain '//error:not_a_toolchain': "
+                + "target does not provide the DeclaredToolchainInfo provider");
+  }
+
+  // Test exercising an edge case in the current RegisteredToolchainsFunction logic: if a target
+  // has the kind `toolchain rule`, it must provide the DeclaredToolchainInfo provider, or the
+  // RegisteredToolchainsFunction will fail.
+  @Test
+  public void testRegisteredToolchains_wildcard_fakeToolchain() throws Exception {
+    rewriteWorkspace("register_toolchains('//error:all')");
+    scratch.file(
+        "error/fake_toolchain.bzl",
+        """
+        def _fake_impl(ctx):
+          pass
+
+        toolchain = rule(implementation = _fake_impl)
+        """);
+    scratch.file(
+        "error/BUILD",
+        """
+        load(':fake_toolchain.bzl', fake_toolchain='toolchain')
+        fake_toolchain(name = 'not_a_toolchain')
+        """);
+
+    // Request the toolchains.
+    SkyKey toolchainsKey = RegisteredToolchainsValue.key(targetConfigKey, /* debug= */ false);
+    EvaluationResult<RegisteredToolchainsValue> result =
+        requestToolchainsFromSkyframe(toolchainsKey);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(toolchainsKey)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains(
+            "invalid registered toolchain '//error:not_a_toolchain': "
+                + "target does not provide the DeclaredToolchainInfo provider");
+  }
+
   @Test
   public void testRegisteredToolchains_targetPattern_workspace() throws Exception {
     scratch.appendFile("extra/BUILD", "filegroup(name = 'not_a_platform')");
