@@ -68,7 +68,8 @@ public final class SerializationWithSkyframeTest {
     var value = new ExampleValue(key, 10);
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, value);
+        codecs.serializeMemoizedAndBlocking(
+            fingerprintValueService, value, /* profileCollector= */ null);
     assertThat(serialized.getFutureToBlockWritesOn()).isNull();
 
     // Deserialization always returns a future because there is a Skyframe lookup. The future is
@@ -112,7 +113,8 @@ public final class SerializationWithSkyframeTest {
     var value = ImmutableList.<ExampleValue>of(value1, value2);
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, value);
+        codecs.serializeMemoizedAndBlocking(
+            fingerprintValueService, value, /* profileCollector= */ null);
     assertThat(serialized.getFutureToBlockWritesOn()).isNull();
 
     // Deserialization always returns a future because there is a Skyframe lookup. The future is
@@ -141,7 +143,8 @@ public final class SerializationWithSkyframeTest {
     var sharedValue = new SharedExampleValue(value);
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, sharedValue);
+        codecs.serializeMemoizedAndBlocking(
+            fingerprintValueService, sharedValue, /* profileCollector= */ null);
     ListenableFuture<Void> writeStatus = serialized.getFutureToBlockWritesOn();
     assertThat(writeStatus.get()).isNull();
 
@@ -200,7 +203,8 @@ public final class SerializationWithSkyframeTest {
     var serializedBytes = new ArrayList<ByteString>();
     for (Object sharedValue : ImmutableList.of(subject0, subject1)) {
       SerializationResult<ByteString> serialized =
-          codecs.serializeMemoizedAndBlocking(fingerprintValueService, sharedValue);
+          codecs.serializeMemoizedAndBlocking(
+              fingerprintValueService, sharedValue, /* profileCollector= */ null);
       ListenableFuture<Void> writeStatus = serialized.getFutureToBlockWritesOn();
       assertThat(writeStatus.get()).isNull();
       serializedBytes.add(serialized.getObject());
@@ -307,7 +311,8 @@ public final class SerializationWithSkyframeTest {
             });
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
+        codecs.serializeMemoizedAndBlocking(
+            fingerprintValueService, subject, /* profileCollector= */ null);
     ListenableFuture<Void> writeStatus = serialized.getFutureToBlockWritesOn();
     assertThat(writeStatus.get()).isNull();
 
@@ -387,27 +392,14 @@ public final class SerializationWithSkyframeTest {
         AsyncDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
       ExampleKey key = context.deserializeLeaf(codedIn, exampleKeyCodec());
-      var builder = new ExampleValueBuilder();
-      context.getSkyValue(key, builder, ExampleValueBuilder::setValue);
+      SimpleDeferredValue<ExampleValue> builder = SimpleDeferredValue.create();
+      context.getSkyValue(key, builder, SimpleDeferredValue::set);
       return builder;
     }
   }
 
   private static ExampleValueCodec exampleValueCodec() {
     return ExampleValueCodec.INSTANCE;
-  }
-
-  private static final class ExampleValueBuilder implements DeferredValue<ExampleValue> {
-    private ExampleValue value;
-
-    @Override
-    public ExampleValue call() {
-      return value;
-    }
-
-    private static void setValue(ExampleValueBuilder builder, Object obj) {
-      builder.value = (ExampleValue) obj;
-    }
   }
 
   @Keep // used reflectively

@@ -46,20 +46,6 @@ android_sh_test(
 )
 
 android_sh_test(
-    name = "android_local_test_integration_test",
-    size = "large",
-    srcs = ["android_local_test_integration_test.sh"],
-    data = [
-        ":android_helper",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-    tags = [
-        "no_windows",
-    ],
-)
-
-android_sh_test(
     name = "aapt_integration_test",
     size = "large",
     srcs = ["aapt_integration_test.sh"],
@@ -92,25 +78,6 @@ android_sh_test(
     ],
     shard_count = 3,
     tags = [
-        "no_windows",
-    ],
-)
-
-android_sh_test(
-    name = "android_ndk_integration_test",
-    size = "medium",
-    timeout = "long",
-    srcs = ["android_ndk_integration_test.sh"],
-    data = [
-        ":android_helper",
-        "//external:android_ndk_for_testing",
-        "//external:android_sdk_for_testing",
-        "//src/test/shell/bazel:test-deps",
-    ],
-    shard_count = 6,
-    tags = [
-        # See https://github.com/bazelbuild/bazel/issues/17784.
-        "no-remote",
         "no_windows",
     ],
 )

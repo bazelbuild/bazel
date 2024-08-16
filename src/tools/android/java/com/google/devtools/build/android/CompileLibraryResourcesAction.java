@@ -14,103 +14,81 @@
 
 package com.google.devtools.build.android;
 
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.base.Preconditions;
-import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.build.android.Converters.UnvalidatedAndroidDirectoriesConverter;
+import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
+import com.google.devtools.build.android.Converters.CompatUnvalidatedAndroidDirectoriesConverter;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
 /** Compiles resources using aapt2 and archives them to zip. */
+@Parameters(separators = "= ")
 public class CompileLibraryResourcesAction {
   /** Flag specifications for this action. */
-  public static final class Options extends OptionsBase {
+  public static final class Options extends OptionsBaseWithResidue {
 
-    @Option(
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      name = "resources",
-      defaultValue = "null",
-      converter = UnvalidatedAndroidDirectoriesConverter.class,
-      category = "input",
-      help = "The resources to compile with aapt2."
-    )
+    @Parameter(
+        names = "--resources",
+        converter = CompatUnvalidatedAndroidDirectoriesConverter.class,
+        description = "The resources to compile with aapt2.")
     public UnvalidatedAndroidDirectories resources;
 
-    @Option(
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      name = "output",
-      defaultValue = "null",
-      converter = PathConverter.class,
-      category = "output",
-      help = "Path to write the zip of compiled resources."
-    )
+    @Parameter(
+        names = "--output",
+        converter = CompatPathConverter.class,
+        description = "Path to write the zip of compiled resources.")
     public Path output;
 
-    @Option(
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      name = "packagePath",
-      defaultValue = "null",
-      category = "input",
-      help =
-          "The package path of the library being processed."
-              + " This value is required for processing data binding."
-    )
+    @Parameter(
+        names = "--packagePath",
+        description =
+            "The package path of the library being processed."
+                + " This value is required for processing data binding.")
     public String packagePath;
 
-    @Option(
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      name = "manifest",
-      defaultValue = "null",
-      category = "input",
-      converter = ExistingPathConverter.class,
-      help =
-          "The manifest of the library being processed."
-              + " This value is required for processing data binding."
-    )
+    @Parameter(
+        names = "--manifest",
+        converter = CompatExistingPathConverter.class,
+        description =
+            "The manifest of the library being processed."
+                + " This value is required for processing data binding.")
     public Path manifest;
 
-    @Option(
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      name = "dataBindingInfoOut",
-      defaultValue = "null",
-      category = "output",
-      converter = PathConverter.class,
-      help =
-          "Path for the derived data binding metadata."
-              + " This value is required for processing data binding."
-    )
+    @Parameter(
+        names = "--dataBindingInfoOut",
+        converter = CompatPathConverter.class,
+        description =
+            "Path for the derived data binding metadata."
+                + " This value is required for processing data binding.")
     public Path dataBindingInfoOut;
   }
 
   static final Logger logger = Logger.getLogger(CompileLibraryResourcesAction.class.getName());
 
   public static void main(String[] args) throws Exception {
+    Options options = new Options();
+    JCommander jc = new JCommander(options);
+    jc.parse(args);
+    List<String> residue = options.getResidue();
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(
-                Options.class, Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
+            .optionsClasses(Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
-    optionsParser.parseAndExitUponError(args);
+    optionsParser.parseAndExitUponError(residue.toArray(new String[0]));
 
-    Options options = optionsParser.getOptions(Options.class);
     Aapt2ConfigOptions aapt2Options = optionsParser.getOptions(Aapt2ConfigOptions.class);
 
     Preconditions.checkNotNull(options.resources);

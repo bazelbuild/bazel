@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.analysis.LicensesProvider;
 import com.google.devtools.build.lib.analysis.LicensesProvider.TargetLicense;
 import com.google.devtools.build.lib.analysis.LicensesProviderImpl;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.Args;
@@ -342,26 +341,6 @@ public class CcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(name = "CcTestRunnerInfo", documented = false, structField = true)
   public StarlarkProvider ccTestRunnerInfo() throws EvalException {
     return starlarkCcTestRunnerInfo;
-  }
-
-  // This looks ugly, however it is necessary. Good thing is we are planning to get rid of genfiles
-  // directory altogether so this method has a bright future(of being removed).
-  @StarlarkMethod(
-      name = "bin_or_genfiles_relative_to_unique_directory",
-      documented = false,
-      parameters = {
-        @Param(name = "actions", positional = false, named = true),
-        @Param(name = "unique_directory", positional = false, named = true),
-      })
-  public String binOrGenfilesRelativeToUniqueDirectory(
-      StarlarkActionFactory actions, String uniqueDirectory) {
-    ActionConstructionContext actionConstructionContext = actions.getRuleContext();
-    return actionConstructionContext
-        .getBinOrGenfilesDirectory()
-        .getExecPath()
-        .getRelative(
-            actionConstructionContext.getUniqueDirectory(PathFragment.create(uniqueDirectory)))
-        .getPathString();
   }
 
   @StarlarkMethod(

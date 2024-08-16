@@ -346,15 +346,18 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       }
       String attributeName = (String) key;
       switch (attributeName) {
-        case "name":
+        case "name" -> {
           return rule.getName();
-        case "kind":
+        }
+        case "kind" -> {
           return rule.getRuleClass();
-        default:
+        }
+        default -> {
           Object value = starlarkifyAttribute(attributeName);
           if (value != null) {
             return value;
           }
+        }
       }
       return defaultValue;
     }
@@ -371,14 +374,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
             @Nullable private String nextRelevantAttributeName;
 
             private boolean isRelevant(String attributeName) {
-              switch (attributeName) {
-                case "name":
-                case "kind":
-                  // pseudo-names handled specially
-                  return false;
-                default:
-                  return starlarkifyAttribute(attributeName) != null;
-              }
+              return switch (attributeName) {
+                // pseudo-names handled specially
+                case "name", "kind" -> false;
+                default -> starlarkifyAttribute(attributeName) != null;
+              };
             }
 
             private void findNextRelevantName() {
@@ -754,14 +754,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
 
     if (val instanceof TriState) {
-      switch ((TriState) val) {
-        case AUTO:
-          return StarlarkInt.of(-1);
-        case YES:
-          return StarlarkInt.of(1);
-        case NO:
-          return StarlarkInt.of(0);
-      }
+      return switch ((TriState) val) {
+        case AUTO -> StarlarkInt.of(-1);
+        case YES -> StarlarkInt.of(1);
+        case NO -> StarlarkInt.of(0);
+      };
     }
 
     if (val instanceof Label) {

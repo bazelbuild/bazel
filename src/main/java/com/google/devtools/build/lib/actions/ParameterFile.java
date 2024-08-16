@@ -106,18 +106,12 @@ public class ParameterFile {
       throws IOException {
     OutputStream bufferedOut = new BufferedOutputStream(out);
     switch (type) {
-      case SHELL_QUOTED:
-        writeContent(bufferedOut, ShellEscaper.escapeAll(arguments), charset);
-        break;
-      case GCC_QUOTED:
-        writeContent(bufferedOut, GccParamFileEscaper.escapeAll(arguments), charset);
-        break;
-      case UNQUOTED:
-        writeContent(bufferedOut, arguments, charset);
-        break;
-      case WINDOWS:
-        writeContent(bufferedOut, WindowsParamFileEscaper.escapeAll(arguments), charset);
-        break;
+      case SHELL_QUOTED -> writeContent(bufferedOut, ShellEscaper.escapeAll(arguments), charset);
+      case GCC_QUOTED ->
+          writeContent(bufferedOut, GccParamFileEscaper.escapeAll(arguments), charset);
+      case UNQUOTED -> writeContent(bufferedOut, arguments, charset);
+      case WINDOWS ->
+          writeContent(bufferedOut, WindowsParamFileEscaper.escapeAll(arguments), charset);
     }
   }
 

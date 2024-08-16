@@ -360,6 +360,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     if (defaultFlags().contains(Flag.NO_LEGACY_EXTERNAL_RUNFILES)) {
       optionsParser.parse("--nolegacy_external_runfiles");
     }
+    optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     optionsParser.parse(args);
 
     buildOptions =
@@ -709,6 +710,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             TestAspects.EXTRA_ATTRIBUTE_ASPECT,
             TestAspects.PACKAGE_GROUP_ATTRIBUTE_ASPECT,
             TestAspects.COMPUTED_ATTRIBUTE_ASPECT,
+            TestAspects.FILE_PROVIDER_ASPECT,
             TestAspects.FOO_PROVIDER_ASPECT,
             TestAspects.ASPECT_REQUIRING_PROVIDER_SETS,
             TestAspects.WARNING_ASPECT,

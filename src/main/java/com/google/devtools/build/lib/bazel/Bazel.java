@@ -83,6 +83,7 @@ public final class Bazel {
           BazelBuiltinCommandModule.class,
           com.google.devtools.build.lib.includescanning.IncludeScanningModule.class,
           com.google.devtools.build.lib.skyframe.SkymeldModule.class,
+          com.google.devtools.build.lib.skyframe.serialization.SerializationModule.class,
           // This module needs to be registered after any module submitting tasks with its {@code
           // submit} method.
           com.google.devtools.build.lib.runtime.BlockWaitingModule.class,

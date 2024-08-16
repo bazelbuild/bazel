@@ -316,14 +316,14 @@ public final class ModCommand implements BlazeCommand {
     RepositoryMapping baseModuleMapping = depGraphValue.getFullRepoMapping(baseModuleKey);
     try {
       switch (subcommand) {
-        case GRAPH:
+        case GRAPH -> {
           // GRAPH doesn't take extra arguments.
           if (!args.isEmpty()) {
             throw new InvalidArgumentException(
                 "the 'graph' command doesn't take extra arguments", Code.TOO_MANY_ARGUMENTS);
           }
-          break;
-        case SHOW_REPO:
+        }
+        case SHOW_REPO -> {
           ImmutableMap.Builder<String, RepositoryName> targetToRepoName =
               new ImmutableMap.Builder<>();
           for (String arg : args) {
@@ -346,8 +346,8 @@ public final class ModCommand implements BlazeCommand {
             }
           }
           argsAsRepos = targetToRepoName.buildKeepingLast();
-          break;
-        case SHOW_EXTENSION:
+        }
+        case SHOW_EXTENSION -> {
           ImmutableSortedSet.Builder<ModuleExtensionId> extensionsBuilder =
               new ImmutableSortedSet.Builder<>(ModuleExtensionId.LEXICOGRAPHIC_COMPARATOR);
           for (String arg : args) {
@@ -369,8 +369,8 @@ public final class ModCommand implements BlazeCommand {
             }
           }
           argsAsExtensions = extensionsBuilder.build();
-          break;
-        default:
+        }
+        default -> {
           ImmutableSet.Builder<ModuleKey> keysBuilder = new ImmutableSet.Builder<>();
           for (String arg : args) {
             try {
@@ -392,6 +392,7 @@ public final class ModCommand implements BlazeCommand {
             }
           }
           argsAsModules = keysBuilder.build();
+        }
       }
     } catch (InvalidArgumentException e) {
       return reportAndCreateFailureResult(env, e.getMessage(), e.getCode());
@@ -507,16 +508,12 @@ public final class ModCommand implements BlazeCommand {
     // Workaround to allow different default value for DEPS and EXPLAIN, and also use
     // Integer.MAX_VALUE instead of the exact number string.
     if (modOptions.depth < 1) {
-      switch (subcommand) {
-        case EXPLAIN:
-          modOptions.depth = 1;
-          break;
-        case DEPS:
-          modOptions.depth = 2;
-          break;
-        default:
-          modOptions.depth = Integer.MAX_VALUE;
-      }
+      modOptions.depth =
+          switch (subcommand) {
+            case EXPLAIN -> 1;
+            case DEPS -> 2;
+            default -> Integer.MAX_VALUE;
+          };
     }
 
     ModExecutor modExecutor =
@@ -532,27 +529,13 @@ public final class ModCommand implements BlazeCommand {
 
     try {
       switch (subcommand) {
-        case GRAPH:
-          modExecutor.graph(fromKeys);
-          break;
-        case DEPS:
-          modExecutor.graph(argsAsModules);
-          break;
-        case PATH:
-          modExecutor.path(fromKeys, argsAsModules);
-          break;
-        case ALL_PATHS:
-        case EXPLAIN:
-          modExecutor.allPaths(fromKeys, argsAsModules);
-          break;
-        case SHOW_REPO:
-          modExecutor.showRepo(targetRepoRuleValues);
-          break;
-        case SHOW_EXTENSION:
-          modExecutor.showExtension(argsAsExtensions, usageKeys);
-          break;
-        default:
-          throw new IllegalStateException("Unexpected subcommand: " + subcommand);
+        case GRAPH -> modExecutor.graph(fromKeys);
+        case DEPS -> modExecutor.graph(argsAsModules);
+        case PATH -> modExecutor.path(fromKeys, argsAsModules);
+        case ALL_PATHS, EXPLAIN -> modExecutor.allPaths(fromKeys, argsAsModules);
+        case SHOW_REPO -> modExecutor.showRepo(targetRepoRuleValues);
+        case SHOW_EXTENSION -> modExecutor.showExtension(argsAsExtensions, usageKeys);
+        default -> throw new IllegalStateException("Unexpected subcommand: " + subcommand);
       }
     } catch (InvalidArgumentException e) {
       return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);

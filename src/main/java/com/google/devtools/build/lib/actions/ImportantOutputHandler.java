@@ -86,6 +86,22 @@ public interface ImportantOutputHandler extends ActionContext {
       throws ImportantOutputException, InterruptedException;
 
   /**
+   * Informs this handler of outputs from {@link
+   * com.google.devtools.build.lib.analysis.WorkspaceStatusAction}.
+   *
+   * <p>The given paths are under the exec root and are backed by an {@link
+   * com.google.devtools.build.lib.vfs.OutputService#createActionFileSystem action filesystem} if
+   * applicable.
+   *
+   * <p>Workspace status outputs should never be lost. {@link
+   * com.google.devtools.build.lib.analysis.WorkspaceStatusAction} is not shareable across servers
+   * (see {@link Actions#dependsOnBuildId}), so outputs passed to this method come from a
+   * just-executed action.
+   */
+  void processWorkspaceStatusOutputs(Path stableOutput, Path volatileOutput)
+      throws ImportantOutputException;
+
+  /**
    * A threshold to pass to {@link
    * com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils#logged(String, Duration)} for
    * profiling {@link ImportantOutputHandler} operations.

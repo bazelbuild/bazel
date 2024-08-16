@@ -115,7 +115,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     // Step 3: look for the repo from module extension evaluation results.
     Optional<ModuleExtensionId> extensionId =
         bazelDepGraphValue.getExtensionUniqueNames().entrySet().stream()
-            .filter(e -> repositoryName.getName().startsWith(e.getValue() + "~"))
+            .filter(e -> repositoryName.getName().startsWith(e.getValue() + "+"))
             .map(Entry::getKey)
             .findFirst();
 
@@ -153,7 +153,7 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
     if (moduleKey == null) {
       return Optional.empty();
     }
-    return Optional.of(bazelDepGraphValue.getDepGraph().get(moduleKey).getRepoSpec());
+    return Optional.ofNullable(bazelDepGraphValue.getDepGraph().get(moduleKey).getRepoSpec());
   }
 
   @Nullable

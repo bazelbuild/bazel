@@ -53,7 +53,7 @@ public final class FingerprintValueCacheTest {
   @Test
   public void putOperation_isCached(@TestParameter Distinguisher distinguisher) {
     FingerprintValueService service =
-        FingerprintValueService.createForTesting(/* exerciseDeserializationForTesting= */ false);
+        FingerprintValueService.createForTesting(FingerprintValueCache.SyncMode.LINKED);
 
     Object value = new Object();
 
@@ -69,7 +69,7 @@ public final class FingerprintValueCacheTest {
   @Test
   public void getOperation_isCached(@TestParameter Distinguisher distinguisher) {
     FingerprintValueService service =
-        FingerprintValueService.createForTesting(/* exerciseDeserializationForTesting= */ false);
+        FingerprintValueService.createForTesting(FingerprintValueCache.SyncMode.LINKED);
 
     ByteString fingerprint = ByteString.copyFromUtf8("foo");
 
@@ -85,7 +85,7 @@ public final class FingerprintValueCacheTest {
   @Test
   public void putOperation_isUnwrapped(@TestParameter Distinguisher distinguisher) {
     FingerprintValueService service =
-        FingerprintValueService.createForTesting(/* exerciseDeserializationForTesting= */ false);
+        FingerprintValueService.createForTesting(FingerprintValueCache.SyncMode.LINKED);
 
     Object value = new Object();
 
@@ -118,7 +118,7 @@ public final class FingerprintValueCacheTest {
   @Test
   public void getOperation_isUnwrapped(@TestParameter Distinguisher distinguisher) {
     FingerprintValueService service =
-        FingerprintValueService.createForTesting(/* exerciseDeserializationForTesting= */ false);
+        FingerprintValueService.createForTesting(FingerprintValueCache.SyncMode.LINKED);
 
     ByteString fingerprint = ByteString.copyFromUtf8("foo");
 
@@ -155,7 +155,7 @@ public final class FingerprintValueCacheTest {
     // Puts two values with the same fingerprint, but different distinguishers, then verifies that
     // they are distinguishable on retrieval.
     FingerprintValueService service =
-        FingerprintValueService.createForTesting(/* exerciseDeserializationForTesting= */ false);
+        FingerprintValueService.createForTesting(FingerprintValueCache.SyncMode.LINKED);
 
     ByteString fingerprint = ByteString.copyFromUtf8("foo");
 
@@ -182,13 +182,12 @@ public final class FingerprintValueCacheTest {
   }
 
   @Test
-  public void exerciseDeserializationForTesting_doesNotAddReverseEntry(
+  public void notLinkedPut_doesNotAddGetEntry(
       @TestParameter Distinguisher distinguisher,
-      @TestParameter boolean exerciseDeserializationForTesting) {
-    FingerprintValueService service =
-        FingerprintValueService.createForTesting(exerciseDeserializationForTesting);
+      @TestParameter FingerprintValueCache.SyncMode mode) {
+    FingerprintValueService service = FingerprintValueService.createForTesting(mode);
 
-    // Puts the `fingerprint` to `value` association in the service.
+    // Puts the `fingerprint` to `value` association into the service.
     ByteString fingerprint = ByteString.copyFromUtf8("foo");
     Object value = new Object();
     Object result =
@@ -200,12 +199,40 @@ public final class FingerprintValueCacheTest {
 
     SettableFuture<Object> getOperation = SettableFuture.create();
     result = service.getOrClaimGetOperation(fingerprint, distinguisher.value(), getOperation);
-    if (exerciseDeserializationForTesting) {
-      // Ordinarily, the reverse `value` to `fingerprint` would also be added to the cache, but it's
-      // not because `exerciseDeserializationForTesting` is true.
-      assertThat(result).isNull();
-    } else {
-      assertThat(result).isSameInstanceAs(value);
+    switch (mode) {
+      case LINKED:
+        assertThat(result).isSameInstanceAs(value);
+        break;
+      case NOT_LINKED:
+        // The reverse, `fingerprint` to `value` entry, is not added to the cache when NOT_LINKED.
+        assertThat(result).isNull();
+        break;
+    }
+  }
+
+  @Test
+  public void notLinkedGet_doesNotAddPutEntry(
+      @TestParameter Distinguisher distinguisher,
+      @TestParameter FingerprintValueCache.SyncMode mode) {
+    FingerprintValueService service = FingerprintValueService.createForTesting(mode);
+
+    // Puts the `value` to `fingerprint` association into the service.
+    ByteString fingerprint = ByteString.copyFromUtf8("foo");
+    Object value = new Object();
+    Object result =
+        service.getOrClaimGetOperation(fingerprint, distinguisher.value(), immediateFuture(value));
+    assertThat(result).isNull();
+
+    var putOperation = SettableFuture.<PutOperation>create();
+    result = service.getOrClaimPutOperation(value, distinguisher.value(), putOperation);
+    switch (mode) {
+      case LINKED:
+        assertThat(result).isSameInstanceAs(fingerprint);
+        break;
+      case NOT_LINKED:
+        // The reverse `value` to `fingerprint` entry is not added to the cache when NOT_LINKED.
+        assertThat(result).isNull();
+        break;
     }
   }
 }

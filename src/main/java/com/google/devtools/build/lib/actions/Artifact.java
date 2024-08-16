@@ -27,7 +27,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Streams;
-import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
@@ -57,7 +56,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
-import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Starlark;
@@ -200,14 +198,20 @@ public abstract sealed class Artifact
     return ((DerivedArtifact) artifact).getGeneratingActionKey();
   }
 
-  public static Collection<SkyKey> keys(Collection<Artifact> artifacts) {
-    return artifacts instanceof List
-        ? keys((List<Artifact>) artifacts)
+  public static <T extends Artifact> Iterable<SkyKey> keys(Iterable<T> artifacts) {
+    return artifacts instanceof Collection<T> collection
+        ? keys(collection)
+        : Iterables.transform(artifacts, Artifact::key);
+  }
+
+  public static <T extends Artifact> Collection<SkyKey> keys(Collection<T> artifacts) {
+    return artifacts instanceof List<T> list
+        ? keys(list)
         // Use Collections2 instead of Iterables#transform to ensure O(1) size().
         : Collections2.transform(artifacts, Artifact::key);
   }
 
-  public static List<SkyKey> keys(List<Artifact> artifacts) {
+  public static <T extends Artifact> List<SkyKey> keys(List<T> artifacts) {
     return Lists.transform(artifacts, Artifact::key);
   }
 
@@ -513,19 +517,7 @@ public abstract sealed class Artifact
 
   @Override
   public final FileRootApi getRootForStarlark(StarlarkSemantics semantics) {
-    // It would *not* be correct to just apply PathMapper#map to the exec path of the root: The
-    // root part of the mapped exec path of this artifact may depend on its complete exec path as
-    // well as on e.g. the digest of the artifact.
-    PathFragment mappedExecPath = PathMapper.loadFrom(semantics).map(execPath);
-    if (mappedExecPath.equals(execPath)) {
-      return root;
-    }
-    // PathMapper#map never changes the root-relative part of the exec path, so we can remove that
-    // suffix to get the mapped root part.
-    int rootRelativeSegmentCount = execPath.segmentCount() - root.getExecPath().segmentCount();
-    PathFragment mappedRootExecPath =
-        mappedExecPath.subFragment(0, mappedExecPath.segmentCount() - rootRelativeSegmentCount);
-    return new MappedArtifactRoot(mappedRootExecPath);
+    return PathMapper.loadFrom(semantics).mapRoot(this);
   }
 
   @Override
@@ -1362,62 +1354,6 @@ public abstract sealed class Artifact
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this).add("artifact", artifact.toDebugString()).toString();
-    }
-  }
-
-  /** A {@link FileRootApi} obtained by applying a {@link PathMapper} to an {@link ArtifactRoot}. */
-  @StarlarkBuiltin(
-      name = "mapped_root",
-      category = DocCategory.BUILTIN,
-      doc = "A root for files that have been subject to path mapping")
-  private static final class MappedArtifactRoot
-      implements FileRootApi, Comparable<MappedArtifactRoot> {
-    private final PathFragment mappedRootExecPath;
-
-    MappedArtifactRoot(PathFragment mappedRootExecPath) {
-      this.mappedRootExecPath = mappedRootExecPath;
-    }
-
-    @Override
-    public String getExecPathString() {
-      return mappedRootExecPath.getPathString();
-    }
-
-    @Override
-    public int compareTo(MappedArtifactRoot otherRoot) {
-      return mappedRootExecPath.compareTo(otherRoot.mappedRootExecPath);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      // Per the contract of PathMapper#map, mapped roots never have exec paths that are equal to
-      // exec paths of non-mapped roots, that is, of instances of ArtifactRoot. Thus, it is correct
-      // for both equals implementations to return false if the other object is not an instance of
-      // the respective class.
-      if (!(obj instanceof MappedArtifactRoot other)) {
-        return false;
-      }
-      return mappedRootExecPath.equals(other.mappedRootExecPath);
-    }
-
-    @Override
-    public int hashCode() {
-      return mappedRootExecPath.hashCode();
-    }
-
-    @Override
-    public String toString() {
-      return mappedRootExecPath + " [mapped]";
-    }
-
-    @Override
-    public void repr(Printer printer) {
-      printer.append("<mapped root>");
-    }
-
-    @Override
-    public boolean isImmutable() {
-      return true;
     }
   }
 }

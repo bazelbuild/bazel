@@ -94,7 +94,7 @@ public final class SandboxModule extends BlazeModule {
   private final Set<SandboxFallbackSpawnRunner> spawnRunners = new HashSet<>();
 
   /**
-   * Handler to process expensive tree deletions outside of the critical path.
+   * Handler to process expensive tree deletions, potentially outside of the critical path.
    *
    * <p>Sandboxing creates one separate tree for each action, and this tree is used to run the
    * action commands in. These trees are disjoint for all actions and have unique identifiers.

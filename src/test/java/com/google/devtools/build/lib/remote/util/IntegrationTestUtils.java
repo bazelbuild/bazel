@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.util.OS;
@@ -130,9 +131,14 @@ public final class IntegrationTestUtils {
       ensureMkdir(stdPath);
       ensureTouchFile(stdoutPath);
       ensureTouchFile(stderrPath);
-      String workerPath = Runfiles.create().rlocation(WORKER_PATH.getSafePathString());
+      Runfiles runfiles = Runfiles.preload().withSourceRepository("");
+      String workerPath = runfiles.rlocation(WORKER_PATH.getSafePathString());
+      ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
+      env.putAll(System.getenv());
+      env.putAll(runfiles.getEnvVars());
       process =
           new SubprocessBuilder()
+              .setEnv(env.buildKeepingLast())
               .setStdout(new File(stdoutPath.getSafePathString()))
               .setStderr(new File(stderrPath.getSafePathString()))
               .setArgv(

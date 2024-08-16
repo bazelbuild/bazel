@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static org.junit.Assume.assumeFalse;
 
-import com.google.common.base.Charsets;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -29,6 +28,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -99,7 +99,7 @@ public class MacOSXFsEventsDiffAwarenessTest {
 
   private void scratchFile(String path, String contents) throws IOException {
     Path p = watchedPath.resolve(path);
-    com.google.common.io.Files.write(contents.getBytes(Charsets.UTF_8), p.toFile());
+    com.google.common.io.Files.asCharSink(p.toFile(), StandardCharsets.UTF_8).write(contents);
   }
 
   private void scratchFile(String path) throws IOException {

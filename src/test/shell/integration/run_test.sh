@@ -63,6 +63,7 @@ add_to_bazelrc "test --notest_loasd"
 #### HELPER FUNCTIONS ##################################################
 
 function write_py_files() {
+  add_rules_python "MODULE.bazel"
   mkdir -p py || fail "mkdir py failed"
 
   cat > py/BUILD <<'EOF'
@@ -461,11 +462,13 @@ EOF
   bazel run //${pkg}:a
   local tmpdir_value
   tmpdir_value="$(cat "${TEST_TMPDIR}/tmpdir_value")"
+  expected_prefix="${TEST_TMPDIR}"
   if ${is_windows}; then
     # Work-around replacing the path with a short DOS path.
     tmpdir_value="$(cygpath -m -l "${tmpdir_value}")"
+    expected_prefix="${bazel_root}"
   fi
-  assert_starts_with "${TEST_TMPDIR}/" "${tmpdir_value}"
+  assert_starts_with "${expected_prefix}/" "${tmpdir_value}"
 }
 
 function test_blaze_run_with_custom_test_tmpdir() {
@@ -594,15 +597,18 @@ echo "goodbye $@"
 EOF
   chmod +x "$pkg/farewell.sh"
 
-  bazel run --run_under="//$pkg:greetings friend &&" -- "//$pkg:farewell" buddy \
+  bazel run --run_under="//$pkg:greetings friend && unset RUNFILES_MANIFEST_FILE &&" -- "//$pkg:farewell" buddy \
       >$TEST_log || fail "expected test to pass"
   # TODO(https://github.com/bazelbuild/bazel/issues/22148): bazel-team - This is
   # just demonstrating how things are, it's probably not how we want them to be.
+  # "unset RUNFILES_MANIFEST_FILE" is necessary because the environment
+  # variables set by //pkg:greetings are otherwise passed to //pkg:farewell and
+  # break its runfiles discovery.
   if "$is_windows"; then
     expect_log "hello there friend"
     expect_log "goodbye buddy"
   else
-    expect_log "hello there friend && .*bin/$pkg/farewell buddy"
+    expect_log "hello there friend && unset RUNFILES_MANIFEST_FILE && .*bin/$pkg/farewell buddy"
     expect_not_log "goodbye"
   fi
 }

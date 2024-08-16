@@ -58,19 +58,12 @@ public class BinaryOperatorExpression extends QueryExpression {
   @Override
   public <T> QueryTaskFuture<Void> eval(
       QueryEnvironment<T> env, QueryExpressionContext<T> context, Callback<T> callback) {
-    switch (operator) {
-      case PLUS:
-      case UNION:
-        return evalPlus(operands, env, context, callback);
-      case MINUS:
-      case EXCEPT:
-        return evalMinus(operands, env, context, callback);
-      case INTERSECT:
-      case CARET:
-        return evalIntersect(env, context, callback);
-      default:
-        throw new IllegalStateException(operator.toString());
-    }
+    return switch (operator) {
+      case PLUS, UNION -> evalPlus(operands, env, context, callback);
+      case MINUS, EXCEPT -> evalMinus(operands, env, context, callback);
+      case INTERSECT, CARET -> evalIntersect(env, context, callback);
+      default -> throw new IllegalStateException(operator.toString());
+    };
   }
 
   /**

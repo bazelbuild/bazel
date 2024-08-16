@@ -91,13 +91,10 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
     if (type == null) {
       return NONEXISTENT_FILE_STATE_NODE;
     }
-    switch (type) {
-      case DIRECTORY:
-        return DIRECTORY_FILE_STATE_NODE;
-      case SYMLINK:
-        return new SymlinkFileStateValue(path.readSymbolicLinkUnchecked());
-      case FILE:
-      case UNKNOWN:
+    return switch (type) {
+      case DIRECTORY -> DIRECTORY_FILE_STATE_NODE;
+      case SYMLINK -> new SymlinkFileStateValue(path.readSymbolicLinkUnchecked());
+      case FILE, UNKNOWN -> {
         if (stat == null) {
           stat = syscallCache.statIfFound(path, Symlinks.NOFOLLOW);
         }
@@ -105,14 +102,14 @@ public abstract class FileStateValue extends RegularFileValue implements HasDige
           throw new InconsistentFilesystemException(
               "File " + rootedPath + " found in directory, but stat failed");
         }
-        return createWithStatNoFollow(
+        yield createWithStatNoFollow(
             rootedPath,
             checkNotNull(FileStatusWithDigestAdapter.maybeAdapt(stat), rootedPath),
             /* digestWillBeInjected= */ false,
             syscallCache,
             tsgm);
-    }
-    throw new AssertionError(type);
+      }
+    };
   }
 
   public static FileStateValue createWithStatNoFollow(

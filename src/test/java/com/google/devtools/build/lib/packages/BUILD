@@ -44,6 +44,7 @@ java_test(
             "WorkspaceFactoryTestHelper.java",
         ],
     ),
+    shard_count = 20,
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         "//src/test/java/com/google/devtools/build/lib:test_runner",

@@ -22,9 +22,9 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 test_other_fail() {
   # Test that if one external repository fails in a non-keep-going build
   # the other is correctly reported as aborted rather than failed.
-  cat > WORKSPACE <<'EOF'
-load("//:slowrepo.bzl", "slowrepo")
-load("//:fastfailure.bzl", "failfast")
+  cat > MODULE.bazel <<'EOF'
+slowrepo = use_repo_rule("//:slowrepo.bzl", "slowrepo")
+failfast = use_repo_rule("//:fastfailure.bzl", "failfast")
 
 slowrepo(name="slow")
 failfast(name="failfast")
@@ -89,8 +89,8 @@ EOF
 
 test_timeout() {
   # Verify that timeouts can still be handled by repository rules
-  cat > WORKSPACE <<'EOF'
-load("//:handletimeout.bzl", "timeoutrepo")
+  cat > MODULE.bazel <<'EOF'
+timeoutrepo = use_repo_rule("//:handletimeout.bzl", "timeoutrepo")
 
 timeoutrepo(name="ext")
 EOF

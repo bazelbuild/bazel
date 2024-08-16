@@ -687,10 +687,13 @@ java_test(
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/skyframe:project_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/net/starlark/java/eval",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],
@@ -738,6 +741,7 @@ java_test(
     name = "ConfigurationsForTargetsTest",
     timeout = "short",
     srcs = ["ConfigurationsForTargetsTest.java"],
+    shard_count = 2,
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -1628,7 +1632,6 @@ java_test(
 
 java_test(
     name = "RepositoryMappingFunctionTest",
-    timeout = "short",
     srcs = ["RepositoryMappingFunctionTest.java"],
     deps = [
         ":testutil",
@@ -1778,7 +1781,6 @@ java_test(
 
 java_test(
     name = "WorkspaceFileFunctionTest",
-    timeout = "short",
     srcs = ["WorkspaceFileFunctionTest.java"],
     deps = [
         ":testutil",

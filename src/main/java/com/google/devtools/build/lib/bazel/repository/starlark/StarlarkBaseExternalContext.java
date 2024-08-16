@@ -602,11 +602,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       name = "download",
       doc =
           """
-          Downloads a file to the output path for the provided url and returns a struct \
-          containing <code>success</code>, a flag which is <code>true</code> if the \
-          download completed successfully, and if successful, a hash of the file \
-          with the fields <code>sha256</code> and <code>integrity</code>.
-          """,
+Downloads a file to the output path for the provided url and returns a struct \
+containing <code>success</code>, a flag which is <code>true</code> if the \
+download completed successfully, and if successful, a hash of the file \
+with the fields <code>sha256</code> and <code>integrity</code>. \
+When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
+<code>canonical_id</code> is highly recommended. e.g. \
+<a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
+""",
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -801,11 +804,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       name = "download_and_extract",
       doc =
           """
-          Downloads a file to the output path for the provided url, extracts it, and returns a \
-          struct containing <code>success</code>, a flag which is <code>true</code> if the \
-          download completed successfully, and if successful, a hash of the file with the \
-          fields <code>sha256</code> and <code>integrity</code>.
-          """,
+Downloads a file to the output path for the provided url, extracts it, and returns a \
+struct containing <code>success</code>, a flag which is <code>true</code> if the \
+download completed successfully, and if successful, a hash of the file with the \
+fields <code>sha256</code> and <code>integrity</code>. \
+When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
+<code>canonical_id</code> is highly recommended. e.g. \
+<a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
+""",
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -1465,17 +1471,14 @@ the same path on case-insensitive filesystems.
     AUTO;
 
     static ShouldWatch fromString(String s) throws EvalException {
-      switch (s) {
-        case "yes":
-          return YES;
-        case "no":
-          return NO;
-        case "auto":
-          return AUTO;
-        default:
-          throw Starlark.errorf(
-              "bad value for 'watch' parameter; want 'yes', 'no', or 'auto', got %s", s);
-      }
+      return switch (s) {
+        case "yes" -> YES;
+        case "no" -> NO;
+        case "auto" -> AUTO;
+        default ->
+            throw Starlark.errorf(
+                "bad value for 'watch' parameter; want 'yes', 'no', or 'auto', got %s", s);
+      };
     }
   }
 

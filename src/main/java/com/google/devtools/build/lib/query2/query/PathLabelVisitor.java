@@ -257,10 +257,10 @@ final class PathLabelVisitor {
         throws InterruptedException, NoSuchThingException {
       if (from != null) {
         switch (mode) {
-          case DEPS:
+          case DEPS -> {
             // Don't update parentMap; only use visited.
-            break;
-          case SAME_PKG_DIRECT_RDEPS:
+          }
+          case SAME_PKG_DIRECT_RDEPS -> {
             // Only track same-package dependencies.
             if (target
                 .getLabel()
@@ -274,15 +274,14 @@ final class PathLabelVisitor {
             // We only need to perform a single level of visitation. We have a non-null 'from'
             // target, and we're now at 'target' target, so we have one level, and can return here.
             return;
-          case ALLPATHS:
+          }
+          case ALLPATHS -> {
             if (!parentMap.containsKey(target)) {
               parentMap.put(target, new ArrayList<>());
             }
             parentMap.get(target).add(from);
-            break;
-          case SOMEPATH:
-            parentMap.putIfAbsent(target, ImmutableList.of(from));
-            break;
+          }
+          case SOMEPATH -> parentMap.putIfAbsent(target, ImmutableList.of(from));
         }
 
         visitAspectsIfRequired(from, attribute, target);

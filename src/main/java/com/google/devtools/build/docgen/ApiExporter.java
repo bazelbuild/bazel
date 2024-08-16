@@ -253,16 +253,15 @@ public class ApiExporter {
         param.setDoc(par.getDocumentation());
         param.setDefaultValue(par.getDefaultValue());
         switch (par.getKind()) {
-          case NORMAL:
-            break;
-          case EXTRA_POSITIONALS:
+          case NORMAL -> {}
+          case EXTRA_POSITIONALS -> {
             param.setName("*" + par.getName());
             param.setIsStarArg(true);
-            break;
-          case EXTRA_KEYWORDS:
+          }
+          case EXTRA_KEYWORDS -> {
             param.setName("**" + par.getName());
             param.setIsStarStarArg(true);
-            break;
+          }
         }
         callable.addParam(param);
       }

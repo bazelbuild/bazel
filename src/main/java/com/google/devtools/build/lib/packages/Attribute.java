@@ -215,7 +215,7 @@ public final class Attribute implements Comparable<Attribute> {
     public String getErrorReason(Object value) {
       return String.format(
           "has to be one of %s instead of '%s'",
-          StringUtil.joinEnglishList(allowedValues, "or", "'"), value);
+          StringUtil.joinEnglishListSingleQuoted(allowedValues), value);
     }
 
     @VisibleForTesting

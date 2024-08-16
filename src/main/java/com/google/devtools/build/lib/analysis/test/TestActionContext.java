@@ -204,7 +204,8 @@ public interface TestActionContext extends ActionContext {
      * allows a test to run with a different strategy on flaky retries (for example, enabling test
      * fail-fast mode to save up resources).
      */
-    default TestRunnerSpawn getFlakyRetryRunner() throws ExecException, InterruptedException {
+    default TestRunnerSpawn getFlakyRetryRunner(List<SpawnResult> previousAttemptResults)
+        throws ExecException, InterruptedException {
       return this;
     }
   }

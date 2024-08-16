@@ -1006,6 +1006,12 @@ public abstract class CcModule
   }
 
   @Override
+  public boolean checkExperimentalCcStaticLibrary(StarlarkThread thread) throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
+    return thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_CC_STATIC_LIBRARY);
+  }
+
+  @Override
   public boolean getIncompatibleDisableObjcLibraryTransition(StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
@@ -1741,7 +1747,7 @@ public abstract class CcModule
           "Unrecognized file extension '%s', allowed extensions are %s,"
               + " please check artifact_name_pattern configuration for %s in your rule.",
           extension,
-          StringUtil.joinEnglishList(foundCategory.getAllowedExtensions(), "or", "'"),
+          StringUtil.joinEnglishListSingleQuoted(foundCategory.getAllowedExtensions()),
           foundCategory.getCategoryName());
     }
 

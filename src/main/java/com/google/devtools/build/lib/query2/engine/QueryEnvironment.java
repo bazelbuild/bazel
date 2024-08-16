@@ -96,15 +96,11 @@ public interface QueryEnvironment<T> {
 
     @Override
     public String toString() {
-      switch (type) {
-        case WORD:
-          return "'" + word + "'";
-        case EXPRESSION:
-          return expression.toString();
-        case INTEGER:
-          return Integer.toString(integer);
-      }
-      throw new IllegalStateException();
+      return switch (type) {
+        case WORD -> "'" + word + "'";
+        case EXPRESSION -> expression.toString();
+        case INTEGER -> Integer.toString(integer);
+      };
     }
   }
 

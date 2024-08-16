@@ -484,6 +484,50 @@ public final class BazelAnalysisMock extends AnalysisMock {
         )
         """);
 
+    // Create fake, minimal implementations of test-setup.sh and test-xml-generator.sh for test
+    // cases that actually execute tests. Does not support coverage, interruption, signals, etc.
+    // For proper test execution support, the actual test-setup.sh will need to be included in the
+    // Java test's runfiles and copied/symlinked into the MockToolsConfig's workspace.
+    config
+        .create(
+            "embedded_tools/tools/test/test-setup.sh",
+            """
+            #!/bin/bash
+            set -e
+            function is_absolute {
+              [[ "$1" = /* ]] || [[ "$1" =~ ^[a-zA-Z]:[/\\].* ]]
+            }
+            is_absolute "$TEST_SRCDIR" || TEST_SRCDIR="$PWD/$TEST_SRCDIR"
+            RUNFILES_MANIFEST_FILE="${TEST_SRCDIR}/MANIFEST"
+            cd ${TEST_SRCDIR}
+            function rlocation() {
+              if is_absolute "$1" ; then
+                # If the file path is already fully specified, simply return it.
+                echo "$1"
+              elif [[ -e "$TEST_SRCDIR/$1" ]]; then
+                # If the file exists in the $TEST_SRCDIR then just use it.
+                echo "$TEST_SRCDIR/$1"
+              elif [[ -e "$RUNFILES_MANIFEST_FILE" ]]; then
+                # If a runfiles manifest file exists then use it.
+                echo "$(grep "^$1 " "$RUNFILES_MANIFEST_FILE" | sed 's/[^ ]* //')"
+              fi
+            }
+
+            EXE="${1#./}"
+            shift
+
+            if is_absolute "$EXE"; then
+              TEST_PATH="$EXE"
+            else
+              TEST_PATH="$(rlocation $TEST_WORKSPACE/$EXE)"
+            fi
+            exec $TEST_PATH
+            """)
+        .chmod(0755);
+    config
+        .create("embedded_tools/tools/test/test-xml-generator.sh", "#!/bin/sh", "cp \"$1\" \"$2\"")
+        .chmod(0755);
+
     // Use an alias package group to allow for modification at the simpler path
     config.create(
         "embedded_tools/tools/allowlists/config_feature_flag/BUILD",
@@ -735,16 +779,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'dexsharder', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'aar_import_deps_checker', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'busybox', srcs = ['empty.sh'])")
-        .add("android_library(name = 'incremental_stub_application')")
-        .add("android_library(name = 'incremental_split_stub_application')")
-        .add("sh_binary(name = 'stubify_manifest', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'merge_dexzips', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'build_split_manifest', srcs = ['empty.sh'])")
         .add("filegroup(name = 'debug_keystore', srcs = ['fake.file'])")
+        .add("sh_binary(name = 'databinding_exec', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'shuffle_jars', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'strip_resources', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'build_incremental_dexmanifest', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'incremental_install', srcs = ['empty.sh'])")
         .add("java_binary(name = 'IdlClass',")
         .add("            runtime_deps = [ ':idlclass_import' ],")
         .add("            main_class = 'com.google.devtools.build.android.idlclass.IdlClass')")

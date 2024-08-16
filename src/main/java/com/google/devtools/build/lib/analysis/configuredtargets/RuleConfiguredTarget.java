@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -135,17 +134,6 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
         Util.findImplicitDeps(ruleContext),
         ruleContext.getRule().getRuleClassObject().getRuleClassId(),
         actions);
-
-    // If this rule is the run_under target, then check that we have an executable; note that
-    // run_under is only set in the target configuration, and the target must also be analyzed for
-    // the target configuration.
-    RunUnder runUnder = ruleContext.getConfiguration().getRunUnder();
-    if (runUnder != null && getLabel().equals(runUnder.getLabel())) {
-      if (getProvider(FilesToRunProvider.class).getExecutable() == null) {
-        ruleContext.ruleError("run_under target " + runUnder.getLabel() + " is not executable");
-      }
-    }
-
     // Make sure that all declared output files are also created as artifacts. The
     // CachingAnalysisEnvironment makes sure that they all have generating actions.
     if (!ruleContext.hasErrors()) {

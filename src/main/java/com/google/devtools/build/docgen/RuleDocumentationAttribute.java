@@ -165,38 +165,26 @@ public class RuleDocumentationAttribute
 
   private static Type<?> getAttributeInfoType(AttributeInfo attributeInfo, String location)
       throws BuildEncyclopediaDocException {
-    switch (attributeInfo.getType()) {
-      case INT:
-        return Type.INTEGER;
-      case LABEL:
-        return BuildType.LABEL;
-      case NAME:
-      case STRING:
-        return Type.STRING;
-      case STRING_LIST:
-        return Types.STRING_LIST;
-      case INT_LIST:
-        return Types.INTEGER_LIST;
-      case LABEL_LIST:
-        return BuildType.LABEL_LIST;
-      case BOOLEAN:
-        return Type.BOOLEAN;
-      case LABEL_STRING_DICT:
-        return BuildType.LABEL_KEYED_STRING_DICT;
-      case STRING_DICT:
-        return Types.STRING_DICT;
-      case STRING_LIST_DICT:
-        return Types.STRING_LIST_DICT;
-      case OUTPUT:
-        return BuildType.OUTPUT;
-      case OUTPUT_LIST:
-        return BuildType.OUTPUT_LIST;
-      default:
-        throw new BuildEncyclopediaDocException(
-            location,
-            String.format(
-                "attribute %s: unknown type %s", attributeInfo.getName(), attributeInfo.getType()));
-    }
+    return switch (attributeInfo.getType()) {
+      case INT -> Type.INTEGER;
+      case LABEL -> BuildType.LABEL;
+      case NAME, STRING -> Type.STRING;
+      case STRING_LIST -> Types.STRING_LIST;
+      case INT_LIST -> Types.INTEGER_LIST;
+      case LABEL_LIST -> BuildType.LABEL_LIST;
+      case BOOLEAN -> Type.BOOLEAN;
+      case LABEL_STRING_DICT -> BuildType.LABEL_KEYED_STRING_DICT;
+      case STRING_DICT -> Types.STRING_DICT;
+      case STRING_LIST_DICT -> Types.STRING_LIST_DICT;
+      case OUTPUT -> BuildType.OUTPUT;
+      case OUTPUT_LIST -> BuildType.OUTPUT_LIST;
+      default ->
+          throw new BuildEncyclopediaDocException(
+              location,
+              String.format(
+                  "attribute %s: unknown type %s",
+                  attributeInfo.getName(), attributeInfo.getType()));
+    };
   }
 
   private RuleDocumentationAttribute(
@@ -231,14 +219,11 @@ public class RuleDocumentationAttribute
       // the attribute explains the details.
       return null;
     } else if (value instanceof TriState triState) {
-      switch (triState) {
-        case AUTO:
-          return "-1";
-        case NO:
-          return "0";
-        case YES:
-          return "1";
-      }
+      return switch (triState) {
+        case AUTO -> "-1";
+        case NO -> "0";
+        case YES -> "1";
+      };
     }
     return LabelRenderer.DEFAULT.reprWithoutLabelConstructor(Attribute.valueToStarlark(value));
   }

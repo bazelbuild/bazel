@@ -252,6 +252,25 @@ def _impl(ctx):
         )
         action_configs.append(objcopy_action)
 
+    validate_static_library = ctx.attr.tool_paths.get("validate_static_library")
+    if validate_static_library:
+        validate_static_library_action = action_config(
+            action_name = ACTION_NAMES.validate_static_library,
+            tools = [
+                tool(
+                    path = validate_static_library,
+                ),
+            ],
+        )
+        action_configs.append(validate_static_library_action)
+
+        symbol_check = feature(
+            name = "symbol_check",
+            implies = [ACTION_NAMES.validate_static_library],
+        )
+    else:
+        symbol_check = None
+
     supports_pic_feature = feature(
         name = "supports_pic",
         enabled = True,
@@ -1618,6 +1637,9 @@ def _impl(ctx):
     )
     action_configs += parse_headers_action_configs
     features += parse_headers_features
+
+    if symbol_check:
+        features.append(symbol_check)
 
     return cc_common.create_cc_toolchain_config_info(
         ctx = ctx,

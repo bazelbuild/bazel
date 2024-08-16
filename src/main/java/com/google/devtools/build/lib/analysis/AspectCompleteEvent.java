@@ -53,9 +53,9 @@ public final class AspectCompleteEvent
       ImmutableMap<String, ArtifactsInOutputGroup> artifactOutputGroups) {
     this.aspectKey = aspectKey;
     this.rootCauses =
-        (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
+        (rootCauses == null) ? NestedSetBuilder.emptySet(Order.STABLE_ORDER) : rootCauses;
     ImmutableList.Builder<BuildEventId> postedAfterBuilder = ImmutableList.builder();
-    for (Cause cause : getRootCauses().toList()) {
+    for (Cause cause : this.rootCauses.toList()) {
       postedAfterBuilder.add(cause.getIdProto());
     }
     this.postedAfter = postedAfterBuilder.build();
@@ -138,7 +138,7 @@ public final class AspectCompleteEvent
   @Override
   public ReportedArtifacts reportedArtifacts() {
     return TargetCompleteEvent.toReportedArtifacts(
-        artifactOutputGroups, completionContext, /*baselineCoverageArtifacts=*/ null);
+        artifactOutputGroups, completionContext, /* baselineCoverage= */ null);
   }
 
   @Override
@@ -148,9 +148,7 @@ public final class AspectCompleteEvent
     builder.setSuccess(!failed());
     builder.addAllOutputGroup(
         TargetCompleteEvent.toOutputGroupProtos(
-            artifactOutputGroups,
-            converters.artifactGroupNamer(),
-            /*baselineCoverageArtifacts=*/ null));
+            artifactOutputGroups, converters.artifactGroupNamer(), /* baselineCoverage= */ null));
     return GenericBuildEvent.protoChaining(this).setCompleted(builder.build()).build();
   }
 

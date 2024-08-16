@@ -43,7 +43,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -106,7 +105,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
 /** Tests for {@link RepositoryDelegatorFunction} */
 @RunWith(JUnit4.class)
@@ -130,14 +128,13 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             rootPath,
             /* defaultSystemJavabase= */ null,
             TestConstants.PRODUCT_NAME);
-    DownloadManager downloader = Mockito.mock(DownloadManager.class);
     RepositoryFunction localRepositoryFunction = new LocalRepositoryFunction();
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
         ImmutableMap.of(LocalRepositoryRule.NAME, localRepositoryFunction);
     RepositoryDelegatorFunction delegatorFunction =
         new RepositoryDelegatorFunction(
             repositoryHandlers,
-            new StarlarkRepositoryFunction(downloader),
+            new StarlarkRepositoryFunction(),
             /* isFetch= */ new AtomicBoolean(true),
             /* clientEnvironmentSupplier= */ ImmutableMap::of,
             directories,

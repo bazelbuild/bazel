@@ -372,7 +372,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
       List<String> flagFiles,
       InputMetadataProvider inputFileCache,
       SpawnMetrics.Builder spawnMetrics)
-      throws InterruptedException, ExecException {
+      throws ExecException, ForbiddenActionInputException, IOException, InterruptedException {
     WorkerOwner workerOwner = null;
     WorkResponse response;
     WorkRequest request;
@@ -385,16 +385,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.WORKER_SETUP, "Preparing inputs")) {
-      try {
-        context.prefetchInputsAndWait();
-      } catch (IOException e) {
-        restoreInterrupt(e);
-        String message = "IOException while prefetching for worker:";
-        throw createUserExecException(e, message, Code.PREFETCH_FAILURE);
-      } catch (ForbiddenActionInputException e) {
-        throw createUserExecException(
-            e, "Forbidden input found while prefetching for worker:", Code.FORBIDDEN_INPUT);
-      }
+      context.prefetchInputsAndWait();
     }
     Duration setupInputsTime = setupInputsStopwatch.elapsed();
     spawnMetrics.setSetupTimeInMs((int) setupInputsTime.toMillis());
@@ -701,12 +692,6 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
   private static UserExecException createUserExecException(
       IOException e, String message, Code detailedCode) {
-    return createUserExecException(
-        ErrorMessage.builder().message(message).exception(e).build().toString(), detailedCode);
-  }
-
-  private static UserExecException createUserExecException(
-      ForbiddenActionInputException e, String message, Code detailedCode) {
     return createUserExecException(
         ErrorMessage.builder().message(message).exception(e).build().toString(), detailedCode);
   }

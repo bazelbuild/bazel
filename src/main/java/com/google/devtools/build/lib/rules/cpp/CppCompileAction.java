@@ -1312,7 +1312,13 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
     fp.addInt(0);
     actionKeyContext.addNestedSetToFingerprint(fp, inputsForInvalidation);
 
-    PathMappers.addToFingerprint(mnemonic, executionInfo, outputPathsMode, fp);
+    PathMappers.addToFingerprint(
+        mnemonic,
+        executionInfo,
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        actionKeyContext,
+        outputPathsMode,
+        fp);
   }
 
   private byte[] getCommandLineKey() throws CommandLineExpansionException {
@@ -1338,7 +1344,9 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   @Override
   public ActionResult execute(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    PathMapper pathMapper = PathMappers.create(this, PathMappers.getOutputPathsMode(configuration));
+    PathMapper pathMapper =
+        PathMappers.create(
+            this, PathMappers.getOutputPathsMode(configuration), /* isStarlarkAction= */ false);
 
     if (featureConfiguration.isEnabled(CppRuleClasses.COMPILER_PARAM_FILE)) {
       try {

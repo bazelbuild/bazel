@@ -128,13 +128,9 @@ public interface ActionAnalysisMetadata {
   /**
    * Returns the input Artifacts that this Action depends upon. May be empty.
    *
-   * <p>During execution, the {@link Iterable} returned by {@code getInputs} <em>must not</em> be
-   * concurrently modified before the value is fully read in {@code JavaDistributorDriver#exec} (via
-   * the {@code Iterable<ActionInput>} argument there). Violating this would require somewhat
-   * pathological behavior by the {@link Action}, since it would have to modify its inputs, as a
-   * list, say, without reassigning them. This should never happen with any Action subclassing
-   * AbstractAction, since AbstractAction's implementation of getInputs() returns an immutable
-   * iterable.
+   * <p>For actions that do input discovery or input pruning, a different result may be returned
+   * before and after action execution, because input discovery may add additional artifacts from
+   * {@link #getSchedulingDependencies}, and input pruning may remove them.
    */
   NestedSet<Artifact> getInputs();
 

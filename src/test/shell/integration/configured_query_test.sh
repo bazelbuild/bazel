@@ -217,6 +217,38 @@ function test_transitions_full() {
   assert_contains "host_dep#//$pkg:host#(exec + (TestTrimmingTransition + ConfigFeatureFlagTaggedTrimmingTransition))" output
 }
 
+function test_transitions_incompatible_target() {
+  local -r pkg=$FUNCNAME
+
+  mkdir -p $pkg
+  cat > $pkg/BUILD <<EOF
+constraint_setting(name = "incompatible_setting")
+constraint_value(
+    name = "incompatible",
+    constraint_setting = ":incompatible_setting",
+)
+genrule(
+    name = "gr",
+    srcs = [":input"],
+    cmd = "touch $@",
+    outs = ["out"],
+    target_compatible_with = [":incompatible"],
+)
+genrule(
+    name = "input",
+    cmd = "echo hi > $@",
+    outs = ["in"],
+)
+EOF
+
+    bazel cquery "deps(//$pkg:gr)" --transitions=lite \
+      > output 2>"$TEST_log" || fail "Excepted success"
+
+    assert_contains "//$pkg:gr" output
+    assert_not_contains "//$pkg:input" output
+    expect_log "WARNING: Skipping dependencies of incompatible target //$pkg:gr"
+}
+
 function write_test_targets() {
   mkdir -p $pkg
   cat > $pkg/rule.bzl <<'EOF'
@@ -254,6 +286,7 @@ EOF
 function test_show_transitive_config_fragments() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load("@rules_python//python:py_library.bzl", "py_library")
 
@@ -327,6 +360,7 @@ EOF
 function test_show_transitive_config_fragments_alias() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load("@rules_python//python:py_library.bzl", "py_library")
 
@@ -388,6 +422,7 @@ EOF
 function test_show_transitive_config_fragments_host_deps() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load("@rules_python//python:py_library.bzl", "py_library")
 
@@ -419,6 +454,7 @@ EOF
 function test_show_transitive_config_fragments_through_output_file() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load("@rules_python//python:py_library.bzl", "py_library")
 
@@ -450,6 +486,7 @@ EOF
 function test_show_direct_config_fragments() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load("@rules_python//python:py_library.bzl", "py_library")
 
@@ -875,6 +912,7 @@ EOF
 function test_starlark_output_mode() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load("@rules_python//python:py_library.bzl", "py_library")
 
@@ -1009,6 +1047,7 @@ root_rule = rule(
 )
 EOF
 
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load(":rules.bzl", "bool_flag", "list_flag", "root_rule")
 load("@rules_python//python:py_library.bzl", "py_library")
@@ -1079,7 +1118,7 @@ EOF
 function test_starlark_build_options_invalid_arg() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
-
+  add_rules_python "MODULE.bazel"
   cat > $pkg/BUILD <<'EOF'
 load("@rules_python//python:py_library.bzl", "py_library")
 
@@ -1357,13 +1396,14 @@ function test_bazelignore_error_cquery_nocrash() {
   local -r pkg=$FUNCNAME
 
   mkdir -p $pkg/repo
-  touch $pkg/repo/WORKSPACE
+  touch $pkg/repo/REPO.bazel
   cat > $pkg/repo/BUILD <<EOF
   toolchain_type(name = "toolchain_type")
 EOF
 
-  cat > $pkg/WORKSPACE <<EOF
-  local_repository(name = "repo", path = "./repo")
+  cat > $pkg/MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(name = "repo", path = "./repo")
 EOF
   bazel cquery --output=starlark --starlark:expr 'target' @repo//:toolchain_type >output \
     2>"$TEST_log" && fail "Expected failure"
@@ -1389,8 +1429,9 @@ sh_library(name='japanese')
 EOF
 
   mkdir -p $dir/main
-  write_default_lockfile $dir/main/MODULE.bazel.lock
-  cat > $dir/main/WORKSPACE <<EOF
+  setup_module_dot_bazel $dir/main/MODULE.bazel
+  cat > $dir/main/MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "repo", path = "../repo")
 EOF
   touch $dir/main/BUILD
@@ -1418,8 +1459,9 @@ sh_library(name='japanese')
 EOF
 
   mkdir -p $dir/main
-  write_default_lockfile $dir/main/MODULE.bazel.lock
-  cat > $dir/main/WORKSPACE <<EOF
+  setup_module_dot_bazel $dir/main/MODULE.bazel
+  cat > $dir/main/MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = "repo", path = "../repo")
 EOF
   touch $dir/main/BUILD

@@ -78,11 +78,12 @@ filegroup(name = 'yolo')
 EOF
 
   cd rules_cc_can_be_overridden || fail "couldn't cd into workspace"
-  bazel build --noenable_bzlmod @rules_cc//:yolo &> $TEST_log || \
+  bazel build --noenable_bzlmod --enable_workspace @rules_cc//:yolo &> $TEST_log || \
     fail "Bazel failed to build @rules_cc"
 }
 
 function test_rules_cc_repository_builds_itself() {
+  add_rules_cc "MODULE.bazel"
   write_default_bazelrc
 
   # We test that a built-in @rules_cc repository is buildable.

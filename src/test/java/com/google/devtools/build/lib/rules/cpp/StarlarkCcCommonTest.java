@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -5588,25 +5589,25 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     AssertionError e = assertThrows(AssertionError.class, () -> getConfiguredTarget("//foo:bin"));
     assertThat(e)
         .hasMessageThat()
-        .contains("'a.o' does not have any of the allowed extensions .a, .lib, .pic.a or .rlib");
+        .contains("'a.o' does not have any of the allowed extensions .a, .lib, .pic.a, or .rlib");
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "'a.pic.o' does not have any of the allowed extensions .a, .lib, .pic.a or .rlib");
+            "'a.pic.o' does not have any of the allowed extensions .a, .lib, .pic.a, or .rlib");
     assertThat(e)
         .hasMessageThat()
         .contains(
             "'a.ifso' does not have any of the allowed extensions .so, .dylib, .dll, .pyd, .wasm,"
-                + " .tgt or .vpi");
+                + " .tgt, or .vpi");
     assertThat(e)
         .hasMessageThat()
         .contains(
             "'a.lib' does not have any of the allowed extensions .so, .dylib, .dll, .pyd, .wasm,"
-                + " .tgt or .vpi");
+                + " .tgt, or .vpi");
     assertThat(e)
         .hasMessageThat()
         .contains(
-            "'a.dll' does not have any of the allowed extensions .ifso, .tbd, .lib or .dll.a");
+            "'a.dll' does not have any of the allowed extensions .ifso, .tbd, .lib, or .dll.a");
   }
 
   @Test
@@ -5878,6 +5879,33 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testStripIncludePrefixIncludePath() throws Exception {
+    createFilesForTestingCompilation(
+        scratch, "third_party/tools/build_defs/foo", "strip_include_prefix='v1'");
+    scratch.file(
+        "third_party/bar/BUILD",
+        """
+        load("//third_party/tools/build_defs/foo:extension.bzl", "cc_starlark_library")
+
+        cc_starlark_library(
+            name = "starlark_lib",
+            srcs = ["starlark_lib.cc"],
+            private_hdrs = ["v1/private_starlark_lib.h"],
+            public_hdrs = ["v1/starlark_lib.h"],
+        )
+        """);
+    ConfiguredTarget target = getConfiguredTarget("//third_party/bar:starlark_lib");
+    assertThat(target).isNotNull();
+    CcInfo ccInfo = target.get(CcInfo.PROVIDER);
+
+    assertThat(ccInfo.getCcCompilationContext().getIncludeDirs())
+        .containsExactly(
+            getTargetConfiguration()
+                .getBinFragment(RepositoryName.MAIN)
+                .getRelative("third_party/bar/_virtual_includes/starlark_lib_suffix"));
+  }
+
+  @Test
   public void testStripIncludePrefixAndIncludePrefix() throws Exception {
     createFilesForTestingCompilation(
         scratch,
@@ -5901,6 +5929,31 @@ public class StarlarkCcCommonTest extends BuildViewTestCase {
     assertThat(artifactsToStrings(ccInfo.getCcCompilationContext().getDirectPublicHdrs()))
         .contains(
             "bin third_party/bar/_virtual_includes/starlark_lib_suffix/prefix/starlark_lib.h");
+  }
+
+  @Test
+  public void testStripIncludePrefixAndIncludePrefixIncludePath() throws Exception {
+    createFilesForTestingCompilation(
+        scratch,
+        "third_party/tools/build_defs/foo",
+        "strip_include_prefix='v1', include_prefix='prefix'");
+    scratch.file(
+        "third_party/bar/BUILD",
+        "load('//third_party/tools/build_defs/foo:extension.bzl', 'cc_starlark_library')",
+        "cc_starlark_library(",
+        "    name = 'starlark_lib',",
+        "    srcs = ['starlark_lib.cc'],",
+        "    public_hdrs = ['v1/starlark_lib.h'],",
+        "    private_hdrs = ['v1/private_starlark_lib.h'],",
+        ")");
+    ConfiguredTarget target = getConfiguredTarget("//third_party/bar:starlark_lib");
+    assertThat(target).isNotNull();
+    CcInfo ccInfo = target.get(CcInfo.PROVIDER);
+    assertThat(ccInfo.getCcCompilationContext().getIncludeDirs())
+        .containsExactly(
+            getTargetConfiguration()
+                .getBinFragment(RepositoryName.MAIN)
+                .getRelative("third_party/bar/_virtual_includes/starlark_lib_suffix"));
   }
 
   @Test

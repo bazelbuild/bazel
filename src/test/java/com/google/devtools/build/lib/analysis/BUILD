@@ -65,6 +65,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/launcher_file_write_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/lazy_write_paths_file_action",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/parameter_file_write_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis:actions/path_mappers",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/spawn_action_template",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/substitution",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/symlink_action",

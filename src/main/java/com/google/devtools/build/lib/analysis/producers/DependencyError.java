@@ -72,25 +72,16 @@ public abstract class DependencyError {
   }
 
   public Exception getException() {
-    switch (kind()) {
-      case DEPENDENCY_OPTIONS_PARSING:
-        return dependencyOptionsParsing();
-      case DEPENDENCY_TRANSITION:
-        return dependencyTransition();
-      case INVALID_VISIBILITY:
-        return invalidVisibility();
-      case ASPECT_EVALUATION:
-        return aspectEvaluation();
-      case ASPECT_CREATION:
-        return aspectCreation();
-      case PLATFORM_MAPPING:
-        return platformMapping();
-      case INVALID_PLATFORM:
-        return invalidPlatform();
-      case TRANSITION_CREATION:
-        return transitionCreation();
-    }
-    throw new IllegalStateException("unreachable");
+    return switch (kind()) {
+      case DEPENDENCY_OPTIONS_PARSING -> dependencyOptionsParsing();
+      case DEPENDENCY_TRANSITION -> dependencyTransition();
+      case INVALID_VISIBILITY -> invalidVisibility();
+      case ASPECT_EVALUATION -> aspectEvaluation();
+      case ASPECT_CREATION -> aspectCreation();
+      case PLATFORM_MAPPING -> platformMapping();
+      case INVALID_PLATFORM -> invalidPlatform();
+      case TRANSITION_CREATION -> transitionCreation();
+    };
   }
 
   static DependencyError of(TransitionException e) {

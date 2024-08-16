@@ -58,7 +58,6 @@ public final class ConvertResourceZipToApkAction {
     optionsParser.parseAndExitUponError(args);
     Aapt2ConfigOptions aapt2ConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
     Options options = optionsParser.getOptions(Options.class);
-    System.out.println("WTF: " + options.resourcesZip);
     Preconditions.checkArgument(options.resourcesZip != null, "Missing input resource zip.");
     profiler.recordEndOf("flags").startTask("setup");
     try (ScopedTemporaryDirectory scopedTmp =

@@ -32,10 +32,13 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.config.AdditionalConfigurationChangeEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
@@ -45,6 +48,8 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
@@ -94,8 +99,8 @@ public class CommandEnvironment {
   private final BlazeWorkspace workspace;
   private final BlazeDirectories directories;
 
-  private final UUID commandId;  // Unique identifier for the command being run
-  private final String buildRequestId;  // Unique identifier for the build being run
+  private final UUID commandId; // Unique identifier for the command being run
+  private final String buildRequestId; // Unique identifier for the build being run
   private final Reporter reporter;
   private final EventBus eventBus;
   private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
@@ -123,6 +128,8 @@ public class CommandEnvironment {
   private final CommandLinePathFactory commandLinePathFactory;
   private final CommandExtensionReporter commandExtensionReporter;
   private final int attemptNumber;
+  private final HttpDownloader httpDownloader;
+  private final DelegatingDownloader delegatingDownloader;
 
   private boolean mergedAnalysisAndExecution;
 
@@ -256,6 +263,31 @@ public class CommandEnvironment {
     this.commandExtensions = ImmutableList.copyOf(commandExtensions);
     workspace.getSkyframeExecutor().setEventBus(eventBus);
     eventBus.register(this);
+    float httpTimeoutScaling = (float) commandOptions.httpTimeoutScaling;
+    if (commandOptions.httpTimeoutScaling <= 0) {
+      reporter.handle(
+          Event.warn("Ignoring request to scale http timeouts by a non-positive factor"));
+      httpTimeoutScaling = 1.0f;
+    }
+    if (commandOptions.httpMaxParallelDownloads <= 0) {
+      this.blazeModuleEnvironment.exit(
+          new AbruptExitException(
+              DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage(
+                          "The maximum number of parallel downloads needs to be a positive number")
+                      .setExternalRepository(
+                          ExternalRepository.newBuilder().setCode(Code.BAD_DOWNLOADER_CONFIG))
+                      .build())));
+    }
+
+    this.httpDownloader =
+        new HttpDownloader(
+            commandOptions.httpConnectorAttempts,
+            commandOptions.httpConnectorRetryMaxTimeout,
+            commandOptions.httpMaxParallelDownloads,
+            httpTimeoutScaling);
+    this.delegatingDownloader = new DelegatingDownloader(httpDownloader);
 
     ClientOptions clientOptions =
         checkNotNull(
@@ -382,9 +414,7 @@ public class CommandEnvironment {
     return packageLocator;
   }
 
-  /**
-   * Returns the reporter for events.
-   */
+  /** Returns the reporter for events. */
   public Reporter getReporter() {
     return reporter;
   }
@@ -408,6 +438,7 @@ public class CommandEnvironment {
   public Command getCommand() {
     return command;
   }
+
   public String getCommandName() {
     return command.name();
   }
@@ -578,9 +609,8 @@ public class CommandEnvironment {
   }
 
   /**
-   * Returns the output base directory associated with this Blaze server
-   * process. This is the base directory for shared Blaze state as well as tool
-   * and strategy specific subdirectories.
+   * Returns the output base directory associated with this Blaze server process. This is the base
+   * directory for shared Blaze state as well as tool and strategy specific subdirectories.
    */
   public Path getOutputBase() {
     return directories.getOutputBase();
@@ -697,8 +727,8 @@ public class CommandEnvironment {
    * Throws the exception currently queued by a Blaze module.
    *
    * <p>This should be called as often as is practical so that errors are reported as soon as
-   * possible. Ideally, we'd not need this, but the event bus swallows exceptions so we raise
-   * the exception this way.
+   * possible. Ideally, we'd not need this, but the event bus swallows exceptions so we raise the
+   * exception this way.
    */
   public void throwPendingException() throws AbruptExitException {
     AbruptExitException exception = getPendingException();
@@ -973,5 +1003,13 @@ public class CommandEnvironment {
    */
   public int getAttemptNumber() {
     return attemptNumber;
+  }
+
+  public HttpDownloader getHttpDownloader() {
+    return httpDownloader;
+  }
+
+  public DelegatingDownloader getDownloaderDelegate() {
+    return delegatingDownloader;
   }
 }

@@ -81,15 +81,6 @@ public class AndroidDataBuilder {
     resourceDir = root.resolve("res");
   }
 
-  AndroidDataBuilder copyOf(Path newRoot) {
-    AndroidDataBuilder result = new AndroidDataBuilder(newRoot);
-    result.filesToWrite = rerootPaths(this.filesToWrite, this.root, newRoot);
-    result.filesToCopy = rerootPaths(this.filesToCopy, this.root, newRoot);
-    result.manifest = this.manifest;
-    result.rTxt = this.rTxt;
-    return result;
-  }
-
   @CanIgnoreReturnValue
   public AndroidDataBuilder addResource(
       String path, AndroidDataBuilder.ResourceType template, String... lines) {
@@ -190,15 +181,6 @@ public class AndroidDataBuilder {
       Files.createDirectories(target.getParent());
       Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
     }
-  }
-
-  private <T> Map<Path, T> rerootPaths(Map<Path, T> origMap, Path root, Path newRoot) {
-    Map<Path, T> newMap = new HashMap<>();
-    for (Map.Entry<Path, T> origEntry : origMap.entrySet()) {
-      Path relPath = root.relativize(origEntry.getKey());
-      newMap.put(newRoot.resolve(relPath), origEntry.getValue());
-    }
-    return newMap;
   }
 
 }

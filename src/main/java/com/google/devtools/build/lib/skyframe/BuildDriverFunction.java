@@ -149,8 +149,6 @@ public class BuildDriverFunction implements SkyFunction {
    * From the ConfiguredTarget/Aspect keys, get the top-level artifacts. Then evaluate them together
    * with the appropriate CompletionFunctions. This is the bridge between the conceptual analysis &
    * execution phases.
-   *
-   * <p>TODO(b/240944910): implement coverage.
    */
   @Nullable
   @Override

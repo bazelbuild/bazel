@@ -19,6 +19,7 @@ import static com.google.common.base.StandardSystemProperty.OS_ARCH;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Splitter;
@@ -98,18 +99,19 @@ import net.starlark.java.syntax.Location;
 public class SingleExtensionEvalFunction implements SkyFunction {
   private final BlazeDirectories directories;
   private final Supplier<Map<String, String>> clientEnvironmentSupplier;
-  private final DownloadManager downloadManager;
 
   private double timeoutScaling = 1.0;
   @Nullable private ProcessWrapper processWrapper = null;
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor = null;
+  @Nullable private DownloadManager downloadManager = null;
 
   public SingleExtensionEvalFunction(
-      BlazeDirectories directories,
-      Supplier<Map<String, String>> clientEnvironmentSupplier,
-      DownloadManager downloadManager) {
+      BlazeDirectories directories, Supplier<Map<String, String>> clientEnvironmentSupplier) {
     this.directories = directories;
     this.clientEnvironmentSupplier = clientEnvironmentSupplier;
+  }
+
+  public void setDownloadManager(DownloadManager downloadManager) {
     this.downloadManager = downloadManager;
   }
 
@@ -204,6 +206,22 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     Optional<ModuleExtensionMetadata> moduleExtensionMetadata =
         moduleExtensionResult.getModuleExtensionMetadata();
 
+    if (!lockfileMode.equals(LockfileMode.OFF)) {
+      var nonVisibleRepoNames =
+          moduleExtensionResult.getRecordedRepoMappingEntries().values().stream()
+              .filter(repoName -> !repoName.isVisible())
+              .map(RepositoryName::toString)
+              .collect(joining(", "));
+      if (!nonVisibleRepoNames.isEmpty()) {
+        env.getListener()
+            .handle(
+                Event.warn(
+                    String.format(
+                        "The module extension %s produced an invalid lockfile entry because it"
+                            + " referenced %s. Please report this issue to its maintainers.",
+                        extensionId.asTargetString(), nonVisibleRepoNames)));
+      }
+    }
     if (lockfileMode.equals(LockfileMode.ERROR)) {
       boolean extensionShouldHaveBeenLocked =
           moduleExtensionMetadata.map(metadata -> !metadata.getReproducible()).orElse(true);
@@ -484,7 +502,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                 toImmutableBiMap(
                     e ->
                         RepositoryName.createUnvalidated(
-                            usagesValue.getExtensionUniqueName() + "~" + e),
+                            usagesValue.getExtensionUniqueName() + "+" + e),
                     Function.identity())),
         lockFileInfo,
         fixup);
@@ -742,7 +760,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         Dict<String, Object> kwargs = repo.tag().getAttributeValues().attributes();
         // This cast should be safe since it should have been verified at tag creation time.
         String name = (String) kwargs.get("name");
-        String prefixedName = usagesValue.getExtensionUniqueName() + "~" + name;
+        String prefixedName = usagesValue.getExtensionUniqueName() + "+" + name;
         Rule ruleInstance;
         AttributeValues attributesValue;
         try {
@@ -883,7 +901,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         throws InterruptedException, SingleExtensionEvalFunctionException {
       ModuleExtensionEvalStarlarkThreadContext threadContext =
           new ModuleExtensionEvalStarlarkThreadContext(
-              usagesValue.getExtensionUniqueName() + "~",
+              usagesValue.getExtensionUniqueName() + "+",
               extensionId.getBzlFileLabel().getPackageIdentifier(),
               BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
               mainRepositoryMapping,

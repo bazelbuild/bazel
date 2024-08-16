@@ -39,7 +39,7 @@ public class InterimModuleTest {
                         DepSpec.fromModuleKey(
                             createModuleKey(
                                 depSpec.getName() + "_new",
-                                depSpec.getVersion().getOriginal() + ".1"))))
+                                depSpec.getVersion().getNormalized() + ".1"))))
         .isEqualTo(
             InterimModuleBuilder.create("", "")
                 .addDep("dep_foo", createModuleKey("foo_new", "1.0.1"))

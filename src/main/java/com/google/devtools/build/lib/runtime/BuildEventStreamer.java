@@ -75,6 +75,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
 
@@ -137,6 +138,66 @@ public class BuildEventStreamer {
   // True, if we already closed the stream.
   @GuardedBy("this")
   private boolean closed;
+
+  /**
+   * The current state of buffered progress events.
+   *
+   * <p>The typical case in which stdout and stderr alternate is output of the form:
+   *
+   * <pre>
+   * INFO: From Executing genrule //:genrule:
+   * &lt;genrule stdout output>
+   * [123 / 1234] 16 actions running
+   * </pre>
+   *
+   * We want the relative order of the stdout and stderr output to be preserved on a best-effort
+   * basis and thus flush the two streams into a progress event before we are seeing a second type
+   * transition. We are free to declare either stdout or stderr to come first. We choose stderr here
+   * as that provides the more natural split in the example above: The INFO line and the stdout of
+   * the action it precedes both end up in the same progress event.
+   */
+  enum ProgressBufferState {
+    ACCEPT_STDERR_AND_STDOUT {
+      @Override
+      ProgressBufferState nextStateOnStderr() {
+        return ACCEPT_STDERR_AND_STDOUT;
+      }
+
+      @Override
+      ProgressBufferState nextStateOnStdout() {
+        return ACCEPT_STDOUT;
+      }
+    },
+    ACCEPT_STDOUT {
+      @Override
+      ProgressBufferState nextStateOnStderr() {
+        return REQUIRE_FLUSH;
+      }
+
+      @Override
+      ProgressBufferState nextStateOnStdout() {
+        return ACCEPT_STDOUT;
+      }
+    },
+    REQUIRE_FLUSH {
+      @Override
+      ProgressBufferState nextStateOnStderr() {
+        return REQUIRE_FLUSH;
+      }
+
+      @Override
+      ProgressBufferState nextStateOnStdout() {
+        return REQUIRE_FLUSH;
+      }
+    };
+
+    abstract ProgressBufferState nextStateOnStderr();
+
+    abstract ProgressBufferState nextStateOnStdout();
+  }
+
+  private final AtomicReference<ProgressBufferState> progressBufferState =
+      new AtomicReference<>(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
 
   /** Holds the futures for the closing of each transport */
   private ImmutableMap<BuildEventTransport, ListenableFuture<Void>> closeFuturesMap =
@@ -255,6 +316,7 @@ public class BuildEventStreamer {
           if (outErrProvider != null) {
             allOut = orEmpty(outErrProvider.getOut());
             allErr = orEmpty(outErrProvider.getErr());
+            progressBufferState.set(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
           }
           linkEvents = new ArrayList<>();
           List<BuildEvent> finalLinkEvents = linkEvents;
@@ -613,6 +675,16 @@ public class BuildEventStreamer {
     return updateEvent;
   }
 
+  /** Whether the given output type can be written without first flushing the streamer. */
+  boolean canBufferProgressWrite(boolean isStderr) {
+    var newState =
+        progressBufferState.updateAndGet(
+            isStderr
+                ? ProgressBufferState::nextStateOnStderr
+                : ProgressBufferState::nextStateOnStdout);
+    return newState != ProgressBufferState.REQUIRE_FLUSH;
+  }
+
   // @GuardedBy annotation is doing lexical analysis that doesn't understand the closures below
   // will be running under the synchronized block.
   @SuppressWarnings("GuardedBy")
@@ -624,6 +696,7 @@ public class BuildEventStreamer {
       if (outErrProvider != null) {
         allOut = orEmpty(outErrProvider.getOut());
         allErr = orEmpty(outErrProvider.getErr());
+        progressBufferState.set(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
       }
       if (Iterables.isEmpty(allOut) && Iterables.isEmpty(allErr)) {
         // Nothing to flush; avoid generating an unneeded progress event.
@@ -727,6 +800,7 @@ public class BuildEventStreamer {
     if (outErrProvider != null) {
       allOut = orEmpty(outErrProvider.getOut());
       allErr = orEmpty(outErrProvider.getErr());
+      progressBufferState.set(ProgressBufferState.ACCEPT_STDERR_AND_STDOUT);
     }
     consumeAsPairsofStrings(
         allOut,

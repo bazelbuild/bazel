@@ -197,13 +197,13 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         .containsExactly(
             RepositoryName.MAIN,
             ModuleKey.ROOT,
-            RepositoryName.create("dep~v1.0"),
+            RepositoryName.create("dep+1.0"),
             createModuleKey("dep", "1.0"),
-            RepositoryName.create("dep~v2.0"),
+            RepositoryName.create("dep+2.0"),
             createModuleKey("dep", "2.0"),
-            RepositoryName.create("rules_cc~"),
+            RepositoryName.create("rules_cc+"),
             createModuleKey("rules_cc", "1.0"),
-            RepositoryName.create("rules_java~"),
+            RepositoryName.create("rules_java+"),
             createModuleKey("rules_java", ""));
     assertThat(value.getAbridgedModules())
         .containsExactlyElementsIn(
@@ -227,7 +227,6 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 .setImports(importsBuilder.buildOrThrow())
                 .setContainingModuleFilePath(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
                 .build())
-        .setUsingModule(ModuleKey.ROOT)
         .build();
   }
 
@@ -270,16 +269,16 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
     ModuleExtensionId maven =
         ModuleExtensionId.create(
-            Label.parseCanonical("@@rules_jvm_external~//:defs.bzl"), "maven", Optional.empty());
+            Label.parseCanonical("@@rules_jvm_external+//:defs.bzl"), "maven", Optional.empty());
     ModuleExtensionId pip =
         ModuleExtensionId.create(
-            Label.parseCanonical("@@rules_python~//:defs.bzl"), "pip", Optional.empty());
+            Label.parseCanonical("@@rules_python+//:defs.bzl"), "pip", Optional.empty());
     ModuleExtensionId myext =
         ModuleExtensionId.create(
-            Label.parseCanonical("@@dep~//:defs.bzl"), "myext", Optional.empty());
+            Label.parseCanonical("@@dep+//:defs.bzl"), "myext", Optional.empty());
     ModuleExtensionId myext2 =
         ModuleExtensionId.create(
-            Label.parseCanonical("@@dep~//incredible:conflict.bzl"), "myext", Optional.empty());
+            Label.parseCanonical("@@dep+//incredible:conflict.bzl"), "myext", Optional.empty());
 
     resolutionFunctionMock.setDepGraph(depGraph);
     EvaluationResult<BazelDepGraphValue> result =
@@ -303,10 +302,10 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
     assertThat(value.getExtensionUniqueNames())
         .containsExactly(
-            maven, "rules_jvm_external~~maven",
-            pip, "rules_python~~pip",
-            myext, "dep~~myext",
-            myext2, "dep~~myext2");
+            maven, "rules_jvm_external++maven",
+            pip, "rules_python++pip",
+            myext, "dep++myext",
+            myext2, "dep++myext2");
 
     assertThat(value.getFullRepoMapping(ModuleKey.ROOT))
         .isEqualTo(
@@ -317,27 +316,27 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 "root",
                 "",
                 "rje",
-                "rules_jvm_external~",
+                "rules_jvm_external+",
                 "rpy",
-                "rules_python~",
+                "rules_python+",
                 "av",
-                "rules_jvm_external~~maven~autovalue",
+                "rules_jvm_external++maven+autovalue",
                 "numpy",
-                "rules_python~~pip~numpy"));
+                "rules_python++pip+numpy"));
     assertThat(value.getFullRepoMapping(depKey))
         .isEqualTo(
             createRepositoryMapping(
                 depKey,
                 "dep",
-                "dep~",
+                "dep+",
                 "rules_python",
-                "rules_python~",
+                "rules_python+",
                 "np",
-                "rules_python~~pip~numpy",
+                "rules_python++pip+numpy",
                 "oneext",
-                "dep~~myext~myext",
+                "dep++myext+myext",
                 "twoext",
-                "dep~~myext2~myext"));
+                "dep++myext2+myext"));
   }
 
   @Test

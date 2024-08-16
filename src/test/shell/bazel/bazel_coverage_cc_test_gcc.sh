@@ -925,7 +925,8 @@ EOF
 }
 
 function setup_external_cc_target() {
-  cat > WORKSPACE <<'EOF'
+  cat > MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "other_repo",
     path = "other_repo",
@@ -956,7 +957,7 @@ int b(bool what) {
 EOF
 
   mkdir -p other_repo
-  touch other_repo/WORKSPACE
+  touch other_repo/REPO.bazel
 
   cat > other_repo/BUILD <<'EOF'
 cc_library(
@@ -1012,7 +1013,7 @@ function test_external_cc_target_can_collect_coverage() {
       &>"$TEST_log" || fail "Coverage for @other_repo//:t failed"
 
   local coverage_file_path="$(get_coverage_file_path_from_test_log)"
-  local expected_result_a_cc='SF:external/other_repo/a.cc
+  local expected_result_a_cc='SF:external/+_repo_rules+other_repo/a.cc
 FN:4,_Z1ab
 FNDA:1,_Z1ab
 FNF:1
@@ -1078,7 +1079,7 @@ LF:4
 end_of_record'
 
   assert_cc_coverage_result "$expected_result_b_cc" "$coverage_file_path"
-  assert_not_contains "SF:external/other_repo/a.cc" "$coverage_file_path"
+  assert_not_contains "SF:external/+_repo_rules+other_repo/a.cc" "$coverage_file_path"
 }
 
 run_suite "test tests"

@@ -341,6 +341,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
     buildLanguageOptions.enableBzlmod = enableBzlmod();
+    buildLanguageOptions.experimentalGoogleLegacyApi = !analysisMock.isThisBazel();
     // TODO(b/256127926): Delete once flipped.
     buildLanguageOptions.experimentalEnableSclDialect = true;
 

@@ -66,7 +66,7 @@ function test_synthetic_merge() {
         "envVariables": {},
         "generatedRepoSpecs": {
           "rbe_ubuntu2004": {
-            "bzlFile": "@@_main~bazel_test_deps~bazelci_rules//:rbe_repo.bzl",
+            "bzlFile": "@@+bazel_test_deps+bazelci_rules//:rbe_repo.bzl",
             "ruleClassName": "rbe_preconfig",
             "attributes": {
               "toolchain": "ubuntu2004"
@@ -77,12 +77,12 @@ function test_synthetic_merge() {
           [
             "",
             "bazelci_rules",
-            "_main~bazel_test_deps~bazelci_rules"
+            "+bazel_test_deps+bazelci_rules"
           ]
         ]
       }
     },
-    "@@rules_python~//python/extensions:python.bzl%python": {
+    "@@rules_python+//python/extensions:python.bzl%python": {
       "general": {
         "repo1": "old_args"
       }
@@ -102,12 +102,12 @@ EOF
     "bbb@1.0": "also dubious"
   },
   "moduleExtensions": {
-    "@@rules_python~//python/extensions:python.bzl%python": {
+    "@@rules_python+//python/extensions:python.bzl%python": {
       "general": {
         "repo1": "new_args"
       }
     },
-    "@@rules_python~//python/extensions/private:internal_deps.bzl%internal_deps": {
+    "@@rules_python+//python/extensions/private:internal_deps.bzl%internal_deps": {
       "os:linux,arch:aarch64": {
         "repo2": "aarch64_args"
       }
@@ -135,7 +135,7 @@ EOF
         "envVariables": {},
         "generatedRepoSpecs": {
           "rbe_ubuntu2004": {
-            "bzlFile": "@@_main~bazel_test_deps~bazelci_rules//:rbe_repo.bzl",
+            "bzlFile": "@@+bazel_test_deps+bazelci_rules//:rbe_repo.bzl",
             "ruleClassName": "rbe_preconfig",
             "attributes": {
               "toolchain": "ubuntu2004"
@@ -146,17 +146,17 @@ EOF
           [
             "",
             "bazelci_rules",
-            "_main~bazel_test_deps~bazelci_rules"
+            "+bazel_test_deps+bazelci_rules"
           ]
         ]
       }
     },
-    "@@rules_python~//python/extensions:python.bzl%python": {
+    "@@rules_python+//python/extensions:python.bzl%python": {
       "general": {
         "repo1": "old_args"
       }
     },
-    "@@rules_python~//python/extensions/private:internal_deps.bzl%internal_deps": {
+    "@@rules_python+//python/extensions/private:internal_deps.bzl%internal_deps": {
       "os:linux,arch:amd64": {
         "repo2": "amd64_args"
       }
@@ -186,7 +186,7 @@ EOF
         "envVariables": {},
         "generatedRepoSpecs": {
           "rbe_ubuntu2004": {
-            "bzlFile": "@@_main~bazel_test_deps~bazelci_rules//:rbe_repo.bzl",
+            "bzlFile": "@@+bazel_test_deps+bazelci_rules//:rbe_repo.bzl",
             "ruleClassName": "rbe_preconfig",
             "attributes": {
               "toolchain": "ubuntu2004"
@@ -197,17 +197,17 @@ EOF
           [
             "",
             "bazelci_rules",
-            "_main~bazel_test_deps~bazelci_rules"
+            "+bazel_test_deps+bazelci_rules"
           ]
         ]
       }
     },
-    "@@rules_python~//python/extensions:python.bzl%python": {
+    "@@rules_python+//python/extensions:python.bzl%python": {
       "general": {
         "repo1": "new_args"
       }
     },
-    "@@rules_python~//python/extensions/private:internal_deps.bzl%internal_deps": {
+    "@@rules_python+//python/extensions/private:internal_deps.bzl%internal_deps": {
       "os:linux,arch:aarch64": {
         "repo2": "aarch64_args"
       },

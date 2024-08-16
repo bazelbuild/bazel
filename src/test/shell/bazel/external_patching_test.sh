@@ -72,7 +72,7 @@ fi
 set_up() {
   WRKDIR=$(mktemp -d "${TEST_TMPDIR}/testXXXXXX")
   cd "${WRKDIR}"
-  write_default_lockfile "MODULE.bazel.lock"
+  setup_module_dot_bazel
   # create an archive file with files interesting for patching
   mkdir ext-0.1.2
   cat > ext-0.1.2/foo.sh <<'EOF'
@@ -108,8 +108,8 @@ test_patch_file() {
 -echo Here be dragons...
 +echo There are dragons...
 EOF
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
@@ -119,7 +119,6 @@ http_archive(
   patch_cmds = ["find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +"],
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "foo",
@@ -150,8 +149,8 @@ EOF
       || fail "expected the new patch to be applied"
 
   # Verify that changes to the patches attribute trigger enough rebuilding
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
@@ -159,7 +158,6 @@ http_archive(
   build_file_content="exports_files([\"foo.sh\"])",
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
   bazel build :foo.sh
   foopath=`bazel info bazel-genfiles`/foo.sh
   grep -q 'Here be' $foopath || fail "expected unpatched file"
@@ -182,8 +180,8 @@ EOF
   mkdir main
   cd main
   echo "ignored anyway" > patch_foo.sh
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
@@ -193,7 +191,6 @@ http_archive(
   patch_tool = "${EXTREPODIR}/my_patch_tool",
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
   touch BUILD
 
   bazel build @ext//... >"${TEST_log}" 2>&1 && fail "expected failure" || :
@@ -229,8 +226,8 @@ EOF
  echo There are dragons...
 EOF
 
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
@@ -241,7 +238,6 @@ http_archive(
   patches = ["//:local.patch"],
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "foo",
@@ -275,8 +271,8 @@ EOF
   mkdir main
   cd main
 
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
@@ -287,7 +283,6 @@ http_archive(
   patches = ["//:local.patch"],
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
 
   bazel build @ext//... &> $TEST_log 2>&1 && fail "Expected to fail"
   expect_log "Error downloading \\[.*/remote.patch\\] to"
@@ -327,8 +322,8 @@ EOF
   mkdir main
   cd main
 
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
@@ -341,7 +336,6 @@ http_archive(
   remote_patch_strip = 1,
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "foo",
@@ -392,8 +386,8 @@ EOF
 -echo Here be dragons...
 +echo There are dragons...
 EOF
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+  cat > $(setup_module_dot_bazel) <<EOF
+new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="ext",
   remote="${EXTREPODIR}/extgit/.git",
@@ -403,7 +397,6 @@ new_git_repository(
   patch_cmds = ["find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +"],
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "foo",
@@ -434,8 +427,8 @@ EOF
       || fail "expected the new patch to be applied"
 
   # Verify that changes to the patches attribute trigger enough rebuilding
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+  cat > $(setup_module_dot_bazel) <<EOF
+new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="ext",
   remote="${EXTREPODIR}/extgit/.git",
@@ -443,7 +436,6 @@ new_git_repository(
   build_file_content="exports_files([\"foo.sh\"])",
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
   bazel build :foo.sh
   foopath=`bazel info bazel-genfiles`/foo.sh
   grep -q 'Here be' $foopath || fail "expected unpatched file"
@@ -473,8 +465,8 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="withbuild",
   strip_prefix="withbuild",
@@ -482,7 +474,6 @@ http_archive(
   build_file="@//:ext.BUILD",
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -532,8 +523,8 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="withbuild",
   strip_prefix="withbuild",
@@ -549,7 +540,6 @@ genrule(
   """,
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -600,8 +590,8 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+  cat > $(setup_module_dot_bazel) <<EOF
+new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="withbuild",
   remote="${EXTREPODIR}/withbuild/.git",
@@ -609,7 +599,6 @@ new_git_repository(
   build_file="@//:ext.BUILD",
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -669,8 +658,8 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+  cat > $(setup_module_dot_bazel) <<EOF
+new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
 new_git_repository(
   name="withbuild",
   remote="${EXTREPODIR}/withbuild/.git",
@@ -686,7 +675,6 @@ genrule(
   """,
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -726,8 +714,8 @@ EOF
 
   mkdir main
   cd main
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="withbuild",
   strip_prefix="withbuild",
@@ -735,7 +723,6 @@ http_archive(
   build_file="@//:ext.BUILD",
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "local",
@@ -793,8 +780,8 @@ index 1f4c41e..9d548ff 100644
 2.18.0.rc1.244.gcf134e6275-goog
 
 EOF
-  cat > WORKSPACE <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="ext",
   strip_prefix="ext-0.1.2",
@@ -805,7 +792,6 @@ http_archive(
   patch_cmds = ["find . -name '*.sh' -exec sed -i.orig '1s|#!/usr/bin/env sh\$|/bin/sh\$|' {} +"],
 )
 EOF
-  write_default_lockfile "MODULE.bazel.lock"
   cat > BUILD <<'EOF'
 genrule(
   name = "foo",

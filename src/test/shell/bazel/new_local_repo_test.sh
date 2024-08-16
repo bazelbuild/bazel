@@ -70,8 +70,8 @@ function test_glob_in_synthesized_build_file() {
   mkdir $pkg/A || fail "mkdir $pkg/A"
   mkdir $pkg/B || fail "mkdir $pkg/B"
 
-  cat >$pkg/A/WORKSPACE <<'eof'
-load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
+  cat >$pkg/A/MODULE.bazel <<'eof'
+new_local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name = "B",
     build_file_content = """
@@ -84,7 +84,7 @@ filegroup(
     path = "../B",
 )
 eof
-  write_default_lockfile "$pkg/A/MODULE.bazel.lock"
+  setup_module_dot_bazel "$pkg/A/MODULE.bazel"
 
   cat >$pkg/A/BUILD <<'eof'
 genrule(
@@ -97,13 +97,13 @@ eof
 
   echo "dummy" >$pkg/B/a.txt
 
-  # Build 1: g.txt should contain external/B/a.txt
+  # Build 1: g.txt should contain external/+_repo_rules+B/a.txt
   ( cd $pkg/A
     bazel build //:G
     cat bazel-genfiles/g.txt >$TEST_log
   )
-  expect_log "external/B/a.txt"
-  expect_not_log "external/B/b.txt"
+  expect_log "external/+_repo_rules+B/a.txt"
+  expect_not_log "external/+_repo_rules+B/b.txt"
 
   # Build 2: add B/b.txt and see if the glob picks it up.
   # Shut down the server afterwards so the test cleanup can remove $pkg/A.
@@ -113,8 +113,8 @@ eof
     cat bazel-genfiles/g.txt >$TEST_log
     bazel shutdown >& /dev/null
   )
-  expect_log "external/B/a.txt"
-  expect_log "external/B/b.txt"
+  expect_log "external/+_repo_rules+B/a.txt"
+  expect_log "external/+_repo_rules+B/b.txt"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/9176
@@ -124,8 +124,8 @@ function test_recursive_glob_in_new_local_repository() {
   touch "$pkg/B/root.txt"
   touch "$pkg/B/subdir/outer.txt"
   touch "$pkg/B/subdir/inner/inner.txt"
-  cat >"$pkg/A/WORKSPACE" <<eof
-load("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
+  cat >"$pkg/A/MODULE.bazel" <<eof
+new_local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
     name = "myext",
     path = "../B",
@@ -136,7 +136,7 @@ eof
   cat >"$pkg/A/BUILD.myext" <<eof
 filegroup(name = "all_files", srcs = glob(["**"]))
 eof
-  write_default_lockfile "$pkg/A/MODULE.bazel.lock"
+  setup_module_dot_bazel "$pkg/A/MODULE.bazel"
 
   # Shut down the server afterwards so the test cleanup can remove $pkg/A.
   ( cd "$pkg/A"
@@ -147,7 +147,7 @@ eof
   expect_log '@myext//:subdir/outer.txt'
   expect_log '@myext//:subdir/inner/inner.txt'
   expect_log '@myext//:root.txt'
-  expect_log '@myext//:WORKSPACE'
+  expect_log '@myext//:REPO.bazel'
   expect_log '@myext//:BUILD.bazel'
 }
 

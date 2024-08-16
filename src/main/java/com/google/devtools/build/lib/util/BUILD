@@ -244,7 +244,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:digest_hash_function",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:error_prone_annotations",
@@ -429,5 +428,14 @@ java_library(
     srcs = ["ValueOrException.java"],
     deps = [
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "temp_path_generator",
+    srcs = ["TempPathGenerator.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:jsr305",
     ],
 )

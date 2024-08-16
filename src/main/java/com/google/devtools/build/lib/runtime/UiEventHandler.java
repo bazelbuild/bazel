@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.runtime.CrashDebuggingProtos.InflightActionInfo;
 import com.google.devtools.build.lib.skyframe.ConfigurationPhaseStartedEvent;
 import com.google.devtools.build.lib.skyframe.LoadingPhaseStartedEvent;
+import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.util.io.AnsiTerminal;
 import com.google.devtools.build.lib.util.io.AnsiTerminal.Color;
@@ -583,6 +584,14 @@ public final class UiEventHandler implements EventHandler {
   }
 
   @Subscribe
+  public void executionPhaseStarted(SomeExecutionStartedEvent event) {
+    if (event.countedInExecutionTime()) {
+      stateTracker.executionPhaseStarted();
+      refresh();
+    }
+  }
+
+  @Subscribe
   public void progressReceiverAvailable(ExecutionProgressReceiverAvailableEvent event) {
     stateTracker.progressReceiverAvailable(event);
     // As this is the first time we have a progress message, update immediately.
@@ -675,6 +684,7 @@ public final class UiEventHandler implements EventHandler {
     }
     completeBuild();
     try {
+      flushStdOutStdErrBuffers();
       terminal.resetTerminal();
       terminal.flush();
     } catch (IOException e) {

@@ -542,7 +542,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return parser.getOptions(PackageOptions.class);
   }
 
-  private BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
+  protected BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(getDefaultBuildLanguageOptions());
@@ -552,9 +552,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected List<String> getDefaultBuildLanguageOptions() throws Exception {
     ImmutableList.Builder<String> ans = ImmutableList.builder();
-    if (!analysisMock.isThisBazel()) {
-      ans.add("--experimental_google_legacy_api"); // For starlark java_binary;
-    }
+    ans.addAll(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     ans.add("--enable_bzlmod");
     return ans.build();
   }
@@ -2057,7 +2055,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected static String getErrorMsgWrongAttributeValue(String value, String... expected) {
     return String.format(
         "has to be one of %s instead of '%s'",
-        StringUtil.joinEnglishList(ImmutableSet.copyOf(expected), "or", "'"), value);
+        StringUtil.joinEnglishListSingleQuoted(ImmutableSet.copyOf(expected)), value);
   }
 
   protected static String getErrorMsgMandatoryProviderMissing(
@@ -2201,26 +2199,24 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
   }
 
-  protected Iterable<String> baselineCoverageArtifactBasenames(ConfiguredTarget target)
+  protected ImmutableList<String> baselineCoverageArtifactBasenames(ConfiguredTarget target)
       throws Exception {
+    Artifact baselineCoverage =
+        target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR).getBaselineCoverageArtifact();
+    if (baselineCoverage == null) {
+      return ImmutableList.of();
+    }
     ImmutableList.Builder<String> basenames = ImmutableList.builder();
-    for (Artifact baselineCoverage :
-        target
-            .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
-            .getBaselineCoverageArtifacts()
-            .toList()) {
-      BaselineCoverageAction baselineAction =
-          (BaselineCoverageAction) getGeneratingAction(baselineCoverage);
-      ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-      baselineAction
-          .newDeterministicWriter(ActionsTestUtil.createContext(reporter))
-          .writeOutputFile(bytes);
+    var baselineCoverageAction = (BaselineCoverageAction) getGeneratingAction(baselineCoverage);
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    baselineCoverageAction
+        .newDeterministicWriter(ActionsTestUtil.createContext(reporter))
+        .writeOutputFile(bytes);
 
-      for (String line : Splitter.on('\n').split(bytes.toString(UTF_8))) {
-        if (line.startsWith("SF:")) {
-          String basename = line.substring(line.lastIndexOf('/') + 1);
-          basenames.add(basename);
-        }
+    for (String line : Splitter.on('\n').split(bytes.toString(UTF_8))) {
+      if (line.startsWith("SF:")) {
+        String basename = line.substring(line.lastIndexOf('/') + 1);
+        basenames.add(basename);
       }
     }
     return basenames.build();

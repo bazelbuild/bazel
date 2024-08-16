@@ -40,10 +40,6 @@ public class BazelAndroidSemantics implements AndroidSemantics {
       // Internal package identifiers that are allowed to use the native Android rules until they
       // can be fully moved into the rules_android Starlark implementation.
       ImmutableSet.<PackageIdentifier>builder()
-          .add(
-              PackageIdentifier.createUnchecked(
-                  "bazel_tools",
-                  "src/tools/android/java/com/google/devtools/build/android/incrementaldeployment"))
           .add(PackageIdentifier.createUnchecked("bazel_tools", "tools/android"))
           .build();
   private static final String BAZEL_TEST_RUNNER_MAIN_CLASS =
@@ -84,12 +80,10 @@ public class BazelAndroidSemantics implements AndroidSemantics {
 
   @Override
   public ImmutableList<String> getAttributesWithJavaRuntimeDeps(RuleContext ruleContext) {
-    switch (ruleContext.getRule().getRuleClass()) {
-      case "android_binary":
-        return ImmutableList.of("application_resources", "deps");
-      default:
-        throw new UnsupportedOperationException("Only supported for top-level binaries");
-    }
+    return switch (ruleContext.getRule().getRuleClass()) {
+      case "android_binary" -> ImmutableList.of("application_resources", "deps");
+      default -> throw new UnsupportedOperationException("Only supported for top-level binaries");
+    };
   }
 
   @Override

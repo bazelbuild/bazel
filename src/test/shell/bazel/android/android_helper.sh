@@ -103,6 +103,9 @@ function setup_head_android_tools_if_exists() {
 
 # Resolves Android toolchains with platforms.
 function resolve_android_toolchains() {
+  # Disable Bzlmod and enable WORKSPACE for android tests, piggybacking in this function
+  # since it's called by all Android tests.
+  disable_bzlmod
   add_to_bazelrc "build --android_platforms=//test_android_platforms:simple"
 }
 

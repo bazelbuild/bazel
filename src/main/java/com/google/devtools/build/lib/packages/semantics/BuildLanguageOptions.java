@@ -285,6 +285,19 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalCcSharedLibrary;
 
   @Option(
+      name = "experimental_cc_static_library",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {
+        OptionMetadataTag.EXPERIMENTAL,
+      },
+      help =
+          "If set to true, rule attributes and Starlark API methods needed for the rule "
+              + "cc_static_library will be available")
+  public boolean experimentalCcStaticLibrary;
+
+  @Option(
       name = "incompatible_require_linker_input_cc_api",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -755,6 +768,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
             .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
             .setBool(EXPERIMENTAL_CC_SHARED_LIBRARY, experimentalCcSharedLibrary)
+            .setBool(EXPERIMENTAL_CC_STATIC_LIBRARY, experimentalCcStaticLibrary)
             .setBool(EXPERIMENTAL_REPO_REMOTE_EXEC, experimentalRepoRemoteExec)
             .setBool(EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE, experimentalDisableExternalPackage)
             .setBool(EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT, experimentalSiblingRepositoryLayout)
@@ -845,6 +859,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_BZL_VISIBILITY = "+experimental_bzl_visibility";
   public static final String CHECK_BZL_VISIBILITY = "+check_bzl_visibility";
   public static final String EXPERIMENTAL_CC_SHARED_LIBRARY = "-experimental_cc_shared_library";
+  public static final String EXPERIMENTAL_CC_STATIC_LIBRARY = "-experimental_cc_static_library";
   public static final String EXPERIMENTAL_DISABLE_EXTERNAL_PACKAGE =
       "-experimental_disable_external_package";
   public static final String EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS =

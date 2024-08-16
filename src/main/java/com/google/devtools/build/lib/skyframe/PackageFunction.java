@@ -1131,6 +1131,7 @@ public abstract class PackageFunction implements SkyFunction {
             compiled.predeclared,
             loadedModules,
             starlarkBuiltinsValue.starlarkSemantics);
+        pkgBuilder.expandAllRemainingMacros(starlarkBuiltinsValue.starlarkSemantics);
       } else {
         // Execution not attempted due to static errors.
         for (SyntaxError err : compiled.errors) {

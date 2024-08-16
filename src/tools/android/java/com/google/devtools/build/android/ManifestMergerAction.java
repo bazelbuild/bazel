@@ -17,16 +17,13 @@ import static java.util.logging.Level.SEVERE;
 
 import com.android.manifmerger.ManifestMerger2.MergeType;
 import com.android.utils.StdLogger;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.ExistingPathStringDictionaryConverter;
-import com.google.devtools.build.android.Converters.MergeTypeConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.build.android.Converters.StringDictionaryConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
+import com.google.devtools.build.android.Converters.CompatExistingPathStringDictionaryConverter;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
+import com.google.devtools.build.android.Converters.CompatStringDictionaryConverter;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.IOException;
@@ -34,6 +31,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 import javax.xml.parsers.DocumentBuilder;
@@ -67,101 +65,74 @@ import org.xml.sax.SAXException;
  */
 public class ManifestMergerAction {
   /** Flag specifications for this action. */
-  public static final class Options extends OptionsBase {
-    @Option(
-      name = "manifest",
-      defaultValue = "null",
-      converter = ExistingPathConverter.class,
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Path of primary manifest. If not passed, a dummy manifest will be generated and used as"
-              + " the primary."
-    )
+  public static final class Options extends OptionsBaseWithResidue {
+    // TODO(b/351006636): Remove residue after migrating ResourceProcessorCommonOptions to
+    // JCommander, since residue was not originally used in this action.
+    @Parameter(
+        names = "--manifest",
+        converter = CompatExistingPathConverter.class,
+        description =
+            "Path of primary manifest. If not passed, a dummy manifest will be generated and used"
+                + " as the primary.")
     public Path manifest;
 
-    @Option(
-      name = "mergeeManifests",
-      defaultValue = "",
-      converter = ExistingPathStringDictionaryConverter.class,
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "A dictionary of manifests, and originating target, to be merged into manifest."
-    )
+    @Parameter(
+        names = "--mergeeManifests",
+        converter = CompatExistingPathStringDictionaryConverter.class,
+        description =
+            "A dictionary of manifests, and originating target, to be merged into manifest.")
     public Map<Path, String> mergeeManifests;
 
-    @Option(
-      name = "mergeType",
-      defaultValue = "APPLICATION",
-      converter = MergeTypeConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The type of merging to perform."
-    )
+    @Parameter(names = "--mergeType", description = "The type of merging to perform.")
     public MergeType mergeType;
 
-    @Option(
-      name = "manifestValues",
-      defaultValue = "",
-      converter = StringDictionaryConverter.class,
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "A dictionary string of values to be overridden in the manifest. Any instance of "
-              + "${name} in the manifest will be replaced with the value corresponding to name in "
-              + "this dictionary. applicationId, versionCode, versionName, minSdkVersion, "
-              + "targetSdkVersion and maxSdkVersion have a dual behavior of also overriding the "
-              + "corresponding attributes of the manifest and uses-sdk tags. packageName will be "
-              + "ignored and will be set from either applicationId or the package in manifest. The "
-              + "expected format of this string is: key:value[,key:value]*. The keys and values "
-              + "may contain colons and commas as long as they are escaped with a backslash."
-    )
+    @Parameter(
+        names = "--manifestValues",
+        converter = CompatStringDictionaryConverter.class,
+        description =
+            "A dictionary string of values to be overridden in the manifest. Any instance of"
+                + " ${name} in the manifest will be replaced with the value corresponding to name"
+                + " in this dictionary. applicationId, versionCode, versionName, minSdkVersion,"
+                + " targetSdkVersion and maxSdkVersion have a dual behavior of also overriding the"
+                + " corresponding attributes of the manifest and uses-sdk tags. packageName will be"
+                + " ignored and will be set from either applicationId or the package in manifest."
+                + " The expected format of this string is: key:value[,key:value]*. The keys and"
+                + " values may contain colons and commas as long as they are escaped with a"
+                + " backslash.")
     public Map<String, String> manifestValues;
 
-    @Option(
-      name = "customPackage",
-      defaultValue = "null",
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Custom java package to insert in the package attribute of the manifest tag."
-    )
+    @Parameter(
+        names = "--customPackage",
+        description = "Custom java package to insert in the package attribute of the manifest tag.")
     public String customPackage;
 
-    @Option(
-      name = "manifestOutput",
-      defaultValue = "null",
-      converter = PathConverter.class,
-      category = "output",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path for the merged manifest."
-    )
+    @Parameter(
+        names = "--manifestOutput",
+        converter = CompatPathConverter.class,
+        description = "Path for the merged manifest.")
     public Path manifestOutput;
 
-    @Option(
-      name = "log",
-      defaultValue = "null",
-      category = "output",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = PathConverter.class,
-      help = "Path to where the merger log should be written."
-    )
+    @Parameter(
+        names = "--log",
+        converter = CompatPathConverter.class,
+        description = "Path to where the merger log should be written.")
     public Path log;
 
-    @Option(
-        name = "mergeManifestPermissions",
-        defaultValue = "false",
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        help = "If enabled, manifest permissions will be merged.")
+    @Parameter(
+        names = "--mergeManifestPermissions",
+        description = "If enabled, manifest permissions will be merged.")
     public boolean mergeManifestPermissions;
+
+    public Options() {
+      this.manifest = null;
+      this.mergeeManifests = ImmutableMap.of();
+      this.mergeType = MergeType.APPLICATION;
+      this.manifestValues = ImmutableMap.of();
+      this.customPackage = null;
+      this.manifestOutput = null;
+      this.log = null;
+      this.mergeManifestPermissions = false;
+    }
   }
 
   private static final String[] PERMISSION_TAGS =
@@ -192,13 +163,19 @@ public class ManifestMergerAction {
   }
 
   public static void main(String[] args) throws Exception {
+    // First parse the local Action flags using JCommander, then parse the remaining common flags
+    // using OptionsParser.
+    Options options = new Options();
+    JCommander jc = new JCommander(options);
+    jc.parse(args);
+    List<String> residue = options.getResidue();
+
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(Options.class, ResourceProcessorCommonOptions.class)
+            .optionsClasses(ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
-    optionsParser.parseAndExitUponError(args);
-    Options options = optionsParser.getOptions(Options.class);
+    optionsParser.parseAndExitUponError(residue.toArray(new String[0]));
 
     try {
       Path mergedManifest;

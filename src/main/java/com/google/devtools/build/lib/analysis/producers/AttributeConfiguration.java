@@ -61,15 +61,10 @@ abstract class AttributeConfiguration {
   abstract ImmutableMap<String, BuildConfigurationKey> split();
 
   public int count() {
-    switch (kind()) {
-      case VISIBILITY:
-      case NULL_TRANSITION_KEYS:
-      case UNARY:
-        return 1;
-      case SPLIT:
-        return split().size();
-    }
-    throw new IllegalStateException("unreachable");
+    return switch (kind()) {
+      case VISIBILITY, NULL_TRANSITION_KEYS, UNARY -> 1;
+      case SPLIT -> split().size();
+    };
   }
 
   static AttributeConfiguration ofVisibility() {

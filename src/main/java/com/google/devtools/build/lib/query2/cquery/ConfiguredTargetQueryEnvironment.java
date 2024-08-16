@@ -386,17 +386,14 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
         Label label = getCorrectLabel(target);
         CqueryNode keyedConfiguredTarget;
         switch (configPrefix) {
-          case "host":
-            throw new QueryException(
-                "'host' configuration no longer exists. Use a specific configuration hash instead",
-                ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
-          case "target":
-            keyedConfiguredTarget = getTargetConfiguredTarget(label);
-            break;
-          case "null":
-            keyedConfiguredTarget = getNullConfiguredTarget(label);
-            break;
-          default:
+          case "host" ->
+              throw new QueryException(
+                  "'host' configuration no longer exists. Use a specific configuration hash"
+                      + " instead",
+                  ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
+          case "target" -> keyedConfiguredTarget = getTargetConfiguredTarget(label);
+          case "null" -> keyedConfiguredTarget = getNullConfiguredTarget(label);
+          default -> {
             ImmutableList<String> matchingConfigs =
                 transitiveConfigurations.keySet().stream()
                     .filter(fullConfig -> fullConfig.startsWith(configPrefix))
@@ -434,6 +431,7 @@ public class ConfiguredTargetQueryEnvironment extends PostAnalysisQueryEnvironme
                       + "For more help, see https://bazel.build/docs/cquery.",
                   ConfigurableQuery.Code.INCORRECT_CONFIG_ARGUMENT_ERROR);
             }
+          }
         }
         if (keyedConfiguredTarget != null) {
           transformedResult.add(keyedConfiguredTarget);

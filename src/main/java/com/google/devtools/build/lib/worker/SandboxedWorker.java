@@ -108,6 +108,7 @@ final class SandboxedWorker extends SingleplexWorker {
       WorkerOptions workerOptions,
       @Nullable WorkerSandboxOptions hardenedSandboxOptions,
       TreeDeleter treeDeleter,
+      boolean useInMemoryTracking,
       @Nullable VirtualCgroupFactory cgroupFactory) {
     super(workerKey, workerId, workDir, logFile, workerOptions, cgroupFactory);
     Path tmpDirPath = SandboxHelpers.getTmpDirPath(workDir);
@@ -116,7 +117,8 @@ final class SandboxedWorker extends SingleplexWorker {
             workDir,
             hardenedSandboxOptions != null
                 ? ImmutableList.of(PathFragment.create(tmpDirPath.getPathString()))
-                : ImmutableList.of());
+                : ImmutableList.of(),
+            useInMemoryTracking);
     this.hardenedSandboxOptions = hardenedSandboxOptions;
     this.treeDeleter = treeDeleter;
   }

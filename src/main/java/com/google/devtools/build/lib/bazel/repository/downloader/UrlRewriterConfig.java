@@ -108,23 +108,21 @@ class UrlRewriterConfig {
         Location location = Location.fromFileLineColumn(filePathForErrorReporting, lineNumber, 0);
 
         switch (parts.get(0)) {
-          case "allow":
+          case "allow" -> {
             if (parts.size() != 2) {
               throw new UrlRewriterParseException(
                   "Only the host name is allowed after `allow`: " + line, location);
             }
             allowList.add(parts.get(1));
-            break;
-
-          case "block":
+          }
+          case "block" -> {
             if (parts.size() != 2) {
               throw new UrlRewriterParseException(
                   "Only the host name is allowed after `block`: " + line, location);
             }
             blockList.add(parts.get(1));
-            break;
-
-          case "rewrite":
+          }
+          case "rewrite" -> {
             if (parts.size() != 3) {
               throw new UrlRewriterParseException(
                   "Only the matching pattern and rewrite pattern is allowed after `rewrite`: "
@@ -132,9 +130,8 @@ class UrlRewriterConfig {
                   location);
             }
             rewrites.put(Pattern.compile(parts.get(1)), parts.get(2));
-            break;
-
-          case ALL_BLOCKED_MESSAGE_DIRECTIVE:
+          }
+          case ALL_BLOCKED_MESSAGE_DIRECTIVE -> {
             if (parts.size() == 1) {
               throw new UrlRewriterParseException(
                   "all_blocked_message must be followed by a message", location);
@@ -144,10 +141,8 @@ class UrlRewriterConfig {
                   "At most one all_blocked_message directive is allowed", location);
             }
             allBlockedMessage = line.substring(ALL_BLOCKED_MESSAGE_DIRECTIVE.length() + 1);
-            break;
-
-          default:
-            throw new UrlRewriterParseException("Unable to parse: " + line, location);
+          }
+          default -> throw new UrlRewriterParseException("Unable to parse: " + line, location);
         }
       }
     } catch (IOException e) {

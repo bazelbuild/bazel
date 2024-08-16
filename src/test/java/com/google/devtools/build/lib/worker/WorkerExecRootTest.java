@@ -61,7 +61,7 @@ public class WorkerExecRootTest {
             .addWorkerFile("worker.sh");
     Path workerSh = execRoot.getRelative("worker.sh");
 
-    WorkerExecRoot workerExecRoot = new WorkerExecRoot(workDir, ImmutableList.of());
+    WorkerExecRoot workerExecRoot = new WorkerExecRoot(workDir, ImmutableList.of(), false);
     workerExecRoot.createFileSystem(
         sandboxHelper.getWorkerFiles(),
         sandboxHelper.getSandboxInputs(),
@@ -103,7 +103,7 @@ public class WorkerExecRootTest {
             .addSymlink("dir/input_symlink_1", "new_content")
             .addSymlink("dir/input_symlink_2", "unchanged");
 
-    WorkerExecRoot workerExecRoot = new WorkerExecRoot(workDir, ImmutableList.of());
+    WorkerExecRoot workerExecRoot = new WorkerExecRoot(workDir, ImmutableList.of(), false);
 
     // This should update the `input_symlink_{1,2,3}` according to `SandboxInputs`, i.e., update the
     // first/second (alternatively leave the second unchanged) and delete the third.
@@ -131,7 +131,7 @@ public class WorkerExecRootTest {
             .addOutputDir("dir/foo/_kotlinc/bar_kt_jvm/bar_kt_classes")
             .addOutputDir("dir/foo/_kotlinc/bar_kt_jvm/bar_kt_temp")
             .addOutputDir("dir/foo/_kotlinc/bar_kt_jvm/bar_kt_generated_classes");
-    WorkerExecRoot workerExecRoot = new WorkerExecRoot(workDir, ImmutableList.of());
+    WorkerExecRoot workerExecRoot = new WorkerExecRoot(workDir, ImmutableList.of(), false);
     workerExecRoot.createFileSystem(
         sandboxHelper.getWorkerFiles(),
         sandboxHelper.getSandboxInputs(),
@@ -162,7 +162,7 @@ public class WorkerExecRootTest {
             .createSymlink("needed_file", neededWorkspaceFile.getPathString())
             .createSymlink("other_file", otherWorkspaceFile.getPathString());
 
-    WorkerExecRoot workerExecRoot = new WorkerExecRoot(workDir, ImmutableList.of());
+    WorkerExecRoot workerExecRoot = new WorkerExecRoot(workDir, ImmutableList.of(), false);
     workerExecRoot.createFileSystem(
         sandboxHelper.getWorkerFiles(),
         sandboxHelper.getSandboxInputs(),
@@ -191,7 +191,8 @@ public class WorkerExecRootTest {
             .createExecRootFile("some_file", "some content")
             .addInputFile("some_file", null);
 
-    WorkerExecRoot workerExecRoot = new WorkerExecRoot(sandboxHelper.workDir, ImmutableList.of());
+    WorkerExecRoot workerExecRoot =
+        new WorkerExecRoot(sandboxHelper.workDir, ImmutableList.of(), false);
     workerExecRoot.createFileSystem(
         sandboxHelper.getWorkerFiles(),
         sandboxHelper.getSandboxInputs(),
@@ -225,7 +226,7 @@ public class WorkerExecRootTest {
             .addInputFile("../foo/bar/input1", input1.getPathString())
             .addInputFile("../foo/input2", input2.getPathString());
 
-    WorkerExecRoot workerExecRoot = new WorkerExecRoot(workDir, ImmutableList.of());
+    WorkerExecRoot workerExecRoot = new WorkerExecRoot(workDir, ImmutableList.of(), false);
     workerExecRoot.createFileSystem(
         sandboxHelper.getWorkerFiles(),
         sandboxHelper.getSandboxInputs(),

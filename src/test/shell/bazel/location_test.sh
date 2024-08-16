@@ -20,13 +20,15 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
 function test_external_location() {
-  cat > WORKSPACE <<EOF
-bind(
-   name = "foo",
-   actual = "//bar:baz"
+  cat > MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+   name = "bar",
+   path = "bar",
 )
 EOF
   mkdir bar
+  touch bar/REPO.bazel
   cat > bar/BUILD <<EOF
 genrule(
     name = "baz-rule",
@@ -34,27 +36,31 @@ genrule(
     cmd = "echo 'hello' > \"\$@\"",
     visibility = ["//visibility:public"],
 )
+EOF
 
+  cat > BUILD <<EOF
 genrule(
     name = "use-loc",
-    srcs = ["//external:foo"],
+    srcs = ["@bar//:baz-rule"],
     outs = ["loc"],
-    cmd = "cat \$(location //external:foo) > \"\$@\"",
+    cmd = "cat \$(location @bar//:baz-rule) > \"\$@\"",
 )
 EOF
 
-  bazel build //bar:loc &> $TEST_log || fail "Referencing external genrule didn't build"
-  assert_contains "hello" bazel-genfiles/bar/loc
+  bazel build //:loc &> $TEST_log || fail "Referencing external genrule didn't build"
+  assert_contains "hello" bazel-genfiles/loc
 }
 
 function test_external_location_tool() {
-  cat > WORKSPACE <<EOF
-bind(
-   name = "foo",
-   actual = "//bar:baz"
+  cat > MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+   name = "bar",
+   path = "bar",
 )
 EOF
   mkdir bar
+  touch bar/REPO.bazel
   cat > bar/BUILD <<EOF
 genrule(
     name = "baz-rule",
@@ -62,17 +68,19 @@ genrule(
     cmd = "echo '#!/bin/echo hello' > \"\$@\"",
     visibility = ["//visibility:public"],
 )
+EOF
 
+  cat > BUILD <<EOF
 genrule(
     name = "use-loc",
-    tools = ["//external:foo"],
+    tools = ["@bar//:baz-rule"],
     outs = ["loc"],
-    cmd = "\$(location //external:foo) > \"\$@\"",
+    cmd = "\$(location @bar//:baz-rule) > \"\$@\"",
 )
 EOF
 
-  bazel build //bar:loc &> $TEST_log || fail "Referencing external genrule in tools didn't build"
-  assert_contains "hello" bazel-genfiles/bar/loc
+  bazel build //:loc &> $TEST_log || fail "Referencing external genrule in tools didn't build"
+  assert_contains "hello" bazel-genfiles/loc
 }
 
 function test_location_trim() {
