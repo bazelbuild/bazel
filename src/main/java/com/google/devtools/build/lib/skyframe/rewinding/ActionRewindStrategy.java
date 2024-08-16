@@ -47,6 +47,8 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding.Code;
 import com.google.devtools.build.lib.skyframe.ActionUtils;
@@ -127,9 +129,16 @@ public final class ActionRewindStrategy {
         checkIfTopLevelOutputLostTooManyTimes(failedKey, lostOutputsByDigest);
 
     ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
-    Reset rewindPlan =
-        prepareRewindPlan(
-            failedKey, failedKeyDeps, lostOutputsByDigest, depOwners, env, depsToRewind);
+    Reset rewindPlan;
+    try (var ignored =
+        AutoProfiler.profiled(
+            "Preparing rewind plan for %d lost outputs of %s"
+                .formatted(lostOutputRecords.size(), failedKey.actionLookupKey().getLabel()),
+            ProfilerTask.ACTION_REWINDING)) {
+      rewindPlan =
+          prepareRewindPlan(
+              failedKey, failedKeyDeps, lostOutputsByDigest, depOwners, env, depsToRewind);
+    }
 
     if (shouldRecordRewindEventSample()) {
       rewindEventSamples.add(createLostOutputRewindEvent(failedKey, rewindPlan, lostOutputRecords));
@@ -172,9 +181,16 @@ public final class ActionRewindStrategy {
         checkIfActionLostInputTooManyTimes(failedKey, failedAction, lostInputsByDigest);
 
     ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
-    Reset rewindPlan =
-        prepareRewindPlan(
-            failedKey, failedActionDeps, lostInputsByDigest, inputDepOwners, env, depsToRewind);
+    Reset rewindPlan;
+    try (var ignored =
+        AutoProfiler.profiled(
+            "Preparing rewind plan for %d lost inputs of %s"
+                .formatted(lostInputRecords.size(), failedAction.prettyPrint()),
+            ProfilerTask.ACTION_REWINDING)) {
+      rewindPlan =
+          prepareRewindPlan(
+              failedKey, failedActionDeps, lostInputsByDigest, inputDepOwners, env, depsToRewind);
+    }
 
     if (shouldRecordRewindEventSample()) {
       rewindEventSamples.add(
