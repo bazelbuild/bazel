@@ -1364,31 +1364,54 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertThat(pkg.getTarget("baz")).isInstanceOf(InputFile.class);
   }
 
-  private void defineTreeMacro(boolean deferredEvaluation) throws Exception {
-    // This recursive macro is handy for easily generating nested macros and for testing the limits
-    // of our evaluation. But we don't expect or aim to support users writing recursive macros
-    // generally.
-    // TODO: #19922 - We should just ban recursion.
+  @Test
+  public void testSymbolicMacro_deferredEvaluationExpandsTransitively() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
     scratch.file(
-        "pkg/tree_macro.bzl",
+        "pkg/my_macro.bzl",
+        """
+        def _inner_impl(name):
+            native.cc_library(name = name)
+        inner_macro = macro(implementation=_inner_impl, finalizer = True)
+
+        def _middle_impl(name):
+            inner_macro(name = name)
+        middle_macro = macro(implementation=_middle_impl, finalizer = True)
+
+        def _outer_impl(name):
+            middle_macro(name = name)
+        outer_macro = macro(implementation=_outer_impl, finalizer = True)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "outer_macro")
+        outer_macro(name = "abc")
+        """);
+
+    Package pkg = loadPackage("pkg");
+    assertThat(pkg.getTargets()).containsKey("abc");
+    assertThat(pkg.getMacrosById().keySet()).containsExactly("abc:1", "abc:2", "abc:3");
+  }
+
+  private void defineRecursiveMacro(boolean deferredEvaluation) throws Exception {
+    scratch.file(
+        "pkg/recursive_macro.bzl",
         String.format(
             """
-            def _impl(name, height, breadth):
+            def _impl(name, height):
                 if height == 0:
                     native.cc_library(name = name)
                 else:
-                    for i in range(breadth):
-                        tree_macro(
-                            name = name + "_" + str(i + 1),
-                            height = height - 1,
-                            breadth = breadth,
-                        )
+                    recursive_macro(
+                        name = name + "_x",
+                        height = height - 1,
+                    )
 
-            tree_macro = macro(
+            recursive_macro = macro(
                 implementation = _impl,
                 attrs = {
                     "height": attr.int(configurable=False),
-                    "breadth": attr.int(configurable=False),
                 },
                 finalizer = %s,
             )
@@ -1397,55 +1420,90 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testSymbolicMacro_recursionAllowedWithEagerEvaluation() throws Exception {
+  public void testSymbolicMacro_recursionProhibitedWithEagerEvaluation() throws Exception {
     setBuildLanguageOptions("--experimental_enable_first_class_macros");
-    defineTreeMacro(/* deferredEvaluation= */ false);
-    scratch.file(
-        "pkg/BUILD",
+    defineRecursiveMacro(/* deferredEvaluation= */ false);
+    expectEvalError(
         """
-        load(":tree_macro.bzl", "tree_macro")
-        tree_macro(
+        macro 'abc_x' is a direct recursive call of 'abc'. Macro instantiation traceback (most \
+        recent call last):
+        \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%recursive_macro
+        \tPackage //pkg, macro 'abc_x' of type //pkg:recursive_macro.bzl%recursive_macro""",
+        """
+        load(":recursive_macro.bzl", "recursive_macro")
+        recursive_macro(
             name = "abc",
-            height = 2,
-            breadth = 3,
+            height = 3,
         )
         """);
-
-    Package pkg = loadPackage("pkg");
-    assertThat(pkg.getTargets().keySet())
-        .containsAtLeast(
-            "abc_1_1", "abc_1_2", "abc_1_3", "abc_2_1", "abc_2_2", "abc_2_3", "abc_3_1", "abc_3_2",
-            "abc_3_3");
   }
 
   @Test
-  public void testSymbolicMacro_recursionAllowedWithDeferredEvaluation() throws Exception {
-    // TODO: #19922 - When we ban recursion and invert this test, we'll need another test that
-    // checks that deferred evaluation transitively expands submacros.
+  public void testSymbolicMacro_recursionProhibitedWithDeferredEvaluation() throws Exception {
     setBuildLanguageOptions("--experimental_enable_first_class_macros");
-    defineTreeMacro(/* deferredEvaluation= */ true);
-    scratch.file(
-        "pkg/BUILD",
+    defineRecursiveMacro(/* deferredEvaluation= */ true);
+    expectEvalError(
         """
-        load(":tree_macro.bzl", "tree_macro")
-        tree_macro(
+        macro 'abc_x' is a direct recursive call of 'abc'. Macro instantiation traceback (most \
+        recent call last):
+        \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%recursive_macro
+        \tPackage //pkg, macro 'abc_x' of type //pkg:recursive_macro.bzl%recursive_macro""",
+        """
+        load(":recursive_macro.bzl", "recursive_macro")
+        recursive_macro(
             name = "abc",
             height = 3,
-            breadth = 2,
         )
         """);
+  }
 
-    Package pkg = loadPackage("pkg");
-    assertThat(pkg.getTargets().keySet())
-        .containsAtLeast(
-            "abc_1_1_1",
-            "abc_1_1_2",
-            "abc_1_2_1",
-            "abc_1_2_2",
-            "abc_2_1_1",
-            "abc_2_1_2",
-            "abc_2_2_1",
-            "abc_2_2_2");
+  @Test
+  public void testSymbolicMacro_indirectRecursionAlsoProhibited() throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+    // Define a pair of macros where A calls B calls A (and then would stop, if allowed to get that
+    // far). Wrap it in a different entry point to test that the non-cyclic part is included in the
+    // traceback.
+    scratch.file(
+        "pkg/recursive_macro.bzl",
+        """
+        def _A_impl(name, stop):
+            if stop:
+                native.cc_library(name = name)
+            else:
+                macro_B(name = name + "_B")
+
+        macro_A = macro(
+            implementation = _A_impl,
+            attrs = {
+                "stop": attr.bool(default=False, configurable=False),
+            },
+        )
+
+        def _B_impl(name):
+            macro_A(
+                name = name + "_A",
+                stop = True,
+            )
+
+        macro_B = macro(implementation = _B_impl)
+
+        def _main_impl(name):
+            macro_A(name = name)
+
+        main_macro = macro(implementation = _main_impl)
+        """);
+    expectEvalError(
+        """
+        macro 'abc_B_A' is an indirect recursive call of 'abc'. Macro instantiation traceback \
+        (most recent call last):
+        \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%main_macro
+        \tPackage //pkg, macro 'abc' of type //pkg:recursive_macro.bzl%macro_A
+        \tPackage //pkg, macro 'abc_B' of type //pkg:recursive_macro.bzl%macro_B
+        \tPackage //pkg, macro 'abc_B_A' of type //pkg:recursive_macro.bzl%macro_A""",
+        """
+        load(":recursive_macro.bzl", "main_macro")
+        main_macro(name = "abc")
+        """);
   }
 
   // TODO: #19922 - Add tests for graceful failure when the macro stack is too deep or there are too

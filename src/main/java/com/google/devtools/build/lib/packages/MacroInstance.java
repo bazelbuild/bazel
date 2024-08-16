@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Represents a use of a symbolic macro in a package.
@@ -32,7 +33,11 @@ import java.util.Map;
  */
 public final class MacroInstance {
 
+  // TODO: #19922 - If we want to save the cost of a field here, we can merge pkg and parent into a
+  // single field of type Object, and walk up the parent hierarchy to answer getPackage() queries.
   private final Package pkg;
+
+  @Nullable private final MacroInstance parent;
 
   private final MacroClass macroClass;
 
@@ -50,8 +55,13 @@ public final class MacroInstance {
    * more than the parent's depth.
    */
   public MacroInstance(
-      Package pkg, MacroClass macroClass, Map<String, Object> attrValues, int sameNameDepth) {
+      Package pkg,
+      @Nullable MacroInstance parent,
+      MacroClass macroClass,
+      Map<String, Object> attrValues,
+      int sameNameDepth) {
     this.pkg = pkg;
+    this.parent = parent;
     this.macroClass = macroClass;
     this.attrValues = ImmutableMap.copyOf(attrValues);
     Preconditions.checkArgument(sameNameDepth > 0);
@@ -62,6 +72,15 @@ public final class MacroInstance {
   /** Returns the package this instance was created in. */
   public Package getPackage() {
     return pkg;
+  }
+
+  /**
+   * Returns the macro instance that instantiated this one, or null if this was created directly
+   * during BUILD evaluation.
+   */
+  @Nullable
+  public MacroInstance getParent() {
+    return parent;
   }
 
   /** Returns the {@link MacroClass} (i.e. schema info) that this instance parameterizes. */

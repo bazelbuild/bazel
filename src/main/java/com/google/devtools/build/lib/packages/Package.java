@@ -1603,7 +1603,8 @@ public class Package {
      */
     MacroInstance createMacro(
         MacroClass macroClass, Map<String, Object> attrValues, int sameNameDepth) {
-      return new MacroInstance(pkg, macroClass, attrValues, sameNameDepth);
+      MacroInstance parent = currentMacroFrame == null ? null : currentMacroFrame.macroInstance;
+      return new MacroInstance(pkg, parent, macroClass, attrValues, sameNameDepth);
     }
 
     /**

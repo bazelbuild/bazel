@@ -1248,6 +1248,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       // end of BUILD file evaluation, but rather at the end of package evaluation (which at that
       // time would be a distinct skyfunction).
       if (!macroClass.isFinalizer()) {
+        // TODO: #19922 - At some point we should maybe impose a check that the macro stack depth
+        // isn't too big. Maybe this is unnecessary since we don't permit recursion. But in theory,
+        // a big stack can crash under eager evaluation (where evaluation is on the Java call stack)
+        // but not deferred evaluation, leading to a semantic difference.
         MacroClass.executeMacroImplementation(macroInstance, pkgBuilder, thread.getSemantics());
       }
 
@@ -1259,6 +1263,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     public void export(EventHandler handler, Label starlarkLabel, String exportedName) {
       checkState(builder != null && macroClass == null);
       builder.setName(exportedName);
+      builder.setDefiningBzlLabel(starlarkLabel);
       this.macroClass = builder.build();
       this.builder = null;
       checkArgument(
