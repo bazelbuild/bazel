@@ -10,6 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Get GitHub Pull Request Reviewers
+        id: reviews
+      - uses: LiamPerson/get-reviews-action@SPECIFY_ME
+      - name: Consumes reviews
+        uses: some/workflow@version
+        with:
+          RELEASES_JSON_FILE: ${{ steps.reviews.outputs.reviews_file_path }}
       - uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
