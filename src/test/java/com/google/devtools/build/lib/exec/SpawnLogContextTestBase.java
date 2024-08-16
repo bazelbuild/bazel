@@ -42,6 +42,8 @@ import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
 import com.google.devtools.build.lib.exec.Protos.File;
@@ -52,6 +54,7 @@ import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DelegateFileSystem;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -338,8 +341,7 @@ public abstract class SpawnLogContextTestBase {
     writeFile(runfilesInput, "abc");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
-    RunfilesTree runfilesTree =
-        createRunfilesTree(runfilesRoot, ImmutableMap.of("data.txt", runfilesInput));
+    RunfilesTree runfilesTree = createRunfilesTree(runfilesRoot, ImmutableMap.of(), runfilesInput);
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
@@ -376,8 +378,7 @@ public abstract class SpawnLogContextTestBase {
     }
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
-    RunfilesTree runfilesTree =
-        createRunfilesTree(runfilesRoot, ImmutableMap.of("dir", runfilesInput));
+    RunfilesTree runfilesTree = createRunfilesTree(runfilesRoot, ImmutableMap.of(), runfilesInput);
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
@@ -987,14 +988,17 @@ public abstract class SpawnLogContextTestBase {
   }
 
   protected static RunfilesTree createRunfilesTree(
-      PathFragment root, Map<String, Artifact> mapping) {
-    HashMap<PathFragment, Artifact> mappingByPath = new HashMap<>();
-    for (Map.Entry<String, Artifact> entry : mapping.entrySet()) {
-      mappingByPath.put(PathFragment.create(entry.getKey()), entry.getValue());
+      PathFragment root, Map<String, Artifact> symlinks, Artifact... artifacts) {
+    HashMap<PathFragment, Artifact> symlinksByPath = new HashMap<>();
+    for (Map.Entry<String, Artifact> entry : symlinks.entrySet()) {
+      symlinksByPath.put(PathFragment.create(entry.getKey()), entry.getValue());
     }
     RunfilesTree runfilesTree = mock(RunfilesTree.class);
+    when(runfilesTree.getWorkspaceName()).thenReturn(TestConstants.WORKSPACE_NAME);
     when(runfilesTree.getExecPath()).thenReturn(root);
-    when(runfilesTree.getMapping()).thenReturn(mappingByPath);
+    when(runfilesTree.getAllSymlinksForLogging()).thenReturn(symlinksByPath);
+    when(runfilesTree.getArtifactsAtCanonicalLocationsForLogging())
+        .thenReturn(NestedSetBuilder.wrap(Order.STABLE_ORDER, ImmutableList.copyOf(artifacts)));
     return runfilesTree;
   }
 

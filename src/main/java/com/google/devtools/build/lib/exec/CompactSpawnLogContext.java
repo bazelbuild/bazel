@@ -478,7 +478,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     return logEntry(
         runfilesTree.getExecPath().getPathString(),
         () -> {
-          Preconditions.checkState(runfilesTree.getWorkspaceName().equals(workspaceName));
+          Preconditions.checkState(workspaceName.equals(runfilesTree.getWorkspaceName()));
 
           ExecLogEntry.RunfilesTree.Builder builder =
               ExecLogEntry.RunfilesTree.newBuilder()
