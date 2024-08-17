@@ -583,6 +583,14 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP},
         help = "No-op.")
     public boolean announceProfilePath;
+
+    @Option(
+        name = "incompatible_existing_rules_immutable_view",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean incompatibleExistingRulesImmutableView;
   }
 
   @Override

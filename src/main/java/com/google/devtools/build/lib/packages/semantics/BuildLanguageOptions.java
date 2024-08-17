@@ -228,17 +228,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalIsolatedExtensionUsages;
 
   @Option(
-      name = "incompatible_existing_rules_immutable_view",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
-      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS, OptionEffectTag.LOADING_AND_ANALYSIS},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, native.existing_rule and native.existing_rules return lightweight"
-              + " immutable view objects instead of mutable dicts.")
-  public boolean incompatibleExistingRulesImmutableView;
-
-  @Option(
       name = "incompatible_stop_exporting_build_file_path",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -762,8 +751,6 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(ENABLE_BZLMOD, enableBzlmod)
             .setBool(ENABLE_WORKSPACE, enableWorkspace)
             .setBool(EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, experimentalIsolatedExtensionUsages)
-            .setBool(
-                INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW, incompatibleExistingRulesImmutableView)
             .setBool(EXPERIMENTAL_ACTION_RESOURCE_SET, experimentalActionResourceSet)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
             .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
@@ -873,8 +860,6 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String ENABLE_WORKSPACE = "+enable_workspace";
   public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
       "-experimental_isolated_extension_usages";
-  public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =
-      "+incompatible_existing_rules_immutable_view";
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";
   public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "-experimental_repo_remote_exec";
