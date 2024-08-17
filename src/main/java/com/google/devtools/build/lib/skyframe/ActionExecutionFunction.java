@@ -1309,7 +1309,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     if (!undoneInputs.isEmpty()) {
-      throw new UndoneInputsException(ImmutableList.copyOf(undoneInputs), inputDepKeys);
+      throw new UndoneInputsException(ImmutableSet.copyOf(undoneInputs), inputDepKeys);
     }
 
     // If there were no errors, we don't go through the scheduling dependencies because the only
@@ -1549,10 +1549,10 @@ public final class ActionExecutionFunction implements SkyFunction {
    * completed with an error.
    */
   private static final class UndoneInputsException extends Exception {
-    private final ImmutableList<Artifact> undoneInputs;
+    private final ImmutableSet<Artifact> undoneInputs;
     private final ImmutableSet<SkyKey> inputDepKeys;
 
-    UndoneInputsException(ImmutableList<Artifact> undoneInputs, ImmutableSet<SkyKey> inputDepKeys) {
+    UndoneInputsException(ImmutableSet<Artifact> undoneInputs, ImmutableSet<SkyKey> inputDepKeys) {
       this.undoneInputs = undoneInputs;
       this.inputDepKeys = inputDepKeys;
     }
