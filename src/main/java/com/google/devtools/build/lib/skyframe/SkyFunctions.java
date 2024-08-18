@@ -38,6 +38,9 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("PACKAGE_LOOKUP");
   public static final SkyFunctionName CONTAINING_PACKAGE_LOOKUP =
       SkyFunctionName.createHermetic("CONTAINING_PACKAGE_LOOKUP");
+  public static final SkyFunctionName PROJECT = SkyFunctionName.createHermetic("PROJECT");
+  public static final SkyFunctionName PROJECT_FILES_LOOKUP =
+      SkyFunctionName.createHermetic("PROJECT_FILES_LOOKUP");
   public static final SkyFunctionName BZL_COMPILE = SkyFunctionName.createHermetic("BZL_COMPILE");
   public static final SkyFunctionName STARLARK_BUILTINS =
       SkyFunctionName.createHermetic("STARLARK_BUILTINS");
@@ -98,7 +101,7 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("BUILD_CONFIGURATION_KEY");
   public static final SkyFunctionName PARSED_FLAGS = SkyFunctionName.createHermetic("PARSED_FLAGS");
   public static final SkyFunctionName BASELINE_OPTIONS =
-      SkyFunctionName.createHermetic("BASELINE_OPTIONS");
+      SkyFunctionName.createNonHermetic("BASELINE_OPTIONS");
   public static final SkyFunctionName STARLARK_BUILD_SETTINGS_DETAILS =
       SkyFunctionName.createHermetic("STARLARK_BUILD_SETTINGS_DETAILS");
   // Action execution can be nondeterministic, so semi-hermetic.
@@ -150,10 +153,10 @@ public final class SkyFunctions {
       SkyFunctionName.createHermetic("BAZEL_MODULE_RESOLUTION");
   public static final SkyFunctionName BAZEL_MODULE_INSPECTION =
       SkyFunctionName.createHermetic("BAZEL_MODULE_INSPECTION");
-  public static final SkyFunctionName MODULE_EXTENSION_RESOLUTION =
-      SkyFunctionName.createHermetic("MODULE_EXTENSION_RESOLUTION");
   public static final SkyFunctionName SINGLE_EXTENSION_USAGES =
       SkyFunctionName.createHermetic("SINGLE_EXTENSION_USAGES");
+  public static final SkyFunctionName SINGLE_EXTENSION =
+      SkyFunctionName.createHermetic("SINGLE_EXTENSION");
   public static final SkyFunctionName SINGLE_EXTENSION_EVAL =
       SkyFunctionName.createNonHermetic("SINGLE_EXTENSION_EVAL");
   public static final SkyFunctionName BAZEL_DEP_GRAPH =
@@ -169,6 +172,8 @@ public final class SkyFunctions {
 
   public static final SkyFunctionName MODULE_EXTENSION_REPO_MAPPING_ENTRIES =
       SkyFunctionName.createHermetic("MODULE_EXTENSION_REPO_MAPPING_ENTRIES");
+  public static final SkyFunctionName VENDOR_FILE = SkyFunctionName.createHermetic("VENDOR_FILE");
+  ;
 
   public static final SkyFunctionName FLAG_SET = SkyFunctionName.createHermetic("FLAG_SET");
 

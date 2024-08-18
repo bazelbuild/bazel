@@ -234,4 +234,10 @@ EOF
   expect_log '^remote$'
 }
 
+function test_internal_spawn_scheduler() {
+  # This is just a basic test to see whether the dynamic scheduler is setting
+  # up the correct local and remote strategies on all platforms.
+  bazel build --internal_spawn_scheduler &>"$TEST_log" || fail "build failed"
+}
+
 run_suite "Tests for the execution strategy selection."

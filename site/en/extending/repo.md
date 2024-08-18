@@ -40,10 +40,9 @@ the repo rule is defined with a call to `repository_rule`. An example defining
 ```python
 http_archive = repository_rule(
     implementation=_impl,
-    local=True,
     attrs={
-        "url": attr.string(mandatory=True)
-        "sha256": attr.string(mandatory=True)
+        "url": attr.string(mandatory=True),
+        "sha256": attr.string(mandatory=True),
     }
 )
 ```

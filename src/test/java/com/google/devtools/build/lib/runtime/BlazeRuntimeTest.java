@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import com.google.common.collect.ImmutableList;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.runtime.commands.VersionCommand;
+import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -43,7 +45,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
 /** Tests for {@link BlazeRuntime} static methods. */
 @RunWith(JUnit4.class)
@@ -59,7 +60,7 @@ public class BlazeRuntimeTest {
             "//foo:bar",
             "--nobuild");
     assertThat(options.getStartupArgs())
-        .isEqualTo(Arrays.asList("--install_base=/foo --host_jvm_args=-Xmx1B"));
+        .containsExactly("--install_base=/foo --host_jvm_args=-Xmx1B");
     assertThat(options.getOtherArgs()).isEqualTo(Arrays.asList("build", "//foo:bar", "--nobuild"));
   }
 
@@ -68,8 +69,8 @@ public class BlazeRuntimeTest {
   public void optionSplittingNoPrefix() {
     BlazeRuntime.CommandLineOptions options =
         BlazeRuntime.splitStartupOptions(ImmutableList.of(), "--nobatch", "build");
-    assertThat(options.getStartupArgs()).isEqualTo(Arrays.asList("--nobatch"));
-    assertThat(options.getOtherArgs()).isEqualTo(Arrays.asList("build"));
+    assertThat(options.getStartupArgs()).containsExactly("--nobatch");
+    assertThat(options.getOtherArgs()).containsExactly("build");
   }
 
   private static final ImmutableList<Class<? extends OptionsBase>> COMMAND_ENV_REQUIRED_OPTIONS =
@@ -86,17 +87,17 @@ public class BlazeRuntimeTest {
             .setFileSystem(fs)
             .setProductName("foo product")
             .setServerDirectories(serverDirectories)
-            .setStartupOptionsProvider(Mockito.mock(OptionsParsingResult.class))
+            .setStartupOptionsProvider(mock(OptionsParsingResult.class))
             .build();
     AtomicReference<String> shutdownMessage = new AtomicReference<>();
     BlazeDirectories directories =
         new BlazeDirectories(
             serverDirectories, fs.getPath("/workspace"), fs.getPath("/system_javabase"), "blaze");
     BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
-    EventBus eventBus = Mockito.mock(EventBus.class);
+    EventBus eventBus = mock(EventBus.class);
     OptionsParser options =
         OptionsParser.builder().optionsClasses(COMMAND_ENV_REQUIRED_OPTIONS).build();
-    Thread commandThread = Mockito.mock(Thread.class);
+    Thread commandThread = mock(Thread.class);
     CommandEnvironment env =
         new CommandEnvironment(
             runtime,
@@ -105,6 +106,8 @@ public class BlazeRuntimeTest {
             commandThread,
             VersionCommand.class.getAnnotation(Command.class),
             options,
+            InvocationPolicy.getDefaultInstance(),
+            /* packageLocator= */ null,
             SyscallCache.NO_CACHE,
             QuiescingExecutorsImpl.forTesting(),
             /* warnings= */ ImmutableList.of(),
@@ -147,7 +150,7 @@ public class BlazeRuntimeTest {
             .setFileSystem(fs)
             .setProductName("bazel")
             .setServerDirectories(serverDirectories)
-            .setStartupOptionsProvider(Mockito.mock(OptionsParsingResult.class))
+            .setStartupOptionsProvider(mock(OptionsParsingResult.class))
             .build();
     BlazeDirectories directories =
         new BlazeDirectories(
@@ -157,10 +160,12 @@ public class BlazeRuntimeTest {
         new CommandEnvironment(
             runtime,
             workspace,
-            Mockito.mock(EventBus.class),
+            mock(EventBus.class),
             Thread.currentThread(),
             VersionCommand.class.getAnnotation(Command.class),
             OptionsParser.builder().optionsClasses(COMMAND_ENV_REQUIRED_OPTIONS).build(),
+            InvocationPolicy.getDefaultInstance(),
+            /* packageLocator= */ null,
             SyscallCache.NO_CACHE,
             QuiescingExecutorsImpl.forTesting(),
             /* warnings= */ ImmutableList.of(),
@@ -194,7 +199,7 @@ public class BlazeRuntimeTest {
             .setFileSystem(fs)
             .setProductName("bazel")
             .setServerDirectories(serverDirectories)
-            .setStartupOptionsProvider(Mockito.mock(OptionsParsingResult.class))
+            .setStartupOptionsProvider(mock(OptionsParsingResult.class))
             .build();
 
     assertThat(runtime.getCommandMap().keySet()).containsExactly("foo", "bar").inOrder();

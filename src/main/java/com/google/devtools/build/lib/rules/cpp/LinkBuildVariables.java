@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.SequenceBuil
 import com.google.devtools.build.lib.vfs.PathFragment;
 import net.starlark.java.eval.EvalException;
 
+// LINT.IfChange
 /** Enum covering all build variables we create for all various {@link CppLinkAction}. */
 public enum LinkBuildVariables {
   /** Entries in the linker runtime search path (usually set by -rpath flag) */
@@ -291,3 +292,5 @@ public enum LinkBuildVariables {
     }
   }
 }
+
+// LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/link_build_variables.bzl)

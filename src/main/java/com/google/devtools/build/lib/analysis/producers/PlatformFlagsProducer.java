@@ -100,15 +100,20 @@ public class PlatformFlagsProducer implements StateMachine, PlatformInfoProducer
 
     PackageContext packageContext =
         PackageContext.of(platformLabel.getPackageIdentifier(), this.platformRepositoryMapping);
-    ParsedFlagsValue.Key parsedFlagsKey = ParsedFlagsValue.Key.create(flags, packageContext);
+    ParsedFlagsValue.Key parsedFlagsKey =
+        ParsedFlagsValue.Key.create(
+            flags,
+            packageContext,
+            // Include default values so that any flags explicitly reset to the default are kept.
+            /* includeDefaultValues= */ true);
     tasks.lookUp(parsedFlagsKey, OptionsParsingException.class, this::acceptParsedFlagsValue);
     return this::handleParsedFlags;
   }
 
   private void acceptParsedFlagsValue(
       @Nullable SkyValue value, @Nullable OptionsParsingException exception) {
-    if (value != null && value instanceof ParsedFlagsValue) {
-      this.parsedFlags = ((ParsedFlagsValue) value).flags();
+    if (value != null && value instanceof ParsedFlagsValue parsedFlagsValue) {
+      this.parsedFlags = parsedFlagsValue.flags();
       return;
     }
     if (exception != null) {

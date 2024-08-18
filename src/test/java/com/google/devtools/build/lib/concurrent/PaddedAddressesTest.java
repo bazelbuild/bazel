@@ -25,6 +25,7 @@ import org.junit.runners.JUnit4;
 import sun.misc.Unsafe;
 
 @RunWith(JUnit4.class)
+@SuppressWarnings("SunApi") // TODO: b/359688989 - clean this up
 public final class PaddedAddressesTest {
 
   @Test

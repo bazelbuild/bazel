@@ -830,7 +830,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
         getQueryResult("deps(//depth:one, 3)", "--experimental_ui_debug_all_events");
 
     if (orderResults) {
-      events.assertContainsEvent(EventKind.PROGRESS, "Loading package: depth2");
+      assertContainsEvent(EventKind.PROGRESS, "Loading package: depth2");
     }
 
     assertQueryOutputContains(

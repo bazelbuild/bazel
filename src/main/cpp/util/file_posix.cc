@@ -327,6 +327,8 @@ bool WriteFile(const void *data, size_t size, const Path &path,
   return WriteFile(data, size, path.AsNativePath(), perm);
 }
 
+void InitializeStdOutErrForUtf8() {}
+
 int WriteToStdOutErr(const void *data, size_t size, bool to_stdout) {
   size_t r = fwrite(data, 1, size, to_stdout ? stdout : stderr);
   return (r == size) ? WriteResult::SUCCESS

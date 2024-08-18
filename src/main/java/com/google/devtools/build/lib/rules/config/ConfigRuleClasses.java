@@ -23,14 +23,14 @@ import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.PlatformConfiguration;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.packages.AllowlistChecker;
-import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
-import com.google.devtools.build.lib.packages.AttributeMap;
+import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -138,23 +138,16 @@ public class ConfigRuleClasses {
     /** The name of the attribute that declares constraint_values. */
     public static final String CONSTRAINT_VALUES_ATTRIBUTE = "constraint_values";
 
-    /** The name of the tools repository. */
-    public static final String TOOLS_REPOSITORY_ATTRIBUTE = "$tools_repository";
-
     @Override
     public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
       return builder
           .setIgnoreLicenses()
-          .requiresConfigurationFragments(PlatformConfiguration.class)
-          .add(
-              attr(TOOLS_REPOSITORY_ATTRIBUTE, STRING)
-                  .value(
-                      new ComputedDefault() {
-                        @Override
-                        public Object getDefault(AttributeMap rule) {
-                          return env.getToolsRepository().getName();
-                        }
-                      }))
+          .toolchainResolutionMode(
+              (rule) -> {
+                RawAttributeMapper attr = RawAttributeMapper.of(rule);
+                return attr.has(CONSTRAINT_VALUES_ATTRIBUTE)
+                    && !attr.get(CONSTRAINT_VALUES_ATTRIBUTE, LABEL_LIST).isEmpty();
+              })
 
           /* <!-- #BLAZE_RULE(config_setting).ATTRIBUTE(values) -->
           The set of configuration values that match this rule (expressed as build flags)
@@ -432,9 +425,14 @@ public class ConfigRuleClasses {
                   .orderIndependent()
                   .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
           .add(attr("default_value", STRING).nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON))
+          .add(
+              attr("scope", STRING)
+                  .nonconfigurable(NONCONFIGURABLE_ATTRIBUTE_REASON)
+                  .allowedValues(new AllowedValueSet("universal", "project")))
           .add(ConfigFeatureFlag.getAllowlistAttribute(env))
           .addAllowlistChecker(ALWAYS_CHECK_ALLOWLIST)
           .removeAttribute(BaseRuleClasses.TAGGED_TRIMMING_ATTR)
+          .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
           .build();
     }
 

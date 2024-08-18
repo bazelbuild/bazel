@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SourceArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
@@ -534,8 +533,8 @@ public class ActionCacheChecker {
           action.discoversInputs(),
           "Actions that don't know their inputs must discover them: %s",
           action);
-      if (action instanceof ActionCacheAwareAction
-          && ((ActionCacheAwareAction) action).storeInputsExecPathsInActionCache()) {
+      if (action instanceof ActionCacheAwareAction actionCacheAwareAction
+          && actionCacheAwareAction.storeInputsExecPathsInActionCache()) {
         actionInputs = NestedSetBuilder.wrap(Order.STABLE_ORDER, resolvedCacheArtifacts);
       } else {
         actionInputs =
@@ -764,8 +763,8 @@ public class ActionCacheChecker {
     }
 
     boolean storeAllInputsInActionCache =
-        action instanceof ActionCacheAwareAction
-            && ((ActionCacheAwareAction) action).storeInputsExecPathsInActionCache();
+        action instanceof ActionCacheAwareAction actionCacheAwareAction
+            && actionCacheAwareAction.storeInputsExecPathsInActionCache();
     ImmutableSet<Artifact> excludePathsFromActionCache =
         !storeAllInputsInActionCache && action.discoversInputs()
             ? action.getMandatoryInputs().toSet()

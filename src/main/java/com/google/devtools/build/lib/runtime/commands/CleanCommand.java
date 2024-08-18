@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
@@ -54,14 +56,14 @@ import java.util.logging.LogManager;
 /** Implements 'blaze clean'. */
 @Command(
     name = "clean",
-    builds = true, // Does not, but people expect build options to be there
+    buildPhase = NONE,
     allowResidue = true, // Does not, but need to allow so we can ignore Starlark options.
     writeCommandLog = false, // Do not create a command.log, otherwise we couldn't delete it.
     options = {CleanCommand.Options.class},
     help = "resource:clean.txt",
     shortDescription = "Removes output files and optionally stops the server.",
     // TODO(bazel-team): Remove this - we inherit a huge number of unused options.
-    inherits = {BuildCommand.class})
+    inheritsOptionsFrom = {BuildCommand.class})
 public final class CleanCommand implements BlazeCommand {
   /** An interface for special options for the clean command. */
   public static class Options extends OptionsBase {
@@ -169,7 +171,7 @@ public final class CleanCommand implements BlazeCommand {
         (async || asyncSupportMissing)
             ? "Starting clean."
             : "Starting clean (this may take a while). "
-                + "Consider using --async if the clean takes more than several minutes.";
+                + "Use --async if the clean takes more than several minutes.";
     reporter.handle(Event.info(/* location= */ null, cleanBanner));
 
     return async;
@@ -210,17 +212,15 @@ public final class CleanCommand implements BlazeCommand {
     logger.atInfo().log("Shell command status: %s", result.getTerminationStatus());
   }
 
-  private BlazeCommandResult actuallyClean(
+  private static BlazeCommandResult actuallyClean(
       CommandEnvironment env, Path outputBase, boolean expunge, boolean async, String symlinkPrefix)
       throws CleanException, InterruptedException {
     BlazeRuntime runtime = env.getRuntime();
 
-    if (env.getOutputService() != null) {
-      try {
-        env.getOutputService().clean();
-      } catch (ExecException e) {
-        throw new CleanException(Code.OUTPUT_SERVICE_CLEAN_FAILURE, e);
-      }
+    try {
+      env.getOutputService().clean();
+    } catch (ExecException e) {
+      throw new CleanException(Code.OUTPUT_SERVICE_CLEAN_FAILURE, e);
     }
 
     try {

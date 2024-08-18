@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.eventbus.Subscribe;
+import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.BuildFailedException;
+import com.google.devtools.build.lib.actions.CompletionContext.ArtifactReceiver;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts.ReportedArtifacts;
 import com.google.devtools.build.lib.actions.LostInputsExecException;
@@ -55,11 +57,13 @@ import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.RecordingBugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
@@ -77,6 +81,7 @@ import com.google.devtools.build.lib.testutil.SpawnController.SpawnShim;
 import com.google.devtools.build.lib.testutil.SpawnInputUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.NodeEntry.DirtyType;
 import com.google.devtools.build.skyframe.NotifyingHelper;
@@ -142,15 +147,17 @@ import java.util.concurrent.atomic.AtomicReference;
  */
 public class RewindingTestsHelper {
 
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   final ActionEventRecorder recorder;
   final BuildIntegrationTestCase testCase;
   private final SpawnController spawnController = new SpawnController();
-  final LostImportantOutputHandlerModule lostOutputsModule =
-      new LostImportantOutputHandlerModule(this::toHex);
+  final LostImportantOutputHandlerModule lostOutputsModule;
 
   RewindingTestsHelper(BuildIntegrationTestCase testCase, ActionEventRecorder recorder) {
     this.testCase = checkNotNull(testCase);
     this.recorder = checkNotNull(recorder);
+    this.lostOutputsModule = createLostOutputsModule();
   }
 
   public final BlazeModule getLostOutputsModule() {
@@ -183,6 +190,11 @@ public class RewindingTestsHelper {
       hex.append(String.format("%02x", b));
     }
     return hex.toString();
+  }
+
+  @ForOverride
+  LostImportantOutputHandlerModule createLostOutputsModule() {
+    return new LostImportantOutputHandlerModule(this::toHex);
   }
 
   public final ControllableActionStrategyModule makeControllableActionStrategyModule(
@@ -1286,7 +1298,7 @@ public class RewindingTestsHelper {
     // future, then 2B gets reset when 1B clears its ActionExecutionState. Re-evaluations of dep
     // actions may proceed non-deterministically, but this test makes 2A win the "rewound A" race,
     // and then 1B win the "rewound B" race.
-
+    ensureMultipleJobs();
     setUpParallelTrackSharedActionPackage();
 
     addSpawnShim(
@@ -1373,8 +1385,8 @@ public class RewindingTestsHelper {
           }
 
           if (type.equals(EventType.IS_READY)
-              && key instanceof ActionLookupData
-              && actionHasLabelAndIndex((ActionLookupData) key, "shared_2", 0)) {
+              && key instanceof ActionLookupData actionLookupData
+              && actionHasLabelAndIndex(actionLookupData, "shared_2", 0)) {
             int shared2AReadiedCount = shared2AReady.incrementAndGet();
             if (shared2AReadiedCount == 1) {
               awaitUninterruptibly(shared1BEmittedRewoundEvent);
@@ -1382,8 +1394,8 @@ public class RewindingTestsHelper {
           }
 
           if (type.equals(EventType.IS_READY)
-              && key instanceof ActionLookupData
-              && actionHasLabelAndIndex((ActionLookupData) key, "shared_2", 1)) {
+              && key instanceof ActionLookupData actionLookupData
+              && actionHasLabelAndIndex(actionLookupData, "shared_2", 1)) {
             int shared2BReadiedCount = shared2BReady.incrementAndGet();
             if (shared2BReadiedCount == 5) {
               // Wait to attempt final evaluation of shared_2B until after shared_1B is done.
@@ -1395,24 +1407,24 @@ public class RewindingTestsHelper {
           // When shared_2B declares a future dep, allow shared_1B's Skyframe execution attempt to
           // clear its ActionExecutionState and reset its node.
           if (type.equals(EventType.ADD_EXTERNAL_DEP)
-              && key instanceof ActionLookupData
-              && actionHasLabelAndIndex((ActionLookupData) key, "shared_2", 1)) {
+              && key instanceof ActionLookupData actionLookupData
+              && actionHasLabelAndIndex(actionLookupData, "shared_2", 1)) {
             shared2BDeclaresFutureDep.countDown();
           }
 
           // Wait to attempt the rewound evaluation of shared_1A until after shared_2A finishes its
           // rewound evaluation and shared_2B is ready again.
           if (type.equals(EventType.IS_READY)
-              && key instanceof ActionLookupData
-              && actionHasLabelAndIndex((ActionLookupData) key, "shared_1", 0)) {
+              && key instanceof ActionLookupData actionLookupData
+              && actionHasLabelAndIndex(actionLookupData, "shared_1", 0)) {
             if (shared1ARewound.get() == 1) {
               awaitUninterruptibly(shared2BReadyForFifthTime);
             }
           }
 
           if (type.equals(EventType.SET_VALUE)
-              && key instanceof ActionLookupData
-              && actionHasLabelAndIndex((ActionLookupData) key, "shared_1", 1)) {
+              && key instanceof ActionLookupData actionLookupData
+              && actionHasLabelAndIndex(actionLookupData, "shared_1", 1)) {
             shared1BDone.countDown();
           }
         });
@@ -2583,6 +2595,7 @@ public class RewindingTestsHelper {
    * </ol>
    */
   public final void runDoneToDirtyDepForNodeInError() throws Exception {
+    ensureMultipleJobs();
     testCase.write(
         "foo/BUILD",
         """
@@ -2653,6 +2666,7 @@ public class RewindingTestsHelper {
   }
 
   private void runFlakyActionFailsAfterRewind_raceWithIndirectConsumer() throws Exception {
+    ensureMultipleJobs();
     testCase.write(
         "foo/defs.bzl",
         """
@@ -3130,6 +3144,7 @@ public class RewindingTestsHelper {
 
   public final void runTopLevelOutputRewound_partiallyBuiltTarget_fileInTreeArtifact()
       throws Exception {
+    ensureMultipleJobs();
     testCase.write(
         "foo/defs.bzl",
         """
@@ -3159,6 +3174,28 @@ public class RewindingTestsHelper {
     List<SkyKey> rewoundKeys = collectOrderedRewoundKeys();
     Map<Label, TargetCompleteEvent> targetCompleteEvents = recordTargetCompleteEvents();
     listenForNoCompletionEventsBeforeRewinding(fooLostTreeFoundAndFailed, targetCompleteEvents);
+
+    if (!keepGoing()) {
+      // Block the failing action on the completion of the TreeArtifactValue (produced by
+      // ArtifactFunction). Otherwise, the build may be aborted without considering it as built,
+      // meaning it won't be observed to be lost.
+      CountDownLatch treeArtifactDone = new CountDownLatch(1);
+      testCase.injectListenerAtStartOfNextBuild(
+          (key, type, order, context) -> {
+            if (key instanceof Artifact artifact
+                && artifact.isTreeArtifact()
+                && type == EventType.SET_VALUE
+                && order == Order.AFTER) {
+              treeArtifactDone.countDown();
+            }
+          });
+      addSpawnShim(
+          "Action foo/failed.out",
+          (spawn, context) -> {
+            treeArtifactDone.await();
+            return ExecResult.delegate();
+          });
+    }
 
     assertThrows(
         BuildFailedException.class, () -> testCase.buildTarget("//foo:lost_tree_found_and_failed"));
@@ -3288,12 +3325,24 @@ public class RewindingTestsHelper {
     }
     PathFragment execRoot =
         testCase.getRuntimeWrapper().getCommandEnvironment().getExecRoot().asFragment();
-    assertThat(
-            reported.artifacts.stream()
-                .flatMap(set -> reported.completionContext.expand(set.toList()).stream())
-                .map(ActionInput::getExecPath)
-                .map(path -> path.isAbsolute() ? path.relativeTo(execRoot) : path))
-        .containsExactlyElementsIn(expectedExecPaths);
+    List<PathFragment> execPaths = new ArrayList<>();
+    for (NestedSet<Artifact> set : reported.artifacts) {
+      reported.completionContext.visitArtifacts(
+          set.toList(),
+          new ArtifactReceiver() {
+            @Override
+            public void accept(Artifact artifact) {
+              execPaths.add(artifact.getExecPath());
+            }
+
+            @Override
+            public void acceptFilesetMapping(
+                Artifact fileset, PathFragment relName, Path targetFile) {
+              execPaths.add(targetFile.asFragment().relativeTo(execRoot));
+            }
+          });
+    }
+    assertThat(execPaths).containsExactlyElementsIn(expectedExecPaths);
   }
 
   static boolean isActionExecutionKey(Object key, Label label) {
@@ -3304,6 +3353,25 @@ public class RewindingTestsHelper {
     assertThat(
             Uninterruptibles.awaitUninterruptibly(latch, TestUtils.WAIT_TIMEOUT_SECONDS, SECONDS))
         .isTrue();
+  }
+
+  /**
+   * Ensures that the value of the {@code --jobs} flag is at least 2.
+   *
+   * <p>Several tests use artificial synchronization to exercise certain race conditions and require
+   * a multiple execution phase threads to guarantee progress.
+   *
+   * <p>Note that the default value for {@code --jobs} is automatically calculated based on host
+   * CPU.
+   */
+  private void ensureMultipleJobs() throws Exception {
+    int autoJobs = new JobsConverter().convert("auto");
+    if (autoJobs == 1) {
+      logger.atInfo().log("Setting --jobs=2 (was 1)");
+      testCase.addOptions("--jobs=2");
+    } else {
+      logger.atInfo().log("Keeping default value of --jobs=%s", autoJobs);
+    }
   }
 
   private boolean keepGoing() {

@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
@@ -36,12 +35,13 @@ import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
+import java.util.List;
 import java.util.Optional;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -56,12 +56,16 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
   private static final Label PLATFORM1 = Label.parseCanonicalUnchecked("//platforms:one");
 
-  private static final Label DEFAULT_TARGET_PLATFORM =
-      Label.parseCanonicalUnchecked("@bazel_tools//tools:host_platform");
-
   /** Extra options for this test. */
   public static class DummyTestOptions extends FragmentOptions {
     public DummyTestOptions() {}
+
+    @Option(
+        name = "str_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "defVal")
+    public String strOption;
 
     @Option(
         name = "internal_option",
@@ -70,6 +74,14 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         defaultValue = "super secret",
         metadataTags = {OptionMetadataTag.INTERNAL})
     public String internalOption;
+
+    @Option(
+        name = "list",
+        converter = CommaSeparatedOptionListConverter.class,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public List<String> list;
   }
 
   /** Test fragment. */
@@ -90,22 +102,14 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder = new ConfiguredRuleClassProvider.Builder();
+    // Needed to properly initialize skyframe.
     TestRuleClassProvider.addStandardRules(builder);
     builder.addConfigurationFragment(DummyTestOptionsFragment.class);
     return builder.build();
   }
 
-  private BuildOptions defaultBuildOptions;
-
-  @Before
-  public void setDefaultBuildOptions() {
-    defaultBuildOptions =
-        BuildOptions.getDefaultBuildOptionsForFragments(
-            ruleClassProvider.getFragmentRegistry().getOptionsClasses());
-  }
-
   @Test
-  public void testMappingFileDoesNotExist() {
+  public void invalidMappingFile_doesNotExist_customLocation() {
     PlatformMappingException exception =
         assertThrows(
             PlatformMappingException.class,
@@ -117,18 +121,18 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testMappingFileDoesNotExistDefaultLocation() throws Exception {
+  public void invalidMappingFile_doesNotExist_defaultLocation() throws Exception {
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(null));
 
-    BuildOptions mapped = platformMappingValue.map(defaultBuildOptions);
+    BuildOptions mapped = platformMappingValue.map(createBuildOptions());
 
     assertThat(mapped.get(PlatformOptions.class).platforms)
-        .containsExactly(DEFAULT_TARGET_PLATFORM);
+        .containsExactly(Label.parseCanonicalUnchecked("@bazel_tools//tools:host_platform"));
   }
 
   @Test
-  public void testMappingFileIsDirectory() throws Exception {
+  public void invalidMappingFile_isDirectory() throws Exception {
     scratch.dir("somedir");
 
     PlatformMappingException exception =
@@ -140,48 +144,50 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testMappingFileIsRead() throws Exception {
+  public void mapFromPlatform() throws Exception {
     scratch.file(
         "my_mapping_file",
-        "platforms:", // Force line break
-        "  //platforms:one", // Force line break
-        "    --cpu=one");
+        """
+        platforms:
+          //platforms:one
+            --str_option=one
+        """);
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = defaultBuildOptions.clone();
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
-    assertThat(mapped.get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
 
   @Test
-  public void testMappingFileIsRead_fromAlternatePackagePath() throws Exception {
+  public void mapFromPlatform_fromAlternatePackagePath() throws Exception {
     scratch.setWorkingDir("/other/package/path");
     scratch.copyFile(rootDirectory.getRelative("WORKSPACE").getPathString(), "WORKSPACE");
     setPackageOptions("--package_path=/other/package/path");
     scratch.file(
         "my_mapping_file",
-        "platforms:", // Force line break
-        "  //platforms:one", // Force line break
-        "    --cpu=one");
+        """
+        platforms:
+          //platforms:one
+            --str_option=one
+        """);
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = defaultBuildOptions.clone();
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
-    assertThat(mapped.get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
 
   @Test
-  public void handlesNoWorkspaceFile() throws Exception {
+  public void mapFromPlatform_noWorkspace() throws Exception {
     // --package_path is not relevant for Bazel and difficult to get to work correctly with
     // WORKSPACE suffixes in tests.
     if (analysisMock.isThisBazel()) {
@@ -191,19 +197,20 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     scratch.setWorkingDir("/other/package/path");
     scratch.file(
         "my_mapping_file",
-        "platforms:", // Force line break
-        "  //platforms:one", // Force line break
-        "    --cpu=one");
+        """
+        platforms:
+          //platforms:one
+            --str_option=one
+        """);
     setPackageOptions("--package_path=/other/package/path");
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
-    BuildOptions modifiedOptions = defaultBuildOptions.clone();
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
-    assertThat(mapped.get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
 
   @Test
@@ -211,63 +218,68 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     scratch.setWorkingDir("/other/package/path");
     scratch.file(
         "my_mapping_file",
-        "platforms:", // Force line break
-        "  //platforms:one", // Force line break
-        "    --cpu=one");
+        """
+        platforms:
+          //platforms:one
+            --str_option=one
+        """);
     setPackageOptions("--package_path=%workspace%:/other/package/path");
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = defaultBuildOptions.clone();
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
-    assertThat(mapped.get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
 
   @Test
   public void multiplePackagePathsFirstWins() throws Exception {
     scratch.file(
         "my_mapping_file",
-        "platforms:", // Force line break
-        "  //platforms:one", // Force line break
-        "    --cpu=one");
+        """
+        platforms:
+          //platforms:one
+            --str_option=one
+        """);
     scratch.setWorkingDir("/other/package/path");
     scratch.file(
         "my_mapping_file",
-        "platforms:", // Force line break
-        "  //platforms:one", // Force line break
-        "    --cpu=two");
+        """
+        platforms:
+          //platforms:one
+            --str_option=two
+        """);
     setPackageOptions("--package_path=%workspace%:/other/package/path");
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = defaultBuildOptions.clone();
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
-    assertThat(mapped.get(CoreOptions.class).cpu).isEqualTo("one");
+    assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
 
   // Internal flags (OptionMetadataTag.INTERNAL) cannot be set from the command-line, but
   // platform mapping needs to access them.
   @Test
-  public void ableToChangeInternalOption() throws Exception {
+  public void mapFromPlatform_internalOption() throws Exception {
     scratch.file(
         "my_mapping_file",
-        "platforms:", // Force line break
-        "  //platforms:one", // Force line break
-        "    --internal_option=something_new");
+        """
+        platforms:
+          //platforms:one
+            --internal_option=something_new
+        """);
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = defaultBuildOptions.clone();
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
@@ -275,54 +287,59 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void starlarkFlagMapping() throws Exception {
-    rewriteWorkspace("workspace(name = 'my_workspace')");
-    scratch.file(
-        "test/build_setting.bzl",
-        """
-        def _impl(ctx):
-            return []
-
-        string_flag = rule(
-            implementation = _impl,
-            build_setting = config.string(flag = True),
-        )
-        """);
-    scratch.file(
-        "test/BUILD",
-        """
-        load("//test:build_setting.bzl", "string_flag")
-
-        string_flag(
-            name = "my_string_flag",
-            build_setting_default = "default value",
-        )
-        """);
+  public void mapFromPlatform_starlarkFlag() throws Exception {
+    writeStarlarkFlag();
     scratch.file(
         "my_mapping_file",
-        "platforms:", // Force line break
-        "  @my_workspace//platforms:one", // Force line break
-        "    --@my_workspace//test:my_string_flag=mapped_value");
+        """
+        platforms:
+          //platforms:one
+            --//flag:my_string_flag=mapped_value
+        """);
 
     PlatformMappingValue platformMappingValue =
         executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
 
-    BuildOptions modifiedOptions = defaultBuildOptions.clone();
-    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(PLATFORM1);
+    BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
+
     BuildOptions mapped = platformMappingValue.map(modifiedOptions);
 
     assertThat(mapped.getStarlarkOptions())
-        .containsExactly(Label.parseCanonical("//test:my_string_flag"), "mapped_value");
+        .containsExactly(Label.parseCanonical("//flag:my_string_flag"), "mapped_value");
   }
 
   @Test
-  public void badStarlarkFlag() throws Exception {
+  public void mapFromPlatform_listFlag_overridesConfig() throws Exception {
+    scratch.file(
+        "my_mapping_file",
+        """
+        platforms:
+          //platforms:one
+            --list=from_mapping
+        """);
+
+    PlatformMappingValue platformMappingValue =
+        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+
+    BuildOptions modifiedOptions =
+        createBuildOptions("--platforms=//platforms:one", "--list=from_config");
+
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+
+    // The mapping should completely replace the list, because it is not accumulating.
+    assertThat(mapped.get(DummyTestOptions.class).list).containsExactly("from_mapping");
+  }
+
+  @Test
+  public void mapFromPlatform_badStarlarkFlag() throws Exception {
     scratch.file("test/BUILD"); // Set up a valid package but invalid flag.
     scratch.file(
         "my_mapping_file",
-        "platforms:", // Force line break
-        "  //platforms:one", // Force line break
-        "    --//test:this_flag_doesnt_exist=mapped_value");
+        """
+        platforms:
+          //platforms:one
+            --//test:this_flag_doesnt_exist=mapped_value
+        """);
 
     PlatformMappingException exception =
         assertThrows(
@@ -336,29 +353,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
   @Test
   public void platformTransitionWithStarlarkFlagMapping() throws Exception {
-    rewriteWorkspace("workspace(name = 'my_workspace')");
-    // Define a Starlark flag:
-    scratch.file(
-        "test/flags/build_setting.bzl",
-        """
-        def _impl(ctx):
-            return []
-
-        string_flag = rule(
-            implementation = _impl,
-            build_setting = config.string(flag = True),
-        )
-        """);
-    scratch.file(
-        "test/flags/BUILD",
-        """
-        load("//test/flags:build_setting.bzl", "string_flag")
-
-        string_flag(
-            name = "my_string_flag",
-            build_setting_default = "default value",
-        )
-        """);
+    writeStarlarkFlag();
 
     // Define a custom platform and mapping from that platform to the flag:
     scratch.file(
@@ -370,9 +365,11 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
         """);
     scratch.file(
         "my_mapping_file",
-        "platforms:", // Force line break
-        "  //test/platforms:my_platform", // Force line break
-        "    --@my_workspace//test/flags:my_string_flag=platform-mapped value");
+        """
+        platforms:
+          //test/platforms:my_platform
+            --//flag:my_string_flag=platform-mapped value
+        """);
 
     // Define a rule that platform-transitions its deps:
     scratch.overwriteFile(
@@ -422,22 +419,76 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     // Set the Starlark flag explicitly. Otherwise it won't show up at all in the top-level config's
     // getOptions().getStarlarkOptions() map.
     useConfiguration(
-        "--//test/flags:my_string_flag=top-level value", "--platform_mappings=my_mapping_file");
+        "--//flag:my_string_flag=top-level value", "--platform_mappings=my_mapping_file");
     ConfiguredTarget main = getConfiguredTarget("//test:main");
     ConfiguredTarget dep = getDirectPrerequisite(main, "//test:dep");
 
-    assertThat(
-            getConfiguration(main)
-                .getOptions()
-                .getStarlarkOptions()
-                .get(Label.parseCanonical("//test/flags:my_string_flag")))
-        .isEqualTo("top-level value");
-    assertThat(
-            getConfiguration(dep)
-                .getOptions()
-                .getStarlarkOptions()
-                .get(Label.parseCanonical("//test/flags:my_string_flag")))
-        .isEqualTo("platform-mapped value");
+    assertThat(getConfiguration(main).getOptions().getStarlarkOptions())
+        .containsAtLeast(Label.parseCanonical("//flag:my_string_flag"), "top-level value");
+    assertThat(getConfiguration(dep).getOptions().getStarlarkOptions())
+        .containsAtLeast(Label.parseCanonical("//flag:my_string_flag"), "platform-mapped value");
+  }
+
+  @Test
+  public void mapFromFlag() throws Exception {
+    scratch.file(
+        "my_mapping_file",
+        """
+        flags:
+          --str_option=one
+              //platforms:one
+        """);
+
+    PlatformMappingValue platformMappingValue =
+        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+
+    BuildOptions modifiedOptions = createBuildOptions("--str_option=one");
+
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+
+    assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
+  }
+
+  @Test
+  public void mapFromFlag_starlarkFlag() throws Exception {
+    writeStarlarkFlag();
+    scratch.file(
+        "my_mapping_file",
+        """
+        flags:
+          --//flag:my_string_flag=mapped_value
+            //platforms:one
+        """);
+
+    PlatformMappingValue platformMappingValue =
+        executeFunction(PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file")));
+
+    BuildOptions modifiedOptions = createBuildOptions("--//flag:my_string_flag=mapped_value");
+
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+
+    assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
+  }
+
+  @Test
+  public void mapFromFlag_badStarlarkFlag() throws Exception {
+    scratch.file("test/BUILD"); // Set up a valid package but invalid flag.
+    scratch.file(
+        "my_mapping_file",
+        """
+        flags:
+          --//test:this_flag_doesnt_exist=mapped_value
+            //platforms:one
+        """);
+
+    PlatformMappingException exception =
+        assertThrows(
+            PlatformMappingException.class,
+            () ->
+                executeFunction(
+                    PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file"))));
+    assertThat(exception).hasCauseThat().isInstanceOf(PlatformMappingParsingException.class);
+    assertThat(exception).hasMessageThat().contains("Failed to load //test:this_flag_doesnt_exist");
   }
 
   @Test
@@ -445,11 +496,14 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     scratch.file("test/BUILD");
     scratch.file(
         "my_mapping_file",
-        "platforms:", // Force line break
-        "  //platforms:one", // Force line break
-        "    --cpu=k8",
-        "  //platforms:one", // Duplicate platform label
-        "    --cpu=arm");
+        """
+        platforms:
+          //platforms:one
+            --str_option=k8
+          # Duplicate platform label
+          //platforms:one
+            --str_option=arm
+        """);
 
     PlatformMappingException exception =
         assertThrows(
@@ -459,6 +513,30 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
                     PlatformMappingValue.Key.create(PathFragment.create("my_mapping_file"))));
     assertThat(exception).hasCauseThat().isInstanceOf(PlatformMappingParsingException.class);
     assertThat(exception).hasMessageThat().contains("Got duplicate platform entries");
+  }
+
+  private void writeStarlarkFlag() throws Exception {
+    scratch.file(
+        "flag/build_setting.bzl",
+        """
+        def _impl(ctx):
+            return []
+
+        string_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+        )
+        """);
+    scratch.file(
+        "flag/BUILD",
+        """
+        load("//flag:build_setting.bzl", "string_flag")
+
+        string_flag(
+            name = "my_string_flag",
+            build_setting_default = "default value",
+        )
+        """);
   }
 
   private PlatformMappingValue executeFunction(PlatformMappingValue.Key key) throws Exception {

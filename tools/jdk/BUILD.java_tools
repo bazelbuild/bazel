@@ -584,3 +584,82 @@ java_binary(
     visibility = ["//visibility:public"],
     runtime_deps = [":proguard_import"],
 )
+
+##################### one_version
+
+# See comment for ":ijar_cc_binary_main".
+cc_library(
+    name = "one_version_cc_bin_main",
+    srcs = [
+        "java_tools/src/tools/one_version/one_version_main.cc",
+    ],
+    copts = SUPRESSED_WARNINGS,
+    linkopts = select({
+        ":freebsd": ["-lm"],
+        ":openbsd": ["-lm"],
+        "//conditions:default": [],
+    }),
+    linkstatic = 1, # provides main()
+    deps = [
+        ":allowlist",
+        ":duplicate_class_collector",
+        ":one_version",
+        ":input_jar",
+        ":token_stream",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/log:die_if_null",
+        "@com_google_absl//absl/strings",
+    ],
+    alwayslink = 1,
+)
+
+cc_binary(
+    name = "one_version_cc_bin",
+    visibility = ["//visibility:public"],
+    linkstatic = 1,
+    deps = [":one_version_cc_bin_main"],
+)
+
+cc_library(
+    name = "duplicate_class_collector",
+    srcs = ["java_tools/src/tools/one_version/duplicate_class_collector.cc"],
+    hdrs = ["java_tools/src/tools/one_version/duplicate_class_collector.h"],
+    copts = SUPRESSED_WARNINGS,
+    strip_include_prefix = "java_tools",
+    deps = [
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "allowlist",
+    srcs = ["java_tools/src/tools/one_version/allowlist.cc"],
+    hdrs = ["java_tools/src/tools/one_version/allowlist.h"],
+    copts = SUPRESSED_WARNINGS,
+    strip_include_prefix = "java_tools",
+    deps = [
+        ":duplicate_class_collector",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
+    name = "one_version",
+    srcs = ["java_tools/src/tools/one_version/one_version.cc"],
+    hdrs = ["java_tools/src/tools/one_version/one_version.h"],
+    copts = SUPRESSED_WARNINGS,
+    strip_include_prefix = "java_tools",
+    deps = [
+        ":allowlist",
+        ":duplicate_class_collector",
+        ":input_jar",
+        "@com_google_absl//absl/log:die_if_null",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+    ],
+)

@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.CompiledModuleFile.IncludeStatement;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.NonRootModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum.MissingChecksumException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -48,7 +50,6 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -68,6 +69,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Mutability;
@@ -81,7 +83,8 @@ import net.starlark.java.eval.SymbolGenerator;
  */
 public class ModuleFileFunction implements SkyFunction {
 
-  public static final Precomputed<List<String>> REGISTRIES = new Precomputed<>("registries");
+  public static final Precomputed<ImmutableSet<String>> REGISTRIES =
+      new Precomputed<>("registries");
   public static final Precomputed<Boolean> IGNORE_DEV_DEPS =
       new Precomputed<>("ignore_dev_dependency");
 
@@ -117,10 +120,6 @@ public class ModuleFileFunction implements SkyFunction {
   }
 
   private static class State implements Environment.SkyKeyComputeState {
-    // The following field is used during non-root module file evaluation. We store the module file
-    // here so that a later attempt to retrieve yanked versions wouldn't be overly expensive.
-    GetModuleFileResult getModuleFileResult;
-
     // The following fields are used during root module file evaluation. We try to compile the root
     // module file itself first, and then read, parse, and compile any included module files layer
     // by layer, in a BFS fashion (hence the `horizon` field). Finally, everything is collected into
@@ -152,54 +151,23 @@ public class ModuleFileFunction implements SkyFunction {
       return null;
     }
 
-    Optional<ImmutableSet<ModuleKey>> allowedYankedVersions;
-    try {
-      allowedYankedVersions =
-          YankedVersionsUtil.parseAllowedYankedVersions(
-              allowedYankedVersionsFromEnv.getValue(),
-              Objects.requireNonNull(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.get(env)));
-    } catch (ExternalDepsException e) {
-      throw new ModuleFileFunctionException(e, SkyFunctionException.Transience.PERSISTENT);
-    }
-
     ModuleFileValue.Key moduleFileKey = (ModuleFileValue.Key) skyKey;
     ModuleKey moduleKey = moduleFileKey.getModuleKey();
-    State state = env.getState(State::new);
-    if (state.getModuleFileResult == null) {
-      try (SilentCloseable c =
-          Profiler.instance()
-              .profile(ProfilerTask.BZLMOD, () -> "fetch module file: " + moduleKey)) {
-        state.getModuleFileResult = getModuleFile(moduleKey, moduleFileKey.getOverride(), env);
-      }
-      if (state.getModuleFileResult == null) {
-        return null;
-      }
+    GetModuleFileResult getModuleFileResult;
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "fetch module file: " + moduleKey)) {
+      getModuleFileResult = getModuleFile(moduleKey, moduleFileKey.getOverride(), env);
     }
-    Optional<String> yankedInfo;
-    if (state.getModuleFileResult.registry != null) {
-      YankedVersionsValue yankedVersionsValue =
-          (YankedVersionsValue)
-              env.getValue(
-                  YankedVersionsValue.Key.create(
-                      moduleKey.getName(), state.getModuleFileResult.registry.getUrl()));
-      if (yankedVersionsValue == null) {
-        return null;
-      }
-      yankedInfo =
-          YankedVersionsUtil.getYankedInfo(moduleKey, yankedVersionsValue, allowedYankedVersions);
-    } else {
-      yankedInfo = Optional.empty();
+    if (getModuleFileResult == null) {
+      return null;
     }
-    String moduleFileHash =
-        new Fingerprint()
-            .addBytes(state.getModuleFileResult.moduleFile.getContent())
-            .hexDigestAndReset();
+    getModuleFileResult.downloadEventHandler.replayOn(env.getListener());
 
     CompiledModuleFile compiledModuleFile;
     try {
       compiledModuleFile =
           CompiledModuleFile.parseAndCompile(
-              state.getModuleFileResult.moduleFile,
+              getModuleFileResult.moduleFile,
               moduleKey,
               starlarkSemantics,
               starlarkEnv,
@@ -221,8 +189,10 @@ public class ModuleFileFunction implements SkyFunction {
             // Dev dependencies should always be ignored if the current module isn't the root module
             /* ignoreDevDeps= */ true,
             builtinModules,
-            // We try to prevent most side effects of yanked modules, in particular print().
-            /* printIsNoop= */ yankedInfo.isPresent(),
+            // Disable printing for modules from registries. We don't want them to be able to spam
+            // the console during resolution, but module files potentially edited by the user as
+            // part of a non-registry override should permit printing to aid debugging.
+            /* printIsNoop= */ getModuleFileResult.registry != null,
             starlarkSemantics,
             env.getListener(),
             SymbolGenerator.create(skyKey));
@@ -230,7 +200,7 @@ public class ModuleFileFunction implements SkyFunction {
     // Perform some sanity checks.
     InterimModule module;
     try {
-      module = moduleThreadContext.buildModule(state.getModuleFileResult.registry);
+      module = moduleThreadContext.buildModule(getModuleFileResult.registry);
     } catch (EvalException e) {
       env.getListener().handle(Event.error(e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
@@ -250,24 +220,10 @@ public class ModuleFileFunction implements SkyFunction {
           module.getVersion());
     }
 
-    if (yankedInfo.isPresent()) {
-      // Yanked modules should not have observable side effects such as adding dependency
-      // requirements, so we drop those from the constructed module. We do have to preserve the
-      // compatibility level as it influences the set of versions the yanked version can be updated
-      // to during selection.
-      return NonRootModuleFileValue.create(
-          InterimModule.builder()
-              .setKey(module.getKey())
-              .setName(module.getName())
-              .setVersion(module.getVersion())
-              .setCompatibilityLevel(module.getCompatibilityLevel())
-              .setRegistry(module.getRegistry())
-              .setYankedInfo(yankedInfo)
-              .build(),
-          moduleFileHash);
-    }
-
-    return NonRootModuleFileValue.create(module, moduleFileHash);
+    return NonRootModuleFileValue.create(
+        module,
+        RegistryFileDownloadEvent.collectToMap(
+            getModuleFileResult.downloadEventHandler.getPosts()));
   }
 
   @Nullable
@@ -464,10 +420,6 @@ public class ModuleFileFunction implements SkyFunction {
       ExtendedEventHandler eventHandler,
       SymbolGenerator<?> symbolGenerator)
       throws ModuleFileFunctionException, InterruptedException {
-    String moduleFileHash =
-        new Fingerprint()
-            .addBytes(compiledRootModuleFile.moduleFile().getContent())
-            .hexDigestAndReset();
     ModuleThreadContext moduleThreadContext =
         execModuleFile(
             compiledRootModuleFile,
@@ -487,13 +439,14 @@ public class ModuleFileFunction implements SkyFunction {
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for the root module");
     }
     for (ModuleExtensionUsage usage : module.getExtensionUsages()) {
-      if (usage.getIsolationKey().isPresent() && usage.getImports().isEmpty()) {
+      ModuleExtensionUsage.Proxy firstProxy = usage.getProxies().getFirst();
+      if (usage.getIsolationKey().isPresent() && firstProxy.getImports().isEmpty()) {
         throw errorf(
             Code.BAD_MODULE,
             "the isolated usage at %s of extension %s defined in %s has no effect as no "
                 + "repositories are imported from it. Either import one or more repositories "
                 + "generated by the extension with use_repo or remove the usage.",
-            usage.getLocation(),
+            firstProxy.getLocation(),
             usage.getExtensionName(),
             usage.getExtensionBzlFile());
       }
@@ -522,12 +475,17 @@ public class ModuleFileFunction implements SkyFunction {
                     name ->
                         ModuleKey.create(name, Version.EMPTY).getCanonicalRepoNameWithoutVersion(),
                     name -> name));
+    ImmutableSet<PathFragment> moduleFilePaths =
+        Stream.concat(
+                Stream.of(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME),
+                includeLabelToCompiledModuleFile.keySet().stream()
+                    .map(label -> Label.parseCanonicalUnchecked(label).toPathFragment()))
+            .collect(toImmutableSet());
     return RootModuleFileValue.create(
         module,
-        moduleFileHash,
         overrides,
         nonRegistryOverrideCanonicalRepoNameLookup,
-        includeLabelToCompiledModuleFile);
+        moduleFilePaths);
   }
 
   private static ModuleThreadContext execModuleFile(
@@ -578,7 +536,10 @@ public class ModuleFileFunction implements SkyFunction {
    *
    * @param registry can be null if this module has a non-registry override.
    */
-  private record GetModuleFileResult(ModuleFile moduleFile, @Nullable Registry registry) {}
+  private record GetModuleFileResult(
+      ModuleFile moduleFile,
+      @Nullable Registry registry,
+      StoredEventHandler downloadEventHandler) {}
 
   @Nullable
   private GetModuleFileResult getModuleFile(
@@ -609,7 +570,8 @@ public class ModuleFileFunction implements SkyFunction {
           ModuleFile.create(
               readModuleFile(moduleFilePath.asPath()),
               moduleFileLabel.getUnambiguousCanonicalForm()),
-          /* registry= */ null);
+          /* registry= */ null,
+          new StoredEventHandler());
     }
 
     // Otherwise, we should get the module file from a registry.
@@ -622,13 +584,11 @@ public class ModuleFileFunction implements SkyFunction {
               + " non-registry override?",
           key.getName());
     }
-    // TODO(wyv): Move registry object creation to BazelRepositoryModule so we don't repeatedly
-    //   create them, and we can better report the error (is it a flag error or override error?).
-    List<String> registries = Objects.requireNonNull(REGISTRIES.get(env));
-    if (override instanceof RegistryOverride) {
-      String overrideRegistry = ((RegistryOverride) override).getRegistry();
+    ImmutableSet<String> registries = Objects.requireNonNull(REGISTRIES.get(env));
+    if (override instanceof RegistryOverride registryOverride) {
+      String overrideRegistry = registryOverride.getRegistry();
       if (!overrideRegistry.isEmpty()) {
-        registries = ImmutableList.of(overrideRegistry);
+        registries = ImmutableSet.of(overrideRegistry);
       }
     } else if (override != null) {
       // This should never happen.
@@ -645,21 +605,28 @@ public class ModuleFileFunction implements SkyFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    List<Registry> registryObjects =
-        registryKeys.stream()
-            .map(registryResult::get)
-            .map(Registry.class::cast)
-            .collect(toImmutableList());
+    List<Registry> registryObjects = new ArrayList<>(registryKeys.size());
+    for (RegistryKey registryKey : registryKeys) {
+      Registry registry = (Registry) registryResult.get(registryKey);
+      if (registry == null) {
+        return null;
+      }
+      registryObjects.add(registry);
+    }
 
     // Now go through the list of registries and use the first one that contains the requested
     // module.
+    StoredEventHandler downloadEventHandler = new StoredEventHandler();
     for (Registry registry : registryObjects) {
       try {
-        Optional<ModuleFile> moduleFile = registry.getModuleFile(key, env.getListener());
+        Optional<ModuleFile> moduleFile = registry.getModuleFile(key, downloadEventHandler);
         if (moduleFile.isEmpty()) {
           continue;
         }
-        return new GetModuleFileResult(moduleFile.get(), registry);
+        return new GetModuleFileResult(moduleFile.get(), registry, downloadEventHandler);
+      } catch (MissingChecksumException e) {
+        throw new ModuleFileFunctionException(
+            ExternalDepsException.withCause(Code.BAD_LOCKFILE, e));
       } catch (IOException e) {
         throw errorf(
             Code.ERROR_ACCESSING_REGISTRY, e, "Error accessing registry %s", registry.getUrl());

@@ -182,16 +182,6 @@ public final class AndroidRuleClasses {
       fromTemplates("%{name}_files/dexmanifest.txt");
   public static final SafeImplicitOutputsFunction JAVA_RESOURCES_JAR =
       fromTemplates("%{name}_files/java_resources.jar");
-  public static final String BUILD_INCREMENTAL_DEXMANIFEST_LABEL =
-      "//tools/android:build_incremental_dexmanifest";
-  public static final String STUBIFY_MANIFEST_LABEL = "//tools/android:stubify_manifest";
-  public static final String INCREMENTAL_INSTALL_LABEL = "//tools/android:incremental_install";
-  public static final String BUILD_SPLIT_MANIFEST_LABEL = "//tools/android:build_split_manifest";
-  public static final String STRIP_RESOURCES_LABEL = "//tools/android:strip_resources";
-  public static final String DEFAULT_INCREMENTAL_STUB_APPLICATION =
-      "//tools/android:incremental_stub_application";
-  public static final String DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION =
-      "//tools/android:incremental_split_stub_application";
   public static final String DEFAULT_RESOURCES_BUSYBOX = "//tools/android:busybox";
   public static final String DEFAULT_SDK = "//tools/android:sdk";
   public static final SafeImplicitOutputsFunction ANDROID_DEVICE_USERDATA_IMAGES =
@@ -386,10 +376,6 @@ public final class AndroidRuleClasses {
                   .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:databinding_exec")))
-          .advertiseStarlarkProvider(
-              StarlarkProviderIdentifier.forKey(AndroidResourcesInfo.PROVIDER.getKey()))
-          .advertiseStarlarkProvider(
-              StarlarkProviderIdentifier.forKey(AndroidNativeLibsInfo.PROVIDER.getKey()))
           .build();
     }
 
@@ -619,16 +605,6 @@ public final class AndroidRuleClasses {
           <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
           .add(attr(ResourceFilterFactory.DENSITIES_NAME, STRING_LIST))
           .add(
-              attr("$build_incremental_dexmanifest", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .exec()
-                  .value(env.getToolsLabel(BUILD_INCREMENTAL_DEXMANIFEST_LABEL)))
-          .add(
-              attr("$stubify_manifest", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .exec()
-                  .value(env.getToolsLabel(STUBIFY_MANIFEST_LABEL)))
-          .add(
               attr("$shuffle_jars", LABEL)
                   .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
@@ -658,29 +634,6 @@ public final class AndroidRuleClasses {
                   .cfg(ExecutionTransitionFactory.createFactory())
                   .exec()
                   .value(env.getToolsLabel("//tools/android:merge_dexzips")))
-          .add(
-              attr("$incremental_install", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .exec()
-                  .value(env.getToolsLabel(INCREMENTAL_INSTALL_LABEL)))
-          .add(
-              attr("$build_split_manifest", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .exec()
-                  .value(env.getToolsLabel(BUILD_SPLIT_MANIFEST_LABEL)))
-          .add(
-              attr("$strip_resources", LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .exec()
-                  .value(env.getToolsLabel(STRIP_RESOURCES_LABEL)))
-          .add(
-              attr("$incremental_stub_application", LABEL)
-                  .value(env.getToolsLabel(DEFAULT_INCREMENTAL_STUB_APPLICATION))
-                  .aspect(dexArchiveAspect, DexArchiveAspect.ONLY_DESUGAR_JAVA8))
-          .add(
-              attr("$incremental_split_stub_application", LABEL)
-                  .value(env.getToolsLabel(DEFAULT_INCREMENTAL_SPLIT_STUB_APPLICATION))
-                  .aspect(dexArchiveAspect, DexArchiveAspect.ONLY_DESUGAR_JAVA8))
           .add(
               attr("$desugar", LABEL)
                   .cfg(ExecutionTransitionFactory.createFactory())

@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.devtools.build.lib.analysis.config.CommonOptions.EMPTY_OPTIONS;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -52,18 +51,12 @@ abstract class BaseRuleConfiguredTargetValue<T extends ConfiguredTarget>
   }
 
   @Override
+  public boolean isCleared() {
+    return this.configuredTarget == null;
+  }
+
+  @Override
   public void clear(boolean clearEverything) {
-    // Snapshot this because this method is sometimes called from multiple threads. We don't need
-    // to actually synchronize: both threads will have the same logic and so there's no risk of
-    // a race condition.
-    T ct = this.configuredTarget;
-    if (ct != null
-        && ct.getConfigurationKey() != null
-        && ct.getConfigurationChecksum().equals(EMPTY_OPTIONS.checksum())) {
-      // Keep these to avoid the need to re-create them later, they are dependencies of the empty
-      // configuration key and will never change.
-      return;
-    }
     if (clearEverything) {
       this.configuredTarget = null;
     }

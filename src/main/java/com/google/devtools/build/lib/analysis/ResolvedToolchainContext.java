@@ -38,7 +38,8 @@ import javax.annotation.Nullable;
 @AutoValue
 @Immutable
 @ThreadSafe
-public abstract class ResolvedToolchainContext implements ToolchainContext {
+public abstract class ResolvedToolchainContext
+    implements ResolvedToolchainsDataInterface<ToolchainInfo> {
 
   /**
    * Finishes preparing the {@link ResolvedToolchainContext} by finding the specific toolchain
@@ -114,12 +115,6 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
         ImmutableSet.copyOf(toolchainTargets));
   }
 
-  /** Returns a description of the target being used, for error messaging. */
-  public abstract String targetDescription();
-
-  /** Sets the map from requested {@link Label} to toolchain type provider. */
-  public abstract ImmutableMap<Label, ToolchainTypeInfo> requestedToolchainTypeLabels();
-
   public abstract ImmutableMap<ToolchainTypeInfo, ToolchainInfo> toolchains();
 
   /** Returns the template variables that these toolchains provide. */
@@ -135,6 +130,7 @@ public abstract class ResolvedToolchainContext implements ToolchainContext {
    * toolchains after Automatic Exec Groups are enabled. In that case please use {@code
    * RuleContext.getToolchainInfo(toolchainTypeLabel)}.
    */
+  @Override
   @Nullable
   public ToolchainInfo forToolchainType(Label toolchainTypeLabel) {
     ToolchainTypeInfo toolchainTypeInfo = requestedToolchainTypeLabels().get(toolchainTypeLabel);

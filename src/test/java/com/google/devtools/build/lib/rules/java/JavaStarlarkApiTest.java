@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorNames;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionTestHelper.getProcessorPath;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructure;
 import static java.util.Arrays.stream;
 
@@ -49,7 +50,7 @@ import com.google.devtools.build.lib.util.FileType;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValues;
-import com.google.testing.junit.testparameterinjector.TestParameters.TestParametersValuesProvider;
+import com.google.testing.junit.testparameterinjector.TestParametersValuesProvider;
 import java.util.Iterator;
 import java.util.List;
 import net.starlark.java.annot.StarlarkMethod;
@@ -105,7 +106,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -301,7 +303,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         (StructImpl)
             configuredTarget.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonical("//java/test:extension.bzl"), "result"));
+                    keyForBuild(Label.parseCanonical("//java/test:extension.bzl")), "result"));
 
     Depset transitiveRuntimeJars = ((Depset) info.getValue("transitive_runtime_jars"));
     Depset transitiveCompileTimeJars = ((Depset) info.getValue("transitive_compile_time_jars"));
@@ -373,7 +375,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         (StructImpl)
             configuredTarget.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonical("//java/test:extension.bzl"), "result"));
+                    keyForBuild(Label.parseCanonical("//java/test:extension.bzl")), "result"));
 
     @SuppressWarnings("unchecked") // deserialization
     StarlarkList<JavaOutput> javaOutputs = ((StarlarkList<JavaOutput>) info.getValue("outputs"));
@@ -502,7 +504,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         (StructImpl)
             configuredTarget.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonical("//java/test:extension.bzl"), "result"));
+                    keyForBuild(Label.parseCanonical("//java/test:extension.bzl")), "result"));
 
     JavaRuleOutputJarsProvider outputs =
         JavaRuleOutputJarsProvider.fromStarlark(info.getValue("outputs"));
@@ -1207,7 +1209,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         (StructImpl)
             configuredTarget.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonical("//java/test:extension.bzl"), "result"));
+                    keyForBuild(Label.parseCanonical("//java/test:extension.bzl")), "result"));
 
     assertThat(info.getValue("enabled")).isEqualTo(Boolean.TRUE);
     assertThat(info.getValue("class_jar")).isNotNull();
@@ -1257,7 +1259,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         (StructImpl)
             configuredTarget.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonical("//" + pkg + ":extension.bzl"), "result"));
+                    keyForBuild(Label.parseCanonical("//" + pkg + ":extension.bzl")), "result"));
 
     return JavaPluginData.create(
         ((Depset) info.getValue("processor_classnames")).getSet(String.class),
@@ -1712,7 +1714,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         (StructImpl)
             myConfiguredTarget.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonical("//java/test:extension.bzl"), "result"));
+                    keyForBuild(Label.parseCanonical("//java/test:extension.bzl")), "result"));
 
     Depset rawMyCompileJars = (Depset) info.getValue("compile_jars");
     Depset rawMyTransitiveRuntimeJars = (Depset) info.getValue("transitive_runtime_jars");
@@ -1769,7 +1771,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     ConfiguredTarget myRuleTarget = getConfiguredTarget("//foo:r");
     ConfiguredTarget javaLibraryTarget = getConfiguredTarget("//foo:jl");
     StarlarkProvider.Key myProviderKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "my_provider");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "my_provider");
     StructImpl declaredProvider = (StructImpl) myRuleTarget.get(myProviderKey);
     // attempting to wrap will error out if not a JavaInfo
     Object javaProvider = JavaInfo.PROVIDER.wrap(declaredProvider.getValue("p", Info.class));
@@ -2207,7 +2210,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
     @SuppressWarnings("unchecked")
     Sequence<Artifact> sourceJars = (Sequence<Artifact>) info.getValue("source_jars");
     assertThat(prettyArtifactNames(sourceJars)).containsExactly("foo/libmy_java_lib_a-src.jar");
@@ -2260,7 +2264,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
 
     Depset sourceJars = (Depset) info.getValue("property");
 
@@ -2316,7 +2321,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
 
     Depset sourceJars = (Depset) info.getValue("property");
 
@@ -2372,7 +2378,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
 
     Depset sourceJars = (Depset) info.getValue("property");
 
@@ -2447,7 +2454,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
 
     Depset nativeLibs = (Depset) info.getValue("property");
 
@@ -2694,7 +2702,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     JavaInfo javaInfo = javaLibraryTarget.get(JavaInfo.PROVIDER);
     StarlarkProvider.Key myProviderKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "my_provider");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "my_provider");
     StructImpl declaredProvider = (StructImpl) myRuleTarget.get(myProviderKey);
     Object nativeLibrariesFromStarlark = declaredProvider.getValue("p");
     assertThat(nativeLibrariesFromStarlark)
@@ -2837,7 +2846,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
 
     JavaGenJarsProvider javaGenJarsProvider = JavaGenJarsProvider.from(info.getValue("property"));
 
@@ -2881,7 +2891,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
 
     JavaCompilationInfoProvider javaCompilationInfoProvider =
         JavaCompilationInfoProvider.fromStarlarkCompilationInfo(info.getValue("property"));
@@ -2918,7 +2929,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
     ImmutableList<String> javacOptionsList =
         JavaHelper.tokenizeJavaOptions(
             Depset.cast(info.getValue("property"), String.class, "javac_options"));
@@ -3407,7 +3419,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             configuredTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:rule.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:rule.bzl")), "result"));
     assertThat(((String) info.getValue("strict_java_deps"))).isEqualTo("default");
   }
 
@@ -3438,7 +3451,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             configuredTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:rule.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:rule.bzl")), "result"));
     assertThat(((String) info.getValue("strict_java_deps"))).isEqualTo("error");
   }
 
@@ -3518,7 +3532,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             configuredTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:rule.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:rule.bzl")), "result"));
     JavaToolchainProvider javaToolchainProvider =
         JavaToolchainProvider.from((ConfiguredTarget) info.getValue("java_toolchain_label"));
     Label javaToolchainLabel = javaToolchainProvider.getToolchainLabel();
@@ -3560,7 +3575,8 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             configuredTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:rule.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:rule.bzl")), "result"));
     JavaToolchainProvider javaToolchainProvider =
         JavaToolchainProvider.from((ConfiguredTarget) info.getValue("java_toolchain_label"));
     Label javaToolchainLabel = javaToolchainProvider.getToolchainLabel();
@@ -4846,10 +4862,10 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(type).isEqualTo("JavaInfo");
   }
 
-  private static class PlatformsParametersProvider implements TestParametersValuesProvider {
+  private static class PlatformsParametersProvider extends TestParametersValuesProvider {
 
     @Override
-    public List<TestParametersValues> provideValues() {
+    public List<TestParametersValues> provideValues(Context context) {
       ImmutableList.Builder<TestParametersValues> parameters = ImmutableList.builder();
       parameters
           .add(

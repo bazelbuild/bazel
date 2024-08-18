@@ -21,10 +21,12 @@ landing_page:
     items_across: 2
     items:
     # Item 1
-    - image_path: /community/images/AspectBuildlogohorizontal-black.png
+    - image_path: /community/images/aspect-logo-2.png
       heading: Aspect Build
       description: >
-        Introducing Aspect Build - the ultimate build, test, and CI/CD platform designed exclusively for Bazel users. Harness the power of Aspect Workflows, a seamless, turn-key Bazel CI/CD system, fully compatible with your existing CI provider. Elevate your development experience with Aspect CLI, a convenient drop-in replacement for the native Bazel CLI. Unleash the full potential of Bazel for front-end development with Aspect's JavaScript Bazel rules. Enjoy accelerated build times and reduced compute costs with Aspect Workflows, thanks to fast warming, auto-scaling CI workers, horizontally scaling remote cache, and auto-scaling remote build executors - delivering a remarkable 10x performance boost to your Bazel projects. Say goodbye to waiting and hello to rapid iteration!
+        Leveraging the insights we gathered from helping over 50 companies to navigate Bazel, we developed Aspect Workflows, our Developer Platform for Bazel Monorepos.
+        Our platform is designed to enhance the developer experience with Bazel, notably accelerating build times on CI while reducing compute costs. Aspect Workflows seamlessly integrates with your existing CI and cloud infrastructure, while aligning with your current configuration. This approach empowers users to concentrate on innovating and delivering exceptional products, while we manage the underlying infrastructure and ensure CI stays fast.
+        Aspect offers consulting, support, and training to help your team succeed with Bazel and we are the authors and maintainers of the canonical open-source rulesets for JavaScript and OCI images.
       buttons:
       - label: Learn more
         path: https://www.aspect.build/
@@ -77,10 +79,19 @@ landing_page:
         classname: button
     # Item 6
     - image_path: /community/images/tweag-logo.png
-      heading: Tweag.
+      heading: Tweag
       description: >
         Tweag is one of Bazel's earliest adopters, an active contributor of new features and new open source extensions since early 2018. We have been helping companies and teams achieve near byte-for-byte reproducibility, fully traceable all the way to production and conveniently auditable builds that can be cached correctly and run fast. Besides our consulting work, we also have an array of tools and extensions. Skyscope to visualize and explore complex Bazel build graphs with hundreds of thousands of nodes in your web browser. Open source Bazel extensions to achieve fully reproducible builds with the power of Nix, manage shell tools in a principled way, and build Haskell projects with Bazel. Finally, our open source Gazelle extensions to automate your Bazel migration and build maintenance.
       buttons:
       - label: Learn more
         path:  https://www.tweag.io/group/scalable-builds/
+        classname: button
+    # Item 7
+    - image_path: /community/images/nativelink.svg
+      heading: Nativelink
+      description: >
+        NativeLink is the 100% free, open source, and permissively licensed build and test acceleration project written in Rust. It is created by a team of open source maintainers and the company is funded by Wellington Management, an asset manager with over one trillion dollars under management. Whether deployed on your infrastructure or on NativeLink’s cloud, our global Bazel, Reclient, and compiler experts provide 24x7 coverage, support small and large teams, and SSO included.
+      buttons:
+      - label: Learn more
+        path:  https://www.nativelink.com/
         classname: button

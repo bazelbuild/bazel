@@ -231,8 +231,8 @@ public final class BugReportTest {
         createExpectedFailureDetail(t, crashType, oomDetectorOverride);
     // TODO(b/222158599): This should always be ExitException.
     SecurityException e = assertThrows(SecurityException.class, () -> BugReport.handleCrash(t));
-    if (e instanceof ExitException) {
-      int code = ((ExitException) e).code;
+    if (e instanceof ExitException exitException) {
+      int code = exitException.code;
       assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
     }
     assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isSameInstanceAs(t);
@@ -260,8 +260,8 @@ public final class BugReportTest {
         assertThrows(
             SecurityException.class,
             () -> BugReport.handleCrash(Crash.from(t), CrashContext.halt()));
-    if (e instanceof ExitException) {
-      int code = ((ExitException) e).code;
+    if (e instanceof ExitException exitException) {
+      int code = exitException.code;
       assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
     }
     assertThat(BugReport.getAndResetLastCrashingThrowableIfInTest()).isSameInstanceAs(t);
@@ -340,14 +340,14 @@ public final class BugReportTest {
 
     // TODO(b/222158599): These should always be ExitException.
     SecurityException firstException = firstCrashThrownRef.get();
-    if (firstException instanceof ExitException) {
-      int code = ((ExitException) firstException).code;
+    if (firstException instanceof ExitException exitException) {
+      int code = exitException.code;
       assertThat(code).isEqualTo(ExitCode.BLAZE_INTERNAL_ERROR.getNumericExitCode());
     }
 
     SecurityException secondException = assertThrows(SecurityException.class, doSecondCrash);
-    if (secondException instanceof ExitException) {
-      int code = ((ExitException) secondException).code;
+    if (secondException instanceof ExitException exitException) {
+      int code = exitException.code;
       assertThat(code).isEqualTo(crashType.expectedExitCode.getNumericExitCode());
     }
   }

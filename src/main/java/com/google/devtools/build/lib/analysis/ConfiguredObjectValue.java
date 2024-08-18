@@ -42,12 +42,4 @@ public interface ConfiguredObjectValue extends NotComparableSkyValue {
   // TODO(b/283125139): Most builds never need to build a repo mapping manifest. Store transitive
   // packages outside of configured object values to save the wasted field.
   NestedSet<Package> getTransitivePackages();
-
-  /**
-   * Clears data from this value.
-   *
-   * <p>Should only be used when user specifies --discard_analysis_cache. Must be called at most
-   * once per value, after which this object's other methods cannot be called.
-   */
-  void clear(boolean clearEverything);
 }

@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -225,25 +226,24 @@ public class AliasTest extends BuildViewTestCase {
         """);
     scratch.file(
         "test/BUILD",
-        """
-        alias(
-            name = "simple_alias",
-            actual = "//test/starlark:test",
-        )
+        String.format(
+            """
+            alias(
+                name = "simple_alias",
+                actual = "//test/starlark:test",
+            )
 
-        alias(
-            name = "selecting_alias",
-            actual = select({":arm": ":simple_alias"}),
-        )
+            alias(
+                name = "selecting_alias",
+                actual = select(
+                  {"%s": ":simple_alias"}
+                ),
+            )
+            """,
+            TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64"));
 
-        config_setting(
-            name = "arm",
-            values = {"cpu": "armeabi-v7a"},
-        )
-        """);
-
-    // Set --cpu so we can test alias :selecting_alias that selects on this flag
-    useConfiguration("--cpu=armeabi-v7a");
+    // Set --platforms so we can test alias :selecting_alias that selects on the CPU.
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
 
     // 1. Query "actual" target to establish reference values to compare to below. Make some basic
     // assertions that tie aspect's config to underlying target.
@@ -332,7 +332,8 @@ public class AliasTest extends BuildViewTestCase {
   private static StructImpl getMyInfoFromTarget(ConfiguredAspect configuredAspect)
       throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
     return (StructImpl) configuredAspect.get(key);
   }
 

@@ -50,9 +50,7 @@ import com.google.devtools.build.lib.collect.compacthashset.CompactHashSet;
 import com.google.devtools.build.lib.concurrent.BlockingStack;
 import com.google.devtools.build.lib.concurrent.MultisetSemaphore;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.events.DelegatingEventHandler;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.DependencyFilter;
@@ -154,8 +152,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected final int loadingPhaseThreads;
   protected final WalkableGraphFactory graphFactory;
   protected final UniverseScope universeScope;
-  protected boolean blockUniverseEvaluationErrors;
-  protected ExtendedEventHandler universeEvalEventHandler;
   protected final TargetPattern.Parser mainRepoTargetParser;
   protected final PathFragment parserPrefix;
   protected final PathPackageLocator pkgPath;
@@ -181,7 +177,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       WalkableGraphFactory graphFactory,
       UniverseScope universeScope,
       PathPackageLocator pkgPath,
-      boolean blockUniverseEvaluationErrors,
       LabelPrinter labelPrinter) {
     this(
         keepGoing,
@@ -197,7 +192,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         graphFactory,
         universeScope,
         pkgPath,
-        blockUniverseEvaluationErrors,
         labelPrinter);
   }
 
@@ -213,7 +207,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
       WalkableGraphFactory graphFactory,
       UniverseScope universeScope,
       PathPackageLocator pkgPath,
-      boolean blockUniverseEvaluationErrors,
       LabelPrinter labelPrinter) {
     super(
         keepGoing,
@@ -230,11 +223,6 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     this.mainRepoTargetParser = mainRepoTargetParser;
     this.parserPrefix = parserPrefix;
     this.queryEvaluationParallelismLevel = queryEvaluationParallelismLevel;
-    this.blockUniverseEvaluationErrors = blockUniverseEvaluationErrors;
-    this.universeEvalEventHandler =
-        this.blockUniverseEvaluationErrors
-            ? new ErrorBlockingForwardingEventHandler(this.eventHandler)
-            : this.eventHandler;
     // In #getAllowedDeps we have special treatment of deps entailed by the `visibility` attribute.
     // Since this attribute is of the NODEP type, that means we need a special implementation of
     // NO_NODEP_DEPS.
@@ -261,7 +249,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   protected EvaluationContext newEvaluationContext() {
     return EvaluationContext.newBuilder()
         .setParallelism(loadingPhaseThreads)
-        .setEventHandler(universeEvalEventHandler)
+        .setEventHandler(eventHandler)
         .build();
   }
 
@@ -371,7 +359,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private static final Duration MIN_LOGGING = Duration.ofMillis(50);
 
   @Override
-  public final QueryExpression transformParsedQuery(QueryExpression queryExpression) {
+  public QueryExpression transformParsedQuery(QueryExpression queryExpression) {
     QueryExpressionMapper<Void> mapper = getQueryExpressionMapper();
     QueryExpression transformedQueryExpression;
     try (AutoProfiler p = GoogleAutoProfilerUtils.logged("transforming query", MIN_LOGGING)) {
@@ -1149,8 +1137,8 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   protected static FailureDetail createUnsuccessfulKeyFailure(Exception exception) {
-    return exception instanceof DetailedException
-        ? ((DetailedException) exception).getDetailedExitCode().getFailureDetail()
+    return exception instanceof DetailedException detailedException
+        ? detailedException.getDetailedExitCode().getFailureDetail()
         : FailureDetail.newBuilder()
             .setMessage(exception.getMessage())
             .setQuery(Query.newBuilder().setCode(Code.SKYQUERY_TARGET_EXCEPTION))
@@ -1479,33 +1467,5 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         universePredicate ->
             ParallelSkyQueryUtils.getRdepsInUniverseBoundedParallel(
                 this, expression, depth, universePredicate, context, callback));
-  }
-
-  /**
-   * Query evaluation behavior is specified with respect to errors it emits. (Or at least it should
-   * be. Tools rely on it.) Notably, errors that occur during evaluation of a query's universe must
-   * not be emitted during query command evaluation. Consider the case of a simple single target
-   * query when {@code //...} is the universe: errors in far flung parts of the workspace should not
-   * be emitted when that query command is evaluated.
-   *
-   * <p>Non-error message events are not specified. For instance, it's useful (and expected by some
-   * unit tests that should know better) for query commands to emit {@link EventKind#PROGRESS}
-   * events during package loading.
-   *
-   * <p>Therefore, this class is used to forward only non-{@link EventKind#ERROR} events during
-   * universe loading to the {@link SkyQueryEnvironment}'s {@link ExtendedEventHandler}.
-   */
-  protected static class ErrorBlockingForwardingEventHandler extends DelegatingEventHandler {
-
-    public ErrorBlockingForwardingEventHandler(ExtendedEventHandler delegate) {
-      super(delegate);
-    }
-
-    @Override
-    public void handle(Event e) {
-      if (!e.getKind().equals(EventKind.ERROR)) {
-        super.handle(e);
-      }
-    }
   }
 }

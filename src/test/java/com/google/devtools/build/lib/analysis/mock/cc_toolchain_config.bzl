@@ -32,6 +32,7 @@ load(
 )
 
 _FEATURE_NAMES = struct(
+    cpp_modules = "cpp_modules",
     generate_pdb_file = "generate_pdb_file",
     no_legacy_features = "no_legacy_features",
     do_not_split_linking_cmdline = "do_not_split_linking_cmdline",
@@ -73,6 +74,9 @@ _FEATURE_NAMES = struct(
     split_functions = "split_functions",
     enable_fdo_split_functions = "enable_fdo_split_functions",
     fdo_split_functions = "fdo_split_functions",
+    memprof_optimize = "memprof_optimize",
+    enable_autofdo_memprof_optimize = "enable_autofdo_memprof_optimize",
+    autofdo_implicit_memprof_optimize = "autofdo_implicit_memprof_optimize",
     fdo_instrument = "fdo_instrument",
     fsafdo = "fsafdo",
     implicit_fsafdo = "implicit_fsafdo",
@@ -118,6 +122,11 @@ _FEATURE_NAMES = struct(
     cpp_compile_with_requirements = "cpp_compile_with_requirements",
     no_copts_tokenization = "no_copts_tokenization",
     generate_linkmap = "generate_linkmap",
+)
+
+_cpp_modules_feature = feature(
+    name = _FEATURE_NAMES.cpp_modules,
+    enabled = False,
 )
 
 _no_copts_tokenization_feature = feature(name = _FEATURE_NAMES.no_copts_tokenization)
@@ -600,6 +609,38 @@ _enable_xbinaryfdo_thinlto_feature = feature(
 )
 
 _xbinaryfdo_implicit_thinlto_feature = feature(name = _FEATURE_NAMES.xbinaryfdo_implicit_thinlto)
+
+# Use a minimal feature so that we can check the right flags are expanded.
+_memprof_optimize_feature = feature(
+    name = _FEATURE_NAMES.memprof_optimize,
+    flag_sets = [
+        flag_set(
+            actions = [
+                ACTION_NAMES.c_compile,
+                ACTION_NAMES.cpp_compile,
+                ACTION_NAMES.cpp_module_codegen,
+            ],
+            flag_groups = [
+                flag_group(
+                    expand_if_available = "memprof_profile_path",
+                    flags = [
+                        "-memory-profile-file=%{memprof_profile_path}",
+                    ],
+                ),
+            ],
+        ),
+    ],
+)
+
+_enable_autofdo_memprof_optimize_feature = feature(
+    name = _FEATURE_NAMES.enable_autofdo_memprof_optimize,
+    requires = [feature_set(features = ["autofdo_implicit_memprof_optimize"])],
+    implies = ["memprof_optimize"],
+)
+
+_autofdo_implicit_memprof_optimize_feature = feature(
+    name = _FEATURE_NAMES.autofdo_implicit_memprof_optimize,
+)
 
 _split_functions_feature = feature(
     name = _FEATURE_NAMES.split_functions,
@@ -1330,6 +1371,7 @@ _generate_linkmap_feature = feature(
 )
 
 _feature_name_to_feature = {
+    _FEATURE_NAMES.cpp_modules: _cpp_modules_feature,
     _FEATURE_NAMES.no_legacy_features: _no_legacy_features_feature,
     _FEATURE_NAMES.do_not_split_linking_cmdline: _do_not_split_linking_cmdline_feature,
     _FEATURE_NAMES.supports_dynamic_linker: _supports_dynamic_linker_feature,
@@ -1354,6 +1396,9 @@ _feature_name_to_feature = {
     _FEATURE_NAMES.fdo_split_functions: _fdo_split_functions_feature,
     _FEATURE_NAMES.enable_xbinaryfdo_thinlto: _enable_xbinaryfdo_thinlto_feature,
     _FEATURE_NAMES.xbinaryfdo_implicit_thinlto: _xbinaryfdo_implicit_thinlto_feature,
+    _FEATURE_NAMES.memprof_optimize: _memprof_optimize_feature,
+    _FEATURE_NAMES.enable_autofdo_memprof_optimize: _enable_autofdo_memprof_optimize_feature,
+    _FEATURE_NAMES.autofdo_implicit_memprof_optimize: _autofdo_implicit_memprof_optimize_feature,
     _FEATURE_NAMES.fsafdo: _fsafdo_feature,
     _FEATURE_NAMES.implicit_fsafdo: _implicit_fsafdo_feature,
     _FEATURE_NAMES.enable_fsafdo: _enable_fsafdo_feature,

@@ -128,6 +128,27 @@ java_test(
     ],
 )
 
+java_library(
+    name = "test_options",
+    srcs = ["TestOptions.java"],
+    deps = [
+        "@maven//:com_beust_jcommander",
+    ],
+)
+
+java_test(
+    name = "AndroidOptionsUtilsTest",
+    size = "small",
+    srcs = ["AndroidOptionsUtilsTest.java"],
+    deps = [
+        ":test_options",
+        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "@maven//:com_beust_jcommander",
+    ],
+)
+
 java_test(
     name = "AndroidResourceClassWriterTest",
     size = "small",
@@ -349,5 +370,6 @@ java_library(
         "//src/tools/android/java/com/google/devtools/build/android/resources",
         "//third_party:guava",
         "//third_party:truth",
+        "@maven//:com_beust_jcommander",
     ],
 )

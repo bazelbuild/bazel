@@ -2685,12 +2685,12 @@ public class ParallelEvaluatorTest {
                       .that(invocations)
                       .isEqualTo(1);
                   assertWithMessage("child error not propagated during error bubbling")
-                      .that(env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors())
+                      .that(env.inErrorBubbling())
                       .isFalse();
                   return value;
                 } catch (SomeErrorException e) {
                   assertWithMessage("child error propagated during normal evaluation")
-                      .that(env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors())
+                      .that(env.inErrorBubbling())
                       .isTrue();
                   assertThat(invocations).isEqualTo(2);
                   return null;
@@ -2698,13 +2698,13 @@ public class ParallelEvaluatorTest {
               } else {
                 if (invocations == 1) {
                   assertWithMessage("parent's first computation should be during normal evaluation")
-                      .that(env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors())
+                      .that(env.inErrorBubbling())
                       .isFalse();
                   return env.getValue(childKey);
                 } else {
                   assertThat(invocations).isEqualTo(2);
                   assertWithMessage("parent incorrectly re-computed during normal evaluation")
-                      .that(env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors())
+                      .that(env.inErrorBubbling())
                       .isTrue();
                   return env.getValue(childKey);
                 }
@@ -2770,14 +2770,13 @@ public class ParallelEvaluatorTest {
                 if (invocations == 1) {
                   return null;
                 } else {
-                  assertThat(env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors())
-                      .isFalse();
+                  assertThat(env.inErrorBubbling()).isFalse();
                   fail("RACE CONDITION: errorParentKey was restarted!");
                   return null;
                 }
               } catch (SomeErrorException e) {
                 assertWithMessage("child error propagated during normal evaluation")
-                    .that(env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors())
+                    .that(env.inErrorBubbling())
                     .isTrue();
                 assertThat(invocations).isEqualTo(2);
                 return null;
@@ -3855,8 +3854,7 @@ public class ParallelEvaluatorTest {
               } else {
                 // The Skyframe stateCache invalidates everything when starting error bubbling:
                 assertThat(mail.kind()).isEqualTo(Kind.FRESHLY_INITIALIZED);
-                assertThat(env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors())
-                    .isTrue();
+                assertThat(env.inErrorBubbling()).isTrue();
               }
               assertThrows(
                   "key2",
@@ -3992,8 +3990,7 @@ public class ParallelEvaluatorTest {
               assertThat(c).isEqualTo(3);
               // The Skyframe stateCache invalidates everything when starting error bubbling:
               assertThat(mail.kind()).isEqualTo(Kind.FRESHLY_INITIALIZED);
-              assertThat(env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors())
-                  .isTrue();
+              assertThat(env.inErrorBubbling()).isTrue();
               assertThat(result.get(key2)).isEqualTo(StringValue.of("val2"));
               assertThrows(
                   "key3",

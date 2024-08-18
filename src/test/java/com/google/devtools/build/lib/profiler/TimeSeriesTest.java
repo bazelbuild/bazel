@@ -15,8 +15,10 @@ package com.google.devtools.build.lib.profiler;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.testutil.TestThread;
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.concurrent.CountDownLatch;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -76,5 +78,50 @@ public final class TimeSeriesTest {
     Arrays.fill(expected, 0, expected.length - 1, 42);
     expected[expected.length - 1] = 0.42;
     assertThat(values).usingTolerance(1.0e-10).containsExactly(expected).inOrder();
+  }
+
+  @Test
+  public void testParallelism() throws Exception {
+    // Define two threads. One is writing 1 on odd places, and another writes 2 on even places.
+    TimeSeries timeSeries = new TimeSeries(Duration.ZERO, Duration.ofMillis(100));
+    CountDownLatch latch = new CountDownLatch(2);
+    TestThread thread1 =
+        new TestThread(
+            () -> {
+              latch.countDown();
+              latch.await();
+              for (int i = 0; i < 50; i++) {
+                timeSeries.addRange(
+                    Duration.ofMillis(2 * i * 100), Duration.ofMillis((2 * i + 1) * 100), 1);
+              }
+            });
+    TestThread thread2 =
+        new TestThread(
+            () -> {
+              latch.countDown();
+              latch.await();
+              for (int i = 0; i < 50; i++) {
+                timeSeries.addRange(
+                    Duration.ofMillis((2 * i + 1) * 100), Duration.ofMillis((2 * i + 2) * 100), 2);
+              }
+            });
+    double[] expected = new double[100];
+    for (int i = 0; i < 100; i++) {
+      if (i % 2 == 0) {
+        expected[i] = 1;
+      } else {
+        expected[i] = 2;
+      }
+    }
+
+    thread1.start();
+    thread2.start();
+
+    thread1.joinAndAssertState(10000);
+    thread2.joinAndAssertState(10000);
+    assertThat(timeSeries.toDoubleArray(100))
+        .usingTolerance(1.0e-10)
+        .containsExactly(expected)
+        .inOrder();
   }
 }

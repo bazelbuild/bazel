@@ -499,7 +499,7 @@ external dependency graph via
 [`register_execution_platforms`](/rules/lib/globals/module#register_execution_platforms)
 and
 [`register_toolchains`](/rules/lib/globals/module#register_toolchains) calls in
-`MODULE.bazel`` files.
+`MODULE.bazel` files.
 Additional execution platforms and toolchains may also be specified on the
 command line via
 [`--extra_execution_platforms`](/reference/command-line-reference#flag--extra_execution_platforms)

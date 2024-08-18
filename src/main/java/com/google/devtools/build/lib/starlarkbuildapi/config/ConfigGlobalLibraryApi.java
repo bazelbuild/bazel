@@ -128,4 +128,32 @@ public interface ConfigGlobalLibraryApi {
       Dict<?, ?> changedSettings, // <String, String> expected
       StarlarkThread thread)
       throws EvalException;
+
+  @StarlarkMethod(
+      name = "exec_transition",
+      doc =
+          "A specialized version of <a"
+              + " href=\"../builtins/transition.html\"><code>transition()</code></a> used to define"
+              + " the exec transition. See its documentation (or its implementation) for best"
+              + " practices. Only usable from the Bazel builtins.",
+      parameters = {
+        @Param(name = "implementation", positional = false, named = true),
+        @Param(
+            name = "inputs",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            positional = false,
+            named = true),
+        @Param(
+            name = "outputs",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            positional = false,
+            named = true),
+      },
+      useStarlarkThread = true)
+  ConfigurationTransitionApi execTransition(
+      StarlarkCallable implementation,
+      Sequence<?> inputs, // <String> expected
+      Sequence<?> outputs, // <String> expected
+      StarlarkThread thread)
+      throws EvalException;
 }

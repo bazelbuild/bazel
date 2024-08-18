@@ -27,7 +27,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.time.Duration;
 import java.util.List;
 
 /** Command-line options for repositories. */
@@ -105,13 +104,12 @@ public class RepositoryOptions extends OptionsBase {
       help =
           "If false, native repo rules can be used in WORKSPACE; otherwise, Starlark repo rules "
               + "must be used instead. Native repo rules include local_repository, "
-              + "new_local_repository, local_config_platform, android_sdk_repository, and "
-              + "android_ndk_repository.")
+              + "new_local_repository, local_config_platform, and android_sdk_repository.")
   public boolean disableNativeRepoRules;
 
   @Option(
       name = "experimental_repository_downloader_retries",
-      defaultValue = "0",
+      defaultValue = "5",
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -133,31 +131,7 @@ public class RepositoryOptions extends OptionsBase {
               + "to download them.")
   public List<PathFragment> experimentalDistdir;
 
-  @Option(
-      name = "http_timeout_scaling",
-      defaultValue = "1.0",
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "Scale all timeouts related to http downloads by the given factor")
-  public double httpTimeoutScaling;
 
-  @Option(
-      name = "http_connector_attempts",
-      defaultValue = "8",
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help = "The maximum number of attempts for http downloads.")
-  public int httpConnectorAttempts;
-
-  @Option(
-      name = "http_connector_retry_max_timeout",
-      defaultValue = "0s",
-      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
-      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
-      help =
-          "The maximum timeout for http download retries. With a value of 0, no timeout maximum is"
-              + " defined.")
-  public Duration httpConnectorRetryMaxTimeout;
 
   @Option(
       name = "override_repository",
@@ -171,7 +145,8 @@ public class RepositoryOptions extends OptionsBase {
               + " given path is an absolute path, it will be used as it is. If the given path is a"
               + " relative path, it is relative to the current working directory. If the given path"
               + " starts with '%workspace%, it is relative to the workspace root, which is the"
-              + " output of `bazel info workspace`")
+              + " output of `bazel info workspace`. If the given path is empty, then remove any"
+              + " previous overrides.")
   public List<RepositoryOverride> repositoryOverrides;
 
   @Option(
@@ -186,7 +161,8 @@ public class RepositoryOptions extends OptionsBase {
               + " path is an absolute path, it will be used as it is. If the given path is a"
               + " relative path, it is relative to the current working directory. If the given path"
               + " starts with '%workspace%, it is relative to the workspace root, which is the"
-              + " output of `bazel info workspace`")
+              + " output of `bazel info workspace`. If the given path is empty, then remove any"
+              + " previous overrides.")
   public List<ModuleOverride> moduleOverrides;
 
   @Option(
@@ -246,10 +222,8 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
           "The threading mode to use for repo fetching. If set to 'off', no worker thread is used,"
-              + " and the repo fetching is subject to restarts. Otherwise, uses a platform thread"
-              + " (i.e. OS thread) if set to 'platform' or a virtual thread if set to 'virtual'. If"
-              + " set to 'auto', virtual threads are used if available (i.e. running on JDK 21+),"
-              + " otherwise no worker thread is used.")
+              + " and the repo fetching is subject to restarts. Otherwise, uses a virtual worker"
+              + " thread.")
   public WorkerForRepoFetching workerForRepoFetching;
 
   @Option(
@@ -276,19 +250,6 @@ public class RepositoryOptions extends OptionsBase {
               + " disable the check, `warning` to print a warning when mismatch detected or `error`"
               + " to escalate it to a resolution failure.")
   public CheckDirectDepsMode checkDirectDependencies;
-
-  @Option(
-      name = "experimental_repository_cache_urls_as_default_canonical_id",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.DEPRECATED,
-      effectTags = {OptionEffectTag.NO_OP},
-      deprecationWarning =
-          "This behavior is enabled by default for http_* and jvm_* rules and no "
-              + "longer controlled by this flag. Use "
-              + "--repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 to disable it instead.",
-      help = "No-op.")
-  public boolean urlsAsDefaultCanonicalId;
 
   @Option(
       name = "experimental_check_external_repository_files",
@@ -322,9 +283,11 @@ public class RepositoryOptions extends OptionsBase {
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       help =
           "Specifies how and whether or not to use the lockfile. Valid values are `update` to"
-              + " use the lockfile and update it if there are changes, `error` to use the lockfile"
-              + " but throw an error if it's not up-to-date, or `off` to neither read from or write"
-              + " to the lockfile.")
+              + " use the lockfile and update it if there are changes, `refresh` to additionally"
+              + " refresh mutable information (yanked versions and previously missing modules)"
+              + " from remote registries from time to time, `error` to use the lockfile but throw"
+              + " an error if it's not up-to-date, or `off` to neither read from or write to the"
+              + " lockfile.")
   public LockfileMode lockfileMode;
 
   @Option(
@@ -371,10 +334,11 @@ public class RepositoryOptions extends OptionsBase {
   /** An enum for specifying how to use the lockfile. */
   public enum LockfileMode {
     OFF, // Don't use the lockfile at all.
-    UPDATE, // Update the lockfile when it mismatches the module.
-    ERROR; // Throw an error when it mismatches the module.
+    UPDATE, // Update the lockfile wh
+    REFRESH,
+    ERROR; // Throw an error when it mismatc
 
-    /** Converts to {@link BazelLockfileMode}. */
+    /** Converts to {@link LockfileMode}. */
     public static class Converter extends EnumConverter<LockfileMode> {
       public Converter() {
         super(LockfileMode.class, "Lockfile mode");

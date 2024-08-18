@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -51,21 +49,12 @@ public class BazelLockFileFunction implements SkyFunction {
   private static final Pattern LOCKFILE_VERSION_PATTERN =
       Pattern.compile("\"lockFileVersion\":\\s*(\\d+)");
 
+  private static final Pattern POSSIBLE_MERGE_CONFLICT_PATTERN =
+      Pattern.compile("<<<<<<<|=======|" + Pattern.quote("|||||||") + "|>>>>>>>");
+
+  private static final BazelLockFileValue EMPTY_LOCKFILE = BazelLockFileValue.builder().build();
+
   private final Path rootDirectory;
-
-  private static final BzlmodFlagsAndEnvVars EMPTY_FLAGS =
-      BzlmodFlagsAndEnvVars.create(
-          ImmutableList.of(), ImmutableMap.of(), ImmutableList.of(), "", false, "", "");
-
-  private static final BazelLockFileValue EMPTY_LOCKFILE =
-      BazelLockFileValue.builder()
-          .setLockFileVersion(BazelLockFileValue.LOCK_FILE_VERSION)
-          .setModuleFileHash("")
-          .setFlags(EMPTY_FLAGS)
-          .setLocalOverrideHashes(ImmutableMap.of())
-          .setModuleDepGraph(ImmutableMap.of())
-          .setModuleExtensions(ImmutableMap.of())
-          .build();
 
   public BazelLockFileFunction(Path rootDirectory) {
     this.rootDirectory = rootDirectory;
@@ -84,43 +73,54 @@ public class BazelLockFileFunction implements SkyFunction {
     }
 
     try (SilentCloseable c = Profiler.instance().profile(ProfilerTask.BZLMOD, "parse lockfile")) {
-      return getLockfileValue(lockfilePath, rootDirectory);
-    } catch (IOException | JsonSyntaxException | NullPointerException e) {
+      return getLockfileValue(lockfilePath, LOCKFILE_MODE.get(env));
+    } catch (IOException
+        | JsonSyntaxException
+        | NullPointerException
+        | IllegalArgumentException e) {
+      String actionSuffix;
+      if (POSSIBLE_MERGE_CONFLICT_PATTERN.matcher(e.getMessage()).find()) {
+        actionSuffix =
+            " This looks like a merge conflict. See"
+                + " https://bazel.build/external/lockfile#merge-conflicts for advice.";
+      } else {
+        actionSuffix = " Try deleting it and rerun the build.";
+      }
       throw new BazelLockfileFunctionException(
           ExternalDepsException.withMessage(
-              Code.BAD_MODULE,
-              "Failed to read and parse the MODULE.bazel.lock file with error: %s."
-                  + " Try deleting it and rerun the build.",
-              e.getMessage()),
+              Code.BAD_LOCKFILE,
+              "Failed to read and parse the MODULE.bazel.lock file with error: %s.%s",
+              e.getMessage(),
+              actionSuffix),
           Transience.PERSISTENT);
     }
   }
 
-  public static BazelLockFileValue getLockfileValue(RootedPath lockfilePath, Path rootDirectory)
-      throws IOException {
-    BazelLockFileValue bazelLockFileValue;
+  public static BazelLockFileValue getLockfileValue(
+      RootedPath lockfilePath, LockfileMode lockfileMode)
+      throws IOException, BazelLockfileFunctionException {
     try {
       String json = FileSystemUtils.readContent(lockfilePath.asPath(), UTF_8);
       Matcher matcher = LOCKFILE_VERSION_PATTERN.matcher(json);
       int version = matcher.find() ? Integer.parseInt(matcher.group(1)) : -1;
       if (version == BazelLockFileValue.LOCK_FILE_VERSION) {
-        bazelLockFileValue =
-            GsonTypeAdapterUtil.createLockFileGson(
-                    lockfilePath
-                        .asPath()
-                        .getParentDirectory()
-                        .getRelative(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME),
-                    rootDirectory)
-                .fromJson(json, BazelLockFileValue.class);
+        return GsonTypeAdapterUtil.LOCKFILE_GSON.fromJson(json, BazelLockFileValue.class);
       } else {
-        // This is an old version, needs to be updated
-        // Keep old version to recognize the problem in error mode
-        bazelLockFileValue = EMPTY_LOCKFILE.toBuilder().setLockFileVersion(version).build();
+        // This is an old version, its information can't be used.
+        if (lockfileMode == LockfileMode.ERROR) {
+          throw new BazelLockfileFunctionException(
+              ExternalDepsException.withMessage(
+                  Code.BAD_LOCKFILE,
+                  "The version of MODULE.bazel.lock is not supported by this version of Bazel."
+                      + " Please run `bazel mod deps --lockfile_mode=update` to update your"
+                      + " lockfile."),
+              Transience.PERSISTENT);
+        }
+        return EMPTY_LOCKFILE;
       }
     } catch (FileNotFoundException e) {
-      bazelLockFileValue = EMPTY_LOCKFILE;
+      return EMPTY_LOCKFILE;
     }
-    return bazelLockFileValue;
   }
 
 

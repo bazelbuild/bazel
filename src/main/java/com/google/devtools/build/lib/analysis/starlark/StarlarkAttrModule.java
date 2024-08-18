@@ -21,9 +21,9 @@ import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.StarlarkDefinedConfigTransition;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
-import com.google.devtools.build.lib.analysis.config.transitions.SplitTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionType;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Attribute.AllowedValueSet;
 import com.google.devtools.build.lib.packages.Attribute.ImmutableAttributeFactory;
@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultT
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Provider;
@@ -45,6 +44,7 @@ import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.NativeComputedDefaultApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkAttrModuleApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.util.List;
@@ -59,7 +59,6 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
-import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -207,6 +206,17 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       builder.setPropertyFlag("MANDATORY");
     }
 
+    if (containsNonNoneKey(arguments, CONFIGURABLE_ARG)) {
+      if (arguments.get(CONFIGURABLE_ARG) != Starlark.UNBOUND) {
+        builder.configurableAttrWasUserSet();
+        if (!((Boolean) arguments.get(CONFIGURABLE_ARG))) {
+          // output, output_list, and license type attributes don't support the configurable= arg,
+          // so no need to worry about calling nonconfigurable() twice.
+          builder.nonconfigurable("This attribute was marked as nonconfigurable");
+        }
+      }
+    }
+
     if (containsNonNoneKey(arguments, SKIP_VALIDATIONS_ARG)
         && (Boolean) arguments.get(SKIP_VALIDATIONS_ARG)) {
       builder.setPropertyFlag("SKIP_VALIDATIONS");
@@ -271,57 +281,28 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
     if (containsNonNoneKey(arguments, CONFIGURATION_ARG)) {
       Object trans = arguments.get(CONFIGURATION_ARG);
-      boolean isSplit = false;
-      if (trans instanceof SplitTransition || trans instanceof StarlarkDefinedConfigTransition) {
-        isSplit = true;
-      } else if (trans instanceof TransitionFactory<?> tf) {
-        if (tf.isSplit()) {
-          isSplit = true;
-        }
-      }
+      TransitionFactory<AttributeTransitionData> transitionFactory = convertCfg(thread, trans);
+
+      // Check whether something is attempting an invalid late bound transition.
+      boolean isSplit = transitionFactory.isSplit();
       if (isSplit && defaultValue instanceof StarlarkLateBoundDefault) {
         throw Starlark.errorf(
             "late-bound attributes must not have a split configuration transition");
       }
-      // TODO(b/203203933): remove after removing --incompatible_disable_starlark_host_transitions.
-      if (trans.equals("host")) {
-        boolean disableStarlarkHostTransitions =
-            thread
-                .getSemantics()
-                .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS);
-        if (disableStarlarkHostTransitions) {
-          throw new EvalException(
-              "'cfg = \"host\"' is deprecated and should no longer be used. Please use "
-                  + "'cfg = \"exec\"' instead.");
-        }
-        builder.cfg(ExecutionTransitionFactory.createFactory());
-      } else if (trans.equals("exec")) {
-        builder.cfg(ExecutionTransitionFactory.createFactory());
-      } else if (trans instanceof ExecutionTransitionFactory) {
-        builder.cfg((ExecutionTransitionFactory) trans);
-      } else if (trans instanceof SplitTransition) {
-        // TODO(jcater): remove TransitionFactories usage.
-        builder.cfg(TransitionFactories.of((SplitTransition) trans));
-      } else if (trans instanceof TransitionFactory) {
-        @SuppressWarnings("unchecked")
-        TransitionFactory<AttributeTransitionData> transitionFactory =
-            (TransitionFactory<AttributeTransitionData>) trans;
-        builder.cfg(transitionFactory);
-      } else if (trans instanceof StarlarkDefinedConfigTransition starlarkDefinedTransition) {
-        if (starlarkDefinedTransition.isForAnalysisTesting()) {
-          builder.hasAnalysisTestTransition();
-        } else {
-          builder.hasStarlarkDefinedTransition();
-        }
-        builder.cfg(new StarlarkAttributeTransitionProvider(starlarkDefinedTransition));
-      } else if (!trans.equals("target")) {
-        // We don't actively advertise the hard-coded but exposed transitions like
-        // android_split_transition because users of those transitions should already know about
-        // them.
-        throw Starlark.errorf(
-            "cfg must be either 'target', 'exec' or a starlark defined transition defined by the "
-                + "exec() or transition() functions.");
-      }
+
+      // Check if this transition includes an analysis test or a Starlark transition.
+      transitionFactory.visit(
+          factory -> {
+            if (factory instanceof StarlarkAttributeTransitionProvider satp) {
+              if (satp.getStarlarkDefinedConfigTransitionForTesting().isForAnalysisTesting()) {
+                builder.hasAnalysisTestTransition();
+              } else {
+                builder.hasStarlarkDefinedTransition();
+              }
+            }
+          });
+
+      builder.cfg(transitionFactory);
     }
 
     if (containsNonNoneKey(arguments, ASPECTS_ARG)) {
@@ -332,6 +313,54 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     }
 
     return builder;
+  }
+
+  private static TransitionFactory<AttributeTransitionData> convertCfg(
+      StarlarkThread thread, @Nullable Object trans) throws EvalException {
+    // The most common case is no transition.
+    if (trans.equals("target") || trans.equals(Starlark.NONE)) {
+      return NoTransition.getFactory();
+    }
+    // TODO(b/203203933): remove after removing --incompatible_disable_starlark_host_transitions.
+    if (trans.equals("host")) {
+      boolean disableStarlarkHostTransitions =
+          thread
+              .getSemantics()
+              .getBool(BuildLanguageOptions.INCOMPATIBLE_DISABLE_STARLARK_HOST_TRANSITIONS);
+      if (disableStarlarkHostTransitions) {
+        throw new EvalException(
+            "'cfg = \"host\"' is deprecated and should no longer be used. Please use "
+                + "'cfg = \"exec\"' instead.");
+      }
+      return ExecutionTransitionFactory.createFactory();
+    }
+    if (trans.equals("exec")) {
+      return ExecutionTransitionFactory.createFactory();
+    }
+    if (trans instanceof StarlarkDefinedConfigTransition starlarkDefinedTransition) {
+      return new StarlarkAttributeTransitionProvider(starlarkDefinedTransition);
+    }
+    if (trans instanceof ConfigurationTransitionApi cta) {
+      // Every ConfigurationTransitionApi must be a TransitionFactory instance to be usable.
+      if (cta instanceof TransitionFactory<?> tf) {
+        if (tf.transitionType().isCompatibleWith(TransitionType.ATTRIBUTE)) {
+          @SuppressWarnings("unchecked")
+          TransitionFactory<AttributeTransitionData> attrTransition =
+              (TransitionFactory<AttributeTransitionData>) tf;
+          return attrTransition;
+        }
+      } else {
+        throw new IllegalStateException(
+            "Every ConfigurationTransitionApi must be a TransitionFactory instance");
+      }
+    }
+
+    // We don't actively advertise the hard-coded but exposed transitions like
+    // android_split_transition because users of those transitions should already know about
+    // them.
+    throw Starlark.errorf(
+        "cfg must be either 'target', 'exec' or a starlark defined transition defined by the "
+            + "exec() or transition() functions.");
   }
 
   /**
@@ -377,8 +406,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     ImmutableList.Builder<StarlarkProviderIdentifier> result = ImmutableList.builder();
 
     for (Object obj : list) {
-      if (obj instanceof String) {
-        result.add(StarlarkProviderIdentifier.forLegacy((String) obj));
+      if (obj instanceof String string) {
+        result.add(StarlarkProviderIdentifier.forLegacy(string));
       } else if (obj instanceof Provider constructor) {
         if (!constructor.isExported()) {
           throw Starlark.errorf(
@@ -474,6 +503,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor intAttribute(
+      Object configurable,
       StarlarkInt defaultValue,
       Object doc,
       Boolean mandatory,
@@ -485,26 +515,48 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     return createAttrDescriptor(
         "int",
         Starlark.toJavaOptional(doc, String.class),
-        optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, VALUES_ARG, values),
+        optionMap(
+            CONFIGURABLE_ARG,
+            configurable,
+            DEFAULT_ARG,
+            defaultValue,
+            MANDATORY_ARG,
+            mandatory,
+            VALUES_ARG,
+            values),
         Type.INTEGER,
         thread);
   }
 
   @Override
   public Descriptor stringAttribute(
-      Object defaultValue, Object doc, Boolean mandatory, Sequence<?> values, StarlarkThread thread)
+      Object configurable,
+      Object defaultValue,
+      Object doc,
+      Boolean mandatory,
+      Sequence<?> values,
+      StarlarkThread thread)
       throws EvalException {
     checkContext(thread, "attr.string()");
     return createAttrDescriptor(
         "string",
         Starlark.toJavaOptional(doc, String.class),
-        optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, VALUES_ARG, values),
+        optionMap(
+            CONFIGURABLE_ARG,
+            configurable,
+            DEFAULT_ARG,
+            defaultValue,
+            MANDATORY_ARG,
+            mandatory,
+            VALUES_ARG,
+            values),
         Type.STRING,
         thread);
   }
 
   @Override
   public Descriptor labelAttribute(
+      Object configurable,
       Object defaultValue, // Label | String | LateBoundDefaultApi | StarlarkFunction
       Object doc,
       Boolean executable,
@@ -516,25 +568,18 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Object allowRules,
       Object cfg,
       Sequence<?> aspects,
-      Object flagsObject, // Sequence<String> expected
+      Sequence<?> flags,
       StarlarkThread thread)
       throws EvalException {
     checkContext(thread, "attr.label()");
-
-    if (flagsObject != Starlark.UNBOUND) {
-      BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
-    }
-    @SuppressWarnings("unchecked")
-    Sequence<String> flags =
-        flagsObject == Starlark.UNBOUND
-            ? StarlarkList.immutableOf()
-            : ((Sequence<String>) flagsObject);
 
     ImmutableAttributeFactory attribute =
         createAttributeFactory(
             BuildType.LABEL,
             Starlark.toJavaOptional(doc, String.class),
             optionMap(
+                CONFIGURABLE_ARG,
+                configurable,
                 DEFAULT_ARG,
                 defaultValue,
                 EXECUTABLE_ARG,
@@ -564,13 +609,26 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor stringListAttribute(
-      Boolean mandatory, Boolean allowEmpty, Object defaultValue, Object doc, StarlarkThread thread)
+      Boolean mandatory,
+      Boolean allowEmpty,
+      Object configurable,
+      Object defaultValue,
+      Object doc,
+      StarlarkThread thread)
       throws EvalException {
     checkContext(thread, "attr.string_list()");
     return createAttrDescriptor(
         "string_list",
         Starlark.toJavaOptional(doc, String.class),
-        optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, ALLOW_EMPTY_ARG, allowEmpty),
+        optionMap(
+            CONFIGURABLE_ARG,
+            configurable,
+            DEFAULT_ARG,
+            defaultValue,
+            MANDATORY_ARG,
+            mandatory,
+            ALLOW_EMPTY_ARG,
+            allowEmpty),
         Types.STRING_LIST,
         thread);
   }
@@ -579,6 +637,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   public Descriptor intListAttribute(
       Boolean mandatory,
       Boolean allowEmpty,
+      Object configurable,
       Sequence<?> defaultValue,
       Object doc,
       StarlarkThread thread)
@@ -587,7 +646,15 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     return createAttrDescriptor(
         "int_list",
         Starlark.toJavaOptional(doc, String.class),
-        optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, ALLOW_EMPTY_ARG, allowEmpty),
+        optionMap(
+            CONFIGURABLE_ARG,
+            configurable,
+            DEFAULT_ARG,
+            defaultValue,
+            MANDATORY_ARG,
+            mandatory,
+            ALLOW_EMPTY_ARG,
+            allowEmpty),
         Types.INTEGER_LIST,
         thread);
   }
@@ -595,6 +662,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   @Override
   public Descriptor labelListAttribute(
       Boolean allowEmpty,
+      Object configurable,
       Object defaultValue, // Sequence | StarlarkFunction
       Object doc,
       Object allowFiles,
@@ -610,6 +678,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     checkContext(thread, "attr.label_list()");
     Map<String, Object> kwargs =
         optionMap(
+            CONFIGURABLE_ARG,
+            configurable,
             DEFAULT_ARG,
             defaultValue,
             ALLOW_FILES_ARG,
@@ -643,6 +713,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   @Override
   public Descriptor labelKeyedStringDictAttribute(
       Boolean allowEmpty,
+      Object configurable,
       Object defaultValue, // Dict | StarlarkFunction
       Object doc,
       Object allowFiles,
@@ -657,6 +728,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     checkContext(thread, "attr.label_keyed_string_dict()");
     Map<String, Object> kwargs =
         optionMap(
+            CONFIGURABLE_ARG,
+            configurable,
             DEFAULT_ARG,
             defaultValue,
             ALLOW_FILES_ARG,
@@ -687,13 +760,18 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
 
   @Override
   public Descriptor boolAttribute(
-      Boolean defaultValue, Object doc, Boolean mandatory, StarlarkThread thread)
+      Object configurable,
+      Boolean defaultValue,
+      Object doc,
+      Boolean mandatory,
+      StarlarkThread thread)
       throws EvalException {
     checkContext(thread, "attr.bool()");
     return createAttrDescriptor(
         "bool",
         Starlark.toJavaOptional(doc, String.class),
-        optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory),
+        optionMap(
+            CONFIGURABLE_ARG, configurable, DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory),
         Type.BOOLEAN,
         thread);
   }
@@ -716,7 +794,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Boolean allowEmpty, Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException {
     checkContext(thread, "attr.output_list()");
-
+    // The resulting Attribute does not have the nonconfigurable bit set, but is still
+    // nonconfigurable in practice because Attribute#isConfigurable specifically checks
+    // whether the attribute has LabelClass.OUTPUT.
+    // TODO(b/337841229): Consider calling createNonconfigurableAttrDescriptor()
+    // here, for symmetry with outputAttribute() above.
     return createAttrDescriptor(
         "output_list",
         Starlark.toJavaOptional(doc, String.class),
@@ -728,6 +810,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   @Override
   public Descriptor stringDictAttribute(
       Boolean allowEmpty,
+      Object configurable,
       Dict<?, ?> defaultValue,
       Object doc,
       Boolean mandatory,
@@ -737,7 +820,15 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     return createAttrDescriptor(
         "string_dict",
         Starlark.toJavaOptional(doc, String.class),
-        optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, ALLOW_EMPTY_ARG, allowEmpty),
+        optionMap(
+            CONFIGURABLE_ARG,
+            configurable,
+            DEFAULT_ARG,
+            defaultValue,
+            MANDATORY_ARG,
+            mandatory,
+            ALLOW_EMPTY_ARG,
+            allowEmpty),
         Types.STRING_DICT,
         thread);
   }
@@ -745,6 +836,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   @Override
   public Descriptor stringListDictAttribute(
       Boolean allowEmpty,
+      Object configurable,
       Dict<?, ?> defaultValue,
       Object doc,
       Boolean mandatory,
@@ -754,7 +846,15 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     return createAttrDescriptor(
         "string_list_dict",
         Starlark.toJavaOptional(doc, String.class),
-        optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, ALLOW_EMPTY_ARG, allowEmpty),
+        optionMap(
+            CONFIGURABLE_ARG,
+            configurable,
+            DEFAULT_ARG,
+            defaultValue,
+            MANDATORY_ARG,
+            mandatory,
+            ALLOW_EMPTY_ARG,
+            allowEmpty),
         Types.STRING_LIST_DICT,
         thread);
   }

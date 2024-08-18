@@ -23,10 +23,8 @@ import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createTa
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Type;
@@ -48,13 +46,7 @@ public class StarlarkBazelModuleTest {
     return ModuleExtensionUsage.builder()
         .setExtensionBzlFile("//:rje.bzl")
         .setExtensionName("maven")
-        .setIsolationKey(Optional.empty())
-        .setUsingModule(ModuleKey.ROOT)
-        .setLocation(Location.BUILTIN)
-        .setImports(ImmutableBiMap.of())
-        .setDevImports(ImmutableSet.of())
-        .setHasDevUseExtension(false)
-        .setHasNonDevUseExtension(true);
+        .setIsolationKey(Optional.empty());
   }
 
   /** A builder for ModuleExtension that sets all the mandatory but irrelevant fields. */
@@ -130,8 +122,8 @@ public class StarlarkBazelModuleTest {
     assertThat(pomTags.get(0).getValue("pom_xmls"))
         .isEqualTo(
             StarlarkList.immutableOf(
-                Label.parseCanonical("@@foo~//:pom.xml"),
-                Label.parseCanonical("@@bar~//:pom.xml")));
+                Label.parseCanonical("@@foo+//:pom.xml"),
+                Label.parseCanonical("@@bar+//:pom.xml")));
   }
 
   @Test

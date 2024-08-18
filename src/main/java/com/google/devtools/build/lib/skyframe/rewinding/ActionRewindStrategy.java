@@ -29,8 +29,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.MultimapBuilder;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.graph.EndpointPair;
 import com.google.common.graph.ImmutableGraph;
@@ -47,6 +45,8 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.profiler.AutoProfiler;
+import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding.Code;
 import com.google.devtools.build.lib.skyframe.ActionUtils;
@@ -127,9 +127,16 @@ public final class ActionRewindStrategy {
         checkIfTopLevelOutputLostTooManyTimes(failedKey, lostOutputsByDigest);
 
     ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
-    Reset rewindPlan =
-        prepareRewindPlan(
-            failedKey, failedKeyDeps, lostOutputsByDigest, depOwners, env, depsToRewind);
+    Reset rewindPlan;
+    try (var ignored =
+        AutoProfiler.profiled(
+            "Preparing rewind plan for %d lost outputs of %s"
+                .formatted(lostOutputRecords.size(), failedKey.actionLookupKey().getLabel()),
+            ProfilerTask.ACTION_REWINDING)) {
+      rewindPlan =
+          prepareRewindPlan(
+              failedKey, failedKeyDeps, lostOutputsByDigest, depOwners, env, depsToRewind);
+    }
 
     if (shouldRecordRewindEventSample()) {
       rewindEventSamples.add(createLostOutputRewindEvent(failedKey, rewindPlan, lostOutputRecords));
@@ -172,9 +179,16 @@ public final class ActionRewindStrategy {
         checkIfActionLostInputTooManyTimes(failedKey, failedAction, lostInputsByDigest);
 
     ImmutableList.Builder<Action> depsToRewind = ImmutableList.builder();
-    Reset rewindPlan =
-        prepareRewindPlan(
-            failedKey, failedActionDeps, lostInputsByDigest, inputDepOwners, env, depsToRewind);
+    Reset rewindPlan;
+    try (var ignored =
+        AutoProfiler.profiled(
+            "Preparing rewind plan for %d lost inputs of %s"
+                .formatted(lostInputRecords.size(), failedAction.prettyPrint()),
+            ProfilerTask.ACTION_REWINDING)) {
+      rewindPlan =
+          prepareRewindPlan(
+              failedKey, failedActionDeps, lostInputsByDigest, inputDepOwners, env, depsToRewind);
+    }
 
     if (shouldRecordRewindEventSample()) {
       rewindEventSamples.add(
@@ -191,7 +205,7 @@ public final class ActionRewindStrategy {
 
   private Reset prepareRewindPlan(
       SkyKey failedKey,
-      Set<SkyKey> failedActionDeps,
+      Set<SkyKey> failedKeyDeps,
       ImmutableMap<String, ActionInput> lostInputsByDigest,
       ActionInputDepOwners inputDepOwners,
       Environment env,
@@ -203,23 +217,10 @@ public final class ActionRewindStrategy {
     // between them.
     MutableGraph<SkyKey> rewindGraph = Reset.newRewindGraphFor(failedKey);
 
-    // With NSOS, not all input artifacts' keys are direct deps of the action. This maps input
-    // artifacts to their containing direct dep ArtifactNestedSetKey(s).
-    Multimap<Artifact, ArtifactNestedSetKey> nestedSetKeys = expandNestedSetKeys(failedActionDeps);
-
     Set<DerivedArtifact> lostArtifacts =
-        getLostInputOwningDirectDeps(
-            failedKey,
-            lostInputs,
-            inputDepOwners,
-            ImmutableSet.<SkyKey>builder()
-                .addAll(failedActionDeps)
-                .addAll(Artifact.keys(nestedSetKeys.keySet()))
-                .build());
+        getLostInputOwningDirectDeps(failedKey, failedKeyDeps, lostInputs, inputDepOwners);
 
     for (DerivedArtifact lostArtifact : lostArtifacts) {
-      SkyKey artifactKey = Artifact.key(lostArtifact);
-
       Map<ActionLookupData, Action> actionMap = getActionsForLostArtifact(lostArtifact, env);
       if (actionMap == null) {
         // Some deps of the artifact are not done. Another rewind must be in-flight, and there is no
@@ -229,17 +230,20 @@ public final class ActionRewindStrategy {
       ImmutableList<ActionAndLookupData> newlyVisitedActions =
           addArtifactDepsAndGetNewlyVisitedActions(rewindGraph, lostArtifact, actionMap);
 
-      for (ArtifactNestedSetKey nestedSetKey : nestedSetKeys.get(lostArtifact)) {
-        addNestedSetToRewindGraph(rewindGraph, failedKey, lostArtifact, nestedSetKey);
-      }
-      // Note that artifactKey must be rewound. We do this after
+      // Note that Artifact.key(lostArtifact) must be rewound. We do this after
       // addArtifactDepsAndGetNewlyVisitedActions so that it can track if actions are already known
-      // to be in the graph. With NSOS, it is possible that artifactKey is not actually a direct dep
-      // of the action, but this edge is benign since it's always a transitive dep.
-      rewindGraph.putEdge(failedKey, artifactKey);
+      // to be in the graph. It is possible that the Artifact.key() is not actually a direct dep of
+      // the action if it is below an ArtifactNestedSetKey, but this edge is benign since it's
+      // always a transitive dep.
+      rewindGraph.putEdge(failedKey, Artifact.key(lostArtifact));
       depsToRewind.addAll(actions(newlyVisitedActions));
       checkActions(newlyVisitedActions, env, rewindGraph, depsToRewind);
     }
+
+    // This needs to be done after the loop above because addArtifactDepsAndGetNewlyVisitedActions
+    // short-circuits when a node is already in the rewind graph.
+    ArtifactNestedSetKey.addNestedSetPathsToRewindGraph(
+        rewindGraph, failedKey, failedKeyDeps, lostArtifacts);
 
     return Reset.of(rewindGraph);
   }
@@ -263,22 +267,19 @@ public final class ActionRewindStrategy {
   public Reset patchNestedSetGraphToPropagateError(
       ActionLookupData failedKey,
       Action failedAction,
-      ImmutableList<Artifact> undoneInputs,
+      ImmutableSet<Artifact> undoneInputs,
       ImmutableSet<SkyKey> failedActionDeps) {
     checkState(
         skyframeActionExecutor.rewindingEnabled(), "Unexpected undone inputs: %s", undoneInputs);
     MutableGraph<SkyKey> rewindGraph = Reset.newRewindGraphFor(failedKey);
-    Multimap<Artifact, ArtifactNestedSetKey> nestedSetKeys = expandNestedSetKeys(failedActionDeps);
+    ArtifactNestedSetKey.addNestedSetPathsToRewindGraph(
+        rewindGraph, failedKey, failedActionDeps, undoneInputs);
     for (Artifact input : undoneInputs) {
-      Collection<ArtifactNestedSetKey> containingNestedSets = nestedSetKeys.get(input);
       checkState(
-          !containingNestedSets.isEmpty(),
+          rewindGraph.nodes().contains(Artifact.key(input)),
           "Cannot find input %s under any nested set deps of %s",
           input,
           failedKey);
-      for (ArtifactNestedSetKey nestedSetKey : containingNestedSets) {
-        addNestedSetToRewindGraph(rewindGraph, failedKey, input, nestedSetKey);
-      }
     }
 
     // An undone input may be observed either during input checking (before attempting action
@@ -402,9 +403,20 @@ public final class ActionRewindStrategy {
 
   private Set<DerivedArtifact> getLostInputOwningDirectDeps(
       SkyKey failedKey,
+      Set<SkyKey> failedKeyDeps,
       ImmutableList<ActionInput> lostInputs,
-      ActionInputDepOwners inputDepOwners,
-      Set<SkyKey> failedActionDeps) {
+      ActionInputDepOwners inputDepOwners) {
+    // Not all input artifacts' keys are direct deps - they may be below an ArtifactNestedSetKey.
+    // Expand all ArtifactNestedSetKey deps to get a flat set with all input artifact keys.
+    Set<SkyKey> expandedDeps = new HashSet<>();
+    for (SkyKey dep : failedKeyDeps) {
+      if (dep instanceof ArtifactNestedSetKey nestedSetDep) {
+        expandedDeps.addAll(Artifact.keys(nestedSetDep.expandToArtifacts()));
+      } else {
+        expandedDeps.add(dep);
+      }
+    }
+
     Set<DerivedArtifact> lostInputOwningDirectDeps = new HashSet<>();
     for (ActionInput lostInput : lostInputs) {
       boolean foundLostInputDepOwner = false;
@@ -423,7 +435,7 @@ public final class ActionRewindStrategy {
         for (Artifact transitiveOwner : transitiveOwners) {
           checkDerived(transitiveOwner);
 
-          if (failedActionDeps.contains(Artifact.key(transitiveOwner))) {
+          if (expandedDeps.contains(Artifact.key(transitiveOwner))) {
             // The lost input is included in an aggregation artifact (e.g. a tree artifact or
             // fileset) that is included by an aggregation artifact (e.g. a middleman) that the
             // action directly depends on.
@@ -432,7 +444,7 @@ public final class ActionRewindStrategy {
           }
         }
 
-        if (failedActionDeps.contains(Artifact.key(owner))) {
+        if (expandedDeps.contains(Artifact.key(owner))) {
           // The lost input is included in an aggregation artifact (e.g. a tree artifact, fileset,
           // or middleman) that the action directly depends on.
           lostInputOwningDirectDeps.add((DerivedArtifact) owner);
@@ -440,8 +452,7 @@ public final class ActionRewindStrategy {
         }
       }
 
-      if (lostInput instanceof Artifact
-          && failedActionDeps.contains(Artifact.key((Artifact) lostInput))) {
+      if (lostInput instanceof Artifact artifact && expandedDeps.contains(Artifact.key(artifact))) {
         checkDerived((Artifact) lostInput);
 
         lostInputOwningDirectDeps.add((DerivedArtifact) lostInput);
@@ -548,10 +559,10 @@ public final class ActionRewindStrategy {
     for (EndpointPair<SkyKey> edge : edges) {
       SkyKey target = edge.target();
       if (target instanceof Artifact && rewindGraph.addNode(target)) {
-        newlyVisitedArtifacts.add(((DerivedArtifact) target));
+        newlyVisitedArtifacts.add((DerivedArtifact) target);
       }
       if (target instanceof ActionLookupData && rewindGraph.addNode(target)) {
-        newlyVisitedActions.add(((ActionLookupData) target));
+        newlyVisitedActions.add((ActionLookupData) target);
       }
       rewindGraph.putEdge(edge.source(), edge.target());
     }
@@ -584,8 +595,8 @@ public final class ActionRewindStrategy {
       if (newlyVisited) {
         if (artifactKey instanceof Artifact) {
           newlyVisitedArtifacts.add((DerivedArtifact) artifactKey);
-        } else if (artifactKey instanceof ActionLookupData) {
-          newlyVisitedActions.add((ActionLookupData) artifactKey);
+        } else if (artifactKey instanceof ActionLookupData actionLookupData) {
+          newlyVisitedActions.add(actionLookupData);
         }
       }
       rewindGraph.putEdge(actionKey, artifactKey);
@@ -800,53 +811,5 @@ public final class ActionRewindStrategy {
 
   private static List<Action> actions(List<ActionAndLookupData> newlyVisitedActions) {
     return Lists.transform(newlyVisitedActions, ActionAndLookupData::action);
-  }
-
-  /**
-   * Constructs a mapping from input artifact to all direct dep {@link ArtifactNestedSetKey}s that
-   * transitively contain the artifact.
-   *
-   * <p>More formally, a key-value pair {@code (Artifact k, ArtifactNestedSetKey v)} is present in
-   * the returned map iff {@code deps.contains(v) && v.expandToArtifacts().contains(k)}.
-   *
-   * <p>When {@link com.google.devtools.build.lib.skyframe.ActionExecutionFunction} requests input
-   * deps, it unwraps a single layer of {@linkplain Action#getInputs the action's inputs}, thus
-   * requesting an {@link ArtifactNestedSetKey} for each of {@code
-   * action.getInputs().getNonLeaves()}.
-   */
-  private static Multimap<Artifact, ArtifactNestedSetKey> expandNestedSetKeys(Set<SkyKey> deps) {
-    Multimap<Artifact, ArtifactNestedSetKey> map =
-        MultimapBuilder.hashKeys().arrayListValues().build();
-    for (ArtifactNestedSetKey key : Iterables.filter(deps, ArtifactNestedSetKey.class)) {
-      for (Artifact artifact : key.expandToArtifacts()) {
-        map.put(artifact, key);
-      }
-    }
-    return map;
-  }
-
-  /**
-   * Adds a skyframe dependency chain from {@code failedKey} to {@code lostArtifactKey} to the
-   * rewind graph.
-   *
-   * <p>Each edge along the path from {@code failedKey} to {@code lostArtifactKey} is added to the
-   * rewind graph. This necessarily includes the initial edge {@code (failedKey, directDep)}.
-   *
-   * <p>Although {@code lostArtifact} may be reachable via multiple distinct paths, it is only
-   * necessary to rewind one such path to ensure successful completion of {@code failedKey}. Other
-   * failing actions that depend on {@code lostArtifact} via a different path may initiate their own
-   * rewind strategy.
-   */
-  private static void addNestedSetToRewindGraph(
-      MutableGraph<SkyKey> rewindGraph,
-      SkyKey failedKey,
-      Artifact lostArtifact,
-      ArtifactNestedSetKey directDep) {
-    SkyKey current = failedKey;
-    for (ArtifactNestedSetKey key : directDep.findPathToArtifact(lostArtifact)) {
-      rewindGraph.putEdge(current, key);
-      current = key;
-    }
-    rewindGraph.putEdge(current, Artifact.key(lostArtifact));
   }
 }

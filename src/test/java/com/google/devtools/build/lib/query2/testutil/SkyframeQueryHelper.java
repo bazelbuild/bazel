@@ -18,6 +18,7 @@ import static com.google.devtools.build.lib.packages.Rule.ALL_LABELS;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -36,6 +37,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.Lockfile
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.LabelPrinter;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleVisibility;
@@ -77,6 +79,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.MemoizingEvaluator;
@@ -111,7 +114,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
   private PackageManager pkgManager;
   private TargetPatternPreloader targetParser;
-  private boolean blockUniverseEvaluationErrors;
   protected final ActionKeyContext actionKeyContext = new ActionKeyContext();
 
   private final PathFragment ignoredPackagePrefixesFile = PathFragment.create("ignored");
@@ -123,10 +125,15 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     analysisMock = AnalysisMock.get();
     rootDirectory = createDir(getRootDirectoryNameForSetup());
     outputBase = createDir(fileSystem.getPath("/output").getPathString());
-    rootDirectory = createDir(getRootDirectoryNameForSetup());
     directories =
         new BlazeDirectories(
-            new ServerDirectories(rootDirectory, outputBase, outputBase),
+            new ServerDirectories(
+                rootDirectory,
+                outputBase,
+                outputBase,
+                outputBase.getRelative(ServerDirectories.EXECROOT),
+                useVirtualSourceRoot() ? Root.fromPath(rootDirectory) : null,
+                /* installMD5= */ null),
             rootDirectory,
             /* defaultSystemJavabase= */ null,
             analysisMock.getProductName());
@@ -156,10 +163,15 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
   protected abstract String getRootDirectoryNameForSetup();
 
+  @ForOverride
+  protected boolean useVirtualSourceRoot() {
+    return false;
+  }
+
   protected abstract void performAdditionalClientSetup(MockToolsConfig mockToolsConfig)
       throws IOException;
 
-  protected Path createDir(String pathName) throws IOException {
+  private Path createDir(String pathName) throws IOException {
     Path dir = fileSystem.getPath(pathName);
     dir.createDirectoryAndParents();
     return dir;
@@ -175,14 +187,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
   @Override
   public PathFragment getIgnoredPackagePrefixesFile() {
     return ignoredPackagePrefixesFile;
-  }
-
-  @Override
-  public void setBlockUniverseEvaluationErrors(boolean blockUniverseEvaluationErrors) {
-    if (this.blockUniverseEvaluationErrors == blockUniverseEvaluationErrors) {
-      return;
-    }
-    this.blockUniverseEvaluationErrors = blockUniverseEvaluationErrors;
   }
 
   @ForOverride
@@ -245,7 +249,6 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
         this.settings,
         getExtraQueryFunctions(),
         pkgManager.getPackagePath(),
-        blockUniverseEvaluationErrors,
         /* useGraphlessQuery= */ false,
         LabelPrinter.legacy());
   }
@@ -323,7 +326,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     return true;
   }
 
-  protected void initTargetPatternEvaluator(ConfiguredRuleClassProvider ruleClassProvider) {
+  private void initTargetPatternEvaluator(ConfiguredRuleClassProvider ruleClassProvider) {
     this.toolsRepository = ruleClassProvider.getToolsRepository();
     if (skyframeExecutor != null) {
       cleanUp();
@@ -338,12 +341,24 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
     buildLanguageOptions.enableBzlmod = enableBzlmod();
+    buildLanguageOptions.experimentalGoogleLegacyApi = !analysisMock.isThisBazel();
     // TODO(b/256127926): Delete once flipped.
     buildLanguageOptions.experimentalEnableSclDialect = true;
 
+    ImmutableList<BuildFileName> buildFilesByPriority = skyframeExecutor.getBuildFilesByPriority();
     PathPackageLocator packageLocator =
-        skyframeExecutor.createPackageLocator(
-            getReporter(), packageOptions.packagePath, rootDirectory);
+        useVirtualSourceRoot()
+            ? PathPackageLocator.createWithoutExistenceCheck(
+                /* outputBase= */ null,
+                ImmutableList.of(directories.getVirtualSourceRoot()),
+                buildFilesByPriority)
+            : PathPackageLocator.create(
+                directories.getOutputBase(),
+                packageOptions.packagePath,
+                getReporter(),
+                directories.getWorkspace().asFragment(),
+                rootDirectory,
+                buildFilesByPriority);
     try {
       skyframeExecutor.sync(
           getReporter(),
@@ -353,7 +368,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
           ImmutableMap.of(),
           new TimestampGranularityMonitor(BlazeClock.instance()),
           QuiescingExecutorsImpl.forTesting(),
-          FakeOptions.builder().put(packageOptions).put(buildLanguageOptions).build());
+          FakeOptions.builder().put(packageOptions).put(buildLanguageOptions).build(),
+          /* commandName= */ "query");
     } catch (InterruptedException | AbruptExitException e) {
       throw new IllegalStateException(e);
     }
@@ -380,7 +396,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                     PrecomputedValue.injected(
                         ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
                     PrecomputedValue.injected(
-                        ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+                        ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
                     PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
                     PrecomputedValue.injected(
                         BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
@@ -390,6 +406,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
                     PrecomputedValue.injected(
                         BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
                         BazelCompatibilityMode.ERROR),
+                    PrecomputedValue.injected(
+                        RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
                     PrecomputedValue.injected(
                         BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE)))
             .build(ruleClassProvider, fileSystem);
@@ -417,7 +435,7 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
             PrecomputedValue.injected(
-                ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+                ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
             PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
             PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
             PrecomputedValue.injected(

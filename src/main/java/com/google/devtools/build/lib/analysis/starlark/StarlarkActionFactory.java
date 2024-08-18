@@ -13,13 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
-import static com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext.PRIVATE_STARLARKIFICATION_ALLOWLIST;
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -107,26 +105,23 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   private static final Set<String> validResources =
       new HashSet<>(Arrays.asList(ResourceSet.CPU, ResourceSet.MEMORY, "local_test"));
 
-  // TODO(gnish): This is a temporary allowlist while new BuildInfo API becomes stable enough to
-  // become public.
-  // After at least some of the builtin rules have been switched to the new API delete this.
-  private static final ImmutableSet<BuiltinRestriction.AllowlistEntry>
-      PRIVATE_BUILDINFO_API_ALLOWLIST =
-          ImmutableSet.of(
-              BuiltinRestriction.allowlistEntry("", "test"), // for tests
-              BuiltinRestriction.allowlistEntry("", "tools/build_defs/build_info"),
-              BuiltinRestriction.allowlistEntry("bazel_tools", "tools/build_defs/build_info"));
-
   public StarlarkActionFactory(StarlarkActionContext context) {
     this.context = context;
+  }
+
+  protected StarlarkActionFactory(StarlarkActionFactory parent) {
+    this.context = parent.context;
   }
 
   private ArtifactRoot newFileRoot() {
     return context.newFileRoot();
   }
 
-  private static void checkToolchainParameterIsSet(Object toolchainUnchecked) throws EvalException {
-    if (toolchainUnchecked == Starlark.UNBOUND) {
+  private static void checkToolchainParameterIsSet(
+      RuleContext ruleContext, Object toolchainUnchecked) throws EvalException {
+    if ((ruleContext.getToolchainContexts() == null
+            || ruleContext.getToolchainContexts().getContextMap().size() > 1)
+        && toolchainUnchecked == Starlark.UNBOUND) {
       throw Starlark.errorf(
           "Couldn't identify if tools are from implicit dependencies or a toolchain. Please"
               + " set the toolchain parameter. If you're not using a toolchain, set it to 'None'.");
@@ -262,7 +257,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       throws EvalException {
     context.checkMutable("actions.symlink");
     if (useExecRootForSourceObject != Starlark.UNBOUND) {
-      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFICATION_ALLOWLIST);
+      BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     }
     boolean useExecRootForSource =
         !Starlark.UNBOUND.equals(useExecRootForSourceObject)
@@ -390,7 +385,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       FilesToRunProvider provider = context.getExecutableRunfiles(executable, "executable");
       if (provider == null) {
         if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
-          checkToolchainParameterIsSet(toolchainUnchecked);
+          checkToolchainParameterIsSet(ruleContext, toolchainUnchecked);
         }
         builder.setExecutable(executable);
       } else {
@@ -405,7 +400,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       if (useAutoExecGroups
           && !context.areRunfilesFromDeps((FilesToRunProvider) executableUnchecked)
           && execGroupUnchecked == Starlark.NONE) {
-        checkToolchainParameterIsSet(toolchainUnchecked);
+        checkToolchainParameterIsSet(ruleContext, toolchainUnchecked);
       }
       builder.setExecutable((FilesToRunProvider) executableUnchecked);
     } else {
@@ -436,7 +431,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       String outputFileName,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_BUILDINFO_API_ALLOWLIST);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return transformBuildInfoFile(
         transformFuncObject, templateObject, outputFileName, true, thread);
   }
@@ -448,7 +443,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       String outputFileName,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_BUILDINFO_API_ALLOWLIST);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return transformBuildInfoFile(
         transformFuncObject, templateObject, outputFileName, false, thread);
   }
@@ -695,8 +690,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     builder.addOutputs(outputArtifacts);
 
     if (unusedInputsList != Starlark.NONE) {
-      if (unusedInputsList instanceof Artifact) {
-        builder.setUnusedInputsList(Optional.of((Artifact) unusedInputsList));
+      if (unusedInputsList instanceof Artifact artifact) {
+        builder.setUnusedInputsList(Optional.of(artifact));
       } else {
         throw Starlark.errorf(
             "expected value of type 'File' for a member of parameter 'unused_inputs_list' but got"
@@ -722,20 +717,20 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
             builder.addTool(provider);
           } else {
             if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
-              checkToolchainParameterIsSet(toolchainUnchecked);
+              checkToolchainParameterIsSet(ruleContext, toolchainUnchecked);
             }
           }
         } else if (toolUnchecked instanceof FilesToRunProvider) {
           if (useAutoExecGroups
               && !context.areRunfilesFromDeps((FilesToRunProvider) toolUnchecked)
               && execGroupUnchecked == Starlark.NONE) {
-            checkToolchainParameterIsSet(toolchainUnchecked);
+            checkToolchainParameterIsSet(ruleContext, toolchainUnchecked);
           }
           builder.addTool((FilesToRunProvider) toolUnchecked);
         } else if (toolUnchecked instanceof Depset) {
           try {
             if (useAutoExecGroups && execGroupUnchecked == Starlark.NONE) {
-              checkToolchainParameterIsSet(toolchainUnchecked);
+              checkToolchainParameterIsSet(ruleContext, toolchainUnchecked);
             }
             builder.addTransitiveTools(((Depset) toolUnchecked).getSet(Artifact.class));
           } catch (TypeException e) {
@@ -787,8 +782,8 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
     builder.setExecutionInfo(executionInfo);
 
     Label toolchainLabel = null;
-    if (toolchainUnchecked instanceof Label) {
-      toolchainLabel = (Label) toolchainUnchecked;
+    if (toolchainUnchecked instanceof Label label) {
+      toolchainLabel = label;
     } else if (toolchainUnchecked instanceof String) {
       try {
         toolchainLabel =
@@ -913,12 +908,12 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       }
 
       Object value = resourceSetMap.get(key);
-      if (value instanceof StarlarkInt) {
-        return ((StarlarkInt) value).toDouble();
+      if (value instanceof StarlarkInt starlarkInt) {
+        return starlarkInt.toDouble();
       }
 
-      if (value instanceof StarlarkFloat) {
-        return ((StarlarkFloat) value).toDouble();
+      if (value instanceof StarlarkFloat starlarkFloat) {
+        return starlarkFloat.toDouble();
       }
       throw new EvalException(
           String.format(
@@ -1031,7 +1026,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   @Override
   public FileApi createShareableArtifact(String path, Object artifactRoot, StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFICATION_ALLOWLIST);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     ArtifactRoot root =
         artifactRoot == Starlark.UNBOUND
             ? getRuleContext().getBinDirectory()
@@ -1059,7 +1054,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   // StarlarkActionFactory without any invasive changes to the latter. It will be improved once the
   // subrule implementation approaches maturity.
   // TODO(hvd): clean up this interface to only contain general-purpose methods
-  interface StarlarkActionContext extends StarlarkValue {
+  public interface StarlarkActionContext extends StarlarkValue {
     ArtifactRoot newFileRoot();
 
     void checkMutable(String attrName) throws EvalException;

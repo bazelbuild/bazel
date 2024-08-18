@@ -1,0 +1,92 @@
+name: Incompatible Change
+description: Use this template to track the rollout of an incompatible change in Bazel
+title: '[Incompatible Flag] OR [Incompatible Change Title]'
+labels: ["untriaged", "incompatible-change"]
+assignees:
+  - sgowroji
+  - iancha1992
+  - satyanandak
+body:
+  - type: markdown
+    attributes:
+      value: >
+        **Attention:**
+        Please read https://bazel.build/release/backward-compatibility
+        and https://bazel.build/contribute/breaking-changes for best practices of rolling out
+        incompatible changes in Bazel.
+
+  - type: textarea
+    id: motivation
+    attributes:
+      label: Motivation
+      description: Describe the motivation behind this change. Why is this change needed? What problem does it solve?
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: Provide a clear and concise description of the incompatible change. Explain what the incompatible change is and what impact it will have.
+    validations:
+      required: true
+
+  - type: input
+    id: incompatible_flag
+    attributes:
+      label: Incompatible Flag
+      description: The incompatible flag used to guard this change. If no incompatible flag is used, briefly explain why (e.g. minor incompatible change that's trivial to migrate for).
+    validations:
+      required: true
+
+  - type: textarea
+    id: migration
+    attributes:
+      label: Migration Guide
+      description: Provide guidance on how users can migrate to the new behavior. Include examples, code snippets, or links to relevant documentation.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: bazel_version
+    attributes:
+      label: In which Bazel LTS version will this incompatible change be enabled?
+      multiple: false
+      options:
+        - Bazel 8
+        - Bazel 9
+        - Bazel 10
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Add any other context about the incompatible change here.
+
+  - type: textarea
+    id: todo_list
+    attributes:
+      label: TODO List
+      description: >
+        Choose a todo list based on whether incompatible flag is used, feel free to edit based on your needs.
+
+
+        With incompatible flag (highly recommend for incompatible changes having large impact):
+
+        \- \[ \] Implement the incompatible change at Bazel HEAD and guard it behind a flag.
+
+        \- \[ \] Backport the incompatible flag to the latest LTS release.
+
+        \- \[ \] Test the incompatible change with [downstream projects](https://github.com/bazelbuild/continuous-integration/blob/master/docs/downstream-testing.md#bazel-downstream-testing) and inform broken projects.
+
+        \- \[ \] Flip the incompatible flag at Bazel HEAD.
+
+        \- \[ \] Delete the incompatible flag and the old behavior at Bazel HEAD.
+
+
+        Without incompatible flag (good for minor incompatible changes that are trivial to migrate for):
+
+        \- \[ \] Implement the incompatible change at Bazel HEAD.
+
+        \- \[ \] Check the [downstream pipeline](https://github.com/bazelbuild/continuous-integration/blob/master/docs/downstream-testing.md#bazel-downstream-testing) result and inform broken projects.
+

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.buildtool.util;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
 import static com.google.devtools.build.lib.util.io.CommandExtensionReporter.NO_OP_COMMAND_EXTENSION_REPORTER;
 
 import com.google.common.collect.ImmutableList;
@@ -196,6 +197,7 @@ public class BlazeRuntimeWrapper {
             .initCommand(
                 commandAnnotation,
                 optionsParser,
+                InvocationPolicy.getDefaultInstance(),
                 workspaceSetupWarnings,
                 /* waitTimeInMs= */ 0L,
                 /* commandStartTime= */ 0L,
@@ -266,6 +268,9 @@ public class BlazeRuntimeWrapper {
     optionsParser = createOptionsParser(commandAnnotation);
     optionsParser.parse(optionsToParse);
 
+    // Allow the command to edit the options.
+    command.editOptions(optionsParser);
+
     // Enforce the test invocation policy once the options have been added
     InvocationPolicyEnforcer optionsPolicyEnforcer =
         new InvocationPolicyEnforcer(
@@ -311,7 +316,7 @@ public class BlazeRuntimeWrapper {
   void executeNonBuildCommand() throws Exception {
     checkNotNull(command, "No command created, try calling newCommand()");
     checkState(
-        !env.commandActuallyBuilds(),
+        env.getCommand().buildPhase() == NONE,
         "%s is a build command, did you mean to call executeBuild()?",
         env.getCommandName());
 
@@ -352,7 +357,7 @@ public class BlazeRuntimeWrapper {
       newCommand(BuildCommand.class); // If you didn't create a command we do it for you.
     }
     checkState(
-        env.commandActuallyBuilds(),
+        env.getCommand().buildPhase().loads(),
         "%s is not a build command, did you mean to call executeNonBuildCommand()?",
         env.getCommandName());
 
@@ -413,11 +418,13 @@ public class BlazeRuntimeWrapper {
                 runtime.getBugReporter(),
                 WorkerProcessMetricsCollector.instance(),
                 env.getLocalResourceManager(),
+                env.getSkyframeExecutor().getEvaluator().getInMemoryGraph(),
                 /* collectWorkerDataInProfiler= */ false,
                 /* collectLoadAverage= */ false,
                 /* collectSystemNetworkUsage= */ false,
                 /* collectResourceManagerEstimation= */ false,
-                /* collectPressureStallIndicators= */ false));
+                /* collectPressureStallIndicators= */ false,
+                /* collectSkyframeCounts= */ false));
 
     StoredEventHandler storedEventHandler = new StoredEventHandler();
     reporter.addHandler(storedEventHandler);
@@ -449,7 +456,6 @@ public class BlazeRuntimeWrapper {
 
   private void commandComplete(@Nullable Crash crash) throws Exception {
     Reporter reporter = env.getReporter();
-    getSkyframeExecutor().notifyCommandComplete(reporter);
     if (crash != null) {
       runtime.getBugReporter().handleCrash(crash, CrashContext.keepAlive().reportingTo(reporter));
     }
@@ -476,7 +482,7 @@ public class BlazeRuntimeWrapper {
             .setOutErr(env.getReporter().getOutErr())
             .setTargets(targets)
             .setStartTimeMillis(runtime.getClock().currentTimeMillis());
-    if ("test".equals(commandName)) {
+    if (commandName.equals("test") || commandName.equals("coverage")) {
       builder.setRunTests(true);
     }
     return builder.build();

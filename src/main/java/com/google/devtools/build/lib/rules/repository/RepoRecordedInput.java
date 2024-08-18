@@ -15,11 +15,13 @@
 package com.google.devtools.build.lib.rules.repository;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -194,13 +196,13 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
     public static RepoCacheFriendlyPath createInsideWorkspace(
         RepositoryName repoName, PathFragment path) {
       Preconditions.checkArgument(
-          !path.isAbsolute(), "the provided path should be relative to the repo root");
+          !path.isAbsolute(), "the provided path should be relative to the repo root: %s", path);
       return new AutoValue_RepoRecordedInput_RepoCacheFriendlyPath(Optional.of(repoName), path);
     }
 
     public static RepoCacheFriendlyPath createOutsideWorkspace(PathFragment path) {
       Preconditions.checkArgument(
-          path.isAbsolute(), "the provided path should be absolute in the filesystem");
+          path.isAbsolute(), "the provided path should be absolute in the filesystem: %s", path);
       return new AutoValue_RepoRecordedInput_RepoCacheFriendlyPath(Optional.empty(), path);
     }
 
@@ -303,7 +305,8 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
      * for placing in a repository marker file. The file need not exist, and can be a file or a
      * directory.
      */
-    public static String fileValueToMarkerValue(FileValue fileValue) throws IOException {
+    public static String fileValueToMarkerValue(RootedPath rootedPath, FileValue fileValue)
+        throws IOException {
       if (fileValue.isDirectory()) {
         return "DIR";
       }
@@ -314,11 +317,12 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       byte[] digest = fileValue.realFileStateValue().getDigest();
       if (digest == null) {
         // Fast digest not available, or it would have been in the FileValue.
-        digest = fileValue.realRootedPath().asPath().getDigest();
+        digest = fileValue.realRootedPath(rootedPath).asPath().getDigest();
       }
       return BaseEncoding.base16().lowerCase().encode(digest);
     }
 
+    @Override
     @Nullable
     public SkyKey getSkyKey(BlazeDirectories directories) {
       return FileValue.key(path.getRootedPath(directories));
@@ -328,13 +332,13 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
     public boolean isUpToDate(
         Environment env, BlazeDirectories directories, @Nullable String oldValue)
         throws InterruptedException {
+      var skyKey = getSkyKey(directories);
       try {
-        FileValue fileValue =
-            (FileValue) env.getValueOrThrow(getSkyKey(directories), IOException.class);
+        FileValue fileValue = (FileValue) env.getValueOrThrow(skyKey, IOException.class);
         if (fileValue == null) {
           return false;
         }
-        return oldValue.equals(fileValueToMarkerValue(fileValue));
+        return oldValue.equals(fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
       } catch (IOException e) {
         return false;
       }
@@ -491,7 +495,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
 
   /** Represents an environment variable accessed during the repo fetch. */
   public static final class EnvVar extends RepoRecordedInput {
-    static final Parser PARSER =
+    public static final Parser PARSER =
         new Parser() {
           @Override
           public String getPrefix() {
@@ -506,7 +510,13 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
 
     final String name;
 
-    public EnvVar(String name) {
+    public static ImmutableMap<EnvVar, Optional<String>> wrap(
+        Map<String, Optional<String>> envVars) {
+      return envVars.entrySet().stream()
+          .collect(toImmutableMap(e -> new EnvVar(e.getKey()), Map.Entry::getValue));
+    }
+
+    private EnvVar(String name) {
       this.name = name;
     }
 

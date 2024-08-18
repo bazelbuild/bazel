@@ -63,6 +63,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
     String bazelToolWorkspace = config.getPath("embedded_tools").getPathString();
     String bazelPlatformsWorkspace = config.getPath("platforms_workspace").getPathString();
     String rulesJavaWorkspace = config.getPath("rules_java_workspace").getPathString();
+    String localConfigPlatformWorkspace =
+        config.getPath("local_config_platform_workspace").getPathString();
     String androidGmavenR8Workspace = config.getPath("android_gmaven_r8").getPathString();
     String appleSupport = config.getPath("build_bazel_apple_support").getPathString();
 
@@ -100,7 +102,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
         // Note this path is created inside the test infrastructure in
         // createAndroidBuildContents() below. It may not reflect a real depot path.
         "register_toolchains('@bazel_tools//tools/android/dummy_sdk:all')",
-        "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')");
+        "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')",
+        "local_repository(name='local_config_platform',path='"
+            + localConfigPlatformWorkspace
+            + "')");
   }
 
   /** Keep this in sync with the WORKSPACE content in {@link #getWorkspaceContents}. */
@@ -110,6 +115,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "android_gmaven_r8",
         "bazel_tools",
         "com_google_protobuf",
+        "local_config_platform",
         "local_config_xcode",
         "platforms",
         "internal_platforms_do_not_use",
@@ -148,6 +154,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
     /* The rest of platforms is initialized in {@link MockPlatformSupport}. */
     config.create("platforms_workspace/WORKSPACE", "workspace(name = 'platforms')");
     config.create("platforms_workspace/MODULE.bazel", "module(name = 'platforms')");
+    config.create(
+        "local_config_platform_workspace/WORKSPACE", "workspace(name = 'local_config_platform')");
+    config.create(
+        "local_config_platform_workspace/MODULE.bazel", "module(name = 'local_config_platform')");
     config.create("build_bazel_apple_support/WORKSPACE", "workspace(name = 'apple_support')");
     config.create(
         "build_bazel_apple_support/MODULE.bazel", "module(name = 'build_bazel_apple_support')");
@@ -474,6 +484,50 @@ public final class BazelAnalysisMock extends AnalysisMock {
         )
         """);
 
+    // Create fake, minimal implementations of test-setup.sh and test-xml-generator.sh for test
+    // cases that actually execute tests. Does not support coverage, interruption, signals, etc.
+    // For proper test execution support, the actual test-setup.sh will need to be included in the
+    // Java test's runfiles and copied/symlinked into the MockToolsConfig's workspace.
+    config
+        .create(
+            "embedded_tools/tools/test/test-setup.sh",
+            """
+            #!/bin/bash
+            set -e
+            function is_absolute {
+              [[ "$1" = /* ]] || [[ "$1" =~ ^[a-zA-Z]:[/\\].* ]]
+            }
+            is_absolute "$TEST_SRCDIR" || TEST_SRCDIR="$PWD/$TEST_SRCDIR"
+            RUNFILES_MANIFEST_FILE="${TEST_SRCDIR}/MANIFEST"
+            cd ${TEST_SRCDIR}
+            function rlocation() {
+              if is_absolute "$1" ; then
+                # If the file path is already fully specified, simply return it.
+                echo "$1"
+              elif [[ -e "$TEST_SRCDIR/$1" ]]; then
+                # If the file exists in the $TEST_SRCDIR then just use it.
+                echo "$TEST_SRCDIR/$1"
+              elif [[ -e "$RUNFILES_MANIFEST_FILE" ]]; then
+                # If a runfiles manifest file exists then use it.
+                echo "$(grep "^$1 " "$RUNFILES_MANIFEST_FILE" | sed 's/[^ ]* //')"
+              fi
+            }
+
+            EXE="${1#./}"
+            shift
+
+            if is_absolute "$EXE"; then
+              TEST_PATH="$EXE"
+            else
+              TEST_PATH="$(rlocation $TEST_WORKSPACE/$EXE)"
+            fi
+            exec $TEST_PATH
+            """)
+        .chmod(0755);
+    config
+        .create("embedded_tools/tools/test/test-xml-generator.sh", "#!/bin/sh", "cp \"$1\" \"$2\"")
+        .chmod(0755);
+
     // Use an alias package group to allow for modification at the simpler path
     config.create(
         "embedded_tools/tools/allowlists/config_feature_flag/BUILD",
@@ -503,11 +557,31 @@ public final class BazelAnalysisMock extends AnalysisMock {
         )
         """);
     config.create(
+        "embedded_tools/tools/allowlists/initializer_allowlist/BUILD",
+        """
+        package_group(
+            name = "initializer_allowlist",
+            packages = [],
+        )
+        """);
+    config.create(
         "embedded_tools/tools/allowlists/extend_rule_allowlist/BUILD",
         """
         package_group(
             name = "extend_rule_allowlist",
             packages = ["public"],
+        )
+        package_group(
+            name = "extend_rule_api_allowlist",
+            packages = [],
+        )
+        """);
+    config.create(
+        "embedded_tools/tools/allowlists/subrules_allowlist/BUILD",
+        """
+        package_group(
+            name = "subrules_allowlist",
+            packages = [],
         )
         """);
 
@@ -705,16 +779,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("sh_binary(name = 'dexsharder', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'aar_import_deps_checker', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'busybox', srcs = ['empty.sh'])")
-        .add("android_library(name = 'incremental_stub_application')")
-        .add("android_library(name = 'incremental_split_stub_application')")
-        .add("sh_binary(name = 'stubify_manifest', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'merge_dexzips', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'build_split_manifest', srcs = ['empty.sh'])")
         .add("filegroup(name = 'debug_keystore', srcs = ['fake.file'])")
+        .add("sh_binary(name = 'databinding_exec', srcs = ['empty.sh'])")
         .add("sh_binary(name = 'shuffle_jars', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'strip_resources', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'build_incremental_dexmanifest', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'incremental_install', srcs = ['empty.sh'])")
         .add("java_binary(name = 'IdlClass',")
         .add("            runtime_deps = [ ':idlclass_import' ],")
         .add("            main_class = 'com.google.devtools.build.android.idlclass.IdlClass')")
@@ -881,6 +949,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         ImmutableMap.<String, String>builder()
             .put("bazel_tools", "embedded_tools")
             .put("platforms", "platforms_workspace")
+            .put("local_config_platform", "local_config_platform_workspace")
             .put("rules_java", "rules_java_workspace")
             .put("com_google_protobuf", "protobuf_workspace")
             .put("rules_proto", "third_party/bazel_rules/rules_proto")
@@ -899,6 +968,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
                             .getRelative(e.getValue())
                             .getPathString())));
   }
+
+  @Override
+  public void setupPrelude(MockToolsConfig mockToolsConfig) {}
 
   @Override
   public ConfiguredRuleClassProvider createRuleClassProvider() {

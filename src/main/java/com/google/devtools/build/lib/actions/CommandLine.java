@@ -18,7 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.util.Fingerprint;
 import javax.annotation.Nullable;
 
@@ -46,31 +46,6 @@ public abstract class CommandLine {
       return CommandLine.of(args);
     }
     return new SuffixedCommandLine(args, commandLine);
-  }
-
-  /**
-   * Post-expansion representation of command line arguments.
-   *
-   * <p>This differs from {@link CommandLine} in that consuming the arguments is guaranteed to be
-   * free of {@link CommandLineExpansionException} and {@link InterruptedException}.
-   */
-  public interface ArgChunk {
-
-    /**
-     * Returns the arguments.
-     *
-     * <p>The returned {@link Iterable} may lazily materialize strings during iteration, so
-     * consumers should attempt to avoid iterating more times than necessary.
-     */
-    Iterable<String> arguments();
-
-    /**
-     * Counts the total length of all arguments in this chunk.
-     *
-     * <p>Implementations that lazily materialize strings may be able to compute the total argument
-     * length without actually materializing the arguments.
-     */
-    int totalArgLength();
   }
 
   /** Implementation of {@link ArgChunk} that delegates to an {@link Iterable}. */
@@ -124,6 +99,7 @@ public abstract class CommandLine {
   public abstract void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
+      CoreOptions.OutputPathsMode outputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException;
 

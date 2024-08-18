@@ -70,8 +70,8 @@ public class LocalRepositoryFunction extends RepositoryFunction {
     String name = rule.getName();
     Object pathObj = rule.getAttr("path");
     String path;
-    if (pathObj instanceof String) {
-      path = (String) pathObj;
+    if (pathObj instanceof String string) {
+      path = string;
     } else {
       path = "";
     }

@@ -199,8 +199,8 @@ public final class BuildEventServiceUploader implements Runnable {
         return;
       }
       // BuildCompletingEvent marks the end of the build in the BEP event stream.
-      if (event instanceof BuildCompletingEvent) {
-        ExitCode exitCode = ((BuildCompletingEvent) event).getExitCode();
+      if (event instanceof BuildCompletingEvent buildCompletingEvent) {
+        ExitCode exitCode = buildCompletingEvent.getExitCode();
         if (exitCode != null && exitCode.getNumericExitCode() == 0) {
           buildStatus = COMMAND_SUCCEEDED;
         } else {
@@ -419,7 +419,7 @@ public final class BuildEventServiceUploader implements Runnable {
       while (true) {
         EventLoopCommand event = eventQueue.takeFirst();
         switch (event.type()) {
-          case OPEN_STREAM:
+          case OPEN_STREAM -> {
             {
               // Invariant: the eventQueue only contains events of type SEND_REGULAR_BUILD_EVENT
               // or SEND_LAST_BUILD_EVENT
@@ -431,9 +431,8 @@ public final class BuildEventServiceUploader implements Runnable {
                   streamContext.getStatus(),
                   (status) -> eventQueue.addLast(new StreamCompleteCommand(status)));
             }
-            break;
-
-          case SEND_REGULAR_BUILD_EVENT:
+          }
+          case SEND_REGULAR_BUILD_EVENT -> {
             {
               // Invariant: the eventQueue may contain events of any type
               SendRegularBuildEventCommand buildEvent = (SendRegularBuildEventCommand) event;
@@ -452,9 +451,8 @@ public final class BuildEventServiceUploader implements Runnable {
 
               streamContext.sendOverStream(request);
             }
-            break;
-
-          case SEND_LAST_BUILD_EVENT:
+          }
+          case SEND_LAST_BUILD_EVENT -> {
             {
               // Invariant: the eventQueue may contain events of any type
               SendBuildEventCommand lastEvent = (SendLastBuildEventCommand) event;
@@ -468,9 +466,8 @@ public final class BuildEventServiceUploader implements Runnable {
               halfCloseFuture.set(null);
               logger.atInfo().log("BES uploader is half-closed");
             }
-            break;
-
-          case ACK_RECEIVED:
+          }
+          case ACK_RECEIVED -> {
             {
               // Invariant: the eventQueue may contain events of any type
               AckReceivedCommand ackEvent = (AckReceivedCommand) event;
@@ -497,9 +494,8 @@ public final class BuildEventServiceUploader implements Runnable {
                 streamContext.abortStream(Status.FAILED_PRECONDITION.withDescription(message));
               }
             }
-            break;
-
-          case STREAM_COMPLETE:
+          }
+          case STREAM_COMPLETE -> {
             {
               // Invariant: the eventQueue only contains events of type SEND_REGULAR_BUILD_EVENT
               // or SEND_LAST_BUILD_EVENT
@@ -574,7 +570,7 @@ public final class BuildEventServiceUploader implements Runnable {
               acksReceived = 0;
               eventQueue.addFirst(new OpenStreamCommand());
             }
-            break;
+          }
         }
       }
     } catch (InterruptedException | LocalFileUploadException e) {
@@ -599,13 +595,13 @@ public final class BuildEventServiceUploader implements Runnable {
         // of events that haven't been uploaded.
         EventLoopCommand event;
         while ((event = ackQueue.pollFirst()) != null) {
-          if (event instanceof SendRegularBuildEventCommand) {
-            cancelLocalFileUpload((SendRegularBuildEventCommand) event);
+          if (event instanceof SendRegularBuildEventCommand sendRegularBuildEventCommand) {
+            cancelLocalFileUpload(sendRegularBuildEventCommand);
           }
         }
         while ((event = eventQueue.pollFirst()) != null) {
-          if (event instanceof SendRegularBuildEventCommand) {
-            cancelLocalFileUpload((SendRegularBuildEventCommand) event);
+          if (event instanceof SendRegularBuildEventCommand sendRegularBuildEventCommand) {
+            cancelLocalFileUpload(sendRegularBuildEventCommand);
           }
         }
       }

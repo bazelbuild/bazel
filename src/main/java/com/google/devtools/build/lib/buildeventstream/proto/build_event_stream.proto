@@ -248,11 +248,10 @@ message BuildEventId {
   // Identifier of an event providing convenience symlinks information.
   message ConvenienceSymlinksIdentifiedId {}
 
-  // Identifier of an event signalling that the coverage actions are finished.
-  message CoverageActionsFinishedId {}
-
   // Identifier of an event providing the ExecRequest of a run command.
   message ExecRequestId {}
+
+  reserved 27;
 
   oneof id {
     UnknownBuildEventId unknown = 1;
@@ -282,7 +281,6 @@ message BuildEventId {
     WorkspaceConfigId workspace = 23;
     BuildMetadataId build_metadata = 24;
     ConvenienceSymlinksIdentifiedId convenience_symlinks_identified = 25;
-    CoverageActionsFinishedId coverage_actions_finished = 27;
     ExecRequestId exec_request = 28;
   }
 }
@@ -293,10 +291,16 @@ message BuildEventId {
 message Progress {
   // The next chunk of stdout that bazel produced since the last progress event
   // or the beginning of the build.
+  // Consumers that need to reason about the relative order of stdout and stderr
+  // can assume that stderr has been emitted before stdout if both are present,
+  // on a best-effort basis.
   string stdout = 1;
 
   // The next chunk of stderr that bazel produced since the last progress event
   // or the beginning of the build.
+  // Consumers that need to reason about the relative order of stdout and stderr
+  // can assume that stderr has been emitted before stdout if both are present,
+  // on a best-effort basis.
   string stderr = 2;
 }
 
@@ -929,6 +933,9 @@ message BuildMetrics {
       // This is only set if all the actions reported a time
       google.protobuf.Duration system_time = 5;
       google.protobuf.Duration user_time = 6;
+
+      // The total number of actions of this type registered during the build.
+      int64 actions_created = 7;
     }
     // Contains the top N actions by number of actions executed.
     repeated ActionData action_data = 4;
@@ -1140,6 +1147,43 @@ message BuildMetrics {
     // Number of SkyValues that were evaluated and found clean, i.e. equal to
     // their previous version.
     repeated EvaluationStat cleaned_values = 13;
+
+    // For SkyKeys in 'done values' where the SkyValue is of type
+    // RuleConfiguredTargetValue, we pull those out separately and report the
+    // ruleClass and action count.
+    message RuleClassCount {
+      // Unique key for the rule class.
+      string key = 1;
+
+      // String name of the rule_class (not guaranteed unique)
+      string rule_class = 2;
+
+      // how many rule instances of this type were seen.
+      uint64 count = 3;
+
+      // how many actions were created by this rule class.
+      uint64 action_count = 4;
+    }
+    repeated RuleClassCount rule_class = 14;
+
+    // For SkyKeys whose function name is ASPECT break out that information
+    message AspectCount {
+      // Unique key for Aspect.
+      string key = 1;
+
+      // usually the same as above, but can differ in some cases.
+      string aspect_name = 2;
+
+      // number of aspects created of this type.
+      uint64 count = 3;
+
+      // number of actions created by aspects of this type.
+      uint64 action_count = 4;
+    }
+    repeated AspectCount aspect = 15;
+
+    // Removed due to overlap with EvaluationStat
+    reserved 16;
   }
 
   BuildGraphMetrics build_graph_metrics = 8;
@@ -1330,9 +1374,8 @@ message ConvenienceSymlink {
   // The operation we are performing on the symlink.
   Action action = 2;
 
-  // If action is CREATE, this is the target path that the symlink should point
-  // to. If the path points underneath the output base, it is relative to the
-  // output base; otherwise it is absolute.
+  // If action is CREATE, this is the target path (relative to the output base)
+  // that the symlink should point to.
   //
   // If action is DELETE, this field is not set.
   string target = 3;

@@ -23,7 +23,7 @@ load(":common/cc/semantics.bzl", "semantics")
 load(":common/objc/compilation_support.bzl", "compilation_support")
 load(":common/objc/j2objc_aspect.bzl", "j2objc_aspect")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
-load(":common/objc/transitions.bzl", "apple_crosstool_transition")
+load(":common/objc/semantics.bzl", objc_semantics = "semantics")
 
 _MIGRATION_TAG = "__J2OBJC_LIBRARY_MIGRATION_DO_NOT_USE_WILL_BREAK__"
 
@@ -161,7 +161,7 @@ The list of additional JRE emulation libraries required by all Java code transla
 <code>j2objc_library</code> rule. Only core JRE functionality is linked by default.""",
         ),
     },
-    cfg = apple_crosstool_transition,
+    cfg = objc_semantics.apple_crosstool_transition,
     fragments = ["apple", "cpp", "j2objc", "objc"] + semantics.additional_fragments(),
     toolchains = cc_helper.use_cpp_toolchain(),
     provides = [CcInfo, J2ObjcEntryClassInfo, J2ObjcMappingFileInfo],

@@ -21,7 +21,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.AdvertisedProviderSet;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
@@ -78,8 +77,8 @@ public abstract class TransitiveTraversalValue implements SkyValue {
         }
 
         AdvertisedProviderSet providers =
-            target instanceof Rule
-                ? ((Rule) target).getRuleClassObject().getAdvertisedProviders()
+            target instanceof Rule rule
+                ? rule.getRuleClassObject().getAdvertisedProviders()
                 : AdvertisedProviderSet.EMPTY;
 
         value = new TransitiveTraversalValueWithoutError(providers, target.getTargetKind());
@@ -184,7 +183,7 @@ public abstract class TransitiveTraversalValue implements SkyValue {
 
     private TransitiveTraversalValueWithError(String errorMessage, String kind) {
       super(kind);
-      this.errorMessage = StringCanonicalizer.intern(Preconditions.checkNotNull(errorMessage));
+      this.errorMessage = Preconditions.checkNotNull(errorMessage).intern();
     }
 
     @Override

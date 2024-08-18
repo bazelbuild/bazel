@@ -14,15 +14,18 @@
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
 import static com.google.common.collect.Iterables.isEmpty;
+import static com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.getClassInfo;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.getFieldInfo;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Fingerprinter.computeFingerprints;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ClosedClassInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.FieldInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ObjectInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.PrimitiveInfo;
 import java.lang.reflect.Array;
+import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -156,8 +159,8 @@ public final class Dumper {
       addedLine = outputArrayElements(obj);
     } else if (obj instanceof Map) {
       addedLine = outputMapEntries((Map<?, ?>) obj);
-    } else if (obj instanceof Iterable) {
-      addedLine = outputIterableElements((Iterable<?>) obj);
+    } else if (obj instanceof Collection) {
+      addedLine = outputCollectionElements((Collection<?>) obj);
     } else {
       addedLine = outputObjectFields(obj);
     }
@@ -256,12 +259,12 @@ public final class Dumper {
     return !map.isEmpty();
   }
 
-  private boolean outputIterableElements(Iterable<?> iterable) {
-    for (var next : iterable) {
+  private boolean outputCollectionElements(Collection<?> collection) {
+    for (var next : collection) {
       addNewlineAndIndent();
       outputObject(next);
     }
-    return !isEmpty(iterable);
+    return !isEmpty(collection);
   }
 
   private boolean outputObjectFields(Object obj) {
@@ -291,7 +294,22 @@ public final class Dumper {
   }
 
   static boolean shouldInline(Class<?> type) {
-    return type.isPrimitive() || DIRECT_INLINE_TYPES.contains(type) || type.isSynthetic();
+    if (type.isArray()) {
+      return false;
+    }
+    if (Collection.class.isAssignableFrom(type) || Map.class.isAssignableFrom(type)) {
+      // These types have custom handling and do not depend on reflective class information.
+      return false;
+    }
+    return type.isPrimitive()
+        || DIRECT_INLINE_TYPES.contains(type)
+        || type.isSynthetic()
+        // Reflectively inaccessible classes will be represented directly using their string
+        // representations as there's nothing else we can do with them.
+        //
+        // TODO: b/331765692 - this might cause a loss of fidelity. Consider including a hash of
+        // the serialized representation in such cases.
+        || getClassInfo(type) instanceof ClosedClassInfo;
   }
 
   private static final ImmutableSet<Class<?>> WRAPPER_TYPES =

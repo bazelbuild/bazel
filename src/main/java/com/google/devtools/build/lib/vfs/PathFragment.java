@@ -17,9 +17,9 @@ import static com.google.devtools.build.lib.skyframe.serialization.strings.Unsaf
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.CommandLineItem;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
@@ -27,6 +27,7 @@ import com.google.errorprone.annotations.Immutable;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.function.UnaryOperator;
 import javax.annotation.Nullable;
 
 /**
@@ -51,7 +52,7 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public abstract class PathFragment
-    implements Comparable<PathFragment>, FileType.HasFileType, CommandLineItem {
+    implements Comparable<PathFragment>, FileType.HasFileType, PathStrippable {
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
 
   @SerializationConstant
@@ -803,8 +804,8 @@ public abstract class PathFragment
   }
 
   @Override
-  public String expandToCommandLine() {
-    return normalizedPath;
+  public String expand(UnaryOperator<PathFragment> stripPaths) {
+    return stripPaths.apply(this).normalizedPath;
   }
 
   private static void checkBaseName(String baseName) {
@@ -839,8 +840,13 @@ public abstract class PathFragment
     }
   }
 
-  @SuppressWarnings("unused") // found by CLASSPATH-scanning magic
+  public static Codec pathFragmentCodec() {
+    return Codec.INSTANCE;
+  }
+
   private static class Codec extends LeafObjectCodec<PathFragment> {
+    private static final Codec INSTANCE = new Codec();
+
     @Override
     public Class<PathFragment> getEncodedClass() {
       return PathFragment.class;
@@ -848,16 +854,15 @@ public abstract class PathFragment
 
     @Override
     public void serialize(
-        SerializationDependencyProvider dependencies, PathFragment obj, CodedOutputStream codedOut)
+        LeafSerializationContext context, PathFragment obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      stringCodec().serialize(dependencies, obj.normalizedPath, codedOut);
+      context.serializeLeaf(obj.normalizedPath, stringCodec(), codedOut);
     }
 
     @Override
-    public PathFragment deserialize(
-        SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+    public PathFragment deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      return createAlreadyNormalized(stringCodec().deserialize(dependencies, codedIn));
+      return createAlreadyNormalized(context.deserializeLeaf(codedIn, stringCodec()));
     }
   }
 }

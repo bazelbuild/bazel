@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.bazel.commands;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.LOADS;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
@@ -67,6 +69,7 @@ import net.starlark.java.eval.Starlark;
 /** Syncs all repositories specified in the workspace file */
 @Command(
     name = SyncCommand.NAME,
+    buildPhase = LOADS,
     options = {
       PackageOptions.class,
       KeepGoingOption.class,
@@ -92,6 +95,14 @@ public final class SyncCommand implements BlazeCommand {
 
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
+    if (!options.getOptions(BuildLanguageOptions.class).enableWorkspace) {
+      String errorMessage =
+          "WORKSPACE has to be enabled for sync command to work, run with --enable_workspace.";
+      env.getReporter().handle(Event.error(errorMessage));
+      return blazeCommandResultWithNoBuildReport(
+          env, ExitCode.ANALYSIS_FAILURE, Code.REPOSITORY_FETCH_ERRORS, errorMessage);
+    }
+
     try {
       env.getReporter()
           .post(

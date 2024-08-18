@@ -24,8 +24,9 @@ import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
 /**
@@ -82,7 +83,16 @@ public class Alias implements RuleConfiguredTargetFactory {
           // - when it has a select() on a constraint_setting, or
           // - when it has a target_compatible_with attribute.
           // Special-case enable those instances too.
-          .useToolchainResolution(ToolchainResolutionMode.ENABLED_ONLY_FOR_COMMON_LOGIC)
+          .toolchainResolutionMode(
+              (rule) -> {
+                RawAttributeMapper attr = RawAttributeMapper.of(rule);
+                return ((attr.has(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)
+                        && !attr.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST)
+                            .isEmpty())
+                    || (attr.has(RuleClass.TARGET_COMPATIBLE_WITH_ATTR)
+                        && !attr.get(RuleClass.TARGET_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST)
+                            .isEmpty()));
+              })
           .build();
     }
 

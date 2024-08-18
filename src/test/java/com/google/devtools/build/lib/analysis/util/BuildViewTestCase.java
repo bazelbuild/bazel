@@ -18,6 +18,7 @@ import static com.google.common.collect.MoreCollectors.onlyElement;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
@@ -42,9 +43,9 @@ import com.google.devtools.build.lib.actions.ActionLogBufferPathGenerator;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -246,24 +247,42 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   private ActionLogBufferPathGenerator actionLogBufferPathGenerator;
 
+  @Nullable private BzlLoadFunction inliningBzlLoadFunction;
+
   @After
   public final void cleanupInterningPools() {
     skyframeExecutor.getEvaluator().cleanupInterningPools();
   }
 
   @Before
-  public final void initializeSkyframeExecutor() throws Exception {
-    initializeSkyframeExecutor(/*doPackageLoadingChecks=*/ true);
+  public void initializeSkyframeExecutor() throws Exception {
+    initializeSkyframeExecutor(/* doPackageLoadingChecks= */ true);
   }
 
   public void initializeSkyframeExecutor(boolean doPackageLoadingChecks) throws Exception {
     initializeSkyframeExecutor(
-        /*doPackageLoadingChecks=*/ doPackageLoadingChecks,
-        /*diffAwarenessFactories=*/ ImmutableList.of());
+        /* doPackageLoadingChecks= */ doPackageLoadingChecks,
+        /* diffAwarenessFactories= */ ImmutableList.of(),
+        /* globUnderSingleDep= */ true);
   }
 
   public void initializeSkyframeExecutor(
       boolean doPackageLoadingChecks, ImmutableList<DiffAwareness.Factory> diffAwarenessFactories)
+      throws Exception {
+    initializeSkyframeExecutor(
+        doPackageLoadingChecks, diffAwarenessFactories, /* globUnderSingleDep= */ true);
+  }
+
+  /**
+   * Only {@link com.google.devtools.build.lib.skyframe.PackageFunctionTest} still covers testing
+   * Skyframe Hybrid globbing by passing in the test parameter globUnderSingleDep.
+   *
+   * <p>All other tests adopt GLOBS strategy by setting {@code globUnderSingleDep} to {@code true}.
+   */
+  public void initializeSkyframeExecutor(
+      boolean doPackageLoadingChecks,
+      ImmutableList<DiffAwareness.Factory> diffAwarenessFactories,
+      boolean globUnderSingleDep)
       throws Exception {
     analysisMock = getAnalysisMock();
     directories =
@@ -291,7 +310,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .addAll(analysisMock.getPrecomputedValues())
             .add(
                 PrecomputedValue.injected(
-                    ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())))
+                    ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())))
             .addAll(extraPrecomputedValues())
             .build();
     PackageFactory.BuilderForTesting pkgFactoryBuilder =
@@ -319,11 +338,19 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .setSyscallCache(SyscallCache.NO_CACHE)
             .setDiffAwarenessFactories(diffAwarenessFactories)
             .setRepositoryHelpersHolder(getRepositoryHelpersHolder())
+            .setGlobUnderSingleDep(globUnderSingleDep)
             .build();
     if (usesInliningBzlLoadFunction()) {
       injectInliningBzlLoadFunction(skyframeExecutor, ruleClassProvider, directories);
+    } else {
+      // As of 05/21/2024, SerializationCheckingGraph does not deserialize analysis phase objects
+      // from inline bzl correctly.
+      //
+      // The SerializationCheckingGraph assumes that objects that are exported from a given .bzl
+      // file can be looked up later as a global symbol in the corresponding BzlLoadValue and that
+      // the BzlLoadValue is present in Skyframe. This isn't true when .bzl inlining is used.
+      SkyframeExecutorTestHelper.process(skyframeExecutor);
     }
-    SkyframeExecutorTestHelper.process(skyframeExecutor);
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
     packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
@@ -352,24 +379,25 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return null;
   }
 
-  private static void injectInliningBzlLoadFunction(
+  private void injectInliningBzlLoadFunction(
       SkyframeExecutor skyframeExecutor,
       RuleClassProvider ruleClassProvider,
       BlazeDirectories directories) {
     ImmutableMap<SkyFunctionName, SkyFunction> skyFunctions =
         ((InMemoryMemoizingEvaluator) skyframeExecutor.getEvaluator()).getSkyFunctionsForTesting();
-    BzlLoadFunction bzlLoadFunction =
+    inliningBzlLoadFunction =
         BzlLoadFunction.createForInlining(
             ruleClassProvider,
             directories,
             // Use a cache size of 2 for testing to balance coverage for where loads are present and
             // aren't present in the cache.
             /* bzlLoadValueCacheSize= */ 2);
-    bzlLoadFunction.resetInliningCache();
+    // The builtins should be empty since this was just created but reset it anyway to be sure.
+    inliningBzlLoadFunction.resetInliningCacheAndBuiltinsForTesting();
     // This doesn't override the BZL_LOAD -> BzlLoadFunction mapping, but nothing besides
     // PackageFunction should be requesting that key while using the inlining code path.
     ((PackageFunction) skyFunctions.get(SkyFunctions.PACKAGE))
-        .setBzlLoadFunctionForInliningForTesting(bzlLoadFunction);
+        .setBzlLoadFunctionForInliningForTesting(inliningBzlLoadFunction);
   }
 
   /**
@@ -391,6 +419,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected void initializeMockClient() throws IOException {
     analysisMock.setupMockClient(mockToolsConfig);
     analysisMock.setupMockWorkspaceFiles(directories.getEmbeddedBinariesRoot());
+    analysisMock.setupPrelude(mockToolsConfig);
   }
 
   protected AnalysisMock getAnalysisMock() {
@@ -434,22 +463,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected BuildOptions createBuildOptions(String... args)
       throws OptionsParsingException, InvalidConfigurationException {
-    ImmutableList.Builder<String> allArgs = new ImmutableList.Builder<>();
-
-    // Add standard flags.
-
-    // TODO(dmarting): Add --stamp option only to test that requires it.
-    allArgs.add("--stamp"); // Stamp is now defaulted to false.
-    allArgs.add("--experimental_extended_sanity_checks");
-    // Always default to k8, even on mac and windows. Tests that need different cpu should set it
-    // using {@link useConfiguration()} explicitly.
-    allArgs.add("--cpu=k8");
-    allArgs.add("--host_cpu=k8");
-
-    // Now the flags from the test.
-    allArgs.add(args);
-
-    return skyframeExecutor.createBuildOptionsForTesting(reporter, allArgs.build());
+    ImmutableList<String> allArgs = ImmutableList.copyOf(args);
+    return skyframeExecutor.createBuildOptionsForTesting(reporter, allArgs);
   }
 
   protected Target getTarget(String label)
@@ -511,11 +526,13 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected void setPackageOptions(String... options) throws Exception {
     packageOptions = parsePackageOptions(options);
     setUpSkyframe();
+    invalidatePackages(/* alsoConfigs= */ false);
   }
 
   protected void setBuildLanguageOptions(String... options) throws Exception {
     buildLanguageOptions = parseBuildLanguageOptions(options);
     setUpSkyframe();
+    invalidatePackages(/* alsoConfigs= */ false);
   }
 
   private static PackageOptions parsePackageOptions(String... options) throws Exception {
@@ -525,7 +542,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return parser.getOptions(PackageOptions.class);
   }
 
-  private BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
+  protected BuildLanguageOptions parseBuildLanguageOptions(String... options) throws Exception {
     OptionsParser parser =
         OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
     parser.parse(getDefaultBuildLanguageOptions());
@@ -535,9 +552,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
 
   protected List<String> getDefaultBuildLanguageOptions() throws Exception {
     ImmutableList.Builder<String> ans = ImmutableList.builder();
-    if (!analysisMock.isThisBazel()) {
-      ans.add("--experimental_google_legacy_api"); // For starlark java_binary;
-    }
+    ans.addAll(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     ans.add("--enable_bzlmod");
     return ans.build();
   }
@@ -551,12 +566,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     return skyframeExecutor.getPackageManager();
   }
 
+  /**
+   * Invalidates all existing packages, clears the cache for inlined bzl loads (including builtins),
+   * and invalidates configurations.
+   */
   protected void invalidatePackages() throws InterruptedException, AbruptExitException {
     invalidatePackages(true);
   }
 
   /**
-   * Invalidates all existing packages. Optionally invalidates configurations too.
+   * Invalidates all existing packages and clears the cache for inlined bzl loads (including
+   * builtins). Optionally also invalidates configurations.
    *
    * <p>Tests should invalidate both unless they have specific reason not to.
    */
@@ -564,6 +584,9 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throws InterruptedException, AbruptExitException {
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
+    if (inliningBzlLoadFunction != null) {
+      inliningBzlLoadFunction.resetInliningCacheAndBuiltinsForTesting();
+    }
     if (alsoConfigs) {
       try {
         // Also invalidate all configurations. This is important: by invalidating all files we
@@ -822,10 +845,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       throws Exception {
     StarlarkProvider.Key key =
         new StarlarkProvider.Key(
-            getTarget(target.getLabel())
-                .getAssociatedRule()
-                .getRuleClassObject()
-                .getRuleDefinitionEnvironmentLabel(),
+            keyForBuild(
+                getTarget(target.getLabel())
+                    .getAssociatedRule()
+                    .getRuleClassObject()
+                    .getRuleDefinitionEnvironmentLabel()),
             providerSymbol);
     return (StarlarkInfo) target.get(key);
   }
@@ -847,8 +871,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   /** Locates the first parameter file used by the action and returns its command line. */
   @Nullable
   protected final CommandLine paramFileCommandLineForAction(Action action) {
-    if (action instanceof SpawnAction) {
-      CommandLines commandLines = ((SpawnAction) action).getCommandLines();
+    if (action instanceof SpawnAction spawnAction) {
+      CommandLines commandLines = spawnAction.getCommandLines();
       for (CommandLineAndParamFileInfo pair : commandLines.unpack()) {
         if (pair.paramFileInfo != null) {
           return pair.commandLine;
@@ -883,8 +907,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   @Nullable
   protected final String paramFileStringContentsForAction(Action action)
       throws CommandLineExpansionException, InterruptedException, IOException {
-    if (action instanceof SpawnAction) {
-      CommandLines commandLines = ((SpawnAction) action).getCommandLines();
+    if (action instanceof SpawnAction spawnAction) {
+      CommandLines commandLines = spawnAction.getCommandLines();
       for (CommandLineAndParamFileInfo pair : commandLines.unpack()) {
         if (pair.paramFileInfo != null) {
           ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -906,8 +930,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     for (Artifact input : action.getInputs().toList()) {
       if (!(input instanceof SpecialArtifact)) {
         Action generatingAction = getGeneratingAction(input);
-        if (generatingAction instanceof ParameterFileWriteAction) {
-          return (ParameterFileWriteAction) generatingAction;
+        if (generatingAction instanceof ParameterFileWriteAction parameterFileWriteAction) {
+          return parameterFileWriteAction;
         }
       }
     }
@@ -1094,8 +1118,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
    */
   protected Artifact getArtifact(String label) throws LabelSyntaxException {
     ConfiguredTarget target = getConfiguredTarget(label, targetConfig);
-    if (target instanceof FileConfiguredTarget) {
-      return ((FileConfiguredTarget) target).getArtifact();
+    if (target instanceof FileConfiguredTarget fileConfiguredTarget) {
+      return fileConfiguredTarget.getArtifact();
     } else {
       return getFilesToBuild(target).getSingleton();
     }
@@ -1410,8 +1434,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       } catch (InterruptedException e) {
         throw new IllegalStateException(e);
       }
-      if (skyValue instanceof ActionLookupValue) {
-        for (ActionAnalysisMetadata action : ((ActionLookupValue) skyValue).getActions()) {
+      if (skyValue instanceof ActionLookupValue actionLookupValue) {
+        for (ActionAnalysisMetadata action : actionLookupValue.getActions()) {
           for (Artifact output : action.getOutputs()) {
             if (output.getRootRelativePath().equals(rootRelativePath)
                 && output.getRoot().equals(root)) {
@@ -1812,6 +1836,14 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
             .collect(toImmutableList());
   }
 
+  protected ImmutableList<Action> getActions(String label, String mnemonic) throws Exception {
+    return ((RuleConfiguredTarget) getConfiguredTarget(label))
+        .getActions().stream()
+            .map(Action.class::cast)
+            .filter(action -> action.getMnemonic().equals(mnemonic))
+            .collect(toImmutableList());
+  }
+
   protected ImmutableList<Action> getActions(String label) throws Exception {
     return ((RuleConfiguredTarget) getConfiguredTarget(label))
         .getActions().stream().map(Action.class::cast).collect(toImmutableList());
@@ -2023,7 +2055,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
   protected static String getErrorMsgWrongAttributeValue(String value, String... expected) {
     return String.format(
         "has to be one of %s instead of '%s'",
-        StringUtil.joinEnglishList(ImmutableSet.copyOf(expected), "or", "'"), value);
+        StringUtil.joinEnglishListSingleQuoted(ImmutableSet.copyOf(expected)), value);
   }
 
   protected static String getErrorMsgMandatoryProviderMissing(
@@ -2167,26 +2199,24 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
   }
 
-  protected Iterable<String> baselineCoverageArtifactBasenames(ConfiguredTarget target)
+  protected ImmutableList<String> baselineCoverageArtifactBasenames(ConfiguredTarget target)
       throws Exception {
+    Artifact baselineCoverage =
+        target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR).getBaselineCoverageArtifact();
+    if (baselineCoverage == null) {
+      return ImmutableList.of();
+    }
     ImmutableList.Builder<String> basenames = ImmutableList.builder();
-    for (Artifact baselineCoverage :
-        target
-            .get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR)
-            .getBaselineCoverageArtifacts()
-            .toList()) {
-      BaselineCoverageAction baselineAction =
-          (BaselineCoverageAction) getGeneratingAction(baselineCoverage);
-      ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-      baselineAction
-          .newDeterministicWriter(ActionsTestUtil.createContext(reporter))
-          .writeOutputFile(bytes);
+    var baselineCoverageAction = (BaselineCoverageAction) getGeneratingAction(baselineCoverage);
+    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+    baselineCoverageAction
+        .newDeterministicWriter(ActionsTestUtil.createContext(reporter))
+        .writeOutputFile(bytes);
 
-      for (String line : Splitter.on('\n').split(bytes.toString(UTF_8))) {
-        if (line.startsWith("SF:")) {
-          String basename = line.substring(line.lastIndexOf('/') + 1);
-          basenames.add(basename);
-        }
+    for (String line : Splitter.on('\n').split(bytes.toString(UTF_8))) {
+      if (line.startsWith("SF:")) {
+        String basename = line.substring(line.lastIndexOf('/') + 1);
+        basenames.add(basename);
       }
     }
     return basenames.build();
@@ -2257,8 +2287,8 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     ExtraAction extraAction = null;
 
     for (Action action : actions) {
-      if (action instanceof ExtraAction) {
-        extraAction = (ExtraAction) action;
+      if (action instanceof ExtraAction loopAction) {
+        extraAction = loopAction;
         break;
       }
     }

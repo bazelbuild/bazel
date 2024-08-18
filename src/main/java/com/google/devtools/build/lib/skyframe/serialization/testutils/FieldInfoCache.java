@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.testutils;
 
-import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
-import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
-
 import com.google.common.collect.ImmutableList;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -25,23 +24,45 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /** A cache for {@link FieldInfo}. */
 final class FieldInfoCache {
-  private static final ConcurrentHashMap<Class<?>, ImmutableList<FieldInfo>> fieldInfoCache =
+  private static final ConcurrentHashMap<Class<?>, ClassInfo> classInfoCache =
       new ConcurrentHashMap<>();
 
+  private static final ClosedClassInfo CLOSED_CLASS_INFO = new ClosedClassInfo();
+
+  /**
+   * Returns the {@link FieldInfo} list for the given {@code type}.
+   *
+   * <p>{@code type} must be in an accessible module or this will error.
+   */
   static ImmutableList<FieldInfo> getFieldInfo(Class<?> type) {
-    return fieldInfoCache.computeIfAbsent(type, FieldInfoCache::getFieldInfoUncached);
+    return switch (getClassInfo(type)) {
+      case FieldInfoList(ImmutableList<FieldInfo> fieldInfo) -> fieldInfo;
+      case ClassInfo unused ->
+          throw new IllegalStateException("type in different, unopened module: " + type);
+    };
   }
 
-  static sealed interface FieldInfo permits PrimitiveInfo, ObjectInfo {}
+  static ClassInfo getClassInfo(Class<?> type) {
+    return classInfoCache.computeIfAbsent(type, FieldInfoCache::getClassInfoUncached);
+  }
+
+  sealed interface ClassInfo permits ClosedClassInfo, FieldInfoList {}
+
+  record FieldInfoList(ImmutableList<FieldInfo> fields) implements ClassInfo {}
+
+  /** A class in a different module without add-opens where reflection is blocked. */
+  record ClosedClassInfo() implements ClassInfo {}
+
+  sealed interface FieldInfo permits PrimitiveInfo, ObjectInfo {}
 
   private abstract static class AbstractFieldInfo {
     final String name;
-    final long offset;
+    final VarHandle handle;
 
-    private AbstractFieldInfo(Field field) {
+    private AbstractFieldInfo(Field field, MethodHandles.Lookup privateLookup) {
       this.name = field.getName();
       try {
-        this.offset = getFieldOffset(field.getDeclaringClass(), name);
+        this.handle = privateLookup.unreflectVarHandle(field);
       } catch (ReflectiveOperationException e) {
         throw new IllegalStateException(e);
       }
@@ -49,40 +70,18 @@ final class FieldInfoCache {
   }
 
   static final class PrimitiveInfo extends AbstractFieldInfo implements FieldInfo {
-    private final Class<?> type;
-
-    private PrimitiveInfo(Field field) {
-      super(field);
-      this.type = field.getType();
+    private PrimitiveInfo(Field field, MethodHandles.Lookup lookup) {
+      super(field, lookup);
     }
 
     void output(Object parent, StringBuilder out) {
-      out.append(name).append('=');
-      if (type.equals(boolean.class)) {
-        out.append(unsafe().getBoolean(parent, offset));
-      } else if (type.equals(byte.class)) {
-        out.append(unsafe().getByte(parent, offset));
-      } else if (type.equals(short.class)) {
-        out.append(unsafe().getShort(parent, offset));
-      } else if (type.equals(char.class)) {
-        out.append(unsafe().getChar(parent, offset));
-      } else if (type.equals(int.class)) {
-        out.append(unsafe().getInt(parent, offset));
-      } else if (type.equals(long.class)) {
-        out.append(unsafe().getLong(parent, offset));
-      } else if (type.equals(float.class)) {
-        out.append(unsafe().getFloat(parent, offset));
-      } else if (type.equals(double.class)) {
-        out.append(unsafe().getDouble(parent, offset));
-      } else {
-        throw new UnsupportedOperationException("Unexpected primitive type: " + type);
-      }
+      out.append(name).append('=').append(handle.get(parent));
     }
   }
 
   static final class ObjectInfo extends AbstractFieldInfo implements FieldInfo {
-    private ObjectInfo(Field field) {
-      super(field);
+    private ObjectInfo(Field field, MethodHandles.Lookup privateLookup) {
+      super(field, privateLookup);
     }
 
     String name() {
@@ -90,13 +89,22 @@ final class FieldInfoCache {
     }
 
     Object getFieldValue(Object parent) {
-      return unsafe().getObject(parent, offset);
+      return handle.get(parent);
     }
   }
 
-  private static ImmutableList<FieldInfo> getFieldInfoUncached(Class<?> type) {
+  private static ClassInfo getClassInfoUncached(Class<?> type) {
+    MethodHandles.Lookup baseLookup = MethodHandles.lookup();
+
     var fieldInfo = ImmutableList.<FieldInfo>builder();
     for (Class<?> next = type; next != null; next = next.getSuperclass()) {
+      MethodHandles.Lookup privateLookup;
+      try {
+        privateLookup = MethodHandles.privateLookupIn(next, baseLookup);
+      } catch (ReflectiveOperationException e) {
+        // This can happen if the class is in a different module without add-opens.
+        return CLOSED_CLASS_INFO;
+      }
       Field[] declaredFields = next.getDeclaredFields();
       var classFields = new ArrayList<Field>(declaredFields.length);
       for (Field field : next.getDeclaredFields()) {
@@ -116,13 +124,13 @@ final class FieldInfoCache {
               field -> {
                 Class<?> fieldType = field.getType();
                 if (fieldType.isPrimitive()) {
-                  return new PrimitiveInfo(field);
+                  return new PrimitiveInfo(field, privateLookup);
                 }
-                return new ObjectInfo(field);
+                return new ObjectInfo(field, privateLookup);
               })
           .forEach(fieldInfo::add);
     }
-    return fieldInfo.build().reverse();
+    return new FieldInfoList(fieldInfo.build().reverse());
   }
 
   private FieldInfoCache() {}

@@ -208,24 +208,6 @@ public final class PackageFactory {
     return ruleClassProvider;
   }
 
-  /**
-   * Retrieves the {@link Package.Builder} from the given {@link StarlarkThread}, or throws {@link
-   * EvalException} if unavailable.
-   */
-  // TODO(#19922): The name is a holdover from when we had PackageContext. Migrate this to a static
-  // fromOrFail method on Package.Builder or a new parent interface of it.
-  public static Package.Builder getContext(StarlarkThread thread) throws EvalException {
-    Package.Builder value = Package.Builder.fromOrNull(thread);
-    if (value == null) {
-      // if PackageBuilder is missing, we're not called from a BUILD file. This happens if someone
-      // uses native.some_func() in the wrong place.
-      throw Starlark.errorf(
-          "The native module can be accessed only from a BUILD thread. "
-              + "Wrap the function in a macro and call it from a BUILD file");
-    }
-    return value;
-  }
-
   public Package.Builder newExternalPackageBuilder(
       WorkspaceFileKey workspaceFileKey,
       String workspaceName,
@@ -252,6 +234,7 @@ public final class PackageFactory {
       Optional<String> associatedModuleVersion,
       StarlarkSemantics starlarkSemantics,
       RepositoryMapping repositoryMapping,
+      RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
       @Nullable ImmutableMap<Location, String> generatorMap,
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
@@ -265,6 +248,7 @@ public final class PackageFactory {
         associatedModuleVersion,
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
         repositoryMapping,
+        mainRepositoryMapping,
         cpuBoundSemaphore,
         packageOverheadEstimator,
         generatorMap,

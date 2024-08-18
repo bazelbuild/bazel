@@ -58,10 +58,8 @@ filegroup(
 )
 
 filegroup(
-    name = "workspace-file",
+    name = "workspace-deps-bzl",
     srcs = [
-        ":WORKSPACE",
-        ":distdir.bzl",
         ":workspace_deps.bzl",
     ],
     visibility = [
@@ -84,7 +82,7 @@ genrule(
     cmd = "\n".join([
         "cp $< $@",
         # Comment out the android repos if they exist.
-        "sed -i.bak -e 's/^android_sdk_repository/# android_sdk_repository/' -e 's/^android_ndk_repository/# android_ndk_repository/' $@",
+        "sed -i.bak -e 's/^android_sdk_repository/# android_sdk_repository/' $@",
     ]),
 )
 
@@ -124,7 +122,11 @@ pkg_tar(
         "@zstd-jni//:zstd-jni",
     ],
     package_dir = "derived/jars",
-    strip_prefix = "external",
+    remap_paths = {
+        "external/": "",
+        "../": "",
+    },
+    strip_prefix = ".",
     # Public but bazel-only visibility.
     visibility = ["//:__subpackages__"],
 )
@@ -180,23 +182,29 @@ pkg_tar(
 pkg_tar(
     name = "platforms-srcs",
     srcs = ["@platforms//:srcs"],
-    strip_prefix = "external",
+    remap_paths = {
+        "external/": "",
+        "../": "",
+    },
+    strip_prefix = ".",
     visibility = ["//:__subpackages__"],
 )
 
 pkg_tar(
     name = "rules_java-srcs",
     srcs = ["@rules_java//:distribution"],
-    strip_prefix = "external",
+    remap_paths = {
+        "external/": "",
+        "../": "",
+    },
+    strip_prefix = ".",
     visibility = ["//:__subpackages__"],
 )
 
 write_file(
     name = "gen_maven_repo_name",
     out = "MAVEN_CANONICAL_REPO_NAME",
-    # TODO: Use this instead after building with Bazel 7.1.0 or later.
-    #    content = [get_canonical_repo_name("@maven")],
-    content = ["rules_jvm_external~~maven~maven"],
+    content = [get_canonical_repo_name("@maven")],
 )
 
 # The @maven repository is created by maven_install from rules_jvm_external.
@@ -205,7 +213,13 @@ pkg_tar(
     name = "maven-srcs",
     srcs = ["@maven//:srcs"] + ["MAVEN_CANONICAL_REPO_NAME"],
     package_dir = "derived/maven",
-    strip_prefix = "external/" + get_canonical_repo_name("@maven"),
+    remap_paths = {
+        # We need the repo names according to "builder bazel" (instead of "bazel being built") here.
+        # Remove the `replace` parts after building with 7.3.0.
+        "external/" + get_canonical_repo_name("@maven").replace("+", "~") + "/": "",
+        "../" + get_canonical_repo_name("@maven").replace("+", "~") + "/": "",
+    },
+    strip_prefix = ".",
     visibility = ["//:__subpackages__"],
 )
 
@@ -228,7 +242,6 @@ genrule(
         ":bootstrap-jars",
         ":maven-srcs",
         "//src:derived_java_srcs",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
         "@bootstrap_repo_cache//:archives.tar",
     ],
     outs = ["bazel-distfile.zip"],
@@ -247,7 +260,6 @@ genrule(
         ":rules_java-srcs",
         ":maven-srcs",
         "//src:derived_java_srcs",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:bootstrap_autocodec.tar",
         "@bootstrap_repo_cache//:archives.tar",
     ],
     outs = ["bazel-distfile.tar"],

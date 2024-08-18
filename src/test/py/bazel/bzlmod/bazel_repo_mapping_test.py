@@ -166,12 +166,12 @@ class BazelRepoMappingTest(test_base.TestBase):
       with open(self.Path(path), 'r') as f:
         self.assertEqual(
             f.read().strip(),
-            """,foo,foo~
+            """,foo,foo+
 ,me,_main
 ,me_ws,_main
-foo~,foo,foo~
-foo~,quux,quux~1.0
-quux~1.0,quux,quux~1.0""",
+foo+,foo,foo+
+foo+,quux,quux+1.0
+quux+1.0,quux,quux+1.0""",
         )
     with open(self.Path('bazel-bin/me.runfiles_manifest')) as f:
       self.assertIn('_repo_mapping ', f.read())
@@ -183,18 +183,18 @@ quux~1.0,quux,quux~1.0""",
         '--test_output=errors',
     ])
 
-    paths = ['bazel-bin/external/bar~/bar.repo_mapping']
+    paths = ['bazel-bin/external/bar+/bar.repo_mapping']
     if not self.IsWindows():
-      paths.append('bazel-bin/external/bar~/bar.runfiles/_repo_mapping')
+      paths.append('bazel-bin/external/bar+/bar.runfiles/_repo_mapping')
     for path in paths:
       with open(self.Path(path), 'r') as f:
         self.assertEqual(
             f.read().strip(),
-            """bar~,bar,bar~
-bar~,quux,quux~2.0
-quux~2.0,quux,quux~2.0""",
+            """bar+,bar,bar+
+bar+,quux,quux+2.0
+quux+2.0,quux,quux+2.0""",
         )
-    with open(self.Path('bazel-bin/external/bar~/bar.runfiles_manifest')) as f:
+    with open(self.Path('bazel-bin/external/bar+/bar.runfiles_manifest')) as f:
       self.assertIn('_repo_mapping ', f.read())
 
   def testBashRunfilesLibraryRepoMapping(self):

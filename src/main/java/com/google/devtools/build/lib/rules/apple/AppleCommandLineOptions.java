@@ -15,25 +15,21 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelConverter;
 import com.google.devtools.build.lib.analysis.config.CoreOptionConverters.LabelListConverter;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
-import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.util.CPU;
+import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.protobuf.CodedInputStream;
-import com.google.protobuf.CodedOutputStream;
-import java.io.IOException;
 import java.util.List;
 
 /** Command-line options for building for Apple platforms. */
@@ -209,14 +205,14 @@ public class AppleCommandLineOptions extends FragmentOptions {
 
   @Option(
       name = "apple_platform_type",
-      defaultValue = "MACOS",
+      defaultValue = "macos",
       converter = PlatformTypeConverter.class,
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
       help =
           "Don't set this value from the command line - it is derived from other flags and "
               + "configuration transitions derived from rule attributes")
-  public PlatformType applePlatformType;
+  public String applePlatformType;
 
   @Option(
     name = "apple_split_cpu",
@@ -364,21 +360,21 @@ public class AppleCommandLineOptions extends FragmentOptions {
   public DottedVersion getMinimumOsVersion() {
     DottedVersion.Option option;
     switch (applePlatformType) {
-      case IOS:
-      case CATALYST:
+      case PlatformType.IOS:
+      case PlatformType.CATALYST:
         option = iosMinimumOs;
         break;
-      case MACOS:
+      case PlatformType.MACOS:
         option = macosMinimumOs;
         break;
-      case TVOS:
+      case PlatformType.TVOS:
         option = tvosMinimumOs;
         break;
-      case VISIONOS:
+      case PlatformType.VISIONOS:
         // TODO: Replace with CppOptions.minimumOsVersion
         option = DottedVersion.option(DottedVersion.fromStringUnchecked("1.0"));
         break;
-      case WATCHOS:
+      case PlatformType.WATCHOS:
         option = watchosMinimumOs;
         break;
       default:
@@ -386,16 +382,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
     }
 
     return DottedVersion.maybeUnwrap(option);
-  }
-
-  void serialize(SerializationContext context, CodedOutputStream out)
-      throws IOException, SerializationException {
-    context.serialize(this, out);
-  }
-
-  static AppleCommandLineOptions deserialize(DeserializationContext context, CodedInputStream in)
-      throws IOException, SerializationException {
-    return context.deserialize(in);
   }
 
   /** Converter for the Apple configuration distinguisher. */
@@ -406,10 +392,18 @@ public class AppleCommandLineOptions extends FragmentOptions {
     }
   }
 
-  /** Flag converter for {@link PlatformType}. */
-  public static final class PlatformTypeConverter extends EnumConverter<PlatformType> {
-    public PlatformTypeConverter() {
-      super(PlatformType.class, "Apple platform type");
+  /** Flag converter for PlatformType string flag, just converting to lowercase. */
+  public static final class PlatformTypeConverter extends Converter.Contextless<String> {
+    public PlatformTypeConverter() {}
+
+    @Override
+    public String convert(String input) {
+      return Ascii.toLowerCase(input);
+    }
+
+    @Override
+    public final String getTypeDescription() {
+      return "a string";
     }
   }
 }

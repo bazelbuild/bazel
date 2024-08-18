@@ -14,8 +14,10 @@
 
 #include "src/main/cpp/rc_file.h"
 
-#include <algorithm>
+#include <memory>
+#include <string>
 #include <utility>
+#include <vector>
 
 #include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
@@ -23,47 +25,47 @@
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
+#include "absl/algorithm/container.h"
+#include "absl/memory/memory.h"
+#include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 
 namespace blaze {
 
-using std::deque;
-using std::string;
-using std::vector;
-
-static constexpr const char* kCommandImport = "import";
-static constexpr const char* kCommandTryImport = "try-import";
-
-RcFile::RcFile(string filename, const WorkspaceLayout* workspace_layout,
-               string workspace)
-    : filename_(std::move(filename)),
-      workspace_layout_(workspace_layout),
-      workspace_(std::move(workspace)) {}
+static constexpr absl::string_view kCommandImport = "import";
+static constexpr absl::string_view kCommandTryImport = "try-import";
 
 /*static*/ std::unique_ptr<RcFile> RcFile::Parse(
-    std::string filename, const WorkspaceLayout* workspace_layout,
-    std::string workspace, ParseError* error, std::string* error_text) {
-  std::unique_ptr<RcFile> rcfile(new RcFile(
-      std::move(filename), workspace_layout, std::move(workspace)));
-  deque<string> initial_import_stack = {rcfile->filename_};
-  *error = rcfile->ParseFile(
-      rcfile->filename_, &initial_import_stack, error_text);
+    const std::string& filename, const WorkspaceLayout* workspace_layout,
+    const std::string& workspace, ParseError* error, std::string* error_text) {
+  auto rcfile = absl::WrapUnique(new RcFile());
+  std::vector<std::string> initial_import_stack = {filename};
+  *error = rcfile->ParseFile(filename, workspace, *workspace_layout,
+                             initial_import_stack, error_text);
   return (*error == ParseError::NONE) ? std::move(rcfile) : nullptr;
 }
 
-RcFile::ParseError RcFile::ParseFile(const string& filename,
-                                     deque<string>* import_stack,
-                                     string* error_text) {
+RcFile::ParseError RcFile::ParseFile(const std::string& filename,
+                                     const std::string& workspace,
+                                     const WorkspaceLayout& workspace_layout,
+                                     std::vector<std::string>& import_stack,
+                                     std::string* error_text) {
   BAZEL_LOG(INFO) << "Parsing the RcFile " << filename;
-  string contents;
-  string error_message;
-  if (!blaze_util::ReadFile(filename, &contents, &error_message)) {
-    blaze_util::StringPrintf(error_text,
-        "Unexpected error reading .blazerc file '%s': %s",
-        filename.c_str(), error_message.c_str());
+  std::string contents;
+  if (std::string error_msg;
+      !blaze_util::ReadFile(filename, &contents, &error_msg)) {
+    *error_text = absl::StrFormat(
+        "Unexpected error reading config file '%s': %s", filename, error_msg);
     return ParseError::UNREADABLE_FILE;
   }
   const std::string canonical_filename =
       blaze_util::MakeCanonical(filename.c_str());
+  const absl::string_view workspace_prefix(
+      workspace_layout.WorkspacePrefix, workspace_layout.WorkspacePrefixLength);
 
   int rcfile_index = canonical_rcfile_paths_.size();
   canonical_rcfile_paths_.push_back(canonical_filename);
@@ -72,16 +74,14 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
   blaze_util::Replace("\\\r\n", "", &contents);
   blaze_util::Replace("\\\n", "", &contents);
 
-  vector<string> lines = blaze_util::Split(contents, '\n');
-  for (string& line : lines) {
+  std::vector<std::string> lines = absl::StrSplit(contents, '\n');
+  for (std::string& line : lines) {
     blaze_util::StripWhitespace(&line);
 
     // Check for an empty line.
-    if (line.empty()) {
-      continue;
-    }
+    if (line.empty()) continue;
 
-    vector<string> words;
+    std::vector<std::string> words;
 
     // This will treat "#" as a comment, and properly
     // quote single and double quotes, and treat '\'
@@ -90,64 +90,68 @@ RcFile::ParseError RcFile::ParseFile(const string& filename,
     // dangling backslash escapes and missing end-quotes.
     blaze_util::Tokenize(line, '#', &words);
 
-    if (words.empty()) {
-      // Could happen if line starts with "#"
+    // Could happen if line starts with "#"
+    if (words.empty()) continue;
+
+    const absl::string_view command = words[0];
+    if (command != kCommandImport && command != kCommandTryImport) {
+      for (absl::string_view word : absl::MakeConstSpan(words).subspan(1)) {
+        options_[command].push_back({std::string(word), rcfile_index});
+      }
       continue;
     }
 
-    string command = words[0];
+    if (words.size() != 2) {
+      *error_text = absl::StrFormat(
+          "Invalid import declaration in config file '%s': '%s'",
+          canonical_filename, line);
+      return ParseError::INVALID_FORMAT;
+    }
 
-    if (command == kCommandImport || command == kCommandTryImport) {
-      if (words.size() != 2 ||
-          (words[1].compare(0, workspace_layout_->WorkspacePrefixLength,
-                            workspace_layout_->WorkspacePrefix) == 0 &&
-           !workspace_layout_->WorkspaceRelativizeRcFilePath(workspace_,
-                                                             &words[1]) &&
-           command == kCommandImport)) {
-        blaze_util::StringPrintf(
-            error_text,
-            "Invalid import declaration in .blazerc file '%s': '%s'"
+    std::string& import_filename = words[1];
+    if (absl::StartsWith(import_filename, workspace_prefix)) {
+      const bool could_relativize =
+          workspace_layout.WorkspaceRelativizeRcFilePath(workspace,
+                                                         &import_filename);
+      if (!could_relativize && command == kCommandImport) {
+        *error_text = absl::StrFormat(
+            "Nonexistant path in import declaration in config file '%s': '%s'"
             " (are you in your source checkout/WORKSPACE?)",
-            canonical_filename.c_str(), line.c_str());
+            canonical_filename, line);
         return ParseError::INVALID_FORMAT;
       }
-      if (std::find(import_stack->begin(), import_stack->end(), words[1]) !=
-          import_stack->end()) {
-        string loop;
-        for (const string& imported_rc : *import_stack) {
-          loop += "  " + imported_rc + "\n";
-        }
-        loop += "  " + words[1] + "\n";  // Include the loop.
-        blaze_util::StringPrintf(error_text,
-            "Import loop detected:\n%s", loop.c_str());
-        return ParseError::IMPORT_LOOP;
-      }
+    }
 
-      import_stack->push_back(words[1]);
-      ParseError parse_error = ParseFile(words[1], import_stack, error_text);
-      if (parse_error != ParseError::NONE) {
-        if (parse_error == ParseError::UNREADABLE_FILE &&
-            command == kCommandTryImport) {
-          // For try-import, we ignore it if we couldn't find a file.
-          BAZEL_LOG(INFO) << "Skipped optional import of " << words[1]
-                          << ", the specified rc file either does not exist or "
-                             "is not readable.";
-          *error_text = "";
-        } else {
-          // Files that are there but are malformed or introduce a loop are
-          // still a problem, though, so perpetuate those errors as we would
-          // for a normal import statement.
-          return parse_error;
-        }
+    if (absl::c_linear_search(import_stack, import_filename)) {
+      std::string loop;
+      for (const std::string& imported_rc : import_stack) {
+        absl::StrAppend(&loop, "  ", imported_rc, "\n");
       }
-      import_stack->pop_back();
-    } else {
-      auto words_it = words.begin();
-      words_it++;  // Advance past command.
-      for (; words_it != words.end(); words_it++) {
-        options_[command].push_back({*words_it, rcfile_index});
+      absl::StrAppend(&loop, "  ", import_filename, "\n");  // Include the loop.
+      *error_text = absl::StrCat("Import loop detected:\n", loop);
+      return ParseError::IMPORT_LOOP;
+    }
+
+    import_stack.push_back(import_filename);
+    if (ParseError parse_error =
+            ParseFile(import_filename, workspace, workspace_layout,
+                      import_stack, error_text);
+        parse_error != ParseError::NONE) {
+      if (parse_error == ParseError::UNREADABLE_FILE &&
+          command == kCommandTryImport) {
+        // For try-import, we ignore it if we couldn't find a file.
+        BAZEL_LOG(INFO) << "Skipped optional import of " << import_filename
+                        << ", the specified rc file either does not exist or "
+                           "is not readable.";
+        *error_text = "";
+      } else {
+        // Files that are there but are malformed or introduce a loop are
+        // still a problem, though, so perpetuate those errors as we would
+        // for a normal import statement.
+        return parse_error;
       }
     }
+    import_stack.pop_back();
   }
 
   return ParseError::NONE;

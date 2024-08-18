@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
-import com.google.devtools.build.lib.rules.cpp.CppLinkAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
@@ -491,6 +490,23 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
             + " executable = ctx.attr._nonexecutable_tool[DefaultInfo].files_to_run.executable,",
         /* extraAttributes= */ "",
         /* toolchains= */ "['//rule:toolchain_type_1', '//rule:toolchain_type_2']",
+        /* execGroups= */ "",
+        /* execCompatibleWith= */ "");
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    getConfiguredTarget("//test:custom_rule_name");
+
+    assertNoEvents();
+  }
+
+  @Test
+  public void toolWithFilesToRunExecutable_noToolchains_noError() throws Exception {
+    createCustomRule(
+        /* action= */ "ctx.actions.run",
+        /* actionParameters= */ " executable ="
+            + " ctx.attr._nonexecutable_tool[DefaultInfo].files_to_run.executable,",
+        /* extraAttributes= */ "",
+        /* toolchains= */ "[]",
         /* execGroups= */ "",
         /* execCompatibleWith= */ "");
     useConfiguration("--incompatible_auto_exec_groups");
@@ -1805,10 +1821,9 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         """);
     useConfiguration("--incompatible_auto_exec_groups");
 
-    ImmutableList<Action> actions = getActions("//test:custom_rule_name", CppLinkAction.class);
+    ImmutableList<Action> actions = getActions("//test:custom_rule_name", "CppLink");
 
     assertThat(actions).hasSize(1);
-    assertThat(actions.get(0).getMnemonic()).isEqualTo("CppLink");
     assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }
@@ -1856,10 +1871,9 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         """);
     useConfiguration("--incompatible_auto_exec_groups");
 
-    ImmutableList<Action> actions = getActions("//test:custom_rule_name", CppLinkAction.class);
+    ImmutableList<Action> actions = getActions("//test:custom_rule_name", "CppLink");
 
     assertThat(actions).hasSize(1);
-    assertThat(actions.get(0).getMnemonic()).isEqualTo("CppLink");
     assertThat(actions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }
@@ -1926,14 +1940,10 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
                 .withToolchainTargetConstraints("@@//platforms:constraint_1")
                 .withToolchainExecConstraints("@@//platforms:constraint_1"));
 
-    ImmutableList<Action> actions = getActions("//test:custom_rule_name", CppLinkAction.class);
-    ImmutableList<Action> cppLTOActions =
-        actions.stream()
-            .filter(action -> action.getMnemonic().equals("CppLTOIndexing"))
-            .collect(toImmutableList());
+    ImmutableList<Action> cppLtoActions = getActions("//test:custom_rule_name", "CppLTOIndexing");
 
-    assertThat(cppLTOActions).hasSize(1);
-    assertThat(cppLTOActions.get(0).getOwner().getExecutionPlatform().label())
+    assertThat(cppLtoActions).hasSize(1);
+    assertThat(cppLtoActions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }
 
@@ -1990,10 +2000,9 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     useConfiguration("--incompatible_auto_exec_groups");
 
     ImmutableList<Action> cppCompileActions =
-        getActions("//bazel_internal/test_rules/cc:custom_rule_name", CppCompileAction.class);
+        getActions("//bazel_internal/test_rules/cc:custom_rule_name", "CppLinkstampCompile");
 
     assertThat(cppCompileActions).hasSize(1);
-    assertThat(cppCompileActions.get(0).getMnemonic()).isEqualTo("CppLinkstampCompile");
     assertThat(cppCompileActions.get(0).getOwner().getExecutionPlatform().label())
         .isEqualTo(Label.parseCanonical("//platforms:platform_1"));
   }
@@ -2345,8 +2354,12 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         "test/alias/BUILD",
         """
         alias(
-            name = "alias_toolchain_type",
+            name = "alias_toolchain_type_1",
             actual = "//rule:toolchain_type_1",
+        )
+        alias(
+            name = "alias_toolchain_type_2",
+            actual = "//rule:toolchain_type_2",
         )
         """);
     scratch.file(
@@ -2357,7 +2370,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
         custom_rule = rule(
             implementation = _impl,
-            toolchains = ["//test/alias:alias_toolchain_type"],
+            toolchains = ["//test/alias:alias_toolchain_type_1",
+             "//test/alias:alias_toolchain_type_2"],
             exec_groups = {
                 "custom_exec_group": exec_group(
                     toolchains = ["//rule:toolchain_type_1"],
@@ -2380,12 +2394,18 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
 
     ConfiguredTarget target = getConfiguredTarget("//test:custom_rule_name");
     RuleContext ruleContext = getRuleContext(target);
-    ToolchainInfo realToolchainInfo =
+    ToolchainInfo realToolchainInfo1 =
         ruleContext.getToolchainInfo(Label.parseCanonical("//rule:toolchain_type_1"));
-    ToolchainInfo aliasToolchainInfo =
-        ruleContext.getToolchainInfo(Label.parseCanonical("//test/alias:alias_toolchain_type"));
+    ToolchainInfo aliasToolchainInfo1 =
+        ruleContext.getToolchainInfo(Label.parseCanonical("//test/alias:alias_toolchain_type_1"));
 
-    assertThat(realToolchainInfo).isNotNull();
-    assertThat(realToolchainInfo).isEqualTo(aliasToolchainInfo);
+    assertThat(realToolchainInfo1).isEqualTo(aliasToolchainInfo1);
+
+    ToolchainInfo realToolchainInfo2 =
+        ruleContext.getToolchainInfo(Label.parseCanonical("//rule:toolchain_type_2"));
+    ToolchainInfo aliasToolchainInfo2 =
+        ruleContext.getToolchainInfo(Label.parseCanonical("//test/alias:alias_toolchain_type_2"));
+
+    assertThat(realToolchainInfo2).isEqualTo(aliasToolchainInfo2);
   }
 }

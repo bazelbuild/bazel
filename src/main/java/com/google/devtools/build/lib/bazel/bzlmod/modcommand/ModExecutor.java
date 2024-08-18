@@ -140,7 +140,8 @@ public class ModExecutor {
   }
 
   public void showExtension(
-      ImmutableSet<ModuleExtensionId> extensions, ImmutableSet<ModuleKey> fromUsages) {
+      ImmutableSet<ModuleExtensionId> extensions, ImmutableSet<ModuleKey> fromUsages)
+      throws InvalidArgumentException {
     for (ModuleExtensionId extension : extensions) {
       displayExtension(extension, fromUsages);
     }
@@ -444,7 +445,9 @@ public class ModExecutor {
         if (!presentModules.contains(usage.getKey())) {
           continue;
         }
-        modulesToImportsBuilder.putAll(usage.getKey(), usage.getValue().getImports().values());
+        for (ModuleExtensionUsage.Proxy proxy : usage.getValue().getProxies()) {
+          modulesToImportsBuilder.putAll(usage.getKey(), proxy.getImports().values());
+        }
       }
       resultBuilder.put(extension, modulesToImportsBuilder.build().inverse());
     }
@@ -461,11 +464,16 @@ public class ModExecutor {
   }
 
   /** Helper to display show_extension info. */
-  private void displayExtension(ModuleExtensionId extension, ImmutableSet<ModuleKey> fromUsages) {
+  private void displayExtension(ModuleExtensionId extension, ImmutableSet<ModuleKey> fromUsages)
+      throws InvalidArgumentException {
     printer.printf("## %s:\n", extension.asTargetString());
     printer.println();
     printer.println("Fetched repositories:");
-    // TODO(wyv): if `extension` doesn't exist, we crash. We should report a good error instead!
+    if (!extensionRepoImports.containsKey(extension)) {
+      throw new InvalidArgumentException(
+          String.format(
+              "No extension %s exists in the dependency graph", extension.asTargetString()));
+    }
     ImmutableSortedSet<String> usedRepos =
         ImmutableSortedSet.copyOf(extensionRepoImports.get(extension).keySet());
     ImmutableSortedSet<String> unusedRepos =
@@ -491,9 +499,13 @@ public class ModExecutor {
         continue;
       }
       ModuleExtensionUsage usage = extensionUsages.get(extension, module);
+      // TODO: maybe consider printing each proxy separately? Might be relevant for included
+      //  segments.
       printer.printf(
           "## Usage in %s from %s:%s\n",
-          module, usage.getLocation().file(), usage.getLocation().line());
+          module,
+          usage.getProxies().getFirst().getLocation().file(),
+          usage.getProxies().getFirst().getLocation().line());
       for (Tag tag : usage.getTags()) {
         printer.printf(
             "%s.%s(%s)\n",
@@ -505,12 +517,14 @@ public class ModExecutor {
       }
       printer.printf("use_repo(\n");
       printer.printf("  %s,\n", extension.getExtensionName());
-      for (Entry<String, String> repo : usage.getImports().entrySet()) {
-        printer.printf(
-            "  %s,\n",
-            repo.getKey().equals(repo.getValue())
-                ? String.format("\"%s\"", repo.getKey())
-                : String.format("%s=\"%s\"", repo.getKey(), repo.getValue()));
+      for (ModuleExtensionUsage.Proxy proxy : usage.getProxies()) {
+        for (Entry<String, String> repo : proxy.getImports().entrySet()) {
+          printer.printf(
+              "  %s,\n",
+              repo.getKey().equals(repo.getValue())
+                  ? String.format("\"%s\"", repo.getKey())
+                  : String.format("%s=\"%s\"", repo.getKey(), repo.getValue()));
+        }
       }
       printer.printf(")\n\n");
     }

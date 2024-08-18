@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -217,7 +219,7 @@ public final class RunfilesSupport {
       Runfiles runfiles,
       CommandLine args,
       ActionEnvironment actionEnvironment) {
-    Artifact owningExecutable = Preconditions.checkNotNull(executable);
+    checkNotNull(executable);
     RunfileSymlinksMode runfileSymlinksMode =
         ruleContext.getConfiguration().getRunfileSymlinksMode();
     boolean buildRunfileManifests = ruleContext.getConfiguration().buildRunfileManifests();
@@ -229,7 +231,7 @@ public final class RunfilesSupport {
     if (runUnder != null
         && runUnder.getLabel() != null
         && TargetUtils.isTestRule(ruleContext.getRule())) {
-      TransitiveInfoCollection runUnderTarget = ruleContext.getPrerequisite(":run_under");
+      TransitiveInfoCollection runUnderTarget = ruleContext.getRunUnderPrerequisite();
       runfiles =
           new Runfiles.Builder(
                   ruleContext.getWorkspaceName(),
@@ -238,15 +240,15 @@ public final class RunfilesSupport {
               .merge(runfiles)
               .build();
     }
-    Preconditions.checkState(!runfiles.isEmpty());
+    checkState(!runfiles.isEmpty(), "Empty runfiles");
 
     Artifact repoMappingManifest =
-        createRepoMappingManifestAction(ruleContext, runfiles, owningExecutable);
+        createRepoMappingManifestAction(ruleContext, runfiles, executable);
 
     Artifact runfilesInputManifest;
     Artifact runfilesManifest;
     if (buildRunfileManifests) {
-      runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext, owningExecutable);
+      runfilesInputManifest = createRunfilesInputManifestArtifact(ruleContext, executable);
       runfilesManifest =
           createRunfilesAction(
               ruleContext, runfiles, buildRunfileLinks, runfilesInputManifest, repoMappingManifest);
@@ -255,13 +257,9 @@ public final class RunfilesSupport {
       runfilesManifest = null;
     }
 
-    PathFragment executablePath = owningExecutable.getExecPath();
-    PathFragment runfilesExecPath =
-        executablePath.replaceName(executablePath.getBaseName() + RUNFILES_DIR_EXT);
-
     RunfilesTreeImpl runfilesTree =
         new RunfilesTreeImpl(
-            runfilesExecPath,
+            runfilesDirExecPath(executable),
             runfiles,
             repoMappingManifest,
             buildRunfileLinks,
@@ -270,14 +268,14 @@ public final class RunfilesSupport {
 
     Artifact runfilesMiddleman =
         createRunfilesMiddleman(
-            ruleContext, owningExecutable, runfilesTree, runfilesManifest, repoMappingManifest);
+            ruleContext, executable, runfilesTree, runfilesManifest, repoMappingManifest);
 
     return new RunfilesSupport(
         runfilesTree,
         runfilesInputManifest,
         runfilesManifest,
         runfilesMiddleman,
-        owningExecutable,
+        executable,
         args,
         actionEnvironment);
   }
@@ -342,12 +340,9 @@ public final class RunfilesSupport {
 
   private static Artifact createRunfilesInputManifestArtifact(
       RuleContext context, Artifact owningExecutable) {
-    // The executable may be null for emptyRunfiles
     PathFragment relativePath =
-        (owningExecutable != null)
-            ? owningExecutable.getOutputDirRelativePath(
-                context.getConfiguration().isSiblingRepositoryLayout())
-            : context.getPackageDirectory().getRelative(context.getLabel().getName());
+        owningExecutable.getOutputDirRelativePath(
+            context.getConfiguration().isSiblingRepositoryLayout());
     String basename = relativePath.getBaseName();
     PathFragment inputManifestPath = relativePath.replaceName(basename + INPUT_MANIFEST_EXT);
     return context.getDerivedArtifact(inputManifestPath, context.getBinDirectory());
@@ -489,8 +484,7 @@ public final class RunfilesSupport {
                 inputManifest,
                 runfiles,
                 outputManifest,
-                repoMappingManifest,
-                /*filesetRoot=*/ null));
+                repoMappingManifest));
     return outputManifest;
   }
 
@@ -562,14 +556,33 @@ public final class RunfilesSupport {
         ImmutableMap.copyOf(fixedEnv), ImmutableSet.copyOf(inheritedEnv));
   }
 
-  /** Returns the path of the input manifest of {@code runfilesDir}. */
-  public static Path inputManifestPath(Path runfilesDir) {
-    return FileSystemUtils.replaceExtension(runfilesDir, INPUT_MANIFEST_EXT);
+  /** Returns the exec path of the {@code .runfiles} directory for the given executable. */
+  public static PathFragment runfilesDirExecPath(Artifact executable) {
+    PathFragment executablePath = executable.getExecPath();
+    return executablePath.replaceName(executablePath.getBaseName() + RUNFILES_DIR_EXT);
   }
 
-  /** Returns the path of the output manifest of {@code runfilesDir}. */
-  public static Path outputManifestPath(Path runfilesDir) {
-    return runfilesDir.getRelative(OUTPUT_MANIFEST_BASENAME);
+  /**
+   * Returns the exec path of the corresponding {@code .runfiles_manifest} file for the given {@code
+   * .runfiles} directory.
+   *
+   * <p>The input manifest is produced by {@link SourceManifestAction} and is an input to {@link
+   * SymlinkTreeAction}.
+   */
+  public static PathFragment inputManifestExecPath(PathFragment runfilesDirExecPath) {
+    return FileSystemUtils.replaceExtension(runfilesDirExecPath, INPUT_MANIFEST_EXT);
+  }
+
+  /**
+   * Returns the exec path of the corresponding {@code MANIFEST} file for the given {@code
+   * .runfiles} directory.
+   *
+   * <p>The output manifest is a symlink to the {@linkplain #inputManifestExecPath input manifest}.
+   * It is located in the {@code .runfiles} directory and is the output of {@link
+   * SymlinkTreeAction}.
+   */
+  public static PathFragment outputManifestExecPath(PathFragment runfilesDirExecPath) {
+    return runfilesDirExecPath.getRelative(OUTPUT_MANIFEST_BASENAME);
   }
 
   @Nullable

@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
@@ -45,13 +46,14 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.SimpleSpawn;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.clock.JavaClock;
@@ -75,13 +77,14 @@ import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
+import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -98,6 +101,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.invocation.InvocationOnMock;
 import org.mockito.stubbing.Answer;
@@ -118,7 +122,7 @@ public class RemoteSpawnCacheTest {
   private Path execRoot;
   private TempPathGenerator tempPathGenerator;
   private SimpleSpawn simpleSpawn;
-  private FakeActionInputFileCache fakeFileCache;
+  private SpawnExecutionContext simplePolicy;
   @Mock private RemoteCache remoteCache;
   private FileOutErr outErr;
 
@@ -127,104 +131,103 @@ public class RemoteSpawnCacheTest {
   private Reporter reporter;
   private RemotePathResolver remotePathResolver;
 
-  private final SpawnExecutionContext simplePolicy =
-      new SpawnExecutionContext() {
-        @Nullable private com.google.devtools.build.lib.exec.Protos.Digest digest;
+  private static SpawnExecutionContext createSpawnExecutionContext(
+      Spawn spawn, Path execRoot, FakeActionInputFileCache fakeFileCache, FileOutErr outErr) {
+    return new SpawnExecutionContext() {
+      @Nullable private com.google.devtools.build.lib.exec.Protos.Digest digest;
 
-        @Override
-        public int getId() {
-          return 0;
-        }
+      @Override
+      public int getId() {
+        return 0;
+      }
 
-        @Override
-        public void setDigest(com.google.devtools.build.lib.exec.Protos.Digest digest) {
-          checkState(this.digest == null);
-          this.digest = digest;
-        }
+      @Override
+      public void setDigest(com.google.devtools.build.lib.exec.Protos.Digest digest) {
+        checkState(this.digest == null);
+        this.digest = digest;
+      }
 
-        @Override
-        @Nullable
-        public com.google.devtools.build.lib.exec.Protos.Digest getDigest() {
-          return digest;
-        }
+      @Override
+      @Nullable
+      public com.google.devtools.build.lib.exec.Protos.Digest getDigest() {
+        return digest;
+      }
 
-        @Override
-        public ListenableFuture<Void> prefetchInputs() {
-          return immediateVoidFuture();
-        }
+      @Override
+      public ListenableFuture<Void> prefetchInputs() {
+        return immediateVoidFuture();
+      }
 
-        @Override
-        public void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr) {}
+      @Override
+      public void lockOutputFiles(int exitCode, String errorMessage, FileOutErr outErr) {}
 
-        @Override
-        public boolean speculating() {
-          return false;
-        }
+      @Override
+      public boolean speculating() {
+        return false;
+      }
 
-        @Override
-        public InputMetadataProvider getInputMetadataProvider() {
-          return fakeFileCache;
-        }
+      @Override
+      public InputMetadataProvider getInputMetadataProvider() {
+        return fakeFileCache;
+      }
 
-        @Override
-        public ArtifactPathResolver getPathResolver() {
-          return ArtifactPathResolver.forExecRoot(execRoot);
-        }
+      @Override
+      public ArtifactPathResolver getPathResolver() {
+        return ArtifactPathResolver.forExecRoot(execRoot);
+      }
 
-        @Override
-        public ArtifactExpander getArtifactExpander() {
-          throw new UnsupportedOperationException();
-        }
+      @Override
+      public ArtifactExpander getArtifactExpander() {
+        throw new UnsupportedOperationException();
+      }
 
-        @Override
-        public SpawnInputExpander getSpawnInputExpander() {
-          return new SpawnInputExpander(execRoot);
-        }
+      @Override
+      public SpawnInputExpander getSpawnInputExpander() {
+        return new SpawnInputExpander(execRoot);
+      }
 
-        @Override
-        public Duration getTimeout() {
-          return Duration.ZERO;
-        }
+      @Override
+      public Duration getTimeout() {
+        return Duration.ZERO;
+      }
 
-        @Override
-        public FileOutErr getFileOutErr() {
-          return outErr;
-        }
+      @Override
+      public FileOutErr getFileOutErr() {
+        return outErr;
+      }
 
-        @Override
-        public SortedMap<PathFragment, ActionInput> getInputMapping(
-            PathFragment baseDirectory, boolean willAccessRepeatedly)
-            throws ForbiddenActionInputException {
-          return getSpawnInputExpander()
-              .getInputMapping(
-                  simpleSpawn,
-                  treeArtifact -> ImmutableSortedSet.of(),
-                  fakeFileCache,
-                  baseDirectory);
-        }
+      @Override
+      public SortedMap<PathFragment, ActionInput> getInputMapping(
+          PathFragment baseDirectory, boolean willAccessRepeatedly)
+          throws ForbiddenActionInputException {
+        return getSpawnInputExpander()
+            .getInputMapping(
+                spawn, treeArtifact -> ImmutableSortedSet.of(), fakeFileCache, baseDirectory);
+      }
 
-        @Override
-        public void report(ProgressStatus progress) {}
+      @Override
+      public void report(ProgressStatus progress) {}
 
-        @Override
-        public boolean isRewindingEnabled() {
-          return false;
-        }
+      @Override
+      public boolean isRewindingEnabled() {
+        return false;
+      }
 
-        @Override
-        public void checkForLostInputs() {}
+      @Override
+      public void checkForLostInputs() {}
 
-        @Override
-        public <T extends ActionContext> T getContext(Class<T> identifyingType) {
-          throw new UnsupportedOperationException();
-        }
+      @Override
+      public <T extends ActionContext> T getContext(Class<T> identifyingType) {
+        throw new UnsupportedOperationException();
+      }
 
-        @Nullable
-        @Override
-        public FileSystem getActionFileSystem() {
-          return null;
-        }
-      };
+      @Nullable
+      @Override
+      public FileSystem getActionFileSystem() {
+        return null;
+      }
+    };
+  }
 
   private static SimpleSpawn simpleSpawnWithExecutionInfo(
       ImmutableMap<String, String> executionInfo) {
@@ -237,6 +240,26 @@ public class RemoteSpawnCacheTest {
             Order.STABLE_ORDER, ActionInputHelper.fromPath("input")),
         /* outputs= */ ImmutableSet.of(ActionInputHelper.fromPath("/random/file")),
         ResourceSet.ZERO);
+  }
+
+  private static SimpleSpawn simplePathMappedSpawn(String configSegment) {
+    String inputPath = "bazel-bin/%s/bin/input";
+    String outputPath = "bazel-bin/%s/bin/output";
+    return new SimpleSpawn(
+        new FakeOwner("Mnemonic", "Progress Message", "//dummy:label"),
+        ImmutableList.of("cp", inputPath.formatted("cfg"), outputPath.formatted("cfg")),
+        ImmutableMap.of("VARIABLE", "value"),
+        ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, ""),
+        /* filesetMappings= */ ImmutableMap.of(),
+        /* inputs= */ NestedSetBuilder.create(
+            Order.STABLE_ORDER, ActionInputHelper.fromPath(inputPath.formatted(configSegment))),
+        /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        /* outputs= */ ImmutableSet.of(
+            ActionInputHelper.fromPath(outputPath.formatted(configSegment))),
+        /* mandatoryOutputs= */ null,
+        ResourceSet.ZERO,
+        execPath ->
+            execPath.subFragment(0, 1).getRelative("cfg").getRelative(execPath.subFragment(2)));
   }
 
   private RemoteSpawnCache createRemoteSpawnCache() {
@@ -274,7 +297,7 @@ public class RemoteSpawnCacheTest {
     execRoot = fs.getPath("/exec/root");
     execRoot.createDirectoryAndParents();
     tempPathGenerator = new TempPathGenerator(fs.getPath("/execroot/_tmp/actions/remote"));
-    fakeFileCache = new FakeActionInputFileCache(execRoot);
+    FakeActionInputFileCache fakeFileCache = new FakeActionInputFileCache(execRoot);
     simpleSpawn = simpleSpawnWithExecutionInfo(ImmutableMap.of());
 
     Path stdout = fs.getPath("/tmp/stdout");
@@ -287,6 +310,7 @@ public class RemoteSpawnCacheTest {
     reporter.addHandler(eventHandler);
 
     remotePathResolver = RemotePathResolver.createDefault(execRoot);
+    simplePolicy = createSpawnExecutionContext(simpleSpawn, execRoot, fakeFileCache, outErr);
 
     fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().getSingleton(), "xyz");
   }
@@ -339,7 +363,7 @@ public class RemoteSpawnCacheTest {
     verify(service)
         .downloadOutputs(
             any(), eq(RemoteActionResult.createFromCache(CachedActionResult.remote(actionResult))));
-    verify(service, never()).uploadOutputs(any(), any());
+    verify(service, never()).uploadOutputs(any(), any(), any());
     assertThat(result.getDigest())
         .isEqualTo(digestUtil.asSpawnLogProto(actionKeyCaptor.getValue()));
     assertThat(result.setupSuccess()).isTrue();
@@ -370,9 +394,9 @@ public class RemoteSpawnCacheTest {
             .setStatus(Status.SUCCESS)
             .setRunnerName("test")
             .build();
-    doNothing().when(service).uploadOutputs(any(), any());
+    doNothing().when(service).uploadOutputs(any(), any(), any());
     entry.store(result);
-    verify(service).uploadOutputs(any(), any());
+    verify(service).uploadOutputs(any(), any(), any());
   }
 
   @Test
@@ -536,7 +560,7 @@ public class RemoteSpawnCacheTest {
             .setRunnerName("test")
             .build();
     entry.store(result);
-    verify(service, never()).uploadOutputs(any(), any());
+    verify(service, never()).uploadOutputs(any(), any(), any());
   }
 
   @Test
@@ -559,9 +583,9 @@ public class RemoteSpawnCacheTest {
             .setRunnerName("test")
             .build();
 
-    doNothing().when(service).uploadOutputs(any(), any());
+    doNothing().when(service).uploadOutputs(any(), any(), any());
     entry.store(result);
-    verify(service).uploadOutputs(any(), eq(result));
+    verify(service).uploadOutputs(any(), eq(result), any());
 
     assertThat(eventHandler.getEvents()).hasSize(1);
     Event evt = eventHandler.getEvents().get(0);
@@ -607,9 +631,9 @@ public class RemoteSpawnCacheTest {
             .setRunnerName("test")
             .build();
 
-    doNothing().when(service).uploadOutputs(any(), any());
+    doNothing().when(service).uploadOutputs(any(), any(), any());
     entry.store(result);
-    verify(service).uploadOutputs(any(), eq(result));
+    verify(service).uploadOutputs(any(), eq(result), any());
     assertThat(eventHandler.getEvents()).isEmpty(); // no warning is printed.
   }
 
@@ -682,5 +706,142 @@ public class RemoteSpawnCacheTest {
     Event evt = eventHandler.getEvents().get(0);
     assertThat(evt.getKind()).isEqualTo(EventKind.WARNING);
     assertThat(evt.getMessage()).contains(downloadFailure.getMessage());
+  }
+
+  @Test
+  public void pathMappedActionIsDeduplicated() throws Exception {
+    // arrange
+    RemoteSpawnCache cache = createRemoteSpawnCache();
+
+    SimpleSpawn firstSpawn = simplePathMappedSpawn("k8-fastbuild");
+    FakeActionInputFileCache firstFakeFileCache = new FakeActionInputFileCache(execRoot);
+    firstFakeFileCache.createScratchInput(firstSpawn.getInputFiles().getSingleton(), "xyz");
+    SpawnExecutionContext firstPolicy =
+        createSpawnExecutionContext(firstSpawn, execRoot, firstFakeFileCache, outErr);
+
+    SimpleSpawn secondSpawn = simplePathMappedSpawn("k8-opt");
+    FakeActionInputFileCache secondFakeFileCache = new FakeActionInputFileCache(execRoot);
+    secondFakeFileCache.createScratchInput(secondSpawn.getInputFiles().getSingleton(), "xyz");
+    SpawnExecutionContext secondPolicy =
+        createSpawnExecutionContext(secondSpawn, execRoot, secondFakeFileCache, outErr);
+
+    RemoteExecutionService remoteExecutionService = cache.getRemoteExecutionService();
+    Mockito.doCallRealMethod().when(remoteExecutionService).waitForAndReuseOutputs(any(), any());
+    // Simulate a very slow upload to the remote cache to ensure that the second spawn is
+    // deduplicated rather than a cache hit. This is a slight hack, but also avoid introducing
+    // concurrency to this test.
+    Mockito.doNothing().when(remoteExecutionService).uploadOutputs(any(), any(), any());
+
+    // act
+    try (CacheHandle firstCacheHandle = cache.lookup(firstSpawn, firstPolicy)) {
+      FileSystemUtils.writeContent(
+          fs.getPath("/exec/root/bazel-bin/k8-fastbuild/bin/output"), UTF_8, "hello");
+      firstCacheHandle.store(
+          new SpawnResult.Builder()
+              .setExitCode(0)
+              .setStatus(Status.SUCCESS)
+              .setRunnerName("test")
+              .build());
+    }
+    CacheHandle secondCacheHandle = cache.lookup(secondSpawn, secondPolicy);
+
+    // assert
+    assertThat(secondCacheHandle.hasResult()).isTrue();
+    assertThat(secondCacheHandle.getResult().getRunnerName()).isEqualTo("deduplicated");
+    assertThat(
+            FileSystemUtils.readContent(
+                fs.getPath("/exec/root/bazel-bin/k8-opt/bin/output"), UTF_8))
+        .isEqualTo("hello");
+    assertThat(secondCacheHandle.willStore()).isFalse();
+  }
+
+  @Test
+  public void deduplicatedActionWithNonZeroExitCodeIsACacheMiss() throws Exception {
+    // arrange
+    RemoteSpawnCache cache = createRemoteSpawnCache();
+
+    SimpleSpawn firstSpawn = simplePathMappedSpawn("k8-fastbuild");
+    FakeActionInputFileCache firstFakeFileCache = new FakeActionInputFileCache(execRoot);
+    firstFakeFileCache.createScratchInput(firstSpawn.getInputFiles().getSingleton(), "xyz");
+    SpawnExecutionContext firstPolicy =
+        createSpawnExecutionContext(firstSpawn, execRoot, firstFakeFileCache, outErr);
+
+    SimpleSpawn secondSpawn = simplePathMappedSpawn("k8-opt");
+    FakeActionInputFileCache secondFakeFileCache = new FakeActionInputFileCache(execRoot);
+    secondFakeFileCache.createScratchInput(secondSpawn.getInputFiles().getSingleton(), "xyz");
+    SpawnExecutionContext secondPolicy =
+        createSpawnExecutionContext(secondSpawn, execRoot, secondFakeFileCache, outErr);
+
+    RemoteExecutionService remoteExecutionService = cache.getRemoteExecutionService();
+    Mockito.doCallRealMethod().when(remoteExecutionService).waitForAndReuseOutputs(any(), any());
+    // Simulate a very slow upload to the remote cache to ensure that the second spawn is
+    // deduplicated rather than a cache hit. This is a slight hack, but also avoid introducing
+    // concurrency to this test.
+    Mockito.doNothing().when(remoteExecutionService).uploadOutputs(any(), any(), any());
+
+    // act
+    try (CacheHandle firstCacheHandle = cache.lookup(firstSpawn, firstPolicy)) {
+      FileSystemUtils.writeContent(
+          fs.getPath("/exec/root/bazel-bin/k8-fastbuild/bin/output"), UTF_8, "hello");
+      firstCacheHandle.store(
+          new SpawnResult.Builder()
+              .setExitCode(1)
+              .setStatus(Status.NON_ZERO_EXIT)
+              .setFailureDetail(
+                  FailureDetail.newBuilder()
+                      .setMessage("test spawn failed")
+                      .setSpawn(
+                          FailureDetails.Spawn.newBuilder()
+                              .setCode(FailureDetails.Spawn.Code.NON_ZERO_EXIT))
+                      .build())
+              .setRunnerName("test")
+              .build());
+    }
+    CacheHandle secondCacheHandle = cache.lookup(secondSpawn, secondPolicy);
+
+    // assert
+    assertThat(secondCacheHandle.hasResult()).isFalse();
+    assertThat(secondCacheHandle.willStore()).isTrue();
+  }
+
+  @Test
+  public void deduplicatedActionWithMissingOutputIsACacheMiss() throws Exception {
+    // arrange
+    RemoteSpawnCache cache = createRemoteSpawnCache();
+
+    SimpleSpawn firstSpawn = simplePathMappedSpawn("k8-fastbuild");
+    FakeActionInputFileCache firstFakeFileCache = new FakeActionInputFileCache(execRoot);
+    firstFakeFileCache.createScratchInput(firstSpawn.getInputFiles().getSingleton(), "xyz");
+    SpawnExecutionContext firstPolicy =
+        createSpawnExecutionContext(firstSpawn, execRoot, firstFakeFileCache, outErr);
+
+    SimpleSpawn secondSpawn = simplePathMappedSpawn("k8-opt");
+    FakeActionInputFileCache secondFakeFileCache = new FakeActionInputFileCache(execRoot);
+    secondFakeFileCache.createScratchInput(secondSpawn.getInputFiles().getSingleton(), "xyz");
+    SpawnExecutionContext secondPolicy =
+        createSpawnExecutionContext(secondSpawn, execRoot, secondFakeFileCache, outErr);
+
+    RemoteExecutionService remoteExecutionService = cache.getRemoteExecutionService();
+    Mockito.doCallRealMethod().when(remoteExecutionService).waitForAndReuseOutputs(any(), any());
+    // Simulate a very slow upload to the remote cache to ensure that the second spawn is
+    // deduplicated rather than a cache hit. This is a slight hack, but also avoid introducing
+    // concurrency to this test.
+    Mockito.doNothing().when(remoteExecutionService).uploadOutputs(any(), any(), any());
+
+    // act
+    try (CacheHandle firstCacheHandle = cache.lookup(firstSpawn, firstPolicy)) {
+      // Do not create the output.
+      firstCacheHandle.store(
+          new SpawnResult.Builder()
+              .setExitCode(0)
+              .setStatus(Status.SUCCESS)
+              .setRunnerName("test")
+              .build());
+    }
+    CacheHandle secondCacheHandle = cache.lookup(secondSpawn, secondPolicy);
+
+    // assert
+    assertThat(secondCacheHandle.hasResult()).isFalse();
+    assertThat(secondCacheHandle.willStore()).isTrue();
   }
 }

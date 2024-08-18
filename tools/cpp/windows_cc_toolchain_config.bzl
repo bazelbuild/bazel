@@ -906,7 +906,7 @@ def _impl(ctx):
                     ],
                     flag_groups = [
                         flag_group(
-                            flags = ["/external:I", "%{external_include_paths}"],
+                            flags = ["/external:I%{external_include_paths}"],
                             iterate_over = "external_include_paths",
                             expand_if_available = "external_include_paths",
                         ),
@@ -1059,6 +1059,17 @@ def _impl(ctx):
             ],
         )
 
+        remove_unreferenced_code_feature = feature(
+            name = "remove_unreferenced_code",
+            enabled = True,
+            flag_sets = [
+                flag_set(
+                    actions = [ACTION_NAMES.c_compile, ACTION_NAMES.cpp_compile],
+                    flag_groups = [flag_group(flags = ["/Zc:inline"])],
+                ),
+            ],
+        )
+
         compiler_input_flags_feature = feature(
             name = "compiler_input_flags",
             flag_sets = [
@@ -1125,6 +1136,17 @@ def _impl(ctx):
             ],
             implies = ["msvc_compile_env", "msvc_link_env"],
         )
+
+        symbol_check_feature = feature(
+            name = "symbol_check",
+            flag_sets = [
+                flag_set(
+                    actions = [ACTION_NAMES.cpp_link_static_library],
+                    flag_groups = [flag_group(flags = ["/WX:4006"])],
+                ),
+            ],
+        )
+
         features = [
             no_legacy_features_feature,
             nologo_feature,
@@ -1162,6 +1184,7 @@ def _impl(ctx):
             determinism_feature,
             treat_warnings_as_errors_feature,
             smaller_binary_feature,
+            remove_unreferenced_code_feature,
             ignore_noisy_warnings_feature,
             user_compile_flags_feature,
             sysroot_feature,
@@ -1175,6 +1198,7 @@ def _impl(ctx):
             no_windows_export_all_symbols_feature,
             supports_dynamic_linker_feature,
             supports_interface_shared_libraries_feature,
+            symbol_check_feature,
         ]
     else:
         targets_windows_feature = feature(

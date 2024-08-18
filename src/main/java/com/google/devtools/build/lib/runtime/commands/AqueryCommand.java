@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.ANALYZES;
+
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,8 +54,8 @@ import com.google.devtools.common.options.OptionsParsingResult;
 /** Handles the 'aquery' command on the Blaze command line. */
 @Command(
     name = "aquery",
-    builds = true,
-    inherits = {BuildCommand.class},
+    buildPhase = ANALYZES,
+    inheritsOptionsFrom = {BuildCommand.class},
     options = {AqueryOptions.class},
     usesConfigurationOptions = true,
     shortDescription = "Analyzes the given targets and queries the action graph.",

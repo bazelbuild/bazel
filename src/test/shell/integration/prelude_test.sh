@@ -28,7 +28,6 @@ set -e
 #### TESTS #############################################################
 
 function test_prelude() {
-  create_workspace_with_default_repos WORKSPACE
 
   mkdir -p tools/build_rules
   touch tools/build_rules/BUILD
@@ -53,7 +52,8 @@ EOF
 }
 
 function test_prelude_external_repository() {
-  cat > WORKSPACE << EOF
+  cat > MODULE.bazel << EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "imported_workspace",
   path = "$PWD/imported_workspace",
@@ -77,7 +77,7 @@ genrule(
 EOF
 
   mkdir -p imported_workspace
-  touch imported_workspace/WORKSPACE
+  touch imported_workspace/REPO.bazel
 
   mkdir -p imported_workspace/tools/build_rules
   touch imported_workspace/tools/build_rules/BUILD
@@ -100,7 +100,7 @@ EOF
   output=$(cat bazel-genfiles/gr.out)
   check_eq "outer from test_prelude_external_repository, outer workspace" "$output" "unexpected output in gr.out"
 
-  output=$(cat bazel-genfiles/external/imported_workspace/gr_inner.out)
+  output=$(cat bazel-genfiles/external/+_repo_rules+imported_workspace/gr_inner.out)
   check_eq "inner from test_prelude_external_repository, inner workspace" "$output" "unexpected output in gr_inner.out"
 }
 

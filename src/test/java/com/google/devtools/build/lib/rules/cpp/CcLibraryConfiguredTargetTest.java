@@ -144,7 +144,7 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             "Unrecognized file extension '.wrong_ext', allowed "
                 + "extensions are %s, please check artifact_name_pattern configuration for "
                 + "%s in your rule.",
-            StringUtil.joinEnglishList(correctExtensions, "or", "'"), categoryName));
+            StringUtil.joinEnglishListSingleQuoted(correctExtensions), categoryName));
   }
 
   @Test
@@ -216,9 +216,14 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .withFeatures(
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
-    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
-    String cpu = getTargetConfiguration().getCpu();
+    String cpu = "k8"; // CPU of the platform specified with --platforms
     Artifact archive = getBinArtifact("libhello.a", hello);
     Artifact implSharedObject = getBinArtifact("libhello.so", hello);
     Artifact implInterfaceSharedObject = getBinArtifact("libhello.ifso", hello);
@@ -264,9 +269,14 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
                 .withFeatures(
                     CppRuleClasses.SUPPORTS_DYNAMIC_LINKER,
                     CppRuleClasses.SUPPORTS_INTERFACE_SHARED_LIBRARIES));
-    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
     ConfiguredTarget hello = getConfiguredTarget("//hello:hello");
-    String cpu = getTargetConfiguration().getCpu();
+    String cpu = "k8"; // CPU of the platform specified with --platforms
     Artifact archive = getBinArtifact("libhello.a", hello);
     Artifact sharedObject = getBinArtifact("libhello.ifso", hello);
     Artifact implSharedObject = getBinArtifact("libhello.so", hello);
@@ -2201,7 +2211,13 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
 
     prepareCustomTransition();
-    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL, "--compilation_mode=fastbuild");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--compilation_mode=fastbuild",
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
 
     scratch.file(
         "no-transition/BUILD",
@@ -2253,7 +2269,13 @@ public class CcLibraryConfiguredTargetTest extends BuildViewTestCase {
             CcToolchainConfig.builder().withFeatures(CppRuleClasses.SUPPORTS_DYNAMIC_LINKER));
 
     prepareCustomTransition();
-    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL, "--compilation_mode=fastbuild");
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--compilation_mode=fastbuild",
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
 
     scratch.file(
         "transition/BUILD",

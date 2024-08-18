@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -69,6 +70,7 @@ import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -97,7 +99,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -1582,6 +1585,55 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  public void
+      testRuleClassImplicitOutputFunctionAndComputedDefaultDependingOnConfigurableAttribute()
+          throws Exception {
+    scratch.file(
+        "test/starlark/extension.bzl",
+        """
+        def custom_rule_impl(ctx):
+          ctx.actions.write(ctx.outputs.o, 'foo')
+          files = [ctx.outputs.o]
+          ftb = depset(files)
+          return [DefaultInfo(runfiles = ctx.runfiles(), files = ftb)]
+
+        def computed_func(select_attr):
+          return None
+
+        def output_func(irrelevant_attr):
+          return {'o': irrelevant_attr + '.txt'}
+
+        custom_rule = rule(
+          implementation = custom_rule_impl,
+          attrs = {
+            'select_attr': attr.string(),
+            'irrelevant_attr': attr.string(),
+            '_computed_attr': attr.label(default=computed_func),
+          },
+          outputs = output_func)
+        """);
+
+    scratch.file(
+        "test/starlark/BUILD",
+        """
+        load('//test/starlark:extension.bzl', 'custom_rule')
+
+        custom_rule(
+          name = 'cr',
+          irrelevant_attr = 'foo',
+          select_attr = select({"//conditions:default": "bar"}),
+        )
+        """);
+
+    ConfiguredTarget target = getConfiguredTarget("//test/starlark:cr");
+
+    assertThat(
+            ActionsTestUtil.baseArtifactNames(
+                target.getProvider(FileProvider.class).getFilesToBuild()))
+        .containsExactly("foo.txt");
+  }
+
+  @Test
   public void testRuleClassImplicitOutputs() throws Exception {
     scratch.file(
         "test/starlark/extension.bzl",
@@ -1741,7 +1793,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     getConfiguredTarget("//test/starlark:cr");
     assertContainsEvent("output function cr");
-    assertContainsEvent("implementation @@//test/starlark:cr");
+    assertContainsEvent("implementation //test/starlark:cr");
   }
 
   @Test
@@ -1913,7 +1965,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget = getConfiguredTarget("//test:r");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
+            keyForBuild(
+                Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl")),
             "my_provider");
     StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
@@ -1941,7 +1994,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget  = getConfiguredTarget("//test:r");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
+            keyForBuild(
+                Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl")),
             "my_provider");
     StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
@@ -1969,7 +2023,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     ConfiguredTarget configuredTarget  = getConfiguredTarget("//test:r");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl"),
+            keyForBuild(
+                Label.create(configuredTarget.getLabel().getPackageIdentifier(), "extension.bzl")),
             "my_provider");
     StructImpl declaredProvider = (StructImpl) configuredTarget.get(key);
     assertThat(declaredProvider).isNotNull();
@@ -2481,7 +2536,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         """);
 
     StarlarkProvider.Key pInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:rule.bzl"), "PInfo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:rule.bzl")), "PInfo");
 
     ConfiguredTarget targetXXX = getConfiguredTarget("//test:xxx");
     StructImpl structXXX = (StructImpl) targetXXX.get(pInfoKey);
@@ -2754,9 +2809,11 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         """);
 
     StarlarkProvider.Key myInfoKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:extension.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:extension.bzl")), "MyInfo");
     StarlarkProvider.Key myDepKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:extension.bzl"), "MyDep");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:extension.bzl")), "MyDep");
 
     ConfiguredTarget outerTarget = getConfiguredTarget("//test:r");
     StructImpl outerInfo = (StructImpl) outerTarget.get(myInfoKey);
@@ -3649,6 +3706,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   }
 
   @Test
+  @Ignore("http://b/344577554")
   public void testNoRuleOutputsParam() throws Exception {
     setBuildLanguageOptions("--incompatible_no_rule_outputs_param=true");
     scratch.file(

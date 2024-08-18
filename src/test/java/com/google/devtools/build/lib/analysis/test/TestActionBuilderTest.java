@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.test;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -272,8 +273,10 @@ public class TestActionBuilderTest extends BuildViewTestCase {
 
   @Test
   public void testIllegalBooleanFlakySetting() throws Exception {
-    checkError("flaky", "bad_test",
-        "boolean is not one of [0, 1]",
+    checkError(
+        "flaky",
+        "bad_test",
+        "expected one of [False, True, 0, 1]",
         "sh_test(name = 'bad_test',",
         "        srcs = ['a.sh'],",
         "        flaky = 2)");
@@ -407,7 +410,8 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     ConfiguredAspect aspectValue =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonicalUnchecked("//:aspect.bzl")), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
         .containsExactly("@@//:suite", "@@//:test_a", "@@//:test_b");
@@ -440,7 +444,8 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     ConfiguredAspect aspectValue =
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonicalUnchecked("//:aspect.bzl")), "StructImpl");
     StructImpl info = (StructImpl) aspectValue.get(key);
     assertThat(((Depset) info.getValue("labels")).getSet(String.class).toList())
         .containsExactly("@@//:suite", "@@//:test_b");
@@ -469,7 +474,8 @@ public class TestActionBuilderTest extends BuildViewTestCase {
             /* doAnalysis= */ true,
             new EventBus());
     final StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//:aspect.bzl"), "StructImpl");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonicalUnchecked("//:aspect.bzl")), "StructImpl");
 
     List<String> labels = new ArrayList<>();
     for (ConfiguredAspect a : analysisResult.getAspectsMap().values()) {

@@ -160,6 +160,7 @@ public class GrpcRemoteDownloaderTest {
         Optional.<CallCredentials>empty(),
         retrier,
         cacheClient,
+        DIGEST_UTIL.getDigestFunction(),
         remoteOptions,
         /* verboseFailures= */ false,
         fallbackDownloader);
@@ -205,6 +206,7 @@ public class GrpcRemoteDownloaderTest {
             assertThat(request)
                 .isEqualTo(
                     FetchBlobRequest.newBuilder()
+                        .setDigestFunction(DIGEST_UTIL.getDigestFunction())
                         .addUris("http://example.com/content.txt")
                         .build());
             responseObserver.onNext(
@@ -270,6 +272,7 @@ public class GrpcRemoteDownloaderTest {
             assertThat(request)
                 .isEqualTo(
                     FetchBlobRequest.newBuilder()
+                        .setDigestFunction(DIGEST_UTIL.getDigestFunction())
                         .addUris("http://example.com/content.txt")
                         .addQualifiers(
                             Qualifier.newBuilder()
@@ -308,6 +311,7 @@ public class GrpcRemoteDownloaderTest {
             assertThat(request)
                 .isEqualTo(
                     FetchBlobRequest.newBuilder()
+                        .setDigestFunction(DIGEST_UTIL.getDigestFunction())
                         .addUris("http://example.com/content.txt")
                         .addQualifiers(
                             Qualifier.newBuilder()
@@ -352,6 +356,7 @@ public class GrpcRemoteDownloaderTest {
                 Checksum.fromSubresourceIntegrity(
                     "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")),
             "canonical ID",
+            DIGEST_UTIL.getDigestFunction(),
             ImmutableMap.of(
                 "Authorization", ImmutableList.of("Basic Zm9vOmJhcg=="),
                 "X-Custom-Token", ImmutableList.of("foo", "bar")));
@@ -360,6 +365,7 @@ public class GrpcRemoteDownloaderTest {
         .isEqualTo(
             FetchBlobRequest.newBuilder()
                 .setInstanceName("instance name")
+                .setDigestFunction(DIGEST_UTIL.getDigestFunction())
                 .addUris("http://example.com/a")
                 .addUris("http://example.com/b")
                 .addUris("file:/not/limited/to/http")

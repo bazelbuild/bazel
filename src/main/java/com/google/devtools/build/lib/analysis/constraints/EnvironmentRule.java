@@ -37,8 +37,8 @@ public class EnvironmentRule implements RuleDefinition {
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
-        .cfg(NoConfigTransition.createFactory())
-        .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+        .cfg(NoConfigTransition.getFactory())
+        .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
         .override(
             attr("tags", Types.STRING_LIST)
                 // No need to show up in ":all", etc. target patterns.

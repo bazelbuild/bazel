@@ -19,15 +19,18 @@ import static java.util.stream.Collectors.toList;
 
 import com.android.builder.core.VariantTypeImpl;
 import com.android.utils.StdLogger;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.devtools.build.android.Converters.DependencyAndroidDataListConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.build.android.Converters.PathListConverter;
-import com.google.devtools.build.android.Converters.SerializedAndroidDataListConverter;
-import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConverter;
-import com.google.devtools.build.android.Converters.VariantTypeConverter;
+import com.google.devtools.build.android.Converters.AmpersandSplitter;
+import com.google.devtools.build.android.Converters.ColonSplitter;
+import com.google.devtools.build.android.Converters.CompatDependencyAndroidDataConverter;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
+import com.google.devtools.build.android.Converters.CompatSerializedAndroidDataConverter;
+import com.google.devtools.build.android.Converters.CompatUnvalidatedAndroidDataConverter;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.aapt2.PackagedResources;
@@ -35,11 +38,6 @@ import com.google.devtools.build.android.aapt2.ProtoApk;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
 import com.google.devtools.build.android.aapt2.StaticLibrary;
-import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import com.google.devtools.common.options.TriState;
@@ -74,301 +72,201 @@ public class Aapt2ResourcePackagingAction {
   private static final StdLogger STD_LOGGER = new StdLogger(StdLogger.Level.WARNING);
 
   /** Flag specifications for this action. */
-  public static final class Options extends OptionsBase {
-    @Option(
-        name = "primaryData",
-        defaultValue = "null",
-        converter = UnvalidatedAndroidDataConverter.class,
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+  @Parameters(separators = "= ")
+  public static final class Options extends OptionsBaseWithResidue {
+    @Parameter(
+        names = "--primaryData",
+        converter = CompatUnvalidatedAndroidDataConverter.class,
+        description =
             "The directory containing the primary resource directory. The contents will override "
                 + "the contents of any other resource directories during merging. The expected "
                 + "format is "
                 + UnvalidatedAndroidData.EXPECTED_FORMAT)
     public UnvalidatedAndroidData primaryData;
 
-    @Option(
-        name = "data",
-        defaultValue = "",
-        converter = DependencyAndroidDataListConverter.class,
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--data",
+        converter = CompatDependencyAndroidDataConverter.class,
+        description =
             "Transitive Data dependencies. These values will be used if not defined in the "
                 + "primary resources. The expected format is "
                 + DependencyAndroidData.EXPECTED_FORMAT
                 + "[,...]")
-    public List<DependencyAndroidData> transitiveData;
+    public List<DependencyAndroidData> transitiveData = ImmutableList.of();
 
-    @Option(
-        name = "directData",
-        defaultValue = "",
-        converter = DependencyAndroidDataListConverter.class,
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--directData",
+        converter = CompatDependencyAndroidDataConverter.class,
+        description =
             "Direct Data dependencies. These values will be used if not defined in the "
                 + "primary resources. The expected format is "
                 + DependencyAndroidData.EXPECTED_FORMAT
                 + "[,...]")
-    public List<DependencyAndroidData> directData;
+    public List<DependencyAndroidData> directData = ImmutableList.of();
 
-    @Option(
-        name = "assets",
-        defaultValue = "",
-        converter = SerializedAndroidDataListConverter.class,
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--assets",
+        converter = CompatSerializedAndroidDataConverter.class,
+        splitter = AmpersandSplitter.class,
+        description =
             "Transitive asset dependencies. These can also be specified together with resources"
                 + " using --data. Expected format: "
                 + SerializedAndroidData.EXPECTED_FORMAT
                 + "[,...]")
-    public List<SerializedAndroidData> transitiveAssets;
+    public List<SerializedAndroidData> transitiveAssets = ImmutableList.of();
 
-    @Option(
-        name = "directAssets",
-        defaultValue = "",
-        converter = SerializedAndroidDataListConverter.class,
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--directAssets",
+        converter = CompatSerializedAndroidDataConverter.class,
+        splitter = AmpersandSplitter.class,
+        description =
             "Direct asset dependencies. These can also be specified together with resources using "
                 + "--directData. Expected format: "
                 + SerializedAndroidData.EXPECTED_FORMAT
                 + "[,...]")
-    public List<SerializedAndroidData> directAssets;
+    public List<SerializedAndroidData> directAssets = ImmutableList.of();
 
-    @Option(
-        name = "additionalApksToLinkAgainst",
-        defaultValue = "null",
-        category = "input",
-        converter = PathListConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "List of APKs used during linking.")
-    public List<Path> additionalApksToLinkAgainst;
+    @Parameter(
+        names = "--additionalApksToLinkAgainst",
+        converter = CompatPathConverter.class,
+        splitter = ColonSplitter.class,
+        description = "List of APKs used during linking.")
+    public List<Path> additionalApksToLinkAgainst = ImmutableList.of();
 
-    @Option(
-        name = "packageId",
-        defaultValue = "-1",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Resource ID prefix; see AAPT2 documentation for --package-id.")
-    public int packageId;
+    @Parameter(
+        names = "--packageId",
+        description = "Resource ID prefix; see AAPT2 documentation for --package-id.")
+    public int packageId = -1;
 
-    @Option(
-        name = "rOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to where the R.txt should be written.")
+    @Parameter(
+        names = "--rOutput",
+        converter = CompatPathConverter.class,
+        description = "Path to where the R.txt should be written.")
     public Path rOutput;
 
-    @Option(
-        name = "symbolsOut",
-        oldName = "symbolsTxtOut",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to where the symbols should be written.")
+    @Parameter(
+        names = {
+          "--symbolsOut",
+          "--symbolsTxtOut" // The old name of the flag.
+        },
+        converter = CompatPathConverter.class,
+        description = "Path to where the symbols should be written.")
     public Path symbolsOut;
 
-    @Option(
-        name = "dataBindingInfoOut",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to where data binding's layout info output should be written.")
+    @Parameter(
+        names = "--dataBindingInfoOut",
+        converter = CompatPathConverter.class,
+        description = "Path to where data binding's layout info output should be written.")
     public Path dataBindingInfoOut;
 
-    @Option(
-        name = "packagePath",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to the write the archive.")
+    @Parameter(
+        names = "--packagePath",
+        converter = CompatPathConverter.class,
+        description = "Path to the write the archive.")
     public Path packagePath;
 
-    @Option(
-        name = "resourcesOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to the write merged resources archive.")
+    @Parameter(
+        names = "--resourcesOutput",
+        converter = CompatPathConverter.class,
+        description = "Path to the write merged resources archive.")
     public Path resourcesOutput;
 
-    @Option(
-        name = "proguardOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path for the proguard file.")
+    @Parameter(
+        names = "--proguardOutput",
+        converter = CompatPathConverter.class,
+        description = "Path for the proguard file.")
     public Path proguardOutput;
 
-    @Option(
-        name = "mainDexProguardOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path for the main dex proguard file.")
+    @Parameter(
+        names = "--mainDexProguardOutput",
+        converter = CompatPathConverter.class,
+        description = "Path for the main dex proguard file.")
     public Path mainDexProguardOutput;
 
-    @Option(
-        name = "manifestOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path for the modified manifest.")
+    @Parameter(
+        names = "--manifestOutput",
+        converter = CompatPathConverter.class,
+        description = "Path for the modified manifest.")
     public Path manifestOutput;
 
-    @Option(
-        name = "srcJarOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path for the generated java source jar.")
+    @Parameter(
+        names = "--srcJarOutput",
+        converter = CompatPathConverter.class,
+        description = "Path for the generated java source jar.")
     public Path srcJarOutput;
 
-    @Option(
-        name = "packageType",
-        defaultValue = "BASE_APK",
-        converter = VariantTypeConverter.class,
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--packageType",
+        description =
             "Variant configuration type for packaging the resources."
                 + " Acceptable values BASE_APK, LIBRARY, ANDROID_TEST, UNIT_TEST")
-    public VariantTypeImpl packageType;
+    public VariantTypeImpl packageType = VariantTypeImpl.BASE_APK;
 
-    @Option(
-        name = "densities",
-        defaultValue = "",
-        converter = CommaSeparatedOptionListConverter.class,
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "A list of densities to filter the resource drawables by.")
-    public List<String> densities;
+    @Parameter(
+        names = "--densities",
+        description = "A list of densities to filter the resource drawables by.")
+    public List<String> densities = ImmutableList.of();
 
-    @Option(
-        name = "packageForR",
-        defaultValue = "null",
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Custom java package to generate the R symbols files.")
+    @Parameter(
+        names = "--packageForR",
+        description = "Custom java package to generate the R symbols files.")
     public String packageForR;
 
-    @Option(
-        name = "applicationId",
-        defaultValue = "null",
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Custom application id (package manifest) for the packaged manifest.")
+    @Parameter(
+        names = "--applicationId",
+        description = "Custom application id (package manifest) for the packaged manifest.")
     public String applicationId;
 
-    @Option(
-        name = "versionName",
-        defaultValue = "null",
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Version name to stamp into the packaged manifest.")
+    @Parameter(
+        names = "--versionName",
+        description = "Version name to stamp into the packaged manifest.")
     public String versionName;
 
-    @Option(
-        name = "versionCode",
-        defaultValue = "-1",
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Version code to stamp into the packaged manifest.")
-    public int versionCode;
+    @Parameter(
+        names = "--versionCode",
+        description = "Version code to stamp into the packaged manifest.")
+    public int versionCode = -1;
 
-    @Option(
-        name = "throwOnResourceConflict",
-        defaultValue = "false",
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "If passed, resource merge conflicts will be treated as errors instead of warnings")
+    @Parameter(
+        names = "--throwOnResourceConflict",
+        description =
+            "If passed, resource merge conflicts will be treated as errors instead of warnings")
     public boolean throwOnResourceConflict;
 
-    @Option(
-        name = "packageUnderTest",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "Unused/deprecated option.")
+    @Parameter(names = "--packageUnderTest", description = "Unused/deprecated option.")
     public String packageUnderTest;
 
-    @Option(
-        name = "isTestWithResources",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "Unused/deprecated option.")
+    @Parameter(names = "--isTestWithResources", description = "Unused/deprecated option.")
     public boolean isTestWithResources;
 
-    @Option(
-        name = "includeProguardLocationReferences",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-        help = "When generating proguard configurations, include location references.")
+    @Parameter(
+        names = "--includeProguardLocationReferences",
+        description = "When generating proguard configurations, include location references.")
     public boolean includeProguardLocationReferences;
 
-    @Option(
-        name = "resourceApks",
-        defaultValue = "null",
-        category = "input",
-        converter = PathListConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "List of reource only APK files to link against.")
-    public List<Path> resourceApks;
+    @Parameter(
+        names = "--resourceApks",
+        converter = CompatPathConverter.class,
+        splitter = ColonSplitter.class,
+        description = "List of reource only APK files to link against.")
+    public List<Path> resourceApks = ImmutableList.of();
   }
 
   public static void main(String[] args) throws Exception {
     Profiler profiler = InMemoryProfiler.createAndStart("setup");
+    Options options = new Options();
+    String[] normalizedArgs = AndroidOptionsUtils.normalizeBooleanOptions(options, args);
+    JCommander jc = new JCommander(options);
+    jc.parse(normalizedArgs);
+    List<String> residue = options.getResidue();
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(
-                Options.class, Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
+            .optionsClasses(Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
-    optionsParser.parseAndExitUponError(args);
+    optionsParser.parseAndExitUponError(residue.toArray(new String[0]));
 
     Aapt2ConfigOptions aaptConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
-    Options options = optionsParser.getOptions(Options.class);
 
     Preconditions.checkArgument(
         options.packageId == -1 || (options.packageId >= 2 && options.packageId <= 255),

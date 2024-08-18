@@ -214,7 +214,9 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       builder.setInputSetId(logInputs(spawn, inputMetadataProvider, fileSystem));
       builder.setToolSetId(logTools(spawn, inputMetadataProvider, fileSystem));
 
-      builder.setTargetLabel(spawn.getTargetLabel().getCanonicalForm());
+      if (spawn.getTargetLabel() != null) {
+        builder.setTargetLabel(spawn.getTargetLabel().getCanonicalForm());
+      }
       builder.setMnemonic(spawn.getMnemonic());
 
       for (ActionInput output : spawn.getOutputFiles()) {

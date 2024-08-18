@@ -1,4 +1,4 @@
-// Copyright 2017 The Bazel Authors. All rights reserved.
+// Copyright 2024 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,162 +11,118 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.common.options;
 
 import static java.util.Comparator.comparing;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.common.options.OptionsParser.ConstructionException;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.Arrays;
 import java.util.Comparator;
-import java.util.List;
 import javax.annotation.Nullable;
 
-/**
- * Everything the {@link OptionsParser} needs to know about how an option is defined.
- *
- * <p>An {@code OptionDefinition} is effectively a wrapper around the {@link Option} annotation and
- * the {@link Field} that is annotated, and should contain all logic about default settings and
- * behavior.
- */
-public class OptionDefinition implements Comparable<OptionDefinition> {
+/** Everything the {@link OptionsParser} needs to know about how an option is defined. */
+public abstract class OptionDefinition implements Comparable<OptionDefinition> {
+
+  /** An ordering relation for options that orders by the option name. */
+  public static final Comparator<OptionDefinition> BY_OPTION_NAME =
+      Comparator.comparing(OptionDefinition::getOptionName);
 
   /**
-   * A special value used to specify an absence of default value.
-   *
-   * @see Option#defaultValue
+   * An ordering relation for options that first groups together options of the same category, then
+   * sorts by name within the category.
    */
-  public static final String SPECIAL_NULL_DEFAULT_VALUE = "null";
+  public static final Comparator<OptionDefinition> BY_CATEGORY =
+      comparing(OptionDefinition::getOptionCategory).thenComparing(BY_OPTION_NAME);
 
-  // TODO(b/65049598) make ConstructionException checked, which will make this checked as well.
-  static class NotAnOptionException extends ConstructionException {
-    NotAnOptionException(Field field) {
-      super(
-          "The field "
-              + field.getName()
-              + " does not have the right annotation to be considered an option.");
+  /** Returns the declaring {@link OptionsBase} class that owns this option. */
+  public abstract <C extends OptionsBase> Class<? extends C> getDeclaringClass(Class<C> baseClass);
+
+  /**
+   * Returns the raw value of the option. Use {@link #getValue} if possible to correctly handle
+   * default values.
+   */
+  public abstract Object getRawValue(OptionsBase optionsBase);
+
+  /** Returns the value of this option, taking default values into account. */
+  public abstract Object getValue(OptionsBase optionsBase);
+
+  /**
+   * Returns the value of this option as a boolean. If the option is not boolean-typed, throws an
+   * IllegalStateException.
+   */
+  public boolean getBooleanValue(OptionsBase optionsBase) {
+    // Check for primitive boolean first, as it's more common.
+    if (!getType().isAssignableFrom(Boolean.TYPE) && !getType().isAssignableFrom(Boolean.class)) {
+      throw new IllegalStateException(
+          "Option "
+              + getOptionName()
+              + " is not a boolean, has type "
+              + getType().getCanonicalName());
     }
+    return getValue(optionsBase).equals(Boolean.TRUE);
   }
+
+  /** Sets the value for this option. */
+  public abstract void setValue(OptionsBase optionsBase, Object value);
+
+  /** Returns whether this option is deprecated. */
+  public abstract boolean isDeprecated();
+
+  /** Returns the name of this option. */
+  public abstract String getOptionName();
+
+  /** Returns a one-character abbreviation for this option, if any. */
+  public abstract char getAbbreviation();
+
+  /** Returns the help test for this option. */
+  public abstract String getHelpText();
+
+  /** Returns a short description of the expected type of this option. */
+  public abstract String getValueTypeHelpText();
 
   /**
-   * If the {@code field} is annotated with the appropriate @{@link Option} annotation, returns the
-   * {@code OptionDefinition} for that option. Otherwise, throws a {@link NotAnOptionException}.
-   *
-   * <p>These values are cached in the {@link OptionsData} layer and should be accessed through
-   * {@link OptionsParser#getOptionDefinitions(Class)}.
+   * Returns the default value of this option, with no conversion performed. Should only be used by
+   * the parser.
    */
-  static OptionDefinition extractOptionDefinition(Field field) {
-    Option annotation = field == null ? null : field.getAnnotation(Option.class);
-    if (annotation == null) {
-      throw new NotAnOptionException(field);
-    }
-    return new OptionDefinition(field, annotation);
-  }
-
-  private final Field field;
-  private final Option optionAnnotation;
-  private volatile Converter<?> converter = null;
-  private volatile Object defaultValue = null;
-
-  private OptionDefinition(Field field, Option optionAnnotation) {
-    this.field = field;
-    this.optionAnnotation = optionAnnotation;
-  }
-
-  /** Returns the underlying {@code field} for this {@code OptionDefinition}. */
-  public Field getField() {
-    return field;
-  }
+  public abstract String getUnparsedDefaultValue();
 
   /**
-   * Returns the name of the option ("--name").
+   * Returns the deprecated option category.
    *
-   * <p>Labelled "Option" name to distinguish it from the field's name.
+   * @deprecated Use {@link #getDocumentationCategory} instead
    */
-  public String getOptionName() {
-    return optionAnnotation.name();
-  }
+  @Deprecated
+  public abstract String getOptionCategory();
 
-  /** The single-character abbreviation of the option ("-a"). */
-  public char getAbbreviation() {
-    return optionAnnotation.abbrev();
-  }
+  /** Returns the option category. */
+  public abstract OptionDocumentationCategory getDocumentationCategory();
 
-  /** {@link Option#help()} */
-  public String getHelpText() {
-    return optionAnnotation.help();
-  }
+  /** Returns data about the intended effects of this option. */
+  public abstract OptionEffectTag[] getOptionEffectTags();
 
-  /** {@link Option#valueHelp()} */
-  public String getValueTypeHelpText() {
-    return optionAnnotation.valueHelp();
-  }
+  /** Returns metadata about this option. */
+  public abstract OptionMetadataTag[] getOptionMetadataTags();
 
-  /** {@link Option#defaultValue()} */
-  public String getUnparsedDefaultValue() {
-    return optionAnnotation.defaultValue();
-  }
-
-  /** {@link Option#category()} */
-  public String getOptionCategory() {
-    return optionAnnotation.category();
-  }
-
-  /** {@link Option#documentationCategory()} */
-  public OptionDocumentationCategory getDocumentationCategory() {
-    return optionAnnotation.documentationCategory();
-  }
-
-  /** {@link Option#effectTags()} */
-  public OptionEffectTag[] getOptionEffectTags() {
-    return optionAnnotation.effectTags();
-  }
-
-  /** {@link Option#metadataTags()} */
-  public OptionMetadataTag[] getOptionMetadataTags() {
-    return optionAnnotation.metadataTags();
-  }
-
-  /** {@link Option#converter()} ()} */
+  /** Returns a converter to use for this option. */
   @SuppressWarnings({"rawtypes"})
-  public Class<? extends Converter> getProvidedConverter() {
-    return optionAnnotation.converter();
-  }
+  public abstract Class<? extends Converter> getProvidedConverter();
 
-  /** {@link Option#allowMultiple()} */
-  public boolean allowsMultiple() {
-    return optionAnnotation.allowMultiple();
-  }
+  /** Returns whether this option allows multiple instances to be combined into a list. */
+  public abstract boolean allowsMultiple();
 
-  /** {@link Option#expansion()} */
-  public String[] getOptionExpansion() {
-    return optionAnnotation.expansion();
-  }
+  /** Returns any options which are added if this option is present. */
+  public abstract String[] getOptionExpansion();
 
-  /** {@link Option#implicitRequirements()} ()} */
-  public String[] getImplicitRequirements() {
-    return optionAnnotation.implicitRequirements();
-  }
+  /** Returns aditional options that need to be implicitly added for this option. */
+  public abstract String[] getImplicitRequirements();
 
-  /** {@link Option#deprecationWarning()} ()} */
-  public String getDeprecationWarning() {
-    return optionAnnotation.deprecationWarning();
-  }
+  /** Returns a deprecation warning for this option, if one is present. */
+  public abstract String getDeprecationWarning();
 
-  /** {@link Option#oldName()} ()} ()} */
-  public String getOldOptionName() {
-    return optionAnnotation.oldName();
-  }
+  /** Returns the old name for this option, if one is present. */
+  public abstract String getOldOptionName();
 
-  /** {@link Option#oldNameWarning()} */
-  public boolean getOldNameWarning() {
-    return optionAnnotation.oldNameWarning();
-  }
+  /** Returns a warning to use with this option if the old name is specified. */
+  public abstract boolean getOldNameWarning();
 
   /** Returns whether an option --foo has a negative equivalent --nofoo. */
   public boolean hasNegativeOption() {
@@ -174,18 +130,15 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
   }
 
   /** The type of the optionDefinition. */
-  public Class<?> getType() {
-    return field.getType();
-  }
+  public abstract Class<?> getType();
 
   /** Whether this field has type Void. */
-  boolean isVoidField() {
+  public boolean isVoidField() {
     return getType().equals(Void.class);
   }
 
-  public boolean isSpecialNullDefault() {
-    return SPECIAL_NULL_DEFAULT_VALUE.equals(getUnparsedDefaultValue()) && !getType().isPrimitive();
-  }
+  // TODO: blaze-configurability - try to remove special handling for defaults
+  public abstract boolean isSpecialNullDefault();
 
   /** Returns whether the arg is an expansion option. */
   public boolean isExpansionOption() {
@@ -202,56 +155,10 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
    * that does use it, asserts that the type is a {@code List<T>} and returns its element type
    * {@code T}.
    */
-  Type getFieldSingularType() {
-    Type fieldType = getField().getGenericType();
-    if (allowsMultiple()) {
-      // The validity of the converter is checked at compile time. We know the type to be
-      // List<singularType>.
-      ParameterizedType pfieldType = (ParameterizedType) fieldType;
-      fieldType = pfieldType.getActualTypeArguments()[0];
-    }
-    return fieldType;
-  }
+  public abstract Type getFieldSingularType();
 
-  /**
-   * Retrieves the {@link Converter} that will be used for this option, taking into account the
-   * default converters if an explicit one is not specified.
-   *
-   * <p>Memoizes the converter-finding logic to avoid repeating the computation.
-   */
-  public Converter<?> getConverter() {
-    if (converter != null) {
-      return converter;
-    }
-
-    synchronized (this) {
-      if (converter != null) {
-        return converter;
-      }
-
-      @SuppressWarnings("rawtypes")
-      Class<? extends Converter> converterClass = getProvidedConverter();
-      if (converterClass == Converter.class) {
-        // No converter provided, use the default one.
-        Type type = getFieldSingularType();
-        converter = Converters.DEFAULT_CONVERTERS.get(type);
-      } else {
-        try {
-          // Instantiate the given Converter class.
-          Constructor<?> constructor = converterClass.getDeclaredConstructor();
-          constructor.setAccessible(true);
-          converter = (Converter<?>) constructor.newInstance();
-        } catch (SecurityException | IllegalArgumentException | ReflectiveOperationException e) {
-          // This indicates an error in the Converter, and should be discovered the first time it is
-          // used.
-          throw new ConstructionException(
-              String.format("Error in the provided converter for option %s", getField().getName()),
-              e);
-        }
-      }
-      return converter;
-    }
-  }
+  /** Returns the {@link Converter} that will be used for this option. */
+  public abstract Converter<?> getConverter();
 
   /**
    * Returns whether a field should be considered as boolean.
@@ -272,102 +179,7 @@ public class OptionDefinition implements Comparable<OptionDefinition> {
     return !isVoidField() && !usesBooleanValueSyntax();
   }
 
-  /** Returns the evaluated default value for this option & memoizes the result. */
+  /** Returns the evaluated default value for this option. */
   @Nullable
-  public Object getDefaultValue(@Nullable Object conversionContext) {
-    if (defaultValue != null) {
-      return defaultValue;
-    }
-
-    synchronized (this) {
-      if (defaultValue != null) {
-        return defaultValue;
-      }
-
-      if (isSpecialNullDefault()) {
-        return allowsMultiple() ? ImmutableList.of() : null;
-      }
-
-      Converter<?> converter = getConverter();
-      String defaultValueAsString = getUnparsedDefaultValue();
-      try {
-        Object convertedDefaultValue = converter.convert(defaultValueAsString, conversionContext);
-        defaultValue =
-            allowsMultiple()
-                ? maybeWrapMultipleDefaultValue(convertedDefaultValue)
-                : convertedDefaultValue;
-      } catch (OptionsParsingException e) {
-        throw new ConstructionException(
-            String.format(
-                "OptionsParsingException while retrieving the default value for %s: %s",
-                getField().getName(), e.getMessage()),
-            e);
-      }
-
-      return defaultValue;
-    }
-  }
-
-  /**
-   * Wraps a converted default value into a {@link List} if the converter doesn't do it on its own.
-   *
-   * <p>This is to make sure multiple ({@link Option#allowMultiple()}) options' default values are
-   * always converted to a list representation.
-   *
-   * <p>In general it mimics the {@link RepeatableOptionValueDescription# addOptionInstance}
-   * behavior: multiple option default value is treated as if it appeared on the command line only
-   * once with the specified value.
-   *
-   * <p>Note that on a command line multiple options can appear multiple times while each can
-   * support multiple values (e.g. comma-separated - depending on a converter). Thus default value
-   * for multiple option is (depending on the converter) a strict subset of the set of potential
-   * values for the option.
-   */
-  @SuppressWarnings("unchecked") // Not an unchecked cast - there's an explicit type check before it
-  private static List<Object> maybeWrapMultipleDefaultValue(Object convertedDefaultValue) {
-    if (convertedDefaultValue instanceof List) {
-      return (List<Object>) convertedDefaultValue;
-    } else {
-      return Arrays.asList(convertedDefaultValue);
-    }
-  }
-
-  /**
-   * {@link OptionDefinition} is really a wrapper around a {@link Field} that caches information
-   * obtained through reflection. Checking that the fields they represent are equal is sufficient to
-   * check that two {@link OptionDefinition} objects are equal.
-   */
-  @Override
-  public boolean equals(Object object) {
-    if (!(object instanceof OptionDefinition)) {
-      return false;
-    }
-    OptionDefinition otherOption = (OptionDefinition) object;
-    return field.equals(otherOption.field);
-  }
-
-  @Override
-  public int hashCode() {
-    return field.hashCode();
-  }
-
-  @Override
-  public int compareTo(OptionDefinition o) {
-    return getOptionName().compareTo(o.getOptionName());
-  }
-
-  @Override
-  public String toString() {
-    return String.format("option '--%s'", getOptionName());
-  }
-
-  static final Comparator<OptionDefinition> BY_OPTION_NAME =
-      Comparator.comparing(OptionDefinition::getOptionName);
-
-  /**
-   * An ordering relation for option-field fields that first groups together options of the same
-   * category, then sorts by name within the category.
-   */
-  static final Comparator<OptionDefinition> BY_CATEGORY =
-      comparing(OptionDefinition::getOptionCategory).thenComparing(BY_OPTION_NAME);
+  public abstract Object getDefaultValue(@Nullable Object conversionContext);
 }

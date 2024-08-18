@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.DependencyResolutionHelpers;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
+import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
@@ -267,6 +268,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           configuredTargetKey,
           ruleClassProvider,
           view.getStarlarkTransitionCache(),
+          view.getBuildConfigurationKeyCache(),
           () -> maybeAcquireSemaphoreWithLogging(key),
           env,
           env.getListener())) {
@@ -285,6 +287,26 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               computeDependenciesState.transitiveState);
       if (incompatibleTarget.isPresent()) {
         return incompatibleTarget.get();
+      }
+
+      // IF this build has a --run_under target, check it's an executable. We have to check this at
+      // the parent: --run_under targets are configured in the exec configuration, but the
+      // --run_under build option doesn't pass to the exec config.
+      BuildConfigurationValue config = prereqs.getTargetAndConfiguration().getConfiguration();
+      if (config != null
+          && config.getRunUnder() != null
+          && config.getRunUnder().getLabel() != null) {
+        Optional<ConfiguredTarget> runUnderTarget =
+            prereqs.getDepValueMap().values().stream()
+                .map(ConfiguredTargetAndData::getConfiguredTarget)
+                .filter(d -> d.getLabel().equals(config.getRunUnder().getLabel()))
+                .findAny();
+        if (runUnderTarget.isPresent()
+            && runUnderTarget.get().getProvider(FilesToRunProvider.class).getExecutable() == null) {
+          throw new ConfiguredValueCreationException(
+              prereqs.getTargetAndConfiguration().getTarget(),
+              "run_under target " + config.getRunUnder().getLabel() + " is not executable");
+        }
       }
 
       // Load the requested toolchains into the ToolchainContext, now that we have dependencies.
@@ -472,6 +494,7 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                     ((ConfiguredRuleClassProvider) ruleClassProvider)
                         .getToolchainTaggedTrimmingTransition(),
                     buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache(),
+                    buildViewProvider.getSkyframeBuildView().getBuildConfigurationKeyCache(),
                     state.computeDependenciesState.transitiveState,
                     (TargetAndConfigurationProducer.ResultSink) state,
                     storedEvents));

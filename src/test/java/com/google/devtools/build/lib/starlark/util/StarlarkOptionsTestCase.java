@@ -64,10 +64,12 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
             .skipStarlarkOptionPrefixes()
             .build();
     starlarkOptionsParser =
-        StarlarkOptionsParser.newStarlarkOptionsParser(
-            new BlazeOptionHandler.SkyframeExecutorTargetLoader(
-                skyframeExecutor, PathFragment.EMPTY_FRAGMENT, reporter),
-            optionsParser);
+        StarlarkOptionsParser.builder()
+            .buildSettingLoader(
+                new BlazeOptionHandler.SkyframeExecutorTargetLoader(
+                    skyframeExecutor, PathFragment.EMPTY_FRAGMENT, reporter))
+            .nativeOptionsParser(optionsParser)
+            .build();
   }
 
   protected OptionsParsingResult parseStarlarkOptions(String options) throws Exception {
@@ -81,7 +83,7 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
       optionsParser.parse(asList);
     }
     assertThat(starlarkOptionsParser.parseGivenArgs(asList)).isTrue();
-    return starlarkOptionsParser.getNativeOptionsParserFortesting();
+    return optionsParser;
   }
 
   protected OptionsParsingResult parseStarlarkOptions(
@@ -97,7 +99,7 @@ public class StarlarkOptionsTestCase extends BuildViewTestCase {
                     .addAll(bazelrcOptionsList)
                     .build()))
         .isTrue();
-    return starlarkOptionsParser.getNativeOptionsParserFortesting();
+    return optionsParser;
   }
 
   private void writeBuildSetting(String type, String defaultValue, boolean isFlag)

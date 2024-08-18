@@ -23,10 +23,12 @@ java_test(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/common_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/analysis/producers:build_configuration_key_producer",
+        "//src/main/java/com/google/devtools/build/lib/analysis/producers:build_configuration_key_cache",
+        "//src/main/java/com/google/devtools/build/lib/analysis/producers:build_configuration_key_map_producer",
         "//src/main/java/com/google/devtools/build/lib/analysis/producers:platform_flags_producer",
         "//src/main/java/com/google/devtools/build/lib/analysis/producers:platform_info_producer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

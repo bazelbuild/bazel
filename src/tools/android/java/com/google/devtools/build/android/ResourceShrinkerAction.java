@@ -20,18 +20,15 @@ import com.android.ide.common.xml.AndroidManifestParser;
 import com.android.ide.common.xml.ManifestData;
 import com.android.io.StreamException;
 import com.android.utils.StdLogger;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
-import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.build.android.Converters.VariantTypeConverter;
-import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.FileInputStream;
@@ -40,6 +37,7 @@ import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -74,138 +72,86 @@ public class ResourceShrinkerAction {
   private static final Logger logger = Logger.getLogger(ResourceShrinkerAction.class.getName());
 
   /** Flag specifications for this action. */
-  public static final class Options extends OptionsBase {
-    @Option(
-        name = "shrunkJar",
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        help = "Path to the shrunk jar from a Proguard run with shrinking enabled.")
+  @Parameters(separators = "= ")
+  public static final class Options extends OptionsBaseWithResidue {
+    @Parameter(
+        names = "--shrunkJar",
+        converter = CompatExistingPathConverter.class,
+        description = "Path to the shrunk jar from a Proguard run with shrinking enabled.")
     public Path shrunkJar;
 
-    @Option(
-        name = "proguardMapping",
-        defaultValue = "null",
-        category = "input",
-        converter = PathConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to the Proguard obfuscation mapping of shrunkJar.")
+    @Parameter(
+        names = "--proguardMapping",
+        converter = CompatPathConverter.class,
+        description = "Path to the Proguard obfuscation mapping of shrunkJar.")
     public Path proguardMapping;
 
-    @Option(
-        name = "resources",
-        defaultValue = "null",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to the resources zip to be shrunk.")
+    @Parameter(
+        names = "--resources",
+        converter = CompatExistingPathConverter.class,
+        description = "Path to the resources zip to be shrunk.")
     public Path resourcesZip;
 
-    @Option(
-        name = "rTxt",
-        defaultValue = "null",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to the R.txt of the complete resource tree.")
+    @Parameter(
+        names = "--rTxt",
+        converter = CompatExistingPathConverter.class,
+        description = "Path to the R.txt of the complete resource tree.")
     public Path rTxt;
 
-    @Option(
-        name = "primaryManifest",
-        defaultValue = "null",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to the primary manifest for the resources to be shrunk.")
+    @Parameter(
+        names = "--primaryManifest",
+        converter = CompatExistingPathConverter.class,
+        description = "Path to the primary manifest for the resources to be shrunk.")
     public Path primaryManifest;
 
-    @Option(
-        name = "dependencyManifest",
-        allowMultiple = true,
-        defaultValue = "null",
-        category = "input",
-        converter = PathConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Paths to the manifests of the dependencies. Specify one path per flag.")
-    public List<Path> dependencyManifests;
+    @Parameter(
+        names = "--dependencyManifest",
+        converter = CompatPathConverter.class,
+        description = "Paths to the manifests of the dependencies. Specify one path per flag.")
+    public List<Path> dependencyManifests = new ArrayList<>();
 
-    @Option(
-        name = "resourcePackages",
-        defaultValue = "",
-        category = "input",
-        converter = CommaSeparatedOptionListConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "A list of packages that resources have been generated for.")
-    public List<String> resourcePackages;
+    @Parameter(
+        names = "--resourcePackages",
+        description = "A list of packages that resources have been generated for.")
+    public List<String> resourcePackages = new ArrayList<>();
 
-    @Option(
-        name = "shrunkResourceApk",
-        defaultValue = "null",
-        category = "output",
-        converter = PathConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to where the shrunk resource.ap_ should be written.")
+    @Parameter(
+        names = "--shrunkResourceApk",
+        converter = CompatPathConverter.class,
+        description = "Path to where the shrunk resource.ap_ should be written.")
     public Path shrunkApk;
 
-    @Option(
-        name = "shrunkResources",
-        defaultValue = "null",
-        category = "output",
-        converter = PathConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to where the shrunk resource.ap_ should be written.")
+    @Parameter(
+        names = "--shrunkResources",
+        converter = CompatPathConverter.class,
+        description = "Path to where the shrunk resource.ap_ should be written.")
     public Path shrunkResources;
 
-    @Option(
-        name = "rTxtOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        category = "output",
-        help = "Path to where the R.txt should be written.")
+    @Parameter(
+        names = "--rTxtOutput",
+        converter = CompatPathConverter.class,
+        description = "Path to where the R.txt should be written.")
     public Path rTxtOutput;
 
-    @Option(
-        name = "log",
-        defaultValue = "null",
-        category = "output",
-        converter = PathConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to where the shrinker log should be written.")
+    @Parameter(
+        names = "--log",
+        converter = CompatPathConverter.class,
+        description = "Path to where the shrinker log should be written.")
     public Path log;
 
-    @Option(
-        name = "resourcesConfigOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to where the list of resources configuration directives should be written.")
+    @Parameter(
+        names = "--resourcesConfigOutput",
+        converter = CompatPathConverter.class,
+        description =
+            "Path to where the list of resources configuration directives should be written.")
     public Path resourcesConfigOutput;
 
-    @Option(
-        name = "packageType",
-        defaultValue = "BASE_APK",
-        converter = VariantTypeConverter.class,
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--packageType",
+        description =
             "Variant configuration type for packaging the resources."
                 + " Acceptable values BASE_APK, LIBRARY, ANDROID_TEST, UNIT_TEST")
-    public VariantTypeImpl packageType;
+    public VariantTypeImpl packageType = VariantTypeImpl.BASE_APK;
   }
 
   private static String getManifestPackage(Path manifest)
@@ -227,14 +173,19 @@ public class ResourceShrinkerAction {
   public static void main(String[] args) throws Exception {
     final Stopwatch timer = Stopwatch.createStarted();
     // Parse arguments.
+    Options options = new Options();
+    JCommander jc = new JCommander(options);
+    jc.parse(args);
+
+    List<String> residue = options.getResidue();
+
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(Options.class, AaptConfigOptions.class)
+            .optionsClasses(AaptConfigOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
-    optionsParser.parseAndExitUponError(args);
+    optionsParser.parseAndExitUponError(residue.toArray(new String[0]));
     AaptConfigOptions aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
-    Options options = optionsParser.getOptions(Options.class);
 
     AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(stdLogger);
     // Setup temporary working directories.

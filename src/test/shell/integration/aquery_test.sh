@@ -1219,14 +1219,14 @@ EOF
 
   bazel clean
 
-  bazel aquery --noenable_bzlmod --output=textproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
   assert_not_contains "actions" output
 
-  bazel build --noenable_bzlmod --nobuild "//$pkg:foo"
+  bazel build --nobuild "//$pkg:foo"
 
-  bazel aquery --noenable_bzlmod --output=textproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
@@ -1255,9 +1255,9 @@ EOF
   QUERY="inputs('.*matching_in.java', outputs('.*matching_out', mnemonic('Genrule')))"
 
   bazel clean
-  bazel build --noenable_bzlmod --nobuild "//$pkg:foo"
+  bazel build --nobuild "//$pkg:foo"
 
-  bazel aquery --noenable_bzlmod --output=textproto --skyframe_state ${QUERY} > output 2> "$TEST_log" \
+  bazel aquery --output=textproto --skyframe_state ${QUERY} > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
@@ -1277,14 +1277,14 @@ EOF
 
   bazel clean
 
-  bazel aquery --noenable_bzlmod --output=textproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
   assert_not_contains "actions" output
 
-  bazel build --noenable_bzlmod --nobuild "//$pkg:foo"
+  bazel build --nobuild "//$pkg:foo"
 
-  bazel aquery --noenable_bzlmod --output=textproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --output=textproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
@@ -1308,14 +1308,14 @@ EOF
 
   bazel clean
 
-  bazel aquery --noenable_bzlmod --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
   assert_not_contains "actions" output
 
-  bazel build --noenable_bzlmod --nobuild "//$pkg:foo"
+  bazel build --nobuild "//$pkg:foo"
 
-  bazel aquery --noenable_bzlmod --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
+  bazel aquery --output=jsonproto --skyframe_state > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
@@ -1336,76 +1336,8 @@ EOF
 
   bazel clean
 
-  bazel aquery --noenable_bzlmod --output=text --skyframe_state &> "$TEST_log" \
+  bazel aquery --output=text --skyframe_state &> "$TEST_log" \
     && fail "Expected failure"
-  expect_log "--skyframe_state must be used with --output=proto\|textproto\|jsonproto. Invalid aquery output format: text"
-}
-
-function test_dump_skyframe_state_after_build_default_output() {
-    local pkg="${FUNCNAME[0]}"
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  cat > "$pkg/BUILD" <<'EOF'
-genrule(
-    name = "foo",
-    srcs = ["foo_matching_in.java"],
-    outs = ["foo_matching_out"],
-    cmd = "echo unused > $(OUTS)",
-)
-EOF
-  touch $pkg/foo_matching_in.java
-
-  bazel clean
-  OUTPUT_BASE=$(bazel info output_base)
-  bazel build --experimental_aquery_dump_after_build_format=textproto "//$pkg:foo" &> "$TEST_log" \
-    || fail "Expected success"
-
-  assert_contains "actions {" "$OUTPUT_BASE/aquery_dump.textproto"
-  assert_contains "input_dep_set_ids: 1" "$OUTPUT_BASE/aquery_dump.textproto"
-  assert_contains "output_ids: 3" "$OUTPUT_BASE/aquery_dump.textproto"
-  assert_contains "mnemonic: \"Genrule\"" "$OUTPUT_BASE/aquery_dump.textproto"
-}
-
-function test_dump_skyframe_state_after_build_to_specified_file() {
-  local pkg="${FUNCNAME[0]}"
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  cat > "$pkg/BUILD" <<'EOF'
-genrule(
-    name = "foo",
-    srcs = ["foo_matching_in.java"],
-    outs = ["foo_matching_out"],
-    cmd = "echo unused > $(OUTS)",
-)
-EOF
-  touch $pkg/foo_matching_in.java
-
-  bazel clean
-
-  bazel build --experimental_aquery_dump_after_build_format=textproto --experimental_aquery_dump_after_build_output_file="$TEST_TMPDIR/foo.out" "//$pkg:foo" \
-    &> "$TEST_log" || fail "Expected success"
-
-  assert_contains "actions {" "$TEST_TMPDIR/foo.out"
-  assert_contains "input_dep_set_ids: 1" "$TEST_TMPDIR/foo.out"
-  assert_contains "output_ids: 3" "$TEST_TMPDIR/foo.out"
-  assert_contains "mnemonic: \"Genrule\"" "$TEST_TMPDIR/foo.out"
-}
-
-function test_dump_skyframe_state_after_build_invalid_format() {
-  local pkg="${FUNCNAME[0]}"
-  mkdir -p "$pkg" || fail "mkdir -p $pkg"
-  cat > "$pkg/BUILD" <<'EOF'
-genrule(
-    name = "foo",
-    srcs = ["foo_matching_in.java"],
-    outs = ["foo_matching_out"],
-    cmd = "echo unused > $(OUTS)",
-)
-EOF
-  touch $pkg/foo_matching_in.java
-
-  bazel clean
-
-  bazel build --experimental_aquery_dump_after_build_format=text --experimental_aquery_dump_after_build_output_file="$TEST_TMPDIR/foo.out" "//$pkg:foo" \
-    &> "$TEST_log" && fail "Expected failure"
   expect_log "--skyframe_state must be used with --output=proto\|textproto\|jsonproto. Invalid aquery output format: text"
 }
 
@@ -1431,6 +1363,7 @@ EOF
 }
 
 function test_aquery_include_template_substitution_for_template_expand_of_py_binary() {
+  add_rules_python "MODULE.bazel"
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'

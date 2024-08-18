@@ -15,6 +15,7 @@
 """Legacy apple_common module"""
 
 load(":common/objc/apple_env.bzl", "apple_host_system_env", "target_apple_env")
+load(":common/objc/apple_platform.bzl", "PLATFORM", "PLATFORM_TYPE")
 load(":common/objc/apple_toolchain.bzl", "apple_toolchain")
 load(":common/objc/linking_support.bzl", "AppleDebugOutputsInfo", "AppleDynamicFrameworkInfo", "AppleExecutableBinaryInfo", "linking_support")
 load(":common/objc/objc_info.bzl", "ObjcInfo")
@@ -24,8 +25,8 @@ native_apple_common = _builtins.internal.apple_common
 
 apple_common = struct(
     apple_toolchain = lambda: apple_toolchain,
-    platform_type = native_apple_common.platform_type,
-    platform = native_apple_common.platform,
+    platform_type = PLATFORM_TYPE,
+    platform = PLATFORM,
     XcodeProperties = XcodeVersionPropertiesInfo,
     XcodeVersionConfig = XcodeVersionInfo,
     Objc = ObjcInfo,

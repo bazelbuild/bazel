@@ -119,7 +119,6 @@ public class GraphlessQueryTest extends AbstractQueryTest<Target> {
               Set<Setting> settings,
               Iterable<QueryFunction> extraFunctions,
               @Nullable PathPackageLocator packagePath,
-              boolean blockUniverseEvaluationErrors,
               boolean useGraphlessQuery,
               LabelPrinter labelPrinter) {
             return new GraphlessBlazeQueryEnvironment(

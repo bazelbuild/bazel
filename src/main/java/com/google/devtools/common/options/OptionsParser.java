@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Lists;
 import com.google.common.collect.MoreCollectors;
 import com.google.common.escape.Escaper;
 import com.google.devtools.build.lib.util.Pair;
@@ -337,6 +338,7 @@ public class OptionsParser implements OptionsParsingResult {
    * upon error. Also, prints out the usage message if "--help" appears anywhere within {@code
    * args}.
    */
+  @SuppressWarnings("SystemExitOutsideMain")
   public void parseAndExitUponError(
       OptionPriority.PriorityCategory priority, String source, String[] args) {
     for (String arg : args) {
@@ -437,9 +439,9 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   /**
-   * @return all documented options loaded in this parser, grouped by categories in display order.
+   * Returns all documented options loaded in this parser, grouped by categories in display order.
    */
-  private LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>>
+  public LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>>
       getOptionsSortedByCategory() {
     OptionsData data = impl.getOptionsData();
     if (data.getOptionsClasses().isEmpty()) {
@@ -526,7 +528,8 @@ public class OptionsParser implements OptionsParsingResult {
    * annotations, this method also interprets {@link OptionsUsage} annotations which give an
    * intuitive short description for the options.
    */
-  public String describeOptionsHtml(Escaper escaper, String productName) {
+  public String describeOptionsHtml(
+      Escaper escaper, String productName, List<String> optionsToIgnore) {
     StringBuilder desc = new StringBuilder();
     LinkedHashMap<OptionDocumentationCategory, List<OptionDefinition>> optionsByCategory =
         getOptionsSortedByCategory();
@@ -535,15 +538,21 @@ public class OptionsParser implements OptionsParsingResult {
 
     for (Map.Entry<OptionDocumentationCategory, List<OptionDefinition>> e :
         optionsByCategory.entrySet()) {
-      desc.append("<dl>");
-      String categoryDescription = optionCategoryDescriptions.get(e.getKey());
       List<OptionDefinition> categorizedOptionsList = e.getValue();
-
-      // Describe the category if we're going to end up using it at all.
-      if (!categorizedOptionsList.isEmpty()) {
-        desc.append(escaper.escape(categoryDescription)).append(":\n");
+      categorizedOptionsList =
+          categorizedOptionsList.stream()
+              .filter(
+                  optionDef ->
+                      Arrays.stream(optionDef.getOptionEffectTags())
+                          .noneMatch(effectTag -> effectTag.equals(OptionEffectTag.NO_OP)))
+              .filter(optionDef -> !optionsToIgnore.contains(optionDef.getOptionName()))
+              .collect(toImmutableList());
+      if (categorizedOptionsList.isEmpty()) {
+        continue;
       }
-      // Describe the options in this category.
+      String categoryDescription = optionCategoryDescriptions.get(e.getKey());
+
+      desc.append("<dl>").append(escaper.escape(categoryDescription)).append(":\n");
       for (OptionDefinition optionDef : categorizedOptionsList) {
         OptionsUsage.getUsageHtml(optionDef, desc, escaper, impl.getOptionsData(), true);
       }
@@ -656,7 +665,7 @@ public class OptionsParser implements OptionsParsingResult {
    */
   public void parse(OptionPriority.PriorityCategory priority, String source, List<String> args)
       throws OptionsParsingException {
-    parseWithSourceFunction(priority, o -> source, args, null);
+    parseWithSourceFunction(priority, o -> source, args, /* fallbackData= */ null);
   }
 
   /**
@@ -672,9 +681,6 @@ public class OptionsParser implements OptionsParsingResult {
    *     each option will be given an index to track its position. If parse() has already been
    *     called at this priority, the indexing will continue where it left off, to keep ordering.
    * @param sourceFunction a function that maps option names to the source of the option.
-   * @param fallbackData if provided, the full collection of options that should be parsed and
-   *     ignored without raising an error if they are not recognized by the options classes
-   *     registered with this parser.
    * @param args the arg list to parse. Each element might be an option, a value linked to an
    *     option, or residue.
    * @return a list of options and values that were parsed but ignored due to only resolving against
@@ -690,7 +696,8 @@ public class OptionsParser implements OptionsParsingResult {
     Preconditions.checkNotNull(priority);
     Preconditions.checkArgument(priority != OptionPriority.PriorityCategory.DEFAULT);
     OptionsParserImplResult optionsParserImplResult =
-        impl.parse(priority, sourceFunction, args, (OptionsData) fallbackData);
+        impl.parse(
+            priority, sourceFunction, ArgAndFallbackData.wrapWithFallbackData(args, fallbackData));
     addResidueFromResult(optionsParserImplResult);
     aliases.putAll(optionsParserImplResult.aliases);
     return optionsParserImplResult.ignoredArgs;
@@ -704,19 +711,15 @@ public class OptionsParser implements OptionsParsingResult {
    *     will have the same priority as this option.
    * @param source a description of where the expansion arguments came from.
    * @param args the arguments to parse as the expansion. Order matters, as the value of a flag may
-   *     be in the following argument.
-   * @param fallbackData if provided, the full collection of options that should be parsed and
-   *     ignored without raising an error if they are not recognized by the options classes
-   *     registered with this parser.
+   *     be in the following argument. Each arg is optionally annotated with the full collection of
+   *     options that should be parsed and ignored without raising an error if they are not
+   *     recognized by the options classes registered with this parser.
    * @return a list of options and values that were parsed but ignored due to only resolving against
    *     the fallback data
    */
   @CanIgnoreReturnValue
   public ImmutableList<String> parseArgsAsExpansionOfOption(
-      ParsedOptionDescription optionToExpand,
-      String source,
-      List<String> args,
-      @Nullable OpaqueOptionsData fallbackData)
+      ParsedOptionDescription optionToExpand, String source, List<ArgAndFallbackData> args)
       throws OptionsParsingException {
     Preconditions.checkNotNull(
         optionToExpand, "Option for expansion not specified for arglist %s", args);
@@ -726,8 +729,7 @@ public class OptionsParser implements OptionsParsingResult {
         "Priority cannot be default, which was specified for arglist %s",
         args);
     OptionsParserImplResult optionsParserImplResult =
-        impl.parseArgsAsExpansionOfOption(
-            optionToExpand, o -> source, args, (OptionsData) fallbackData);
+        impl.parseArgsAsExpansionOfOption(optionToExpand, o -> source, args);
     addResidueFromResult(optionsParserImplResult);
     return optionsParserImplResult.ignoredArgs;
   }
@@ -853,12 +855,17 @@ public class OptionsParser implements OptionsParsingResult {
   }
 
   @Override
+  public List<OptionValueDescription> allOptionValues() {
+    return impl.allOptionValues();
+  }
+
+  @Override
   public List<String> canonicalize() {
     return impl.asCanonicalizedList();
   }
 
   /** Returns all options fields of the given options class, in alphabetic order. */
-  public static ImmutableList<OptionDefinition> getOptionDefinitions(
+  public static ImmutableList<? extends OptionDefinition> getOptionDefinitions(
       Class<? extends OptionsBase> optionsClass) {
     return OptionsData.getAllOptionDefinitionsForClass(optionsClass);
   }
@@ -887,5 +894,24 @@ public class OptionsParser implements OptionsParsingResult {
   public static boolean getUsesOnlyCoreTypes(Class<? extends OptionsBase> optionsClass) {
     OptionsData data = OptionsParser.getOptionsDataInternal(optionsClass);
     return data.getUsesOnlyCoreTypes(optionsClass);
+  }
+
+  /**
+   * A container for an arg and associated options that should be silently ignored when parsed but
+   * not recognized by the current command.
+   */
+  public static final class ArgAndFallbackData {
+    public final String arg;
+    @Nullable final OptionsData fallbackData;
+
+    public ArgAndFallbackData(String arg, @Nullable OpaqueOptionsData fallbackData) {
+      this.arg = Preconditions.checkNotNull(arg);
+      this.fallbackData = (OptionsData) fallbackData;
+    }
+
+    public static List<ArgAndFallbackData> wrapWithFallbackData(
+        List<String> args, @Nullable OpaqueOptionsData fallbackData) {
+      return Lists.transform(args, arg -> new ArgAndFallbackData(arg, fallbackData));
+    }
   }
 }

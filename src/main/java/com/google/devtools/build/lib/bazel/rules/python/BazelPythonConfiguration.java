@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 
@@ -43,24 +42,6 @@ public class BazelPythonConfiguration extends Fragment {
 
   /** Bazel-specific Python configuration options. */
   public static final class Options extends FragmentOptions {
-    @Option(
-        name = "python2_path",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help = "Deprecated, no-op. Disabled by `--incompatible_use_python_toolchains`.")
-    public String python2Path;
-
-    @Option(
-        name = "python3_path",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help = "Deprecated, no-op. Disabled by `--incompatible_use_python_toolchains`.")
-    public String python3Path;
-
     @Option(
         name = "python_top",
         converter = LabelConverter.class,
@@ -115,18 +96,6 @@ public class BazelPythonConfiguration extends Fragment {
     Options opts = buildOptions.get(Options.class);
     if (pythonOpts.incompatibleUsePythonToolchains) {
       // Forbid deprecated flags.
-      if (opts.python2Path != null) {
-        reporter.handle(
-            Event.error(
-                "`--python2_path` is disabled by `--incompatible_use_python_toolchains`. Since "
-                    + "`--python2_path` is a deprecated no-op, there is no need to pass it."));
-      }
-      if (opts.python3Path != null) {
-        reporter.handle(
-            Event.error(
-                "`--python3_path` is disabled by `--incompatible_use_python_toolchains`. Since "
-                    + "`--python3_path` is a deprecated no-op, there is no need to pass it."));
-      }
       if (opts.pythonTop != null) {
         reporter.handle(
             Event.error(

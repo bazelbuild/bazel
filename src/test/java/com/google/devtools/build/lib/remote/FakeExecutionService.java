@@ -164,11 +164,19 @@ public class FakeExecutionService extends ExecutionImplBase {
   private static void serve(
       StreamObserver<Operation> responseObserver, String name, OperationProvider provider) {
     if (provider.hasNext(name)) {
+      boolean thrown = false;
       ImmutableList<Supplier<Operation>> suppliers = provider.next(name);
       for (Supplier<Operation> supplier : suppliers) {
-        responseObserver.onNext(supplier.get());
+        try {
+          responseObserver.onNext(supplier.get());
+        } catch (Exception e) {
+          thrown = true;
+          responseObserver.onError(e);
+        }
       }
-      responseObserver.onCompleted();
+      if (!thrown) {
+        responseObserver.onCompleted();
+      }
     } else {
       responseObserver.onError(io.grpc.Status.UNIMPLEMENTED.asRuntimeException());
     }

@@ -79,8 +79,8 @@ public class RegisteredToolchainsCycleReporter implements CyclesReporter.SingleC
 
     Function<Object, String> printer =
         input -> {
-          if (input instanceof ConfiguredTargetKey) {
-            Label label = ((ConfiguredTargetKey) input).getLabel();
+          if (input instanceof ConfiguredTargetKey ctk) {
+            Label label = ctk.getLabel();
             return label.toString();
           }
           if (input instanceof RegisteredToolchainsValue.Key) {

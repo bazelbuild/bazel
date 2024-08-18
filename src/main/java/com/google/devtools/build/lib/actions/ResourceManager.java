@@ -488,7 +488,6 @@ public class ResourceManager implements ResourceEstimator {
     }
   }
 
-  // TODO (b/241066751) find better way to change resource ownership
   public void releaseResourceOwnership() {
     threadLocked.set(false);
   }
@@ -511,19 +510,15 @@ public class ResourceManager implements ResourceEstimator {
     WaitingRequest waitingRequest =
         new WaitingRequest(request, new ResourceLatch(new CountDownLatch(1), /* worker= */ null));
     switch (request.getPriority()) {
-      case LOCAL:
-        localRequests.addLast(waitingRequest);
-        break;
-      case DYNAMIC_WORKER:
-        // Dynamic requests should be LIFO, because we are more likely to win the race on newer
-        // actions.
-        dynamicWorkerRequests.addFirst(waitingRequest);
-        break;
-      case DYNAMIC_STANDALONE:
-        // Dynamic requests should be LIFO, because we are more likely to win the race on newer
-        // actions.
-        dynamicStandaloneRequests.addFirst(waitingRequest);
-        break;
+      case LOCAL -> localRequests.addLast(waitingRequest);
+      case DYNAMIC_WORKER ->
+          // Dynamic requests should be LIFO, because we are more likely to win the race on newer
+          // actions.
+          dynamicWorkerRequests.addFirst(waitingRequest);
+      case DYNAMIC_STANDALONE ->
+          // Dynamic requests should be LIFO, because we are more likely to win the race on newer
+          // actions.
+          dynamicStandaloneRequests.addFirst(waitingRequest);
     }
     return waitingRequest.getResourceLatch();
   }
@@ -626,12 +621,8 @@ public class ResourceManager implements ResourceEstimator {
     // by the release() method.
 
     WorkerKey workerKey = resources.getWorkerKey();
-    if (workerKey != null) {
-      int availableWorkers = this.workerPool.getMaxTotalPerKey(workerKey);
-      int activeWorkers = this.workerPool.getNumActive(workerKey);
-      if (activeWorkers >= availableWorkers) {
-        return false;
-      }
+    if (workerKey != null && !this.workerPool.hasAvailableQuota(workerKey)) {
+      return false;
     }
 
     // We test for tracking of extra resources whenever acquired and throw an

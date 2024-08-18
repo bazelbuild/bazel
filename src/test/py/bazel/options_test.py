@@ -282,6 +282,33 @@ class OptionsTest(test_base.TestBase):
     # Check that version doesn't fail.
     self.RunBazel(["version"])
 
+  def testConfigExpansion_failsOnUnsupportedFlag(self):
+    self.ScratchFile("MODULE.bazel")
+    self.ScratchFile("BUILD.bazel")
+    self.ScratchFile(
+        ".bazelrc",
+        [
+            "build:abc --copt",
+            "build:abc -DFOO",
+            "common:abc --noverbose_test_summary",
+            "common:abc --verbose_test_summary",
+            "build:abc --copt",
+            "build:abc -DFOO",
+            "build:abc --verbose_test_summary",
+            "common:def --config=abc",
+        ],
+    )
+
+    exit_code, _, stderr = self.RunBazel(
+        ["build", "--announce_rc", "--config=def", "//..."], allow_failure=True
+    )
+    self.AssertExitCode(exit_code, 2, stderr)
+    self.assertIn(
+        "ERROR: --verbose_test_summary :: Unrecognized option:"
+        " --verbose_test_summary",
+        stderr,
+    )
+
 
 if __name__ == "__main__":
   absltest.main()

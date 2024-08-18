@@ -14,13 +14,13 @@
 
 package com.google.devtools.build.lib.analysis.config.output;
 
-import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 
 /**
- * Data structure defining a {@link FragmentOptions} for creating user output.
+ * Data structure defining a {@link com.google.devtools.build.lib.analysis.config.FragmentOptions}
+ * for creating user output.
  *
  * <p>See {@link FragmentForOutput} and {@link ConfigurationForOutput} for further details.
  */

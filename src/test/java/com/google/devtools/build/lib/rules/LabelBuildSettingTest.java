@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -118,7 +119,8 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
 
     ConfiguredTarget b = getConfiguredTarget("//test:my_rule");
     StarlarkProvider.Key myRuleInfo =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:rules.bzl"), "MyRuleInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:rules.bzl")), "MyRuleInfo");
     assertThat(((StarlarkInfo) b.get(myRuleInfo)).getValue("value")).isEqualTo("default_value");
   }
 
@@ -153,7 +155,8 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
 
     ConfiguredTarget b = getConfiguredTarget("//test:my_rule");
     StarlarkProvider.Key myRuleInfo =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:rules.bzl"), "MyRuleInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//test:rules.bzl")), "MyRuleInfo");
     assertThat(((StarlarkInfo) b.get(myRuleInfo)).getValue("value"))
         .isEqualTo("command_line_value");
   }
@@ -422,8 +425,8 @@ public class LabelBuildSettingTest extends BuildViewTestCase {
   public void transitionOutput_otherRepo() throws Exception {
     scratch.overwriteFile("MODULE.bazel", "bazel_dep(name='foo',version='1.0')");
     registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo', version='1.0')");
-    scratch.file("modules/foo~1.0/WORKSPACE");
-    scratch.file("modules/foo~1.0/BUILD", "filegroup(name='other_rule')");
+    scratch.file("modules/foo+1.0/WORKSPACE");
+    scratch.file("modules/foo+1.0/BUILD", "filegroup(name='other_rule')");
 
     scratch.overwriteFile(
         "tools/allowlists/function_transition_allowlist/BUILD",

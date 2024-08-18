@@ -199,8 +199,8 @@ final class Consumers {
           // unpack and re-throw the IOException. Otherwise, re-throw
           // this unexpected RuntimeException
           final Throwable cause = re.getCause();
-          if (cause instanceof IOException) {
-            throw (IOException) cause;
+          if (cause instanceof IOException ioException) {
+            throw ioException;
           } else {
             throw re;
           }

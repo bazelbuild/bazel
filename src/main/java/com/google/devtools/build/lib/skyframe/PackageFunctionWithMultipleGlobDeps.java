@@ -56,14 +56,14 @@ import javax.annotation.Nullable;
 /**
  * Computes the {@link PackageValue} which depends on multiple GLOB nodes.
  *
- * <p>Every glob pattern defined in the package's {@code BUILD} file is represented as a single
- * GLOB node in the dependency graph.
+ * <p>Every glob pattern defined in the package's {@code BUILD} file is represented as a single GLOB
+ * node in the dependency graph.
  *
- * <p>{@link PackageFunctionWithMultipleGlobDeps} subclass supports both {@code SKYFRAME_HYBRID}
- * and {@code NON_SKYFRAME} globbing strategy. Incremental evaluation adopts {@code SKYFRAME_HYBRID}
- * globbing strategy, and it can just use the unchanged {@link GlobValue} stored in Skyframe when
- * incrementally reloading the package. On the other hand, {@code NON_SKYFRAME} globbing strategy is
- * used for non-incremental evaluations with no GLOB node queried and stored in Skyframe.
+ * <p>{@link PackageFunctionWithMultipleGlobDeps} subclass is created when the globbing strategy is
+ * {@link
+ * com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy#MULTIPLE_GLOB_HYBRID}.
+ * Incremental evaluation adopts {@code SKYFRAME_HYBRID} globbing strategy in order to use the
+ * unchanged {@link GlobValue} stored in Skyframe when incrementally reloading the package.
  */
 final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
@@ -77,7 +77,6 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
       @Nullable PackageProgressReceiver packageProgress,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       boolean shouldUseRepoDotBazel,
-      GlobbingStrategy globbingStrategy,
       Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics,
       AtomicReference<Semaphore> cpuBoundSemaphore) {
     super(
@@ -89,7 +88,6 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
         packageProgress,
         actionOnIOExceptionReadingBuildFile,
         shouldUseRepoDotBazel,
-        globbingStrategy,
         threadStateReceiverFactoryForMetrics,
         cpuBoundSemaphore);
   }
@@ -102,6 +100,7 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
   @Override
   protected void handleGlobDepsAndPropagateFilesystemExceptions(
       PackageIdentifier packageIdentifier,
+      Root packageRoot,
       LoadedPackage loadedPackage,
       Environment env,
       boolean packageWasInError)
@@ -134,56 +133,13 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
     }
   }
 
-  private static class LoadedPackageWithGlobDeps extends LoadedPackage {
+  private static final class LoadedPackageWithGlobDeps extends LoadedPackage {
     private final Set<SkyKey> globDepKeys;
 
     private LoadedPackageWithGlobDeps(
-        Package.Builder builder, Set<SkyKey> globDepKeys, long loadTimeNanos) {
+        Package.Builder builder, long loadTimeNanos, Set<SkyKey> globDepKeys) {
       super(builder, loadTimeNanos);
       this.globDepKeys = globDepKeys;
-    }
-  }
-
-  private interface GlobberWithSkyframeGlobDeps extends Globber {
-    Set<SkyKey> getGlobDepsRequested();
-  }
-
-  private static class NonSkyframeGlobberWithNoGlobDeps implements GlobberWithSkyframeGlobDeps {
-    private final NonSkyframeGlobber delegate;
-
-    private NonSkyframeGlobberWithNoGlobDeps(NonSkyframeGlobber delegate) {
-      this.delegate = delegate;
-    }
-
-    @Override
-    public Set<SkyKey> getGlobDepsRequested() {
-      return ImmutableSet.of();
-    }
-
-    @Override
-    public Token runAsync(
-        List<String> includes,
-        List<String> excludes,
-        Globber.Operation globberOperation,
-        boolean allowEmpty)
-        throws BadGlobException, InterruptedException {
-      return delegate.runAsync(includes, excludes, globberOperation, allowEmpty);
-    }
-
-    @Override
-    public List<String> fetchUnsorted(Token token)
-        throws BadGlobException, IOException, InterruptedException {
-      return delegate.fetchUnsorted(token);
-    }
-
-    @Override
-    public void onInterrupt() {
-      delegate.onInterrupt();
-    }
-
-    @Override
-    public void onCompletion() {
-      delegate.onCompletion();
     }
   }
 
@@ -244,7 +200,7 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
    * encountering all glob calls (meaning the real pass can still have the core problem with
    * Skyframe restarts).
    */
-  private static class SkyframeHybridGlobber implements GlobberWithSkyframeGlobDeps {
+  private static final class SkyframeHybridGlobber implements Globber {
     private final PackageIdentifier packageId;
     private final Root packageRoot;
     private final Environment env;
@@ -262,7 +218,6 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
       this.nonSkyframeGlobber = nonSkyframeGlobber;
     }
 
-    @Override
     public Set<SkyKey> getGlobDepsRequested() {
       return ImmutableSet.copyOf(globDepsRequested);
     }
@@ -414,11 +369,11 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
           SkyKey globKey, SkyframeLookupResult globValueMap) throws IOException {
         try {
           return checkNotNull(
-              (GlobValue)
-                  globValueMap.getOrThrow(
-                      globKey, BuildFileNotFoundException.class, IOException.class),
-              "%s should not be missing",
-              globKey)
+                  (GlobValue)
+                      globValueMap.getOrThrow(
+                          globKey, BuildFileNotFoundException.class, IOException.class),
+                  "%s should not be missing",
+                  globKey)
               .getMatches();
         } catch (BuildFileNotFoundException e) {
           throw new SkyframeGlobbingIOException(e);
@@ -434,21 +389,12 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
   }
 
   @Override
-  protected GlobberWithSkyframeGlobDeps makeGlobber(
+  protected Globber makeGlobber(
       NonSkyframeGlobber nonSkyframeGlobber,
       PackageIdentifier packageId,
       Root packageRoot,
       Environment env) {
-    switch (globbingStrategy) {
-      case SKYFRAME_HYBRID:
-        return new SkyframeHybridGlobber(packageId, packageRoot, env, nonSkyframeGlobber);
-      case NON_SKYFRAME:
-        // Skyframe globbing is only useful for incremental correctness and performance. The
-        // first time Bazel loads a package ever, Skyframe globbing is actually pure overhead
-        // (SkyframeHybridGlobber will make full use of NonSkyframeGlobber).
-        return new NonSkyframeGlobberWithNoGlobDeps(nonSkyframeGlobber);
-    }
-    throw new AssertionError(globbingStrategy);
+    return new SkyframeHybridGlobber(packageId, packageRoot, env, nonSkyframeGlobber);
   }
 
   @Override
@@ -456,8 +402,8 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
       Package.Builder packageBuilder, @Nullable Globber globber, long loadTimeNanos) {
     Set<SkyKey> globDepKeys = ImmutableSet.of();
     if (globber != null) {
-      globDepKeys = ((GlobberWithSkyframeGlobDeps) globber).getGlobDepsRequested();
+      globDepKeys = ((SkyframeHybridGlobber) globber).getGlobDepsRequested();
     }
-    return new LoadedPackageWithGlobDeps(packageBuilder, globDepKeys, loadTimeNanos);
+    return new LoadedPackageWithGlobDeps(packageBuilder, loadTimeNanos, globDepKeys);
   }
 }

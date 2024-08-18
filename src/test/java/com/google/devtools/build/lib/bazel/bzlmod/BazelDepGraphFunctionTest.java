@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDir
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
@@ -61,7 +62,6 @@ import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import com.google.devtools.build.skyframe.RecordingDifferencer;
 import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -130,7 +130,9 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(rootDirectory))
                 .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, resolutionFunctionMock)
-                .put(SkyFunctions.REGISTRY, new RegistryFunction(new FakeRegistry.Factory()))
+                .put(
+                    SkyFunctions.REGISTRY,
+                    new RegistryFunction(new FakeRegistry.Factory(), directories.getWorkspace()))
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
                 .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(
@@ -147,7 +149,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         differencer,
         StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build());
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of());
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of());
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.OFF);
@@ -195,13 +197,13 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         .containsExactly(
             RepositoryName.MAIN,
             ModuleKey.ROOT,
-            RepositoryName.create("dep~1.0"),
+            RepositoryName.create("dep+1.0"),
             createModuleKey("dep", "1.0"),
-            RepositoryName.create("dep~2.0"),
+            RepositoryName.create("dep+2.0"),
             createModuleKey("dep", "2.0"),
-            RepositoryName.create("rules_cc~"),
+            RepositoryName.create("rules_cc+"),
             createModuleKey("rules_cc", "1.0"),
-            RepositoryName.create("rules_java~"),
+            RepositoryName.create("rules_java+"),
             createModuleKey("rules_java", ""));
     assertThat(value.getAbridgedModules())
         .containsExactlyElementsIn(
@@ -218,12 +220,13 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         .setExtensionBzlFile(bzlFile)
         .setExtensionName(name)
         .setIsolationKey(Optional.empty())
-        .setImports(importsBuilder.buildOrThrow())
-        .setDevImports(ImmutableSet.of())
-        .setUsingModule(ModuleKey.ROOT)
-        .setLocation(Location.BUILTIN)
-        .setHasDevUseExtension(false)
-        .setHasNonDevUseExtension(true)
+        .addProxy(
+            ModuleExtensionUsage.Proxy.builder()
+                .setDevDependency(false)
+                .setLocation(Location.BUILTIN)
+                .setImports(importsBuilder.buildOrThrow())
+                .setContainingModuleFilePath(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME)
+                .build())
         .build();
   }
 
@@ -266,16 +269,16 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
     ModuleExtensionId maven =
         ModuleExtensionId.create(
-            Label.parseCanonical("@@rules_jvm_external~//:defs.bzl"), "maven", Optional.empty());
+            Label.parseCanonical("@@rules_jvm_external+//:defs.bzl"), "maven", Optional.empty());
     ModuleExtensionId pip =
         ModuleExtensionId.create(
-            Label.parseCanonical("@@rules_python~//:defs.bzl"), "pip", Optional.empty());
+            Label.parseCanonical("@@rules_python+//:defs.bzl"), "pip", Optional.empty());
     ModuleExtensionId myext =
         ModuleExtensionId.create(
-            Label.parseCanonical("@@dep~//:defs.bzl"), "myext", Optional.empty());
+            Label.parseCanonical("@@dep+//:defs.bzl"), "myext", Optional.empty());
     ModuleExtensionId myext2 =
         ModuleExtensionId.create(
-            Label.parseCanonical("@@dep~//incredible:conflict.bzl"), "myext", Optional.empty());
+            Label.parseCanonical("@@dep+//incredible:conflict.bzl"), "myext", Optional.empty());
 
     resolutionFunctionMock.setDepGraph(depGraph);
     EvaluationResult<BazelDepGraphValue> result =
@@ -299,10 +302,10 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
     assertThat(value.getExtensionUniqueNames())
         .containsExactly(
-            maven, "rules_jvm_external~~maven",
-            pip, "rules_python~~pip",
-            myext, "dep~~myext",
-            myext2, "dep~~myext2");
+            maven, "rules_jvm_external++maven",
+            pip, "rules_python++pip",
+            myext, "dep++myext",
+            myext2, "dep++myext2");
 
     assertThat(value.getFullRepoMapping(ModuleKey.ROOT))
         .isEqualTo(
@@ -313,27 +316,27 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
                 "root",
                 "",
                 "rje",
-                "rules_jvm_external~",
+                "rules_jvm_external+",
                 "rpy",
-                "rules_python~",
+                "rules_python+",
                 "av",
-                "rules_jvm_external~~maven~autovalue",
+                "rules_jvm_external++maven+autovalue",
                 "numpy",
-                "rules_python~~pip~numpy"));
+                "rules_python++pip+numpy"));
     assertThat(value.getFullRepoMapping(depKey))
         .isEqualTo(
             createRepositoryMapping(
                 depKey,
                 "dep",
-                "dep~",
+                "dep+",
                 "rules_python",
-                "rules_python~",
+                "rules_python+",
                 "np",
-                "rules_python~~pip~numpy",
+                "rules_python++pip+numpy",
                 "oneext",
-                "dep~~myext~myext",
+                "dep++myext+myext",
                 "twoext",
-                "dep~~myext2~myext"));
+                "dep++myext2+myext"));
   }
 
   @Test
@@ -364,10 +367,9 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
 
     @Override
     @Nullable
-    public SkyValue compute(SkyKey skyKey, Environment env)
-        throws SkyFunctionException, InterruptedException {
-
-      return BazelModuleResolutionValue.create(depGraph, ImmutableMap.of());
+    public SkyValue compute(SkyKey skyKey, Environment env) {
+      return BazelModuleResolutionValue.create(
+          depGraph, ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
     }
   }
 }

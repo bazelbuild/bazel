@@ -170,18 +170,16 @@ class DirectoryTreeBuilder {
                   "missing metadata for '%s'",
                   input.getExecPathString());
           switch (metadata.getType()) {
-            case REGULAR_FILE:
-              {
-                Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
-                Path inputPath = artifactPathResolver.toPath(input);
-                boolean childAdded =
-                    currDir.addChild(
-                        FileNode.createExecutable(
-                            path.getBaseName(), inputPath, d, toolInputs.contains(path)));
-                return childAdded ? 1 : 0;
-              }
-
-            case DIRECTORY:
+            case REGULAR_FILE -> {
+              Digest d = DigestUtil.buildDigest(metadata.getDigest(), metadata.getSize());
+              Path inputPath = artifactPathResolver.toPath(input);
+              boolean childAdded =
+                  currDir.addChild(
+                      FileNode.createExecutable(
+                          path.getBaseName(), inputPath, d, toolInputs.contains(path)));
+              return childAdded ? 1 : 0;
+            }
+            case DIRECTORY -> {
               SortedMap<PathFragment, ActionInput> directoryInputs =
                   explodeDirectory(input.getExecPath(), execRoot);
               return buildFromActionInputs(
@@ -193,31 +191,29 @@ class DirectoryTreeBuilder {
                   spawnScrubber,
                   digestUtil,
                   tree);
-
-            case SYMLINK:
-              {
-                Preconditions.checkState(
-                    input instanceof SpecialArtifact && input.isSymlink(),
-                    "Encountered symlink input '%s', but all source symlinks should have been"
-                        + " resolved by SkyFrame. This is a bug.",
-                    path);
-                Path inputPath = artifactPathResolver.toPath(input);
-                boolean childAdded =
-                    currDir.addChild(
-                        new SymlinkNode(
-                            path.getBaseName(), inputPath.readSymbolicLink().getPathString()));
-                return childAdded ? 1 : 0;
-              }
-
-            case SPECIAL_FILE:
-              throw new IOException(
-                  String.format(
-                      "The '%s' is a special input which is not supported"
-                          + " by remote caching and execution.",
-                      path));
-
-            case NONEXISTENT:
-              throw new IOException(String.format("The file type of '%s' is not supported.", path));
+            }
+            case SYMLINK -> {
+              Preconditions.checkState(
+                  input instanceof SpecialArtifact && input.isSymlink(),
+                  "Encountered symlink input '%s', but all source symlinks should have been"
+                      + " resolved by SkyFrame. This is a bug.",
+                  path);
+              Path inputPath = artifactPathResolver.toPath(input);
+              boolean childAdded =
+                  currDir.addChild(
+                      new SymlinkNode(
+                          path.getBaseName(), inputPath.readSymbolicLink().getPathString()));
+              return childAdded ? 1 : 0;
+            }
+            case SPECIAL_FILE ->
+                throw new IOException(
+                    String.format(
+                        "The '%s' is a special input which is not supported"
+                            + " by remote caching and execution.",
+                        path));
+            case NONEXISTENT ->
+                throw new IOException(
+                    String.format("The file type of '%s' is not supported.", path));
           }
 
           return 0;
@@ -291,23 +287,16 @@ class DirectoryTreeBuilder {
       String basename = entry.getName();
       PathFragment path = dirname.getChild(basename);
       switch (entry.getType()) {
-        case FILE:
-          inputs.put(path, ActionInputHelper.fromPath(path));
-          break;
-
-        case DIRECTORY:
-          explodeDirectory(path, inputs, execRoot);
-          break;
-
-        case SYMLINK:
-          throw new IllegalStateException(
-              String.format(
-                  "Encountered symlink input '%s', but all"
-                      + " symlinks should have been resolved by readdir. This is a bug.",
-                  path));
-
-        case UNKNOWN:
-          throw new IOException(String.format("The file type of '%s' is not supported.", path));
+        case FILE -> inputs.put(path, ActionInputHelper.fromPath(path));
+        case DIRECTORY -> explodeDirectory(path, inputs, execRoot);
+        case SYMLINK ->
+            throw new IllegalStateException(
+                String.format(
+                    "Encountered symlink input '%s', but all"
+                        + " symlinks should have been resolved by readdir. This is a bug.",
+                    path));
+        case UNKNOWN ->
+            throw new IOException(String.format("The file type of '%s' is not supported.", path));
       }
     }
   }

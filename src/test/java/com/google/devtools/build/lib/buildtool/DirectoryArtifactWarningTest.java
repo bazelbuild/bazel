@@ -106,7 +106,7 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
     buildTarget("//x");
 
     events.assertContainsWarning(
-        "input 'x/dir' to //x:x is a directory; "
+        "input 'x/dir' of //x:x is a directory; "
             + "dependency checking of directories is unsound");
   }
 
@@ -146,7 +146,7 @@ public class DirectoryArtifactWarningTest extends BuildIntegrationTestCase {
     buildTarget("//x");
 
     events.assertContainsWarning(
-        "input 'x/dir' to //x:x is a directory; "
+        "input 'x/dir' of //x:x is a directory; "
             + "dependency checking of directories is unsound");
   }
 }

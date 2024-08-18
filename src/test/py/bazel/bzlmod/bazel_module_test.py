@@ -271,8 +271,10 @@ class BazelModuleTest(test_base.TestBase):
                                          allow_failure=True)
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
-        "ERROR: <builtin>: //pkg:_main~module_ext~foo: no such attribute 'invalid_attr' in 'repo_rule' rule",
-        stderr)
+        'ERROR: <builtin>: //pkg:+module_ext+foo: no such attribute'
+        " 'invalid_attr' in 'repo_rule' rule",
+        stderr,
+    )
     self.assertTrue(
         any([
             '/pkg/extension.bzl", line 3, column 14, in _module_ext_impl'
@@ -424,10 +426,10 @@ class BazelModuleTest(test_base.TestBase):
 
     _, _, stderr = self.RunBazel(['build', '@bar//quux:book'])
     stderr = '\n'.join(stderr)
-    self.assertIn('1st: @@bar~//quux:bleb', stderr)
-    self.assertIn('2nd: @@bar~//bleb:bleb', stderr)
+    self.assertIn('1st: @@bar+//quux:bleb', stderr)
+    self.assertIn('2nd: @@bar+//bleb:bleb', stderr)
     self.assertIn('3rd: @@//bleb:bleb', stderr)
-    self.assertIn('4th: @@bar~//bleb:bleb', stderr)
+    self.assertIn('4th: @@bar+//bleb:bleb', stderr)
     self.assertIn('5th: @@bleb//bleb:bleb', stderr)
     self.assertIn('6th: @@//bleb:bleb', stderr)
 
@@ -471,10 +473,10 @@ class BazelModuleTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     # @bar is mapped to @@baz, which Bzlmod doesn't recognize, so we leave it be
     self.assertIn('1st: @@baz//:z', stderr)
-    # @my_aaa is mapped to @@aaa, which Bzlmod remaps to @@aaa~
-    self.assertIn('2nd: @@aaa~//:z', stderr)
-    # @bbb isn't mapped in WORKSPACE, but Bzlmod maps it to @@bbb~
-    self.assertIn('3rd: @@bbb~//:z', stderr)
+    # @my_aaa is mapped to @@aaa, which Bzlmod remaps to @@aaa+
+    self.assertIn('2nd: @@aaa+//:z', stderr)
+    # @bbb isn't mapped in WORKSPACE, but Bzlmod maps it to @@bbb+
+    self.assertIn('3rd: @@bbb+//:z', stderr)
     # @blarg isn't mapped by WORKSPACE or Bzlmod
     self.assertIn('4th: @@blarg//:z', stderr)
 
@@ -664,9 +666,9 @@ class BazelModuleTest(test_base.TestBase):
     )
     stderr = '\n'.join(stderr)
     self.assertIn('@@ reporting in: root@0.1', stderr)
-    self.assertIn('@@foo~ reporting in: foo@1.0', stderr)
-    self.assertIn('@@foo~~report_ext~report_repo reporting in: foo@1.0', stderr)
-    self.assertIn('@@bar~ reporting in: bar@2.0', stderr)
+    self.assertIn('@@foo+ reporting in: foo@1.0', stderr)
+    self.assertIn('@@foo++report_ext+report_repo reporting in: foo@1.0', stderr)
+    self.assertIn('@@bar+ reporting in: bar@2.0', stderr)
     self.assertIn('@@quux reporting in: None@None', stderr)
 
   def testWorkspaceToolchainRegistrationWithPlatformsConstraint(self):
@@ -773,8 +775,8 @@ class BazelModuleTest(test_base.TestBase):
     )
     self.AssertExitCode(exit_code, 48, stderr)
     self.assertIn(
-        'Error in init_rule: A rule can only be instantiated in a BUILD file, '
-        'or a macro invoked from a BUILD file',
+        'Error in init_rule: Cannot instantiate a rule when loading a .bzl '
+        'file. Rules may be instantiated only in a BUILD thread.',
         stderr,
     )
 
@@ -812,7 +814,7 @@ class BazelModuleTest(test_base.TestBase):
     )
     self.ScratchFile('hello/MODULE.bazel', ['wat'])
     _, _, stderr = self.RunBazel(['build', '@what'], allow_failure=True)
-    self.assertIn('ERROR: @@hello~//:MODULE.bazel', '\n'.join(stderr))
+    self.assertIn('ERROR: @@hello+//:MODULE.bazel', '\n'.join(stderr))
 
   def testLoadRulesJavaSymbolThroughBazelTools(self):
     """Tests that loads from @bazel_tools that delegate to other modules resolve."""
@@ -942,6 +944,137 @@ class BazelModuleTest(test_base.TestBase):
     )
     _, stdout, _ = self.RunBazel(['run', '//:main'])
     self.assertIn('main function => aaa@1.0', stdout)
+
+  def testLabelDebugPrint(self):
+    """Tests that print emits labels in display form."""
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name="other_module", version="1.0")',
+            (
+                'local_path_override(module_name="other_module",'
+                ' path="other_module")'
+            ),
+            'ext = use_extension("//:defs.bzl", "my_ext")',
+            'use_repo(ext, "repo")',
+        ],
+    )
+
+    self.ScratchFile(
+        'WORKSPACE.bzlmod',
+        [
+            'load("//:defs.bzl", "my_repo")',
+            'my_repo(name = "workspace_repo", type = "workspace")',
+        ],
+    )
+
+    self.ScratchFile(
+        'other_module/MODULE.bazel',
+        ['module(name="other_module", version="1.0")'],
+    )
+
+    self.ScratchFile(
+        'defs.bzl',
+        [
+            (
+                'print("toplevel", Label("//:foo"),'
+                ' Label("@other_module//:bar"),'
+                ' Label("@@canonical_name//:baz"))'
+            ),
+            'def _repo_impl(ctx):',
+            (
+                '  print("repo:" + ctx.attr.type, Label("//:foo"),'
+                ' Label("@other_module//:bar"),'
+                ' Label("@@canonical_name//:baz"))'
+            ),
+            '  ctx.file("BUILD")',
+            '  ctx.file("data.bzl", "repo_data = \\"repo\\"")',
+            (
+                'my_repo = repository_rule(implementation=_repo_impl,'
+                ' attrs={"type":attr.string()})'
+            ),
+            'def _ext_impl(ctx):',
+            (
+                '  print("ext", Label("//:foo"), Label("@other_module//:bar"),'
+                ' Label("@@canonical_name//:baz"))'
+            ),
+            '  my_repo(name = "repo", type = "module")',
+            'my_ext = module_extension(implementation=_ext_impl)',
+            'def _rule_impl(ctx):',
+            (
+                '  print("rule", Label("//:foo"), Label("@other_module//:bar"),'
+                ' Label("@@canonical_name//:baz"))'
+            ),
+            'my_rule = rule(implementation=_rule_impl)',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'load("@repo//:data.bzl", "repo_data")',
+            'load("@workspace_repo//:data.bzl", "repo_data")',
+            'load(":defs.bzl", "my_rule")',
+            'my_rule(name = "my_rule")',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '--enable_workspace', '//:my_rule'])
+    stderr = '\n'.join(stderr)
+    self.assertIn(
+        'toplevel //:foo @other_module//:bar @@canonical_name//:baz', stderr
+    )
+    self.assertIn(
+        'repo:module //:foo @other_module//:bar @@canonical_name//:baz', stderr
+    )
+    self.assertIn(
+        'repo:workspace //:foo @other_module//:bar @@canonical_name//:baz',
+        stderr,
+    )
+    self.assertIn(
+        'ext //:foo @other_module//:bar @@canonical_name//:baz', stderr
+    )
+    self.assertIn(
+        'rule //:foo @other_module//:bar @@canonical_name//:baz', stderr
+    )
+
+  def testPendingDownloadDetected(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'ext = use_extension("extensions.bzl", "ext")',
+            'use_repo(ext, "ext")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'extensions.bzl',
+        [
+            'repo_rule = repository_rule(lambda _: None)',
+            'def ext_impl(module_ctx):',
+            '  repo_rule(name = "ext")',
+            (
+                '  module_ctx.download(url = "https://bcr.bazel.build", output'
+                ' = "download", block = False)'
+            ),
+            'ext = module_extension(implementation = ext_impl)',
+        ],
+    )
+    exit_code, _, stderr = self.RunBazel(
+        ['build', '--nobuild', '@ext//:all'],
+        allow_failure=True,
+    )
+    self.AssertExitCode(exit_code, 48, stderr)
+    self.assertIn(
+        'ERROR: Pending asynchronous work after module extension ext in'
+        ' @@//:extensions.bzl finished execution',
+        stderr,
+    )
+
+  def testRegression22754(self):
+    """Regression test for issue #22754."""
+    self.ScratchFile('BUILD.bazel', ['print(glob(["testdata/**"]))'])
+    self.ScratchFile('testdata/WORKSPACE')
+    self.RunBazel(['build', ':all'])
 
 
 if __name__ == '__main__':

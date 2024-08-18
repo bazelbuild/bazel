@@ -15,16 +15,17 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static com.google.devtools.build.lib.analysis.config.CommonOptions.EMPTY_OPTIONS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Throwables;
+import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Multiset;
 import com.google.common.collect.Range;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
@@ -55,12 +56,9 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.BuildFileName;
-import com.google.devtools.build.lib.packages.NoSuchPackageException;
-import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
-import com.google.devtools.build.lib.packages.Rule;
-import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClassId;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -68,7 +66,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
-import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.XattrProviderOverrider;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.ActionGraphDump;
@@ -104,7 +101,6 @@ import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -171,7 +167,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
       boolean shouldUseRepoDotBazel,
       SkyKeyStateReceiver skyKeyStateReceiver,
-      BugReporter bugReporter) {
+      BugReporter bugReporter,
+      boolean globUnderSingleDep) {
     super(
         skyframeExecutorConsumerOnInit,
         pkgFactory,
@@ -196,7 +193,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         diffAwarenessFactories,
         workspaceInfoFromDiffReceiver,
         new SequencedRecordingDifferencer(),
-        repositoryHelpersHolder);
+        repositoryHelpersHolder,
+        globUnderSingleDep);
   }
 
   @Override
@@ -257,7 +255,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       Map<String, String> repoEnvOption,
       TimestampGranularityMonitor tsgm,
       QuiescingExecutors executors,
-      OptionsProvider options)
+      OptionsProvider options,
+      String commandName)
       throws InterruptedException, AbruptExitException {
     inconsistencyReceiver.setDelegate(getGraphInconsistencyReceiverForCommand(options));
     if (evaluatorNeedsReset) {
@@ -288,7 +287,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         repoEnvOption,
         tsgm,
         executors,
-        options);
+        options,
+        commandName);
     long startTime = System.nanoTime();
     WorkspaceInfoFromDiff workspaceInfo = handleDiffs(eventHandler, options);
     long stopTime = System.nanoTime();
@@ -299,28 +299,27 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   private GraphInconsistencyReceiver getGraphInconsistencyReceiverForCommand(
-      OptionsProvider options) throws AbruptExitException {
-    if (rewindingEnabled(options)) {
-      // Currently incompatible with Skymeld i.e. this code path won't be run in Skymeld mode. We
-      // may need to combine these GraphInconsistencyReceiver implementations in the future.
-      var rewindableReceiver = new RewindableGraphInconsistencyReceiver();
-      rewindableReceiver.setHeuristicallyDropNodes(heuristicallyDropNodes);
-      return rewindableReceiver;
-    }
-    if (isMergedSkyframeAnalysisExecution()
-        && ((options.getOptions(AnalysisOptions.class) != null
+      OptionsProvider options) {
+    var someNodeDroppingExpected =
+        (options.getOptions(AnalysisOptions.class) != null
                 && options.getOptions(AnalysisOptions.class).discardAnalysisCache)
             || !trackIncrementalState
-            || heuristicallyDropNodes)) {
-      return new SkymeldInconsistencyReceiver(heuristicallyDropNodes);
+            || heuristicallyDropNodes;
+    var skymeldInconsistenciesExpected =
+        someNodeDroppingExpected && isMergedSkyframeAnalysisExecution();
+    if (rewindingEnabled(options)) {
+      return new RewindableGraphInconsistencyReceiver(
+          heuristicallyDropNodes, skymeldInconsistenciesExpected);
     }
-    if (heuristicallyDropNodes) {
-      return new NodeDroppingInconsistencyReceiver();
+
+    if (heuristicallyDropNodes || skymeldInconsistenciesExpected) {
+      return new NodeDroppingInconsistencyReceiver(
+          heuristicallyDropNodes, skymeldInconsistenciesExpected);
     }
     return GraphInconsistencyReceiver.THROWING;
   }
 
-  private boolean rewindingEnabled(OptionsProvider options) throws AbruptExitException {
+  private static boolean rewindingEnabled(OptionsProvider options) {
     var buildRequestOptions = options.getOptions(BuildRequestOptions.class);
     return buildRequestOptions != null && buildRequestOptions.rewindLostInputs;
   }
@@ -340,7 +339,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
           SkyFunctions.TARGET_PATTERN_PHASE);
 
   @Override
-  protected void onPkgLocatorChange(PathPackageLocator oldLocator, PathPackageLocator pkgLocator) {
+  void onPkgLocatorChange() {
     invalidate(SkyFunctionName.functionIsIn(PACKAGE_LOCATOR_DEPENDENT_VALUES));
   }
 
@@ -470,11 +469,9 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
         new FilesystemValueChecker(
             Preconditions.checkNotNull(tsgm.get()),
             syscallCache,
-            outputService == null
-                ? XattrProviderOverrider.NO_OVERRIDE
-                : outputService::getXattrProvider,
+            outputService::getXattrProvider,
             fsvcThreads);
-    BatchStat batchStatter = outputService == null ? null : outputService.getBatchStatter();
+    BatchStat batchStatter = outputService.getBatchStatter();
     recordingDiffer.invalidate(
         fsvc.getDirtyActionValues(
             memoizingEvaluator.getValues(),
@@ -501,9 +498,11 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @Override
-  public List<RuleStat> getRuleStats(ExtendedEventHandler eventHandler)
-      throws InterruptedException {
-    Map<String, RuleStat> ruleStats = new HashMap<>();
+  @Nullable
+  public SkyframeStats getSkyframeStats(ExtendedEventHandler eventHandler) {
+    Map<String, SkyKeyStats> ruleStats = new HashMap<>();
+    Map<String, SkyKeyStats> aspectStats = new HashMap<>();
+    Multiset<SkyFunctionName> functionCount = HashMultiset.create();
     for (Map.Entry<SkyKey, SkyValue> skyKeyAndValue :
         memoizingEvaluator.getDoneValues().entrySet()) {
       SkyValue value = skyKeyAndValue.getValue();
@@ -511,31 +510,35 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
       SkyFunctionName functionName = key.functionName();
       if (value instanceof RuleConfiguredTargetValue ctValue) {
         ConfiguredTarget configuredTarget = ctValue.getConfiguredTarget();
-        if (configuredTarget instanceof RuleConfiguredTarget) {
-
-          Rule rule;
-          try {
-            rule = (Rule) getPackageManager().getTarget(eventHandler, configuredTarget.getLabel());
-          } catch (NoSuchPackageException | NoSuchTargetException e) {
-            throw new IllegalStateException(
-                "Failed to get Rule target from package when calculating stats.", e);
-          }
-          RuleClass ruleClass = rule.getRuleClassObject();
-          RuleStat ruleStat =
+        if (configuredTarget instanceof RuleConfiguredTarget ruleCfgTarget) {
+          RuleClassId ruleClassId = ruleCfgTarget.getRuleClassId();
+          SkyKeyStats ruleStat =
               ruleStats.computeIfAbsent(
-                  ruleClass.getKey(), k -> new RuleStat(k, ruleClass.getName(), true));
-          ruleStat.addRule(ctValue.getNumActions());
+                  ruleClassId.key(), k -> new SkyKeyStats(k, ruleClassId.name()));
+          ruleStat.countWithActions(ctValue.getNumActions());
         }
       } else if (functionName.equals(SkyFunctions.ASPECT)) {
         AspectValue aspectValue = (AspectValue) value;
+
+        // Aspect can't be retrieved from the value, move on.
+        if (aspectValue.isCleared()) {
+          continue;
+        }
         AspectClass aspectClass = aspectValue.getAspect().getAspectClass();
-        RuleStat ruleStat =
-            ruleStats.computeIfAbsent(
-                aspectClass.getKey(), k -> new RuleStat(k, aspectClass.getName(), false));
-        ruleStat.addRule(aspectValue.getNumActions());
+        SkyKeyStats aspectStat =
+            aspectStats.computeIfAbsent(
+                aspectClass.getKey(), k -> new SkyKeyStats(k, aspectClass.getName()));
+        aspectStat.countWithActions(aspectValue.getNumActions());
       }
+
+      // We record rules and aspects again here so function count is correct.
+      functionCount.add(functionName);
     }
-    return new ArrayList<>(ruleStats.values());
+    return new SkyframeStats(
+        /* ruleStats= */ ImmutableList.sortedCopyOf(SkyKeyStats.BY_COUNT_DESC, ruleStats.values()),
+        /* aspectStats= */ ImmutableList.sortedCopyOf(
+            SkyKeyStats.BY_COUNT_DESC, aspectStats.values()),
+        functionCount);
   }
 
   public void dumpSkyframeStateInParallel(
@@ -652,7 +655,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   }
 
   @ForOverride
-  protected boolean shouldDeleteOnAnalysisInvalidatingChange(SkyKey k) {
+  protected boolean shouldDeleteOnAnalysisInvalidatingChange(SkyKey k, @Nullable SkyValue v) {
+    if (v != null && v.isCleared()) {
+      // Anything that had memory cleared should be discarded and re-evaluated.
+      return true;
+    }
+
     // TODO: b/330770905 - Rewrite this to use pattern matching when available.
     // Also remove ActionLookupData since all such nodes depend on ActionLookupKey nodes and
     // deleting en masse is cheaper than deleting via graph traversal (b/192863968).
@@ -662,7 +670,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     // Remove BuildConfigurationKeys except for the currently active key and the key for
     // EMPTY_OPTIONS, which is a constant and will be re-used frequently.
     if (k instanceof BuildConfigurationKey key) {
-      if (key.getOptionsChecksum().equals(EMPTY_OPTIONS.checksum())) {
+      if (isEmptyOptionsKey(key)) {
         return false;
       }
       if (getSkyframeBuildView().getBuildConfiguration() != null
@@ -675,8 +683,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     // be re-used frequently and we can avoid re-creating them. They are dependencies of the empty
     // configuration key and will never change.
     if (k instanceof ActionLookupKey lookupKey) {
-      BuildConfigurationKey key = lookupKey.getConfigurationKey();
-      if (key != null && key.getOptionsChecksum().equals(EMPTY_OPTIONS.checksum())) {
+      if (isEmptyOptionsKey(lookupKey.getConfigurationKey())) {
         return false;
       }
       return true;
@@ -797,6 +804,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     private BugReporter bugReporter = BugReporter.defaultInstance();
     private SkyKeyStateReceiver skyKeyStateReceiver = SkyKeyStateReceiver.NULL_INSTANCE;
     private SyscallCache syscallCache = null;
+    private boolean globUnderSingleDep = true;
 
     private Builder() {}
 
@@ -832,7 +840,8 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
               actionOnIOExceptionReadingBuildFile,
               shouldUseRepoDotBazel,
               skyKeyStateReceiver,
-              bugReporter);
+              bugReporter,
+              globUnderSingleDep);
       skyframeExecutor.init();
       return skyframeExecutor;
     }
@@ -955,6 +964,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     @CanIgnoreReturnValue
     public Builder setSyscallCache(SyscallCache syscallCache) {
       this.syscallCache = syscallCache;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setGlobUnderSingleDep(boolean globUnderSingleDep) {
+      this.globUnderSingleDep = globUnderSingleDep;
       return this;
     }
   }

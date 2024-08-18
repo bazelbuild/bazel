@@ -14,6 +14,11 @@
 
 #include "src/tools/singlejar/input_jar.h"
 
+#include <cstddef>
+#include <string>
+
+#include "src/tools/singlejar/diag.h"
+
 bool InputJar::Open(const std::string &path) {
   if (!path_.empty()) {
     diag_errx(1, "%s:%d: This instance is already handling %s\n", __FILE__,
@@ -33,7 +38,19 @@ bool InputJar::Open(const std::string &path) {
     mapped_file_.Close();
     return false;
   }
+  return LocateCentralDirectory(path);
+}
 
+bool InputJar::Open(const std::string &path, unsigned char *data,
+                    size_t length) {
+  if (path.empty()) {
+    diag_errx(1, "%s:%d: A non-empty path is required\n", __FILE__, __LINE__);
+  }
+  mapped_file_.MapExisting(data, data + length);
+  return LocateCentralDirectory(path);
+}
+
+bool InputJar::LocateCentralDirectory(const std::string &path) {
   // Now locate End of Central Directory (ECD) record.
   auto ecd_min = mapped_file_.end() - 65536 - sizeof(ECD);
   if (ecd_min < mapped_file_.start()) {

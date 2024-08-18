@@ -181,7 +181,7 @@ public final class Converters {
 
   /** Standard converter for the {@link java.time.Duration} type. */
   public static class DurationConverter extends Converter.Contextless<Duration> {
-    private static final Pattern DURATION_REGEX = Pattern.compile("^([0-9]+)(d|h|m|s|ms)$");
+    private static final Pattern DURATION_REGEX = Pattern.compile("^([0-9]+)(d|h|m|s|ms|ns)$");
 
     @Override
     public Duration convert(String input) throws OptionsParsingException {
@@ -206,6 +206,8 @@ public final class Converters {
           return Duration.ofSeconds(duration);
         case "ms":
           return Duration.ofMillis(duration);
+        case "ns":
+          return Duration.ofNanos(duration);
         default:
           throw new IllegalStateException(
               "This must not happen. Did you update the regex without the switch case?");
@@ -713,6 +715,46 @@ public final class Converters {
     @Override
     public String getTypeDescription() {
       return "Converts to a CaffeineSpec, or null if the input is empty";
+    }
+  }
+
+  /** A {@link Converter} for a size in bytes with an optional multiplier suffix. */
+  public static final class ByteSizeConverter extends Converter.Contextless<Long> {
+    private static final Pattern PATTERN =
+        Pattern.compile("(?<value>[0-9]+)(?<multiplier>[KMGT]?)");
+
+    private static final ImmutableMap<String, Long> MULTIPLIER_MAP =
+        ImmutableMap.of(
+            "K",
+            1024L,
+            "M",
+            1024L * 1024L,
+            "G",
+            1024L * 1024L * 1024L,
+            "T",
+            1024L * 1024L * 1024L * 1024L);
+
+    @Override
+    public Long convert(String input) throws OptionsParsingException {
+      Matcher m = PATTERN.matcher(input);
+      if (!m.matches()) {
+        throw new OptionsParsingException("Invalid size: " + input);
+      }
+      try {
+        long value = Long.parseLong(m.group("value"));
+        String mult = m.group("multiplier");
+        if (!mult.isEmpty()) {
+          value = Math.multiplyExact(value, (long) MULTIPLIER_MAP.get(mult));
+        }
+        return value;
+      } catch (NumberFormatException | ArithmeticException e) {
+        throw new OptionsParsingException("Invalid size: " + input, e);
+      }
+    }
+
+    @Override
+    public String getTypeDescription() {
+      return "a size in bytes, optionally followed by a K, M, G or T multiplier";
     }
   }
 }

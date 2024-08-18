@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.query2.engine.QueryEnvironment.Setting;
 import com.google.devtools.build.lib.query2.engine.QueryException;
 import com.google.devtools.build.lib.query2.testutil.AbstractQueryTest.QueryHelper.ResultAndTargets;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
+import com.google.devtools.build.lib.server.FailureDetails.Query;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.ExitCode;
 import java.util.Set;
@@ -111,8 +112,15 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
         """);
     writeFile("pear/plum/BUILD");
 
-    assertPackageLoadingCode(evalFail("//pear:apple"), Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
+    ResultAndTargets<Target> resultAndTargets = evalFail("//pear:apple");
     assertContainsEvent("is invalid because 'pear/plum' is a subpackage");
+    if (helper.reportsUniverseEvaluationErrors()) {
+      assertPackageLoadingCode(resultAndTargets, Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
+    } else {
+      assertQueryCode(
+          resultAndTargets.getQueryEvalResult().getDetailedExitCode().getFailureDetail(),
+          Query.Code.BUILD_FILE_ERROR);
+    }
   }
 
   @Test
@@ -132,8 +140,15 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
         """);
     writeFile("pear/plum/BUILD");
 
-    assertPackageLoadingCode(evalFail("//pear:all"), Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
+    ResultAndTargets<Target> resultAndTargets = evalFail("//pear:all");
     assertContainsEvent("is invalid because 'pear/plum' is a subpackage");
+    if (helper.reportsUniverseEvaluationErrors()) {
+      assertPackageLoadingCode(resultAndTargets, Code.LABEL_CROSSES_PACKAGE_BOUNDARY);
+    } else {
+      assertQueryCode(
+          resultAndTargets.getQueryEvalResult().getDetailedExitCode().getFailureDetail(),
+          Query.Code.BUILD_FILE_ERROR);
+    }
   }
 
   @Override
@@ -217,7 +232,13 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
   public void testBadBuildFileKeepGoing() throws Exception {
     writeFile("bad/BUILD", "blah blah blah");
     ResultAndTargets<Target> result = evalFail("bad:*");
-    assertPackageLoadingCode(result, Code.SYNTAX_ERROR);
+    if (helper.reportsUniverseEvaluationErrors()) {
+      assertPackageLoadingCode(result, Code.SYNTAX_ERROR);
+    } else {
+      assertQueryCode(
+          result.getQueryEvalResult().getDetailedExitCode().getFailureDetail(),
+          Query.Code.BUILD_FILE_ERROR);
+    }
     assertContainsEvent("syntax error at 'blah'");
     assertContainsEvent("--keep_going specified, ignoring errors. Results may be inaccurate");
 
@@ -301,13 +322,16 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
 
   private void runTestErrorReportedWhenStarlarkLoadRefersToMissingPkgExistingFile(
       String queryExpression, int numExpectedTargets) throws Exception {
+    if (helper.reportsUniverseEvaluationErrors()) {
+      // This family of test cases are interesting only for query environments that don't report
+      // universe evaluation errors. This way we can assert that any error message came from query
+      // evaluation.
+      return;
+    }
+
     // Starlark imports must refer to files in packages. When the file being imported exists, but
     // it has no containing package, an error should be reported for queries that involve the
     // package containing that import.
-
-    // This ensures that any error message must come from query evaluation, not universe evaluation
-    // (in the case of SkyQueryEnvironment).
-    helper.setBlockUniverseEvaluationErrors(true);
 
     // The package "//foo" can be loaded and has no errors.
     writeFile("foo/BUILD", "sh_library(name='apple', srcs=['apple.sh'])");
@@ -419,12 +443,15 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
 
   private void runTestErrorReportedWhenStarlarkLoadRefersToExistingPkgMissingFile(
       String queryExpression, int numExpectedTargets) throws Exception {
+    if (helper.reportsUniverseEvaluationErrors()) {
+      // This family of test cases are interesting only for query environments that don't report
+      // universe evaluation errors. This way we can assert that any error message came from query
+      // evaluation.
+      return;
+    }
+
     // Starlark imports must refer to files that exist, otherwise they will fail and an error should
     // be reported. How shocking!
-
-    // This ensures that any error message must come from query evaluation, not universe evaluation
-    // (in the case of SkyQueryEnvironment).
-    helper.setBlockUniverseEvaluationErrors(true);
 
     // The package "//foo" can be loaded and has no errors.
     writeFile("foo/BUILD", "sh_library(name='apple', srcs=['apple.sh'])");
@@ -475,12 +502,15 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
 
   private void runTestErrorReportedWhenStarlarkLoadRefersToFileInSymlinkCycle(
       String queryExpression, int numExpectedTargets) throws Exception {
+    if (helper.reportsUniverseEvaluationErrors()) {
+      // This family of test cases are interesting only for query environments that don't report
+      // universe evaluation errors. This way we can assert that any error message came from query
+      // evaluation.
+      return;
+    }
+
     // Starlark imports must refer to files that don't point into a symlink cycle, otherwise they
     // will fail and an error should be reported. Quite astonishing!
-
-    // This ensures that any error message must come from query evaluation, not universe evaluation
-    // (in the case of SkyQueryEnvironment).
-    helper.setBlockUniverseEvaluationErrors(true);
 
     // The package "//foo" can be loaded and has no errors.
     writeFile("foo/BUILD", "sh_library(name='apple', srcs=['apple.sh'])");
@@ -514,19 +544,12 @@ public abstract class AbstractQueryKeepGoingTest extends QueryTest {
 
   @Test
   public void testNoErrorReportedWhenUniverseIncludesBrokenPkgButQueryDoesNot() throws Exception {
-    // The SkyQueryEnvironment implementation can emit errors from two sources: graph evaluation
-    // to prepare the query's universe scope, and query evaluation (which includes things like
-    // reading packages out of the graph). Whether the SkyQueryEnvironment emits errors during graph
-    // evaluation of the universe is controlled by the blockUniverseEvaluationErrors parameter (on
-    // QueryEnvironmentFactory#create and so on).
-    //
-    // The BlazeQueryEnvironment implementation never emits errors during universe evaluation,
-    // because it doesn't *do* universe evaluation. Its graph evaluation is limited to evaluating
-    // the target patterns that appear in the query expression.
-    //
-    // This test asserts that, when told to block errors that only occur during universe evaluation,
-    // neither QueryEnvironment implementation reports them.
-    helper.setBlockUniverseEvaluationErrors(true);
+    if (helper.reportsUniverseEvaluationErrors()) {
+      // This test case is interesting only for query environments that don't report universe
+      // evaluation errors. This way we can assert that any error message came from query
+      // evaluation.
+      return;
+    }
 
     // The package "//foo" is healthy.
     writeFile("foo/BUILD", "sh_library(name='apple', srcs=['apple.sh'])");

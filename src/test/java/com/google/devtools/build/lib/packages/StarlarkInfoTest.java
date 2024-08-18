@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableMap;
@@ -28,6 +29,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.SymbolGenerator;
 import net.starlark.java.syntax.Location;
 import net.starlark.java.syntax.TokenKind;
 import org.junit.Test;
@@ -132,14 +134,16 @@ public class StarlarkInfoTest {
 
   /** Creates an unexported schemaless provider type with builtin location. */
   private static StarlarkProvider makeProvider() {
-    return StarlarkProvider.builder(Location.BUILTIN).build();
+    return StarlarkProvider.builder(Location.BUILTIN)
+        .buildWithIdentityToken(SymbolGenerator.createTransient().generate());
   }
 
   /** Creates an exported schemaless provider type with builtin location. */
   private static StarlarkProvider makeExportedProvider() {
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonicalUnchecked("//package:target"), "provider");
-    return StarlarkProvider.builder(Location.BUILTIN).setExported(key).build();
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonicalUnchecked("//package:target")), "provider");
+    return StarlarkProvider.builder(Location.BUILTIN).buildExported(key);
   }
 
   /**

@@ -551,8 +551,8 @@ public final class SkyframeErrorProcessor {
       executionDetailedExitCode =
           getExecutionDetailedExitCodeFromCause(result, exception, bugReporter);
       analysisRootCauses =
-          exception instanceof ActionExecutionException
-              ? ((ActionExecutionException) exception).getRootCauses()
+          exception instanceof ActionExecutionException actionExecutionException
+              ? actionExecutionException.getRootCauses()
               : NestedSetBuilder.emptySet(Order.STABLE_ORDER);
     } else {
       BugReport.logUnexpected(
@@ -896,8 +896,8 @@ public final class SkyframeErrorProcessor {
       throws BuildFailedException, TestExecException {
     Throwables.throwIfUnchecked(cause);
     Throwable innerCause = cause.getCause();
-    if (innerCause instanceof TestExecException) {
-      throw (TestExecException) innerCause;
+    if (innerCause instanceof TestExecException testExecException) {
+      throw testExecException;
     }
     if (cause instanceof ActionExecutionException actionExecutionCause) {
       String message = cause.getMessage();
@@ -914,11 +914,11 @@ public final class SkyframeErrorProcessor {
           /* errorAlreadyShown= */ !actionExecutionCause.showError(),
           actionExecutionCause.getDetailedExitCode());
     }
-    if (cause instanceof InputFileErrorException) {
-      throw (InputFileErrorException) cause;
+    if (cause instanceof InputFileErrorException inputFileErrorException) {
+      throw inputFileErrorException;
     }
-    if (cause instanceof TopLevelOutputException) {
-      throw (TopLevelOutputException) cause;
+    if (cause instanceof TopLevelOutputException topLevelOutputException) {
+      throw topLevelOutputException;
     }
 
     // We encountered an exception we don't think we should have encountered. This can indicate

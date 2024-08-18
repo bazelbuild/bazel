@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+import static com.google.devtools.build.lib.unsafe.UnsafeProvider.unsafe;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -34,15 +36,23 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.LibraryToLink;
 import com.google.devtools.build.lib.rules.java.JavaPluginInfo.JavaPluginData;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
+import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec.FieldHandler;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CcInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaInfoApi;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaModuleFlagsProviderApi;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import java.util.Collection;
+import com.google.errorprone.annotations.Keep;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
-import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -101,30 +111,10 @@ public final class JavaInfo extends NativeInfo
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
-  public static Optional<Artifact> genSourceJar(TransitiveInfoCollection target)
-      throws RuleErrorException, EvalException {
-    Optional<JavaGenJarsProvider> genJarsProviderOpt =
-        Optional.ofNullable(getJavaInfo(target)).map(javaInfo -> javaInfo.providerJavaGenJars);
-    if (genJarsProviderOpt.isPresent()) {
-      return Optional.ofNullable(genJarsProviderOpt.get().getGenSourceJar());
-    } else {
-      return Optional.empty();
-    }
-  }
-
   public static Optional<JavaCompilationArgsProvider> getCompilationArgsProvider(
       TransitiveInfoCollection target) throws RuleErrorException {
     return Optional.ofNullable(getJavaInfo(target))
         .map(javaInfo -> javaInfo.providerJavaCompilationArgs);
-  }
-
-  public static NestedSet<Artifact> transitiveFullCompileTimeJars(TransitiveInfoCollection target)
-      throws RuleErrorException {
-    JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
-    if (javaInfo != null && javaInfo.providerJavaCompilationArgs != null) {
-      return javaInfo.providerJavaCompilationArgs.getTransitiveFullCompileTimeJars();
-    }
-    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
 
   public static CcInfo ccInfo(TransitiveInfoCollection target) throws RuleErrorException {
@@ -149,25 +139,6 @@ public final class JavaInfo extends NativeInfo
     return JavaGenJarsProvider.EMPTY;
   }
 
-  public static JavaModuleFlagsProvider moduleFlagsProvider(TransitiveInfoCollection target)
-      throws RuleErrorException {
-    JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
-    if (javaInfo != null && javaInfo.providerModuleFlags != null) {
-      return javaInfo.providerModuleFlags;
-    }
-    return JavaModuleFlagsProvider.EMPTY;
-  }
-
-  public static ImmutableList<NestedSet<LibraryToLink>> transitiveCcNativeLibraries(
-      Collection<? extends TransitiveInfoCollection> targets) throws RuleErrorException {
-    ImmutableList.Builder<NestedSet<LibraryToLink>> builder = ImmutableList.builder();
-    for (TransitiveInfoCollection target : targets) {
-      CcInfo ccInfo = ccInfo(target);
-      builder.add(ccInfo.getCcNativeLibraryInfo().getTransitiveCcNativeLibraries());
-    }
-    return builder.build();
-  }
-
   public static ImmutableList<CcInfo> ccInfos(Iterable<? extends TransitiveInfoCollection> targets)
       throws RuleErrorException {
     ImmutableList.Builder<CcInfo> builder = ImmutableList.builder();
@@ -175,24 +146,6 @@ public final class JavaInfo extends NativeInfo
       builder.add(JavaInfo.ccInfo(target));
     }
     return builder.build();
-  }
-
-  public static ImmutableList<JavaInfo> wrapSequence(Sequence<?> sequence, String what)
-      throws EvalException {
-    ImmutableList.Builder<JavaInfo> builder = ImmutableList.builder();
-    Sequence<Info> infos = Sequence.cast(sequence, Info.class, what);
-    for (int i = 0; i < infos.size(); i++) {
-      try {
-        builder.add(PROVIDER.wrap(infos.get(i)));
-      } catch (RuleErrorException e) {
-        throw Starlark.errorf("at index %s of %s, %s", i, what, e.getMessage());
-      }
-    }
-    return builder.build();
-  }
-
-  public static boolean isJavaInfo(Object obj) {
-    return JavaStarlarkCommon.isInstanceOfProvider(obj, JavaInfo.PROVIDER);
   }
 
   public Optional<JavaCompilationArgsProvider> compilationArgsProvider() {
@@ -238,17 +191,6 @@ public final class JavaInfo extends NativeInfo
   @Nullable
   public JavaPluginInfo getJavaPluginInfo() {
     return providerJavaPlugin;
-  }
-
-  /**
-   * Returns a stream of providers of the specified class, fetched from the given list of {@link
-   * JavaInfo}.
-   */
-  public static <C extends JavaInfoInternalProvider> Stream<C> streamProviders(
-      Iterable<JavaInfo> javaProviders, Class<C> providerClass) {
-    return Streams.stream(javaProviders)
-        .map(javaInfo -> javaInfo.getProvider(providerClass))
-        .filter(Objects::nonNull);
   }
 
   /** Returns the instance for the provided providerClass, or <tt>null</tt> if not present. */
@@ -442,10 +384,6 @@ public final class JavaInfo extends NativeInfo
     return directRuntimeJars;
   }
 
-  /*<Artifact>*/
-
-  /*<Artifact>*/
-
   @Override
   public Depset /*<Artifact>*/ getTransitiveSourceJars() {
     return Depset.of(
@@ -523,7 +461,6 @@ public final class JavaInfo extends NativeInfo
    * NestedSet. If provider is not null, then delegates to mapper all responsibility to fetch
    * required NestedSet from provider.
    *
-   * @see JavaInfo#getProviderAsNestedSet(Class, Function, Function)
    * @param providerClass provider class. used as key to look up for provider.
    * @param mapper Function used to convert provider to NesteSet&lt;S&gt;
    * @param <P> type of Provider
@@ -576,13 +513,15 @@ public final class JavaInfo extends NativeInfo
   public static class JavaInfoProvider extends StarlarkProviderWrapper<JavaInfo>
       implements com.google.devtools.build.lib.packages.Provider {
     private JavaInfoProvider() {
-      super(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl"), STARLARK_NAME);
+      super(
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/java/java_info.bzl")),
+          STARLARK_NAME);
     }
 
     @Override
     public JavaInfo wrap(Info info) throws RuleErrorException {
-      if (info instanceof JavaInfo) {
-        return (JavaInfo) info;
+      if (info instanceof JavaInfo javaInfo) {
+        return javaInfo;
       } else if (info instanceof StructImpl) {
         try {
           return new JavaInfo((StructImpl) info);
@@ -719,6 +658,84 @@ public final class JavaInfo extends NativeInfo
           neverlink,
           javaConstraints,
           creationLocation);
+    }
+  }
+
+  // TODO: b/359437873 - generate with @AutoCodec.
+  @Keep
+  private static final class JavaInfoValueSharingCodec extends DeferredObjectCodec<JavaInfo> {
+
+    @Override
+    public Class<? extends JavaInfo> getEncodedClass() {
+      return JavaInfo.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, JavaInfo obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(obj, null, JavaInfoCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public DeferredValue<JavaInfo> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      SimpleDeferredValue<JavaInfo> deferredValue = SimpleDeferredValue.create();
+      context.getSharedValue(
+          codedIn, null, JavaInfoCodec.INSTANCE, deferredValue, SimpleDeferredValue::set);
+      return deferredValue;
+    }
+  }
+
+  @Keep
+  private static final class JavaInfoCodec extends DeferredObjectCodec<JavaInfo> {
+
+    public static final JavaInfoCodec INSTANCE = new JavaInfoCodec();
+
+    private final ImmutableList<FieldHandler> handlers;
+
+    private JavaInfoCodec() {
+      this.handlers =
+          ImmutableList.copyOf(DynamicCodec.getFieldHandlerMap(JavaInfo.class).values());
+    }
+
+    @Override
+    public boolean autoRegister() {
+      // This is the internal implementation for the JavaInfo codec. Instead (auto) register
+      // the external codec that does shared value serialization that uses this codec.
+      return false;
+    }
+
+    @Override
+    public Class<? extends JavaInfo> getEncodedClass() {
+      return JavaInfo.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, JavaInfo obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      for (FieldHandler handler : handlers) {
+        handler.serialize(context, codedOut, obj);
+      }
+    }
+
+    @Override
+    @SuppressWarnings("SunApi") // TODO: b/331765692 - delete this
+    public DeferredValue<JavaInfo> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+
+      JavaInfo obj;
+      try {
+        obj = (JavaInfo) unsafe().allocateInstance(JavaInfo.class);
+      } catch (InstantiationException e) {
+        throw new SerializationException("Could not instantiate JavaInfo with Unsafe", e);
+      }
+      for (FieldHandler handler : handlers) {
+        handler.deserialize(context, codedIn, obj);
+      }
+
+      return () -> obj;
     }
   }
 }

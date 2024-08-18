@@ -41,6 +41,7 @@ class QueryTest(test_base.TestBase):
                             '//foo:dep-rule')
 
   def testQueryFilesUsedByRepositoryRules(self):
+    self.DisableBzlmod()
     self.ScratchFile('MODULE.bazel')
     self._AssertQueryOutputContains(
         "kind('source file', deps(//external:*))",
@@ -48,6 +49,7 @@ class QueryTest(test_base.TestBase):
     )
 
   def testBuildFilesForExternalRepos_Simple(self):
+    self.DisableBzlmod()
     self.ScratchFile('MODULE.bazel')
     self.ScratchFile('WORKSPACE', [
         'load("//:deps.bzl", "repos")',
@@ -67,6 +69,7 @@ class QueryTest(test_base.TestBase):
                                     '//:BUILD.bazel')
 
   def testBuildFilesForExternalRepos_IndirectLoads(self):
+    self.DisableBzlmod()
     self.ScratchFile('MODULE.bazel')
     self.ScratchFile('WORKSPACE', [
         'load("//:deps.bzl", "repos")',
@@ -98,6 +101,7 @@ class QueryTest(test_base.TestBase):
         '//:deps.bzl', '//:private_deps.bzl', '//:BUILD.bazel')
 
   def testBuildFilesForExternalRepos_NoDuplicates(self):
+    self.DisableBzlmod()
     self.ScratchFile('MODULE.bazel')
     self.ScratchFile('WORKSPACE', [
         'load("//:deps.bzl", "repos")',

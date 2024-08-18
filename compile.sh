@@ -56,6 +56,10 @@ if [[ $PLATFORM == "darwin" ]] && \
   EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --define IPHONE_SDK=1"
 fi
 
+if [[ $PLATFORM == "windows" ]]; then
+  EXTRA_BAZEL_ARGS="${EXTRA_BAZEL_ARGS-} --cxxopt=/std:c++17 --host_cxxopt=/std:c++17"
+fi
+
 source scripts/bootstrap/bootstrap.sh
 
 new_step 'Building Bazel with Bazel'

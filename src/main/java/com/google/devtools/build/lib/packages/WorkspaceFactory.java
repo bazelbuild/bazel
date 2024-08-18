@@ -244,7 +244,8 @@ public class WorkspaceFactory {
           throw new EvalException("unexpected positional arguments");
         }
         try {
-          Package.Builder builder = PackageFactory.getContext(thread);
+          Package.Builder builder =
+              Package.Builder.fromOrFailAllowWorkspaceOnly(thread, "repository rules");
           // TODO(adonovan): this cast doesn't look safe!
           String externalRepoName = (String) kwargs.get("name");
           if (!allowOverride

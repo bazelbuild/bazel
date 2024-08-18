@@ -126,13 +126,6 @@ flags is combined into a `WorkerKey`, and for each `WorkerKey` up to
 `worker_max_instances` workers may be created. See the next section for how the
 action configuration can also specify set-up flags.
 
-You can use the
-[`--high_priority_workers`](/reference/command-line-reference#flag--high_priority_workers)
-flag to specify a mnemonic that should be run in preference to normal-priority
-mnemonics. This can help prioritize actions that are always in the critical
-path. If there are two or more high priority workers executing requests, all
-other workers are prevented from running. This flag can be used multiple times.
-
 Passing the
 [`--worker_sandboxing`](/reference/command-line-reference#flag--worker_sandboxing)
 flag makes each worker request use a separate sandbox directory for all its

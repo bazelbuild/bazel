@@ -17,14 +17,12 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertEventCount;
-import static java.util.Comparator.comparing;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.eventbus.Subscribe;
 import com.google.common.hash.HashFunction;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -34,7 +32,6 @@ import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
@@ -95,11 +92,8 @@ import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -107,26 +101,10 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
 /** Tests for module extension resolution. */
 @RunWith(JUnit4.class)
 public class ModuleExtensionResolutionTest extends FoundationTestCase {
-
-  private static class EventRecorder {
-    // Keep in deterministic order even though events are posted in Skyframe evaluation order.
-    private final SortedSet<RootModuleFileFixupEvent> fixupEvents =
-        new TreeSet<>(comparing(RootModuleFileFixupEvent::getSuccessMessage));
-
-    @Subscribe
-    public void onFixupEvent(RootModuleFileFixupEvent fixupEvent) {
-      fixupEvents.add(fixupEvent);
-    }
-
-    public List<RootModuleFileFixupEvent> fixupEvents() {
-      return ImmutableList.copyOf(fixupEvents);
-    }
-  }
 
   private Path workspaceRoot;
   private Path modulesRoot;
@@ -136,11 +114,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   private RecordingDifferencer differencer;
   private final CyclesReporter cyclesReporter =
       new CyclesReporter(new BzlLoadCycleReporter(), new BzlmodRepoCycleReporter());
-  private final EventRecorder eventRecorder = new EventRecorder();
 
   @Before
   public void setup() throws Exception {
-    eventBus.register(eventRecorder);
     workspaceRoot = scratch.dir("/ws");
     String bazelToolsPath = "/ws/embedded_tools";
     scratch.file(bazelToolsPath + "/MODULE.bazel", "module(name = 'bazel_tools')");
@@ -181,12 +157,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             .getPackageFactoryBuilderForTesting(directories)
             .build(ruleClassProvider, fileSystem);
     HashFunction hashFunction = fileSystem.getDigestFunction().getHashFunction();
-
-    DownloadManager downloadManager = Mockito.mock(DownloadManager.class);
-    SingleExtensionEvalFunction singleExtensionEvalFunction =
-        new SingleExtensionEvalFunction(directories, ImmutableMap::of, downloadManager);
-    StarlarkRepositoryFunction starlarkRepositoryFunction =
-        new StarlarkRepositoryFunction(downloadManager);
+    StarlarkRepositoryFunction starlarkRepositoryFunction = new StarlarkRepositoryFunction();
 
     ImmutableMap<String, RepositoryFunction> repositoryHandlers =
         ImmutableMap.of(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
@@ -270,8 +241,13 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
                 .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
                 .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
-                .put(SkyFunctions.SINGLE_EXTENSION_EVAL, singleExtensionEvalFunction)
-                .put(SkyFunctions.REGISTRY, new RegistryFunction(registryFactory))
+                .put(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
+                .put(
+                    SkyFunctions.SINGLE_EXTENSION_EVAL,
+                    new SingleExtensionEvalFunction(directories, ImmutableMap::of))
+                .put(
+                    SkyFunctions.REGISTRY,
+                    new RegistryFunction(registryFactory, directories.getWorkspace()))
                 .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
                 .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
                 .put(
@@ -299,7 +275,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, false);
     ModuleFileFunction.MODULE_OVERRIDES.set(differencer, ImmutableMap.of());
     YankedVersionsUtil.ALLOWED_YANKED_VERSIONS.set(differencer, ImmutableList.of());
-    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableList.of(registry.getUrl()));
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
     BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES.set(
         differencer, CheckDirectDepsMode.WARNING);
     BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE.set(
@@ -311,10 +287,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     // Set up a simple repo rule.
     registry.addModule(
         createModuleKey("data_repo", "1.0"), "module(name='data_repo',version='1.0')");
-    scratch.file(modulesRoot.getRelative("data_repo~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("data_repo~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("data_repo+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("data_repo+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("data_repo~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("data_repo+1.0/defs.bzl").getPathString(),
         "def _data_repo_impl(ctx):",
         "  ctx.file('WORKSPACE')",
         "  ctx.file('BUILD')",
@@ -543,10 +519,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         createModuleKey("ext", "1.0"),
         "module(name='ext',version='1.0')",
         "bazel_dep(name='data_repo',version='1.0')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
         "  data_str = ''",
@@ -603,10 +579,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         createModuleKey("ext", "1.0"),
         "module(name='ext',version='1.0')",
         "bazel_dep(name='data_repo',version='1.0')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
         "  data_str = 'modules:'",
@@ -655,10 +631,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         createModuleKey("ext", "1.0"),
         "module(name='ext',version='1.0')",
         "bazel_dep(name='data_repo',version='1.0')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
         "  data_str = 'modules:'",
@@ -672,7 +648,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
 
     SkyKey skyKey =
-        BzlLoadValue.keyForBuild(Label.parseCanonical("@@ext~~ext~ext_repo//:data.bzl"));
+        BzlLoadValue.keyForBuild(Label.parseCanonical("@@ext++ext+ext_repo//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
@@ -725,10 +701,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "ext = use_extension('@ext//:defs.bzl','ext')",
         "ext.tag(data='foo@1.0',expect_isolated=False)",
         "use_repo(ext,'ext_repo')");
-    scratch.file(modulesRoot.getRelative("foo~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("foo~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("foo+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("foo+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("foo~1.0/data.bzl").getPathString(),
+        modulesRoot.getRelative("foo+1.0/data.bzl").getPathString(),
         "load('@ext_repo//:data.bzl', ext_data='data')",
         "load('@isolated_ext_repo//:data.bzl', isolated_ext_data='data')",
         "data=ext_data",
@@ -738,10 +714,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         createModuleKey("ext", "1.0"),
         "module(name='ext',version='1.0')",
         "bazel_dep(name='data_repo',version='1.0')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
         "  data_str = ''",
@@ -769,7 +745,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.get(skyKey).getModule().getGlobal("isolated_dev_data"))
         .isEqualTo("root@1.0 (root): root_isolated_dev\n");
 
-    skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("@foo~//:data.bzl"));
+    skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("@foo+//:data.bzl"));
     result = evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     if (result.hasError()) {
       throw result.getError().getException();
@@ -804,19 +780,19 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "ext = use_extension('@ext//:defs.bzl','ext')",
         "ext.tag(file='@bar//:requirements.txt')");
     registry.addModule(createModuleKey("bar", "2.0"), "module(name='bar',version='2.0')");
-    scratch.file(modulesRoot.getRelative("bar~2.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("bar~2.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("bar+2.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("bar+2.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("bar~2.0/requirements.txt").getPathString(), "go to bed at 11pm.");
+        modulesRoot.getRelative("bar+2.0/requirements.txt").getPathString(), "go to bed at 11pm.");
 
     registry.addModule(
         createModuleKey("ext", "1.0"),
         "module(name='ext',version='1.0')",
         "bazel_dep(name='data_repo',version='1.0')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
         "  data_str = 'requirements:'",
@@ -861,16 +837,16 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "ext = use_extension('@ext//:defs.bzl','ext')",
         "ext.tag(file='@bar//:requirements.txt')");
     registry.addModule(createModuleKey("bar", "2.0"), "module(name='bar',version='2.0')");
-    scratch.file(modulesRoot.getRelative("bar~2.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("bar~2.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("bar+2.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("bar+2.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("bar~2.0/requirements.txt").getPathString(), "go to bed at 11pm.");
+        modulesRoot.getRelative("bar+2.0/requirements.txt").getPathString(), "go to bed at 11pm.");
 
     registry.addModule(createModuleKey("ext", "1.0"), "module(name='ext',version='1.0')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "def _data_repo_impl(ctx):",
         "  ctx.file('WORKSPACE')",
         "  ctx.file('BUILD')",
@@ -927,10 +903,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     scratch.file(workspaceRoot.getRelative("requirements.txt").getPathString(), "get up at 6am.");
 
     registry.addModule(createModuleKey("ext", "1.0"), "module(name='ext',version='1.0')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "def _data_repo_impl(ctx):",
         "  ctx.file('WORKSPACE')",
         "  ctx.file('BUILD')",
@@ -972,15 +948,15 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "data=ext_data");
 
     registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='1.0')");
-    scratch.file(modulesRoot.getRelative("foo~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("foo~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("foo+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("foo+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("foo~1.0/requirements.txt").getPathString(), "get up at 6am.");
+        modulesRoot.getRelative("foo+1.0/requirements.txt").getPathString(), "get up at 6am.");
     registry.addModule(createModuleKey("bar", "2.0"), "module(name='bar',version='2.0')");
-    scratch.file(modulesRoot.getRelative("bar~2.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("bar~2.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("bar+2.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("bar+2.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("bar~2.0/requirements.txt").getPathString(), "go to bed at 11pm.");
+        modulesRoot.getRelative("bar+2.0/requirements.txt").getPathString(), "go to bed at 11pm.");
 
     registry.addModule(
         createModuleKey("ext", "1.0"),
@@ -988,10 +964,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "bazel_dep(name='foo',version='1.0')",
         "bazel_dep(name='bar',version='2.0')",
         "bazel_dep(name='data_repo',version='1.0')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
         // The Label() call on the following line should work, using ext.1.0's repo mapping.
@@ -1028,20 +1004,20 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "data=ext_data");
 
     registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='1.0')");
-    scratch.file(modulesRoot.getRelative("foo~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("foo~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("foo+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("foo+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("foo~1.0/requirements.txt").getPathString(), "get up at 6am.");
+        modulesRoot.getRelative("foo+1.0/requirements.txt").getPathString(), "get up at 6am.");
 
     registry.addModule(
         createModuleKey("ext", "1.0"),
         "module(name='ext',version='1.0')",
         "bazel_dep(name='foo',version='1.0')",
         "bazel_dep(name='data_repo',version='1.0')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "def _data_repo_impl(ctx):",
         "  ctx.file('WORKSPACE')",
         "  ctx.file('BUILD')",
@@ -1178,9 +1154,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "ext=module_extension(implementation=_ext_impl)");
 
     registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='1.0')");
-    scratch.file(modulesRoot.getRelative("foo~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("foo~1.0/BUILD").getPathString());
-    scratch.file(modulesRoot.getRelative("foo~1.0/data.bzl").getPathString(), "data = 'foo-stuff'");
+    scratch.file(modulesRoot.getRelative("foo+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("foo+1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("foo+1.0/data.bzl").getPathString(), "data = 'foo-stuff'");
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
@@ -1263,9 +1239,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "ext=module_extension(implementation=_ext_impl,tag_classes={'tag':tag})");
 
     registry.addModule(createModuleKey("foo", "1.0"), "module(name='foo',version='1.0')");
-    scratch.file(modulesRoot.getRelative("foo~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("foo~1.0/BUILD").getPathString());
-    scratch.file(modulesRoot.getRelative("foo~1.0/data.bzl").getPathString(), "data = 'outer-foo'");
+    scratch.file(modulesRoot.getRelative("foo+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("foo+1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("foo+1.0/data.bzl").getPathString(), "data = 'outer-foo'");
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
@@ -1307,7 +1283,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.hasError()).isTrue();
     assertThat(result.getError().getException())
         .hasMessageThat()
-        .contains("No repository visible as '@foo' from repository '@@_main~ext~ext'");
+        .contains("No repository visible as '@foo' from repository '@@+ext+ext'");
   }
 
   @Test
@@ -1348,7 +1324,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
     scratch.file(
         workspaceRoot.getRelative("data.bzl").getPathString(),
-        "load('@@_main~ext~ext//:data.bzl', ext_data='data')",
+        "load('@@+ext+ext//:data.bzl', ext_data='data')",
         "data=ext_data");
 
     SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
@@ -1386,6 +1362,188 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     reporter.removeHandler(failFastHandler);
     evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertContainsEvent("invalid user-provided repo name '_something'");
+  }
+
+  @Test
+  public void nonVisibleLabelInLabelAttr() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "ext = use_extension('//:defs.bzl','ext')",
+        "use_repo(ext,'ext')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('WORKSPACE')",
+        "  ctx.file('BUILD')",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl,",
+        "  attrs={'data':attr.label()})",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='other_repo')",
+        "  data_repo(name='ext',data='@other_repo//:foo')",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertContainsEvent(
+        "Error in repository_rule: no repository visible as '@other_repo' to the main repository,"
+            + " but referenced by label '@other_repo//:foo' in attribute 'data' of data_repo 'ext'."
+            + " Is the root module missing a bazel_dep or use_repo(..., \"other_repo\")?");
+  }
+
+  @Test
+  public void nonVisibleLabelInLabelAttrNonRootModule() throws Exception {
+    registry.addModule(
+        createModuleKey("ext_module", "1.0"), "module(name='ext_module',version='1.0')");
+    scratch.file(modulesRoot.getRelative("ext_module+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext_module+1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("ext_module+1.0/defs.bzl").getPathString(),
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('WORKSPACE')",
+        "  ctx.file('BUILD')",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl,",
+        "  attrs={'data':attr.label()})",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='other_repo')",
+        "  data_repo(name='ext',data='@other_repo//:foo')",
+        "ext = module_extension(implementation=_ext_impl)");
+
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name = 'ext_module', version = '1.0')",
+        "ext = use_extension('@ext_module//:defs.bzl','ext')",
+        "use_repo(ext,'ext')");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertContainsEvent(
+        "Error in repository_rule: no repository visible as '@other_repo' to the repository"
+            + " '@@ext_module+', but referenced by label '@other_repo//:foo' in attribute 'data' of"
+            + " data_repo 'ext'. Is the module 'ext_module' missing a bazel_dep or use_repo(...,"
+            + " \"other_repo\")?");
+  }
+
+  @Test
+  public void nonVisibleLabelInLabelAttrForwardedFromTag() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "ext = use_extension('//:defs.bzl','ext')",
+        "ext.label(label = '@other_repo//:foo')",
+        "use_repo(ext,'ext')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('WORKSPACE')",
+        "  ctx.file('BUILD')",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl,",
+        "  attrs={'data':attr.label()})",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='other_repo')",
+        "  data_repo(name='ext',data=ctx.modules[0].tags.label[0].label)",
+        "label=tag_class(attrs={'label':attr.label()})",
+        "ext = module_extension(",
+        "  implementation=_ext_impl,",
+        "  tag_classes={'label':label},",
+        ")");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    var result = evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .isEqualTo(
+            "in tag at /ws/MODULE.bazel:2:10: no repository visible as '@other_repo' to the main"
+                + " repository, but referenced by label '@other_repo//:foo' in attribute 'label' of"
+                + " tag 'label'. Is the root module missing a bazel_dep or use_repo(...,"
+                + " \"other_repo\")?");
+  }
+
+  @Test
+  public void nonVisibleLabelInLabelListAttr() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "ext = use_extension('//:defs.bzl','ext')",
+        "use_repo(ext,'ext')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('WORKSPACE')",
+        "  ctx.file('BUILD')",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl,",
+        "  attrs={'data':attr.label_list()})",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='other_repo')",
+        "  data_repo(name='ext',data=['@other_repo//:foo'])",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertContainsEvent(
+        "Error in repository_rule: no repository visible as '@other_repo' to the main repository,"
+            + " but referenced by label '@other_repo//:foo' in attribute 'data' of data_repo 'ext'."
+            + " Is the root module missing a bazel_dep or use_repo(..., \"other_repo\")?");
+  }
+
+  @Test
+  public void nonVisibleLabelInLabelKeyedStringDictAttr() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "ext = use_extension('//:defs.bzl','ext')",
+        "use_repo(ext,'ext')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('WORKSPACE')",
+        "  ctx.file('BUILD')",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl,",
+        "  attrs={'data':attr.label_keyed_string_dict()})",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='other_repo')",
+        "  data_repo(name='ext',data={'@other_repo//:foo':'bar'})",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertContainsEvent(
+        "Error in repository_rule: no repository visible as '@other_repo' to the main repository,"
+            + " but referenced by label '@other_repo//:foo' in attribute 'data' of data_repo 'ext'."
+            + " Is the root module missing a bazel_dep or use_repo(..., \"other_repo\")?");
   }
 
   @Test
@@ -1430,7 +1588,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     scratch.file(
         workspaceRoot.getRelative("defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
-        "load('@@ext~~ext~candy//:data.bzl', candy='data')",
+        "load('@@ext++ext+candy//:data.bzl', candy='data')",
         "load('@exposed_candy//:data.bzl', exposed_candy='data')",
         "def _ext_impl(ctx):",
         "  data_str = exposed_candy + ' (and ' + candy + ')'",
@@ -1447,10 +1605,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         createModuleKey("ext", "1.0"),
         "module(name='ext',version='1.0')",
         "bazel_dep(name='data_repo',version='1.0')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
         "  data_repo(name='candy', data='cotton candy')",
@@ -1482,7 +1640,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         workspaceRoot.getRelative("defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
-        "  data_file = ctx.read(Label('@@_main~my_ext2~candy2//:data.bzl'))",
+        "  data_file = ctx.read(Label('@@+my_ext2+candy2//:data.bzl'))",
         "  data_repo(name='candy1',data=data_file)",
         "my_ext=module_extension(implementation=_ext_impl)",
         "def _ext_impl2(ctx):",
@@ -1529,7 +1687,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey =
         PackageIdentifier.create(
-            RepositoryName.createUnvalidated("_main~my_ext~candy1"), PathFragment.EMPTY_FRAGMENT);
+            RepositoryName.createUnvalidated("+my_ext+candy1"), PathFragment.EMPTY_FRAGMENT);
     EvaluationResult<PackageValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertThat(result.hasError()).isTrue();
@@ -1540,11 +1698,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertContainsEvent(
         "ERROR <no location>: Circular definition of repositories generated by module extensions"
             + " and/or .bzl files:\n"
-            + ".-> @@_main~my_ext~candy1\n"
+            + ".-> @@+my_ext+candy1\n"
             + "|   extension 'my_ext' defined in //:defs.bzl\n"
-            + "|   @@_main~my_ext2~candy2\n"
+            + "|   @@+my_ext2+candy2\n"
             + "|   extension 'my_ext2' defined in //:defs.bzl\n"
-            + "`-- @@_main~my_ext~candy1");
+            + "`-- @@+my_ext+candy1");
   }
 
   @Test
@@ -1574,8 +1732,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey =
         PackageIdentifier.create(
-            RepositoryName.createUnvalidated("_main~my_ext~candy1"),
-            PathFragment.create("data.bzl"));
+            RepositoryName.createUnvalidated("+my_ext+candy1"), PathFragment.create("data.bzl"));
     EvaluationResult<PackageValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertThat(result.hasError()).isTrue();
@@ -1586,13 +1743,13 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertContainsEvent(
         "ERROR <no location>: Circular definition of repositories generated by module extensions"
             + " and/or .bzl files:\n"
-            + ".-> @@_main~my_ext~candy1\n"
+            + ".-> @@+my_ext+candy1\n"
             + "|   extension 'my_ext' defined in //:defs.bzl\n"
-            + "|   @@_main~my_ext2~candy2\n"
+            + "|   @@+my_ext2+candy2\n"
             + "|   extension 'my_ext2' defined in //:defs2.bzl\n"
             + "|   //:defs2.bzl\n"
-            + "|   @@_main~my_ext~candy1//:data.bzl\n"
-            + "`-- @@_main~my_ext~candy1");
+            + "|   @@+my_ext+candy1//:data.bzl\n"
+            + "`-- @@+my_ext+candy1");
   }
 
   @Test
@@ -1613,8 +1770,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
 
     SkyKey skyKey =
         PackageIdentifier.create(
-            RepositoryName.createUnvalidated("_main~my_ext~candy1"),
-            PathFragment.create("data.bzl"));
+            RepositoryName.createUnvalidated("+my_ext+candy1"), PathFragment.create("data.bzl"));
     EvaluationResult<PackageValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertThat(result.hasError()).isTrue();
@@ -1625,11 +1781,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertContainsEvent(
         "ERROR <no location>: Circular definition of repositories generated by module extensions"
             + " and/or .bzl files:\n"
-            + ".-> @@_main~my_ext~candy1\n"
+            + ".-> @@+my_ext+candy1\n"
             + "|   extension 'my_ext' defined in //:defs.bzl\n"
             + "|   //:defs.bzl\n"
-            + "|   @@_main~my_ext~candy1//:data.bzl\n"
-            + "`-- @@_main~my_ext~candy1");
+            + "|   @@+my_ext+candy1//:data.bzl\n"
+            + "`-- @@+my_ext+candy1");
   }
 
   @Test
@@ -1710,11 +1866,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     var result =
         evaluateSimpleModuleExtension(
             "return"
-                + " ctx.extension_metadata(root_module_direct_deps=['~invalid'],root_module_direct_dev_deps=[])");
+                + " ctx.extension_metadata(root_module_direct_deps=['+invalid'],root_module_direct_dev_deps=[])");
 
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
-        "in root_module_direct_deps: invalid user-provided repo name '~invalid': valid names may"
+        "in root_module_direct_deps: invalid user-provided repo name '+invalid': valid names may"
             + " contain only A-Z, a-z, 0-9, '-', '_', '.', and must start with a letter");
   }
 
@@ -1723,11 +1879,11 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     var result =
         evaluateSimpleModuleExtension(
             "return"
-                + " ctx.extension_metadata(root_module_direct_dev_deps=['~invalid'],root_module_direct_deps=[])");
+                + " ctx.extension_metadata(root_module_direct_dev_deps=['+invalid'],root_module_direct_deps=[])");
 
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
-        "in root_module_direct_dev_deps: invalid user-provided repo name '~invalid': valid names"
+        "in root_module_direct_dev_deps: invalid user-provided repo name '+invalid': valid names"
             + " may contain only A-Z, a-z, 0-9, '-', '_', '.', and must start with a letter");
   }
 
@@ -1861,10 +2017,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "use_repo(ext, 'indirect_dep')",
         "ext_dev = use_extension('//:defs.bzl', 'ext', dev_dependency = True)",
         "use_repo(ext_dev, 'indirect_dev_dep')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
         "  data_repo(name='direct_dep')",
@@ -1915,15 +2071,157 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "\n"
             + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
-    assertThat(eventRecorder.fixupEvents()).hasSize(1);
-    assertThat(eventRecorder.fixupEvents().get(0).getBuildozerCommands())
+    SingleExtensionValue evalValue =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext+//:defs.bzl"), "ext", Optional.empty())));
+    assertThat(evalValue.getFixup()).isPresent();
+    assertThat(evalValue.getFixup().get().moduleFilePathToBuildozerCommands())
         .containsExactly(
-            "use_repo_add @ext//:defs.bzl ext missing_direct_dep non_dev_as_dev_dep",
-            "use_repo_remove @ext//:defs.bzl ext dev_as_non_dev_dep indirect_dep invalid_dep",
-            "use_repo_add dev @ext//:defs.bzl ext dev_as_non_dev_dep missing_direct_dev_dep",
-            "use_repo_remove dev @ext//:defs.bzl ext indirect_dev_dep invalid_dev_dep"
-                + " non_dev_as_dev_dep");
-    assertThat(eventRecorder.fixupEvents().get(0).getSuccessMessage())
+            PathFragment.create("MODULE.bazel"),
+            "use_repo_add ext missing_direct_dep non_dev_as_dev_dep",
+            PathFragment.create("MODULE.bazel"),
+            "use_repo_remove ext dev_as_non_dev_dep indirect_dep invalid_dep",
+            PathFragment.create("MODULE.bazel"),
+            "use_repo_add ext_dev dev_as_non_dev_dep missing_direct_dev_dep",
+            PathFragment.create("MODULE.bazel"),
+            "use_repo_remove ext_dev indirect_dev_dep invalid_dev_dep non_dev_as_dev_dep");
+    assertThat(evalValue.getFixup().get().getSuccessMessage())
+        .isEqualTo("Updated use_repo calls for @ext//:defs.bzl%ext");
+  }
+
+  @Test
+  public void extensionMetadata_includes() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='ext', version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')",
+        "include('//:firstProd.MODULE.bazel')",
+        "include('//:second.MODULE.bazel')");
+    scratch.file(
+        workspaceRoot.getRelative("firstProd.MODULE.bazel").getPathString(),
+        "ext = use_extension('@ext//:defs.bzl', 'ext')",
+        "use_repo(",
+        "  ext,",
+        "  'indirect_dep',",
+        "  'invalid_dep',",
+        "  'dev_as_non_dev_dep',",
+        "  my_direct_dep = 'direct_dep',",
+        ")",
+        "include('//:firstDev.MODULE.bazel')");
+    scratch.file(
+        workspaceRoot.getRelative("firstDev.MODULE.bazel").getPathString(),
+        "ext_dev = use_extension('@ext//:defs.bzl', 'ext', dev_dependency = True)",
+        "use_repo(",
+        "  ext_dev,",
+        "  'indirect_dev_dep',",
+        "  'invalid_dev_dep',",
+        "  'non_dev_as_dev_dep',",
+        "  my_direct_dev_dep = 'direct_dev_dep',",
+        ")");
+    scratch.file(
+        workspaceRoot.getRelative("second.MODULE.bazel").getPathString(),
+        "ext = use_extension('@ext//:defs.bzl', 'ext')",
+        "use_repo(ext, 'invalid_dep2')",
+        "ext_dev = use_extension('@ext//:defs.bzl', 'ext', dev_dependency = True)",
+        "use_repo(ext_dev, 'invalid_dev_dep2')");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@my_direct_dep//:data.bzl', direct_dep_data='data')",
+        "data = direct_dep_data");
+
+    registry.addModule(
+        createModuleKey("ext", "1.0"),
+        "module(name='ext',version='1.0')",
+        "bazel_dep(name='data_repo',version='1.0')",
+        "ext = use_extension('//:defs.bzl', 'ext')",
+        "use_repo(ext, 'indirect_dep')",
+        "ext_dev = use_extension('//:defs.bzl', 'ext', dev_dependency = True)",
+        "use_repo(ext_dev, 'indirect_dev_dep')");
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='direct_dep')",
+        "  data_repo(name='direct_dev_dep')",
+        "  data_repo(name='missing_direct_dep')",
+        "  data_repo(name='missing_direct_dev_dep')",
+        "  data_repo(name='indirect_dep')",
+        "  data_repo(name='indirect_dev_dep')",
+        "  data_repo(name='dev_as_non_dev_dep')",
+        "  data_repo(name='non_dev_as_dev_dep')",
+        "  return ctx.extension_metadata(",
+        "    root_module_direct_deps=['direct_dep', 'missing_direct_dep', 'non_dev_as_dev_dep'],",
+        "    root_module_direct_dev_deps=['direct_dev_dep', 'missing_direct_dev_dep',"
+            + " 'dev_as_non_dev_dep'],",
+        "  )",
+        "ext=module_extension(implementation=_ext_impl)");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    // Evaluation fails due to the import of a repository not generated by the extension, but we
+    // only want to assert that the warning is emitted.
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertEventCount(1, eventCollector);
+    assertContainsEvent(
+        """
+        WARNING /ws/firstProd.MODULE.bazel:1:20: The module extension ext defined in \
+        @ext//:defs.bzl reported incorrect imports of repositories via use_repo():
+
+        Imported, but not created by the extension (will cause the build to fail):
+            invalid_dep, invalid_dep2, invalid_dev_dep, invalid_dev_dep2
+
+        Not imported, but reported as direct dependencies by the extension (may cause the\
+         build to fail):
+            missing_direct_dep, missing_direct_dev_dep
+
+        Imported as a regular dependency, but reported as a dev dependency by the\
+         extension (may cause the build to fail when used by other modules):
+            dev_as_non_dev_dep
+
+        Imported as a dev dependency, but reported as a regular dependency by the\
+         extension (may cause the build to fail when used by other modules):
+            non_dev_as_dev_dep
+
+        Imported, but reported as indirect dependencies by the extension:
+            indirect_dep, indirect_dev_dep
+
+        Fix the use_repo calls by running 'bazel mod tidy'.""",
+        ImmutableSet.of(EventKind.WARNING));
+    SingleExtensionValue evalValue =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext+//:defs.bzl"), "ext", Optional.empty())));
+    assertThat(evalValue.getFixup()).isPresent();
+    assertThat(evalValue.getFixup().get().moduleFilePathToBuildozerCommands())
+        .containsExactly(
+            PathFragment.create("firstProd.MODULE.bazel"),
+            "use_repo_add ext missing_direct_dep non_dev_as_dev_dep",
+            PathFragment.create("firstProd.MODULE.bazel"),
+            "use_repo_remove ext dev_as_non_dev_dep indirect_dep invalid_dep",
+            PathFragment.create("second.MODULE.bazel"),
+            "use_repo_remove ext invalid_dep2",
+            PathFragment.create("firstDev.MODULE.bazel"),
+            "use_repo_add ext_dev dev_as_non_dev_dep missing_direct_dev_dep",
+            PathFragment.create("firstDev.MODULE.bazel"),
+            "use_repo_remove ext_dev indirect_dev_dep invalid_dev_dep non_dev_as_dev_dep",
+            PathFragment.create("second.MODULE.bazel"),
+            "use_repo_remove ext_dev invalid_dev_dep2");
+    assertThat(evalValue.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for @ext//:defs.bzl%ext");
   }
 
@@ -1951,10 +2249,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "use_repo(ext, 'indirect_dep')",
         "ext_dev = use_extension('//:defs.bzl', 'ext', dev_dependency = True)",
         "use_repo(ext_dev, 'indirect_dev_dep')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
         "  data_repo(name='direct_dep')",
@@ -1977,7 +2275,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.getError().getException())
         .hasMessageThat()
         .isEqualTo(
-            "module extension \"ext\" from \"@@ext~//:defs.bzl\" does not generate repository "
+            "module extension \"ext\" from \"@@ext+//:defs.bzl\" does not generate repository "
                 + "\"invalid_dep\", yet it is imported as \"invalid_dep\" in the usage at "
                 + "/ws/MODULE.bazel:3:20");
 
@@ -1999,15 +2297,25 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "\n"
             + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
-    assertThat(eventRecorder.fixupEvents()).hasSize(1);
-    assertThat(eventRecorder.fixupEvents().get(0).getBuildozerCommands())
+    SingleExtensionValue evalValue =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext+//:defs.bzl"), "ext", Optional.empty())));
+    assertThat(evalValue.getFixup()).isPresent();
+    assertThat(evalValue.getFixup().get().moduleFilePathToBuildozerCommands())
         .containsExactly(
-            "use_repo_add @ext//:defs.bzl ext direct_dev_dep indirect_dev_dep missing_direct_dep"
+            PathFragment.create("MODULE.bazel"),
+            "use_repo_add ext direct_dev_dep indirect_dev_dep missing_direct_dep"
                 + " missing_direct_dev_dep",
-            "use_repo_remove @ext//:defs.bzl ext invalid_dep",
-            "use_repo_remove dev @ext//:defs.bzl ext direct_dev_dep indirect_dev_dep"
-                + " invalid_dev_dep");
-    assertThat(eventRecorder.fixupEvents().get(0).getSuccessMessage())
+            PathFragment.create("MODULE.bazel"),
+            "use_repo_remove ext invalid_dep",
+            PathFragment.create("MODULE.bazel"),
+            "use_repo_remove ext_dev direct_dev_dep indirect_dev_dep invalid_dev_dep");
+    assertThat(evalValue.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for @ext//:defs.bzl%ext");
   }
 
@@ -2035,10 +2343,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "use_repo(ext, 'indirect_dep')",
         "ext_dev = use_extension('//:defs.bzl', 'ext', dev_dependency = True)",
         "use_repo(ext_dev, 'indirect_dev_dep')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
         "  data_repo(name='direct_dep')",
@@ -2063,7 +2371,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.getError().getException())
         .hasMessageThat()
         .isEqualTo(
-            "module extension \"ext\" from \"@@ext~//:defs.bzl\" does not generate repository "
+            "module extension \"ext\" from \"@@ext+//:defs.bzl\" does not generate repository "
                 + "\"invalid_dep\", yet it is imported as \"invalid_dep\" in the usage at "
                 + "/ws/MODULE.bazel:3:20");
 
@@ -2085,14 +2393,25 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "\n"
             + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
-    assertThat(eventRecorder.fixupEvents()).hasSize(1);
-    assertThat(eventRecorder.fixupEvents().get(0).getBuildozerCommands())
+    SingleExtensionValue evalValue =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext+//:defs.bzl"), "ext", Optional.empty())));
+    assertThat(evalValue.getFixup()).isPresent();
+    assertThat(evalValue.getFixup().get().moduleFilePathToBuildozerCommands())
         .containsExactly(
-            "use_repo_remove @ext//:defs.bzl ext direct_dep indirect_dep invalid_dep",
-            "use_repo_add dev @ext//:defs.bzl ext direct_dep indirect_dep missing_direct_dep"
+            PathFragment.create("MODULE.bazel"),
+            "use_repo_remove ext direct_dep indirect_dep invalid_dep",
+            PathFragment.create("MODULE.bazel"),
+            "use_repo_add ext_dev direct_dep indirect_dep missing_direct_dep"
                 + " missing_direct_dev_dep",
-            "use_repo_remove dev @ext//:defs.bzl ext invalid_dev_dep");
-    assertThat(eventRecorder.fixupEvents().get(0).getSuccessMessage())
+            PathFragment.create("MODULE.bazel"),
+            "use_repo_remove ext_dev invalid_dev_dep");
+    assertThat(evalValue.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for @ext//:defs.bzl%ext");
   }
 
@@ -2112,10 +2431,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "use_repo(ext, 'indirect_dep')",
         "ext_dev = use_extension('//:defs.bzl', 'ext', dev_dependency = True)",
         "use_repo(ext_dev, 'indirect_dev_dep')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
         "  data_repo(name='direct_dep')",
@@ -2130,17 +2449,25 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "  )",
         "ext=module_extension(implementation=_ext_impl)");
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/data.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/data.bzl").getPathString(),
         "load('@indirect_dep//:data.bzl', indirect_dep_data='data')",
         "data = indirect_dep_data");
 
-    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("@ext~//:data.bzl"));
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("@ext+//:data.bzl"));
     EvaluationResult<BzlLoadValue> result =
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertThat(result.get(skyKey).getModule().getGlobal("data")).isEqualTo("indirect_dep_data");
 
     assertEventCount(0, eventCollector);
-    assertThat(eventRecorder.fixupEvents()).isEmpty();
+    SingleExtensionValue evalValue =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext+//:defs.bzl"), "ext", Optional.empty())));
+    assertThat(evalValue.getFixup()).isEmpty();
   }
 
   @Test
@@ -2171,10 +2498,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "bazel_dep(name='data_repo',version='1.0')",
         "ext = use_extension('//:defs.bzl', 'ext')",
         "use_repo(ext, 'indirect_dep')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
         "  data_repo(name='direct_dep')",
@@ -2218,15 +2545,42 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "\n"
             + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
-    assertThat(eventRecorder.fixupEvents()).hasSize(2);
-    assertThat(eventRecorder.fixupEvents().get(0).getBuildozerCommands())
+    SingleExtensionValue ext1Value =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext+//:defs.bzl"),
+                            "ext",
+                            Optional.of(
+                                ModuleExtensionId.IsolationKey.create(ModuleKey.ROOT, "ext1")))));
+    assertThat(ext1Value.getFixup()).isPresent();
+    assertThat(ext1Value.getFixup().get().moduleFilePathToBuildozerCommands())
         .containsExactly(
-            "use_repo_add ext1 direct_dep missing_direct_dep", "use_repo_remove ext1 indirect_dep");
-    assertThat(eventRecorder.fixupEvents().get(0).getSuccessMessage())
+            PathFragment.create("MODULE.bazel"),
+            "use_repo_add ext1 direct_dep missing_direct_dep",
+            PathFragment.create("MODULE.bazel"),
+            "use_repo_remove ext1 indirect_dep");
+    assertThat(ext1Value.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for isolated usage 'ext1' of @ext//:defs.bzl%ext");
-    assertThat(eventRecorder.fixupEvents().get(1).getBuildozerCommands())
-        .containsExactly("use_repo_add ext2 missing_direct_dep");
-    assertThat(eventRecorder.fixupEvents().get(1).getSuccessMessage())
+    SingleExtensionValue ext2Value =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext+//:defs.bzl"),
+                            "ext",
+                            Optional.of(
+                                ModuleExtensionId.IsolationKey.create(ModuleKey.ROOT, "ext2")))));
+    assertThat(ext2Value.getFixup()).isPresent();
+    assertThat(ext2Value.getFixup().get().moduleFilePathToBuildozerCommands())
+        .containsExactly(
+            PathFragment.create("MODULE.bazel"), "use_repo_add ext2 missing_direct_dep");
+    assertThat(ext2Value.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for isolated usage 'ext2' of @ext//:defs.bzl%ext");
   }
 
@@ -2258,10 +2612,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "bazel_dep(name='data_repo',version='1.0')",
         "ext = use_extension('//:defs.bzl', 'ext')",
         "use_repo(ext, 'indirect_dep')");
-    scratch.file(modulesRoot.getRelative("ext~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("ext~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("ext+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("ext~1.0/defs.bzl").getPathString(),
+        modulesRoot.getRelative("ext+1.0/defs.bzl").getPathString(),
         "load('@data_repo//:defs.bzl','data_repo')",
         "def _ext_impl(ctx):",
         "  data_repo(name='direct_dep')",
@@ -2305,24 +2659,51 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             + "\n"
             + "Fix the use_repo calls by running 'bazel mod tidy'.",
         ImmutableSet.of(EventKind.WARNING));
-    assertThat(eventRecorder.fixupEvents()).hasSize(2);
-    assertThat(eventRecorder.fixupEvents().get(0).getBuildozerCommands())
+    SingleExtensionValue ext1Value =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext+//:defs.bzl"),
+                            "ext",
+                            Optional.of(
+                                ModuleExtensionId.IsolationKey.create(ModuleKey.ROOT, "ext1")))));
+    assertThat(ext1Value.getFixup()).isPresent();
+    assertThat(ext1Value.getFixup().get().moduleFilePathToBuildozerCommands())
         .containsExactly(
-            "use_repo_add ext1 direct_dep missing_direct_dep", "use_repo_remove ext1 indirect_dep");
-    assertThat(eventRecorder.fixupEvents().get(0).getSuccessMessage())
+            PathFragment.create("MODULE.bazel"),
+            "use_repo_add ext1 direct_dep missing_direct_dep",
+            PathFragment.create("MODULE.bazel"),
+            "use_repo_remove ext1 indirect_dep");
+    assertThat(ext1Value.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for isolated usage 'ext1' of @ext//:defs.bzl%ext");
-    assertThat(eventRecorder.fixupEvents().get(1).getBuildozerCommands())
-        .containsExactly("use_repo_add ext2 missing_direct_dep");
-    assertThat(eventRecorder.fixupEvents().get(1).getSuccessMessage())
+    SingleExtensionValue ext2Value =
+        (SingleExtensionValue)
+            evaluator
+                .getDoneValues()
+                .get(
+                    SingleExtensionValue.evalKey(
+                        ModuleExtensionId.create(
+                            Label.parseCanonical("@@ext+//:defs.bzl"),
+                            "ext",
+                            Optional.of(
+                                ModuleExtensionId.IsolationKey.create(ModuleKey.ROOT, "ext2")))));
+    assertThat(ext2Value.getFixup()).isPresent();
+    assertThat(ext2Value.getFixup().get().moduleFilePathToBuildozerCommands())
+        .containsExactly(
+            PathFragment.create("MODULE.bazel"), "use_repo_add ext2 missing_direct_dep");
+    assertThat(ext2Value.getFixup().get().getSuccessMessage())
         .isEqualTo("Updated use_repo calls for isolated usage 'ext2' of @ext//:defs.bzl%ext");
   }
 
-  private EvaluationResult<SingleExtensionEvalValue> evaluateSimpleModuleExtension(
+  private EvaluationResult<SingleExtensionValue> evaluateSimpleModuleExtension(
       String returnStatement) throws Exception {
     return evaluateSimpleModuleExtension(returnStatement, /* devDependency= */ false);
   }
 
-  private EvaluationResult<SingleExtensionEvalValue> evaluateSimpleModuleExtension(
+  private EvaluationResult<SingleExtensionValue> evaluateSimpleModuleExtension(
       String returnStatement, boolean devDependency) throws Exception {
     String devDependencyStr = devDependency ? "True" : "False";
     scratch.file(
@@ -2343,7 +2724,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         ModuleExtensionId.create(Label.parseCanonical("//:defs.bzl"), "ext", Optional.empty());
     reporter.removeHandler(failFastHandler);
     return evaluator.evaluate(
-        ImmutableList.of(SingleExtensionEvalValue.key(extensionId)), evaluationContext);
+        ImmutableList.of(SingleExtensionValue.key(extensionId)), evaluationContext);
   }
 
   @Test
@@ -2412,8 +2793,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         ModuleExtensionId.create(Label.parseCanonical("//:defs.bzl"), "ext", Optional.empty());
     reporter.removeHandler(failFastHandler);
     var result =
-        evaluator.<SingleExtensionEvalValue>evaluate(
-            ImmutableList.of(SingleExtensionEvalValue.key(extensionId)), evaluationContext);
+        evaluator.<SingleExtensionValue>evaluate(
+            ImmutableList.of(SingleExtensionValue.key(extensionId)), evaluationContext);
 
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
@@ -2444,14 +2825,14 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "module(name='foo',version='1.0')",
         "data_repo = use_repo_rule('//:repo.bzl', 'data_repo')",
         "data_repo(name='data', data='go to bed at 11pm.')");
-    scratch.file(modulesRoot.getRelative("foo~1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("foo~1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("foo+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("foo+1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("foo~1.0/data.bzl").getPathString(),
+        modulesRoot.getRelative("foo+1.0/data.bzl").getPathString(),
         "load('@data//:data.bzl',repo_data='data')",
         "data=repo_data");
     scratch.file(
-        modulesRoot.getRelative("foo~1.0/repo.bzl").getPathString(),
+        modulesRoot.getRelative("foo+1.0/repo.bzl").getPathString(),
         "def _data_repo_impl(ctx):",
         "  ctx.file('BUILD.bazel')",
         "  ctx.file('data.bzl', 'data='+json.encode(ctx.attr.data))",

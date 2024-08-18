@@ -1,5 +1,6 @@
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("//:workspace_deps.bzl", "gen_workspace_stanza")
+load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 
 package(default_visibility = ["//visibility:private"])
 
@@ -136,7 +137,6 @@ sh_test(
     srcs = ["bazel_tools_test.sh"],
     data = [
         ":test-deps",
-        "//:workspace-file",
     ],
     tags = [
         "no_windows",  # objc-specific test
@@ -220,9 +220,7 @@ sh_test(
 write_file(
     name = "gen_rules_java_repo_name",
     out = "RULES_JAVA_REPO_NAME",
-    # TODO: Revert to the following when building with Bazel 7.1.0.
-    # content = [get_canonical_repo_name("@rules_java")],
-    content = ["rules_java~"],
+    content = [get_canonical_repo_name("@rules_java")],
 )
 
 sh_test(
@@ -363,6 +361,9 @@ sh_test(
         "//src:java_tools_prebuilt.zip",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    tags = [
+        "requires-network",  # For Bzlmod
+    ],
 )
 
 sh_test(
@@ -448,6 +449,7 @@ sh_test(
     tags = [
         "no-sandbox",
         "no_windows",
+        "requires-network",  # For Bzlmod
     ],
 )
 
@@ -730,27 +732,6 @@ sh_test(
     tags = ["no_windows"],
 )
 
-genquery(
-    name = "stardoc_deps",
-    expression = "kind(\"^(?!package group$)\", deps(//src/main/java/com/google/devtools/build/skydoc:skydoc_lib))",
-    opts = [
-        "--notool_deps",
-        "--noimplicit_deps",
-    ],
-    scope = ["//src/main/java/com/google/devtools/build/skydoc:skydoc_lib"],
-)
-
-sh_test(
-    name = "stardoc_deps_test",
-    size = "medium",
-    srcs = ["stardoc_deps_test.sh"],
-    data = [
-        ":stardoc_deps",
-        ":test-deps",
-    ],
-    tags = ["no_windows"],
-)
-
 sh_test(
     name = "bazel_docgen_test",
     size = "large",
@@ -796,6 +777,17 @@ sh_test(
     name = "external_patching_test",
     size = "medium",
     srcs = ["external_patching_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 3,
+)
+
+sh_test(
+    name = "external_remote_file_test",
+    size = "medium",
+    srcs = ["external_remote_file_test.sh"],
     data = [
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
@@ -1367,7 +1359,10 @@ sh_test(
         ":test-deps",
         "//src/tools/remote:worker",
     ],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",  # for Bzlmod
+    ],
     deps = [
         "//src/test/shell/bazel/remote:remote_utils",
         "@bazel_tools//tools/bash/runfiles",
@@ -1418,7 +1413,7 @@ sh_test(
     srcs = ["verify_workspace.sh"],
     data = [
         ":test-deps",
-        "//:workspace-file",
+        "//:workspace-deps-bzl",
         "@bazel_tools//tools/bash/runfiles",
     ],
     tags = [

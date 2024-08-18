@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -471,7 +472,7 @@ public class TestRunnerAction extends AbstractAction
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable Artifact.ArtifactExpander artifactExpander,
+      @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     // TODO(b/150305897): use addUUID?
@@ -500,11 +501,46 @@ public class TestRunnerAction extends AbstractAction
     fp.addStringMap(getExecutionInfo());
   }
 
+  /**
+   * Returns whether the test should be executed unconditionally based on the test configuration,
+   * the test properties, and the previous test result when known.
+   */
   @Override
   public boolean executeUnconditionally() {
     // Note: isVolatile must return true if executeUnconditionally can ever return true
     // for this instance.
-    return computeExecuteUnconditionallyFromTestStatus();
+    return executeUnconditionally(
+        testConfiguration.cacheTestResults(),
+        this::maybeReadCacheStatus,
+        testProperties.isExternal(),
+        executionSettings.getTotalRuns());
+  }
+
+  @VisibleForTesting
+  static boolean executeUnconditionally(
+      TriState cacheTestResults,
+      Supplier<Optional<TestResultData>> prevStatus, // lazy to avoid I/O if possible
+      boolean isExternal,
+      int runsPerTest) {
+    if (!shouldAcceptCachedResult(cacheTestResults, isExternal, runsPerTest)) {
+      return true;
+    }
+    Optional<TestResultData> status = prevStatus.get();
+    if (status.isEmpty()) {
+      // Execute unconditionally if a previous test result is not available.
+      return true;
+    }
+    if (!status.get().getCachable()) {
+      // Execute unconditionally if the previous test result was marked non-cacheable.
+      // It seems that this can only happen with --experimental_cancel_concurrent_tests.
+      return true;
+    }
+    if (cacheTestResults == TriState.AUTO && !status.get().getTestPassed()) {
+      // Execute unconditionally if the previous test result was a failure, as otherwise we can
+      // get stuck forever in the event of a flaky failure.
+      return true;
+    }
+    return false;
   }
 
   @Override
@@ -552,72 +588,41 @@ public class TestRunnerAction extends AbstractAction
     }
   }
 
-  private boolean computeExecuteUnconditionallyFromTestStatus() {
-    CacheableTest cacheStatus =
-        canBeCached(
-            testConfiguration.cacheTestResults(),
-            this::maybeReadCacheStatus,
-            testProperties.isExternal(),
-            executionSettings.getTotalRuns());
-    switch (cacheStatus) {
-      case NO_STATUS_ON_DISK:
-        // execute unconditionally if no status available on disk
-      case NO:
-        return true;
-      case YES:
-        return false;
-    }
-    throw new IllegalStateException("Unreachable. Bad cache status: " + cacheStatus);
+  /**
+   * Returns whether a cached result should be accepted from a disk/remote cache, depending on the
+   * test configuration and test properties.
+   *
+   * <p>This should *not* be used to determine whether to accept a cached result from the action
+   * cache. Call {@link #executeUnconditionally} instead.
+   *
+   * <p>Unlike {@link #executeUnconditionally}, this decision does not depend on the previous test
+   * result, as otherwise we wouldn't attempt to hit the disk/remote cache when the test has changed
+   * from a failing to a passing state since the last execution without causing the action to be
+   * reanalyzed (for example, by editing a source file into a passing state that has been previously
+   * seen).
+   *
+   * <p>We're not concerned about a flaky failure becoming sticky in the disk/remote cache, because
+   * it's impossible to solve this problem generally. In any case, this can only occur with a remote
+   * execution implementation that caches failures, as we never upload them to a disk/remote cache
+   * ourselves.
+   */
+  public boolean shouldAcceptCachedResult() {
+    return shouldAcceptCachedResult(
+        testConfiguration.cacheTestResults(),
+        testProperties.isExternal(),
+        executionSettings.getTotalRuns());
   }
 
   @VisibleForTesting
-  static CacheableTest canBeCached(
-      TriState cacheTestResults,
-      Supplier<Optional<TestResultData>>
-          prevStatus, // Lazy evaluation to avoid a disk read if possible.
-      boolean isExternal,
-      int runsPerTest) {
+  static boolean shouldAcceptCachedResult(
+      TriState cacheTestResults, boolean isExternal, int runsPerTest) {
     if (isExternal || cacheTestResults == TriState.NO) {
-      return CacheableTest.NO;
+      return false;
     }
     if (cacheTestResults == TriState.AUTO && runsPerTest > 1) {
-      return CacheableTest.NO;
+      return false;
     }
-    Optional<TestResultData> status = prevStatus.get();
-    // unable to read status from disk
-    if (status.isEmpty()) {
-      return CacheableTest.NO_STATUS_ON_DISK;
-    }
-    if (!status.get().getCachable()) {
-      return CacheableTest.NO;
-    }
-    if (cacheTestResults == TriState.AUTO && !status.get().getTestPassed()) {
-      return CacheableTest.NO;
-    }
-    return CacheableTest.YES;
-  }
-
-  /**
-   * Returns whether caching has been deemed safe by looking at the previous test run (for local
-   * caching). If the previous run is not present or cached status was retrieved unsuccessfully,
-   * return "true" here, as remote execution caching should be safe.
-   */
-  public boolean shouldCacheResult() {
-    CacheableTest cacheStatus =
-        canBeCached(
-            testConfiguration.cacheTestResults(),
-            this::maybeReadCacheStatus,
-            testProperties.isExternal(),
-            executionSettings.getTotalRuns());
-    switch (cacheStatus) {
-        // optimistically cache results if status unavailable
-      case YES:
-      case NO_STATUS_ON_DISK:
-        return true;
-      case NO:
-        return false;
-    }
-    throw new IllegalStateException("Unreachable. Bad cache status: " + cacheStatus);
+    return true;
   }
 
   @Override
@@ -1171,7 +1176,11 @@ public class TestRunnerAction extends AbstractAction
       } else {
         TestRunnerSpawnAndMaxAttempts nextRunnerAndAttempts =
             computeNextRunnerAndMaxAttempts(
-                testResult, testRunnerSpawn, failedAttempts.size() + 1, actualMaxAttempts);
+                testResult,
+                testRunnerSpawn,
+                failedAttempts.size() + 1,
+                actualMaxAttempts,
+                spawnResults);
         if (nextRunnerAndAttempts != null) {
           failedAttempts.add(
               testRunnerSpawn.finalizeFailedTestAttempt(result, failedAttempts.size() + 1));
@@ -1220,11 +1229,12 @@ public class TestRunnerAction extends AbstractAction
       TestAttemptResult.Result result,
       TestRunnerSpawn testRunnerSpawn,
       int numAttempts,
-      int maxAttempts)
+      int maxAttempts,
+      List<SpawnResult> results)
       throws ExecException, InterruptedException {
     checkState(result != Result.PASSED, "Should not compute retry runner if last result passed");
     if (result.canRetry() && numAttempts < maxAttempts) {
-      TestRunnerSpawn nextRunner = testRunnerSpawn.getFlakyRetryRunner();
+      TestRunnerSpawn nextRunner = testRunnerSpawn.getFlakyRetryRunner(results);
       if (nextRunner != null) {
         return TestRunnerSpawnAndMaxAttempts.create(nextRunner, maxAttempts);
       }
@@ -1296,12 +1306,5 @@ public class TestRunnerAction extends AbstractAction
     public boolean isEmpty() {
       return false;
     }
-  }
-
-  @VisibleForTesting
-  enum CacheableTest {
-    YES,
-    NO,
-    NO_STATUS_ON_DISK
   }
 }

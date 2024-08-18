@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.starlarkbuildapi.android;
 
-import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -28,6 +27,7 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkValue;
@@ -47,12 +47,6 @@ public interface AndroidStarlarkCommonApi<
         ConstraintValueT extends ConstraintValueInfoApi,
         StarlarkRuleContextT extends StarlarkRuleContextApi<ConstraintValueT>>
     extends StarlarkValue {
-
-  @StarlarkMethod(
-      name = "create_device_broker_info",
-      documented = false,
-      parameters = {@Param(name = "type")})
-  AndroidDeviceBrokerInfoApi createDeviceBrokerInfo(String deviceBrokerType);
 
   @StarlarkMethod(
       name = "resource_source_directory",
@@ -81,16 +75,6 @@ public interface AndroidStarlarkCommonApi<
       documented = false,
       structField = true)
   AndroidSplitTransitionApi getAndroidSplitTransition();
-
-  @StarlarkMethod(
-      name = "android_platforms_transition",
-      doc =
-          "A configuration for rules that uses the --android_platforms flag instead of --platforms."
-              + " This should only be used by Android rules during migration and is not for"
-              + " general use.",
-      documented = false,
-      structField = true)
-  StarlarkExposedRuleTransitionFactory getAndroidPlatformsTransition();
 
   @StarlarkMethod(
       name = "enable_implicit_sourceless_deps_exports_compatibility",
@@ -157,7 +141,17 @@ public interface AndroidStarlarkCommonApi<
             defaultValue = "0",
             allowedTypes = {
               @ParamType(type = StarlarkInt.class),
-            })
+            }),
+        @Param(
+            name = "desugar_globals",
+            doc = "The D8 desugar globals file.",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            }),
       })
   void createDexMergerActions(
       StarlarkRuleContextT starlarkRuleContext,
@@ -165,6 +159,7 @@ public interface AndroidStarlarkCommonApi<
       FileT input,
       Sequence<?> dexopts, // <String> expected.
       FilesToRunProviderT dexmerger,
-      StarlarkInt minSdkVersion)
+      StarlarkInt minSdkVersion,
+      Object desugarGlobals)
       throws EvalException, RuleErrorException;
 }

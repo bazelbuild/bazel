@@ -95,8 +95,8 @@ public class ApiExporter {
     for (Entry<String, Object> entry : globals.entrySet()) {
       String name = entry.getKey();
       Object obj = entry.getValue();
-      if (obj instanceof GuardedValue) {
-        obj = ((GuardedValue) obj).getObject();
+      if (obj instanceof GuardedValue guardedValue) {
+        obj = guardedValue.getObject();
       }
 
       Value.Builder value = Value.newBuilder();
@@ -175,8 +175,8 @@ public class ApiExporter {
     }
 
     // annotated Java method?
-    if (x instanceof BuiltinFunction) {
-      return valueFromAnnotation(((BuiltinFunction) x).getAnnotation());
+    if (x instanceof BuiltinFunction builtinFunction) {
+      return valueFromAnnotation(builtinFunction.getAnnotation());
     }
 
     // application-defined callable?  Treat as def f(**kwargs).
@@ -253,16 +253,15 @@ public class ApiExporter {
         param.setDoc(par.getDocumentation());
         param.setDefaultValue(par.getDefaultValue());
         switch (par.getKind()) {
-          case NORMAL:
-            break;
-          case EXTRA_POSITIONALS:
+          case NORMAL -> {}
+          case EXTRA_POSITIONALS -> {
             param.setName("*" + par.getName());
             param.setIsStarArg(true);
-            break;
-          case EXTRA_KEYWORDS:
+          }
+          case EXTRA_KEYWORDS -> {
             param.setName("**" + par.getName());
             param.setIsStarStarArg(true);
-            break;
+          }
         }
         callable.addParam(param);
       }

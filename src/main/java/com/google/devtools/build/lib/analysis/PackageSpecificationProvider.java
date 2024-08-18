@@ -99,10 +99,10 @@ public class PackageSpecificationProvider extends NativeInfo
   @Override
   public boolean targetInAllowlist(Object target) throws EvalException, LabelSyntaxException {
     Label targetLabel;
-    if (target instanceof String) {
-      targetLabel = Label.parseCanonical((String) target);
-    } else if (target instanceof Label) {
-      targetLabel = (Label) target;
+    if (target instanceof String string) {
+      targetLabel = Label.parseCanonical(string);
+    } else if (target instanceof Label label) {
+      targetLabel = label;
     } else {
       throw Starlark.errorf(
           "expected string or label for 'target' instead of %s", Starlark.type(target));

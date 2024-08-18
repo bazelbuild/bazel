@@ -37,8 +37,6 @@ import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext;
-import com.google.devtools.build.lib.packages.BazelStarlarkContext.Phase;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -56,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -123,11 +122,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     return packageContext;
   }
 
-  /** Is this transition the same one specified by --experimental_exec_config? */
-  public boolean matchesExecConfigFlag(String starlarkExecConfig) {
-    return starlarkExecConfig.contains(parentLabel.getPackageName())
-        && starlarkExecConfig.contains(parentLabel.getName());
-  }
+  /** Is this transition an exec transition? */
+  public abstract boolean isExecTransition();
 
   /**
    * Returns a build settings in canonicalized form taking into account repository remappings.
@@ -237,8 +233,10 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
    * practice to have few or even one transition invoke multiple times over multiple configured
    * targets.
    */
-  public final Cache<RuleTransitionData, PatchTransition> getRuleTransitionCache() {
-    return ruleTransitionCache;
+  public PatchTransition createRuleTransition(
+      RuleTransitionData ruleData,
+      Function<RuleTransitionData, ? extends PatchTransition> createTransition) {
+    return this.ruleTransitionCache.get(ruleData, createTransition);
   }
 
   /**
@@ -278,6 +276,18 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
   }
 
+  public static StarlarkDefinedConfigTransition newExecTransition(
+      StarlarkCallable impl,
+      List<String> inputs,
+      List<String> outputs,
+      StarlarkSemantics semantics,
+      Label parentLabel,
+      Location location,
+      RepositoryMapping repoMapping)
+      throws EvalException {
+    return new ExecTransition(impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
+  }
+
   public static StarlarkDefinedConfigTransition newAnalysisTestTransition(
       Map<String, Object> changedSettings,
       RepositoryMapping repoMapping,
@@ -308,6 +318,11 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     @Override
     public boolean isForAnalysisTesting() {
       return true;
+    }
+
+    @Override
+    public boolean isExecTransition() {
+      return false;
     }
 
     @Override
@@ -366,6 +381,11 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
     @Override
     public boolean isForAnalysisTesting() {
+      return false;
+    }
+
+    @Override
+    public boolean isExecTransition() {
       return false;
     }
 
@@ -549,11 +569,6 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         Dict<String, Object> previousSettingsDict =
             createBuildSettingsDict(previousSettings, optionInfoMap, mu);
 
-        // Create a new {@link BazelStarlarkContext} for the new thread. We need to
-        // create a new context every time because {@link BazelStarlarkContext}s
-        // should be confined to a single thread.
-        new BazelStarlarkContext(Phase.ANALYSIS).storeInThread(thread);
-
         result =
             Starlark.fastcall(
                 thread, impl, new Object[] {previousSettingsDict, attrObject}, new Object[0]);
@@ -573,8 +588,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
       if (result instanceof NoneType) {
         return ImmutableMap.of();
-      } else if (result instanceof Dict) {
-        if (((Dict<?, ?>) result).isEmpty()) {
+      } else if (result instanceof Dict<?, ?> dict) {
+        if (dict.isEmpty()) {
           return ImmutableMap.of();
         }
         try {
@@ -609,8 +624,8 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
           return null;
         }
 
-      } else if (result instanceof Sequence) {
-        if (((Sequence<?>) result).isEmpty()) {
+      } else if (result instanceof Sequence<?> sequence) {
+        if (sequence.isEmpty()) {
           return ImmutableMap.of();
         }
         ImmutableMap.Builder<String, Map<String, Object>> builder = ImmutableMap.builder();
@@ -741,6 +756,26 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     @Override
     public int hashCode() {
       return Objects.hash(this.getInputs(), this.getOutputs(), this.impl);
+    }
+  }
+
+  /** A transition implementation used only for Starlark-defined exec transitions. */
+  private static class ExecTransition extends RegularTransition {
+    private ExecTransition(
+        StarlarkCallable impl,
+        List<String> inputs,
+        List<String> outputs,
+        StarlarkSemantics semantics,
+        Label parentLabel,
+        Location location,
+        RepositoryMapping repoMapping)
+        throws EvalException {
+      super(impl, inputs, outputs, semantics, parentLabel, location, repoMapping);
+    }
+
+    @Override
+    public boolean isExecTransition() {
+      return true;
     }
   }
 

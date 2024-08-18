@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
@@ -132,6 +133,14 @@ public final class SelectorList implements StarlarkValue, HasBinary {
     }
 
     return new SelectorList(getNativeType(firstValue), elements.build());
+  }
+
+  /**
+   * Wraps a single value in a {@code select()} where the default condition maps to the given value
+   */
+  public static SelectorList wrapSingleValue(Object obj) {
+    return SelectorList.of(
+        new SelectorValue(ImmutableMap.of(BuildType.Selector.DEFAULT_CONDITION_KEY, obj), ""));
   }
 
   /**

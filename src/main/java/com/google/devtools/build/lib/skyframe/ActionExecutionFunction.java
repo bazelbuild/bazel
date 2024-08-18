@@ -49,10 +49,9 @@ import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.AlreadyReportedActionExecutionException;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.DiscoveredInputsEvent;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
@@ -114,6 +113,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.IntFunction;
@@ -729,11 +729,13 @@ public final class ActionExecutionFunction implements SkyFunction {
         PathFragment parent =
             checkNotNull(path.getParentDirectory(), "Must pass in files, not root directory");
         checkArgument(!parent.isAbsolute(), path);
-        ContainingPackageLookupValue.Key depKey =
-            ContainingPackageLookupValue.key(
-                PackageIdentifier.discoverFromExecPath(path, true, siblingRepositoryLayout));
-        depKeys.put(path, depKey);
-        packageLookupsRequested.add(depKey);
+        Optional<PackageIdentifier> pkgId =
+            PackageIdentifier.discoverFromExecPath(path, true, siblingRepositoryLayout);
+        if (pkgId.isPresent()) {
+          ContainingPackageLookupValue.Key depKey = ContainingPackageLookupValue.key(pkgId.get());
+          depKeys.put(path, depKey);
+          packageLookupsRequested.add(depKey);
+        }
       }
 
       SkyframeLookupResult values = env.getValuesAndExceptions(depKeys.values());
@@ -1061,8 +1063,8 @@ public final class ActionExecutionFunction implements SkyFunction {
             input, ((ActionExecutionValue) retrievedMetadata).getExistingFileArtifactValue(input));
       } else if (retrievedMetadata instanceof MissingArtifactValue) {
         inputData.putWithNoDepOwner(input, FileArtifactValue.MISSING_FILE_MARKER);
-      } else if (retrievedMetadata instanceof FileArtifactValue) {
-        inputData.putWithNoDepOwner(input, (FileArtifactValue) retrievedMetadata);
+      } else if (retrievedMetadata instanceof FileArtifactValue fileArtifactValue) {
+        inputData.putWithNoDepOwner(input, fileArtifactValue);
       } else {
         throw new IllegalStateException(
             "unknown metadata for " + input.getExecPathString() + ": " + retrievedMetadata);
@@ -1307,7 +1309,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     if (!undoneInputs.isEmpty()) {
-      throw new UndoneInputsException(ImmutableList.copyOf(undoneInputs), inputDepKeys);
+      throw new UndoneInputsException(ImmutableSet.copyOf(undoneInputs), inputDepKeys);
     }
 
     // If there were no errors, we don't go through the scheduling dependencies because the only
@@ -1547,10 +1549,10 @@ public final class ActionExecutionFunction implements SkyFunction {
    * completed with an error.
    */
   private static final class UndoneInputsException extends Exception {
-    private final ImmutableList<Artifact> undoneInputs;
+    private final ImmutableSet<Artifact> undoneInputs;
     private final ImmutableSet<SkyKey> inputDepKeys;
 
-    UndoneInputsException(ImmutableList<Artifact> undoneInputs, ImmutableSet<SkyKey> inputDepKeys) {
+    UndoneInputsException(ImmutableSet<Artifact> undoneInputs, ImmutableSet<SkyKey> inputDepKeys) {
       this.undoneInputs = undoneInputs;
       this.inputDepKeys = inputDepKeys;
     }
@@ -1642,8 +1644,8 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     private void handleActionExecutionExceptionFromSkykey(SkyKey key, ActionExecutionException e) {
-      if (key instanceof Artifact) {
-        handleActionExecutionExceptionPerArtifact((Artifact) key, e);
+      if (key instanceof Artifact artifact) {
+        handleActionExecutionExceptionPerArtifact(artifact, e);
         return;
       }
       Set<Artifact> associatedInputs = skyKeyToDerivedArtifactSetForExceptions.get().get(key);

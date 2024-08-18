@@ -136,6 +136,9 @@ public final class Attribute implements Comparable<Attribute> {
      */
     NONCONFIGURABLE,
 
+    /** True if the "configurable" attribute was user-set. */
+    CONFIGURABLE_ATTR_WAS_USER_SET,
+
     /**
      * Whether we should skip dependency validation checks done by {@link
      * com.google.devtools.build.lib.analysis.RuleContext.PrerequisiteValidator} (for visibility,
@@ -212,7 +215,7 @@ public final class Attribute implements Comparable<Attribute> {
     public String getErrorReason(Object value) {
       return String.format(
           "has to be one of %s instead of '%s'",
-          StringUtil.joinEnglishList(allowedValues, "or", "'"), value);
+          StringUtil.joinEnglishListSingleQuoted(allowedValues), value);
     }
 
     @VisibleForTesting
@@ -392,7 +395,7 @@ public final class Attribute implements Comparable<Attribute> {
     private final String name;
     private final Type<TYPE> type;
     private TransitionFactory<AttributeTransitionData> transitionFactory =
-        NoTransition.createFactory();
+        NoTransition.getFactory();
     private RuleClassNamePredicate allowedRuleClassesForLabels = ANY_RULE;
     private RuleClassNamePredicate allowedRuleClassesForLabelsWarning = NO_RULE;
     private FileTypeSet allowedFileTypesForLabels;
@@ -1017,6 +1020,12 @@ public final class Attribute implements Comparable<Attribute> {
     public Builder<TYPE> nonconfigurable(String reason) {
       Preconditions.checkState(!reason.isEmpty());
       return setPropertyFlag(PropertyFlag.NONCONFIGURABLE, "nonconfigurable");
+    }
+
+    @CanIgnoreReturnValue
+    public Builder<TYPE> configurableAttrWasUserSet() {
+      return setPropertyFlag(
+          PropertyFlag.CONFIGURABLE_ATTR_WAS_USER_SET, "configurable_attr_was_user_set");
     }
 
     public Builder<TYPE> tool(String reason) {
@@ -2005,6 +2014,11 @@ public final class Attribute implements Comparable<Attribute> {
     // Output types are excluded because of Rule#populateExplicitOutputFiles.
     return type.getLabelClass() != LabelClass.OUTPUT
         && !getPropertyFlag(PropertyFlag.NONCONFIGURABLE);
+  }
+
+  /** Returns true if the "configurable" attribute parameter was user-set */
+  public boolean configurableAttrWasUserSet() {
+    return getPropertyFlag(PropertyFlag.CONFIGURABLE_ATTR_WAS_USER_SET);
   }
 
   /**

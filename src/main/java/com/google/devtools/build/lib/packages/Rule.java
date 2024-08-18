@@ -94,6 +94,8 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   private static final OutputFile[] NO_OUTPUTS = new OutputFile[0];
 
+  public static final String IS_EXECUTABLE_ATTRIBUTE_NAME = "$is_executable";
+
   private final Package pkg;
   private final Label label;
   private final RuleClass ruleClass;
@@ -279,12 +281,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    * Returns true if the given attribute is configurable.
    */
   public boolean isConfigurableAttribute(String attributeName) {
-    Attribute attribute = ruleClass.getAttributeByNameMaybe(attributeName);
     // TODO(murali): This method should be property of ruleclass not rule instance.
     // Further, this call to AbstractAttributeMapper.isConfigurable is delegated right back
     // to this instance!
-    return attribute != null
-        && AbstractAttributeMapper.isConfigurable(this, attributeName, attribute.getType());
+    return AbstractAttributeMapper.isConfigurable(this, attributeName);
   }
 
   /**
@@ -545,18 +545,13 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       checkState(isFrozen(), "Mutable rule missing LateBoundDefault");
       return attr.getLateBoundDefault();
     }
-    switch (attr.getName()) {
-      case GENERATOR_FUNCTION:
-        return interiorCallStack != null ? interiorCallStack.functionName() : "";
-      case GENERATOR_LOCATION:
-        return interiorCallStack != null ? getRelativeLocation() : "";
-      case GENERATOR_NAME:
-        return generatorNamePrefixLength > 0
-            ? getName().substring(0, generatorNamePrefixLength)
-            : "";
-      default:
-        return attr.getDefaultValue(this);
-    }
+    return switch (attr.getName()) {
+      case GENERATOR_FUNCTION -> interiorCallStack != null ? interiorCallStack.functionName() : "";
+      case GENERATOR_LOCATION -> interiorCallStack != null ? getRelativeLocation() : "";
+      case GENERATOR_NAME ->
+          generatorNamePrefixLength > 0 ? getName().substring(0, generatorNamePrefixLength) : "";
+      default -> attr.getDefaultValue(this);
+    };
   }
 
   /**
@@ -568,21 +563,21 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   @Nullable
   Object getAttrIfStored(int attrIndex) {
     checkPositionIndex(attrIndex, attrCount() - 1);
-    switch (getAttrState()) {
-      case MUTABLE:
-        return attrValues[attrIndex];
-      case FROZEN_SMALL:
+    return switch (getAttrState()) {
+      case MUTABLE -> attrValues[attrIndex];
+      case FROZEN_SMALL -> {
         int index = binarySearchAttrBytes(0, attrIndex, 0x7f);
-        return index < 0 ? null : attrValues[index];
-      case FROZEN_LARGE:
+        yield index < 0 ? null : attrValues[index];
+      }
+      case FROZEN_LARGE -> {
         if (attrBytes.length == 0) {
-          return null;
+          yield null;
         }
         int bitSetSize = bitSetSize();
-        index = binarySearchAttrBytes(bitSetSize, attrIndex, 0xff);
-        return index < 0 ? null : attrValues[index - bitSetSize];
-    }
-    throw new AssertionError();
+        int index = binarySearchAttrBytes(bitSetSize, attrIndex, 0xff);
+        yield index < 0 ? null : attrValues[index - bitSetSize];
+      }
+    };
   }
 
   /**
@@ -624,15 +619,13 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     if (attrIndex == null) {
       return false;
     }
-    switch (getAttrState()) {
-      case MUTABLE:
-      case FROZEN_LARGE:
-        return getExplicitBit(attrIndex);
-      case FROZEN_SMALL:
+    return switch (getAttrState()) {
+      case MUTABLE, FROZEN_LARGE -> getExplicitBit(attrIndex);
+      case FROZEN_SMALL -> {
         int index = binarySearchAttrBytes(0, attrIndex, 0x7f);
-        return index >= 0 && (attrBytes[index] & 0x80) != 0;
-    }
-    throw new AssertionError();
+        yield index >= 0 && (attrBytes[index] & 0x80) != 0;
+      }
+    };
   }
 
   /** Returns index into {@link #attrBytes} for {@code attrIndex}, or -1 if not found */
@@ -1260,25 +1253,22 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
    *
    * <ol>
    *   <li>The rule uses toolchains by definition ({@link
-   *       RuleClass.Builder#useToolchainResolution(ToolchainResolutionMode)}
+   *       RuleClass.Builder#toolchainResolutionMode(ToolchainResolutionMode)}
    *   <li>The rule instance has a select() or target_compatible_with attribute, which means it may
    *       depend on target platform properties that are only provided when toolchain resolution is
    *       enabled.
    * </ol>
    */
   public boolean useToolchainResolution() {
-    ToolchainResolutionMode mode = ruleClass.useToolchainResolution();
-    if (mode.isActive()) {
-      return true;
-    } else if (mode == ToolchainResolutionMode.ENABLED_ONLY_FOR_COMMON_LOGIC) {
-      RawAttributeMapper attr = RawAttributeMapper.of(this);
-      return ((attr.has(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)
-              && !attr.get(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE, BuildType.LABEL_LIST).isEmpty())
-          || (attr.has(RuleClass.TARGET_COMPATIBLE_WITH_ATTR)
-              && !attr.get(RuleClass.TARGET_COMPATIBLE_WITH_ATTR, BuildType.LABEL_LIST).isEmpty()));
-    } else {
-      return false;
+    return ruleClass.useToolchainResolution(this);
+  }
+
+  public boolean isExecutable() {
+    if (getRuleClassObject().hasAttr(IS_EXECUTABLE_ATTRIBUTE_NAME, Type.BOOLEAN)) {
+      return NonconfigurableAttributeMapper.of(this)
+          .get(IS_EXECUTABLE_ATTRIBUTE_NAME, Type.BOOLEAN);
     }
+    return false;
   }
 
   public RepositoryName getRepository() {

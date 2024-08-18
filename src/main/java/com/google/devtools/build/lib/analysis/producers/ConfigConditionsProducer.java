@@ -178,11 +178,12 @@ final class ConfigConditionsProducer
    */
   @Nullable
   private static List<Label> computeConfigLabels(Target target) {
-    if (!(target instanceof Rule)) {
+    Rule rule = target.getAssociatedRule();
+    if (rule == null) {
       return null;
     }
 
-    var attrs = RawAttributeMapper.of(((Rule) target));
+    var attrs = RawAttributeMapper.of(rule);
     if (!attrs.has(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)) {
       return null;
     }

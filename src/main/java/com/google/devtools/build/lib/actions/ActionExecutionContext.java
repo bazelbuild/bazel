@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -508,8 +507,8 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     try {
       fileOutErr.close();
     } finally {
-      if (actionFileSystem instanceof Closeable) {
-        ((Closeable) actionFileSystem).close();
+      if (actionFileSystem instanceof Closeable closeable) {
+        closeable.close();
       }
     }
   }

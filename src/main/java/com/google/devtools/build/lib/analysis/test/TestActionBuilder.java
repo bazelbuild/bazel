@@ -152,23 +152,21 @@ public final class TestActionBuilder {
     return this;
   }
 
-  private ActionOwner getTestActionOwner() {
-    if (this.executionRequirements != null) {
-      ActionOwner owner = ruleContext.getActionOwner(this.executionRequirements.getExecGroup());
-      if (owner != null) {
-        return owner;
-      }
+  private ActionOwner getTestActionOwner(boolean useTargetPlatformForTests) {
+    if (useTargetPlatformForTests && this.executionRequirements == null) {
+      return ruleContext.getTestActionOwner();
     }
-    return ruleContext.getTestActionOwner();
-  }
-
-  private ActionOwner getOwner() {
-    ActionOwner owner =
-        ruleContext.getActionOwner(
-            this.executionRequirements != null
-                ? this.executionRequirements.getExecGroup()
-                : DEFAULT_TEST_RUNNER_EXEC_GROUP);
-    return owner == null ? ruleContext.getActionOwner() : owner;
+    var execGroup =
+        this.executionRequirements != null
+            ? this.executionRequirements.getExecGroup()
+            : DEFAULT_TEST_RUNNER_EXEC_GROUP;
+    var owner = ruleContext.getActionOwner(execGroup);
+    if (owner != null) {
+      return owner;
+    }
+    return useTargetPlatformForTests
+        ? ruleContext.getTestActionOwner()
+        : ruleContext.getActionOwner();
   }
 
   public static int getShardCount(RuleContext ruleContext) {
@@ -220,7 +218,8 @@ public final class TestActionBuilder {
 
     if (!isUsingTestWrapperInsteadOfTestSetupScript) {
       NestedSet<Artifact> testRuntime =
-          PrerequisiteArtifacts.nestedSet(ruleContext, "$test_runtime");
+          PrerequisiteArtifacts.nestedSet(
+              ruleContext.getRulePrerequisitesCollection(), "$test_runtime");
       inputsBuilder.addTransitive(testRuntime);
     }
     TestTargetProperties testProperties =
@@ -261,7 +260,8 @@ public final class TestActionBuilder {
       NestedSet<Artifact> metadataFiles = instrumentedFiles.getInstrumentationMetadataFiles();
       inputsBuilder.addTransitive(metadataFiles);
       inputsBuilder.addTransitive(
-          PrerequisiteArtifacts.nestedSet(ruleContext, ":coverage_support"));
+          PrerequisiteArtifacts.nestedSet(
+              ruleContext.getRulePrerequisitesCollection(), ":coverage_support"));
       inputsBuilder.addTransitive(
           ruleContext
               .getPrerequisite(":coverage_support", RunfilesProvider.class)
@@ -364,8 +364,7 @@ public final class TestActionBuilder {
     ImmutableList.Builder<Artifact> coverageArtifacts = ImmutableList.builder();
     ImmutableList.Builder<ActionInput> testOutputs = ImmutableList.builder();
 
-    ActionOwner actionOwner =
-        testConfiguration.useTargetPlatformForTests() ? getTestActionOwner() : getOwner();
+    ActionOwner actionOwner = getTestActionOwner(testConfiguration.useTargetPlatformForTests());
 
     // Use 1-based indices for user friendliness.
     for (int shard = 0; shard < shardRuns; shard++) {

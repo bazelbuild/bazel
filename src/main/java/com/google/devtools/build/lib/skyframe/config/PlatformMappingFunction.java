@@ -111,7 +111,8 @@ public final class PlatformMappingFunction implements SkyFunction {
 
       List<String> lines;
       try {
-        lines = FileSystemUtils.readLines(fileValue.realRootedPath().asPath(), UTF_8);
+        lines =
+            FileSystemUtils.readLines(fileValue.realRootedPath(rootedMappingPath).asPath(), UTF_8);
       } catch (IOException e) {
         throw new PlatformMappingFunctionException(e);
       }
@@ -131,8 +132,7 @@ public final class PlatformMappingFunction implements SkyFunction {
     if (!platformMappingKey.wasExplicitlySetByUser()) {
       // If no flag was passed and the default mapping file does not exist treat this as if the
       // mapping file was empty rather than an error.
-      return new PlatformMappingValue(
-          ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of(), mainRepoContext.repoMapping());
+      return new PlatformMappingValue(ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of());
     }
     throw new PlatformMappingFunctionException(
         new MissingInputFileException(
@@ -165,7 +165,7 @@ public final class PlatformMappingFunction implements SkyFunction {
                 .iterator());
 
     if (!it.hasNext()) {
-      return new Mappings(ImmutableMap.of(), ImmutableMap.of(), mainRepoContext);
+      return new Mappings(ImmutableMap.of(), ImmutableMap.of());
     }
 
     if (!it.peek().equalsIgnoreCase("platforms:") && !it.peek().equalsIgnoreCase("flags:")) {
@@ -173,9 +173,7 @@ public final class PlatformMappingFunction implements SkyFunction {
     }
 
     ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags = ImmutableMap.of();
-    // Flags -> platform mapping doesn't support Starlark flags. If the need arises we could upgrade
-    // this to NativeAndStarlarkFlags like above.
-    ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms = ImmutableMap.of();
+    ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms = ImmutableMap.of();
 
     if (it.peek().equalsIgnoreCase("platforms:")) {
       it.next();
@@ -190,13 +188,16 @@ public final class PlatformMappingFunction implements SkyFunction {
       if (!line.equalsIgnoreCase("flags:")) {
         throw parsingException("Expected 'flags:' but got " + line);
       }
-      flagsToPlatforms = readFlagsToPlatforms(it, mainRepoContext);
+      flagsToPlatforms = readFlagsToPlatforms(it, env, mainRepoContext);
+      if (flagsToPlatforms == null) {
+        return null;
+      }
     }
 
     if (it.hasNext()) {
       throw parsingException("Expected end of file but got " + it.next());
     }
-    return new Mappings(platformsToFlags, flagsToPlatforms, mainRepoContext);
+    return new Mappings(platformsToFlags, flagsToPlatforms);
   }
 
   /**
@@ -253,14 +254,29 @@ public final class PlatformMappingFunction implements SkyFunction {
     }
   }
 
-  private static ImmutableMap<ImmutableList<String>, Label> readFlagsToPlatforms(
-      PeekingIterator<String> it, RepoContext mainRepoContext)
-      throws PlatformMappingParsingException {
-    ImmutableMap.Builder<ImmutableList<String>, Label> flagsToPlatforms = ImmutableMap.builder();
+  /**
+   * Returns a parsed {@code flags -> platform setting}, or null if not all Skyframe deps are ready
+   */
+  @Nullable
+  private static ImmutableMap<NativeAndStarlarkFlags, Label> readFlagsToPlatforms(
+      PeekingIterator<String> it, Environment env, RepoContext mainRepoContext)
+      throws PlatformMappingParsingException, InterruptedException {
+    ImmutableMap.Builder<NativeAndStarlarkFlags, Label> flagsToPlatforms = ImmutableMap.builder();
+    boolean needSkyframeDeps = false;
     while (it.hasNext() && it.peek().startsWith("--")) {
       ImmutableList<String> flags = readFlags(it);
       Label platform = readPlatform(it, mainRepoContext);
-      flagsToPlatforms.put(flags, platform);
+
+      NativeAndStarlarkFlags parsedFlags = parseStarlarkFlags(flags, env, mainRepoContext);
+      if (parsedFlags == null) {
+        needSkyframeDeps = true;
+      } else {
+        flagsToPlatforms.put(parsedFlags, platform);
+      }
+    }
+
+    if (needSkyframeDeps) {
+      return null;
     }
 
     try {
@@ -315,22 +331,18 @@ public final class PlatformMappingFunction implements SkyFunction {
   @VisibleForTesting
   static final class Mappings {
     final ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags;
-    final ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms;
-    final RepoContext mainRepoContext;
+    final ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms;
 
     Mappings(
         ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags,
-        ImmutableMap<ImmutableList<String>, Label> flagsToPlatforms,
-        RepoContext mainRepoContext) {
+        ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms) {
       this.platformsToFlags = platformsToFlags;
       this.flagsToPlatforms = flagsToPlatforms;
-      this.mainRepoContext = mainRepoContext;
     }
 
     PlatformMappingValue toPlatformMappingValue(
         ImmutableSet<Class<? extends FragmentOptions>> optionsClasses) {
-      return new PlatformMappingValue(
-          platformsToFlags, flagsToPlatforms, optionsClasses, mainRepoContext.repoMapping());
+      return new PlatformMappingValue(platformsToFlags, flagsToPlatforms, optionsClasses);
     }
   }
 

@@ -18,8 +18,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.starlarkbuildapi.cpp.LtoCompilationContextApi;
 import java.util.Objects;
 import java.util.Set;
+import net.starlark.java.annot.Param;
+import net.starlark.java.annot.StarlarkMethod;
+import net.starlark.java.eval.Dict;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -28,7 +33,7 @@ import net.starlark.java.eval.StarlarkValue;
  * that can be used for the LTO indexing step, as well as to compile flags applying to that
  * compilation that should also be applied to the LTO backend compilation invocation.
  */
-public final class LtoCompilationContext implements StarlarkValue {
+public final class LtoCompilationContext implements StarlarkValue, LtoCompilationContextApi {
   static final LtoCompilationContext EMPTY = new LtoCompilationContext(ImmutableMap.of());
 
   private final ImmutableMap<Artifact, BitcodeInfo> ltoBitcodeFiles;
@@ -41,7 +46,7 @@ public final class LtoCompilationContext implements StarlarkValue {
    * Class to hold information for a bitcode file produced by the compile action needed by the LTO
    * indexing and backend actions.
    */
-  private static final class BitcodeInfo {
+  private static final class BitcodeInfo implements StarlarkValue {
     private final Artifact minimizedBitcode;
     private final ImmutableList<String> copts;
 
@@ -117,7 +122,11 @@ public final class LtoCompilationContext implements StarlarkValue {
    * Gets the minimized bitcode corresponding to the full bitcode file, or returns full bitcode if
    * it doesn't exist.
    */
-  Artifact getMinimizedBitcodeOrSelf(Artifact fullBitcode) {
+  @StarlarkMethod(
+      name = "get_minimized_bitcode_or_self",
+      documented = false,
+      parameters = {@Param(name = "full_bitcode")})
+  public Artifact getMinimizedBitcodeOrSelf(Artifact fullBitcode) {
     if (!containsBitcodeFile(fullBitcode)) {
       return fullBitcode;
     }
@@ -145,6 +154,11 @@ public final class LtoCompilationContext implements StarlarkValue {
     return ltoBitcodeFiles.isEmpty();
   }
 
+  @StarlarkMethod(name = "lto_bitcode_inputs", documented = false)
+  public Dict<Artifact, BitcodeInfo> getLtoBitcodeInputs() {
+    return Dict.copyOf(Mutability.IMMUTABLE, ltoBitcodeFiles);
+  }
+
   /** The set of bitcode files recorded in the map. */
   Set<Artifact> getBitcodeFiles() {
     return ltoBitcodeFiles.keySet();
@@ -155,8 +169,8 @@ public final class LtoCompilationContext implements StarlarkValue {
     if (this == o) {
       return true;
     }
-    return (o instanceof LtoCompilationContext)
-        && ltoBitcodeFiles.equals(((LtoCompilationContext) o).ltoBitcodeFiles);
+    return o instanceof LtoCompilationContext ltoCompilationContext
+        && ltoBitcodeFiles.equals(ltoCompilationContext.ltoBitcodeFiles);
   }
 
   @Override

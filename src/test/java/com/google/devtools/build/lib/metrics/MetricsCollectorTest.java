@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.metrics;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.testutil.TestConstants.PLATFORM_LABEL;
@@ -27,6 +28,8 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary.ActionData;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ArtifactMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.AspectCount;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.RuleClassCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.WorkerPoolMetrics.WorkerPoolStats;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
@@ -35,6 +38,7 @@ import com.google.devtools.build.lib.profiler.MemoryProfiler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.MemoryPressureModule;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
@@ -68,11 +72,14 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   }
 
   private BuildMetricsEventListener buildMetricsEventListener = new BuildMetricsEventListener();
+  // needed for HeapOffset options.
+  private final MemoryPressureModule memoryPressureModule = new MemoryPressureModule();
 
   @Override
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder()
-        .addBlazeModule(buildMetricsEventListener);
+        .addBlazeModule(buildMetricsEventListener)
+        .addBlazeModule(memoryPressureModule);
   }
 
   @Before
@@ -126,6 +133,51 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     buildTarget("//foo:foo");
     BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
     assertThat(buildMetrics.getActionSummary().getActionsExecuted()).isEqualTo(0);
+  }
+
+  @Test
+  public void testActionsCreatedForIndividualMnemonics() throws Exception {
+    write(
+        "bar/BUILD",
+        """
+        load(":bar.bzl", "bar")
+        bar(name = "bar")
+        """);
+    write(
+        "bar/bar.bzl",
+        """
+        def _impl(ctx):
+            output1 = ctx.actions.declare_file(ctx.attr.name + ".out1")
+            output2 = ctx.actions.declare_file(ctx.attr.name + ".out2")
+            ctx.actions.write(output1, "foo")
+            ctx.actions.write(output2, "bar")
+            # Note that we created 2 actions, but pass along only one of their outputs.
+            return [DefaultInfo(files = depset([output1]))]
+
+        bar = rule(
+            implementation = _impl,
+        )
+        """);
+    buildTarget("//bar:bar");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    List<ActionData> actionData = buildMetrics.getActionSummary().getActionDataList();
+    ImmutableList<ActionData> fileWriteActions =
+        actionData.stream()
+            .filter(a -> a.getMnemonic().equals("FileWrite"))
+            .collect(toImmutableList());
+    assertThat(fileWriteActions).hasSize(1);
+    ActionData fileWriteAction = fileWriteActions.get(0);
+    assertThat(fileWriteAction.getActionsCreated()).isEqualTo(2);
+    assertThat(fileWriteAction.getActionsExecuted()).isEqualTo(1);
+
+    long totalActionsCreated = actionData.stream().mapToLong(ActionData::getActionsCreated).sum();
+    long totalActionsExecuted = actionData.stream().mapToLong(ActionData::getActionsExecuted).sum();
+    assertThat(totalActionsCreated).isEqualTo(3);
+    assertThat(totalActionsExecuted).isEqualTo(2);
+    assertThat(totalActionsCreated).isEqualTo(buildMetrics.getActionSummary().getActionsCreated());
+    assertThat(totalActionsExecuted)
+        .isEqualTo(buildMetrics.getActionSummary().getActionsExecuted());
   }
 
   @Test
@@ -229,7 +281,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     assertThat(newGraphSize).isGreaterThan(graphSize);
 
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getArtifactMetrics())
-        .ignoringFieldAbsence()
+        .comparingExpectedFieldsOnly()
         .isEqualTo(
             ArtifactMetrics.newBuilder()
                 // 2 distinct artifacts of 6 and 3 bytes, with a symlink to the 3-byte one.
@@ -359,6 +411,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
         .isEqualTo(newGraphSize + 2);
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getArtifactMetrics())
         .ignoringFieldAbsence()
+        .comparingExpectedFieldsOnly()
         .isEqualTo(
             ArtifactMetrics.newBuilder()
                 .setOutputArtifactsSeen(singleFileMetric)
@@ -371,6 +424,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
     buildTarget("//a");
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics())
         .comparingExpectedFieldsOnly()
+        .comparingExpectedFieldsOnly()
         .isEqualTo(
             BuildGraphMetrics.newBuilder()
                 // Analysis not re-triggered, even of the input file that was changed.
@@ -379,6 +433,7 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
                 .build());
     assertThat(buildMetricsEventListener.event.getBuildMetrics().getArtifactMetrics())
         .ignoringFieldAbsence()
+        .comparingExpectedFieldsOnly()
         .isEqualTo(
             ArtifactMetrics.newBuilder()
                 .setSourceArtifactsRead(
@@ -396,6 +451,24 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
                         .setCount(1)
                         .build())
                 .build());
+
+    // Validate RuleClass Aspect and SkyFunction data is not reported by default
+    BuildGraphMetrics bgm =
+        buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics();
+    assertThat(bgm.getRuleClassList()).isEmpty();
+    assertThat(bgm.getAspectList()).isEmpty();
+
+    // Enable skyframe metrics via flag and verify they're reported.
+    addOptions("--experimental_record_skyframe_metrics=1");
+    buildTarget("//a");
+    bgm = buildMetricsEventListener.event.getBuildMetrics().getBuildGraphMetrics();
+
+    List<RuleClassCount> ruleClasses = bgm.getRuleClassList();
+    List<AspectCount> aspectCount = bgm.getAspectList();
+
+    assertThat(ruleClasses.stream().map(RuleClassCount::getKey))
+        .containsExactly("genrule", "constraint_setting", "constraint_value", "platform");
+    assertThat(aspectCount).isEmpty();
   }
 
   @Test

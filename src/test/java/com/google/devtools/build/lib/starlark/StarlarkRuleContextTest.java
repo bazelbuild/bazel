@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.base.Joiner;
@@ -28,22 +29,25 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.ActionsProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.ResolvedToolchainContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.actions.BuildInfoFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.StarlarkAction;
 import com.google.devtools.build.lib.analysis.configuredtargets.FileConfiguredTarget;
+import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkExecGroupCollection;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
@@ -53,6 +57,7 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OS;
@@ -2922,6 +2927,42 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testArgsMapEachWithPathMapper() throws Exception {
+    scratch.file(
+        "test/rules.bzl",
+        getSimpleUnderTestDefinition("ctx.actions.write(out, '')"),
+        testingRuleDefinition);
+    scratch.file("test/BUILD", simpleBuildDefinition);
+    StarlarkRuleContext ruleContext = createRuleContext("//test:testing");
+    setRuleContext(ruleContext);
+
+    ev.update("file1", ev.eval("ruleContext.actions.declare_file('file1')"));
+    ev.update("file2", ev.eval("ruleContext.actions.declare_file('dir/file2')"));
+    Object result =
+        ev.eval(
+            "ruleContext.actions.args().add_all("
+                + "  [file1, file2],"
+                + "  allow_closure=True,"
+                + "  map_each=lambda f: 'file:%s:%s:%s:%s:%s' % ("
+                // Verify that mapped roots are comparable.
+                + "        f.path, f.dirname, f.root.path, type(f.root), f.root <= f.root)"
+                + ")");
+
+    PathMapper stripConfig =
+        execPath -> execPath.subFragment(0, 1).getRelative(execPath.subFragment(2));
+
+    assertThat(result).isInstanceOf(Args.class);
+    CommandLine args = ((Args) result).build(() -> RepositoryMapping.ALWAYS_FALLBACK);
+    String out = TestConstants.PRODUCT_NAME + "-out";
+    assertThat(args.arguments(null, stripConfig))
+        .containsExactly(
+            String.format("file:%1$s/bin/test/file1:%1$s/bin/test:%1$s/bin:mapped_root:True", out),
+            String.format(
+                "file:%1$s/bin/test/dir/file2:%1$s/bin/test/dir:%1$s/bin:mapped_root:True", out))
+        .inOrder();
+  }
+
+  @Test
   public void testTemplateExpansionActionInterface() throws Exception {
     scratch.file(
         "test/rules.bzl",
@@ -3195,7 +3236,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
 
     ConfiguredTarget a = getConfiguredTarget("//a");
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//a:a.bzl"), "key_provider");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//a:a.bzl")), "key_provider");
 
     StarlarkInfo keyInfo = (StarlarkInfo) a.get(key);
     Sequence<?> keys = (Sequence) keyInfo.getValue("keys");
@@ -3231,7 +3272,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     ConfiguredTarget buildSetting = getConfiguredTarget("//test:int_flag");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
             "BuildSettingInfo");
     StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
 
@@ -3245,7 +3287,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     ConfiguredTarget buildSetting = getConfiguredTarget("//test:int_flag");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
             "BuildSettingInfo");
     StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
 
@@ -3278,7 +3321,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     ConfiguredTarget buildSetting = getConfiguredTarget("//test:string_flag");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
             "BuildSettingInfo");
     StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
 
@@ -3291,7 +3335,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     buildSetting = getConfiguredTarget("//test:string_flag");
     key =
         new StarlarkProvider.Key(
-            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
             "BuildSettingInfo");
     buildSettingInfo = (StructImpl) buildSetting.get(key);
 
@@ -3326,7 +3371,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     ConfiguredTarget buildSetting = getConfiguredTarget("//test:string_list_flag");
     Provider.Key key =
         new StarlarkProvider.Key(
-            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
             "BuildSettingInfo");
     StructImpl buildSettingInfo = (StructImpl) buildSetting.get(key);
 
@@ -3340,7 +3386,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     buildSetting = getConfiguredTarget("//test:string_list_flag");
     key =
         new StarlarkProvider.Key(
-            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
             "BuildSettingInfo");
     buildSettingInfo = (StructImpl) buildSetting.get(key);
 
@@ -3356,7 +3403,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     buildSetting = getConfiguredTarget("//test:string_list_flag");
     key =
         new StarlarkProvider.Key(
-            Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl"),
+            keyForBuild(
+                Label.create(buildSetting.getLabel().getPackageIdentifier(), "build_setting.bzl")),
             "BuildSettingInfo");
     buildSettingInfo = (StructImpl) buildSetting.get(key);
 
@@ -3478,7 +3526,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//rule:test_rule.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//rule:test_rule.bzl")), "result"));
 
     assertThat(info).isNotNull();
     return (String) info.getValue("value_from_toolchain");
@@ -3547,7 +3596,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//demo:test_rule.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//demo:test_rule.bzl")), "result"));
 
     assertThat(info).isNotNull();
     boolean hasConstraint = (boolean) info.getValue("has_constraint");
@@ -3559,7 +3609,8 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//demo:test_rule.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//demo:test_rule.bzl")), "result"));
 
     assertThat(info).isNotNull();
     hasConstraint = (boolean) info.getValue("has_constraint");
@@ -3607,11 +3658,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StructImpl)
             target.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonicalUnchecked("//something:defs.bzl"), "result"));
+                    keyForBuild(Label.parseCanonicalUnchecked("//something:defs.bzl")), "result"));
     assertThat(info).isNotNull();
     assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
     assertThat(info.getValue("exec_groups")).isInstanceOf(StarlarkExecGroupCollection.class);
-    ImmutableMap<String, ResolvedToolchainContext> toolchainContexts =
+    var toolchainContexts =
         ((StarlarkExecGroupCollection) info.getValue("exec_groups"))
             .getToolchainCollectionForTesting();
     assertThat(toolchainContexts.keySet()).containsExactly(DEFAULT_EXEC_GROUP_NAME, "dragonfruit");
@@ -3666,11 +3717,11 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
         (StructImpl)
             target.get(
                 new StarlarkProvider.Key(
-                    Label.parseCanonicalUnchecked("//something:defs.bzl"), "result"));
+                    keyForBuild(Label.parseCanonicalUnchecked("//something:defs.bzl")), "result"));
     assertThat(info).isNotNull();
     assertThat(info.getValue("toolchain_value")).isEqualTo("foo");
     assertThat(info.getValue("exec_groups")).isInstanceOf(StarlarkExecGroupCollection.class);
-    ImmutableMap<String, ResolvedToolchainContext> toolchainContexts =
+    var toolchainContexts =
         ((StarlarkExecGroupCollection) info.getValue("exec_groups"))
             .getToolchainCollectionForTesting();
     assertThat(toolchainContexts.keySet())

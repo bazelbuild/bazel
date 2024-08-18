@@ -38,7 +38,7 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
 
   /** Represents a value that can be encoded into an int[] field initializer. */
   public interface IntArrayValue {
-    public void pushValueOntoStack(InstructionAdapter insts);
+    public void pushValueOntoStack(InstructionAdapter insts, RPackageId rPackageId);
 
     public String sourceRepresentation();
   }
@@ -52,8 +52,14 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
     }
 
     @Override
-    public void pushValueOntoStack(InstructionAdapter insts) {
-      insts.iconst(value);
+    public void pushValueOntoStack(InstructionAdapter insts, RPackageId rPackageId) {
+      if (rPackageId != null && rPackageId.owns(value)) {
+        insts.iconst(value - rPackageId.getPackageId());
+        insts.load(1, Type.INT_TYPE);
+        insts.add(Type.INT_TYPE);
+      } else {
+        insts.iconst(value);
+      }
     }
 
     @Override
@@ -106,7 +112,7 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
     }
 
     @Override
-    public void pushValueOntoStack(InstructionAdapter insts) {
+    public void pushValueOntoStack(InstructionAdapter insts, RPackageId rPackageId) {
       // The syntax of class names that appear in class file structures differs from the syntax of
       // class names in source code.
       // See: https://docs.oracle.com/javase/specs/jvms/se7/html/jvms-4.html#jvms-4.2.1
@@ -209,7 +215,7 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
 
   @Override
   public boolean writeFieldDefinition(
-      ClassWriter cw, boolean isFinal, boolean annotateTransitiveFields) {
+      ClassWriter cw, boolean isFinal, boolean annotateTransitiveFields, RPackageId rPackageId) {
     int accessLevel = Opcodes.ACC_STATIC;
     if (visibility != Visibility.PRIVATE) {
       accessLevel |= Opcodes.ACC_PUBLIC;
@@ -231,21 +237,18 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
   }
 
   @Override
-  public int writeCLInit(InstructionAdapter insts, String className) {
+  public void writeCLInit(InstructionAdapter insts, String className, RPackageId rPackageId) {
     insts.iconst(values.size());
     insts.newarray(Type.INT_TYPE);
     int curIndex = 0;
     for (IntArrayValue value : values) {
       insts.dup();
       insts.iconst(curIndex);
-      value.pushValueOntoStack(insts);
+      value.pushValueOntoStack(insts, rPackageId);
       insts.astore(Type.INT_TYPE);
       ++curIndex;
     }
     insts.putstatic(className, fieldName, DESC);
-    // Needs up to 4 stack slots for: the array ref for the putstatic, the dup of the array ref
-    // for the store, the index, and the value to store.
-    return 4;
   }
 
   @Override
@@ -276,7 +279,7 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
   }
 
   @Override
-  public int getMaxBytecodeSize() {
+  public int getMaxBytecodeSize(boolean withRPackage) {
     // LDC_W(3)
     // NEWARRAY(2)
     //
@@ -284,10 +287,16 @@ public final class IntArrayFieldInitializer implements FieldInitializer {
     // DUP(1)
     // LDC_W(3)
     // LDC_W|GETSTATIC(3)
+    // [withRPackage ILOAD_1(1)]
+    // [withRPackage IADD(1)]
     // IASTORE(1)
     //
     // PUTSTATIC(3)
-    return 5 + values.size() * 8 + 3;
+    if (withRPackage) {
+      return 5 + values.size() * 10 + 3;
+    } else {
+      return 5 + values.size() * 8 + 3;
+    }
   }
 
   @Override

@@ -33,7 +33,7 @@ override_java_tools "${RULES_JAVA_REPO_NAME}" "${JAVA_TOOLS_ZIP}" "${JAVA_TOOLS_
 COVERAGE_GENERATOR_WORKSPACE_FILE="$1"; shift
 if [[ "${COVERAGE_GENERATOR_WORKSPACE_FILE}" != "released" ]]; then
   COVERAGE_GENERATOR_DIR="$(dirname "$(rlocation $COVERAGE_GENERATOR_WORKSPACE_FILE)")"
-  add_to_bazelrc "build --override_repository=bazel_tools~remote_coverage_tools_extension~remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
+  add_to_bazelrc "build --override_repository=bazel_tools+remote_coverage_tools_extension+remote_coverage_tools=${COVERAGE_GENERATOR_DIR}"
 fi
 
 if [[ $# -gt 0 ]]; then
@@ -192,7 +192,11 @@ public class TestCollatz {
 }
 EOF
 
-  bazel coverage --test_output=all //:test --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator --combined_report=lcov &>$TEST_log \
+  # Ensure that coverage succeeds even with lazily built runfiles trees for the
+  # merger tool.
+  bazel coverage \
+      --nobuild_runfile_links \
+      --test_output=all //:test --coverage_report_generator=@bazel_tools//tools/test:coverage_report_generator --combined_report=lcov &>$TEST_log \
    || echo "Coverage for //:test failed"
 
   local expected_result="SF:src/main/com/example/Collatz.java
@@ -1214,7 +1218,8 @@ end_of_record"
 }
 
 function setup_external_java_target() {
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
     name = "other_repo",
     path = "other_repo",
@@ -1242,7 +1247,7 @@ public class Math {
 EOF
 
   mkdir -p other_repo
-  touch other_repo/WORKSPACE
+  touch other_repo/REPO.bazel
 
   cat > other_repo/BUILD <<'EOF'
 java_library(
@@ -1324,7 +1329,7 @@ DA:6,1
 LH:1
 LF:2
 end_of_record'
-  local expected_result_collatz="SF:external/other_repo/src/main/com/example/Collatz.java
+  local expected_result_collatz="SF:external/+_repo_rules+other_repo/src/main/com/example/Collatz.java
 FN:3,com/example/Collatz::<init> ()V
 FN:6,com/example/Collatz::getCollatzFinal (I)I
 FNDA:0,com/example/Collatz::<init> ()V
@@ -1379,10 +1384,10 @@ LF:2
 end_of_record'
 
   assert_coverage_result "$expected_result_math" "$coverage_file_path"
-  assert_not_contains "SF:external/other_repo/" "$coverage_file_path"
+  assert_not_contains "SF:external/+_repo_rules+other_repo/" "$coverage_file_path"
 
   assert_coverage_result "$expected_result_math" bazel-out/_coverage/_coverage_report.dat
-  assert_not_contains "SF:external/other_repo/" bazel-out/_coverage/_coverage_report.dat
+  assert_not_contains "SF:external/+_repo_rules+other_repo/" bazel-out/_coverage/_coverage_report.dat
 }
 
 run_suite "test tests"

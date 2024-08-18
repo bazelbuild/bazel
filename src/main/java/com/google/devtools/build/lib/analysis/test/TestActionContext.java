@@ -177,15 +177,16 @@ public interface TestActionContext extends ActionContext {
 
     /** Rename the output files if the test attempt failed, and post the test attempt result. */
     FailedAttemptResult finalizeFailedTestAttempt(TestAttemptResult testAttemptResult, int attempt)
-        throws IOException;
+        throws IOException, ExecException, InterruptedException;
 
     /** Post the final test result based on the last attempt and the list of failed attempts. */
     void finalizeTest(
         TestAttemptResult lastTestAttemptResult, List<FailedAttemptResult> failedAttempts)
-        throws IOException;
+        throws IOException, ExecException, InterruptedException;
 
     /** Post the final test result based on the last attempt and the list of failed attempts. */
-    void finalizeCancelledTest(List<FailedAttemptResult> failedAttempts) throws IOException;
+    void finalizeCancelledTest(List<FailedAttemptResult> failedAttempts)
+        throws IOException, ExecException, InterruptedException;
 
     /**
      * Return a {@link TestRunnerSpawn} object if test fallback is enabled, or {@code null}
@@ -203,7 +204,8 @@ public interface TestActionContext extends ActionContext {
      * allows a test to run with a different strategy on flaky retries (for example, enabling test
      * fail-fast mode to save up resources).
      */
-    default TestRunnerSpawn getFlakyRetryRunner() throws ExecException, InterruptedException {
+    default TestRunnerSpawn getFlakyRetryRunner(List<SpawnResult> previousAttemptResults)
+        throws ExecException, InterruptedException {
       return this;
     }
   }

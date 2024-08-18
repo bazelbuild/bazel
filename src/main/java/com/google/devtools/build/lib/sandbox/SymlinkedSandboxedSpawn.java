@@ -18,7 +18,9 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.exec.TreeDeleter;
+import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxContents;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.util.CommandDescriptionForm;
@@ -39,6 +41,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
   /** Mnemonic of the action running in this spawn. */
   private final String mnemonic;
 
+  private final Label targetLabel;
+
   @Nullable private final ImmutableList<String> interactiveDebugArguments;
 
   public SymlinkedSandboxedSpawn(
@@ -53,7 +57,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
       @Nullable Path sandboxDebugPath,
       @Nullable Path statisticsPath,
       @Nullable ImmutableList<String> interactiveDebugArguments,
-      String mnemonic) {
+      String mnemonic,
+      Label targetLabel) {
     super(
         sandboxPath,
         sandboxExecRoot,
@@ -68,29 +73,54 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
         mnemonic);
     this.mnemonic = isNullOrEmpty(mnemonic) ? "_NoMnemonic_" : mnemonic;
     this.interactiveDebugArguments = interactiveDebugArguments;
+    this.targetLabel = targetLabel;
   }
 
   @Override
   public void filterInputsAndDirsToCreate(
       Set<PathFragment> inputsToCreate, Set<PathFragment> dirsToCreate)
       throws IOException, InterruptedException {
-    boolean gotStash =
-        SandboxStash.takeStashedSandbox(sandboxPath, mnemonic, getEnvironment(), outputs);
+    if (!SandboxStash.gotInstance()) {
+      return;
+    }
+    Optional<SandboxContents> sandboxContents =
+        SandboxStash.takeStashedSandbox(
+            sandboxPath, mnemonic, getEnvironment(), outputs, targetLabel);
     sandboxExecRoot.createDirectoryAndParents();
-    if (gotStash) {
-      // When reusing an old sandbox, we do a full traversal of the parent directory of
-      // `sandboxExecRoot`. This will use what we computed above, delete anything unnecessary, and
-      // update `inputsToCreate`/`dirsToCreate` if something can be left without changes (e.g., a,
-      // symlink that already points to the right destination). We're traversing from
-      // sandboxExecRoot's parent directory because external repositories can now be symlinked as
-      // siblings of sandboxExecRoot when --experimental_sibling_repository_layout is set.
-      SandboxHelpers.cleanExisting(
-          sandboxExecRoot.getParentDirectory(),
-          inputs,
-          inputsToCreate,
-          dirsToCreate,
-          sandboxExecRoot,
-          treeDeleter);
+
+    if (sandboxContents != null) {
+      // Delete anything unnecessary, and update `inputsToCreate`/`dirsToCreate` if something can
+      // be left without changes (e.g., a, symlink that already points to the right destination).
+      // We're traversing from sandboxExecRoot's parent directory because external repositories can
+      // now be symlinked as siblings of sandboxExecRoot when
+      // --experimental_sibling_repository_layout is set.
+      if (sandboxContents.isPresent()) {
+        SandboxHelpers.cleanExisting(
+            sandboxExecRoot.getParentDirectory(),
+            inputs,
+            inputsToCreate,
+            dirsToCreate,
+            sandboxExecRoot,
+            treeDeleter,
+            sandboxContents.get());
+      } else {
+        // No in-memory stashes enabled but there is a stash.
+        // When reusing an old sandbox, we do a full traversal of the parent directory of
+        // `sandboxExecRoot`.
+        SandboxHelpers.cleanExisting(
+            sandboxExecRoot.getParentDirectory(),
+            inputs,
+            inputsToCreate,
+            dirsToCreate,
+            sandboxExecRoot,
+            treeDeleter);
+        return;
+      }
+    }
+
+    if (SandboxStash.useInMemoryStashes()) {
+      SandboxStash.setPathContents(
+          sandboxPath, SandboxHelpers.createContentMap(sandboxExecRoot, inputs, outputs));
     }
   }
 
@@ -101,7 +131,8 @@ public class SymlinkedSandboxedSpawn extends AbstractContainerizingSandboxedSpaw
 
   @Override
   public void delete() {
-    SandboxStash.stashSandbox(sandboxPath, mnemonic, getEnvironment(), outputs, treeDeleter);
+    SandboxStash.stashSandbox(
+        sandboxPath, mnemonic, getEnvironment(), outputs, treeDeleter, targetLabel);
     super.delete();
   }
 

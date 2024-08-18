@@ -58,7 +58,6 @@ public class QueryEnvironmentFactory {
       Set<Setting> settings,
       Iterable<QueryFunction> extraFunctions,
       @Nullable PathPackageLocator packagePath,
-      boolean blockUniverseEvaluationErrors,
       boolean useGraphlessQuery,
       LabelPrinter labelPrinter) {
     Preconditions.checkNotNull(universeScope);
@@ -74,7 +73,6 @@ public class QueryEnvironmentFactory {
           graphFactory,
           universeScope,
           packagePath,
-          blockUniverseEvaluationErrors,
           labelPrinter);
     } else if (useGraphlessQuery) {
       return new GraphlessBlazeQueryEnvironment(

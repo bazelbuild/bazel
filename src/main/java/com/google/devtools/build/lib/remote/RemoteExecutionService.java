@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
@@ -62,6 +63,7 @@ import com.google.common.collect.Maps;
 import com.google.common.eventbus.Subscribe;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
@@ -101,12 +103,12 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -128,6 +130,7 @@ import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.core.SingleObserver;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -143,9 +146,11 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.Semaphore;
@@ -460,10 +465,10 @@ public class RemoteExecutionService {
       return (priorFuture != null ? priorFuture : freshFuture).join();
     } catch (CompletionException e) {
       Throwable cause = checkNotNull(e.getCause());
-      if (cause instanceof IOException) {
-        throw (IOException) cause;
-      } else if (cause instanceof ForbiddenActionInputException) {
-        throw (ForbiddenActionInputException) cause;
+      if (cause instanceof IOException ioException) {
+        throw ioException;
+      } else if (cause instanceof ForbiddenActionInputException forbiddenActionInputException) {
+        throw forbiddenActionInputException;
       } else {
         checkState(cause instanceof RuntimeException);
         throw (RuntimeException) cause;
@@ -862,15 +867,12 @@ public class RemoteExecutionService {
     }
   }
 
-  /**
-   * Copies moves the downloaded outputs from their download location to their declared location.
-   */
+  /** Moves the locally created outputs from their temporary location to their declared location. */
   private void moveOutputsToFinalLocation(
-      List<FileMetadata> finishedDownloads, Map<Path, Path> realToTmpPath) throws IOException {
+      Iterable<Path> localOutputs, Map<Path, Path> realToTmpPath) throws IOException {
     // Move the output files from their temporary name to the actual output file name. Executable
     // bit is ignored since the file permission will be changed to 0555 after execution.
-    for (FileMetadata outputFile : finishedDownloads) {
-      Path realPath = outputFile.path();
+    for (Path realPath : localOutputs) {
       Path tmpPath = Preconditions.checkNotNull(realToTmpPath.get(realPath));
       realPath.getParentDirectory().createDirectoryAndParents();
       FileSystemUtils.moveFile(tmpPath, realPath);
@@ -1269,7 +1271,8 @@ public class RemoteExecutionService {
       // TODO(chiwang): Stage directories directly
       ((BazelOutputService) outputService).stageArtifacts(finishedDownloads);
     } else {
-      moveOutputsToFinalLocation(finishedDownloads, realToTmpPath);
+      moveOutputsToFinalLocation(
+          Iterables.transform(finishedDownloads, FileMetadata::path), realToTmpPath);
     }
 
     List<SymlinkMetadata> symlinksInDirectories = new ArrayList<>();
@@ -1326,6 +1329,152 @@ public class RemoteExecutionService {
     return null;
   }
 
+  /** An ongoing local execution of a spawn. */
+  public static final class LocalExecution {
+    private final RemoteAction action;
+    private final SettableFuture<SpawnResult> spawnResultFuture;
+
+    private LocalExecution(RemoteAction action) {
+      this.action = action;
+      this.spawnResultFuture = SettableFuture.create();
+    }
+
+    /**
+     * Creates a new {@link LocalExecution} instance tracking the potential local execution of the
+     * given {@link RemoteAction} if there is a chance that the same action will be executed by a
+     * different Spawn.
+     *
+     * <p>This is only done for local (as in, non-remote) execution as remote executors are expected
+     * to already have deduplication mechanisms for actions in place, perhaps even across different
+     * builds and clients.
+     */
+    @Nullable
+    public static LocalExecution createIfDeduplicatable(RemoteAction action) {
+      if (action.getSpawn().getPathMapper().isNoop()) {
+        return null;
+      }
+      return new LocalExecution(action);
+    }
+
+    /**
+     * Signals to all potential consumers of the {@link #spawnResultFuture} that this execution has
+     * been cancelled and that the result will not be available.
+     */
+    public void cancel() {
+      spawnResultFuture.cancel(true);
+    }
+  }
+
+  /**
+   * Makes the {@link SpawnResult} available to all parallel {@link Spawn}s for the same {@link
+   * RemoteAction} waiting for it or notifies them that the spawn failed.
+   *
+   * @return Whether the spawn result should be uploaded to the cache.
+   */
+  public boolean commitResultAndDecideWhetherToUpload(
+      SpawnResult result, @Nullable LocalExecution execution) {
+    if (result.status().equals(SpawnResult.Status.SUCCESS) && result.exitCode() == 0) {
+      if (execution != null) {
+        execution.spawnResultFuture.set(result);
+      }
+      return true;
+    } else {
+      if (execution != null) {
+        execution.spawnResultFuture.cancel(true);
+      }
+      return false;
+    }
+  }
+
+  /**
+   * Reuses the outputs of a concurrent local execution of the same RemoteAction in a different
+   * spawn.
+   *
+   * <p>Since each output file is generated by a unique action and actions generally take care to
+   * run a unique spawn for each output file, this method is only useful with path mapping enabled,
+   * which allows different spawns in a single build to have the same RemoteAction.ActionKey.
+   *
+   * @return The {@link SpawnResult} of the previous execution if it was successful, otherwise null.
+   */
+  @Nullable
+  public SpawnResult waitForAndReuseOutputs(RemoteAction action, LocalExecution previousExecution)
+      throws InterruptedException, IOException {
+    checkState(!shutdown.get(), "shutdown");
+
+    SpawnResult previousSpawnResult;
+    try {
+      previousSpawnResult = previousExecution.spawnResultFuture.get();
+    } catch (CancellationException | ExecutionException e) {
+      if (e.getCause() != null) {
+        Throwables.throwIfInstanceOf(e.getCause(), InterruptedException.class);
+        Throwables.throwIfUnchecked(e.getCause());
+      }
+      // The spawn this action was deduplicated against failed due to an exception or
+      // non-zero exit code. Since it isn't possible to transparently replay its failure for the
+      // current spawn, we rerun the action instead.
+      return null;
+    }
+
+    Preconditions.checkArgument(
+        action.getActionKey().equals(previousExecution.action.getActionKey()));
+
+    ImmutableMap<Path, ActionInput> previousOutputs =
+        previousExecution.action.getSpawn().getOutputFiles().stream()
+            .collect(toImmutableMap(output -> execRoot.getRelative(output.getExecPath()), o -> o));
+    Map<Path, Path> realToTmpPath = new HashMap<>();
+    for (String output : action.getCommand().getOutputPathsList()) {
+      Path sourcePath =
+          previousExecution
+              .action
+              .getRemotePathResolver()
+              .outputPathToLocalPath(encodeBytestringUtf8(output));
+      ActionInput outputArtifact = previousOutputs.get(sourcePath);
+      Path tmpPath = tempPathGenerator.generateTempPath();
+      tmpPath.getParentDirectory().createDirectoryAndParents();
+      try {
+        if (outputArtifact.isDirectory()) {
+          tmpPath.createDirectory();
+          FileSystemUtils.copyTreesBelow(sourcePath, tmpPath, Symlinks.NOFOLLOW);
+        } else if (outputArtifact.isSymlink()) {
+          FileSystemUtils.ensureSymbolicLink(tmpPath, sourcePath.readSymbolicLink());
+        } else {
+          FileSystemUtils.copyFile(sourcePath, tmpPath);
+        }
+      } catch (FileNotFoundException e) {
+        // The spawn this action was deduplicated against failed to create an output file. If the
+        // output is mandatory, we cannot reuse the previous execution.
+        if (action.getSpawn().isMandatoryOutput(outputArtifact)) {
+          return null;
+        }
+      }
+
+      Path targetPath =
+          action.getRemotePathResolver().outputPathToLocalPath(encodeBytestringUtf8(output));
+      realToTmpPath.put(targetPath, tmpPath);
+    }
+
+    // TODO: FileOutErr is action-scoped, not spawn-scoped, but this is not a problem for the
+    //  current use case of supporting deduplication of path mapped spawns:
+    //  1. Starlark and C++ compilation actions always create a single spawn.
+    //  2. Java compilation actions may run a fallback spawn, but reset the FileOutErr before
+    //     running it.
+    //  If this changes, we will need to introduce a spawn-scoped OutErr.
+    FileOutErr.dump(
+        previousExecution.action.getSpawnExecutionContext().getFileOutErr(),
+        action.getSpawnExecutionContext().getFileOutErr());
+
+    action
+        .getSpawnExecutionContext()
+        .lockOutputFiles(
+            previousSpawnResult.exitCode(),
+            previousSpawnResult.getFailureMessage(),
+            action.getSpawnExecutionContext().getFileOutErr());
+    // All outputs are created locally.
+    moveOutputsToFinalLocation(realToTmpPath.keySet(), realToTmpPath);
+
+    return previousSpawnResult;
+  }
+
   private boolean shouldDownload(RemoteActionResult result, PathFragment execPath) {
     if (outputService instanceof BazelOutputService) {
       return false;
@@ -1340,8 +1489,8 @@ public class RemoteExecutionService {
   }
 
   private static String prettyPrint(ActionInput actionInput) {
-    if (actionInput instanceof Artifact) {
-      return ((Artifact) actionInput).prettyPrint();
+    if (actionInput instanceof Artifact artifact) {
+      return artifact.prettyPrint();
     } else {
       return actionInput.getExecPathString();
     }
@@ -1400,7 +1549,7 @@ public class RemoteExecutionService {
   }
 
   /** Upload outputs of a remote action which was executed locally to remote cache. */
-  public void uploadOutputs(RemoteAction action, SpawnResult spawnResult)
+  public void uploadOutputs(RemoteAction action, SpawnResult spawnResult, Runnable onUploadComplete)
       throws InterruptedException, ExecException {
     checkState(!shutdown.get(), "shutdown");
     checkState(
@@ -1423,20 +1572,29 @@ public class RemoteExecutionService {
           .subscribeOn(scheduler)
           .subscribe(
               new SingleObserver<ActionResult>() {
+                long startTime = 0;
+
                 @Override
                 public void onSubscribe(@NonNull Disposable d) {
                   backgroundTaskPhaser.register();
+                  startTime = Profiler.nanoTimeMaybe();
                 }
 
                 @Override
                 public void onSuccess(@NonNull ActionResult actionResult) {
+                  Profiler.instance()
+                      .completeTask(startTime, ProfilerTask.UPLOAD_TIME, "upload outputs");
                   backgroundTaskPhaser.arriveAndDeregister();
+                  onUploadComplete.run();
                 }
 
                 @Override
                 public void onError(@NonNull Throwable e) {
+                  Profiler.instance()
+                      .completeTask(startTime, ProfilerTask.UPLOAD_TIME, "upload outputs");
                   backgroundTaskPhaser.arriveAndDeregister();
                   reportUploadError(e);
+                  onUploadComplete.run();
                 }
               });
     } else {
@@ -1446,6 +1604,8 @@ public class RemoteExecutionService {
         manifest.upload(action.getRemoteActionExecutionContext(), remoteCache, reporter);
       } catch (IOException e) {
         reportUploadError(e);
+      } finally {
+        onUploadComplete.run();
       }
     }
   }
@@ -1596,8 +1756,6 @@ public class RemoteExecutionService {
     }
 
     if (remoteCache != null) {
-      remoteCache.release();
-
       try {
         backgroundTaskPhaser.awaitAdvanceInterruptibly(backgroundTaskPhaser.arrive());
       } catch (InterruptedException e) {
@@ -1605,6 +1763,12 @@ public class RemoteExecutionService {
         remoteCache.shutdownNow();
         Thread.currentThread().interrupt();
       }
+
+      // Only release the remoteCache once all background tasks have been finished. Otherwise, the
+      // last task might try to close the remoteCache inside the callback of network response which
+      // might cause deadlocks.
+      // See https://github.com/bazelbuild/bazel/issues/21568.
+      remoteCache.release();
     }
 
     if (remoteExecutor != null) {

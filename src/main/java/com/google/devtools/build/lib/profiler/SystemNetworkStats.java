@@ -48,10 +48,13 @@ public class SystemNetworkStats {
 
     // Number of bytes sent.
     public abstract long bytesSent();
+
     // Number of bytes received.
     public abstract long bytesRecv();
+
     // Number of packets sent.
     public abstract long packetsSent();
+
     // Number of packets received.
     public abstract long packetsRecv();
   }
@@ -59,11 +62,12 @@ public class SystemNetworkStats {
   public static Map<String, NetIoCounter> getNetIoCounters() throws IOException {
     Map<String, NetIoCounter> counters = new HashMap<>();
     switch (OS.getCurrent()) {
-      case LINUX:
-        getNetIoCountersLinux(counters);
-        break;
-      default:
-        getNetIoCountersNative(counters);
+      case LINUX -> getNetIoCountersLinux(counters);
+      default -> {
+        if (JniLoader.isJniAvailable()) {
+          getNetIoCountersNative(counters);
+        }
+      }
     }
     return counters;
   }
@@ -115,7 +119,9 @@ public class SystemNetworkStats {
 
   public static Map<String, List<NetIfAddr>> getNetIfAddrs() throws IOException {
     List<NetIfAddr> addrs = new ArrayList<>();
-    getNetIfAddrsNative(addrs);
+    if (JniLoader.isJniAvailable()) {
+      getNetIfAddrsNative(addrs);
+    }
 
     Map<String, List<NetIfAddr>> result = new HashMap<>();
     for (NetIfAddr addr : addrs) {

@@ -85,8 +85,6 @@ public final class NestedSet<E> {
    */
   private static final byte[] NO_MEMO = {};
 
-  private static final int INITIAL_CAPACITY = 128;
-
   @VisibleForSerialization @SerializationConstant static final Object[] EMPTY_CHILDREN = {};
 
   /**
@@ -135,7 +133,9 @@ public final class NestedSet<E> {
    * <p>All instances of depth < 3, that is, those whose successors are all leaves, share the empty
    * {@link #NO_MEMO} array.
    */
-  @Nullable private byte[] memo;
+  // This is marked transient for serialization testing. `memo` is lazily populated and not
+  // deserialized.
+  @Nullable private transient byte[] memo;
 
   /** Construct an empty NestedSet. Should only be called by Order's class initializer. */
   NestedSet(Order order) {
@@ -165,20 +165,14 @@ public final class NestedSet<E> {
     boolean preorder;
 
     switch (order) {
-      case LINK_ORDER:
+      case LINK_ORDER -> {
         directOrder = ImmutableList.copyOf(direct).reverse();
         transitiveOrder = ImmutableList.copyOf(transitive).reverse();
         preorder = false;
-        break;
-      case STABLE_ORDER:
-      case COMPILE_ORDER:
-        preorder = false;
-        break;
-      case NAIVE_LINK_ORDER:
-        preorder = true;
-        break;
-      default:
-        throw new AssertionError(order);
+      }
+      case STABLE_ORDER, COMPILE_ORDER -> preorder = false;
+      case NAIVE_LINK_ORDER -> preorder = true;
+      default -> throw new AssertionError(order);
     }
 
     // Remember children we extracted from one-element subsets. Otherwise we can end up with two of
@@ -285,6 +279,11 @@ public final class NestedSet<E> {
     return Order.getOrder(depthAndOrder & 3);
   }
 
+  @VisibleForSerialization
+  int getDepthAndOrder() {
+    return depthAndOrder;
+  }
+
   /**
    * Returns the internal item or array. If the internal item is a deserialization future, blocks on
    * completion. For use only by NestedSetVisitor.
@@ -337,13 +336,10 @@ public final class NestedSet<E> {
    */
   private Object getChildrenInternal(InterruptStrategy interruptStrategy)
       throws InterruptedException {
-    switch (interruptStrategy) {
-      case CRASH:
-        return getChildrenUninterruptibly();
-      case PROPAGATE:
-        return getChildrenInterruptibly();
-    }
-    throw new IllegalStateException("Unknown interrupt strategy " + interruptStrategy);
+    return switch (interruptStrategy) {
+      case CRASH -> getChildrenUninterruptibly();
+      case PROPAGATE -> getChildrenInterruptibly();
+    };
   }
 
   /** Returns true if the set is empty. Runs in O(1) time (i.e. does not flatten the set). */
@@ -424,7 +420,7 @@ public final class NestedSet<E> {
     } else {
       actualChildren = children;
     }
-    return actualChildrenToList(actualChildren, /* updateMemo= */ true);
+    return actualChildrenToList(actualChildren);
   }
 
   /**
@@ -455,7 +451,7 @@ public final class NestedSet<E> {
     } else {
       actualChildren = children;
     }
-    return actualChildrenToList(actualChildren, /* updateMemo= */ true);
+    return actualChildrenToList(actualChildren);
   }
 
   /**
@@ -466,47 +462,21 @@ public final class NestedSet<E> {
    * efficiency, as it saves an iteration.
    */
   public ImmutableList<E> toList() {
-    return actualChildrenToList(getChildrenUninterruptibly(), /* updateMemo= */ true);
-  }
-
-  /**
-   * A memory optimization (in certain cases) for {@link #toList()}.
-   *
-   * <p>Should be used in cases where there's no benefit to retaining the memoization in the build.
-   * Usually it's when a NestedSet instance isn't expected to be flattened more than once.
-   *
-   * <p>It's strongly recommended to back up the usage of this method with some profiling data.
-   */
-  public ImmutableList<E> toListNoMemoUpdate() {
-    return actualChildrenToList(getChildrenUninterruptibly(), /* updateMemo= */ false);
-  }
-
-  /** Similar to {@link #walk}, but without touching {@link #memo}. */
-  private void walkNoMemo(
-      CompactHashSet<Object> sets, CompactHashSet<E> members, Object[] children) {
-    for (Object child : children) {
-      if (child instanceof Object[]) {
-        if (sets.add(child)) {
-          walkNoMemo(sets, members, (Object[]) child);
-        }
-      } else {
-        members.add((E) child);
-      }
-    }
+    return actualChildrenToList(getChildrenUninterruptibly());
   }
 
   /**
    * Private implementation of toList which takes the actual children (the deserialized {@code
    * Object[]} if {@link #children} is a {@link ListenableFuture}).
    */
-  private ImmutableList<E> actualChildrenToList(Object actualChildren, boolean updateMemo) {
+  private ImmutableList<E> actualChildrenToList(Object actualChildren) {
     if (actualChildren == EMPTY_CHILDREN) {
       return ImmutableList.of();
     }
     if (!(actualChildren instanceof Object[])) {
       return ImmutableList.of((E) actualChildren);
     }
-    ImmutableList<E> list = expand((Object[]) actualChildren, updateMemo);
+    ImmutableList<E> list = expand((Object[]) actualChildren);
     return getOrder() == Order.LINK_ORDER ? list.reverse() : list;
   }
 
@@ -540,20 +510,16 @@ public final class NestedSet<E> {
       if (memo == null) {
         return toList().size(); // side effect: set memo
       }
-      return getSizeFromMemo(memo);
-    }
-  }
-
-  private int getSizeFromMemo(byte[] memo) {
-    int size = 0;
-    for (int i = memo.length - 1; ; i--) {
-      size = (size << 7) | (memo[i] & 0x7f);
-      if (size < 0) {
-        throw new IllegalStateException(
-            "int overflow calculating size (" + size + "), memo: " + Arrays.toString(memo));
-      }
-      if ((memo[i] & 0x80) != 0) {
-        return size;
+      int size = 0;
+      for (int i = memo.length - 1; ; i--) {
+        size = (size << 7) | (memo[i] & 0x7f);
+        if (size < 0) {
+          throw new IllegalStateException(
+              "int overflow calculating size (" + size + "), memo: " + Arrays.toString(memo));
+        }
+        if ((memo[i] & 0x80) != 0) {
+          return size;
+        }
       }
     }
   }
@@ -624,7 +590,7 @@ public final class NestedSet<E> {
    * this.memo}: wrap our direct items in a list, call {@link #lockedExpand} to perform the initial
    * {@link #walk}, or call {@link #replay} if we have a nontrivial memo.
    */
-  private ImmutableList<E> expand(Object[] children, boolean updateMemo) {
+  private ImmutableList<E> expand(Object[] children) {
     // This special value NO_MEMO is only set in the constructor and is immutable once set, so
     // it's safe to test here with no lock.
     if (memo == NO_MEMO) {
@@ -634,25 +600,13 @@ public final class NestedSet<E> {
     byte[] memoRef;
     ImmutableList.Builder<E> output;
     // memo might have been cleared by another thread, hence synchronization is required here.
-    // 3 scenarios:
-    // - Memoization was requested but memo not present. Compute it.
-    // - Memoized walk found. Use it.
-    // - No memoized walk was found and no memoization was requested. Walk the nested set naively.
     synchronized (this) {
-      if (memo == null && updateMemo) {
+      if (memo == null) {
         return ImmutableList.copyOf(lockedExpand(children));
       } else {
         memoRef = memo;
         output = ImmutableList.builderWithExpectedSize(memoizedFlattenAndGetSize());
       }
-    }
-    if (memoRef == null) {
-      CompactHashSet<E> uniqueElems = CompactHashSet.createWithExpectedSize(INITIAL_CAPACITY);
-      walkNoMemo(
-          /* sets= */ CompactHashSet.createWithExpectedSize(INITIAL_CAPACITY),
-          uniqueElems,
-          children);
-      return ImmutableList.copyOf(uniqueElems);
     }
 
     // With a non-null local ref of memo, it's safe to proceed without synchronization.
@@ -696,8 +650,8 @@ public final class NestedSet<E> {
   private CompactHashSet<E> lockedExpand(Object[] children) {
     // Precondition: this is a non-leaf node with non-leaf successors (depth > 2).
     // Postcondition: memo is completely populated.
-    CompactHashSet<E> members = CompactHashSet.createWithExpectedSize(INITIAL_CAPACITY);
-    CompactHashSet<Object> sets = CompactHashSet.createWithExpectedSize(INITIAL_CAPACITY);
+    CompactHashSet<E> members = CompactHashSet.createWithExpectedSize(128);
+    CompactHashSet<Object> sets = CompactHashSet.createWithExpectedSize(128);
     sets.add(children);
     memo = new byte[3 + Math.min(ceildiv(children.length, 8), 8)]; // (+3 for size: a guess)
     int pos = walk(sets, members, children, /*pos=*/ 0);

@@ -548,6 +548,9 @@ def _create_shared_native_deps_dso(
     if not linkstamps:
         build_info_artifacts = []
     elif cc_helper.is_stamping_enabled(ctx):
+        # Makes the target depend on BUILD_INFO_KEY, which helps to discover stamped targets
+        # See b/326620485 for more details.
+        ctx.version_file  # buildifier: disable=no-effect
         build_info_artifacts = cc_toolchain._build_info_files.non_redacted_build_info_files.to_list()
     else:
         build_info_artifacts = cc_toolchain._build_info_files.redacted_build_info_files.to_list()

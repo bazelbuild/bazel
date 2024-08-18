@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.cpp;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -55,7 +57,8 @@ public final class CcToolchainProvider {
       implements Provider {
     public CcToolchainInfoProvider() {
       super(
-          Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_toolchain_info.bzl"),
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_toolchain_info.bzl")),
           STARLARK_NAME);
     }
 
@@ -139,6 +142,7 @@ public final class CcToolchainProvider {
     return new CcToolchainProvider(value);
   }
 
+  // LINT.IfChange
   /**
    * Determines if we should apply -fPIC for this rule's C++ compilations. This determination is
    * generally made by the global C++ configuration settings "needsPic" and "usePicForBinaries".
@@ -153,6 +157,8 @@ public final class CcToolchainProvider {
     return cppConfiguration.forcePic()
         || featureConfiguration.isEnabled(CppRuleClasses.SUPPORTS_PIC);
   }
+
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/cc_helper_internal.bzl)
 
   /**
    * Returns true if PER_OBJECT_DEBUG_INFO are specified and supported by the CROSSTOOL for the

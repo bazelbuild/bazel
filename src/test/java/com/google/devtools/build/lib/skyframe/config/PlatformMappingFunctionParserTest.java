@@ -49,7 +49,7 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
   private static final Label PLATFORM1 = Label.parseCanonicalUnchecked("//platforms:one");
   private static final Label PLATFORM2 = Label.parseCanonicalUnchecked("//platforms:two");
   private static final Label EXTERNAL_PLATFORM =
-      Label.parseCanonicalUnchecked("@dep~1.0//platforms:two");
+      Label.parseCanonicalUnchecked("@dep+1.0//platforms:two");
 
   @Test
   public void testParse() throws Exception {
@@ -71,19 +71,20 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
     assertThat(mappings.platformsToFlags.get(PLATFORM2).nativeFlags()).containsExactly("--cpu=two");
 
     assertThat(mappings.flagsToPlatforms.keySet())
-        .containsExactly(ImmutableList.of("--cpu=one"), ImmutableList.of("--cpu=two"));
-    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=one"))).isEqualTo(PLATFORM1);
-    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=two"))).isEqualTo(PLATFORM2);
+        .containsExactly(createFlags("--cpu=one"), createFlags("--cpu=two"));
+    assertThat(mappings.flagsToPlatforms.get(createFlags("--cpu=one"))).isEqualTo(PLATFORM1);
+    assertThat(mappings.flagsToPlatforms.get(createFlags("--cpu=two"))).isEqualTo(PLATFORM2);
   }
 
   @Test
   public void testParseWithRepoMapping() throws Exception {
+    RepositoryMapping repoMapping =
+        RepositoryMapping.create(
+            ImmutableMap.of("foo", RepositoryName.MAIN, "dep", RepositoryName.create("dep+1.0")),
+            RepositoryName.MAIN);
     PlatformMappingFunction.Mappings mappings =
         parse(
-            RepositoryMapping.create(
-                ImmutableMap.of(
-                    "foo", RepositoryName.MAIN, "dep", RepositoryName.create("dep~1.0")),
-                RepositoryName.MAIN),
+            repoMapping,
             "platforms:",
             "  @foo//platforms:one",
             "    --cpu=one",
@@ -101,9 +102,11 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
         .containsExactly("--cpu=two");
 
     assertThat(mappings.flagsToPlatforms.keySet())
-        .containsExactly(ImmutableList.of("--cpu=one"), ImmutableList.of("--cpu=two"));
-    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=one"))).isEqualTo(PLATFORM1);
-    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=two")))
+        .containsExactly(
+            createFlags(repoMapping, "--cpu=one"), createFlags(repoMapping, "--cpu=two"));
+    assertThat(mappings.flagsToPlatforms.get(createFlags(repoMapping, "--cpu=one")))
+        .isEqualTo(PLATFORM1);
+    assertThat(mappings.flagsToPlatforms.get(createFlags(repoMapping, "--cpu=two")))
         .isEqualTo(EXTERNAL_PLATFORM);
   }
 
@@ -131,9 +134,9 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
     assertThat(mappings.platformsToFlags.get(PLATFORM2).nativeFlags()).containsExactly("--cpu=two");
 
     assertThat(mappings.flagsToPlatforms.keySet())
-        .containsExactly(ImmutableList.of("--cpu=one"), ImmutableList.of("--cpu=two"));
-    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=one"))).isEqualTo(PLATFORM1);
-    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=two"))).isEqualTo(PLATFORM2);
+        .containsExactly(createFlags("--cpu=one"), createFlags("--cpu=two"));
+    assertThat(mappings.flagsToPlatforms.get(createFlags("--cpu=one"))).isEqualTo(PLATFORM1);
+    assertThat(mappings.flagsToPlatforms.get(createFlags("--cpu=two"))).isEqualTo(PLATFORM2);
   }
 
   @Test
@@ -161,9 +164,9 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
     assertThat(mappings.platformsToFlags.get(PLATFORM2).nativeFlags()).containsExactly("--cpu=two");
 
     assertThat(mappings.flagsToPlatforms.keySet())
-        .containsExactly(ImmutableList.of("--cpu=one"), ImmutableList.of("--cpu=two"));
-    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=one"))).isEqualTo(PLATFORM1);
-    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=two"))).isEqualTo(PLATFORM2);
+        .containsExactly(createFlags("--cpu=one"), createFlags("--cpu=two"));
+    assertThat(mappings.flagsToPlatforms.get(createFlags("--cpu=one"))).isEqualTo(PLATFORM1);
+    assertThat(mappings.flagsToPlatforms.get(createFlags("--cpu=two"))).isEqualTo(PLATFORM2);
   }
 
   @Test
@@ -195,9 +198,8 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
 
     assertThat(mappings.flagsToPlatforms.keySet())
         .containsExactly(
-            ImmutableList.of("--compilation_mode=dbg", "--cpu=one"), ImmutableList.of("--cpu=two"));
-    assertThat(
-            mappings.flagsToPlatforms.get(ImmutableList.of("--compilation_mode=dbg", "--cpu=one")))
+            createFlags("--compilation_mode=dbg", "--cpu=one"), createFlags("--cpu=two"));
+    assertThat(mappings.flagsToPlatforms.get(createFlags("--compilation_mode=dbg", "--cpu=one")))
         .isEqualTo(PLATFORM1);
   }
 
@@ -224,8 +226,8 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
             "    //platforms:one" // Force line break
             );
 
-    assertThat(mappings.flagsToPlatforms.keySet()).containsExactly(ImmutableList.of("--cpu=one"));
-    assertThat(mappings.flagsToPlatforms.get(ImmutableList.of("--cpu=one"))).isEqualTo(PLATFORM1);
+    assertThat(mappings.flagsToPlatforms.keySet()).containsExactly(createFlags("--cpu=one"));
+    assertThat(mappings.flagsToPlatforms.get(createFlags("--cpu=one"))).isEqualTo(PLATFORM1);
     assertThat(mappings.platformsToFlags).isEmpty();
   }
 
@@ -427,6 +429,19 @@ public class PlatformMappingFunctionParserTest extends AnalysisTestCase {
                     "    //platforms:two"));
 
     assertThat(exception).hasMessageThat().contains("duplicate");
+  }
+
+  private NativeAndStarlarkFlags createFlags(String... nativeFlags) {
+    return createFlags(RepositoryMapping.ALWAYS_FALLBACK, nativeFlags);
+  }
+
+  private NativeAndStarlarkFlags createFlags(
+      RepositoryMapping mainRepoMapping, String... nativeFlags) {
+    return NativeAndStarlarkFlags.builder()
+        .nativeFlags(ImmutableList.copyOf(nativeFlags))
+        .optionsClasses(ruleClassProvider.getFragmentRegistry().getOptionsClasses())
+        .repoMapping(mainRepoMapping)
+        .build();
   }
 
   private PlatformMappingFunction.Mappings parse(String... lines)

@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.analysis.config.ConfigurationTransitionEven
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionCreationException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.causes.Cause;
 import com.google.devtools.build.lib.causes.LoadingFailedCause;
@@ -143,7 +144,8 @@ final class DependencyProducer
       return computePrerequisites(
           AttributeConfiguration.ofUnary(configurationKey),
           parameters.getExecutionPlatformLabel(
-              ((ToolchainDependencyKind) kind).getExecGroupName()));
+              ((ToolchainDependencyKind) kind).getExecGroupName(),
+              DependencyKind.isBaseTargetToolchain(kind)));
     }
 
     if (kind == OUTPUT_FILE_RULE_DEPENDENCY) {
@@ -159,25 +161,29 @@ final class DependencyProducer
     ExecutionPlatformResult executionPlatformResult =
         getExecutionPlatformLabel(kind, parameters.toolchainContexts(), parameters.aspects());
     switch (executionPlatformResult.kind()) {
-      case LABEL:
-        transitionData.executionPlatform(executionPlatformResult.label());
-        break;
-      case NULL_LABEL:
-        transitionData.executionPlatform(null);
-        break;
-      case SKIP:
+      case LABEL -> transitionData.executionPlatform(executionPlatformResult.label());
+      case NULL_LABEL -> transitionData.executionPlatform(null);
+      case SKIP -> {
         sink.acceptDependencyValues(index, EMPTY_OUTPUT);
         return DONE;
-      case ERROR:
+      }
+      case ERROR -> {
         return new ExecGroupErrorEmitter(executionPlatformResult.error());
+      }
     }
-    ConfigurationTransition attributeTransition =
-        attribute.getTransitionFactory().create(transitionData.build());
+    ConfigurationTransition attributeTransition;
+    try {
+      attributeTransition = attribute.getTransitionFactory().create(transitionData.build());
+    } catch (TransitionCreationException e) {
+      sink.acceptDependencyError(DependencyError.of(e));
+      return DONE;
+    }
     sink.acceptTransition(kind, toLabel, attributeTransition);
     return new TransitionApplier(
         configurationKey,
         attributeTransition,
         parameters.transitionCache(),
+        parameters.buildConfigurationKeyCache(),
         (TransitionApplier.ResultSink) this,
         parameters.eventHandler(),
         /* runAfter= */ this::processTransitionResult);
@@ -293,6 +299,10 @@ final class DependencyProducer
   private boolean useBaseTargetPrerequisitesSupplier() {
     if (parameters.aspects().isEmpty()) {
       return false;
+    }
+
+    if (DependencyKind.isBaseTargetToolchain(kind)) {
+      return true;
     }
 
     if (DependencyKind.isAttribute(kind)) {

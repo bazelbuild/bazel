@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.rules.proto;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -44,7 +46,9 @@ public final class ProtoInfo {
   /** Provider class for {@link ProtoInfo} objects. */
   public static class ProtoInfoProvider extends StarlarkProviderWrapper<ProtoInfo> {
     public ProtoInfoProvider() {
-      super(Label.parseCanonicalUnchecked("@_builtins//:common/proto/proto_info.bzl"), "ProtoInfo");
+      super(
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/proto/proto_info.bzl")),
+          "ProtoInfo");
     }
 
     @Override

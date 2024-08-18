@@ -15,6 +15,7 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
@@ -43,10 +44,12 @@ public class RepoSpecFunction implements SkyFunction {
       return null;
     }
 
+    StoredEventHandler downloadEvents = new StoredEventHandler();
+    RepoSpec repoSpec;
     try (SilentCloseable c =
         Profiler.instance()
             .profile(ProfilerTask.BZLMOD, () -> "compute repo spec: " + key.getModuleKey())) {
-      return registry.getRepoSpec(key.getModuleKey(), env.getListener());
+      repoSpec = registry.getRepoSpec(key.getModuleKey(), downloadEvents);
     } catch (IOException e) {
       throw new RepoSpecException(
           ExternalDepsException.withCauseAndMessage(
@@ -55,6 +58,9 @@ public class RepoSpecFunction implements SkyFunction {
               "Unable to get module repo spec for %s from registry",
               key.getModuleKey()));
     }
+    downloadEvents.replayOn(env.getListener());
+    return RepoSpecValue.create(
+        repoSpec, RegistryFileDownloadEvent.collectToMap(downloadEvents.getPosts()));
   }
 
   static final class RepoSpecException extends SkyFunctionException {

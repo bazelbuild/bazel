@@ -51,14 +51,9 @@ function create_android_binary() {
   mkdir -p java/bazel
   cat > java/bazel/BUILD <<EOF
 package(default_visibility = ["//visibility:public"])
-aar_import(
-    name = "aar",
-    aar = "sample.aar",
-)
 android_library(
     name = "lib",
     srcs = ["Lib.java"],
-    deps = [":aar"],
 )
 android_binary(
     name = "bin",
@@ -68,18 +63,15 @@ android_binary(
 )
 EOF
 
-  cp "$(rlocation io_bazel/src/test/shell/bazel/android/sample.aar)" \
-    java/bazel/sample.aar
   cat > java/bazel/AndroidManifest.xml <<EOF
   <manifest package="bazel.android" />
 EOF
 
   cat > java/bazel/Lib.java <<EOF
 package bazel;
-import com.sample.aar.Sample;
 public class Lib {
   public static String message() {
-  return "Hello Lib" + Sample.getZero();
+  return "Hello Lib";
   }
 }
 EOF
@@ -111,6 +103,9 @@ function setup_head_android_tools_if_exists() {
 
 # Resolves Android toolchains with platforms.
 function resolve_android_toolchains() {
+  # Disable Bzlmod and enable WORKSPACE for android tests, piggybacking in this function
+  # since it's called by all Android tests.
+  disable_bzlmod
   add_to_bazelrc "build --android_platforms=//test_android_platforms:simple"
 }
 

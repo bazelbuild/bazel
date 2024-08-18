@@ -40,7 +40,7 @@ fi
 source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-WORKSPACE_FILES=("$(rlocation io_bazel/WORKSPACE)" "$(rlocation io_bazel/workspace_deps.bzl)")
+WORKSPACE_FILES=("$(rlocation io_bazel/workspace_deps.bzl)")
 
 # base maven repository URLs can return 404s.
 URL_ALLOWLIST=("https://dl.google.com/android/maven2" "https://repo1.maven.org/maven2")

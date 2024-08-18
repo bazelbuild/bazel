@@ -218,6 +218,23 @@ public class ExternalPackageHelperTest extends BuildViewTestCase {
   }
 
   @Test
+  public void getRuleByName_WORKSPACE_dontcrash() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      return;
+    }
+    scratch.overwriteFile("WORKSPACE", "local_repository(name = 'foo', path = 'path/to/repo')");
+
+    SkyKey key = getRuleByNameKey("WORKSPACE");
+    EvaluationResult<GetRuleByNameValue> result = getRuleByName(key);
+
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("The rule named 'WORKSPACE' could not be resolved");
+  }
+
+  @Test
   public void getRegisteredToolchains_addedInWorkspace() throws Exception {
     scratch.overwriteFile(
         "WORKSPACE", "register_toolchains(", "  '//toolchain:tc1',", "  '//toolchain:tc2')");

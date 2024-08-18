@@ -119,8 +119,8 @@ final class ProgressEventSuppressingEnvironment implements SkyFunction.Environme
   }
 
   @Override
-  public boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors() {
-    return delegate.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
+  public boolean inErrorBubbling() {
+    return delegate.inErrorBubbling();
   }
 
   @Override

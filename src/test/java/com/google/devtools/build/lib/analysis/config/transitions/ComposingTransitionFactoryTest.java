@@ -18,14 +18,17 @@ import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptionsView;
-import com.google.devtools.build.lib.analysis.config.TransitionFactories;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
+import com.google.devtools.build.lib.rules.cpp.CppOptions;
+import com.google.devtools.build.lib.rules.java.JavaOptions;
 import java.util.Collection;
 import java.util.Map;
 import java.util.stream.IntStream;
@@ -52,8 +55,7 @@ public class ComposingTransitionFactoryTest {
     // Same flag, will overwrite.
     TransitionFactory<StubData> composed =
         ComposingTransitionFactory.of(
-            TransitionFactories.of(new StubPatch(FLAG_1, "value1")),
-            TransitionFactories.of(new StubPatch(FLAG_1, "value2")));
+            new StubPatchFactory(FLAG_1, "value1"), new StubPatchFactory(FLAG_1, "value2"));
 
     assertThat(composed).isNotNull();
     assertThat(composed.isSplit()).isFalse();
@@ -75,8 +77,8 @@ public class ComposingTransitionFactoryTest {
     // Different flags, will combine.
     TransitionFactory<StubData> composed =
         ComposingTransitionFactory.of(
-            TransitionFactories.of(new StubPatch(FLAG_1, "value1")),
-            TransitionFactories.of(new StubSplit(FLAG_2, "value2a", "value2b")));
+            new StubPatchFactory(FLAG_1, "value1"),
+            new StubSplitFactory(FLAG_2, "value2a", "value2b"));
 
     assertThat(composed).isNotNull();
     assertThat(composed.isSplit()).isTrue();
@@ -103,8 +105,8 @@ public class ComposingTransitionFactoryTest {
     // Different flags, will combine.
     TransitionFactory<StubData> composed =
         ComposingTransitionFactory.of(
-            TransitionFactories.of(new StubSplit(FLAG_1, "value1a", "value1b")),
-            TransitionFactories.of(new StubPatch(FLAG_2, "value2")));
+            new StubSplitFactory(FLAG_1, "value1a", "value1b"),
+            new StubPatchFactory(FLAG_2, "value2"));
 
     assertThat(composed).isNotNull();
     assertThat(composed.isSplit()).isTrue();
@@ -133,15 +135,15 @@ public class ComposingTransitionFactoryTest {
         IllegalArgumentException.class,
         () ->
             ComposingTransitionFactory.of(
-                TransitionFactories.of(new StubSplit(FLAG_1, "value1a", "value1b")),
-                TransitionFactories.of(new StubSplit(FLAG_2, "value2a", "value2b"))));
+                new StubSplitFactory(FLAG_1, "value1a", "value1b"),
+                new StubSplitFactory(FLAG_2, "value2a", "value2b")));
   }
 
   @Test
   public void compose_noTrans_first() {
-    TransitionFactory<StubData> patch = TransitionFactories.of(new StubPatch(FLAG_1, "value"));
+    TransitionFactory<StubData> patch = new StubPatchFactory(FLAG_1, "value");
     TransitionFactory<StubData> composed =
-        ComposingTransitionFactory.of(NoTransition.createFactory(), patch);
+        ComposingTransitionFactory.of(NoTransition.getFactory(), patch);
 
     assertThat(composed).isNotNull();
     assertThat(composed).isEqualTo(patch);
@@ -149,34 +151,12 @@ public class ComposingTransitionFactoryTest {
 
   @Test
   public void compose_noTrans_second() {
-    TransitionFactory<StubData> patch = TransitionFactories.of(new StubPatch(FLAG_1, "value"));
+    TransitionFactory<StubData> patch = new StubPatchFactory(FLAG_1, "value");
     TransitionFactory<StubData> composed =
-        ComposingTransitionFactory.of(patch, NoTransition.createFactory());
+        ComposingTransitionFactory.of(patch, NoTransition.getFactory());
 
     assertThat(composed).isNotNull();
     assertThat(composed).isEqualTo(patch);
-  }
-
-  @Test
-  public void compose_nullTrans_first() {
-    StubPatch patch = new StubPatch(FLAG_1, "value");
-    TransitionFactory<StubData> composed =
-        ComposingTransitionFactory.of(
-            NullTransition.createFactory(), TransitionFactories.of(patch));
-
-    assertThat(composed).isNotNull();
-    assertThat(NullTransition.isInstance(composed)).isTrue();
-  }
-
-  @Test
-  public void compose_nullTrans_second() {
-    StubPatch patch = new StubPatch(FLAG_1, "value");
-    TransitionFactory<StubData> composed =
-        ComposingTransitionFactory.of(
-            TransitionFactories.of(patch), NullTransition.createFactory());
-
-    assertThat(composed).isNotNull();
-    assertThat(NullTransition.isInstance(composed)).isTrue();
   }
 
   private static final class StubData implements TransitionFactory.Data {}
@@ -186,39 +166,100 @@ public class ComposingTransitionFactoryTest {
     return source.clone().toBuilder().addStarlarkOption(flag, value).build();
   }
 
-  private static final class StubPatch implements PatchTransition {
+  private static final class StubPatchFactory implements TransitionFactory<StubData> {
     private final Label flagLabel;
     private final String flagValue;
 
-    StubPatch(Label flagLabel, String flagValue) {
+    StubPatchFactory(Label flagLabel, String flagValue) {
       this.flagLabel = flagLabel;
       this.flagValue = flagValue;
     }
 
     @Override
-    public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
-      return updateOptions(options.underlying(), flagLabel, flagValue);
+    public ConfigurationTransition create(StubData data) {
+      return (PatchTransition)
+          (options, eventHandler) -> updateOptions(options.underlying(), flagLabel, flagValue);
+    }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.ANY;
     }
   }
 
-  private static final class StubSplit implements SplitTransition {
+  private static final class StubSplitFactory implements TransitionFactory<StubData> {
     private final Label flagLabel;
     private final ImmutableList<String> flagValues;
 
-    StubSplit(Label flagLabel, String... flagValues) {
+    StubSplitFactory(Label flagLabel, String... flagValues) {
       this.flagLabel = flagLabel;
       this.flagValues = ImmutableList.copyOf(flagValues);
     }
 
     @Override
-    public ImmutableMap<String, BuildOptions> split(
-        BuildOptionsView options, EventHandler eventHandler) {
-      return IntStream.range(0, flagValues.size())
-          .boxed()
-          .collect(
-              toImmutableMap(
-                  i -> "stub_split" + i,
-                  i -> updateOptions(options.underlying(), flagLabel, flagValues.get(i))));
+    public ConfigurationTransition create(StubData data) {
+      return (SplitTransition)
+          (options, eventHandler) ->
+              IntStream.range(0, flagValues.size())
+                  .boxed()
+                  .collect(
+                      toImmutableMap(
+                          i -> "stub_split" + i,
+                          i -> updateOptions(options.underlying(), flagLabel, flagValues.get(i))));
     }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.ANY;
+    }
+
+    @Override
+    public boolean isSplit() {
+      return true;
+    }
+  }
+
+  /** Custom fragment for use in tests. */
+  private static final class TransitionFactoryWithCustomFragments
+      implements TransitionFactory<StubData> {
+    private final ImmutableSet<Class<? extends FragmentOptions>> fragments;
+
+    TransitionFactoryWithCustomFragments(ImmutableSet<Class<? extends FragmentOptions>> fragments) {
+      this.fragments = fragments;
+    }
+
+    @Override
+    public ConfigurationTransition create(StubData data) {
+      return new PatchTransition() {
+        @Override
+        public ImmutableSet<Class<? extends FragmentOptions>> requiresOptionFragments() {
+          return fragments;
+        }
+
+        @Override
+        public BuildOptions patch(BuildOptionsView options, EventHandler eventHandler) {
+          return options.underlying();
+        }
+      };
+    }
+
+    @Override
+    public TransitionType transitionType() {
+      return TransitionType.ANY;
+    }
+  }
+
+  @Test
+  public void composed_required_fragments() throws Exception {
+    TransitionFactory<StubData> composed =
+        ComposingTransitionFactory.of(
+            new TransitionFactoryWithCustomFragments(ImmutableSet.of(CppOptions.class)),
+            new TransitionFactoryWithCustomFragments(ImmutableSet.of(JavaOptions.class)));
+    RequiredConfigFragmentsProvider.Builder requiredFragments =
+        RequiredConfigFragmentsProvider.builder();
+    ConfigurationTransition transition = composed.create(new StubData());
+    transition.addRequiredFragments(requiredFragments, null);
+    assertThat(requiredFragments.build().getOptionsClasses())
+        .containsExactly(CppOptions.class, JavaOptions.class);
   }
 }

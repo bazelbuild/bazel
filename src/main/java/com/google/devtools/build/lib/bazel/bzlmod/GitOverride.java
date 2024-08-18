@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleInspectorValue.AugmentedModule.ResolutionReason;
+import com.google.devtools.build.lib.cmdline.Label;
 
 /** Specifies that a module should be retrieved from a Git repository. */
 @AutoValue
@@ -25,12 +26,13 @@ public abstract class GitOverride implements NonRegistryOverride {
   public static GitOverride create(
       String remote,
       String commit,
-      ImmutableList<Object> patches,
+      ImmutableList<Label> patches,
       ImmutableList<String> patchCmds,
       int patchStrip,
-      boolean initSubmodules) {
+      boolean initSubmodules,
+      String stripPrefix) {
     return new AutoValue_GitOverride(
-        remote, commit, patches, patchCmds, patchStrip, initSubmodules);
+        remote, commit, patches, patchCmds, patchStrip, initSubmodules, stripPrefix);
   }
 
   /** The URL pointing to the git repository. */
@@ -40,7 +42,7 @@ public abstract class GitOverride implements NonRegistryOverride {
   public abstract String getCommit();
 
   /** The labels of patches to apply after fetching from Git. */
-  public abstract ImmutableList<Object> getPatches();
+  public abstract ImmutableList<Label> getPatches();
 
   /** The patch commands to execute after fetching from Git. Should be a list of commands. */
   public abstract ImmutableList<String> getPatchCmds();
@@ -50,6 +52,9 @@ public abstract class GitOverride implements NonRegistryOverride {
 
   /** Whether submodules in the fetched repo should be recursively initialized. */
   public abstract boolean getInitSubmodules();
+
+  /** The directory prefix to strip from the extracted files. */
+  public abstract String getStripPrefix();
 
   /** Returns the {@link RepoSpec} that defines this repository. */
   @Override
@@ -61,6 +66,7 @@ public abstract class GitOverride implements NonRegistryOverride {
         .setPatchCmds(getPatchCmds())
         .setPatchArgs(ImmutableList.of("-p" + getPatchStrip()))
         .setInitSubmodules(getInitSubmodules())
+        .setStripPrefix(getStripPrefix())
         .build();
   }
 

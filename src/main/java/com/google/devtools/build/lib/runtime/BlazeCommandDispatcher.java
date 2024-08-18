@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.BAD_OPTION_TAG;
 import static com.google.devtools.build.lib.runtime.BlazeOptionHandler.ERROR_SEPARATOR;
+import static com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie;
 import static com.google.devtools.common.options.Converters.BLAZE_ALIASING_FLAG;
 
 import com.github.benmanes.caffeine.cache.CacheLoader;
@@ -347,6 +348,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         workspace.initCommand(
             commandAnnotation,
             options,
+            invocationPolicy,
             commandEnvWarnings,
             waitTimeInMs,
             firstContactTime,
@@ -372,7 +374,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     if (commonOptions.enableTracer == TriState.YES) {
       tracerEnabled = true;
     } else if (commonOptions.enableTracer == TriState.AUTO) {
-      boolean commandSupportsProfile = commandName.equals("query") || env.commandActuallyBuilds();
+      boolean commandSupportsProfile =
+          commandName.equals("query") || commandAnnotation.buildPhase().analyzes();
       tracerEnabled = commandSupportsProfile || commonOptions.profilePath != null;
     }
 
@@ -434,9 +437,10 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
           // and will be calling afterCommand soon in the future - a module's afterCommand might
           // rightfully assume its beforeCommand has already been called.
           storedEventHandler.handle(Event.error(e.getMessage()));
-          // It's not ideal but we can only return one exit code, so we just pick the code of the
-          // last exception.
-          earlyExitCode = e.getDetailedExitCode();
+
+          // Use the highest priority exit code, or the first one that is encountered if all exit
+          // codes have equivalent priority.
+          earlyExitCode = chooseMoreImportantWithFirstIfTie(earlyExitCode, e.getDetailedExitCode());
         }
       }
       reporter.removeHandler(storedEventHandler);
@@ -483,9 +487,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
         DebugLoggerConfigurator.setupLogging(commonOptions.verbosity);
 
-        EventHandler handler =
-            createEventHandler(
-                outErr, eventHandlerOptions, env.withMergedAnalysisAndExecutionSourceOfTruth());
+        EventHandler handler = createEventHandler(outErr, eventHandlerOptions, env);
         reporter.addHandler(handler);
         env.getEventBus().register(handler);
 
@@ -495,10 +497,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         // modified.
         if (!eventHandlerOptions.useColor()) {
           UiEventHandler ansiAllowingHandler =
-              createEventHandler(
-                  colorfulOutErr,
-                  eventHandlerOptions,
-                  env.withMergedAnalysisAndExecutionSourceOfTruth());
+              createEventHandler(colorfulOutErr, eventHandlerOptions, env);
           reporter.registerAnsiAllowingHandler(handler, ansiAllowingHandler);
           env.getEventBus().register(new PassiveExperimentalEventHandler(ansiAllowingHandler));
         }
@@ -574,12 +573,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         }
       }
 
-      // It is not sufficient to check commandAnnotation.builds(), because
-      // {@link CleanCommand} is annotated with {@code builds = true} to have
-      // access to relevant build options but don't actually do building.  Same
-      // for {@link InfoCommand}, which is annotated with {@code builds = true}
-      // but only conditionally does this step based on some complicated logic.
-      if (env.commandActuallyBuilds()) {
+      if (env.getCommand().buildPhase().analyzes()) {
         try {
           env.syncPackageLoading(options);
         } catch (InterruptedException e) {
@@ -871,11 +865,16 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
   /** Returns the event handler to use for this Blaze command. */
   private UiEventHandler createEventHandler(
-      OutErr outErr, UiOptions eventOptions, boolean skymeldMode) {
+      OutErr outErr, UiOptions eventOptions, CommandEnvironment env) {
     Path workspacePath = runtime.getWorkspace().getDirectories().getWorkspace();
     PathFragment workspacePathFragment = workspacePath == null ? null : workspacePath.asFragment();
     return new UiEventHandler(
-        outErr, eventOptions, runtime.getClock(), workspacePathFragment, skymeldMode);
+        outErr,
+        eventOptions,
+        runtime.getClock(),
+        env.getEventBus(),
+        workspacePathFragment,
+        env.withMergedAnalysisAndExecutionSourceOfTruth());
   }
 
   /** Returns the runtime instance shared by the commands that this dispatcher dispatches to. */

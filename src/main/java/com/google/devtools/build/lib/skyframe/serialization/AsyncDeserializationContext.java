@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.protobuf.CodedInputStream;
 import java.io.IOException;
 import javax.annotation.Nullable;
@@ -36,7 +38,7 @@ import javax.annotation.Nullable;
  *       to guarantee that the provided value is complete due to the cycle.
  * </ul>
  */
-public interface AsyncDeserializationContext extends SerializationDependencyProvider {
+public interface AsyncDeserializationContext extends LeafDeserializationContext {
   /** Defines a way to set a field in a given object. */
   interface FieldSetter<T> {
     /**
@@ -75,6 +77,7 @@ public interface AsyncDeserializationContext extends SerializationDependencyProv
    * deserializing an array. It has similar behavior. The result can be written asynchronously or
    * not at all if its value was null.
    */
+  @Deprecated // TODO: b/331765692 - delete this method
   void deserialize(CodedInputStream codedIn, Object obj, long offset)
       throws IOException, SerializationException;
 
@@ -86,7 +89,20 @@ public interface AsyncDeserializationContext extends SerializationDependencyProv
    * container codecs that perform reference counting. The {@code done} callback is always called,
    * even if the deserialized value is null.
    */
+  @Deprecated // TODO: b/331765692 - delete this method
   void deserialize(CodedInputStream codedIn, Object obj, long offset, Runnable done)
+      throws IOException, SerializationException;
+
+  /**
+   * Parses the next object from {@code codedIn} and writes it into {@code arr} at {@code index}.
+   *
+   * <p>Deserialization may complete asynchronously, for example, when the input requires a Skyframe
+   * lookup to compute.
+   *
+   * <p>No write is performed when the resulting value is null.
+   */
+  @SuppressWarnings("AvoidObjectArrays") // explicit, low-level array handling
+  void deserializeArrayElement(CodedInputStream codedIn, Object[] arr, int index)
       throws IOException, SerializationException;
 
   /**
@@ -119,4 +135,11 @@ public interface AsyncDeserializationContext extends SerializationDependencyProv
       T obj,
       FieldSetter<? super T> setter)
       throws IOException, SerializationException;
+
+  /**
+   * Looks up the {@link SkyValue} for {@code key}, and sets it in {@code parent} using {@code
+   * setter}.
+   */
+  <T> void getSkyValue(SkyKey key, T parent, FieldSetter<? super T> setter)
+      throws SerializationException;
 }

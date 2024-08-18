@@ -46,28 +46,23 @@ public final class FingerprintValueService {
   @VisibleForTesting
   public static FingerprintValueService createForTesting() {
     return createForTesting(
-        FingerprintValueStore.inMemoryStore(), /* exerciseDeserializationForTesting= */ true);
+        FingerprintValueStore.inMemoryStore(), FingerprintValueCache.SyncMode.NOT_LINKED);
   }
 
   @VisibleForTesting
   public static FingerprintValueService createForTesting(FingerprintValueStore store) {
-    return createForTesting(store, /* exerciseDeserializationForTesting= */ true);
+    return createForTesting(store, FingerprintValueCache.SyncMode.NOT_LINKED);
   }
 
   @VisibleForTesting
-  public static FingerprintValueService createForTesting(
-      boolean exerciseDeserializationForTesting) {
-    return createForTesting(
-        FingerprintValueStore.inMemoryStore(), exerciseDeserializationForTesting);
+  public static FingerprintValueService createForTesting(FingerprintValueCache.SyncMode mode) {
+    return createForTesting(FingerprintValueStore.inMemoryStore(), mode);
   }
 
   private static FingerprintValueService createForTesting(
-      FingerprintValueStore store, boolean exerciseDeserializationForTesting) {
+      FingerprintValueStore store, FingerprintValueCache.SyncMode mode) {
     return new FingerprintValueService(
-        newSingleThreadExecutor(),
-        store,
-        new FingerprintValueCache(exerciseDeserializationForTesting),
-        Hashing.murmur3_128());
+        newSingleThreadExecutor(), store, new FingerprintValueCache(mode), Hashing.murmur3_128());
   }
 
   public FingerprintValueService(

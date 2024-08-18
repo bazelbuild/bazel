@@ -28,6 +28,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.ActionConfig;
@@ -41,8 +42,8 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValu
 import com.google.devtools.build.lib.rules.cpp.CcToolchainVariables.VariableValueBuilder;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.config.crosstool.CrosstoolConfig.CToolchain;
@@ -289,7 +290,8 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                 "feature { name: 'g' }")
             .getFeatureConfiguration(ImmutableSet.of("a", "b", "d", "f"));
     ImmutableMap<String, String> env =
-        configuration.getEnvironmentVariables(CppActionNames.CPP_COMPILE, createVariables());
+        configuration.getEnvironmentVariables(
+            CppActionNames.CPP_COMPILE, createVariables(), PathMapper.NOOP);
     assertThat(env)
         .containsExactly(
             "foo", "bar", "cat", "meow", "dog", "woof",
@@ -314,7 +316,8 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
             .getFeatureConfiguration(ImmutableSet.of("a"));
 
     ImmutableMap<String, String> env =
-        configuration.getEnvironmentVariables(CppActionNames.CPP_COMPILE, createVariables());
+        configuration.getEnvironmentVariables(
+            CppActionNames.CPP_COMPILE, createVariables(), PathMapper.NOOP);
 
     assertThat(env).doesNotContainEntry("foo", "bar");
   }
@@ -334,7 +337,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
 
     ImmutableMap<String, String> env =
         configuration.getEnvironmentVariables(
-            CppActionNames.CPP_COMPILE, createVariables("v", "1"));
+            CppActionNames.CPP_COMPILE, createVariables("v", "1"), PathMapper.NOOP);
 
     assertThat(env).containsExactly("foo", "bar").inOrder();
   }
@@ -355,7 +358,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
 
     ImmutableMap<String, String> env =
         configuration.getEnvironmentVariables(
-            CppActionNames.CPP_COMPILE, createVariables("v", "1"));
+            CppActionNames.CPP_COMPILE, createVariables("v", "1"), PathMapper.NOOP);
 
     assertThat(env).containsExactly("foo", "1").inOrder();
   }
@@ -1257,7 +1260,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
                 .getCommandLine(CppActionNames.CPP_COMPILE, createVariables("v", "1")))
         .containsExactly("-f", "1");
 
-    CcToolchainFeatures deserialized = TestUtils.roundTrip(features);
+    CcToolchainFeatures deserialized = RoundTripping.roundTrip(features);
     assertThat(getEnabledFeatures(deserialized, "b")).containsExactly("a", "b");
     assertThat(
             features
@@ -1728,7 +1731,7 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     assertThat(
             LibraryToLinkValue.forDynamicLibrary("foo")
                 .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.NAME_FIELD_NAME)
-                .getStringValue(LibraryToLinkValue.NAME_FIELD_NAME))
+                .getStringValue(LibraryToLinkValue.NAME_FIELD_NAME, PathMapper.NOOP))
         .isEqualTo("foo");
     assertThat(
             LibraryToLinkValue.forDynamicLibrary("foo")
@@ -1745,10 +1748,10 @@ public final class CcToolchainFeaturesTest extends BuildViewTestCase {
     Iterable<? extends VariableValue> objects =
         LibraryToLinkValue.forObjectFileGroup(testArtifacts, false)
             .getFieldValue("LibraryToLinkValue", LibraryToLinkValue.OBJECT_FILES_FIELD_NAME)
-            .getSequenceValue(LibraryToLinkValue.OBJECT_FILES_FIELD_NAME);
+            .getSequenceValue(LibraryToLinkValue.OBJECT_FILES_FIELD_NAME, PathMapper.NOOP);
     ImmutableList.Builder<String> objectNames = ImmutableList.builder();
     for (VariableValue object : objects) {
-      objectNames.add(object.getStringValue("name"));
+      objectNames.add(object.getStringValue("name", PathMapper.NOOP));
     }
     assertThat(objectNames.build())
         .containsExactlyElementsIn(Iterables.transform(testArtifacts, Artifact::getExecPathString));

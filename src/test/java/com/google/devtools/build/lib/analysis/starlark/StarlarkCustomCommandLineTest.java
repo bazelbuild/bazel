@@ -15,29 +15,27 @@ package com.google.devtools.build.lib.analysis.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
-import static org.mockito.Mockito.mock;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
+import com.google.devtools.build.lib.actions.ArgChunk;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
-import com.google.devtools.build.lib.actions.Artifact.MissingExpansionException;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLine;
-import com.google.devtools.build.lib.actions.CommandLine.ArgChunk;
 import com.google.devtools.build.lib.actions.CommandLine.SimpleArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
-import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -210,7 +208,8 @@ public final class StarlarkCustomCommandLineTest {
     Fingerprint fingerprint = new Fingerprint();
 
     // TODO(b/167696101): Fail arguments computation when we are missing the directory from inputs.
-    commandLine.addToFingerprint(actionKeyContext, EMPTY_EXPANDER, fingerprint);
+    commandLine.addToFingerprint(
+        actionKeyContext, EMPTY_EXPANDER, CoreOptions.OutputPathsMode.OFF, fingerprint);
 
     assertThat(fingerprint.digestAndReset()).isNotEmpty();
   }
@@ -231,7 +230,8 @@ public final class StarlarkCustomCommandLineTest {
             /*treeExpansions=*/ ImmutableMap.of(),
             ImmutableMap.of(fileset, ImmutableList.of(symlink1, symlink2)));
 
-    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+    commandLine.addToFingerprint(
+        actionKeyContext, artifactExpander, CoreOptions.OutputPathsMode.OFF, fingerprint);
 
     assertThat(fingerprint.digestAndReset()).isNotEmpty();
   }
@@ -251,7 +251,8 @@ public final class StarlarkCustomCommandLineTest {
             ImmutableMap.of(tree, ImmutableSortedSet.of(child)),
             /*filesetExpansions*/ ImmutableMap.of());
 
-    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+    commandLine.addToFingerprint(
+        actionKeyContext, artifactExpander, CoreOptions.OutputPathsMode.OFF, fingerprint);
 
     assertThat(fingerprint.digestAndReset()).isNotEmpty();
   }
@@ -268,7 +269,9 @@ public final class StarlarkCustomCommandLineTest {
 
     assertThrows(
         CommandLineExpansionException.class,
-        () -> commandLine.addToFingerprint(actionKeyContext, EMPTY_EXPANDER, fingerprint));
+        () ->
+            commandLine.addToFingerprint(
+                actionKeyContext, EMPTY_EXPANDER, CoreOptions.OutputPathsMode.OFF, fingerprint));
   }
 
   @Test
@@ -353,11 +356,8 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   private FilesetOutputSymlink createFilesetSymlink(String relativePath) {
-    return FilesetOutputSymlink.create(
-        PathFragment.create(relativePath),
-        PathFragment.EMPTY_FRAGMENT,
-        mock(HasDigest.class),
-        execRoot.asFragment());
+    return FilesetOutputSymlink.createForTesting(
+        PathFragment.create(relativePath), PathFragment.EMPTY_FRAGMENT, execRoot.asFragment());
   }
 
   private SpecialArtifact createTreeArtifact(String relativePath) {

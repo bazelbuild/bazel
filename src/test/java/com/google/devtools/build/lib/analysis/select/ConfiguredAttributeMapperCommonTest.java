@@ -16,23 +16,22 @@ package com.google.devtools.build.lib.analysis.select;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.AbstractAttributeMapper;
 import com.google.devtools.build.lib.packages.ConfiguredAttributeMapper;
-import org.junit.Before;
+import com.google.devtools.build.lib.packages.Rule;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests that {@link ConfiguredAttributeMapper} fulfills all behavior expected
- * of {@link AbstractAttributeMapper}.
+ * Tests that {@link ConfiguredAttributeMapper} fulfills all behavior expected of {@link
+ * AbstractAttributeMapper}.
  *
- * <p>This is distinct from {@link
- * com.google.devtools.build.lib.analysis.ConfiguredAttributeMapperTest} because the latter needs to
+ * <p>This is distinct from {@link ConfiguredAttributeMapperTest} because the latter needs to
  * inherit from {@link com.google.devtools.build.lib.analysis.util.BuildViewTestCase} to run tests
  * with build configurations.
  */
 @RunWith(JUnit4.class)
 public class ConfiguredAttributeMapperCommonTest extends AbstractAttributeMapperTest {
-  @Before
-  public final void createMapper() throws Exception {
-    mapper = ConfiguredAttributeMapper.of(rule, ImmutableMap.of(), targetConfig);
+  @Override
+  protected AbstractAttributeMapper createMapper(Rule rule) {
+    return ConfiguredAttributeMapper.of(rule, ImmutableMap.of(), targetConfig);
   }
 }

@@ -95,6 +95,10 @@ public interface OptionsParsingResult extends OptionsProvider {
   // TODO(b/150222792): make this aware of Starlark options
   List<OptionValueDescription> asListOfOptionValues();
 
+  /** Returns all non-default option values, including implicit options. */
+  // TODO(b/150222792): make this aware of Starlark options
+  List<OptionValueDescription> allOptionValues();
+
   /**
    * Canonicalizes the list of options that this OptionsParser has parsed.
    *

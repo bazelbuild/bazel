@@ -21,7 +21,6 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -29,11 +28,9 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
-import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
-import java.lang.reflect.Field;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -228,15 +225,8 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
                 o ->
                     o.getKey().startsWith("incompatible_")
                         || o.getValue().hasOptionMetadataTag(OptionMetadataTag.INCOMPATIBLE_CHANGE))
-            .filter(
-                o ->
-                    o.getValue()
-                        .getDefinition()
-                        .getField()
-                        .getType()
-                        .isAssignableFrom(boolean.class))
-            .filter(
-                o -> !o.getValue().getDefinition().getField().isAnnotationPresent(Deprecated.class))
+            .filter(o -> o.getValue().getDefinition().getType().isAssignableFrom(boolean.class))
+            .filter(o -> !o.getValue().getDefinition().isDeprecated())
             // TODO: b/328442047 - Remove this when the flag is removed.
             .filter(
                 // Skipping this explicitly because it is a no-op but can't be removed yet.
@@ -249,14 +239,19 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
             .filter(o -> !o.getValue().hasOptionMetadataTag(OptionMetadataTag.INCOMPATIBLE_CHANGE))
             .map(o -> "--" + o.getValue().getDefinition().getOptionName())
             .collect(toImmutableList());
+    assertThat(missingMetadataTagOptions).isEmpty();
 
     // Flip all incompatible (boolean) options to their non-default value.
     BuildOptions flipped = defaultOptions.clone(); // To be flipped by below logic.
     for (OptionInfo option : incompatibleOptions.values()) {
-      Field field = option.getDefinition().getField();
       FragmentOptions fragment = flipped.get(option.getOptionClass());
-      field.setBoolean(fragment, !field.getBoolean(fragment));
+      boolean value = option.getDefinition().getBooleanValue(fragment);
+      option.getDefinition().setValue(fragment, !value);
     }
+
+    // Fix the details of the exec transition so that the check passes.
+    flipped.get(CoreOptions.class).starlarkExecConfig =
+        targetConfig.getOptions().get(CoreOptions.class).starlarkExecConfig;
 
     PatchTransition execTransition = getExecTransition(EXECUTION_PLATFORM);
     BuildOptions execOptions =
@@ -265,21 +260,30 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
             new StoredEventHandler());
 
     // Find which incompatible options are different in the exec config (shouldn't be any).
-    ImmutableMultimap.Builder<Class<? extends FragmentOptions>, OptionDefinition>
-        unpreservedOptions = new ImmutableMultimap.Builder<>();
+    ImmutableList.Builder<ChangedIncompatibleFlag> unpreservedOptions =
+        new ImmutableList.Builder<>();
     for (OptionInfo incompatibleOption : incompatibleOptions.values()) {
-      Field field = incompatibleOption.getDefinition().getField();
       Class<? extends FragmentOptions> optionClass = incompatibleOption.getOptionClass();
-      if (field.getBoolean(execOptions.get(optionClass))
-          != field.getBoolean(flipped.get(optionClass))) {
-        unpreservedOptions.put(
-            incompatibleOption.getOptionClass(), incompatibleOption.getDefinition());
+      boolean execValue =
+          incompatibleOption.getDefinition().getBooleanValue(execOptions.get(optionClass));
+      boolean flippedValue =
+          incompatibleOption.getDefinition().getBooleanValue(flipped.get(optionClass));
+      if (execValue != flippedValue) {
+        unpreservedOptions.add(
+            new ChangedIncompatibleFlag(
+                incompatibleOption.getOptionClass().getName(),
+                incompatibleOption.getDefinition().getOptionName(),
+                flippedValue,
+                execValue));
       }
     }
 
-    assertThat(missingMetadataTagOptions).isEmpty();
     assertThat(unpreservedOptions.build()).isEmpty();
   }
+
+  /** Store details of incompatible flags that have changed values unexpectedly. */
+  private record ChangedIncompatibleFlag(
+      String fragment, String flag, Object expectedValue, Object foundValue) {}
 
   @Test
   public void platformInOutputPathWorksInExecMode() throws Exception {

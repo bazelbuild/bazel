@@ -578,7 +578,11 @@ public final class BlazeCommandDispatcherTest {
     assertThat(result.getExitCode()).isEqualTo(ExitCode.COMMAND_LINE_ERROR);
   }
 
-  @Command(name = "wiz", inherits = {FooCommand.class}, shortDescription = "", help = "")
+  @Command(
+      name = "wiz",
+      inheritsOptionsFrom = {FooCommand.class},
+      shortDescription = "",
+      help = "")
   private static class WizCommand extends FooCommand {}
 
   @Test
@@ -701,6 +705,118 @@ public final class BlazeCommandDispatcherTest {
     dispatcher.exec(ImmutableList.of("retain_out_err"), "test", outErr);
 
     GcFinalization.awaitClear(cmd.reporterRef);
+  }
+
+  @Test
+  public void useHighestPriorityExitCode() throws Exception {
+    DetailedExitCode arbitraryError1 =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage("This error message should be overwritten.")
+                .setCommand(
+                    FailureDetails.Command.newBuilder()
+                        .setCode(FailureDetails.Command.Code.COMMAND_NOT_FOUND))
+                .build());
+    DetailedExitCode infrastructureFailure =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage("This is an infrastructure failure so this error should take priority.")
+                .setCommand(
+                    FailureDetails.Command.newBuilder()
+                        .setCode(
+                            FailureDetails.Command.Code
+                                .STARLARK_CPU_PROFILE_FILE_INITIALIZATION_FAILURE))
+                .build());
+    DetailedExitCode arbitraryError2 =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage("This error message should be overrwritten.")
+                .setCommand(
+                    FailureDetails.Command.newBuilder()
+                        .setCode(FailureDetails.Command.Code.INVOCATION_POLICY_INVALID))
+                .build());
+    initializeRuntimeInternal(
+        new BlazeModule() {
+          @Override
+          public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+            throw new AbruptExitException(arbitraryError1);
+          }
+        },
+        new BlazeModule() {
+          @Override
+          public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+            throw new AbruptExitException(infrastructureFailure);
+          }
+        },
+        new BlazeModule() {
+          @Override
+          public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+            throw new AbruptExitException(arbitraryError2);
+          }
+        });
+    runtime.overrideCommands(ImmutableList.of(foo));
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime);
+    BlazeCommandResult result =
+        dispatch.exec(Arrays.asList("foo", "--config=UNDEFINED_CONFIG_VALUE"), "test", outErr);
+    assertThat(result.getExitCode()).isEqualTo(ExitCode.LOCAL_ENVIRONMENTAL_ERROR);
+    assertThat(result.getExitCode().isInfrastructureFailure()).isTrue();
+    assertThat(result.getDetailedExitCode()).isEqualTo(infrastructureFailure);
+    assertThat(outErr.errAsLatin1())
+        .contains("This is an infrastructure failure so this error should take priority.");
+  }
+
+  @Test
+  public void useFirstExitCodeIfAllHaveEquivalentPriority() throws Exception {
+    // The options parsing failure should be encountered first.
+    DetailedExitCode optionsParseFailure =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage(
+                    "Error parsing options: Config value \'UNDEFINED_CONFIG_VALUE\' is not defined"
+                        + " in any .rc file")
+                .setCommand(
+                    FailureDetails.Command.newBuilder()
+                        .setCode(FailureDetails.Command.Code.OPTIONS_PARSE_FAILURE))
+                .build());
+    DetailedExitCode arbitraryError1 =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage("This error message should be overrwritten.")
+                .setCommand(
+                    FailureDetails.Command.newBuilder()
+                        // Arbitrarily chosen error code.
+                        .setCode(FailureDetails.Command.Code.INVOCATION_POLICY_INVALID))
+                .build());
+    DetailedExitCode arbitraryError2 =
+        DetailedExitCode.of(
+            FailureDetail.newBuilder()
+                .setMessage("This error message should be overwritten.")
+                .setCommand(
+                    FailureDetails.Command.newBuilder()
+                        // Arbitrarily chosen error code.
+                        .setCode(FailureDetails.Command.Code.COMMAND_NOT_FOUND))
+                .build());
+    initializeRuntimeInternal(
+        new BlazeModule() {
+          @Override
+          public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+            throw new AbruptExitException(arbitraryError1);
+          }
+        },
+        new BlazeModule() {
+          @Override
+          public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
+            throw new AbruptExitException(arbitraryError2);
+          }
+        });
+    runtime.overrideCommands(ImmutableList.of(foo));
+    BlazeCommandDispatcher dispatch = new BlazeCommandDispatcher(runtime);
+    BlazeCommandResult result =
+        dispatch.exec(Arrays.asList("foo", "--config=UNDEFINED_CONFIG_VALUE"), "test", outErr);
+    assertThat(result.getExitCode()).isEqualTo(ExitCode.COMMAND_LINE_ERROR);
+    assertThat(result.getDetailedExitCode()).isEqualTo(optionsParseFailure);
+    assertThat(outErr.errAsLatin1())
+        .contains("Config value 'UNDEFINED_CONFIG_VALUE' is not defined in any .rc file");
   }
 
   @Command(

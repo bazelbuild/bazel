@@ -35,6 +35,8 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Bui
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ActionSummary.RunnerCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ArtifactMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.AspectCount;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.RuleClassCount;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.CumulativeMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.DynamicExecutionMetrics;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.MemoryMetrics;
@@ -63,6 +65,8 @@ import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.SpawnStats;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
+import com.google.devtools.build.lib.skyframe.SkyKeyStats;
+import com.google.devtools.build.lib.skyframe.SkyframeStats;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.SomeExecutionStartedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
 import com.google.devtools.build.lib.worker.WorkerProcessMetrics;
@@ -88,6 +92,7 @@ class MetricsCollector {
 
   private final CommandEnvironment env;
   private final boolean recordMetricsForAllMnemonics;
+  private final boolean recordSkyframeMetrics;
   // For ActionSummary.
   private final ConcurrentHashMap<String, ActionStats> actionStatsMap = new ConcurrentHashMap<>();
 
@@ -117,6 +122,7 @@ class MetricsCollector {
     this.env = env;
     Options options = env.getOptions().getOptions(Options.class);
     this.recordMetricsForAllMnemonics = options != null && options.recordMetricsForAllMnemonics;
+    this.recordSkyframeMetrics = options != null && options.recordSkyframeMetrics;
     this.numAnalyses = numAnalyses;
     this.numBuilds = numBuilds;
     env.getEventBus().register(this);
@@ -166,6 +172,13 @@ class MetricsCollector {
         }
         metrics.forEach(packageMetrics::addPackageLoadMetrics);
       }
+    }
+
+    ImmutableMap<String, Integer> actionsConstructedByMnemonic =
+        event.getActionsConstructedByMnemonic();
+    for (var entry : actionsConstructedByMnemonic.entrySet()) {
+      ActionStats actionStats = actionStatsMap.computeIfAbsent(entry.getKey(), ActionStats::new);
+      actionStats.numActionsRegistered.addAndGet(entry.getValue());
     }
   }
 
@@ -223,7 +236,7 @@ class MetricsCollector {
   public void onActionComplete(ActionCompletionEvent event) {
     ActionStats actionStats =
         actionStatsMap.computeIfAbsent(event.getAction().getMnemonic(), ActionStats::new);
-    actionStats.numActions.incrementAndGet();
+    actionStats.numActionsExecuted.incrementAndGet();
     actionStats.firstStarted.accumulate(event.getRelativeActionStartTimeNanos());
     actionStats.lastEnded.accumulate(BlazeClock.nanoTime());
     spawnStats.incrementActionCount();
@@ -314,6 +327,8 @@ class MetricsCollector {
                 .collect(toImmutableList()),
             WorkerProcessMetricsCollector.MAX_PUBLISHED_WORKER_METRICS);
 
+    addSkyframeStats(buildGraphMetrics);
+
     BuildMetrics.Builder buildMetrics =
         BuildMetrics.newBuilder()
             .setActionSummary(finishActionSummary())
@@ -347,7 +362,8 @@ class MetricsCollector {
                     actionStats.firstStarted.longValue()))
             .setLastEndedMs(
                 nanosToMillisSinceEpochConverter.toEpochMillis(actionStats.lastEnded.longValue()))
-            .setActionsExecuted(actionStats.numActions.get());
+            .setActionsExecuted(actionStats.numActionsExecuted.get())
+            .setActionsCreated(actionStats.numActionsRegistered.get());
     long systemTime = actionStats.systemTime.get();
     if (systemTime > 0) {
       builder.setSystemTime(Durations.fromMillis(systemTime));
@@ -363,12 +379,14 @@ class MetricsCollector {
 
   private ActionSummary finishActionSummary() {
     Stream<ActionStats> actionStatsStream = actionStatsMap.values().stream();
+
     if (!recordMetricsForAllMnemonics) {
       actionStatsStream =
           actionStatsStream
-              .sorted(Comparator.comparingLong(a -> -a.numActions.get()))
+              .sorted(Comparator.comparingLong(a -> -a.numActionsExecuted.get()))
               .limit(MAX_ACTION_DATA);
     }
+
     actionStatsStream.forEach(action -> actionSummary.addActionData(buildActionData(action)));
 
     ImmutableMap<String, Integer> spawnSummary = spawnStats.getSummary();
@@ -386,6 +404,50 @@ class MetricsCollector {
               actionSummary.addRunnerCount(builder.build());
             });
     return actionSummary.build();
+  }
+
+  private void addSkyframeStats(BuildGraphMetrics.Builder builder) {
+    // short-circuit if not requested
+    if (!recordSkyframeMetrics) {
+      return;
+    }
+
+    // NOTE: This can potentially unintentionally consume a pending Exception by
+    // calling getSkyframeStats, with our Reporter which ends up consuming the
+    // analysis failure unintentionally.  So if our CommandEnvironment has a
+    // pending exception, don't touch the Skyframe executor.
+    if (env.getPendingException() != null) {
+      return;
+    }
+
+    // getSkyframeStats return Nullable for unsupported implementations, so
+    // ensure we get stats before proceeding.
+    SkyframeStats skyframeStats = env.getSkyframeExecutor().getSkyframeStats(env.getReporter());
+    if (skyframeStats == null) {
+      return;
+    }
+
+    Stream<SkyKeyStats> ruleActionStats = skyframeStats.ruleStats().stream();
+    Stream<SkyKeyStats> aspectActionStats = skyframeStats.aspectStats().stream();
+
+    ruleActionStats.forEach(
+        a ->
+            builder.addRuleClass(
+                RuleClassCount.newBuilder()
+                    .setKey(a.getKey())
+                    .setRuleClass(a.getName())
+                    .setCount(a.getCount())
+                    .setActionCount(a.getActionCount())
+                    .build()));
+    aspectActionStats.forEach(
+        a ->
+            builder.addAspect(
+                AspectCount.newBuilder()
+                    .setKey(a.getKey())
+                    .setAspectName(a.getName())
+                    .setCount(a.getCount())
+                    .setActionCount(a.getActionCount())
+                    .build()));
   }
 
   private MemoryMetrics createMemoryMetrics() {
@@ -482,25 +544,16 @@ class MetricsCollector {
       WorkerProcessStatus status = wpm.getStatus();
       if (status.isKilled()) {
         switch (status.get()) {
-            // If the process is killed due to a specific reason, we attribute the cause to all
-            // workers of that process (plural in the case of multiplex workers).
-          case KILLED_UNKNOWN:
-            unknownDestroyedCount += numWorkers;
-            break;
-          case KILLED_DUE_TO_INTERRUPTED_EXCEPTION:
-            interruptedExceptionDestroyedCount += numWorkers;
-            break;
-          case KILLED_DUE_TO_IO_EXCEPTION:
-            ioExceptionDestroyedCount += numWorkers;
-            break;
-          case KILLED_DUE_TO_MEMORY_PRESSURE:
-            evictedCount += numWorkers;
-            break;
-          case KILLED_DUE_TO_USER_EXEC_EXCEPTION:
-            userExecExceptionDestroyedCount += numWorkers;
-            break;
-          default:
-            break;
+          // If the process is killed due to a specific reason, we attribute the cause to all
+          // workers of that process (plural in the case of multiplex workers).
+
+          case KILLED_UNKNOWN -> unknownDestroyedCount += numWorkers;
+          case KILLED_DUE_TO_INTERRUPTED_EXCEPTION ->
+              interruptedExceptionDestroyedCount += numWorkers;
+          case KILLED_DUE_TO_IO_EXCEPTION -> ioExceptionDestroyedCount += numWorkers;
+          case KILLED_DUE_TO_MEMORY_PRESSURE -> evictedCount += numWorkers;
+          case KILLED_DUE_TO_USER_EXEC_EXCEPTION -> userExecExceptionDestroyedCount += numWorkers;
+          default -> {}
         }
         destroyedCount += numWorkers;
       } else {
@@ -528,7 +581,8 @@ class MetricsCollector {
 
     final LongAccumulator firstStarted;
     final LongAccumulator lastEnded;
-    final AtomicLong numActions;
+    final AtomicLong numActionsExecuted;
+    final AtomicLong numActionsRegistered;
     final String mnemonic;
     final AtomicLong systemTime;
     final AtomicLong userTime;
@@ -537,7 +591,8 @@ class MetricsCollector {
       this.mnemonic = mnemonic;
       firstStarted = new LongAccumulator(Math::min, Long.MAX_VALUE);
       lastEnded = new LongAccumulator(Math::max, 0);
-      numActions = new AtomicLong();
+      numActionsExecuted = new AtomicLong();
+      numActionsRegistered = new AtomicLong();
       systemTime = new AtomicLong();
       userTime = new AtomicLong();
     }
@@ -565,12 +620,8 @@ class MetricsCollector {
             }
 
             switch (winner) {
-              case LOCAL:
-                newValue.incrementLocalWins();
-                break;
-              case REMOTE:
-                newValue.incrementRemoteWins();
-                break;
+              case LOCAL -> newValue.incrementLocalWins();
+              case REMOTE -> newValue.incrementRemoteWins();
             }
 
             return newValue;

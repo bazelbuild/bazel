@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.shell;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.windows.WindowsProcesses;
@@ -120,37 +121,34 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
   }
 
   /** Converts an environment map to the format expected in lpEnvironment by CreateProcess(). */
-  private static byte[] convertEnvToNative(Map<String, String> envMap) throws IOException {
-    Map<String, String> realEnv = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-    Map<String, String> systemEnv = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+  private static byte[] convertEnvToNative(Map<String, String> envMap) {
+    Map<String, String> fullEnv = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+
     if (envMap != null) {
-      realEnv.putAll(envMap);
-    }
-    // It is fine to use System.getenv to get default SYSTEMROOT and SYSTEMDRIVE, because they are
-    // very special system environment variables and Bazel's client and server are running on the
-    // same machine, so it should be the same in client environment.
-    systemEnv.putAll(System.getenv());
-    // Some versions of MSVCRT.DLL and tools require SYSTEMROOT and SYSTEMDRIVE to be set. They are
-    // very common environment variables on Windows, so we add these environment variables
-    // regardless of whether the caller requested it or not.
-    String[] systemEnvironmentVars = {"SYSTEMROOT", "SYSTEMDRIVE"};
-    for (String env : systemEnvironmentVars) {
-      if (realEnv.getOrDefault(env, null) == null) {
-        String value = systemEnv.getOrDefault(env, null);
-        if (value != null) {
-          realEnv.put(env, value);
+      fullEnv.putAll(envMap);
+      // Some versions of MSVCRT.DLL and tools require SYSTEMROOT and SYSTEMDRIVE to be set. They
+      // are very common environment variables on Windows, so we add these environment variables
+      // regardless of whether the caller requested it or not.
+      for (String env : ImmutableList.of("SYSTEMROOT", "SYSTEMDRIVE")) {
+        if (fullEnv.getOrDefault(env, null) == null) {
+          String value = System.getenv(env);
+          if (value != null) {
+            fullEnv.put(env, value);
+          }
         }
       }
+    } else {
+      fullEnv.putAll(System.getenv());
     }
 
-    if (realEnv.isEmpty()) {
+    if (fullEnv.isEmpty()) {
       // Special case: CreateProcess() always expects the environment block to be terminated
       // with two zeros.
       return "\0".getBytes(StandardCharsets.UTF_16LE);
     }
 
     StringBuilder result = new StringBuilder();
-    for (Map.Entry<String, String> entry : realEnv.entrySet()) {
+    for (Map.Entry<String, String> entry : fullEnv.entrySet()) {
       if (entry.getKey().contains("=")) {
         // lpEnvironment requires no '=' in environment variable name, but on Windows,
         // System.getenv() returns environment variables like '=C:' or '=ExitCode', so it can't

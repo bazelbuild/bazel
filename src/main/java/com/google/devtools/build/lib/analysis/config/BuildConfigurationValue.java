@@ -82,13 +82,6 @@ public class BuildConfigurationValue
   private static final Interner<ImmutableSortedMap<Class<? extends Fragment>, Fragment>>
       fragmentsInterner = BlazeInterners.newWeakInterner();
 
-  private static final ImmutableSet<BuiltinRestriction.AllowlistEntry> ANDROID_ALLOWLIST =
-      ImmutableSet.of(
-          BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_android"),
-          BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
-          BuiltinRestriction.allowlistEntry("rules_android", ""),
-          BuiltinRestriction.allowlistEntry("", "tools/build_defs/android"));
-
   /** Global state necessary to build a BuildConfiguration. */
   public interface GlobalStateProvider {
     /** Computes the default shell environment for actions from the command line options. */
@@ -360,7 +353,9 @@ public class BuildConfigurationValue
     return outputDirectories.getOutputDirectory(repositoryName);
   }
 
-  /** @deprecated Use {@link #getBinDirectory} instead. */
+  /**
+   * @deprecated Use {@link #getBinDirectory} instead.
+   */
   @Override
   @Deprecated
   public ArtifactRoot getBinDir() {
@@ -392,7 +387,9 @@ public class BuildConfigurationValue
     return outputDirectories.getBinDirectory(repositoryName).getExecPath();
   }
 
-  /** @deprecated Use {@link #getGenfilesDirectory} instead. */
+  /**
+   * @deprecated Use {@link #getGenfilesDirectory} instead.
+   */
   @Override
   @Deprecated
   public ArtifactRoot getGenfilesDir() {
@@ -416,7 +413,7 @@ public class BuildConfigurationValue
   @Override
   public boolean hasSeparateGenfilesDirectoryForStarlark(StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return hasSeparateGenfilesDirectory();
   }
 
@@ -525,7 +522,7 @@ public class BuildConfigurationValue
 
   @Override
   public boolean isSiblingRepositoryLayoutForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return isSiblingRepositoryLayout();
   }
 
@@ -660,7 +657,7 @@ public class BuildConfigurationValue
 
   @Override
   public boolean stampBinariesForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return stampBinaries();
   }
 
@@ -721,8 +718,14 @@ public class BuildConfigurationValue
     return options.collectCodeCoverage;
   }
 
+  @Nullable
   public RunUnder getRunUnder() {
     return options.runUnder;
+  }
+
+  /** Should the {@code --run_under} be configured in the exec configuration? */
+  public boolean runUnderExecConfigForTests() {
+    return options.bazelTestExecRunUnder;
   }
 
   /** Returns true if this is an execution configuration. */
@@ -737,7 +740,7 @@ public class BuildConfigurationValue
 
   @Override
   public boolean isToolConfigurationForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ANDROID_ALLOWLIST);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return isToolConfiguration();
   }
 
@@ -880,7 +883,7 @@ public class BuildConfigurationValue
 
   @Override
   public boolean runfilesEnabledForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return runfilesEnabled();
   }
 
@@ -894,7 +897,8 @@ public class BuildConfigurationValue
    */
   public ImmutableMap<String, String> modifiedExecutionInfo(
       ImmutableMap<String, String> executionInfo, String mnemonic) {
-    if (!options.executionInfoModifier.matches(mnemonic)) {
+    if (!ExecutionInfoModifier.matches(
+        options.executionInfoModifier, options.additiveModifyExecutionInfo, mnemonic)) {
       return executionInfo;
     }
     Map<String, String> mutableCopy = new HashMap<>(executionInfo);
@@ -904,7 +908,11 @@ public class BuildConfigurationValue
 
   /** Applies {@code executionInfoModifiers} to the given {@code executionInfo}. */
   public void modifyExecutionInfo(Map<String, String> executionInfo, String mnemonic) {
-    options.executionInfoModifier.apply(mnemonic, executionInfo);
+    ExecutionInfoModifier.apply(
+        options.executionInfoModifier,
+        options.additiveModifyExecutionInfo,
+        mnemonic,
+        executionInfo);
   }
 
   /** Returns the list of default features used for all packages. */

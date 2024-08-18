@@ -221,10 +221,12 @@ public interface NodeEntry {
   }
 
   /**
-   * Returns the value stored in this entry. This method may only be called after the evaluation of
-   * this node is complete, i.e., after {@link #setValue} has been called.
+   * Returns the value stored in this entry, or {@code null} if it has only an error.
+   *
+   * <p>This method may only be called when the node {@link #isDone}.
    */
   @ThreadSafe
+  @Nullable
   SkyValue getValue() throws InterruptedException;
 
   /**
@@ -287,8 +289,9 @@ public interface NodeEntry {
   /**
    * Returns the last known value of this node, even if it was {@linkplain #markDirty marked dirty}.
    *
-   * <p>Unlike {@link #getValue}, this method may be called at any point in the node's lifecycle.
-   * Returns {@code null} if this node was never built or has no value because it is in error.
+   * <p>If this node {@link #isDone}, this is equivalent to {@link #getValue}. Unlike {@link
+   * #getValue}, however, this method may be called at any point in the node's lifecycle. Returns
+   * {@code null} if this node was never built or has no value because it is in error.
    */
   @ThreadSafe
   @Nullable

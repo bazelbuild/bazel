@@ -19,6 +19,7 @@ import static com.google.devtools.build.skyframe.WalkableGraphUtils.exists;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
@@ -213,9 +214,9 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     WalkableGraph walkableGraph = getGraphFromPatternsEvaluation(patternSequence);
 
     // Then the graph contains a value for the target "@//rinne:rinne" and the dep
-    // "@@repo~//a:x",
+    // "@@repo+//a:x",
     assertValidValue(walkableGraph, getKeyForLabel(Label.create("//rinne", "rinne")));
-    assertValidValue(walkableGraph, getKeyForLabel(Label.create("@repo~//a", "x")));
+    assertValidValue(walkableGraph, getKeyForLabel(Label.create("@repo+//a", "x")));
   }
 
   // Regression test for b/225877591 ("Unexpected missing value in PrepareDepsOfPatternsFunction
@@ -268,7 +269,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     registry = FakeRegistry.DEFAULT_FACTORY.newFakeRegistry(moduleRoot.getPathString());
     return ImmutableList.of(
         PrecomputedValue.injected(
-            ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+            ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(
             BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES, CheckDirectDepsMode.WARNING),
@@ -364,9 +365,9 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
     registry.addModule(
         ModuleKey.create("repo", Version.parse("1.0")),
         "module(name = \"repo\", version = \"1.0\")");
-    scratch.file(moduleRoot.getRelative("repo~1.0/WORKSPACE").getPathString(), "");
+    scratch.file(moduleRoot.getRelative("repo+1.0/WORKSPACE").getPathString(), "");
     scratch.file(
-        moduleRoot.getRelative("repo~1.0/a/BUILD").getPathString(), "exports_files(['x'])");
+        moduleRoot.getRelative("repo+1.0/a/BUILD").getPathString(), "exports_files(['x'])");
     invalidatePackages();
   }
 

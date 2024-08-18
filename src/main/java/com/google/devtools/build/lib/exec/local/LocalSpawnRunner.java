@@ -52,12 +52,10 @@ import com.google.devtools.build.lib.runtime.ProcessWrapper;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
-import com.google.devtools.build.lib.shell.ExecutionStatistics;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.TerminationStatus;
 import com.google.devtools.build.lib.util.NetUtil;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.FormatMethod;
@@ -470,29 +468,8 @@ public class LocalSpawnRunner implements SpawnRunner {
         if (status != Status.SUCCESS) {
           spawnResultBuilder.setFailureDetail(makeFailureDetail(exitCode, status, actionType));
         }
-        if (statisticsPath != null && statisticsPath.exists()) {
-          ExecutionStatistics.getResourceUsage(statisticsPath)
-              .ifPresent(
-                  resourceUsage -> {
-                    spawnResultBuilder.setUserTimeInMs(
-                        (int) resourceUsage.getUserExecutionTime().toMillis());
-                    spawnResultBuilder.setSystemTimeInMs(
-                        (int) resourceUsage.getSystemExecutionTime().toMillis());
-                    spawnResultBuilder.setNumBlockOutputOperations(
-                        resourceUsage.getBlockOutputOperations());
-                    spawnResultBuilder.setNumBlockInputOperations(
-                        resourceUsage.getBlockInputOperations());
-                    spawnResultBuilder.setNumInvoluntaryContextSwitches(
-                        resourceUsage.getInvoluntaryContextSwitches());
-                    // The memory usage of the largest child process. For Darwin maxrss returns size
-                    // in bytes.
-                    if (OS.getCurrent() == OS.DARWIN) {
-                      spawnResultBuilder.setMemoryInKb(
-                          resourceUsage.getMaximumResidentSetSize() / 1000);
-                    } else {
-                      spawnResultBuilder.setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
-                    }
-                  });
+        if (statisticsPath != null) {
+          spawnResultBuilder.setResourceUsageFromProto(statisticsPath);
         }
         spawnMetrics.setTotalTimeInMs((int) totalTimeStopwatch.elapsed().toMillis());
         spawnResultBuilder.setSpawnMetrics(spawnMetrics.build());
@@ -561,32 +538,17 @@ public class LocalSpawnRunner implements SpawnRunner {
   private static FailureDetail makeFailureDetail(int exitCode, Status status, String actionType) {
     FailureDetails.Spawn.Builder spawnFailure = FailureDetails.Spawn.newBuilder();
     switch (status) {
-      case SUCCESS:
-        throw new AssertionError("makeFailureDetail() called with Status == SUCCESS");
-      case NON_ZERO_EXIT:
-        spawnFailure.setCode(Code.NON_ZERO_EXIT).setSpawnExitCode(exitCode);
-        break;
-      case TIMEOUT:
-        spawnFailure.setCode(Code.TIMEOUT);
-        break;
-      case OUT_OF_MEMORY:
-        spawnFailure.setCode(Code.OUT_OF_MEMORY);
-        break;
-      case EXECUTION_FAILED:
-        spawnFailure.setCode(Code.EXECUTION_FAILED);
-        break;
-      case EXECUTION_FAILED_CATASTROPHICALLY:
-        spawnFailure.setCode(Code.EXECUTION_FAILED).setCatastrophic(true);
-        break;
-      case EXECUTION_DENIED:
-        spawnFailure.setCode(Code.EXECUTION_DENIED);
-        break;
-      case EXECUTION_DENIED_CATASTROPHICALLY:
-        spawnFailure.setCode(Code.EXECUTION_DENIED).setCatastrophic(true);
-        break;
-      case REMOTE_CACHE_FAILED:
-        spawnFailure.setCode(Code.REMOTE_CACHE_FAILED);
-        break;
+      case SUCCESS -> throw new AssertionError("makeFailureDetail() called with Status == SUCCESS");
+      case NON_ZERO_EXIT -> spawnFailure.setCode(Code.NON_ZERO_EXIT).setSpawnExitCode(exitCode);
+      case TIMEOUT -> spawnFailure.setCode(Code.TIMEOUT);
+      case OUT_OF_MEMORY -> spawnFailure.setCode(Code.OUT_OF_MEMORY);
+      case EXECUTION_FAILED -> spawnFailure.setCode(Code.EXECUTION_FAILED);
+      case EXECUTION_FAILED_CATASTROPHICALLY ->
+          spawnFailure.setCode(Code.EXECUTION_FAILED).setCatastrophic(true);
+      case EXECUTION_DENIED -> spawnFailure.setCode(Code.EXECUTION_DENIED);
+      case EXECUTION_DENIED_CATASTROPHICALLY ->
+          spawnFailure.setCode(Code.EXECUTION_DENIED).setCatastrophic(true);
+      case REMOTE_CACHE_FAILED -> spawnFailure.setCode(Code.REMOTE_CACHE_FAILED);
     }
     return FailureDetail.newBuilder()
         .setMessage("local spawn failed for " + actionType)

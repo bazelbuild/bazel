@@ -17,8 +17,10 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -55,6 +57,8 @@ import javax.annotation.Nullable;
  * WorkerMultiplexer} wakes up the relevant {@code WorkerProxy} to retrieve the response.
  */
 public class WorkerMultiplexer {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
+
   /**
    * A queue of {@link WorkRequest} instances that need to be sent to the worker. {@link
    * WorkerProxy} instances add to this queue, while the requestSender subthread remove requests and
@@ -148,7 +152,10 @@ public class WorkerMultiplexer {
    * sets up the sandbox root dir with the required worker files.
    */
   public synchronized void createSandboxedProcess(
-      Path workDir, Set<PathFragment> workerFiles, SandboxInputs inputFiles)
+      Path workDir,
+      Set<PathFragment> workerFiles,
+      SandboxInputs inputFiles,
+      TreeDeleter treeDeleter)
       throws IOException, InterruptedException {
     // TODO: Make blaze clean remove the workdir.
     if (this.process == null) {
@@ -164,7 +171,12 @@ public class WorkerMultiplexer {
           workerFiles,
           SandboxOutputs.getEmptyInstance());
       SandboxHelpers.cleanExisting(
-          workDir.getParentDirectory(), inputFiles, inputsToCreate, dirsToCreate, workDir);
+          workDir.getParentDirectory(),
+          inputFiles,
+          inputsToCreate,
+          dirsToCreate,
+          workDir,
+          treeDeleter);
       SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict=*/ false);
       WorkerExecRoot.createInputs(inputsToCreate, inputFiles.limitedCopy(workerFiles), workDir);
       createProcess(workDir);
@@ -218,6 +230,8 @@ public class WorkerMultiplexer {
         }
       }
       String id = workerKey.getMnemonic() + "-" + workerKey.hashCode();
+      logger.atInfo().log(
+          "Created multiplexer process %s for worker %s", process.getProcessId(), id);
       // TODO(larsrc): Consider moving sender/receiver threads into separate classes.
       this.requestSender =
           new Thread(

@@ -18,7 +18,6 @@ java_library(
         "StarlarkDocExtractRule.java",
     ],
     deps = [
-        ":moduleinfoextractor",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/binary_file_write_action",
@@ -33,30 +32,15 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:labelrenderer",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:moduleinfoextractor",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//src/main/java/com/google/devtools/build/skydoc/rendering:rendering_util",
-        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:stardoc_output_java_proto",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
-    ],
-)
-
-java_library(
-    name = "moduleinfoextractor",
-    srcs = ["ModuleInfoExtractor.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
-        "//src/main/java/com/google/devtools/build/lib/bazel/repository/starlark",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/skydoc/rendering:rendering_util",
-        "//src/main/java/net/starlark/java/eval",
-        "//src/main/protobuf:stardoc_output_java_proto",
-        "//third_party:guava",
     ],
 )

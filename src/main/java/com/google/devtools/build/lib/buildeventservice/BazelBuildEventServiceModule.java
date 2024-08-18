@@ -183,7 +183,7 @@ public class BazelBuildEventServiceModule
   }
 
   @Override
-  protected String getInvocationIdPrefix(String commandName) {
+  protected String getInvocationIdPrefix() {
     if (Strings.isNullOrEmpty(besOptions.besResultsUrl)) {
       return "";
     }

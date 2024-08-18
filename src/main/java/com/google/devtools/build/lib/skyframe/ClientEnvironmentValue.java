@@ -37,8 +37,8 @@ public final class ClientEnvironmentValue implements SkyValue {
 
   @Override
   public boolean equals(Object o) {
-    return (o instanceof ClientEnvironmentValue)
-        && Objects.equals(((ClientEnvironmentValue) o).value, value);
+    return o instanceof ClientEnvironmentValue clientEnvironmentValue
+        && Objects.equals(clientEnvironmentValue.value, value);
   }
 
   @Override

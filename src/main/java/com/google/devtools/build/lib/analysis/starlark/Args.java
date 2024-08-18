@@ -71,7 +71,7 @@ public abstract class Args implements CommandLineArgsApi {
   }
 
   @Override
-  public void debugPrint(Printer printer, StarlarkSemantics semantics) {
+  public void debugPrint(Printer printer, StarlarkThread thread) {
     try {
       printer.append(
           Joiner.on(" ").join(build(/* mainRepoMappingSupplier= */ () -> null).arguments()));
@@ -572,22 +572,22 @@ public abstract class Args implements CommandLineArgsApi {
       final ParameterFileType parameterFileType;
       final boolean flagPerLine;
       switch (format) {
-        case "shell":
+        case "shell" -> {
           parameterFileType = ParameterFileType.SHELL_QUOTED;
           flagPerLine = false;
-          break;
-        case "multiline":
+        }
+        case "multiline" -> {
           parameterFileType = ParameterFileType.UNQUOTED;
           flagPerLine = false;
-          break;
-        case "flag_per_line":
+        }
+        case "flag_per_line" -> {
           parameterFileType = ParameterFileType.UNQUOTED;
           flagPerLine = true;
-          break;
-        default:
-          throw Starlark.errorf(
-              "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\","
-                  + " \"flag_per_line\"");
+        }
+        default ->
+            throw Starlark.errorf(
+                "Invalid value for parameter \"format\": Expected one of \"shell\", \"multiline\","
+                    + " \"flag_per_line\"");
       }
       this.parameterFileType = parameterFileType;
       this.flagPerLine = flagPerLine;

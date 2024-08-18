@@ -84,8 +84,8 @@ public final class CppCompileActionBuilder {
       CppSemantics cppSemantics) {
 
     ActionOwner actionOwner = null;
-    if (actionConstructionContext instanceof RuleContext
-        && ((RuleContext) actionConstructionContext).useAutoExecGroups()) {
+    if (actionConstructionContext instanceof RuleContext ruleContext
+        && ruleContext.useAutoExecGroups()) {
       actionOwner = actionConstructionContext.getActionOwner(cppSemantics.getCppToolchainType());
     }
 

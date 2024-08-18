@@ -393,9 +393,7 @@ public class GenQueryDirectPackageProviderFactory implements GenQueryPackageProv
               fromRule.getLabel(),
               toLabel);
       AdvertisedProviderSet advertisedProviderSet =
-          toTarget instanceof Rule
-              ? ((Rule) toTarget).getRuleClassObject().getAdvertisedProviders()
-              : null;
+          toTarget instanceof Rule rule ? rule.getRuleClassObject().getAdvertisedProviders() : null;
       if (advertisedProviderSet != null
           && AspectDefinition.satisfies(aspect, advertisedProviderSet)) {
         return true;

@@ -16,12 +16,13 @@ package com.google.devtools.build.lib.analysis.producers;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CommonOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
@@ -32,8 +33,10 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.Map;
+import java.util.List;
 import javax.annotation.Nullable;
+import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -41,17 +44,33 @@ import org.junit.runners.JUnit4;
 /** Tests of {@link BuildConfigurationKeyProducer}. */
 @RunWith(JUnit4.class)
 public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
+
   /** Extra options for this test. */
   public static class DummyTestOptions extends FragmentOptions {
     public DummyTestOptions() {}
 
     @Option(
+        name = "option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "from_default")
+    public String option;
+
+    @Option(
         name = "internal_option",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.NO_OP},
-        defaultValue = "super secret",
+        defaultValue = "from_default",
         metadataTags = {OptionMetadataTag.INTERNAL})
     public String internalOption;
+
+    @Option(
+        name = "accumulating",
+        allowMultiple = true,
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "null")
+    public List<String> accumulating;
   }
 
   /** Test fragment. */
@@ -77,9 +96,44 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     return builder.build();
   }
 
+  @Before
+  public void writePlatforms() throws Exception {
+    scratch.file(
+        "platforms/BUILD",
+        """
+        platform(name = "sample")
+        """);
+  }
+
+  private void createStarlarkFlag() throws Exception {
+    scratch.file(
+        "flag/def.bzl",
+        """
+        def _impl(ctx):
+            return []
+
+        basic_flag = rule(
+            implementation = _impl,
+            build_setting = config.string(flag = True),
+        )
+        """);
+
+    scratch.file(
+        "flag/BUILD",
+        """
+        load(":def.bzl", "basic_flag")
+
+        basic_flag(
+            name = "flag",
+            build_setting_default = "from_default",
+        )
+        """);
+  }
+
   @Test
   public void createKey() throws Exception {
-    BuildOptions baseOptions = createBuildOptions("--internal_option=from_cmd");
+    BuildOptions baseOptions =
+        createBuildOptions("--platforms=//platforms:sample", "--internal_option=from_cmd");
     BuildConfigurationKey result = fetch(baseOptions);
 
     assertThat(result).isNotNull();
@@ -89,73 +143,320 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
   }
 
   @Test
+  public void createKey_emptyConfig() throws Exception {
+    BuildOptions baseOptions = CommonOptions.EMPTY_OPTIONS;
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptionsChecksum()).isEqualTo(CommonOptions.EMPTY_OPTIONS.checksum());
+  }
+
+  @Test
   public void createKey_platformMapping() throws Exception {
     scratch.file(
         "/workspace/platform_mappings",
-        "platforms:",
-        "  //:sample",
-        "    --internal_option=from_mapping");
-    scratch.file("BUILD", "platform(name = 'sample')");
+        """
+        platforms:
+          //platforms:sample
+            --internal_option=from_mapping_changed
+        """);
     invalidatePackages(false);
 
-    BuildOptions baseOptions = createBuildOptions("--platforms=//:sample");
+    BuildOptions baseOptions =
+        createBuildOptions("--platforms=//platforms:sample", "--internal_option=from_cmd");
     BuildConfigurationKey result = fetch(baseOptions);
 
     assertThat(result).isNotNull();
     assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
     assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
-        .isEqualTo("from_mapping");
+        .isEqualTo("from_mapping_changed");
   }
 
   @Test
   public void createKey_platformMapping_invalidFile() throws Exception {
-    scratch.file("/workspace/platform_mappings", "not a mapping file");
-    scratch.file("BUILD", "platform(name = 'sample')");
+    scratch.file(
+        "/workspace/platform_mappings",
+        """
+        not a mapping file
+        """);
     invalidatePackages(false);
 
-    BuildOptions baseOptions = createBuildOptions("--platforms=//:sample");
+    BuildOptions baseOptions = createBuildOptions("--platforms=//platforms:sample");
+    // Fails because the mapping file is poorly formed and cannot be parsed.
     assertThrows(PlatformMappingException.class, () -> fetch(baseOptions));
   }
 
   @Test
   public void createKey_platformMapping_invalidOption() throws Exception {
-    scratch.file("/workspace/platform_mappings", "platforms:", "  //:sample", "    --fake_option");
-    scratch.file("BUILD", "platform(name = 'sample')");
+    scratch.file(
+        "/workspace/platform_mappings",
+        """
+        platforms:
+          //platforms:sample
+            --fake_option
+        """);
     invalidatePackages(false);
 
-    BuildOptions baseOptions = createBuildOptions("--platforms=//:sample");
+    BuildOptions baseOptions = createBuildOptions("--platforms=//platforms:sample");
+    // Fails because the changed platform has an invalid mapping.
     assertThrows(OptionsParsingException.class, () -> fetch(baseOptions));
   }
+
+  @Test
+  public void createKey_platformFlags_native() throws Exception {
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "sample",
+            flags = [
+                "--internal_option=from_platform",
+            ],
+        )
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions = createBuildOptions("--platforms=//platforms:sample");
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
+    assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
+        .isEqualTo("from_platform");
+  }
+
+  @Test
+  public void createKey_platformFlags_starlark() throws Exception {
+    createStarlarkFlag();
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "sample",
+            flags = [
+                "--//flag=from_platform",
+            ],
+        )
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions = createBuildOptions("--platforms=//platforms:sample");
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptions().getStarlarkOptions())
+        .containsAtLeast(Label.parseCanonicalUnchecked("//flag"), "from_platform");
+  }
+
+  @Test
+  public void createKey_platformFlags_override_native() throws Exception {
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "sample",
+            flags = [
+                "--option=from_platform",
+            ],
+        )
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions =
+        createBuildOptions("--platforms=//platforms:sample", "--option=from_cli");
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
+    assertThat(result.getOptions().get(DummyTestOptions.class).option).isEqualTo("from_platform");
+  }
+
+  @Test
+  public void createKey_platformFlags_override_starlark() throws Exception {
+    createStarlarkFlag();
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "sample",
+            flags = [
+                "--//flag=from_platform",
+            ],
+        )
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions =
+        createBuildOptions("--platforms=//platforms:sample", "--//flag=from_cli");
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptions().getStarlarkOptions())
+        .containsAtLeast(Label.parseCanonicalUnchecked("//flag"), "from_platform");
+  }
+
+  @Test
+  public void createKey_platformFlags_resetToDefault_native() throws Exception {
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "sample",
+            flags = [
+                "--option=from_default",
+            ],
+        )
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions =
+        createBuildOptions("--platforms=//platforms:sample", "--option=from_cli");
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
+    assertThat(result.getOptions().get(DummyTestOptions.class).option).isEqualTo("from_default");
+  }
+
+  // Regression test for https://github.com/bazelbuild/bazel/issues/23147
+  @Test
+  public void createKey_platformFlags_resetToDefault_starlark() throws Exception {
+    createStarlarkFlag();
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "sample",
+            flags = [
+                "--//flag=from_default",
+            ],
+        )
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions =
+        createBuildOptions("--platforms=//platforms:sample", "--//flag=from_cli");
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    // Default key values should not be present in starlark options.
+    assertThat(result.getOptions().getStarlarkOptions())
+        .doesNotContainKey(Label.parseCanonicalUnchecked("//flag"));
+  }
+
+  @Test
+  // Re-enable this once merging repeatable flags works properly. Also add a corresponding Starlark
+  // flag to test.
+  @Ignore("https://github.com/bazelbuild/bazel/issues/22453")
+  public void createKey_platformFlags_accumulate() throws Exception {
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "sample",
+            flags = [
+                "--accumulating=from_platform",
+            ],
+        )
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions =
+        createBuildOptions("--platforms=//platforms:sample", "--accumulating=from_cli");
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
+    assertThat(result.getOptions().get(DummyTestOptions.class).accumulating)
+        .containsExactly("from_cli", "from_platform")
+        .inOrder();
+  }
+
+  @Test
+  public void createKey_platformFlags_invalidPlatform() throws Exception {
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        filegroup(name = "sample")
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions = createBuildOptions("--platforms=//platforms:sample");
+    assertThrows(InvalidPlatformException.class, () -> fetch(baseOptions));
+  }
+
+  @Test
+  public void createKey_platformFlags_invalidOption() throws Exception {
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "sample",
+            flags = [
+                "--fake_option_doesnt_exist=from_platform",
+            ],
+        )
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions = createBuildOptions("--platforms=//platforms:sample");
+    assertThrows(OptionsParsingException.class, () -> fetch(baseOptions));
+  }
+
+  @Test
+  public void createKey_platformFlags_overridesMapping() throws Exception {
+    scratch.file(
+        "/workspace/platform_mappings",
+        """
+        platforms:
+          //platforms:sample
+            --internal_option=from_mapping
+        """);
+    scratch.overwriteFile(
+        "platforms/BUILD",
+        """
+        platform(
+            name = "sample",
+            flags = [
+                "--internal_option=from_platform",
+            ],
+        )
+        """);
+    invalidatePackages(false);
+
+    BuildOptions baseOptions = createBuildOptions("--platforms=//platforms:sample");
+    BuildConfigurationKey result = fetch(baseOptions);
+
+    assertThat(result).isNotNull();
+    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
+    assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
+        .isEqualTo("from_platform");
+  }
+
+  private static final String CONTEXT = "context";
 
   private BuildConfigurationKey fetch(BuildOptions options)
       throws InterruptedException,
           OptionsParsingException,
           PlatformMappingException,
           InvalidPlatformException {
-    ImmutableMap<String, BuildConfigurationKey> result = fetch(ImmutableMap.of("only", options));
-    return result.get("only");
-  }
-
-  private ImmutableMap<String, BuildConfigurationKey> fetch(Map<String, BuildOptions> options)
-      throws InterruptedException,
-          OptionsParsingException,
-          PlatformMappingException,
-          InvalidPlatformException {
     Sink sink = new Sink();
-    BuildConfigurationKeyProducer producer =
-        new BuildConfigurationKeyProducer(sink, StateMachine.DONE, options);
+    BuildConfigurationKeyProducer<String> producer =
+        new BuildConfigurationKeyProducer<>(
+            sink, StateMachine.DONE, new BuildConfigurationKeyCache(), CONTEXT, options);
     // Ignore the return value: sink will either return a result or re-throw whatever exception it
     // received from the producer.
     var unused = executeProducer(producer);
-    return sink.options();
+    return sink.options(CONTEXT);
   }
 
   /** Receiver for platform info from {@link PlatformInfoProducer}. */
-  private static class Sink implements BuildConfigurationKeyProducer.ResultSink {
+  private static class Sink implements BuildConfigurationKeyProducer.ResultSink<String> {
     @Nullable private OptionsParsingException optionsParsingException;
     @Nullable private PlatformMappingException platformMappingException;
     @Nullable private InvalidPlatformException invalidPlatformException;
-    @Nullable private ImmutableMap<String, BuildConfigurationKey> keys;
+    @Nullable private String context;
+    @Nullable private BuildConfigurationKey key;
 
     @Override
     public void acceptTransitionError(OptionsParsingException e) {
@@ -173,11 +474,12 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     }
 
     @Override
-    public void acceptTransitionedConfigurations(ImmutableMap<String, BuildConfigurationKey> keys) {
-      this.keys = keys;
+    public void acceptTransitionedConfiguration(String context, BuildConfigurationKey key) {
+      this.context = context;
+      this.key = key;
     }
 
-    ImmutableMap<String, BuildConfigurationKey> options()
+    BuildConfigurationKey options(String expectedContext)
         throws OptionsParsingException, PlatformMappingException, InvalidPlatformException {
       if (this.optionsParsingException != null) {
         throw this.optionsParsingException;
@@ -188,8 +490,9 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
       if (this.invalidPlatformException != null) {
         throw this.invalidPlatformException;
       }
-      if (this.keys != null) {
-        return this.keys;
+      if (this.key != null) {
+        assertThat(this.context).isEqualTo(expectedContext);
+        return this.key;
       }
       throw new IllegalStateException("Value and exception not set");
     }

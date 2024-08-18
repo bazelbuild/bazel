@@ -14,28 +14,28 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction.LOCKFILE_MODE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.eventbus.Subscribe;
+import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
-import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.util.AbruptExitException;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.skyframe.MemoizingEvaluator;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Module collecting Bazel module and module extensions resolution results and updating the
@@ -43,47 +43,85 @@ import javax.annotation.Nullable;
  */
 public class BazelLockFileModule extends BlazeModule {
 
+  private SkyframeExecutor executor;
   private Path workspaceRoot;
-  @Nullable private BazelModuleResolutionEvent moduleResolutionEvent;
-  private final Map<ModuleExtensionId, ModuleExtensionResolutionEvent>
-      extensionResolutionEventsMap = new HashMap<>();
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   @Override
   public void beforeCommand(CommandEnvironment env) {
+    executor = env.getSkyframeExecutor();
     workspaceRoot = env.getWorkspace();
-    RepositoryOptions options = env.getOptions().getOptions(RepositoryOptions.class);
-    if (options.lockfileMode.equals(LockfileMode.UPDATE)) {
-      env.getEventBus().register(this);
-    }
   }
 
   @Override
-  public void afterCommand() throws AbruptExitException {
-    if (moduleResolutionEvent == null) {
-      // Command does not use Bazel modules or the lockfile mode is not update.
-      // Since Skyframe caches events, they are replayed even when nothing has changed.
-      Preconditions.checkState(extensionResolutionEventsMap.isEmpty());
+  public void afterCommand() {
+    MemoizingEvaluator evaluator = executor.getEvaluator();
+    BazelModuleResolutionValue moduleResolutionValue;
+    BazelDepGraphValue depGraphValue;
+    BazelLockFileValue oldLockfile;
+    try {
+      PrecomputedValue lockfileModeValue =
+          (PrecomputedValue) evaluator.getExistingValue(LOCKFILE_MODE.getKey());
+      if (lockfileModeValue == null) {
+        // No command run on this server has triggered module resolution yet.
+        return;
+      }
+      LockfileMode lockfileMode = (LockfileMode) lockfileModeValue.get();
+      // Check the Skyframe value instead of the option since some commands (e.g. shutdown) don't
+      // propagate the options to Skyframe, but we can only operate on Skyframe values that were
+      // generated in UPDATE mode.
+      if (lockfileMode != LockfileMode.UPDATE && lockfileMode != LockfileMode.REFRESH) {
+        return;
+      }
+      moduleResolutionValue =
+          (BazelModuleResolutionValue) evaluator.getExistingValue(BazelModuleResolutionValue.KEY);
+      depGraphValue = (BazelDepGraphValue) evaluator.getExistingValue(BazelDepGraphValue.KEY);
+      oldLockfile = (BazelLockFileValue) evaluator.getExistingValue(BazelLockFileValue.KEY);
+    } catch (InterruptedException e) {
+      // Not thrown in Bazel.
+      throw new IllegalStateException(e);
+    }
+    if (moduleResolutionValue == null || depGraphValue == null || oldLockfile == null) {
+      // An error during the actual build prevented the evaluation of these values and has already
+      // been reported at this point.
       return;
     }
 
-    BazelLockFileValue oldLockfile = moduleResolutionEvent.getOnDiskLockfileValue();
-    BazelLockFileValue newLockfile;
-    try {
-      // Create an updated version of the lockfile, keeping only the extension results from the old
-      // lockfile that are still up-to-date and adding the newly resolved extension results.
-      newLockfile =
-          moduleResolutionEvent.getResolutionOnlyLockfileValue().toBuilder()
-              .setModuleExtensions(combineModuleExtensions(oldLockfile))
-              .build();
-    } catch (ExternalDepsException e) {
-      logger.atSevere().withCause(e).log(
-          "Failed to read and parse the MODULE.bazel.lock file with error: %s."
-              + " Try deleting it and rerun the build.",
-          e.getMessage());
-      return;
-    }
+    // All nodes corresponding to module extensions that have been evaluated in the current build
+    // are done at this point. Look up entries by eval keys to record results even if validation
+    // later fails due to invalid imports.
+    // Note: This also picks up up-to-date result from previous builds that are not in the
+    // transitive closure of the current build. Since extension are potentially costly to evaluate,
+    // this is seen as an advantage. Full reproducibility can be ensured by running 'bazel shutdown'
+    // first if needed.
+    Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos =
+        new ConcurrentHashMap<>();
+    executor
+        .getEvaluator()
+        .getInMemoryGraph()
+        .parallelForEach(
+            entry -> {
+              if (entry.isDone()
+                  && entry.getKey() instanceof SingleExtensionValue.EvalKey key
+                  // entry.getValue() can be null if the extension evaluation failed.
+                  && entry.getValue() instanceof SingleExtensionValue value) {
+                newExtensionInfos.put(key.argument(), value.getLockFileInfo().get());
+              }
+            });
+    var combinedExtensionInfos =
+        combineModuleExtensions(
+            oldLockfile.getModuleExtensions(), newExtensionInfos, depGraphValue);
+
+    // Create an updated version of the lockfile, keeping only the extension results from the old
+    // lockfile that are still up-to-date and adding the newly resolved extension results.
+    BazelLockFileValue newLockfile =
+        BazelLockFileValue.builder()
+            .setRegistryFileHashes(
+                ImmutableSortedMap.copyOf(moduleResolutionValue.getRegistryFileHashes()))
+            .setSelectedYankedVersions(moduleResolutionValue.getSelectedYankedVersions())
+            .setModuleExtensions(combinedExtensionInfos)
+            .build();
 
     // Write the new value to the file, but only if needed. This is not just a performance
     // optimization: whenever the lockfile is updated, most Skyframe nodes will be marked as dirty
@@ -92,8 +130,6 @@ public class BazelLockFileModule extends BlazeModule {
     if (!newLockfile.equals(oldLockfile)) {
       updateLockfile(workspaceRoot, newLockfile);
     }
-    this.moduleResolutionEvent = null;
-    this.extensionResolutionEventsMap.clear();
   }
 
   /**
@@ -102,47 +138,69 @@ public class BazelLockFileModule extends BlazeModule {
    */
   private ImmutableMap<
           ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
-      combineModuleExtensions(BazelLockFileValue oldLockfile) throws ExternalDepsException {
+      combineModuleExtensions(
+          ImmutableMap<
+                  ModuleExtensionId,
+                  ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
+              oldExtensionInfos,
+          Map<ModuleExtensionId, LockFileModuleExtension.WithFactors> newExtensionInfos,
+          BazelDepGraphValue depGraphValue) {
     Map<ModuleExtensionId, ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension>>
         updatedExtensionMap = new HashMap<>();
 
-    // Keep old extensions if they are still valid.
-    for (var entry : oldLockfile.getModuleExtensions().entrySet()) {
+    // Keep those per factor extension results that are still used according to the static
+    // information given in the extension declaration (dependence on os and arch, reproducibility).
+    // Other information such as transitive .bzl hash and usages hash are *not* checked here.
+    for (var entry : oldExtensionInfos.entrySet()) {
       var moduleExtensionId = entry.getKey();
-      var factorToLockedExtension = entry.getValue();
-      ModuleExtensionEvalFactors firstEntryFactors =
-          factorToLockedExtension.keySet().iterator().next();
-      LockFileModuleExtension firstEntryExtension =
-          factorToLockedExtension.values().iterator().next();
-      // All entries for a single extension share the same usages digest, so it suffices to check
-      // the first entry.
-      if (shouldKeepExtension(
-          moduleExtensionId, firstEntryFactors, firstEntryExtension.getUsagesDigest())) {
-        updatedExtensionMap.put(moduleExtensionId, factorToLockedExtension);
+      if (!depGraphValue.getExtensionUsagesTable().containsRow(moduleExtensionId)) {
+        // Extensions without any usages are not needed anymore.
+        continue;
       }
+      var newExtensionInfo = newExtensionInfos.get(moduleExtensionId);
+      if (newExtensionInfo == null) {
+        // No information based on which we could invalidate old entries, keep all of them.
+        updatedExtensionMap.put(moduleExtensionId, entry.getValue());
+        continue;
+      }
+      if (!newExtensionInfo.moduleExtension().shouldLockExtension()) {
+        // Extension has become reproducible and should not be locked anymore.
+        continue;
+      }
+      var newFactors = newExtensionInfo.extensionFactors();
+      ImmutableSortedMap<ModuleExtensionEvalFactors, LockFileModuleExtension>
+          perFactorResultsToKeep =
+              ImmutableSortedMap.copyOf(
+                  Maps.filterKeys(entry.getValue(), newFactors::hasSameDependenciesAs));
+      if (perFactorResultsToKeep.isEmpty()) {
+        continue;
+      }
+      updatedExtensionMap.put(moduleExtensionId, perFactorResultsToKeep);
     }
 
     // Add the new resolved extensions
-    for (var event : extensionResolutionEventsMap.values()) {
-      LockFileModuleExtension extension = event.getModuleExtension();
+    for (var extensionIdAndInfo : newExtensionInfos.entrySet()) {
+      LockFileModuleExtension extension = extensionIdAndInfo.getValue().moduleExtension();
       if (!extension.shouldLockExtension()) {
         continue;
       }
 
-      var oldExtensionEntries = updatedExtensionMap.get(event.getExtensionId());
+      var oldExtensionEntries = updatedExtensionMap.get(extensionIdAndInfo.getKey());
       ImmutableMap<ModuleExtensionEvalFactors, LockFileModuleExtension> extensionEntries;
+      var factors = extensionIdAndInfo.getValue().extensionFactors();
       if (oldExtensionEntries != null) {
         // extension exists, add the new entry to the existing map
         extensionEntries =
-            new ImmutableMap.Builder<ModuleExtensionEvalFactors, LockFileModuleExtension>()
-                .putAll(oldExtensionEntries)
-                .put(event.getExtensionFactors(), extension)
-                .buildKeepingLast();
+            ImmutableSortedMap.copyOf(
+                new ImmutableMap.Builder<ModuleExtensionEvalFactors, LockFileModuleExtension>()
+                    .putAll(oldExtensionEntries)
+                    .put(factors, extension)
+                    .buildKeepingLast());
       } else {
         // new extension
-        extensionEntries = ImmutableMap.of(event.getExtensionFactors(), extension);
+        extensionEntries = ImmutableMap.of(factors, extension);
       }
-      updatedExtensionMap.put(event.getExtensionId(), extensionEntries);
+      updatedExtensionMap.put(extensionIdAndInfo.getKey(), extensionEntries);
     }
 
     // The order in which extensions are added to extensionResolutionEvents depends on the order
@@ -153,87 +211,22 @@ public class BazelLockFileModule extends BlazeModule {
   }
 
   /**
-   * Decide whether to keep this extension or not depending on all of:
-   *
-   * <ol>
-   *   <li>If its dependency on os & arch didn't change
-   *   <li>If its usages haven't changed
-   * </ol>
-   *
-   * @param lockedExtensionKey object holding the old extension id and state of os and arch
-   * @param oldUsagesDigest the digest of usages of this extension in the existing lockfile
-   * @return True if this extension should still be in lockfile, false otherwise
-   */
-  private boolean shouldKeepExtension(
-      ModuleExtensionId extensionId,
-      ModuleExtensionEvalFactors lockedExtensionKey,
-      byte[] oldUsagesDigest) {
-
-    // If there is a new event for this extension, compare it with the existing ones
-    ModuleExtensionResolutionEvent extEvent = extensionResolutionEventsMap.get(extensionId);
-    if (extEvent != null) {
-      boolean doNotLockExtension = !extEvent.getModuleExtension().shouldLockExtension();
-      boolean dependencyOnOsChanged =
-          lockedExtensionKey.getOs().isEmpty() != extEvent.getExtensionFactors().getOs().isEmpty();
-      boolean dependencyOnArchChanged =
-          lockedExtensionKey.getArch().isEmpty()
-              != extEvent.getExtensionFactors().getArch().isEmpty();
-      if (doNotLockExtension || dependencyOnOsChanged || dependencyOnArchChanged) {
-        return false;
-      }
-    }
-
-    // Otherwise, compare the current usages of this extension with the ones in the lockfile. We
-    // trim the usages to only the information that influences the evaluation of the extension so
-    // that irrelevant changes (e.g. locations or imports) don't cause the extension to be removed.
-    // Note: Extension results can still be stale for other reasons, e.g. because their transitive
-    // bzl hash changed, but such changes will be detected in SingleExtensionEvalFunction.
-    return Arrays.equals(
-        ModuleExtensionUsage.hashForEvaluation(
-            GsonTypeAdapterUtil.createModuleExtensionUsagesHashGson(),
-            moduleResolutionEvent.getExtensionUsagesById().row(extensionId)),
-        oldUsagesDigest);
-  }
-
-  /**
    * Updates the data stored in the lockfile (MODULE.bazel.lock)
    *
    * @param workspaceRoot Root of the workspace where the lockfile is located
    * @param updatedLockfile The updated lockfile data to save
    */
-  public static void updateLockfile(Path workspaceRoot, BazelLockFileValue updatedLockfile) {
+  private static void updateLockfile(Path workspaceRoot, BazelLockFileValue updatedLockfile) {
     RootedPath lockfilePath =
         RootedPath.toRootedPath(Root.fromPath(workspaceRoot), LabelConstants.MODULE_LOCKFILE_NAME);
     try {
       FileSystemUtils.writeContent(
           lockfilePath.asPath(),
           UTF_8,
-          GsonTypeAdapterUtil.createLockFileGson(
-                      lockfilePath
-                          .asPath()
-                          .getParentDirectory()
-                          .getRelative(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME),
-                      workspaceRoot)
-                  .toJson(updatedLockfile)
-              + "\n");
+          GsonTypeAdapterUtil.LOCKFILE_GSON.toJson(updatedLockfile) + "\n");
     } catch (IOException e) {
       logger.atSevere().withCause(e).log(
           "Error while updating MODULE.bazel.lock file: %s", e.getMessage());
     }
-  }
-
-  @SuppressWarnings("unused")
-  @Subscribe
-  public void bazelModuleResolved(BazelModuleResolutionEvent moduleResolutionEvent) {
-    // Latest event wins, which is relevant in the case of `bazel mod tidy`, where a new event is
-    // sent after the command has modified the module file.
-    this.moduleResolutionEvent = moduleResolutionEvent;
-  }
-
-  @SuppressWarnings("unused")
-  @Subscribe
-  public void moduleExtensionResolved(ModuleExtensionResolutionEvent extensionResolutionEvent) {
-    this.extensionResolutionEventsMap.put(
-        extensionResolutionEvent.getExtensionId(), extensionResolutionEvent);
   }
 }

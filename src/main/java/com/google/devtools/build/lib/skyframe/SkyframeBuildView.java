@@ -71,9 +71,9 @@ import com.google.devtools.build.lib.analysis.config.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
+import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyCache;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
-import com.google.devtools.build.lib.analysis.test.CoverageActionFinishedEvent;
 import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -124,6 +124,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
@@ -169,6 +170,8 @@ public final class SkyframeBuildView {
   private boolean foundActionConflictInLatestCheck;
 
   private final StarlarkTransitionCache starlarkTransitionCache = new StarlarkTransitionCache();
+  private final BuildConfigurationKeyCache buildConfigurationKeyCache =
+      new BuildConfigurationKeyCache();
 
   public SkyframeBuildView(
       ArtifactFactory artifactFactory,
@@ -203,6 +206,15 @@ public final class SkyframeBuildView {
   public TotalAndConfiguredTargetOnlyMetric getEvaluatedActionCounts() {
     return TotalAndConfiguredTargetOnlyMetric.create(
         progressReceiver.actionCount.get(), progressReceiver.configuredTargetActionCount.get());
+  }
+
+  public ImmutableMap<String, Integer> getEvaluatedActionCountsByMnemonic() {
+    ImmutableMap.Builder<String, Integer> builder = ImmutableMap.builder();
+    for (Map.Entry<String, AtomicInteger> entry :
+        progressReceiver.actionCountByMnemonic.entrySet()) {
+      builder.put(entry.getKey(), entry.getValue().get());
+    }
+    return builder.buildOrThrow();
   }
 
   /**
@@ -358,6 +370,7 @@ public final class SkyframeBuildView {
       skyframeExecutor.clearAnalysisCache(topLevelTargets, topLevelAspects);
     }
     starlarkTransitionCache.clear();
+    buildConfigurationKeyCache.clear();
   }
 
   /**
@@ -510,10 +523,11 @@ public final class SkyframeBuildView {
           // to reflect any transitions or trimming.
           if (actionLookupKey instanceof ConfiguredTargetKey) {
             var value = ((ConfiguredTargetValue) evaluationResult.get(actionLookupKey));
-            if (value != null) {
-              actionLookupKey = value.getConfiguredTarget().getLookupKey();
-            } else {
+            if (value == null) {
               targetConfigured = false;
+            } else if (value.getConfiguredTarget() != null) {
+              // It's possible that the ConfiguredTarget has been cleared.
+              actionLookupKey = value.getConfiguredTarget().getLookupKey();
             }
           }
           if (!targetConfigured) {
@@ -756,18 +770,15 @@ public final class SkyframeBuildView {
         }
 
         // Coverage report generation should only be requested after all tests have executed.
-        // We could generate baseline coverage artifacts earlier; it is only the timing of the
-        // combined report that matters.
         // When --nokeep_going and there's an earlier error, we should skip this and fail fast.
         if ((!mainEvaluationResult.hasError() && !hasExclusiveTestsError) || keepGoing) {
-          ImmutableSet<Artifact> coverageArtifacts =
-              coverageReportActionsWrapperSupplier.getCoverageArtifacts(
+          ImmutableSet<Artifact> coverageReportArtifacts =
+              coverageReportActionsWrapperSupplier.getCoverageReportArtifacts(
                   buildResultListener.getAnalyzedTargets(), buildResultListener.getAnalyzedTests());
-          eventBus.post(CoverageArtifactsKnownEvent.create(coverageArtifacts));
+          eventBus.post(CoverageArtifactsKnownEvent.create(coverageReportArtifacts));
           additionalArtifactsResult =
               skyframeExecutor.evaluateSkyKeys(
-                  eventHandler, Artifact.keys(coverageArtifacts), keepGoing);
-          eventBus.post(new CoverageActionFinishedEvent());
+                  eventHandler, Artifact.keys(coverageReportArtifacts), keepGoing);
           if (additionalArtifactsResult.hasError()) {
             detailedExitCodes.add(
                 SkyframeErrorProcessor.processErrors(
@@ -921,6 +932,7 @@ public final class SkyframeBuildView {
             buildResultListener.getAnalyzedTargets(),
             getEvaluatedCounts(),
             getEvaluatedActionCounts(),
+            getEvaluatedActionCountsByMnemonic(),
             measuredAnalysisTime,
             skyframeExecutor.getPackageManager().getAndClearStatistics(),
             skyframeExecutor.wasAnalysisCacheInvalidatedAndResetBit()));
@@ -1037,10 +1049,11 @@ public final class SkyframeBuildView {
         // This is a graph lookup instead of an EvaluationResult lookup because Skymeld's
         // EvaluationResult does not contain ConfiguredTargetKey.
         var value = ((ConfiguredTargetValue) graph.getValue(actionLookupKey));
-        if (value != null) {
-          actionLookupKey = value.getConfiguredTarget().getLookupKey();
-        } else {
+        if (value == null) {
           targetConfigured = false;
+        } else if (value.getConfiguredTarget() != null) {
+          // It's possible that the ConfiguredTarget has been cleared.
+          actionLookupKey = value.getConfiguredTarget().getLookupKey();
         }
       }
       if (!targetConfigured) {
@@ -1372,6 +1385,7 @@ public final class SkyframeBuildView {
   void clearLegacyData() {
     artifactFactory.clear();
     starlarkTransitionCache.clear();
+    buildConfigurationKeyCache.clear();
   }
 
   /**
@@ -1395,6 +1409,8 @@ public final class SkyframeBuildView {
   /** Clear the invalidated action lookup nodes detected during loading and analysis phases. */
   public void clearInvalidatedActionLookupKeys() {
     dirtiedActionLookupKeys = Sets.newConcurrentHashSet();
+    starlarkTransitionCache.clear();
+    buildConfigurationKeyCache.clear();
   }
 
   /**
@@ -1411,11 +1427,17 @@ public final class SkyframeBuildView {
     return starlarkTransitionCache;
   }
 
+  public BuildConfigurationKeyCache getBuildConfigurationKeyCache() {
+    return buildConfigurationKeyCache;
+  }
+
   private final class ActionLookupValueProgressReceiver implements EvaluationProgressReceiver {
     private final AtomicInteger configuredObjectCount = new AtomicInteger();
     private final AtomicInteger actionCount = new AtomicInteger();
     private final AtomicInteger configuredTargetCount = new AtomicInteger();
     private final AtomicInteger configuredTargetActionCount = new AtomicInteger();
+    private final ConcurrentHashMap<String, AtomicInteger> actionCountByMnemonic =
+        new ConcurrentHashMap<>();
 
     @Override
     public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
@@ -1458,10 +1480,17 @@ public final class SkyframeBuildView {
           configuredTargetCount.incrementAndGet();
         }
         configuredObjectCount.incrementAndGet();
-        if (newValue instanceof ActionLookupValue) {
+        if (newValue instanceof ActionLookupValue alv) {
           // During multithreaded operation, this is only set to true, so no concurrency issues.
           someActionLookupValueEvaluated = true;
-          int numActions = ((ActionLookupValue) newValue).getNumActions();
+          ImmutableList<ActionAnalysisMetadata> actions = alv.getActions();
+          for (ActionAnalysisMetadata action : actions) {
+            actionCountByMnemonic
+                .computeIfAbsent(action.getMnemonic(), (m) -> new AtomicInteger(0))
+                .incrementAndGet();
+          }
+
+          int numActions = actions.size();
           actionCount.addAndGet(numActions);
           if (isConfiguredTarget) {
             configuredTargetActionCount.addAndGet(numActions);
@@ -1481,7 +1510,7 @@ public final class SkyframeBuildView {
   /** Provides the list of coverage artifacts to be built. */
   @FunctionalInterface
   public interface CoverageReportActionsWrapperSupplier {
-    ImmutableSet<Artifact> getCoverageArtifacts(
+    ImmutableSet<Artifact> getCoverageReportArtifacts(
         Set<ConfiguredTarget> configuredTargets, Set<ConfiguredTarget> allTargetsToTest)
         throws InterruptedException;
   }

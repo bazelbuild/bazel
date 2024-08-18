@@ -21,7 +21,6 @@ import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROU
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -666,14 +665,11 @@ public class RuleContext extends TargetContext
         getLabel());
     ArtifactRoot root = getBinOrGenfilesDirectory();
 
-    switch (outputFileKind) {
-      case FILE:
-        return getDerivedArtifact(rootRelativePath, root);
-      case FILESET:
-        return getAnalysisEnvironment().getFilesetArtifact(rootRelativePath, root);
-      default:
-        throw new IllegalStateException();
-    }
+    return switch (outputFileKind) {
+      case FILE -> getDerivedArtifact(rootRelativePath, root);
+      case FILESET -> getAnalysisEnvironment().getFilesetArtifact(rootRelativePath, root);
+      default -> throw new IllegalStateException();
+    };
   }
 
   /**
@@ -846,15 +842,6 @@ public class RuleContext extends TargetContext
   }
 
   /**
-   * Returns the prerequisites keyed by their transition keys. If the split transition is not active
-   * (e.g. split() returned an empty list), the key is an empty Optional.
-   */
-  public Map<Optional<String>, List<ConfiguredTargetAndData>> getSplitPrerequisites(
-      String attributeName) {
-    return getOwningPrerequisitesCollection(attributeName).getSplitPrerequisites(attributeName);
-  }
-
-  /**
    * Returns the specified provider of the prerequisite referenced by the attribute in the argument.
    * If the attribute is empty or it does not support the specified provider, returns null.
    */
@@ -892,15 +879,15 @@ public class RuleContext extends TargetContext
   }
 
   /**
-   * For a given attribute, returns all declared provider provided by targets of that attribute.
-   * Each declared provider is keyed by the {@link BuildConfigurationValue} under which the provider
-   * was created.
+   * Returns the {@code --run_under} prerequisite based on the value of {@code
+   * --incompatible_bazel_test_exec_run_under}.
    */
-  public <C extends Info>
-      ImmutableListMultimap<BuildConfigurationValue, C> getPrerequisitesByConfiguration(
-          String attributeName, BuiltinProvider<C> provider) {
-    return getOwningPrerequisitesCollection(attributeName)
-        .getPrerequisitesByConfiguration(attributeName, provider);
+  @Nullable
+  public TransitiveInfoCollection getRunUnderPrerequisite() {
+    return getPrerequisite(
+        getConfiguration().runUnderExecConfigForTests()
+            ? ":run_under_exec_config"
+            : ":run_under_target_config");
   }
 
   /**
@@ -922,16 +909,6 @@ public class RuleContext extends TargetContext
   }
 
   /**
-   * Returns all the declared Starlark wrapped providers for the specified constructor under the
-   * specified attribute of this target in the BUILD file.
-   */
-  public <T> ImmutableList<T> getPrerequisites(
-      String attributeName, StarlarkProviderWrapper<T> starlarkKey) throws RuleErrorException {
-    return getOwningPrerequisitesCollection(attributeName)
-        .getPrerequisites(attributeName, starlarkKey);
-  }
-
-  /**
    * Returns all the declared providers (native and Starlark) for the specified constructor under
    * the specified attribute of this target in the BUILD file.
    */
@@ -939,27 +916,6 @@ public class RuleContext extends TargetContext
       String attributeName, BuiltinProvider<T> starlarkKey) {
     return getOwningPrerequisitesCollection(attributeName)
         .getPrerequisites(attributeName, starlarkKey);
-  }
-
-  /**
-   * Returns all the providers of the specified type that are listed under the specified attribute
-   * of this target in the BUILD file, and that contain the specified provider.
-   */
-  public <C extends TransitiveInfoProvider>
-      Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
-          String attributeName, Class<C> classType) {
-    return getOwningPrerequisitesCollection(attributeName)
-        .getPrerequisitesIf(attributeName, classType);
-  }
-
-  /**
-   * Returns all the providers of the specified type that are listed under the specified attribute
-   * of this target in the BUILD file, and that contain the specified provider.
-   */
-  public <C extends Info> Iterable<? extends TransitiveInfoCollection> getPrerequisitesIf(
-      String attributeName, BuiltinProvider<C> classType) {
-    return getOwningPrerequisitesCollection(attributeName)
-        .getPrerequisitesIf(attributeName, classType);
   }
 
   /**
@@ -1022,10 +978,7 @@ public class RuleContext extends TargetContext
     AnalysisEnvironment env = getAnalysisEnvironment();
     StarlarkThread thread =
         StarlarkThread.create(
-            mutability,
-            env.getStarlarkSemantics(),
-            /* contextDescription= */ "",
-            getSymbolGenerator());
+            mutability, env.getStarlarkSemantics(), getLabel().toString(), getSymbolGenerator());
     thread.setPrintHandler(Event.makeDebugPrintHandler(env.getEventHandler()));
     new BazelRuleAnalysisThreadContext(this).storeInThread(thread);
     return thread;
@@ -1126,10 +1079,15 @@ public class RuleContext extends TargetContext
   }
 
   public boolean useAutoExecGroups() {
-    if (attributes().has("$use_auto_exec_groups")) {
-      return (boolean) attributes().get("$use_auto_exec_groups", Type.BOOLEAN);
+    return usesAutoExecGroups(attributes(), getConfiguration());
+  }
+
+  protected static boolean usesAutoExecGroups(
+      AttributeMap attributes, BuildConfigurationValue configuration) {
+    if (attributes.has("$use_auto_exec_groups")) {
+      return attributes.get("$use_auto_exec_groups", Type.BOOLEAN);
     } else {
-      return getConfiguration().useAutoExecGroups();
+      return configuration.useAutoExecGroups();
     }
   }
 
@@ -1147,7 +1105,8 @@ public class RuleContext extends TargetContext
     return toolchainContexts == null ? null : toolchainContexts.getToolchainContext(execGroup);
   }
 
-  private boolean isAutomaticExecGroup(String execGroupName) {
+  /** Returns true if the given exec group is an automatic exec group. */
+  public boolean isAutomaticExecGroup(String execGroupName) {
     return !Identifier.isValid(execGroupName) && !execGroupName.equals(DEFAULT_EXEC_GROUP_NAME);
   }
 
@@ -1169,9 +1128,7 @@ public class RuleContext extends TargetContext
                 name -> {
                   ResolvedToolchainContext context = toolchainContexts.getToolchainContext(name);
                   return (context != null
-                      && context
-                          .requestedToolchainTypeLabels()
-                          .containsKey(Label.parseCanonicalUnchecked(name)));
+                      && context.requestedToolchainTypeLabels().containsKey(toolchainType));
                 })
             .findFirst()
             .orElse(null);
@@ -1516,6 +1473,8 @@ public class RuleContext extends TargetContext
     private Mutability mutability;
     private NestedSet<PackageGroupContents> visibility;
     private ToolchainCollection<ResolvedToolchainContext> toolchainContexts;
+    private ToolchainCollection<AspectBaseTargetResolvedToolchainContext>
+        baseTargetToolchainContexts;
     private ExecGroupCollection.Builder execGroupCollectionBuilder;
     private ImmutableMap<String, String> rawExecProperties;
 
@@ -1578,7 +1537,8 @@ public class RuleContext extends TargetContext
       if (aspects.isEmpty()) {
         return RuleContext.create(this, ruleAttributes, targetMap, execGroupCollection);
       } else {
-        return AspectContext.create(this, ruleAttributes, targetMap, execGroupCollection);
+        return AspectContext.create(
+            this, ruleAttributes, targetMap, execGroupCollection, baseTargetToolchainContexts);
       }
     }
 
@@ -1608,10 +1568,10 @@ public class RuleContext extends TargetContext
 
         // TODO(adonovan): define in terms of Starlark.len?
         boolean isEmpty = false;
-        if (attributeValue instanceof List) {
-          isEmpty = ((List<?>) attributeValue).isEmpty();
-        } else if (attributeValue instanceof Map) {
-          isEmpty = ((Map<?, ?>) attributeValue).isEmpty();
+        if (attributeValue instanceof List<?> list) {
+          isEmpty = list.isEmpty();
+        } else if (attributeValue instanceof Map<?, ?> map) {
+          isEmpty = map.isEmpty();
         }
         if (isEmpty) {
           reporter.attributeError(attr.getName(), "attribute must be non empty");
@@ -1693,6 +1653,20 @@ public class RuleContext extends TargetContext
           this.toolchainContexts == null,
           "toolchainContexts has already been set for this Builder");
       this.toolchainContexts = toolchainContexts;
+      return this;
+    }
+
+    /**
+     * Sets the collection of {@link AspectBaseTargetResolvedToolchainContext}s available to this
+     * aspect from its base target.
+     */
+    @CanIgnoreReturnValue
+    public Builder setBaseTargetToolchainContexts(
+        ToolchainCollection<AspectBaseTargetResolvedToolchainContext> baseTargetToolchainContexts) {
+      Preconditions.checkState(
+          this.baseTargetToolchainContexts == null,
+          "baseTargetToolchainContexts has already been set for this Builder");
+      this.baseTargetToolchainContexts = baseTargetToolchainContexts;
       return this;
     }
 

@@ -20,9 +20,9 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
@@ -127,7 +127,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration()
             .setActionName(LinkTargetType.EXECUTABLE.getActionName())
-            .setLinkTargetType(LinkTargetType.EXECUTABLE)
             .build();
     List<String> rawLinkArgv = linkConfig.arguments();
     assertThat(linkConfig.arguments()).isEqualTo(rawLinkArgv);
@@ -139,7 +138,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration()
             .forceToolPath("foo/bar/gcc")
-            .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
             .build();
     List<String> argv = linkConfig.arguments();
     for (String arg : argv) {
@@ -161,7 +159,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
         minimalConfiguration(variables)
             .forceToolPath("foo/bar/gcc")
             .setActionName(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
             .build();
     String commandLine = Joiner.on(" ").join(linkConfig.arguments());
     assertThat(commandLine).matches(".*foo -Wl,-whole-archive bar -Wl,-no-whole-archive.*");
@@ -178,7 +175,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
             .setActionName(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
             .build();
     assertThat(linkConfig.arguments()).containsAtLeast("-Lfoo", "-Lbar").inOrder();
   }
@@ -194,7 +190,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
             .setSplitCommandLine(true)
             .build();
     assertThat(linkConfig.getCommandLines().unpack().get(1).paramFileInfo.always()).isTrue();
@@ -211,7 +206,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
             .setActionName(LinkTargetType.NODEPS_DYNAMIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.NODEPS_DYNAMIC_LIBRARY)
             .setSplitCommandLine(true)
             .build();
     assertThat(linkConfig.getCommandLines().unpack().get(1).paramFileInfo.always()).isTrue();
@@ -226,7 +220,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
             .setActionName(targetType.getActionName())
-            .setLinkTargetType(targetType)
             .build();
     return linkConfig.arguments();
   }
@@ -272,7 +265,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
                         LinkBuildVariables.LINKER_PARAM_FILE.getVariableName(),
                         "LINKER_PARAM_FILE_PLACEHOLDER"))
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
             .forceToolPath("foo/bar/ar")
             .setSplitCommandLine(true)
             .setParameterFileType(ParameterFileType.UNQUOTED)
@@ -298,7 +290,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
                     .addStringSequenceVariable(
                         LinkBuildVariables.USER_LINK_FLAGS.getVariableName(), ImmutableList.of("")))
             .setActionName(LinkTargetType.DYNAMIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.DYNAMIC_LIBRARY)
             .forceToolPath("foo/bar/linker")
             .setSplitCommandLine(true)
             .build();
@@ -319,7 +310,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
                         LinkBuildVariables.OUTPUT_EXECPATH.getVariableName(), "a/FakeOutput"))
             .forceToolPath("foo/bar/ar")
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
             .build();
     List<String> result = linkConfig.arguments();
     assertThat(result).containsExactly("rcsD", "a/FakeOutput").inOrder();
@@ -343,7 +333,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
     LinkCommandLine linkConfig =
         minimalConfiguration(variables)
             .setActionName(LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.ALWAYS_LINK_STATIC_LIBRARY)
             .forceToolPath("foo/bar/ar")
             .setSplitCommandLine(true)
             .build();
@@ -401,7 +390,6 @@ public final class LinkCommandLineTest extends BuildViewTestCase {
                                     ImmutableList.of(testTreeArtifact), false))))
             .forceToolPath("foo/bar/gcc")
             .setActionName(LinkTargetType.STATIC_LIBRARY.getActionName())
-            .setLinkTargetType(LinkTargetType.STATIC_LIBRARY)
             .setSplitCommandLine(true)
             .build();
 

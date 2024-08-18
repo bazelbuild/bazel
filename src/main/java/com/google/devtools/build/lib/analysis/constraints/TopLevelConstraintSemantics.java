@@ -436,8 +436,8 @@ public class TopLevelConstraintSemantics {
     topLevelTarget = topLevelTarget.getActual();
     // Now check the target against expected environments.
     TransitiveInfoCollection asProvider;
-    if (topLevelTarget instanceof OutputFileConfiguredTarget) {
-      asProvider = ((OutputFileConfiguredTarget) topLevelTarget).getGeneratingRule();
+    if (topLevelTarget instanceof OutputFileConfiguredTarget outputFileConfiguredTarget) {
+      asProvider = outputFileConfiguredTarget.getGeneratingRule();
     } else {
       asProvider = topLevelTarget;
     }
@@ -491,8 +491,8 @@ public class TopLevelConstraintSemantics {
       Collection<MissingEnvironment> missingEnvironments) {
     StringJoiner msg = new StringJoiner("\n");
     ConfiguredTarget targetWithProvider = configuredTarget.getActual();
-    if (targetWithProvider instanceof OutputFileConfiguredTarget) {
-      targetWithProvider = ((OutputFileConfiguredTarget) targetWithProvider).getGeneratingRule();
+    if (targetWithProvider instanceof OutputFileConfiguredTarget outputFileConfiguredTarget) {
+      targetWithProvider = outputFileConfiguredTarget.getGeneratingRule();
     }
     SupportedEnvironmentsProvider supportedEnvironments =
         targetWithProvider.getProvider(SupportedEnvironmentsProvider.class);

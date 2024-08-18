@@ -337,9 +337,56 @@ public class ConfiguredTargetKey implements ActionLookupKey {
     return key.getOptions().checksum();
   }
 
+  public static ConfiguredTargetKeyValueSharingCodec valueSharingCodec() {
+    return ConfiguredTargetKeyValueSharingCodec.INSTANCE;
+  }
+
+  // TODO: b/359437873 - generate with @AutoCodec.
+  private static class ConfiguredTargetKeyValueSharingCodec
+      extends DeferredObjectCodec<ConfiguredTargetKey> {
+
+    private static final ConfiguredTargetKeyValueSharingCodec INSTANCE =
+        new ConfiguredTargetKeyValueSharingCodec();
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<ConfiguredTargetKey> getEncodedClass() {
+      return ConfiguredTargetKey.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, ConfiguredTargetKey key, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          key, /* distinguisher= */ null, ConfiguredTargetKeyCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public DeferredValue<ConfiguredTargetKey> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      SimpleDeferredValue<ConfiguredTargetKey> value = SimpleDeferredValue.create();
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          ConfiguredTargetKeyCodec.INSTANCE,
+          value,
+          SimpleDeferredValue::set);
+      return value;
+    }
+  }
+
   /** Codec for all {@link ConfiguredTargetKey} subtypes. */
   @Keep
   private static class ConfiguredTargetKeyCodec extends DeferredObjectCodec<ConfiguredTargetKey> {
+
+    private static final ConfiguredTargetKeyCodec INSTANCE = new ConfiguredTargetKeyCodec();
+
     @Override
     public Class<ConfiguredTargetKey> getEncodedClass() {
       return ConfiguredTargetKey.class;

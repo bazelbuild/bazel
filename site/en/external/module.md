@@ -198,26 +198,26 @@ dependencies. This helps prevent accidental breakages due to changes in
 transitive dependencies.
 
 The [canonical name](/external/overview#canonical-repo-name) of a repo backing a
-module is either `{{ "<var>" }}module_name{{ "</var>" }}~{{ "<var>" }}version{{
-"</var>" }}` (for example, `bazel_skylib~1.0.3`) or `{{ "<var>" }}module_name{{
-"</var>" }}~` (for example, `bazel_features~`), depending on whether there are
+module is either `{{ "<var>" }}module_name{{ "</var>" }}+{{ "<var>" }}version{{
+"</var>" }}` (for example, `bazel_skylib+1.0.3`) or `{{ "<var>" }}module_name{{
+"</var>" }}+` (for example, `bazel_features+`), depending on whether there are
 multiple versions of the module in the entire dependency graph (see
 [`multiple_version_override`](/rules/lib/globals/module#multiple_version_override)).
 Note that **the canonical name format** is not an API you should depend on and
 **is subject to change at any time**. Instead of hard-coding the canonical name,
 use a supported way to get it directly from Bazel:
-* In BUILD and `.bzl` files, use
-  [`Label.repo_name`](/rules/lib/builtins/Label#repo_name) on a `Label` instance
-  constructed from a label string given by the apparent name of the repo, e.g.,
-  `Label("@bazel_skylib").repo_name`.
-* When looking up runfiles, use
-  [`$(rlocationpath ...)`](https://bazel.build/reference/be/make-variables#predefined_label_variables)
-  or one of the runfiles libraries in
-  `@bazel_tools//tools/{bash,cpp,java}/runfiles` or, for a ruleset `rules_foo`,
-  in `@rules_foo//foo/runfiles`.
-* When interacting with Bazel from an external tool such as an IDE or language
-  server, use the `bazel mod dump_repo_mapping` command to get the mapping from
-  apparent names to canonical names for a given set of repositories.
+*    In BUILD and `.bzl` files, use
+     [`Label.repo_name`](/rules/lib/builtins/Label#repo_name) on a `Label` instance
+     constructed from a label string given by the apparent name of the repo, e.g.,
+     `Label("@bazel_skylib").repo_name`.
+*    When looking up runfiles, use
+     [`$(rlocationpath ...)`](https://bazel.build/reference/be/make-variables#predefined_label_variables)
+     or one of the runfiles libraries in
+     `@bazel_tools//tools/{bash,cpp,java}/runfiles` or, for a ruleset `rules_foo`,
+     in `@rules_foo//foo/runfiles`.
+*    When interacting with Bazel from an external tool such as an IDE or language
+     server, use the `bazel mod dump_repo_mapping` command to get the mapping from
+     apparent names to canonical names for a given set of repositories.
 
 [Module extensions](/external/extension) can also introduce additional repos
 into the visible scope of a module.

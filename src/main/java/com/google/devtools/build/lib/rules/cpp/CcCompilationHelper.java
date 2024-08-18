@@ -269,6 +269,7 @@ public final class CcCompilationHelper {
   private final List<PathFragment> additionalExportedHeaders = new ArrayList<>();
   private final List<CppModuleMap> additionalCppModuleMaps = new ArrayList<>();
   private final LinkedHashMap<Artifact, CppSource> compilationUnitSources = new LinkedHashMap<>();
+  private final LinkedHashMap<Artifact, CppSource> moduleInterfaceSources = new LinkedHashMap<>();
   private ImmutableList<String> copts = ImmutableList.of();
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private final Set<String> defines = new LinkedHashSet<>();
@@ -516,6 +517,27 @@ public final class CcCompilationHelper {
   @CanIgnoreReturnValue
   public CcCompilationHelper addSources(Artifact... sources) {
     return addSources(Arrays.asList(sources));
+  }
+
+  @CanIgnoreReturnValue
+  public CcCompilationHelper addModuleInterfaceSources(Collection<Artifact> sources) {
+    for (Artifact source : sources) {
+      addModuleInterfaceSource(source, label);
+    }
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CcCompilationHelper addModuleInterfaceSources(Iterable<Pair<Artifact, Label>> sources) {
+    for (Pair<Artifact, Label> source : sources) {
+      addModuleInterfaceSource(source.first, source.second);
+    }
+    return this;
+  }
+
+  private void addModuleInterfaceSource(Artifact source, Label label) {
+    Preconditions.checkNotNull(featureConfiguration);
+    moduleInterfaceSources.put(source, CppSource.create(source, label, CppSource.Type.SOURCE));
   }
 
   /** Add the corresponding files as non-header, non-source input files. */
@@ -1151,6 +1173,7 @@ public final class CcCompilationHelper {
             usePic,
             /* needsFdoBuildVariables= */ false,
             ccCompilationContext.getCppModuleMap(),
+            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,
@@ -1190,8 +1213,8 @@ public final class CcCompilationHelper {
     }
 
     ActionOwner actionOwner = null;
-    if (actionConstructionContext instanceof RuleContext
-        && ((RuleContext) actionConstructionContext).useAutoExecGroups()) {
+    if (actionConstructionContext instanceof RuleContext ruleContext
+        && ruleContext.useAutoExecGroups()) {
       actionOwner = actionConstructionContext.getActionOwner(semantics.getCppToolchainType());
     }
     try {
@@ -1262,6 +1285,7 @@ public final class CcCompilationHelper {
       boolean usePic,
       boolean needsFdoBuildVariables,
       CppModuleMap cppModuleMap,
+      boolean enableCoverage,
       Artifact gcnoFile,
       boolean isUsingFission,
       Artifact dwoFile,
@@ -1269,14 +1293,6 @@ public final class CcCompilationHelper {
       ImmutableMap<String, String> additionalBuildVariables)
       throws RuleErrorException, EvalException, InterruptedException {
     Artifact sourceFile = builder.getSourceFile();
-    String dotdFileExecPath = null;
-    if (builder.getDotdFile() != null) {
-      dotdFileExecPath = builder.getDotdFile().getExecPathString();
-    }
-    String diagnosticsFileExecPath = null;
-    if (builder.getDiagnosticsFile() != null) {
-      diagnosticsFileExecPath = builder.getDiagnosticsFile().getExecPathString();
-    }
     if (needsFdoBuildVariables && fdoContext.hasArtifacts()) {
       // This modifies the passed-in builder, which is a surprising side-effect, and makes it unsafe
       // to call this method multiple times for the same builder.
@@ -1310,6 +1326,10 @@ public final class CcCompilationHelper {
       } catch (EvalException e) {
         throw new RuleErrorException(e.getMessage());
       }
+      boolean isUsingMemProf = false;
+      if (fdoContext != null && fdoContext.getMemProfProfileArtifact() != null) {
+        isUsingMemProf = true;
+      }
       buildVariables = CcToolchainVariables.builder(cctoolchainVariables);
       CompileBuildVariables.setupCommonVariables(
           buildVariables,
@@ -1317,6 +1337,7 @@ public final class CcCompilationHelper {
           ImmutableList.of(),
           cppModuleMap,
           CppHelper.getFdoBuildStamp(cppConfiguration, fdoContext, featureConfiguration),
+          isUsingMemProf,
           variablesExtensions,
           genericAdditionalBuildVariables,
           ccCompilationContext.getDirectModuleMaps(),
@@ -1345,27 +1366,20 @@ public final class CcCompilationHelper {
 
     CompileBuildVariables.setupSpecificVariables(
         buildVariables,
-        toPathString(sourceFile),
-        toPathString(builder.getOutputFile()),
-        toPathString(gcnoFile),
-        toPathString(dwoFile),
+        sourceFile,
+        builder.getOutputFile(),
+        enableCoverage,
+        gcnoFile,
+        dwoFile,
         isUsingFission,
-        toPathString(ltoIndexingFile),
-        /* thinLtoIndex= */ null,
-        /* thinLtoInputBitcodeFile= */ null,
-        /* thinLtoOutputObjectFile= */ null,
+        ltoIndexingFile,
         getCopts(builder.getSourceFile(), sourceLabel),
-        dotdFileExecPath,
-        diagnosticsFileExecPath,
+        builder.getDotdFile(),
+        builder.getDiagnosticsFile(),
         usePic,
         ccCompilationContext.getExternalIncludeDirs(),
         additionalBuildVariables);
     return buildVariables.build();
-  }
-
-  @Nullable
-  private static String toPathString(Artifact a) {
-    return a == null ? null : a.getExecPathString();
   }
 
   /**
@@ -1405,7 +1419,7 @@ public final class CcCompilationHelper {
             ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, outputName);
     // TODO(djasper): This is now duplicated. Refactor the various create..Action functions.
     Artifact gcnoFile =
-        isCodeCoverageEnabled
+        isCodeCoverageEnabled && !cppConfiguration.useLLVMCoverageMapFormat()
             ? CppHelper.getCompileOutputArtifact(
                 actionConstructionContext, label, gcnoFileName, configuration)
             : null;
@@ -1426,6 +1440,7 @@ public final class CcCompilationHelper {
             /* usePic= */ pic,
             /* needsFdoBuildVariables= */ ccRelativeName != null,
             ccCompilationContext.getCppModuleMap(),
+            isCodeCoverageEnabled,
             gcnoFile,
             generateDwo,
             dwoFile,
@@ -1472,6 +1487,7 @@ public final class CcCompilationHelper {
             generatePicAction,
             /* needsFdoBuildVariables= */ false,
             ccCompilationContext.getCppModuleMap(),
+            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,
@@ -1536,7 +1552,7 @@ public final class CcCompilationHelper {
           CppHelper.getArtifactNameForCategory(
               ccToolchain, ArtifactCategory.COVERAGE_DATA_FILE, picOutputBase);
       Artifact gcnoFile =
-          enableCoverage
+          enableCoverage && !cppConfiguration.useLLVMCoverageMapFormat()
               ? CppHelper.getCompileOutputArtifact(
                   actionConstructionContext, label, gcnoFileName, configuration)
               : null;
@@ -1552,6 +1568,7 @@ public final class CcCompilationHelper {
               /* usePic= */ true,
               /* needsFdoBuildVariables= */ ccRelativeName != null && addObject,
               cppModuleMap,
+              enableCoverage,
               gcnoFile,
               generateDwo,
               dwoFile,
@@ -1610,7 +1627,7 @@ public final class CcCompilationHelper {
 
       // Create no-PIC compile actions
       Artifact gcnoFile =
-          enableCoverage
+          enableCoverage && !cppConfiguration.useLLVMCoverageMapFormat()
               ? CppHelper.getCompileOutputArtifact(
                   actionConstructionContext, label, gcnoFileName, configuration)
               : null;
@@ -1625,6 +1642,7 @@ public final class CcCompilationHelper {
               /* usePic= */ false,
               /* needsFdoBuildVariables= */ ccRelativeName != null,
               cppModuleMap,
+              enableCoverage,
               gcnoFile,
               generateDwo,
               noPicDwoFile,
@@ -1791,6 +1809,7 @@ public final class CcCompilationHelper {
             usePic,
             /* needsFdoBuildVariables= */ ccRelativeName != null,
             ccCompilationContext.getCppModuleMap(),
+            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,
@@ -1816,6 +1835,7 @@ public final class CcCompilationHelper {
             usePic,
             /* needsFdoBuildVariables= */ ccRelativeName != null,
             ccCompilationContext.getCppModuleMap(),
+            /* enableCoverage= */ false,
             /* gcnoFile= */ null,
             /* isUsingFission= */ false,
             /* dwoFile= */ null,

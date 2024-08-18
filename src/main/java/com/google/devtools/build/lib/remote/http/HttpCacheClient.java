@@ -540,8 +540,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
                             // Unsafe.throwException to
                             // re-throw a checked exception that hasn't been declared in the method
                             // signature.
-                            if (cause instanceof HttpException) {
-                              HttpResponse response = ((HttpException) cause).response();
+                            if (cause instanceof HttpException httpException) {
+                              HttpResponse response = httpException.response();
                               if (!dataWritten.get() && authTokenExpired(response)) {
                                 // The error is due to an auth token having expired. Let's try
                                 // again.
@@ -589,8 +589,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
                             outerF.set(null);
                           } else {
                             Throwable cause = f.cause();
-                            if (cause instanceof HttpException) {
-                              HttpResponse response = ((HttpException) cause).response();
+                            if (cause instanceof HttpException httpException) {
+                              HttpResponse response = httpException.response();
                               if (cacheMiss(response.status())) {
                                 outerF.setException(new CacheNotFoundException(cmd.digest()));
                                 return;
@@ -667,8 +667,8 @@ public final class HttpCacheClient implements RemoteCacheClient {
                           result.set(null);
                         } else {
                           Throwable cause = f.cause();
-                          if (cause instanceof HttpException) {
-                            HttpResponse response = ((HttpException) cause).response();
+                          if (cause instanceof HttpException httpException) {
+                            HttpResponse response = httpException.response();
                             try {
                               // If the error is due to an expired auth token and we can reset
                               // the input stream, then try again.
@@ -754,9 +754,9 @@ public final class HttpCacheClient implements RemoteCacheClient {
       in.reset();
       return true;
     }
-    if (in instanceof FileInputStream) {
+    if (in instanceof FileInputStream fileInputStream) {
       // FileInputStream does not support reset().
-      ((FileInputStream) in).getChannel().position(0);
+      fileInputStream.getChannel().position(0);
       return true;
     }
     return false;

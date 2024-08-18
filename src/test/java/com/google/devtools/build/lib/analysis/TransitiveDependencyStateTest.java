@@ -23,7 +23,6 @@ import static org.mockito.Mockito.when;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -33,10 +32,12 @@ import com.google.devtools.build.lib.packages.AspectClass;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.AspectParameters;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.util.MockObjcSupport;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.ArrayList;
@@ -165,15 +166,15 @@ public final class TransitiveDependencyStateTest {
       return ImmutableSortedSet.copyOf(
           comparing(BuildOptions::checksum),
           Arrays.<BuildOptions>asList(
-              createTestOptions(ImmutableList.of("--cpu=k8")),
-              createTestOptions(ImmutableList.of("--cpu=darwin_x86_64"))));
+              createTestOptions(ImmutableList.of("--platforms=" + TestConstants.PLATFORM_LABEL)),
+              createTestOptions(ImmutableList.of("--platforms=" + MockObjcSupport.DARWIN_X86_64))));
     } catch (OptionsParsingException e) {
       throw new ExceptionInInitializerError(e);
     }
   }
 
   private static BuildOptions createTestOptions(List<String> args) throws OptionsParsingException {
-    var fragments = ImmutableList.<Class<? extends FragmentOptions>>of(CoreOptions.class);
+    var fragments = ImmutableList.<Class<? extends FragmentOptions>>of(PlatformOptions.class);
     var optionsParser = OptionsParser.builder().optionsClasses(fragments).build();
     optionsParser.parse(args);
     return BuildOptions.of(fragments, optionsParser);

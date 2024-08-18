@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
-import com.google.devtools.build.lib.sandbox.CgroupsInfo;
+import com.google.devtools.build.lib.sandbox.Cgroup;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.Path;
@@ -53,7 +53,7 @@ public abstract class Worker {
 
   protected final WorkerProcessStatus status;
 
-  @Nullable protected CgroupsInfo cgroup = null;
+  @Nullable protected Cgroup cgroup = null;
 
   /**
    * Returns a unique id for this worker. This is used to distinguish different worker processes in
@@ -77,8 +77,7 @@ public abstract class Worker {
     return status;
   }
 
-  @Nullable
-  public CgroupsInfo getCgroup() {
+  public Cgroup getCgroup() {
     return cgroup;
   }
 
@@ -155,6 +154,6 @@ public abstract class Worker {
    */
   abstract String getRecordingStreamMessage();
 
-  /** Returns process id pf worker, if process started. Otherwise returns -1. */
+  /** Returns process id of the worker, if the process already started. Otherwise returns -1. */
   abstract long getProcessId();
 }

@@ -51,6 +51,7 @@ load(
 )
 load(
     ":utils.bzl",
+    "download_remote_files",
     "get_auth",
     "patch",
     "update_attrs",
@@ -75,22 +76,19 @@ Authentication is not supported.
 URLs are tried in order until one succeeds, so you should list local mirrors first.
 If all downloads fail, the rule will fail."""
 
-def _get_all_urls(ctx):
-    """Returns all urls provided via the url, urls and remote_patches attributes.
+def _get_source_urls(ctx):
+    """Returns source urls provided via the url, urls attributes.
 
     Also checks that at least one url is provided."""
     if not ctx.attr.url and not ctx.attr.urls:
         fail("At least one of url and urls must be provided")
 
-    all_urls = []
+    source_urls = []
     if ctx.attr.urls:
-        all_urls = ctx.attr.urls
+        source_urls = ctx.attr.urls
     if ctx.attr.url:
-        all_urls = [ctx.attr.url] + all_urls
-    if hasattr(ctx.attr, "remote_patches") and ctx.attr.remote_patches:
-        all_urls = all_urls + ctx.attr.remote_patches.keys()
-
-    return all_urls
+        source_urls = [ctx.attr.url] + source_urls
+    return source_urls
 
 _AUTH_PATTERN_DOC = """An optional dict mapping host names to custom authorization patterns.
 
@@ -135,21 +133,21 @@ def _http_archive_impl(ctx):
     if ctx.attr.build_file and ctx.attr.build_file_content:
         fail("Only one of build_file and build_file_content can be provided.")
 
-    all_urls = _get_all_urls(ctx)
-    auth = get_auth(ctx, all_urls)
-
+    source_urls = _get_source_urls(ctx)
     download_info = ctx.download_and_extract(
-        all_urls,
+        source_urls,
         ctx.attr.add_prefix,
         ctx.attr.sha256,
         ctx.attr.type,
         ctx.attr.strip_prefix,
-        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, all_urls),
-        auth = auth,
+        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, source_urls),
+        auth = get_auth(ctx, source_urls),
         integrity = ctx.attr.integrity,
     )
     workspace_and_buildfile(ctx)
-    patch(ctx, auth = auth)
+
+    download_remote_files(ctx)
+    patch(ctx)
 
     return _update_integrity_attr(ctx, _http_archive_attrs, download_info)
 
@@ -177,15 +175,14 @@ def _http_file_impl(ctx):
     download_path = ctx.path("file/" + downloaded_file_path)
     if download_path in forbidden_files or not str(download_path).startswith(str(repo_root)):
         fail("'%s' cannot be used as downloaded_file_path in http_file" % ctx.attr.downloaded_file_path)
-    all_urls = _get_all_urls(ctx)
-    auth = get_auth(ctx, all_urls)
+    source_urls = _get_source_urls(ctx)
     download_info = ctx.download(
-        all_urls,
+        source_urls,
         "file/" + downloaded_file_path,
         ctx.attr.sha256,
         ctx.attr.executable,
-        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, all_urls),
-        auth = auth,
+        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, source_urls),
+        auth = get_auth(ctx, source_urls),
         integrity = ctx.attr.integrity,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
@@ -212,15 +209,14 @@ filegroup(
 
 def _http_jar_impl(ctx):
     """Implementation of the http_jar rule."""
-    all_urls = _get_all_urls(ctx)
-    auth = get_auth(ctx, all_urls)
+    source_urls = _get_source_urls(ctx)
     downloaded_file_name = ctx.attr.downloaded_file_name
     download_info = ctx.download(
-        all_urls,
+        source_urls,
         "jar/" + downloaded_file_name,
         ctx.attr.sha256,
-        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, all_urls),
-        auth = auth,
+        canonical_id = ctx.attr.canonical_id or get_default_canonical_id(ctx, source_urls),
+        auth = get_auth(ctx, source_urls),
         integrity = ctx.attr.integrity,
     )
     ctx.file("WORKSPACE", "workspace(name = \"{name}\")".format(name = ctx.name))
@@ -303,6 +299,21 @@ following: `"zip"`, `"jar"`, `"war"`, `"aar"`, `"tar"`, `"tar.gz"`, `"tgz"`,
             "which doesn't support fuzz match and binary patch, but Bazel will fall back to use " +
             "patch command line tool if `patch_tool` attribute is specified or there are " +
             "arguments other than `-p` in `patch_args` attribute.",
+    ),
+    "remote_file_urls": attr.string_list_dict(
+        default = {},
+        doc =
+            "A map of relative paths (key) to a list of URLs (value) that are to be downloaded " +
+            "and made available as overlaid files on the repo. This is useful when you want " +
+            "to add WORKSPACE or BUILD.bazel files atop an existing repository. The files " +
+            "are downloaded before applying the patches in the `patches` attribute and the list of URLs " +
+            "should all be possible mirrors of the same file. The URLs are tried in order until one succeeds. ",
+    ),
+    "remote_file_integrity": attr.string_dict(
+        default = {},
+        doc =
+            "A map of file relative paths (key) to its integrity value (value). These relative paths should map " +
+            "to the files (key) in the `remote_file_urls` attribute.",
     ),
     "remote_patches": attr.string_dict(
         default = {},

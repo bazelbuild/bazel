@@ -15,18 +15,24 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum.MissingChecksumException;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.gson.FieldNamingPolicy;
 import com.google.gson.Gson;
@@ -40,6 +46,7 @@ import java.net.URL;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import javax.annotation.Nullable;
 
 /**
  * Represents a Bazel module registry that serves a list of module metadata from a static HTTP
@@ -49,35 +56,71 @@ import java.util.Optional;
  */
 public class IndexRegistry implements Registry {
 
-  /** The unresolved version of the url. Ex: has %workspace% placeholder */
-  private final String unresolvedUri;
+  /**
+   * How to handle the list of file hashes known from the lockfile when downloading files from the
+   * registry.
+   */
+  public enum KnownFileHashesMode {
+    /**
+     * Neither use nor update any file hashes. All registry downloads will go out to the network.
+     */
+    IGNORE,
+    /**
+     * Use file hashes from the lockfile if available and add hashes for new files to the lockfile.
+     * Avoid revalidation of mutable registry information (yanked versions in metadata.json and
+     * modules that previously 404'd) by using these hashes and recording absent files in the
+     * lockfile.
+     */
+    USE_AND_UPDATE,
+    /**
+     * Use file hashes from the lockfile if available and add hashes for new files to the lockfile.
+     * Always revalidate mutable registry information.
+     */
+    USE_IMMUTABLE_AND_UPDATE,
+    /**
+     * Require file hashes for all registry downloads. In particular, mutable registry files such as
+     * metadata.json can't be downloaded in this mode.
+     */
+    ENFORCE
+  }
 
   private final URI uri;
   private final DownloadManager downloadManager;
   private final Map<String, String> clientEnv;
   private final Gson gson;
+  private final ImmutableMap<String, Optional<Checksum>> knownFileHashes;
+  private final ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions;
+  @Nullable private final VendorManager vendorManager;
+  private final KnownFileHashesMode knownFileHashesMode;
   private volatile Optional<BazelRegistryJson> bazelRegistryJson;
+  private volatile StoredEventHandler bazelRegistryJsonEvents;
 
   private static final String SOURCE_JSON_FILENAME = "source.json";
 
   public IndexRegistry(
       URI uri,
-      String unresolvedUri,
       DownloadManager downloadManager,
-      Map<String, String> clientEnv) {
+      Map<String, String> clientEnv,
+      ImmutableMap<String, Optional<Checksum>> knownFileHashes,
+      KnownFileHashesMode knownFileHashesMode,
+      ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions,
+      Optional<Path> vendorDir) {
     this.uri = uri;
-    this.unresolvedUri = unresolvedUri;
     this.downloadManager = downloadManager;
     this.clientEnv = clientEnv;
     this.gson =
         new GsonBuilder()
             .setFieldNamingPolicy(FieldNamingPolicy.LOWER_CASE_WITH_UNDERSCORES)
             .create();
+    this.knownFileHashes = knownFileHashes;
+    this.knownFileHashesMode = knownFileHashesMode;
+    this.previouslySelectedYankedVersions = previouslySelectedYankedVersions;
+    this.vendorManager = vendorDir.map(VendorManager::new).orElse(null);
   }
 
   @Override
   public String getUrl() {
-    return unresolvedUri;
+    return uri.toString();
   }
 
   private String constructUrl(String base, String... segments) {
@@ -92,14 +135,92 @@ public class IndexRegistry implements Registry {
   }
 
   /** Grabs a file from the given URL. Returns {@link Optional#empty} if the file doesn't exist. */
-  private Optional<byte[]> grabFile(String url, ExtendedEventHandler eventHandler)
+  private Optional<byte[]> grabFile(
+      String url, ExtendedEventHandler eventHandler, boolean useChecksum)
       throws IOException, InterruptedException {
+    var maybeContent = doGrabFile(url, eventHandler, useChecksum);
+    if ((knownFileHashesMode == KnownFileHashesMode.USE_AND_UPDATE
+            || knownFileHashesMode == KnownFileHashesMode.USE_IMMUTABLE_AND_UPDATE)
+        && useChecksum) {
+      eventHandler.post(RegistryFileDownloadEvent.create(url, maybeContent));
+    }
+    return maybeContent;
+  }
+
+  private Optional<byte[]> doGrabFile(
+      String rawUrl, ExtendedEventHandler eventHandler, boolean useChecksum)
+      throws IOException, InterruptedException {
+    Optional<Checksum> checksum;
+    if (knownFileHashesMode != KnownFileHashesMode.IGNORE && useChecksum) {
+      Optional<Checksum> knownChecksum = knownFileHashes.get(rawUrl);
+      if (knownChecksum == null) {
+        if (knownFileHashesMode == KnownFileHashesMode.ENFORCE) {
+          throw new MissingChecksumException(
+              String.format(
+                  "Missing checksum for registry file %s not permitted with --lockfile_mode=error."
+                      + " Please run `bazel mod deps --lockfile_mode=update` to update your"
+                      + " lockfile.",
+                  rawUrl));
+        }
+        // This is a new file, download without providing a checksum.
+        checksum = Optional.empty();
+      } else if (knownChecksum.isEmpty()) {
+        // The file didn't exist when the lockfile was created, but it may exist now.
+        if (knownFileHashesMode == KnownFileHashesMode.USE_IMMUTABLE_AND_UPDATE) {
+          // Attempt to download the file again.
+          checksum = Optional.empty();
+        } else {
+          // Guarantee reproducibility by assuming that the file still doesn't exist.
+          return Optional.empty();
+        }
+      } else {
+        // The file is known, download with a checksum to potentially obtain a repository cache hit
+        // and ensure that the remote file hasn't changed.
+        checksum = knownChecksum;
+      }
+    } else {
+      checksum = Optional.empty();
+    }
+    if (knownFileHashesMode == KnownFileHashesMode.ENFORCE) {
+      Preconditions.checkState(
+          checksum.isPresent(),
+          "Cannot fetch a file without a checksum in ENFORCE mode. This is a bug in Bazel, please "
+              + "report at https://github.com/bazelbuild/bazel/issues/new/choose.");
+    }
+
+    URL url = URI.create(rawUrl).toURL();
+    // Don't read the registry URL from the vendor directory in the following cases:
+    // 1. vendorUtil is null, which means vendor mode is disabled.
+    // 2. The checksum is not present, which means the URL is not vendored or the vendored content
+    // is out-dated.
+    // 3. The URL starts with "file:", which means it's a local file and isn't vendored.
+    // 4. The vendor path doesn't exist, which means the URL is not vendored.
+    if (vendorManager != null
+        && checksum.isPresent()
+        && !url.getProtocol().equals("file")
+        && vendorManager.isUrlVendored(url)) {
+      try {
+        return Optional.of(vendorManager.readRegistryUrl(url, checksum.get()));
+      } catch (IOException e) {
+        throw new IOException(
+            String.format(
+                "Failed to read vendored registry file %s at %s: %s. Please rerun the bazel"
+                    + " vendor command.",
+                rawUrl, vendorManager.getVendorPathForUrl(url), e.getMessage()),
+            e);
+      }
+    }
+
     try (SilentCloseable c =
-        Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "download file: " + url)) {
+        Profiler.instance().profile(ProfilerTask.BZLMOD, () -> "download file: " + rawUrl)) {
       return Optional.of(
-          downloadManager.downloadAndReadOneUrl(new URL(url), eventHandler, clientEnv));
+          downloadManager.downloadAndReadOneUrlForBzlmod(url, eventHandler, clientEnv, checksum));
     } catch (FileNotFoundException e) {
       return Optional.empty();
+    } catch (IOException e) {
+      // Include the URL in the exception message for easier debugging.
+      throw new IOException(
+          "Failed to fetch registry file %s: %s".formatted(rawUrl, e.getMessage()), e);
     }
   }
 
@@ -108,8 +229,9 @@ public class IndexRegistry implements Registry {
       throws IOException, InterruptedException {
     String url =
         constructUrl(
-            uri.toString(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel");
-    return grabFile(url, eventHandler).map(content -> ModuleFile.create(content, url));
+            getUrl(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel");
+    Optional<byte[]> maybeContent = grabFile(url, eventHandler, /* useChecksum= */ true);
+    return maybeContent.map(content -> ModuleFile.create(content, url));
   }
 
   /** Represents fields available in {@code bazel_registry.json} for the registry. */
@@ -129,6 +251,7 @@ public class IndexRegistry implements Registry {
     String integrity;
     String stripPrefix;
     Map<String, String> patches;
+    Map<String, String> overlay;
     int patchStrip;
     String archiveType;
   }
@@ -153,22 +276,20 @@ public class IndexRegistry implements Registry {
    * Grabs a JSON file from the given URL, and returns its content. Returns {@link Optional#empty}
    * if the file doesn't exist.
    */
-  private Optional<String> grabJsonFile(String url, ExtendedEventHandler eventHandler)
+  private Optional<String> grabJsonFile(
+      String url, ExtendedEventHandler eventHandler, boolean useChecksum)
       throws IOException, InterruptedException {
-    Optional<byte[]> bytes = grabFile(url, eventHandler);
-    if (bytes.isEmpty()) {
-      return Optional.empty();
-    }
-    return Optional.of(new String(bytes.get(), UTF_8));
+    return grabFile(url, eventHandler, useChecksum).map(value -> new String(value, UTF_8));
   }
 
   /**
    * Grabs a JSON file from the given URL, and returns it as a parsed object with fields in {@code
    * T}. Returns {@link Optional#empty} if the file doesn't exist.
    */
-  private <T> Optional<T> grabJson(String url, Class<T> klass, ExtendedEventHandler eventHandler)
+  private <T> Optional<T> grabJson(
+      String url, Class<T> klass, ExtendedEventHandler eventHandler, boolean useChecksum)
       throws IOException, InterruptedException {
-    Optional<String> jsonString = grabJsonFile(url, eventHandler);
+    Optional<String> jsonString = grabJsonFile(url, eventHandler, useChecksum);
     if (jsonString.isEmpty() || jsonString.get().isBlank()) {
       return Optional.empty();
     }
@@ -188,58 +309,59 @@ public class IndexRegistry implements Registry {
   @Override
   public RepoSpec getRepoSpec(ModuleKey key, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
-    String jsonUrl =
-        constructUrl(
-            uri.toString(),
-            "modules",
-            key.getName(),
-            key.getVersion().toString(),
-            SOURCE_JSON_FILENAME);
-    Optional<String> jsonString = grabJsonFile(jsonUrl, eventHandler);
+    String jsonUrl = getSourceJsonUrl(key);
+    Optional<String> jsonString = grabJsonFile(jsonUrl, eventHandler, /* useChecksum= */ true);
     if (jsonString.isEmpty()) {
       throw new FileNotFoundException(
-          String.format("Module %s's %s not found in registry %s", key, SOURCE_JSON_FILENAME, uri));
+          String.format(
+              "Module %s's %s not found in registry %s", key, SOURCE_JSON_FILENAME, getUrl()));
     }
     SourceJson sourceJson = parseJson(jsonString.get(), jsonUrl, SourceJson.class);
     switch (sourceJson.type) {
-      case "archive":
-        {
-          ArchiveSourceJson typedSourceJson =
-              parseJson(jsonString.get(), jsonUrl, ArchiveSourceJson.class);
-          return createArchiveRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key);
-        }
-      case "local_path":
-        {
-          LocalPathSourceJson typedSourceJson =
-              parseJson(jsonString.get(), jsonUrl, LocalPathSourceJson.class);
-          return createLocalPathRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key);
-        }
-      case "git_repository":
-        {
-          GitRepoSourceJson typedSourceJson =
-              parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
-          return createGitRepoSpec(typedSourceJson);
-        }
-      default:
-        throw new IOException(
-            String.format("Invalid source type \"%s\" for module %s", sourceJson.type, key));
+      case "archive" -> {
+        ArchiveSourceJson typedSourceJson =
+            parseJson(jsonString.get(), jsonUrl, ArchiveSourceJson.class);
+        return createArchiveRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key);
+      }
+      case "local_path" -> {
+        LocalPathSourceJson typedSourceJson =
+            parseJson(jsonString.get(), jsonUrl, LocalPathSourceJson.class);
+        return createLocalPathRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key);
+      }
+      case "git_repository" -> {
+        GitRepoSourceJson typedSourceJson =
+            parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
+        return createGitRepoSpec(typedSourceJson);
+      }
+      default ->
+          throw new IOException(
+              String.format("Invalid source type \"%s\" for module %s", sourceJson.type, key));
     }
   }
 
-  @SuppressWarnings("OptionalAssignedToNull")
+  private String getSourceJsonUrl(ModuleKey key) {
+    return constructUrl(
+        getUrl(), "modules", key.getName(), key.getVersion().toString(), SOURCE_JSON_FILENAME);
+  }
+
   private Optional<BazelRegistryJson> getBazelRegistryJson(ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
-    if (bazelRegistryJson == null) {
+    if (bazelRegistryJson == null || bazelRegistryJsonEvents == null) {
       synchronized (this) {
-        if (bazelRegistryJson == null) {
+        if (bazelRegistryJson == null || bazelRegistryJsonEvents == null) {
+          Preconditions.checkState(bazelRegistryJson == null && bazelRegistryJsonEvents == null);
+          var storedEventHandler = new StoredEventHandler();
           bazelRegistryJson =
               grabJson(
-                  constructUrl(uri.toString(), "bazel_registry.json"),
+                  constructUrl(getUrl(), "bazel_registry.json"),
                   BazelRegistryJson.class,
-                  eventHandler);
+                  storedEventHandler,
+                  /* useChecksum= */ true);
+          bazelRegistryJsonEvents = storedEventHandler;
         }
       }
     }
+    bazelRegistryJsonEvents.replayOn(eventHandler);
     return bazelRegistryJson;
   }
 
@@ -308,7 +430,7 @@ public class IndexRegistry implements Registry {
       for (Map.Entry<String, String> entry : sourceJson.patches.entrySet()) {
         remotePatches.put(
             constructUrl(
-                unresolvedUri,
+                getUrl(),
                 "modules",
                 key.getName(),
                 key.getVersion().toString(),
@@ -318,11 +440,32 @@ public class IndexRegistry implements Registry {
       }
     }
 
+    ImmutableMap<String, String> sourceJsonOverlay =
+        sourceJson.overlay != null ? ImmutableMap.copyOf(sourceJson.overlay) : ImmutableMap.of();
+    ImmutableMap<String, ArchiveRepoSpecBuilder.RemoteFile> overlay =
+        sourceJsonOverlay.entrySet().stream()
+            .collect(
+                toImmutableMap(
+                    Entry::getKey,
+                    entry ->
+                        new ArchiveRepoSpecBuilder.RemoteFile(
+                            entry.getValue(), // integrity
+                            // URLs in the registry itself are not mirrored.
+                            ImmutableList.of(
+                                constructUrl(
+                                    getUrl(),
+                                    "modules",
+                                    key.getName(),
+                                    key.getVersion().toString(),
+                                    "overlay",
+                                    entry.getKey())))));
+
     return new ArchiveRepoSpecBuilder()
         .setUrls(urls.build())
         .setIntegrity(sourceJson.integrity)
         .setStripPrefix(Strings.nullToEmpty(sourceJson.stripPrefix))
         .setRemotePatches(remotePatches.buildOrThrow())
+        .setOverlay(overlay)
         .setRemotePatchStrip(sourceJson.patchStrip)
         .setArchiveType(sourceJson.archiveType)
         .build();
@@ -346,9 +489,11 @@ public class IndexRegistry implements Registry {
       throws IOException, InterruptedException {
     Optional<MetadataJson> metadataJson =
         grabJson(
-            constructUrl(uri.toString(), "modules", moduleName, "metadata.json"),
+            constructUrl(getUrl(), "modules", moduleName, "metadata.json"),
             MetadataJson.class,
-            eventHandler);
+            eventHandler,
+            // metadata.json is not immutable
+            /* useChecksum= */ false);
     if (metadataJson.isEmpty()) {
       return Optional.empty();
     }
@@ -366,6 +511,44 @@ public class IndexRegistry implements Registry {
           String.format(
               "Could not parse module %s's metadata file: %s", moduleName, e.getMessage()));
     }
+  }
+
+  @Override
+  public Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(
+      ModuleKey selectedModuleKey) {
+    if (knownFileHashesMode == KnownFileHashesMode.USE_IMMUTABLE_AND_UPDATE) {
+      // Yanked version information is inherently mutable, so always refresh it when requested.
+      return Optional.empty();
+    }
+    String yankedInfo = previouslySelectedYankedVersions.get(selectedModuleKey);
+    if (yankedInfo != null) {
+      // The module version was selected when the lockfile was created, but known to be yanked
+      // (hence, it was explicitly allowed by the user). We reuse the yanked info from the lockfile.
+      // Rationale: A module that was yanked in the past should remain yanked in the future. The
+      // yanked info may have been updated since then, but by not fetching it, we avoid network
+      // access if the set of yanked versions has not changed, but the set allowed versions has.
+      return Optional.of(
+          YankedVersionsValue.create(
+              Optional.of(ImmutableMap.of(selectedModuleKey.getVersion(), yankedInfo))));
+    }
+    if (knownFileHashes.containsKey(getSourceJsonUrl(selectedModuleKey))) {
+      // If the source.json hash is recorded in the lockfile, we know that the module was selected
+      // when the lockfile was created. Since it does not appear in the list of selected yanked
+      // versions recorded in the lockfile, it must not have been yanked at that time. We do not
+      // refresh yanked versions information.
+      // Rationale: This ensures that builds with --lockfile_mode=update or error are reproducible
+      // and do not fail due to changes in the set of yanked versions. Furthermore, it avoids
+      // refetching yanked versions for all modules every time the user modifies or adds a
+      // dependency. If the selected version for a module changes, yanked version information is
+      // always refreshed.
+      return Optional.of(YankedVersionsValue.NONE_YANKED);
+    }
+    // The lockfile does not contain sufficient information to determine the "yanked" status of the
+    // module - network access to the registry is required.
+    // Note that this point can't (and must not) be reached with --lockfile_mode=error: The lockfile
+    // records the source.json hashes of all selected modules and the result of selection is fully
+    // determined by the lockfile.
+    return Optional.empty();
   }
 
   /** Represents fields available in {@code metadata.json} for each module. */

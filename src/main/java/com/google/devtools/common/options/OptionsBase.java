@@ -64,7 +64,8 @@ public abstract class OptionsBase {
    * independent. Entries are sorted alphabetically.
    */
   public final Map<String, Object> asMap() {
-    List<OptionDefinition> definitions = OptionsData.getAllOptionDefinitionsForClass(getClass());
+    List<? extends OptionDefinition> definitions =
+        OptionsData.getAllOptionDefinitionsForClass(getClass());
     Map<String, Object> map = Maps.newLinkedHashMapWithExpectedSize(definitions.size());
     for (OptionDefinition definition : definitions) {
       map.put(definition.getOptionName(), getValueFromDefinition(definition));
@@ -74,11 +75,7 @@ public abstract class OptionsBase {
 
   /** Returns the value of the option described by {@code definition}. */
   public final Object getValueFromDefinition(OptionDefinition definition) {
-    try {
-      return definition.getField().get(this);
-    } catch (IllegalAccessException e) {
-      throw new IllegalStateException("All options fields of options classes should be public", e);
-    }
+    return definition.getValue(this);
   }
 
   @Override

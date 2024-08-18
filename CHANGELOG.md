@@ -1,97 +1,183 @@
-## Release 8.0.0-pre.20240404.3 (2024-04-17)
+## Release 8.0.0-pre.20240812.1 (2024-08-15)
 
 ```
-Baseline: 609aca860a91b26da7a9a6f90c98e3a67d0b4023
+Baseline: 133eb60925496e3153bcc7903968b4eeb6d16068
+```
+
+New features:
+
+  - aspects can now return DefaultInfo, which will then be merged
+    with that of the configured target they are applied to.
+    Currently, only the files= field is supported.
+
+Important changes:
+
+  - BEP will include correct \`TestResult\` and \`TargetSummary\`
+    events when special test inputs like \`$test_runtime\` fail to
+    build.
+  - Improve progress message in case there are no actions in flight,
+    and display explicitly "no actions running" in that case.
+  - The new `cc_static_library` rule produces a static library that
+    bundles given targets and all their transitive dependencies. It
+    has to be enabled via `--experimental_cc_static_library`.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, FaBrand, Jiawen (Kevin) Chen, Son Luong Ngoc, Victor Hiairrassary.
+
+## Release 8.0.0-pre.20240807.1 (2024-08-13)
+
+```
+Baseline: 300c5867b7d2da1ba32abc20e95662096c2a7a08
+```
+
+Important changes:
+
+  - Bazel no longer has the android_ndk_repository rule. Use
+    https://github.com/bazelbuild/rules_android_ndk instead. See
+    https://github.com/bazelbuild/bazel/issues/23199
+  - Bazel no longer has the android_local_test rule. Use
+    https://github.com/bazelbuild/rules_android instead. See
+    https://github.com/bazelbuild/bazel/issues/23199
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, JKutscha, Xdng Yng.
+
+## Release 7.3.0 (2024-08-12)
+
+```
+
+Release Notes:
+
+```
+
+## Release 8.0.0-pre.20240805.3 (2024-08-12)
+
+```
+Baseline: 914db36648ef734b9b534d2a37907b9505534399
 
 Cherry picks:
 
-   + babc5c3be6227447018290677c1dd0e1ea1bf6cc:
-     Remove mention of non-existent `--visionos_sdk_version` flag
-   + 6288eb92b228ee25f3a1202d26d4b1c9bc25d62a:
-     Fix capitalization of Apple platforms, Xcode, “SDK”, and
-     “OS”
-   + 0f760395e04cb0accb912be128b4f363663e8d30:
-     Fix bzl error when the Xcode isn't available remotely but others
-     are
+   + 7e689a55ccdcd752c102d25fe9acb257bd7d881c:
+     Be resilient to outdated exec paths in action cache entries
 ```
 
-This release contains contributions from many people at Google, as well as Brentley Jones, Fabian Meumertzheim.
+Important changes:
 
-## Release 8.0.0-pre.20240401.3 (2024-04-11)
+  - The format of canonical repo names has changed to use plus (`+`)
+    instead of tilde (`~`). Effectively, this flips the flag
+    `--incompatible_use_plus_in_repo_names` to true, and the flag is
+    now a no-op (i.e. cannot be "unflipped").
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jordan Mele, Laurent Le Brun, Xdng Yng.
+
+## Release 8.0.0-pre.20240730.1 (2024-08-06)
 
 ```
-Baseline: 753dc9750714af581147f6aa338adeb07a9dcb57
+Baseline: c75124148e025945b96b5b7c165c37d2975e865d
+```
+
+This release contains contributions from many people at Google, as well as Cornelius Riemenschneider, Fabian Meumertzheim, Laurent Le Brun, Xdng Yng.
+
+## Release 8.0.0-pre.20240729.1 (2024-08-01)
+
+```
+Baseline: d08bb13369d840af35a26b5e38b3d0adb896fd29
+```
+
+Important changes:
+
+  - `--compile_one_dependency` selects header-only `cc_library`s in
+    more cases
+
+This release contains contributions from many people at Google, as well as Cornelius Riemenschneider, Fabian Meumertzheim, Keith Smiley, M. Taimoor Zaeem.
+
+## Release 8.0.0-pre.20240724.1 (2024-07-30)
+
+```
+Baseline: 0803ad3770155be411a703950502dc71743017bd
+```
+
+Important changes:
+
+  - Added `--experimental_collect_skyframe_counts_in_profiler` to
+    collect Skyframe node counts in the JSON profile over time.
+    Currently, the following SkyFunctions are measured: `BZL_LOAD`,
+    `GLOB`, `GLOBS`, `PACKAGE`, `CONFIGURED_TARGET`, `ASPECT`,
+    `ACTION_EXECUTION`.
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Jamison Lahman, Jordan Mele, Son Luong Ngoc.
+
+## Release 8.0.0-pre.20240718.2 (2024-07-26)
+
+```
+Baseline: a36c09f61eb0a10727b13ddd62987a8caf7af45c
 
 Cherry picks:
 
-   + 0f551a573d0a81704c6baba1109b055cce4e68ce:
+   + 0803ad3770155be411a703950502dc71743017bd:
+     No public description
+```
+
+Important changes:
+
+  - Stop exposing the AndroidPlatformsTransition to Starlark.
+
+This release contains contributions from many people at Google, as well as eantpil.
+
+## Release 8.0.0-pre.20240710.4 (2024-07-19)
+
+```
+Baseline: 34b926bceba798820b369a47d1a7b7ff1634d277
+```
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, dependabot[bot], Fabian Meumertzheim, Jordan Mele, Laurent Le Brun, Marc Redemske, Son Luong Ngoc.
+
+## Release 8.0.0-pre.20240701.1 (2024-07-12)
+
+```
+Baseline: 3f93d377d036d773fd505a18e084425a00fb94ea
+```
+
+Important changes:
+
+  - Experimental support for path mapping `CppCompile` actions can be
+    enabled via
+    `--modify_execution_info=CppCompile=+supports-path-mapping`.
+
+This release contains contributions from many people at Google, as well as detailyang, Fabian Meumertzheim, Greg Roodt, hvd, Jason Schroeder, Laurent Le Brun, Simon Mavi Stewart, Xdng Yng.
+
+## Release 8.0.0-pre.20240618.2 (2024-07-02)
+
+```
+Baseline: 0c2ed165335327a2c5b534312324baa9ae6b6ebd
+
+Cherry picks:
+
+   + 8d625289052b7d67fedbd50b1eb611deda4ea14a:
      Automated rollback of commit
-     781e8629c758db7ebe64325a558c8b5a3d98bed1.
+     17f6894346d2e200030dc08d131bf79a31a7c70c.
 ```
 
 Initial release.
 
-## Release 7.1.1 (2024-03-21)
+## Release 7.2.1 (2024-06-25)
 
 ```
-Baseline:  9b39ccaa33069c9f5688bef477abcd75e4378f04
 
 Release Notes:
 
-+ Release 7.1.0 (2024-03-11)
-+ Update centos7 platform in build_bazel_binaries.yml (#21644)
-+ Fix `bazel mod tidy` failure with no changes (#21662)
-+ Update .bazelversion to 7.1.0 (#21664)
-+ Let native Turbine image find `ct.sym` with non-hermetic `java_runtime` (#21670)
-+ Actually use shouldPublish() to determine whether to publish the execution log to the BEP. (#21671)
-+ Also inject a failure for createWritableDirectory when testing that ActionOutputDirectoryHelper propagates exceptions. (#21683)
-+ Fix race condition and add more logging for null entry error message (#21692)
-+ Allow any canonical repo name to be used with `bazel mod show_repo` (#21694)
-+ Fix two `bazel mod tidy` crashes (#21700)
-+ Cherry-pick Java execution info improvements (#21703)
-+ Disable //src/test/shell/bazel:srcs_test on Intel macOS (#21707)
-+ Fix sandbox cleanup crashing after server restart (#21733)
-+ Revert "Fix `bazel fetch` by replacing query with cquery for … (#21735)
-
-Acknowledgements:
-
-This release contains contributions from many people at Google, as well as bazel.build machine account, Fabian Meumertzheim, Xùdōng Yáng.
 ```
 
-## Release 7.1.1 (2024-03-21)
+## Release 7.1.2 (2024-05-08)
 
 ```
-Baseline:  9b39ccaa33069c9f5688bef477abcd75e4378f04
+Baseline:  d798ebde6c6394203a87b5f1a6b62ecfc3880991
 
 Release Notes:
 
-+ Release 7.1.0 (2024-03-11)
-+ Update centos7 platform in build_bazel_binaries.yml (#21644)
-+ Fix `bazel mod tidy` failure with no changes (#21662)
-+ Update .bazelversion to 7.1.0 (#21664)
-+ Let native Turbine image find `ct.sym` with non-hermetic `java_runtime` (#21670)
-+ Actually use shouldPublish() to determine whether to publish the execution log to the BEP. (#21671)
-+ Also inject a failure for createWritableDirectory when testing that ActionOutputDirectoryHelper propagates exceptions. (#21683)
-+ Fix race condition and add more logging for null entry error message (#21692)
-+ Allow any canonical repo name to be used with `bazel mod show_repo` (#21694)
-+ Fix two `bazel mod tidy` crashes (#21700)
-+ Cherry-pick Java execution info improvements (#21703)
-+ Disable //src/test/shell/bazel:srcs_test on Intel macOS (#21707)
-+ Fix sandbox cleanup crashing after server restart (#21733)
-+ Revert "Fix `bazel fetch` by replacing query with cquery for … (#21735)
-
-Acknowledgements:
-
-This release contains contributions from many people at Google, as well as bazel.build machine account, Fabian Meumertzheim, Xùdōng Yáng.
-```
-
-## Release 7.1.0 (2024-03-11)
-
-```
-Baseline:  8f4b11520f9ac7f24018b3a53c8a228aeae71876
-
-Release Notes:
-
++ Consider MODULE.bazel for workspace detection in bazel.sh (#20594)
++ Auto-create deploy jars for Bazel `java_test` targets if requested (#20602)
++ `java_binary` wrapper should forward `restricted_to` (#20611)
++ Mount user-specified bind mounts before Bazel's own magic. (#20609)
++ Fix bootstrapped Bazel binary (#20612)
 + Modify the error message that occurs when a requested target does not… (#20636)
 + Cherry-pick all presubmit.yml changes (#20736)
 + Accept labels of aliases in config_setting. (#20649)
@@ -311,354 +397,30 @@ Release Notes:
 + Attempt to fix cancellation crash in repo fetching w/ worker thread (#21599)
 + Move compile StarlarkMethod back to CcModuleAPI (#21605)
 + Expose AndroidIdeInfo in android_common (#21607)
++ Release 7.1.0 (2024-03-11)
++ Update centos7 platform in build_bazel_binaries.yml (#21644)
++ Fix `bazel mod tidy` failure with no changes (#21662)
++ Update .bazelversion to 7.1.0 (#21664)
++ Let native Turbine image find `ct.sym` with non-hermetic `java_runtime` (#21670)
++ Actually use shouldPublish() to determine whether to publish the execution log to the BEP. (#21671)
++ Also inject a failure for createWritableDirectory when testing that ActionOutputDirectoryHelper propagates exceptions. (#21683)
++ Fix race condition and add more logging for null entry error message (#21692)
++ Allow any canonical repo name to be used with `bazel mod show_repo` (#21694)
++ Fix two `bazel mod tidy` crashes (#21700)
++ Cherry-pick Java execution info improvements (#21703)
++ Disable //src/test/shell/bazel:srcs_test on Intel macOS (#21707)
++ Fix sandbox cleanup crashing after server restart (#21733)
++ Revert "Fix `bazel fetch` by replacing query with cquery for … (#21735)
++ Release 7.1.1 (2024-03-21)
++ Implement RemoteActionFileSystem#statIfFound correctly when the path cannot be canonicalized (#21889)
++ Don't upload remote input to remote cache (#21941)
++ Do not watch `.netrc` in `read_netrc` (#22186)
++ Set public visibility for R8 desugar binary (#22176)
 
 Acknowledgements:
 
-This release contains contributions from many people at Google, as well as Alessandro Patti, Artem V. Navrotskiy, bazel.build machine account, Brentley Jones, Cameron Martin, Chi Wawng, Christian Scott, Cristin Donoso, David Ostrovsky, Ed Schouten, Fabian Meumertzheim, Gunnar Wagenknecht, Jordan Mele, Keith Smiley, lberki, Nikhil Kalige, oquenchil, Patrick Balestra, Rahul Butani, Ryan Beasley, Son Luong Ngoc, Sushain Cherivirala, thesayyn, Viktor Kustov, Xdng Yng, Xùdōng Yáng, Yannic, Yannic Bonenberger.
+This release contains contributions from many people at Google, as well as Alessandro Patti, Artem V. Navrotskiy, bazel.build machine account, Brentley Jones, Cameron Martin, Chi Wawng, Christian Scott, Cristin Donoso, David Ostrovsky, Ed Schouten, Fabian Meumertzheim, Gunnar Wagenknecht, Jordan Mele, Keith Smiley, lberki, Nikhil Kalige, oquenchil, Patrick Balestra, Rahul Butani, Ryan Beasley, Siddhartha Bagaria, Son Luong Ngoc, Sushain Cherivirala, thesayyn, Tianyu Geng, Viktor Kustov, Xdng Yng, Xùdōng Yáng, Yannic, Yannic Bonenberger.
 ```
-
-## Release 8.0.0-pre.20240303.2 (2024-03-08)
-
-```
-Baseline: 7f749e927f61a84ef3a8f361ce601db9d2b81fc4
-
-Cherry picks:
-
-   + ae71ce99dd2928920341b6784a9cc0ae4bb25447:
-     Fix CommandLine class initialization deadlock.
-```
-
-This release contains contributions from many people at Google, as well as Benjamin Peterson.
-
-## Release 8.0.0-pre.20240303.1 (2024-03-07)
-
-```
-Baseline: 7f749e927f61a84ef3a8f361ce601db9d2b81fc4
-```
-
-New features:
-
-  - New $(DUMPBIN) make variable is now available for Visual Studio
-    toolchains.
-
-Important changes:
-
-  - The result of `canonicalize-flags` now includes all Starlark
-    flags by default. Use `--noexperimental_include_default_values`
-    for the old behavior that only reports Starlark flags with
-    non-default values.
-  - Added `windows_quoting_for_param_files` feature for windows-style
-    parameter file escaping.
-
-This release contains contributions from many people at Google, as well as Alex Sharoff, Cameron Martin, Cristin Donoso, Son Luong Ngoc, Sushain Cherivirala, Viktor Kustov, Yannic Bonenberger.
-
-## Release 8.0.0-pre.20240226.1 (2024-03-05)
-
-```
-Baseline: 9d34f8ab0f1ffb18900feaeb23cb16c93f4e0139
-
-Cherry picks:
-
-   + 702118bc527d25c6a82625f2cce02a350ec18239:
-     Remove --host_jvm_args=-Djava.net.preferIPv6Addresses=true
-```
-
-Incompatible changes:
-
-  - Coverage report generators don't get anymore the JAVA_RUNFILES
-    and PYTHON_RUNFILES environment variables.
-  - apple_cc_toolchain rule was removed, use regular cc_toolchain
-  - "bazel query" and "bazel print_action" can't run under the output
-    base anymore.
-  - The Starlark methods copts, generate_linkmap, should_strip_binary
-    in objc fragment have been deleted.  Please use the equivalent
-    methods
-    objccopts, objc_generate_linkmap, objc_should_strip_binary in cpp
-    fragments
-    instead.
-
-New features:
-
-  - Bazel now respects `expires` from Credential Helpers.
-
-Important changes:
-
-  - Added a new method, `repository_ctx.watch()`, which asks Bazel to
-    watch for changes to an arbitrary file. When said file changes,
-    Bazel will refetch the repo.
-  - `genrule` now supports setting `stamp = -1` to request
-    conditional stamping (based on the value of the build's `--stamp`
-    flag).
-
-This release contains contributions from many people at Google, as well as Alessandro Patti, Alex Eagle, Artem V. Navrotskiy, Fabian Meumertzheim, George Gensure, Josh Chorlton, Letu Ren, ouguoc2-stripe, Romain Chossart, thesayyn, Xdng Yng, Xùdōng Yáng, Yannic Bonenberger, Yannic.
-
-## Release 8.0.0-pre.20240213.1 (2024-02-23)
-
-```
-Baseline: add245c52cdc9ef5b5988a0ca3f9cacac0d4542b
-
-Cherry picks:
-
-   + 64644991518fdd9eea61f0620e10a831a8848455:
-     Fixes _module_repo_name when building with Bazel@HEAD or Bazel
-     7.1
-   + 0675b186e4c1959dc326ac01e877033b1abbb5bd:
-     Release 8.0.0-pre.20240213.1 (2024-02-23)
-   + 5fd926b4390ddc6d580e28ade22354d61c76722d:
-     Release 8.0.0-pre.20240213.1 (2024-02-23)
-```
-
-This release contains contributions from many people at Google, as well as .
-
-## Release 8.0.0-pre.20240213.1 (2024-02-23)
-
-```
-Baseline: add245c52cdc9ef5b5988a0ca3f9cacac0d4542b
-
-Cherry picks:
-
-   + 64644991518fdd9eea61f0620e10a831a8848455:
-     Fixes _module_repo_name when building with Bazel@HEAD or Bazel
-     7.1
-   + 0675b186e4c1959dc326ac01e877033b1abbb5bd:
-     Release 8.0.0-pre.20240213.1 (2024-02-23)
-```
-
-This release contains contributions from many people at Google, as well as .
-
-## Release 8.0.0-pre.20240213.1 (2024-02-23)
-
-```
-Baseline: add245c52cdc9ef5b5988a0ca3f9cacac0d4542b
-
-Cherry picks:
-
-   + 64644991518fdd9eea61f0620e10a831a8848455:
-     Fixes _module_repo_name when building with Bazel@HEAD or Bazel
-     7.1
-```
-
-Important changes:
-
-  - The new `bazel mod tidy` subcommand automatically updates
-    `use_repo` calls in the `MODULE.bazel` file for extensions that
-    use `module_ctx.extension_metadata`.
-  - Introduce new flag --experimental_worker_use_cgroups_on_linux
-    that uses cgroups to track memory usage for singleplex workers
-    (on Linux).
-  - The scheme for generating canonical repository names has changed
-    to improve cacheability of actions across dependency version
-    updates. Note that canonical names are not considered to be
-    public API and can change at any time. See
-    https://bazel.build/external/module#repository_names_and_strict_de
-    ps for advice on how to avoid hardcoding canonical repository
-    names.
-  - The `to_display_form()` method on `Label` returns a string
-    representation of a label optimized for readability by humans.
-
-This release contains contributions from many people at Google, as well as Alessandro Patti, Artem V. Navrotskiy, dependabot[bot], DocQuantum, Fabian Meumertzheim, Keith Smiley, Marc Redemske, Patrick Balestra, Sushain Cherivirala, Xdng Yng.
-
-## Release 8.0.0-pre.20240206.3 (2024-02-15)
-
-```
-Baseline: cc8be0ab496570eb155ba220012f52f6a6c7082d
-
-Cherry picks:
-
-   + cff79d0aa6f2d470b8648f2b89beeefd0867e177:
-     Do not build the runfiles tree when creating deploy jars.
-   + 959ab10559800eab6a3841f80cbc06f119e659b7:
-     Fix bug in GraphOutputWriter#partitionedFactored which caused
-     queue to grow to O(E), and now upper-bounding it to O(N).
-```
-
-Incompatible changes:
-
-  - The --host_jvm_profile command line argument is not supported
-    anymore.
-  - The "input_manifests" argument of ctx.actions.{run,run_shell} is
-    now a no-op. resolve_command and resolve_tools always return the
-    empty list as the input manifest list.
-
-Important changes:
-
-  - Bazel's Bash completion can now complete external repository
-    labels when using `--enable_bzlmod`.
-  - BEP's `execution_phase_time_in_ms` no longer includes the
-    analysis-only part at the beginning of the build. Artificial
-    downtrend in `execution_phase_time_in_ms` expected.
-
-This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Xdng Yng, Zheng Wei Tan.
-
-## Release 8.0.0-pre.20240128.3 (2024-02-09)
-
-```
-Baseline: ca728739071c78c67b5d251c7be4b9ba7c17b225
-
-Cherry picks:
-
-   + 41acf91534e3b70847a667642ab3acba034a6e6e:
-     Only cache runfiles mappings of tests if they have more than one
-     shard or run per test.
-```
-
-Incompatible changes:
-
-  - CppLinkAction returns 2 args to aspects that have correct quoting
-    set (before it was always 1 args object defaulting to bash
-    escaping)
-  - CppLinkAction returns 2 args to aspects that have correct quoting
-    set (before it was always 1 args object defaulting to bash
-    escaping)
-
-Important changes:
-
-  - Update iOS tutorial link.
-  - The package(distribs=[...]) attribute has been removed
-    It has been a no-op for several years now.
-  - Prevent linux-sandbox(ed) spawns from being able to write in the
-    cgroups mount.
-  - modifies visibility error to be more readable.
-  - fixes overly-broad test assertion
-  - The deprecated `fragments["apple"].bitcode_mode` and
-    `fragments["cpp"].apple_bitcode_mode` APIs have been removed from
-    Bazel. Apple deprecated Bitcode in Xcode 14.
-  - `bazel mod dump_repo_mapping <canonical repo name>...` returns
-    the repository mappings of the given repositories in NDJSON. This
-    information can be used by IDEs and Starlark language servers to
-    resolve
-    labels with `--enable_bzlmod`.
-  - The flag `--experimental_worker_for_repo_fetching` now defaults
-    to `auto`, which uses virtual threads from JDK 21 if it's
-    available. This eliminates restarts during repo fetching.
-
-This release contains contributions from many people at Google, as well as Adam Singer, Alessandro Patti, Ben Lee, Brentley Jones, Chirag Ramani, Chi Wawng, Chris Gray, Clay McClure, dependabot[bot], Fabian Meumertzheim, Grzegorz Lukasik, hvd, jonshea, Keith Smiley, Nikhil Kalige, Richard Smith, Ryan Beasley, Xdng Yng.
-
-## Release 8.0.0-pre.20240108.7 (2024-02-05)
-
-```
-Baseline: 8e8ddaba0e90c280bfd85644d6ccd91df5b6d353
-
-Cherry picks:
-
-   + bbc51a06ba4db1c88bfce6dfa3c7b0622cb56d72:
-     Fix `cc_test` coverage broken by
-     https://github.com/bazelbuild/bazel/commit/92cba040904c2ccbd0b5a7
-     0263de739f72c592ae
-   + 162cacd30dc19352ec34fe1de6a056d6b1ee9374:
-     Automated rollback of commit
-     915fb3e861dd28e16f42072101adf498242d26d0.
-   + bf6ebe9f7c428e15b7c4d7e86a762b7470f97d5b:
-     Make tree artifacts that are symlinks to absolute paths work
-     correctly.
-```
-
-This release contains contributions from many people at Google, as well as .
-
-## Release 8.0.0-pre.20240108.6 (2024-01-29)
-
-```
-Baseline: 8e8ddaba0e90c280bfd85644d6ccd91df5b6d353
-
-Cherry picks:
-
-   + bbc51a06ba4db1c88bfce6dfa3c7b0622cb56d72:
-     Fix `cc_test` coverage broken by
-     https://github.com/bazelbuild/bazel/commit/92cba040904c2ccbd0b5a7
-     0263de739f72c592ae
-   + 162cacd30dc19352ec34fe1de6a056d6b1ee9374:
-     Automated rollback of commit
-     915fb3e861dd28e16f42072101adf498242d26d0.
-   + 7788abb73f09921197d27c45ac9eb23b5a4f89a0:
-     Release 8.0.0-pre.20240108.6 (2024-01-29)
-   + 581c8b5cbfc772d8b13d96e0bbf40cbb8c2a1cc9:
-     Release 8.0.0-pre.20240108.6 (2024-01-29)
-```
-
-Initial release.
-
-## Release 7.0.2 (2024-01-25)
-
-```
-Baseline:  2634a6ec8bef0d8eef9870b23befdddb3dbe0005
-
-Release Notes:
-
-+ Disregard WORKSPACE while verifying lockfile repo mapping entries in extension eval (#21003)
-
-Acknowledgements:
-
-This release contains contributions from many people at Google, as well as bazel.build machine account, Xdng Yng.
-```
-
-## Release 6.5.0 (2024-01-23)
-
-```
-Baseline:  50b61e38fb6eaa08a6c811a313824a59f1c2abbf
-
-Release Notes:
-
-+ Fix tree file materialized as symlink to another file when building without the bytes. (#20409)
-+ Don't pass --add-opens= to javac (#20472)
-+ Flip --incompatible_visibility_private_attributes_at_definition (#20520)
-+ Fix extraction of tar archives containing sparse files. (#20531)
-+ RemoteSpawnRunner: record inbetween phases in timing profile (#20550)
-+ Add profiling to `remoteActionBuildingSemaphore.acquire()` (#20549)
-+ The label API shakeup & docs cleanup (#20590)
-+ Disable rewriter test (#20758)
-+ Disable PyTest.testSmoke on macOS (#20729)
-+ Upgrade abseil-cpp to fix build on macos_arm64 (#20785)
-+ Ignore read-only errors when updating the `mtime` of the `install_base` (#20568)
-+ Restart at most once when prepopulating repository rule environment (#20667)
-+ Fix bootstrapped Bazel binary (#20804)
-+ Add flag `experimental_throttle_remote_action_building` (#20861)
-+ Fix versioned shared libraries for macOS toolchain (#20847)
-+ Proto toolchainisation cherrypicks (#20925)
-
-Acknowledgements:
-
-This release contains contributions from many people at Google, as well as bazel.build machine account, Brentley Jones, Fabian Meumertzheim, Jordan Mele, Mai Hussien, oquenchil, Rahul Butani, Son Luong Ngoc, Xùdōng Yáng.
-```
-
-## Release 7.0.1 (2024-01-18)
-
-```
-Baseline:  d798ebde6c6394203a87b5f1a6b62ecfc3880991
-
-Release Notes:
-
-+ Consider MODULE.bazel for workspace detection in bazel.sh (#20594)
-+ Auto-create deploy jars for Bazel `java_test` targets if requested (#20602)
-+ `java_binary` wrapper should forward `restricted_to` (#20611)
-+ Mount user-specified bind mounts before Bazel's own magic. (#20609)
-+ Fix bootstrapped Bazel binary (#20612)
-+ Attempt to make main repo mapping inverse more efficient (#20625)
-+ Cherry-pick all presubmit.yml changes (#20733)
-+ Print interactive sandboxed shell command with `--sandbox_debug` (#20734)
-+ Fix two issues with --incompatible_sandbox_hermetic_tmp that manifested themselves when the output base was under /tmp (#20718)
-+ Let module extensions track calls to `Label()` (#20750)
-+ Add support for bind mounts under `/tmp` with hermetic tmp (#20749)
-+ Fixes for Bazel's own integration tests fail locally on Linux  (#20821)
-+ Fix NPE in BzlmodRepoRuleFunction (#20828)
-+ Avoid emitting canonical labels into generated repos (#20840)
-+ Let .bzl files record their usages of repo mapping (#20848)
-+ Force output checking for incremental run commands without the bytes. (#20881)
-+ Retry binding to ipv6 localhost (#20903)
-+ Fix linker feature detection being performed on wrong linker (#20901)
-+ Fix singlejar resource mapping for external repositories (#20904)
-
-Acknowledgements:
-
-This release contains contributions from many people at Google, as well as bazel.build machine account, David Ostrovsky, Fabian Meumertzheim, hvd, Siddhartha Bagaria, Tianyu Geng, Xdng Yng, Xùdōng Yáng.
-```
-
-## Release 8.0.0-pre.20240101.1 (2024-01-17)
-
-```
-Baseline: 40271d7642fb6b76d68289d73b73a1eb4acb80bd
-```
-
-Initial release.
 
 ## Release 7.0.0 (2023-12-11)
 

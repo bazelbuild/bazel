@@ -147,7 +147,9 @@ public final class CcCommon implements StarlarkValue {
   public static List<Pair<Artifact, Label>> getHeaders(RuleContext ruleContext) {
     Map<Artifact, Label> map = Maps.newLinkedHashMap();
     for (TransitiveInfoCollection target :
-        ruleContext.getPrerequisitesIf("hdrs", FileProvider.class)) {
+        ruleContext
+            .getRulePrerequisitesCollection()
+            .getPrerequisitesIf("hdrs", FileProvider.class)) {
       FileProvider provider = target.getProvider(FileProvider.class);
       for (Artifact artifact : provider.getFilesToBuild().toList()) {
         if (CppRuleClasses.DISALLOWED_HDRS_FILES.matches(artifact.getFilename())) {
@@ -499,6 +501,10 @@ public final class CcCommon implements StarlarkValue {
       }
       if (branchFdoProvider.isAutoFdo()) {
         allFeatures.add(CppRuleClasses.AUTOFDO);
+        // Support implicit enabling of Memprof for AFDO unless it has been disabled.
+        if (!allUnsupportedFeatures.contains(CppRuleClasses.MEMPROF_OPTIMIZE)) {
+          allFeatures.add(CppRuleClasses.ENABLE_AUTOFDO_MEMPROF_OPTIMIZE);
+        }
         // Support implicit enabling of ThinLTO for AFDO unless it has been disabled.
         if (!allUnsupportedFeatures.contains(CppRuleClasses.THIN_LTO)) {
           allFeatures.add(CppRuleClasses.ENABLE_AFDO_THINLTO);
@@ -527,10 +533,6 @@ public final class CcCommon implements StarlarkValue {
 
     if (enablePropellerOptimize) {
       allRequestedFeaturesBuilder.add(CppRuleClasses.PROPELLER_OPTIMIZE);
-    }
-
-    if (cppConfiguration.getMemProfProfileLabel() != null) {
-      allRequestedFeaturesBuilder.add(CppRuleClasses.MEMPROF_OPTIMIZE);
     }
 
     for (String feature : allFeatures.build()) {

@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionPolicy;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.exec.local.LocalExecutionOptions;
-import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -81,7 +80,7 @@ public class DynamicExecutionModule extends BlazeModule {
     if (buildRequestOptions != null && buildRequestOptions.useAsyncExecution) {
       executorService =
           Executors.newThreadPerTaskExecutor(
-              Profiler.instance().profileableVirtualThreadFactory("dynamic-execution-thread-"));
+              Thread.ofVirtual().name("dynamic-execution-thread-", 0).factory());
     } else {
       executorService =
           Executors.newCachedThreadPool(
@@ -102,17 +101,21 @@ public class DynamicExecutionModule extends BlazeModule {
   }
 
   @VisibleForTesting
-  ImmutableMap<String, List<String>> getLocalStrategies(DynamicExecutionOptions options)
-      throws AbruptExitException {
+  ImmutableMap<String, List<String>> getLocalStrategies(
+      DynamicExecutionOptions options, boolean sandboxingSupported) throws AbruptExitException {
     // Options that set "allowMultiple" to true ignore the default value, so we replicate that
     // functionality here.
     ImmutableMap.Builder<String, List<String>> localAndWorkerStrategies = ImmutableMap.builder();
-    if (localOptions != null && localOptions.localLockfreeOutput) {
-      localAndWorkerStrategies.put("", ImmutableList.of("worker", "sandboxed", "standalone"));
-    } else {
-      // Without local lock free, having standalone execution risks very bad performance.
-      localAndWorkerStrategies.put("", ImmutableList.of("worker", "sandboxed"));
+    ImmutableList.Builder<String> defaultLocalStrategies = ImmutableList.builder();
+    defaultLocalStrategies.add("worker");
+    if (sandboxingSupported) {
+      defaultLocalStrategies.add("sandboxed");
     }
+    if (localOptions != null && localOptions.localLockfreeOutput) {
+      // Without local lock free, having standalone execution risks very bad performance.
+      defaultLocalStrategies.add("standalone");
+    }
+    localAndWorkerStrategies.put("", defaultLocalStrategies.build());
 
     for (Map.Entry<String, List<String>> entry : options.dynamicLocalStrategy) {
       localAndWorkerStrategies.put(entry);
@@ -174,7 +177,8 @@ public class DynamicExecutionModule extends BlazeModule {
             jobs,
             this::canIgnoreFailure);
     registryBuilder.registerStrategy(strategy, "dynamic", "dynamic_worker");
-    registryBuilder.addDynamicLocalStrategies(getLocalStrategies(options));
+    boolean sandboxingSupported = registryBuilder.isStrategyRegistered("sandboxed");
+    registryBuilder.addDynamicLocalStrategies(getLocalStrategies(options, sandboxingSupported));
     registryBuilder.addDynamicRemoteStrategies(getRemoteStrategies(options));
   }
 

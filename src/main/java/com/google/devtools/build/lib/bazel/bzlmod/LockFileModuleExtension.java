@@ -48,7 +48,7 @@ public abstract class LockFileModuleExtension implements Postable {
 
   public abstract ImmutableMap<RepoRecordedInput.Dirents, String> getRecordedDirentsInputs();
 
-  public abstract ImmutableMap<String, String> getEnvVariables();
+  public abstract ImmutableMap<RepoRecordedInput.EnvVar, Optional<String>> getEnvVariables();
 
   public abstract ImmutableMap<String, RepoSpec> getGeneratedRepoSpecs();
 
@@ -56,8 +56,6 @@ public abstract class LockFileModuleExtension implements Postable {
 
   public abstract ImmutableTable<RepositoryName, String, RepositoryName>
       getRecordedRepoMappingEntries();
-
-  public abstract Builder toBuilder();
 
   public boolean shouldLockExtension() {
     return getModuleExtensionMetadata().isEmpty()
@@ -78,7 +76,8 @@ public abstract class LockFileModuleExtension implements Postable {
     public abstract Builder setRecordedDirentsInputs(
         ImmutableMap<RepoRecordedInput.Dirents, String> value);
 
-    public abstract Builder setEnvVariables(ImmutableMap<String, String> value);
+    public abstract Builder setEnvVariables(
+        ImmutableMap<RepoRecordedInput.EnvVar, Optional<String>> value);
 
     public abstract Builder setGeneratedRepoSpecs(ImmutableMap<String, RepoSpec> value);
 
@@ -89,4 +88,11 @@ public abstract class LockFileModuleExtension implements Postable {
 
     public abstract LockFileModuleExtension build();
   }
+
+  /**
+   * A {@link LockFileModuleExtension} together with its {@link ModuleExtensionEvalFactors},
+   * comprising a single lockfile entry for a certain extension.
+   */
+  public record WithFactors(
+      ModuleExtensionEvalFactors extensionFactors, LockFileModuleExtension moduleExtension) {}
 }

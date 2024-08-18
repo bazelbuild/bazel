@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -28,16 +29,14 @@ import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionEvalFunction;
+import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.SingleExtensionUsagesFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
@@ -63,7 +62,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import org.mockito.Mockito;
 
 /** Create a mock client for the analysis phase, as well as a configuration factory. */
 public abstract class AnalysisMock extends LoadingMock {
@@ -150,19 +148,16 @@ public abstract class AnalysisMock extends LoadingMock {
     ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers =
         new ImmutableMap.Builder<String, RepositoryFunction>()
             .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
-            .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
-            .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction());
+            .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction());
 
     addExtraRepositoryFunctions(repositoryHandlers);
-
-    DownloadManager downloadManager = Mockito.mock(DownloadManager.class);
 
     return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
         .put(
             SkyFunctions.REPOSITORY_DIRECTORY,
             new RepositoryDelegatorFunction(
                 repositoryHandlers.buildKeepingLast(),
-                new StarlarkRepositoryFunction(downloadManager),
+                new StarlarkRepositoryFunction(),
                 new AtomicBoolean(true),
                 ImmutableMap::of,
                 directories,
@@ -176,11 +171,14 @@ public abstract class AnalysisMock extends LoadingMock {
         .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
         .put(SkyFunctions.BAZEL_LOCK_FILE, new BazelLockFileFunction(directories.getWorkspace()))
         .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
+        .put(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
         .put(
             SkyFunctions.SINGLE_EXTENSION_EVAL,
-            new SingleExtensionEvalFunction(directories, ImmutableMap::of, downloadManager))
+            new SingleExtensionEvalFunction(directories, ImmutableMap::of))
         .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
-        .put(SkyFunctions.REGISTRY, new RegistryFunction(FakeRegistry.DEFAULT_FACTORY))
+        .put(
+            SkyFunctions.REGISTRY,
+            new RegistryFunction(FakeRegistry.DEFAULT_FACTORY, directories.getWorkspace()))
         .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())
         .put(SkyFunctions.YANKED_VERSIONS, new YankedVersionsFunction())
         .put(
@@ -206,7 +204,7 @@ public abstract class AnalysisMock extends LoadingMock {
             RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
         PrecomputedValue.injected(RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
         PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
-        PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableList.of()),
+        PrecomputedValue.injected(ModuleFileFunction.REGISTRIES, ImmutableSet.of()),
         PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
         PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
         PrecomputedValue.injected(YankedVersionsUtil.ALLOWED_YANKED_VERSIONS, ImmutableList.of()),
@@ -224,6 +222,8 @@ public abstract class AnalysisMock extends LoadingMock {
   /** Returns the built-in modules. */
   public abstract ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
       BlazeDirectories directories);
+
+  public abstract void setupPrelude(MockToolsConfig mockToolsConfig) throws IOException;
 
   /**
    * Stub class for tests to extend in order to update a small amount of {@link AnalysisMock}
@@ -309,6 +309,11 @@ public abstract class AnalysisMock extends LoadingMock {
     public ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
         BlazeDirectories directories) {
       return delegate.getBuiltinModules(directories);
+    }
+
+    @Override
+    public void setupPrelude(MockToolsConfig mockToolsConfig) throws IOException {
+      delegate.setupPrelude(mockToolsConfig);
     }
 
     @Override

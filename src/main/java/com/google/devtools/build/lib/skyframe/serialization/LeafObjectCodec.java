@@ -20,34 +20,38 @@ import java.io.IOException;
 /**
  * A codec that directly deserializes from the {@link CodedInputStream}.
  *
- * <p>Since it never delegates to the {@link DeserializationContext}, it is asynchronous compatible.
+ * <p>{@link LeafObjectCodec}s may only delegate to other {@link LeafObjectCodec}s and are
+ * restricted from using any asynchronous features. By construction, they can only be used to
+ * serialize acyclic values and are always synchronous.
+ *
+ * <p>Values using this codec will be memoized using {@link Object#hashCode} and {@link
+ * Object#equals}.
  */
 public abstract class LeafObjectCodec<T> implements ObjectCodec<T> {
   @Override
   public final void serialize(SerializationContext context, T obj, CodedOutputStream codedOut)
       throws SerializationException, IOException {
-    serialize((SerializationDependencyProvider) context, obj, codedOut);
+    serialize((LeafSerializationContext) context, obj, codedOut);
   }
 
   /**
    * This has the same contract as {@link #serialize}, but may only depend on {@link
-   * SerializationDependencyProvider} instead of the full {@link SerializationContext}.
+   * LeafSerializationContext} instead of the full {@link SerializationContext}.
    */
   public abstract void serialize(
-      SerializationDependencyProvider dependencies, T obj, CodedOutputStream codedOut)
+      LeafSerializationContext context, T obj, CodedOutputStream codedOut)
       throws SerializationException, IOException;
 
   @Override
   public final T deserialize(DeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException {
-    return deserialize((SerializationDependencyProvider) context, codedIn);
+    return deserialize((LeafDeserializationContext) context, codedIn);
   }
 
   /**
    * This has the same contract as {@link #deserialize}, but may only depend on {@link
-   * SerializationDependencyProvider} instead of the full {@link DeserializationContext}.
+   * LeafDeserializationContext} instead of the full {@link DeserializationContext}.
    */
-  public abstract T deserialize(
-      SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+  public abstract T deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
       throws SerializationException, IOException;
 }

@@ -138,8 +138,8 @@ public final class PooledInternerTest {
 
     @Override
     public boolean equals(Object obj) {
-      return obj instanceof ObjectForInternerTests
-          && arg.equals(((ObjectForInternerTests) obj).arg);
+      return obj instanceof ObjectForInternerTests objectForInternerTests
+          && arg.equals(objectForInternerTests.arg);
     }
   }
 }

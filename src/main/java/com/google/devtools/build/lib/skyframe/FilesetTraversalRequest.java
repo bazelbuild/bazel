@@ -61,7 +61,7 @@ public class FilesetTraversalRequest extends TraversalRequest {
 
   @Override
   protected boolean skipTestingForSubpackage() {
-    return directTraversal().isPackage();
+    return false;
   }
 
   @Override
@@ -72,9 +72,8 @@ public class FilesetTraversalRequest extends TraversalRequest {
   @Override
   protected final String errorInfo() {
     return String.format(
-        "Fileset '%s' traversing %s '%s'",
+        "Fileset '%s' traversing file (or directory) '%s'",
         params.getOwnerLabelForErrorMessages(),
-        directTraversal().isPackage() ? "package" : "file (or directory)",
         directTraversal().getRoot().getRelativePart().getPathString());
   }
 

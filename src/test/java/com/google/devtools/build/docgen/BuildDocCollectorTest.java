@@ -22,11 +22,11 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.devtools.build.docgen.BuildDocCollector.DocumentationOrigin;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeType;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.OriginKey;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeType;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.OriginKey;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -303,5 +303,24 @@ public final class BuildDocCollectorTest {
     assertThat(getAttribute(attributes, "uncommonly_named_attr").isCommonType()).isFalse();
     assertThat(getAttribute(attributes, "uncommonly_named_attr").getGeneratedInRule("my_library"))
         .isEqualTo("my_library");
+  }
+
+  @Test
+  public void collectModuleInfoDocs_genericRulesFlaggedAsGeneric() throws Exception {
+    ModuleInfo moduleInfo =
+        ModuleInfo.newBuilder()
+            .setModuleDocstring("Family")
+            .setFile("//:test.bzl")
+            .addRuleInfo(
+                RuleInfo.newBuilder()
+                    .setRuleName("generic_rules.my_rule")
+                    .setDocString("My rule")
+                    .setOriginKey(
+                        OriginKey.newBuilder().setName("my_rule").setFile("//:my_rule.bzl")))
+            .build();
+
+    assertThat(collectModuleInfoDocs(moduleInfo)).isEqualTo(1);
+    assertThat(ruleDocEntries.get("my_rule").isLanguageSpecific()).isFalse();
+    assertThat(ruleDocEntries.get("my_rule").getRuleFamily()).isEqualTo("Family");
   }
 }

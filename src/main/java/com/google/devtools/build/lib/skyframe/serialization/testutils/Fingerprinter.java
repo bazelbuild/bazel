@@ -21,10 +21,12 @@ import static com.google.devtools.build.lib.skyframe.serialization.testutils.Fie
 import static java.lang.Math.min;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.FieldInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ObjectInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.PrimitiveInfo;
 import java.lang.reflect.Array;
+import java.util.Collection;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -34,13 +36,30 @@ import javax.annotation.Nullable;
  *
  * <p>Like serialization, it skips {@code transient} fields.
  */
-final class Fingerprinter {
+public final class Fingerprinter {
+  @Nullable // optionally used to lookup serialization constants
+  private final ObjectCodecRegistry registry;
+
   private final IdentityHashMap<Object, String> fingerprints = new IdentityHashMap<>();
 
   /** Stack for detecting cyclic backreferences in depth-first traversal. */
   private final IdentityHashMap<Object, Integer> stack = new IdentityHashMap<>();
 
-  private Fingerprinter() {}
+  private Fingerprinter() {
+    this(/* registry= */ null);
+  }
+
+  private Fingerprinter(@Nullable ObjectCodecRegistry registry) {
+    this.registry = registry;
+  }
+
+  /**
+   * Computes a fingerprint for {@code obj} using {code registry} for reference constants if
+   * provided.
+   */
+  public static String computeFingerprint(Object obj, @Nullable ObjectCodecRegistry registry) {
+    return computeFingerprints(obj, registry).get(obj);
+  }
 
   /**
    * Traverses {@code obj} and computes fingerprints for objects within.
@@ -60,10 +79,13 @@ final class Fingerprinter {
    * complex and add those entries to the fingerprint map. That would make fingerprinting quadratic
    * in the size of the cyclic complex instead of the current, linear cost. As of 03/19/2024, there
    * is no evidence of that extra cost being necessary.
+   *
+   * @param registry if provided, fingerprinting uses reference constants
    */
-  static IdentityHashMap<Object, String> computeFingerprints(Object obj) {
+  static IdentityHashMap<Object, String> computeFingerprints(
+      Object obj, @Nullable ObjectCodecRegistry registry) {
     StringBuilder fingerprintOut = new StringBuilder();
-    Fingerprinter fingerprinter = new Fingerprinter();
+    Fingerprinter fingerprinter = new Fingerprinter(registry);
     int unused = fingerprinter.outputFingerprintOrInlinedValue(obj, fingerprintOut);
     checkState(
         fingerprinter.stack.isEmpty(),
@@ -72,6 +94,10 @@ final class Fingerprinter {
         obj);
     fingerprinter.fingerprints.put(obj, fingerprintOut.toString());
     return fingerprinter.fingerprints;
+  }
+
+  static IdentityHashMap<Object, String> computeFingerprints(Object obj) {
+    return computeFingerprints(obj, /* registry= */ null);
   }
 
   /**
@@ -96,6 +122,19 @@ final class Fingerprinter {
     }
 
     Class<?> type = obj.getClass();
+
+    if (registry != null) {
+      Integer maybeConstantTag = registry.maybeGetTagForConstant(obj);
+      if (maybeConstantTag != null) {
+        fingerprintOut
+            .append(getTypeName(type))
+            .append("[SERIALIZATION_CONSTANT:")
+            .append(maybeConstantTag)
+            .append("]");
+        return Integer.MAX_VALUE;
+      }
+    }
+
     if (shouldInline(type)) {
       // Emits the type, even for inline values. This avoids a possible ambiguities. For example,
       // "-1" could be a backreference, String, Integer, or other things if there were no type
@@ -147,8 +186,8 @@ final class Fingerprinter {
       if (obj instanceof Map) {
         return outputMapEntries((Map<?, ?>) obj, out);
       }
-      if (obj instanceof Iterable) {
-        return outputIterableElements((Iterable<?>) obj, out);
+      if (obj instanceof Collection) {
+        return outputCollectionElements((Collection<?>) obj, out);
       }
       return outputObjectFields(obj, out);
     } finally {
@@ -222,7 +261,7 @@ final class Fingerprinter {
     return cycleOwnerIndex;
   }
 
-  private int outputIterableElements(Iterable<?> iterable, StringBuilder out) {
+  private int outputCollectionElements(Collection<?> iterable, StringBuilder out) {
     int cycleOwnerIndex = Integer.MAX_VALUE;
     boolean isFirst = true;
     for (Object elt : iterable) {

@@ -132,7 +132,7 @@ public final class NonWindowsCcBinaryThinLtoTest extends BuildViewTestCase {
     ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin_test");
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
     String rootExecPath = pkgArtifact.getRoot().getExecPathString();
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
 
     // The cc_test source should still get LTO in this case
     LtoBackendAction backendAction =
@@ -198,12 +198,12 @@ public final class NonWindowsCcBinaryThinLtoTest extends BuildViewTestCase {
     ConfiguredTarget pkg = getConfiguredTarget("//pkg:bin_test");
     Artifact pkgArtifact = getFilesToBuild(pkg).getSingleton();
     String rootExecPath1 = pkgArtifact.getRoot().getExecPathString();
-    CppLinkAction linkAction = (CppLinkAction) getGeneratingAction(pkgArtifact);
+    SpawnAction linkAction = (SpawnAction) getGeneratingAction(pkgArtifact);
 
     ConfiguredTarget pkg2 = getConfiguredTarget("//pkg:bin_test2");
     Artifact pkgArtifact2 = getFilesToBuild(pkg2).getSingleton();
     String rootExecPath2 = pkgArtifact2.getRoot().getExecPathString();
-    CppLinkAction linkAction2 = (CppLinkAction) getGeneratingAction(pkgArtifact2);
+    SpawnAction linkAction2 = (SpawnAction) getGeneratingAction(pkgArtifact2);
 
     // The cc_test source should still get LTO in this case
     LtoBackendAction backendAction =

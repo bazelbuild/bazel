@@ -161,8 +161,8 @@ public final class DefaultSyscallCache implements SyscallCache {
   @SuppressWarnings("unchecked")
   public Collection<Dirent> readdir(Path path) throws IOException {
     Object result = readdirCache.get(path);
-    if (result instanceof IOException) {
-      throw (IOException) result;
+    if (result instanceof IOException ioException) {
+      throw ioException;
     }
     return (Collection<Dirent>) result; // unchecked cast
   }
@@ -173,14 +173,14 @@ public final class DefaultSyscallCache implements SyscallCache {
     // Try to load a Symlinks.NOFOLLOW result first. Symlinks are rare and this enables sharing the
     // cache for all non-symlink paths.
     Object result = statCache.get(Pair.of(path, Symlinks.NOFOLLOW));
-    if (result instanceof IOException) {
-      throw (IOException) result;
+    if (result instanceof IOException ioException) {
+      throw ioException;
     }
     FileStatus status = (FileStatus) result;
     if (status != NO_STATUS && symlinks == Symlinks.FOLLOW && status.isSymbolicLink()) {
       result = statCache.get(Pair.of(path, Symlinks.FOLLOW));
-      if (result instanceof IOException) {
-        throw (IOException) result;
+      if (result instanceof IOException ioException) {
+        throw ioException;
       }
       status = (FileStatus) result;
     }

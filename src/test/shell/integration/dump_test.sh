@@ -95,6 +95,31 @@ EOF
   expect_log '"net.starlark.java.eval.Module": 1'  # Only a.bzl, not b.bzl
 }
 
+function test_memory_full() {
+  mkdir -p a b
+  cat > a/BUILD <<'EOF'
+filegroup(name="a", srcs=["//b:b"])
+EOF
+
+  cat > b/BUILD <<'EOF'
+filegroup(name="b")
+EOF
+
+  bazel query 'deps(//a:a)' >& $TEST_log || fail "query failed"
+  bazel dump --memory=full,summary >& $TEST_log  || fail "dump failed"
+  expect_log '"PACKAGE:a":'
+  expect_log '"PACKAGE:b":'
+
+  bazel dump --memory=full,count >& $TEST_log || fail "dump failed"
+  if [[ $PRODUCT_NAME == "bazel" ]]; then
+    # WORSKAPCE disabled: //a, //b
+    expect_log_n '"com.google.devtools.build.lib.skyframe.PackageValue": 1' 2
+  else
+    # WORKSPACE enabled: //a, //b, //external and EXTERNAL_PACKAGE
+    expect_log_n '"com.google.devtools.build.lib.skyframe.PackageValue": 1' 4
+  fi
+}
+
 function test_memory_needle() {
   mkdir -p a
   cat > a/BUILD <<'EOF'
@@ -121,6 +146,22 @@ EOF
   bazel build --nobuild //a >& $TEST_log || fail "build failed"
   bazel dump --memory=transitive,count:configured_target://a >& $TEST_log || fail "dump failed"
   expect_log '^.*InputFileConfiguredTarget\": 2'
+}
+
+function test_memory_after_build() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(name="g", srcs=[], outs=["go"], cmd="echo G > $@")
+EOF
+
+  bazel build //a:g \
+    --strategy=Genrule=standalone \
+    --experimental_skyframe_memory_dump=json \
+    || fail "memory dump failed"
+
+  assert_contains \
+    "ACTION_EXECUTION:.*actionLookupKey.*label=//a:g" \
+    "$(bazel info output_base)/skyframe_memory.json"
 }
 
 run_suite "Tests for 'bazel dump'"

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.worker;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.UserExecException;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.sandbox.Cgroup;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.vfs.Path;
@@ -45,6 +46,13 @@ class WorkerProxy extends Worker {
     super(workerKey, workerId, logFile, workerMultiplexer.getStatus());
     this.workDir = workDir;
     this.workerMultiplexer = workerMultiplexer;
+  }
+
+  @Override
+  public Cgroup getCgroup() {
+    // WorkerProxy does not have a cgroup at the momemnt. Consider adding it to the
+    // multiplexer and returning it here?
+    return null;
   }
 
   @Override

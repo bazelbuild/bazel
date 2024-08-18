@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -123,7 +124,6 @@ public class AppleRulesTest extends AnalysisTestCase {
         ImmutableList.<String>builder()
             .addAll(MockObjcSupport.requiredObjcCrosstoolFlagsNoXcodeConfig())
             .add("--xcode_version_config=//xcode:local")
-            .add("--cpu=darwin_x86_64")
             .build();
     useConfiguration(flags.toArray(new String[1]));
     AnalysisResult analysisResult =
@@ -133,7 +133,7 @@ public class AppleRulesTest extends AnalysisTestCase {
         Iterables.getOnlyElement(analysisResult.getAspectsMap().values());
 
     StarlarkProvider.Key fooKey =
-        new StarlarkProvider.Key(Label.parseCanonical("//test:aspect.bzl"), "foo");
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//test:aspect.bzl")), "foo");
 
     StructImpl fooProvider = (StructImpl) configuredAspect.get(fooKey);
     assertThat(fooProvider.getValue("actions")).isNotNull();

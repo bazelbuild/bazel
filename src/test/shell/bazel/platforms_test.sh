@@ -44,7 +44,7 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 
 function test_platforms_repository_builds_itself() {
   # We test that a built-in @platforms repository is buildable.
-  bazel build @platforms//:all &> $TEST_log \
+  bazel build @@platforms//:all &> $TEST_log \
       || fail "Build failed unexpectedly"
 }
 
@@ -60,33 +60,30 @@ local_repository(
 )
 EOF
 
+  # Define the custom platforms repository. It needs all the contents of the
+  # regular version, plus our additions.
   mkdir -p override || fail "couldn't create override directory"
   touch override/WORKSPACE || fail "couldn't touch override/WORKSPACE"
-  cat > override/BUILD <<EOF
+
+  # Copy the existing platforms repo to our test dir.
+  bazel build --noenable_bzlmod --enable_workspace @platforms//...
+  cp -r `bazel info output_base`/external/platforms/* override
+
+  # Add a custom target
+  cat >> override/BUILD <<EOF
 # Have to use a rule that doesn't require a target platform, or else there will
 # be a cycle.
 toolchain_type(name = 'yolo')
 EOF
-  mkdir override/host
-  cat > override/host/BUILD <<EOF
-# Have to define the host platform.
-platform(
-    name = 'host',
-    visibility = ['//visibility:public'],
-)
-EOF
-  cat > override/host/extension.bzl <<EOF
-def host_platform_repo(**kwargs):
-  pass
-EOF
 
   cd platforms_can_be_overridden || fail "couldn't cd into workspace"
   # platforms is one of the WELL_KNOWN_MODULES, so it cannot be overridden by a workspace repository.
-  bazel build --noenable_bzlmod @platforms//:yolo &> $TEST_log || \
+  bazel build --noenable_bzlmod --enable_workspace @platforms//:yolo &> $TEST_log || \
     fail "Bazel failed to build @platforms"
 }
 
 function test_platform_accessor() {
+  add_platforms "MODULE.bazel"
   cat > rules.bzl <<'EOF'
 def _impl(ctx):
   platform = ctx.attr.platform[platform_common.PlatformInfo]
@@ -115,7 +112,7 @@ platform(
 EOF
 
   bazel build --experimental_platforms_api=true :a &> $TEST_log || fail "Build failed"
-  expect_log 'The label is: @@//:my_platform'
+  expect_log 'The label is: //:my_platform'
 }
 
 run_suite "platform repo test"

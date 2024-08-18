@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.runtime.mobileinstall;
 
 import static com.google.devtools.build.lib.analysis.OutputGroupInfo.INTERNAL_SUFFIX;
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -31,13 +32,11 @@ import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction;
-import com.google.devtools.build.lib.rules.android.WriteAdbArgsAction.StartType;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.CommonCommandOptions;
-import com.google.devtools.build.lib.runtime.ProjectFileSupport;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.MobileInstall;
@@ -45,7 +44,6 @@ import com.google.devtools.build.lib.server.FailureDetails.MobileInstall.Code;
 import com.google.devtools.build.lib.shell.BadExitStatusException;
 import com.google.devtools.build.lib.shell.CommandException;
 import com.google.devtools.build.lib.util.CommandBuilder;
-import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.common.options.Converters;
@@ -66,15 +64,14 @@ import javax.annotation.Nullable;
 
 /** Implementation of the 'mobile-install' command. */
 @Command(
-  name = "mobile-install",
-  builds = true,
-  options = {MobileInstallCommand.Options.class, WriteAdbArgsAction.Options.class},
-  inherits = {BuildCommand.class},
-  shortDescription = "Installs targets to mobile devices.",
-  completion = "label",
-  allowResidue = true,
-  help = "resource:mobile-install.txt"
-)
+    name = "mobile-install",
+    buildPhase = EXECUTES,
+    options = {MobileInstallCommand.Options.class, WriteAdbArgsAction.Options.class},
+    inheritsOptionsFrom = {BuildCommand.class},
+    shortDescription = "Installs targets to mobile devices.",
+    completion = "label",
+    allowResidue = true,
+    help = "resource:mobile-install.txt")
 public class MobileInstallCommand implements BlazeCommand {
 
   /** An enumeration of all the modes that mobile-install supports. */
@@ -122,17 +119,17 @@ public class MobileInstallCommand implements BlazeCommand {
     )
     public boolean incremental;
 
+    // TODO(b/230747847): This flag should be deleted, but with proper vetting (incompatible
+    // change, monitoring, etc).
+    @Deprecated // Native mobile-install is no longer supported.
     @Option(
         name = "mode",
-        defaultValue = "classic",
+        defaultValue = "skylark",
         converter = ModeConverter.class,
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-        help =
-            "Select how to run mobile-install. \"classic\" runs the current version of"
-                + " mobile-install. \"skylark\" uses the new Starlark version, which has support"
-                + " for android_test.")
+        help = "Deprecated no-effect flag. Only skylark mode is still supported.")
     public Mode mode;
 
     @Option(
@@ -173,39 +170,6 @@ public class MobileInstallCommand implements BlazeCommand {
   @Override
   public BlazeCommandResult exec(CommandEnvironment env, OptionsParsingResult options) {
     Options mobileInstallOptions = options.getOptions(Options.class);
-    WriteAdbArgsAction.Options adbOptions = options.getOptions(WriteAdbArgsAction.Options.class);
-
-    if (mobileInstallOptions.mode == Mode.CLASSIC
-        || mobileInstallOptions.mode == Mode.CLASSIC_INTERNAL_TEST_DO_NOT_USE) {
-      // Notify internal users that classic mode is no longer supported.
-      if (mobileInstallOptions.mode == Mode.CLASSIC
-          && !mobileInstallOptions.mobileInstallAspect.startsWith("@")) {
-        String message = "mobile-install --mode=classic is no longer supported";
-        env.getReporter().handle(Event.error(message));
-        return BlazeCommandResult.failureDetail(
-            createFailureResult(message, Code.CLASSIC_UNSUPPORTED));
-      }
-      if (adbOptions.start == StartType.WARM && !mobileInstallOptions.incremental) {
-        env.getReporter().handle(Event.warn(
-           "Warm start is enabled, but will have no effect on a non-incremental build"));
-      }
-      List<String> targets =
-          ProjectFileSupport.getTargets(env.getRuntime().getProjectFileProvider(), options);
-
-      BuildRequest request =
-          BuildRequest.builder()
-              .setCommandName(this.getClass().getAnnotation(Command.class).name())
-              .setId(env.getCommandId())
-              .setOptions(options)
-              .setStartupOptions(env.getRuntime().getStartupOptionsProvider())
-              .setOutErr(env.getReporter().getOutErr())
-              .setTargets(targets)
-              .setStartTimeMillis(env.getCommandStartTime())
-              .build();
-      DetailedExitCode detailedExitCode =
-          new BuildTool(env).processRequest(request, null).getDetailedExitCode();
-      return BlazeCommandResult.detailedExitCode(detailedExitCode);
-    }
 
     // This list should look like: ["//executable:target", "arg1", "arg2"]
     List<String> targetAndArgs = options.getResidue();
@@ -377,26 +341,13 @@ public class MobileInstallCommand implements BlazeCommand {
   public void editOptions(OptionsParser optionsParser) {
     Options options = optionsParser.getOptions(Options.class);
     try {
-      if (options.mode == Mode.CLASSIC || options.mode == Mode.CLASSIC_INTERNAL_TEST_DO_NOT_USE) {
-        String outputGroup =
-            options.splitApks
-                ? "mobile_install_split" + INTERNAL_SUFFIX
-                : options.incremental
-                    ? "mobile_install_incremental" + INTERNAL_SUFFIX
-                    : "mobile_install_full" + INTERNAL_SUFFIX;
-        optionsParser.parse(
-            PriorityCategory.COMMAND_LINE,
-            "Options required by the mobile-install command",
-            ImmutableList.of("--output_groups=" + outputGroup));
-      } else {
-        optionsParser.parse(
-            PriorityCategory.COMMAND_LINE,
-            "Options required by the Starlark implementation of mobile-install command",
-            ImmutableList.of(
-                "--aspects=" + options.mobileInstallAspect + "%MIASPECT",
-                "--output_groups=mobile_install" + INTERNAL_SUFFIX,
-                "--output_groups=mobile_install_launcher" + INTERNAL_SUFFIX));
-      }
+      optionsParser.parse(
+          PriorityCategory.COMMAND_LINE,
+          "Options required by the Starlark implementation of mobile-install command",
+          ImmutableList.of(
+              "--aspects=" + options.mobileInstallAspect + "%MIASPECT",
+              "--output_groups=mobile_install" + INTERNAL_SUFFIX,
+              "--output_groups=mobile_install_launcher" + INTERNAL_SUFFIX));
     } catch (OptionsParsingException e) {
       throw new IllegalStateException(e);
     }
@@ -408,8 +359,8 @@ public class MobileInstallCommand implements BlazeCommand {
     // Dereference any aliases that might be present.
     target = target.getActual();
 
-    if (target instanceof AbstractConfiguredTarget) {
-      String ruleType = ((AbstractConfiguredTarget) target).getRuleClassString();
+    if (target instanceof AbstractConfiguredTarget abstractConfiguredTarget) {
+      String ruleType = abstractConfiguredTarget.getRuleClassString();
       if (!mobileInstallSupportedRules.contains(ruleType)) {
         return String.format(
             "mobile-install can only be run on %s targets. Got: %s",

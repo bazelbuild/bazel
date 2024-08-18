@@ -753,8 +753,8 @@ public class RuleContextConstraintSemantics implements ConstraintSemantics<RuleC
         // while dep.getLabel() refers to the target the alias points to. So add this quick check
         // to make sure we're comparing the same labels.
         Label depLabelInSelect =
-            (dep instanceof ConfiguredTarget)
-                ? ((ConfiguredTarget) dep).getOriginalLabel()
+            dep instanceof ConfiguredTarget configuredTarget
+                ? configuredTarget.getOriginalLabel()
                 : dep.getLabel();
         // Output files inherit the environment spec of their generating rule.
         if (dep instanceof OutputFileConfiguredTarget) {

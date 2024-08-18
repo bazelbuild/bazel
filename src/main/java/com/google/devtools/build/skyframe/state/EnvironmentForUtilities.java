@@ -90,8 +90,8 @@ public final class EnvironmentForUtilities
     if (result == null) {
       return null;
     }
-    if (result instanceof SkyValue) {
-      return (SkyValue) result;
+    if (result instanceof SkyValue skyValue) {
+      return skyValue;
     }
     if (exceptionClass1 != null && exceptionClass1.isInstance(result)) {
       throw exceptionClass1.cast(result);
@@ -136,8 +136,8 @@ public final class EnvironmentForUtilities
     if (result == null) {
       return false;
     }
-    if (result instanceof SkyValue) {
-      resultCallback.acceptValue(key, (SkyValue) result);
+    if (result instanceof SkyValue skyValue) {
+      resultCallback.acceptValue(key, skyValue);
       return true;
     }
     if (resultCallback.tryHandleException(key, (Exception) result)) {

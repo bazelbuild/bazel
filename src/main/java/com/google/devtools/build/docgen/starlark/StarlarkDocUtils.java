@@ -14,9 +14,7 @@
 
 package com.google.devtools.build.docgen.starlark;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.docgen.DocgenConsts;
-import net.starlark.java.annot.Param;
 
 /** A utility class for the documentation generator. */
 public final class StarlarkDocUtils {
@@ -32,35 +30,5 @@ public final class StarlarkDocUtils {
     return documentation
         .replace("$STARLARK_DOCS_ROOT", DocgenConsts.starlarkDocsRoot)
         .replace("$BE_ROOT", beRoot);
-  }
-
-  /**
-   * Returns a list of parameter documentation elements for a given method doc and the method's
-   * parameters.
-   */
-  static ImmutableList<StarlarkParamDoc> determineParams(
-      StarlarkMethodDoc methodDoc,
-      Param[] userSuppliedParams,
-      Param extraPositionals,
-      Param extraKeywords,
-      StarlarkDocExpander expander) {
-    ImmutableList.Builder<StarlarkParamDoc> paramsBuilder = ImmutableList.builder();
-    for (Param param : userSuppliedParams) {
-      if (param.documented()) {
-        paramsBuilder.add(
-            new StarlarkParamDoc(methodDoc, param, expander, StarlarkParamDoc.Kind.NORMAL));
-      }
-    }
-    if (!extraPositionals.name().isEmpty()) {
-      paramsBuilder.add(
-          new StarlarkParamDoc(
-              methodDoc, extraPositionals, expander, StarlarkParamDoc.Kind.EXTRA_POSITIONALS));
-    }
-    if (!extraKeywords.name().isEmpty()) {
-      paramsBuilder.add(
-          new StarlarkParamDoc(
-              methodDoc, extraKeywords, expander, StarlarkParamDoc.Kind.EXTRA_KEYWORDS));
-    }
-    return paramsBuilder.build();
   }
 }

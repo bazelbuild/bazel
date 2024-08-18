@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.sandbox;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
@@ -59,15 +58,20 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 /** This module provides the Sandbox spawn strategy. */
 public final class SandboxModule extends BlazeModule {
 
   private static final ImmutableSet<String> SANDBOX_BASE_PERSISTENT_DIRS =
-      ImmutableSet.of(SandboxStash.SANDBOX_STASH_BASE, AsynchronousTreeDeleter.MOVED_TRASH_DIR);
+      ImmutableSet.of(
+          SandboxStash.SANDBOX_STASH_BASE,
+          SandboxStash.TEMPORARY_SANDBOX_STASH_BASE,
+          AsynchronousTreeDeleter.MOVED_TRASH_DIR);
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -90,7 +94,7 @@ public final class SandboxModule extends BlazeModule {
   private final Set<SandboxFallbackSpawnRunner> spawnRunners = new HashSet<>();
 
   /**
-   * Handler to process expensive tree deletions outside of the critical path.
+   * Handler to process expensive tree deletions, potentially outside of the critical path.
    *
    * <p>Sandboxing creates one separate tree for each action, and this tree is used to run the
    * action commands in. These trees are disjoint for all actions and have unique identifiers.
@@ -225,14 +229,16 @@ public final class SandboxModule extends BlazeModule {
         firstBuild = true;
       }
     }
-    SandboxStash.initialize(env.getWorkspaceName(), sandboxBase, options);
+    try (SilentCloseable c = Profiler.instance().profile("SandboxStash.initialize")) {
+      SandboxStash.initialize(env.getWorkspaceName(), sandboxBase, options, treeDeleter);
+    }
 
     // SpawnExecutionPolicy#getId returns unique base directories for each sandboxed action during
     // the life of a Bazel server instance so we don't need to worry about stale directories from
     // previous builds. However, on the very first build of an instance of the server, we must
     // wipe old contents to avoid reusing stale directories.
     if (firstBuild && sandboxBase.exists()) {
-      try {
+      try (SilentCloseable c = Profiler.instance().profile("clean sandbox on first build")) {
         if (trashBase.exists()) {
           // Delete stale trash from a previous server instance.
           Path staleTrash = getStaleTrashDir(trashBase);
@@ -531,10 +537,25 @@ public final class SandboxModule extends BlazeModule {
    */
   private static void checkSandboxBaseTopOnlyContainsPersistentDirs(Path sandboxBase) {
     try {
-      ImmutableList<String> directoryEntries =
+      List<String> directoryEntries =
           sandboxBase.getDirectoryEntries().stream()
               .map(Path::getBaseName)
-              .collect(toImmutableList());
+              .collect(Collectors.toList());
+      // If sandbox initialization failed in-between creating the inaccessible dir/file and adding
+      // the Linux sandboxing strategy to spawnRunners, then the sandbox base will be in a bad
+      // state. We check for that here and clean up.
+      if (directoryEntries.contains(SandboxHelpers.INACCESSIBLE_HELPER_DIR)) {
+        Path inaccessibleHelperDir = sandboxBase.getChild(SandboxHelpers.INACCESSIBLE_HELPER_DIR);
+        inaccessibleHelperDir.chmod(0700);
+        directoryEntries.remove(SandboxHelpers.INACCESSIBLE_HELPER_DIR);
+        inaccessibleHelperDir.deleteTree();
+      }
+      if (directoryEntries.contains(SandboxHelpers.INACCESSIBLE_HELPER_FILE)) {
+        Path inaccessibleHelperFile = sandboxBase.getChild(SandboxHelpers.INACCESSIBLE_HELPER_FILE);
+        directoryEntries.remove(SandboxHelpers.INACCESSIBLE_HELPER_FILE);
+        inaccessibleHelperFile.delete();
+      }
+
       if (!SANDBOX_BASE_PERSISTENT_DIRS.containsAll(directoryEntries)) {
         StringBuilder message =
             new StringBuilder(
@@ -603,6 +624,8 @@ public final class SandboxModule extends BlazeModule {
         treeDeleter = null; // Avoid potential reexecution if we crash.
       }
     }
+
+    SandboxStash.shutdown();
   }
 
   @Override

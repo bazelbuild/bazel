@@ -89,8 +89,8 @@ public interface JavaGenJarsProvider
   static JavaGenJarsProvider from(Object obj) throws EvalException {
     if (obj == null || obj == Starlark.NONE) {
       return EMPTY;
-    } else if (obj instanceof JavaGenJarsProvider) {
-      return (JavaGenJarsProvider) obj;
+    } else if (obj instanceof JavaGenJarsProvider javaGenJarsProvider) {
+      return javaGenJarsProvider;
     } else if (obj instanceof StructImpl struct) {
       return new AutoValue_JavaGenJarsProvider_NativeJavaGenJarsProvider(
           struct.getValue("enabled", Boolean.class),

@@ -23,12 +23,7 @@ build:ubuntu2004 --config=remote_shared
 # Alias
 build:remote --config=ubuntu2004
 
-build:macos --macos_minimum_os=10.11
-
-# On Windows, we need pywin32 pip package, which doesn't work with the Python hermetic toolchain.
-# See https://github.com/bazelbuild/rules_python/issues/1356
-# Therefore, use the local detected Python toolchain on Windows.
-build:windows --extra_toolchains=@bazel_tools//tools/python:autodetecting_toolchain
+build:macos --macos_minimum_os=10.13
 
 build:windows_arm64 --platforms=//:windows_arm64
 build:windows_arm64 --extra_toolchains=@local_config_cc//:cc-toolchain-arm64_windows
@@ -77,6 +72,7 @@ test:ci-linux --sandbox_default_allow_network=false
 ## For macOS
 common:ci-macos --config=ci-common
 build:ci-macos --repository_cache=/Users/buildkite/bazeltest/repo_cache
+build:ci-macos --experimental_collect_system_network_usage
 test:ci-macos --test_env=TEST_INSTALL_BASE=/Users/buildkite/bazeltest/install_base
 test:ci-macos --test_env=REPOSITORY_CACHE=/Users/buildkite/bazeltest/repo_cache
 test:ci-macos --test_env=REMOTE_NETWORK_ADDRESS=bazel.build:80

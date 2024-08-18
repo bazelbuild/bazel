@@ -81,11 +81,8 @@ public class TargetPatternFunction implements SkyFunction {
               //  won't be listed when doing somepackage:* for the handful of cases still on the
               //  allowlist. This is only a Google-internal problem and the scale of it is
               //  acceptable in the short term while cleaning up the allowlist.
-              if (target instanceof OutputFile
-                  && ((OutputFile) target)
-                      .getGeneratingRule()
-                      .getRuleClass()
-                      .equals("cc_library")) {
+              if (target instanceof OutputFile outputFile
+                  && outputFile.getGeneratingRule().getRuleClass().equals("cc_library")) {
                 continue;
               }
               resolvedTargetsBuilder.add(target);
@@ -121,12 +118,12 @@ public class TargetPatternFunction implements SkyFunction {
       // implementations that are unconcerned with MissingDepExceptions.
       return null;
     } catch (InterruptedException e) {
-      if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+      if (env.inErrorBubbling()) {
         maybeThrowEncounteredException(parsedPattern, provider);
       }
       throw e;
     }
-    if (env.inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors()) {
+    if (env.inErrorBubbling()) {
       maybeThrowEncounteredException(parsedPattern, provider);
     }
     Preconditions.checkNotNull(resolvedTargets, key);

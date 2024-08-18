@@ -46,7 +46,6 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Sandbox.Code;
-import com.google.devtools.build.lib.shell.ExecutionStatistics;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.shell.TerminationStatus;
@@ -92,7 +91,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
   @Override
   public final SpawnResult exec(Spawn spawn, SpawnExecutionContext context)
-      throws ExecException, InterruptedException {
+      throws ExecException, InterruptedException, ForbiddenActionInputException {
     ActionExecutionMetadata owner = spawn.getResourceOwner();
     context.report(SpawnSchedulingEvent.create(getName()));
 
@@ -116,11 +115,6 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
       FailureDetail failureDetail =
           SandboxHelpers.createFailureDetail(
               "I/O exception during sandboxed execution", Code.EXECUTION_IO_EXCEPTION);
-      throw new UserExecException(e, failureDetail);
-    } catch (ForbiddenActionInputException e) {
-      FailureDetail failureDetail =
-          SandboxHelpers.createFailureDetail(
-              "Forbidden input found during sandboxed execution", Code.FORBIDDEN_INPUT);
       throw new UserExecException(e, failureDetail);
     }
   }
@@ -309,28 +303,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
 
     Path statisticsPath = sandbox.getStatisticsPath();
     if (statisticsPath != null) {
-      ExecutionStatistics.getResourceUsage(statisticsPath)
-          .ifPresent(
-              resourceUsage -> {
-                spawnResultBuilder.setUserTimeInMs(
-                    (int) resourceUsage.getUserExecutionTime().toMillis());
-                spawnResultBuilder.setSystemTimeInMs(
-                    (int) resourceUsage.getSystemExecutionTime().toMillis());
-                spawnResultBuilder.setNumBlockOutputOperations(
-                    resourceUsage.getBlockOutputOperations());
-                spawnResultBuilder.setNumBlockInputOperations(
-                    resourceUsage.getBlockInputOperations());
-                spawnResultBuilder.setNumInvoluntaryContextSwitches(
-                    resourceUsage.getInvoluntaryContextSwitches());
-                // The memory usage of the largest child process. For Darwin maxrss returns size in
-                // bytes.
-                if (OS.getCurrent() == OS.DARWIN) {
-                  spawnResultBuilder.setMemoryInKb(
-                      resourceUsage.getMaximumResidentSetSize() / 1000);
-                } else {
-                  spawnResultBuilder.setMemoryInKb(resourceUsage.getMaximumResidentSetSize());
-                }
-              });
+      spawnResultBuilder.setResourceUsageFromProto(statisticsPath);
     }
 
     return spawnResultBuilder.build();
@@ -360,13 +333,11 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
   /**
    * Gets the list of directories that the spawn will assume to be writable.
    *
-   * @param sandboxExecRoot the exec root of the sandbox from the point of view of the Bazel process
-   * @param withinSandboxExecRoot the exec root from the point of view of the sandboxed processes
+   * @param sandboxExecRoot the exec root of the sandbox
    * @param env the environment of the sandboxed processes
    * @throws IOException because we might resolve symlinks, which throws {@link IOException}.
    */
-  protected ImmutableSet<Path> getWritableDirs(
-      Path sandboxExecRoot, Path withinSandboxExecRoot, Map<String, String> env)
+  protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
       throws IOException {
     // We have to make the TEST_TMPDIR directory writable if it is specified.
     ImmutableSet.Builder<Path> writablePaths = ImmutableSet.builder();
@@ -374,7 +345,7 @@ abstract class AbstractSandboxSpawnRunner implements SpawnRunner {
     // On Windows, sandboxExecRoot is actually the main execroot. We will specify
     // exactly which output path is writable.
     if (OS.getCurrent() != OS.WINDOWS) {
-      writablePaths.add(withinSandboxExecRoot);
+      writablePaths.add(sandboxExecRoot);
     }
 
     String testTmpdir = env.get("TEST_TMPDIR");

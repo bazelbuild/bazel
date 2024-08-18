@@ -14,6 +14,8 @@
 
 """Definitions of providers used by the Xcode rules and their clients."""
 
+load(":common/objc/apple_platform.bzl", "PLATFORM", "PLATFORM_TYPE")
+
 AvailableXcodesInfo = provider(
     doc = """\
 The available Xcode versions computed from the `available_xcodes` rule.
@@ -63,8 +65,9 @@ def _xcode_version_info_init(
                 execution_requirements["requires-xcode-label:{}".format(label)] = ""
 
     _apple_common = _builtins.internal.apple_common
-    platform_struct = _apple_common.platform
-    platform_type_struct = _apple_common.platform_type
+
+    platform_struct = PLATFORM
+    platform_type_struct = PLATFORM_TYPE
 
     # To preserve the original behavior (throwing an error if a version string
     # is not correctly formatted), we have to convert them to dotted versions
@@ -106,15 +109,20 @@ def _xcode_version_info_init(
         fail("Unhandled platform type: {}".format(platform_type))
 
     def _sdk_version_for_platform(platform):
-        if platform in (platform_struct.ios_device, platform_struct.ios_simulator):
+        # Explicitly using the name property to checkk for equality because the platform objects
+        # here may be either Starlark structs from apple_platform.bzl or Java objects from
+        # ApplePlatform.java which still can come in through AppleConfiguration.java.
+        # TODO(b/331163027): Consider removing the .name property from the following 5 if-statements
+        # once AppleConfiguration.java is migrated, too.
+        if platform.name in (platform_struct.ios_device.name, platform_struct.ios_simulator.name):
             return dotted_ios_sdk
-        elif platform in (platform_struct.tvos_device, platform_struct.tvos_simulator):
+        elif platform.name in (platform_struct.tvos_device.name, platform_struct.tvos_simulator.name):
             return dotted_tvos_sdk
-        elif platform in (platform_struct.visionos_device, platform_struct.visionos_simulator):
+        elif platform.name in (platform_struct.visionos_device.name, platform_struct.visionos_simulator.name):
             return dotted_visionos_sdk
-        elif platform in (platform_struct.watchos_device, platform_struct.watchos_simulator):
+        elif platform.name in (platform_struct.watchos_device.name, platform_struct.watchos_simulator.name):
             return dotted_watchos_sdk
-        elif platform in (platform_struct.macos, platform_struct.catalyst):
+        elif platform.name in (platform_struct.macos.name, platform_struct.catalyst.name):
             # Catalyst builds require usage of the iOS minimum version when
             # building, but require the usage of the macOS SDK to actually do
             # the build. This means that the particular version used for

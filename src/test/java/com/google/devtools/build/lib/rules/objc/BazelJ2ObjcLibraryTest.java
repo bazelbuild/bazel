@@ -18,6 +18,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.baseArtifactNames;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -81,7 +82,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   private static final Provider.Key starlarkJ2objcMappingFileProviderKey =
       new StarlarkProvider.Key(
-          Label.parseCanonicalUnchecked("@_builtins//:common/objc/providers.bzl"),
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/objc/providers.bzl")),
           "J2ObjcMappingFileInfo");
 
   private StructImpl getJ2ObjcMappingFileInfoFromTarget(ConfiguredTarget configuredTarget)
@@ -294,6 +295,11 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    srcs = ['test.java'],",
         "    deps = [':test_java_proto']",
         ")");
+    useConfiguration(
+        "--proto_toolchain_for_java=//tools/proto/toolchains:java",
+        "--platforms=" + MockObjcSupport.DARWIN_X86_64,
+        "--apple_platform_type=macos",
+        "--experimental_platform_in_output_dir");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget(
         "//java/com/google/dummy/test/proto:test");
@@ -303,7 +309,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
     assertThat(classMappingFilesList.get(0).getExecPathString())
         .containsMatch(
-            "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin/java/com/google/dummy/test/proto/test.clsmap.properties");
+            "/darwin_x86_64-fastbuild/bin/java/com/google/dummy/test/proto/test.clsmap.properties");
   }
 
   @Test
@@ -324,22 +330,26 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    srcs = ['test.java'],",
         "    deps = [':test_java_proto']",
         ")");
+    useConfiguration(
+        "--proto_toolchain_for_java=//tools/proto/toolchains:java",
+        "--platforms=" + MockObjcSupport.DARWIN_X86_64,
+        "--apple_platform_type=macos",
+        "--experimental_platform_in_output_dir");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//x:test");
     StructImpl j2ObjcMappingFileInfo = getJ2ObjcMappingFileInfoFromTarget(target);
     ImmutableList<Artifact> classMappingFilesList =
         getArtifacts(j2ObjcMappingFileInfo, "class_mapping_files");
     assertThat(classMappingFilesList.get(0).getExecPathString())
-        .containsMatch(
-            "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin/x/test.clsmap.properties");
+        .containsMatch("/darwin_x86_64-fastbuild/bin/x/test.clsmap.properties");
 
     StarlarkInfo objcProvider = getObjcInfo(target);
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList().toString())
-        .containsMatch("/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]x/test.j2objc.pb.h");
+        .containsMatch("/darwin_x86_64-fastbuild/bin]x/test.j2objc.pb.h");
     assertThat(getSource(objcProvider).toString())
-        .containsMatch("/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]x/test.j2objc.pb.m,");
+        .containsMatch("/darwin_x86_64-fastbuild/bin]x/test.j2objc.pb.m,");
   }
 
   @Test
@@ -374,6 +384,11 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             deps = ["@bla//foo:test_java_proto"],
         )
         """);
+    useConfiguration(
+        "--proto_toolchain_for_java=//tools/proto/toolchains:java",
+        "--platforms=" + MockObjcSupport.DARWIN_X86_64,
+        "--apple_platform_type=macos",
+        "--experimental_platform_in_output_dir");
 
     ConfiguredTarget target = getJ2ObjCAspectConfiguredTarget("//x:test");
 
@@ -382,19 +397,16 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         getArtifacts(j2ObjcMappingFileInfo, "class_mapping_files");
 
     assertThat(classMappingFilesList.get(0).getExecPathString())
-        .containsMatch(
-            "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin/external/bla/foo/test.clsmap.properties");
+        .containsMatch("/darwin_x86_64-fastbuild/bin/external/bla/foo/test.clsmap.properties");
 
     StarlarkInfo objcProvider = getObjcInfo(target);
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
 
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList().toString())
-        .containsMatch(
-            "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]external/bla/foo/test.j2objc.pb.h");
+        .containsMatch("/darwin_x86_64-fastbuild/bin]external/bla/foo/test.j2objc.pb.h");
     assertThat(getSource(objcProvider).toString())
-        .containsMatch(
-            "/darwin_x86_64-fastbuild-applebin_macos-ST-[^/]*/bin]external/bla/foo/test.j2objc.pb.m");
+        .containsMatch("/darwin_x86_64-fastbuild/bin]external/bla/foo/test.j2objc.pb.m");
     assertThat(ccCompilationContext.getIncludeDirs())
         .contains(
             getConfiguration(target)
@@ -816,8 +828,8 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
       if (!(input instanceof SpecialArtifact)) {
         if (input.getFilename().endsWith("linker.objlist")) {
           Action generatingAction = getGeneratingAction(input);
-          if (generatingAction instanceof ParameterFileWriteAction) {
-            return (ParameterFileWriteAction) generatingAction;
+          if (generatingAction instanceof ParameterFileWriteAction parameterFileWriteAction) {
+            return parameterFileWriteAction;
           }
         }
       }
@@ -1337,9 +1349,9 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
   public void testCompileActionTemplateFromGenJar() throws Exception {
     useConfiguration(
         "--apple_platform_type=ios",
-        "--cpu=ios_i386",
         "--ios_minimum_os=1.0",
-        "--platforms=" + MockObjcSupport.IOS_I386);
+        "--platforms=" + MockObjcSupport.IOS_X86_64,
+        "--experimental_platform_in_output_dir");
     addSimpleJ2ObjcLibraryWithJavaPlugin();
     Artifact archive = j2objcArchive("//java/com/google/app/test:transpile", "test");
     CommandAction archiveAction = (CommandAction) getGeneratingAction(archive);
@@ -1385,7 +1397,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
             .add("-fobjc-abi-version=2")
             .add("-fobjc-legacy-dispatch")
             .add("-DOS_IOS")
-            .add("-arch", "i386")
+            .add("-arch", "x86_64")
             .add("-isysroot")
             .add("__BAZEL_XCODE_SDKROOT__")
             .add("-O0")

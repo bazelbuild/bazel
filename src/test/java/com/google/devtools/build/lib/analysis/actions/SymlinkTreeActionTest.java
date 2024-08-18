@@ -24,13 +24,15 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.analysis.util.ActionTester;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests {@link SymlinkTreeAction}. */
 @RunWith(JUnit4.class)
-public class SymlinkTreeActionTest extends BuildViewTestCase {
+public final class SymlinkTreeActionTest extends BuildViewTestCase {
   private enum FilesetActionAttributes {
     FIXED_ENVIRONMENT,
     VARIABLE_ENVIRONMENT
@@ -44,10 +46,15 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
 
   @Test
   public void testComputeKey() throws Exception {
-    final Artifact inputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
-    final Artifact outputManifest = getBinArtifactWithNoOwner("dir/MANIFEST");
-    final Artifact runfile = getBinArtifactWithNoOwner("dir/runfile");
-    final Artifact runfile2 = getBinArtifactWithNoOwner("dir/runfile2");
+    Artifact filesetInputManifest =
+        getTestAnalysisEnvironment()
+            .getFilesetArtifact(
+                PathFragment.create("dir/manifest.in"),
+                targetConfig.getBinDirectory(RepositoryName.MAIN));
+    Artifact runfilesInputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
+    Artifact outputManifest = getBinArtifactWithNoOwner("dir/MANIFEST");
+    Artifact runfile = getBinArtifactWithNoOwner("dir/runfile");
+    Artifact runfile2 = getBinArtifactWithNoOwner("dir/runfile2");
 
     ActionTester tester = new ActionTester(actionKeyContext);
 
@@ -58,17 +65,17 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
               (attributesToFlip) ->
                   new SymlinkTreeAction(
                       ActionsTestUtil.NULL_ACTION_OWNER,
-                      inputManifest,
+                      runfilesInputManifest,
                       /* runfiles= */ attributesToFlip.contains(RunfilesActionAttributes.RUNFILES)
                           ? new Runfiles.Builder("TESTING", false).addArtifact(runfile).build()
                           : new Runfiles.Builder("TESTING", false).addArtifact(runfile2).build(),
                       outputManifest,
                       /* repoMappingManifest= */ null,
-                      /* filesetRoot= */ null,
                       createActionEnvironment(
                           attributesToFlip.contains(RunfilesActionAttributes.FIXED_ENVIRONMENT),
                           attributesToFlip.contains(RunfilesActionAttributes.VARIABLE_ENVIRONMENT)),
-                      runfileSymlinksMode));
+                      runfileSymlinksMode,
+                      "workspace"));
 
       tester =
           tester.combinations(
@@ -76,15 +83,15 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
               (attributesToFlip) ->
                   new SymlinkTreeAction(
                       ActionsTestUtil.NULL_ACTION_OWNER,
-                      inputManifest,
+                      filesetInputManifest,
                       /* runfiles= */ null,
                       outputManifest,
                       /* repoMappingManifest= */ null,
-                      /* filesetRoot= */ "root",
                       createActionEnvironment(
                           attributesToFlip.contains(FilesetActionAttributes.FIXED_ENVIRONMENT),
                           attributesToFlip.contains(FilesetActionAttributes.VARIABLE_ENVIRONMENT)),
-                      runfileSymlinksMode));
+                      runfileSymlinksMode,
+                      "workspace"));
     }
 
     tester.runTest();
@@ -101,7 +108,7 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
     Artifact inputManifest = getBinArtifactWithNoOwner("dir/manifest.in");
     Artifact outputManifest = getBinArtifactWithNoOwner("dir/MANIFEST");
     assertThrows(
-        IllegalArgumentException.class,
+        NullPointerException.class,
         () ->
             new SymlinkTreeAction(
                 ActionsTestUtil.NULL_ACTION_OWNER,
@@ -109,8 +116,8 @@ public class SymlinkTreeActionTest extends BuildViewTestCase {
                 /* runfiles= */ null,
                 outputManifest,
                 /* repoMappingManifest= */ null,
-                /* filesetRoot= */ null,
                 createActionEnvironment(false, false),
-                RunfileSymlinksMode.SKIP));
+                RunfileSymlinksMode.SKIP,
+                "workspace"));
   }
 }

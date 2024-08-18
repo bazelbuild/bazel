@@ -17,7 +17,8 @@
 load(":common/cc/attrs.bzl", "cc_binary_attrs", "linkstatic_doc", "stamp_doc")
 load(":common/cc/cc_binary.bzl", "cc_binary_impl")
 load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/cc/cc_shared_library.bzl", "cc_shared_library_initializer")
+load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_shared_library.bzl", "dynamic_deps_initializer")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
 
@@ -113,7 +114,7 @@ def cc_test_initializer(**kwargs):
     if "linkstatic" not in kwargs:
         kwargs["linkstatic"] = semantics.get_linkstatic_default_for_test()
 
-    return cc_shared_library_initializer(**kwargs)
+    return dynamic_deps_initializer(**kwargs)
 
 cc_test = rule(
     initializer = cc_test_initializer,
@@ -164,4 +165,5 @@ attributes common to all test rules (*_test)</a>.</p>
                  cc_helper.use_cpp_toolchain() +
                  semantics.get_runtimes_toolchain(),
     test = True,
+    provides = [CcInfo],
 )

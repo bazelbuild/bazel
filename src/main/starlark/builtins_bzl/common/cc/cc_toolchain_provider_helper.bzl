@@ -184,21 +184,11 @@ def get_cc_toolchain_provider(ctx, attributes):
     tool_paths = _compute_tool_paths(toolchain_config_info, tools_directory)
     toolchain_features = cc_internal.cc_toolchain_features(toolchain_config_info = toolchain_config_info, tools_directory = tools_directory)
     fdo_context = create_fdo_context(
-        ctx = ctx,
-        fdo_prefetch_provider = attributes.fdo_prefetch_provider,
-        propeller_optimize_provider = attributes.propeller_optimize_provider,
-        mem_prof_profile_provider = attributes.mem_prof_profile_provider,
-        fdo_optimize_provider = attributes.fdo_optimize_provider,
-        fdo_profile_provider = attributes.fdo_profile_provider,
-        x_fdo_profile_provider = attributes.x_fdo_profile_provider,
-        cs_fdo_profile_provider = attributes.cs_fdo_profile_provider,
         llvm_profdata = tool_paths.get("llvm-profdata"),
         all_files = attributes.all_files,
         zipper = attributes.zipper,
-        cc_toolchain_config_info = attributes.cc_toolchain_config_info,
-        fdo_optimize_artifacts = attributes.fdo_optimize_artifacts,
-        fdo_optimize_label = attributes.fdo_optimize_label,
-        proto_profile = attributes.proto_profile,
+        cc_toolchain_config_info = toolchain_config_info,
+        coverage_enabled = ctx.configuration.coverage_enabled,
     )
     if fdo_context == None:
         return None
@@ -247,8 +237,9 @@ def get_cc_toolchain_provider(ctx, attributes):
     for s in toolchain_config_info.cxx_builtin_include_directories():
         builtin_include_directories.append(_resolve_include_dir(ctx.label, s, sysroot, tools_directory))
 
-    build_vars = cc_internal.cc_toolchain_variables(
-        vars = _get_cc_toolchain_vars(ctx.fragments.cpp, sysroot),
+    build_variables_dict = _get_cc_toolchain_vars(ctx.fragments.cpp, sysroot)
+    build_variables = cc_internal.cc_toolchain_variables(
+        vars = build_variables_dict,
     )
 
     return CcToolchainInfo(
@@ -267,6 +258,8 @@ def get_cc_toolchain_provider(ctx, attributes):
         sysroot = sysroot,
         fdo_context = fdo_context,
         is_tool_configuration = ctx.configuration.is_tool_configuration(),
+        is_sibling_repository_layout = ctx.configuration.is_sibling_repository_layout(),
+        stamp_binaries = ctx.configuration.stamp_binaries(),
         tool_paths = tool_paths,
         default_sysroot = default_sysroot,
         # The runtime sysroot should really be set from --grte_top. However, currently libc has
@@ -286,7 +279,8 @@ def get_cc_toolchain_provider(ctx, attributes):
         strip_executable = tool_paths.get("strip", ""),
         ld_executable = tool_paths.get("ld", ""),
         gcov_executable = tool_paths.get("gcov", ""),
-        build_variables = build_vars,
+        build_variables_dict = build_variables_dict,
+        build_variables = build_variables,
         all_files = attributes.all_files,
         all_files_including_libc = attributes.all_files_including_libc,
         compiler_files = attributes.compiler_files,

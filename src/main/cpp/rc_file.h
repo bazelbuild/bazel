@@ -14,13 +14,12 @@
 #ifndef BAZEL_SRC_MAIN_CPP_RC_FILE_H_
 #define BAZEL_SRC_MAIN_CPP_RC_FILE_H_
 
-#include <deque>
 #include <memory>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 #include "src/main/cpp/workspace_layout.h"
+#include "absl/container/flat_hash_map.h"
 
 namespace blaze {
 
@@ -39,8 +38,8 @@ class RcFile {
   // error and error text on failure.
   enum class ParseError { NONE, UNREADABLE_FILE, INVALID_FORMAT, IMPORT_LOOP };
   static std::unique_ptr<RcFile> Parse(
-      std::string filename, const WorkspaceLayout* workspace_layout,
-      std::string workspace, ParseError* error, std::string* error_text);
+      const std::string& filename, const WorkspaceLayout* workspace_layout,
+      const std::string& workspace, ParseError* error, std::string* error_text);
 
   // Movable and copyable.
   RcFile(const RcFile&) = default;
@@ -54,23 +53,18 @@ class RcFile {
   }
 
   // Command -> all options for that command (in order of appearance).
-  using OptionMap = std::unordered_map<std::string, std::vector<RcOption>>;
+  using OptionMap = absl::flat_hash_map<std::string, std::vector<RcOption>>;
   const OptionMap& options() const { return options_; }
 
  private:
-  RcFile(std::string filename, const WorkspaceLayout* workspace_layout,
-         std::string workspace);
+  RcFile() = default;
 
   // Recursive call to parse a file and its imports.
   ParseError ParseFile(const std::string& filename,
-                       std::deque<std::string>* import_stack,
+                       const std::string& workspace,
+                       const WorkspaceLayout& workspace_layout,
+                       std::vector<std::string>& import_stack,
                        std::string* error_text);
-
-  std::string filename_;
-
-  // Workspace definition.
-  const WorkspaceLayout* workspace_layout_;
-  std::string workspace_;
 
   // Full closure of rcfile paths imported from this file (including itself).
   // These are all canonical paths, created with blaze_util::MakeCanonical.

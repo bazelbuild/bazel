@@ -63,12 +63,18 @@ public class ParsedFlagsFunction implements SkyFunction {
         starlarkFlags.add(flagSetting);
       }
     }
-    // The StarlarkOptionsParser needs a native options parser just to inject its Starlark flag
-    // values. It doesn't actually parse anything with the native parser.
-    OptionsParser fakeNativeParser = OptionsParser.builder().build();
+    // The StarlarkOptionsParser needs a native options parser to handle some forms of value
+    // conversion and as a place to inject the flag values.
+    // TODO: https://github.com/bazelbuild/bazel/issues/22365 - Clean this up as part of a general
+    // rewrite.
+    OptionsParser fakeNativeParser =
+        OptionsParser.builder().withConversionContext(key.packageContext()).build();
     StarlarkOptionsParser starlarkFlagParser =
-        StarlarkOptionsParser.newStarlarkOptionsParser(
-            new SkyframeTargetLoader(env, key.packageContext()), fakeNativeParser);
+        StarlarkOptionsParser.builder()
+            .buildSettingLoader(new SkyframeTargetLoader(env, key.packageContext()))
+            .nativeOptionsParser(fakeNativeParser)
+            .includeDefaultValues(key.includeDefaultValues())
+            .build();
     try {
       if (!starlarkFlagParser.parseGivenArgs(starlarkFlags.build())) {
         return null;
@@ -76,15 +82,18 @@ public class ParsedFlagsFunction implements SkyFunction {
     } catch (OptionsParsingException e) {
       throw new ParsedFlagsFunctionException(e);
     }
-    NativeAndStarlarkFlags flags =
+    NativeAndStarlarkFlags.Builder flags =
         NativeAndStarlarkFlags.builder()
             .nativeFlags(nativeFlags.build())
-            .starlarkFlags(fakeNativeParser.getStarlarkOptions())
+            .starlarkFlags(starlarkFlagParser.getStarlarkOptions())
             .optionsClasses(optionsClasses)
-            .repoMapping(key.packageContext().repoMapping())
-            .build();
+            .repoMapping(key.packageContext().repoMapping());
 
-    return ParsedFlagsValue.create(flags);
+    if (key.includeDefaultValues()) {
+      flags.starlarkFlagDefaults(starlarkFlagParser.getDefaultValues());
+    }
+
+    return ParsedFlagsValue.create(flags.build());
   }
 
   /**

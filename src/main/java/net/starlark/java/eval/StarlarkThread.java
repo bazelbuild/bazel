@@ -599,12 +599,16 @@ public final class StarlarkThread {
     callProfiler = p;
   }
 
-  public SymbolGenerator.Symbol<?> getNextReferenceIdentitySymbol() {
+  public SymbolGenerator.Symbol<?> getNextIdentityToken() {
     return symbolGenerator.generate();
   }
 
   public SymbolGenerator<?> getSymbolGenerator() {
     return symbolGenerator;
+  }
+
+  Object getOwner() {
+    return symbolGenerator.getOwner();
   }
 
   @Nullable private static CallProfiler callProfiler = null;

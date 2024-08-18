@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -32,12 +33,12 @@ import org.junit.runners.JUnit4;
 public final class AvailableXcodesTest extends BuildViewTestCase {
   private static final Provider.Key AVAILABLE_XCODES_PROVIDER_KEY =
       new StarlarkProvider.Key(
-          Label.parseCanonicalUnchecked("@_builtins//:common/xcode/providers.bzl"),
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/xcode/providers.bzl")),
           "AvailableXcodesInfo");
 
   private static final Provider.Key XCODE_VERSION_PROPERTIES_PROVIDER_KEY =
       new StarlarkProvider.Key(
-          Label.parseCanonicalUnchecked("@_builtins//:common/xcode/providers.bzl"),
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/xcode/providers.bzl")),
           "XcodeVersionPropertiesInfo");
 
   @Test

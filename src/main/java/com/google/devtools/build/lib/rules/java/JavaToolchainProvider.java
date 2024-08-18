@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.java;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -378,7 +380,8 @@ public final class JavaToolchainProvider extends StarlarkInfoWrapper {
 
     private Provider() {
       super(
-          Label.parseCanonicalUnchecked("@_builtins//:common/java/java_toolchain.bzl"),
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/java/java_toolchain.bzl")),
           "JavaToolchainInfo");
     }
 

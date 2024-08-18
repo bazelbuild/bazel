@@ -110,17 +110,10 @@ public final class JsonProfile {
     String outputBase = null;
     while (reader.hasNext()) {
       switch (reader.nextName()) {
-        case "build_id":
-          buildId = reader.nextString();
-          break;
-        case "date":
-          date = reader.nextString();
-          break;
-        case "output_base":
-          outputBase = reader.nextString();
-          break;
-        default:
-          reader.skipValue();
+        case "build_id" -> buildId = reader.nextString();
+        case "date" -> date = reader.nextString();
+        case "output_base" -> outputBase = reader.nextString();
+        default -> reader.skipValue();
       }
     }
     reader.endObject();

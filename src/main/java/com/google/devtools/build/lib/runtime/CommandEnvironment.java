@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
@@ -32,21 +32,26 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.config.AdditionalConfigurationChangeEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
+import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
-import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
+import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
@@ -58,6 +63,7 @@ import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.LocalOutputService;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -70,7 +76,6 @@ import com.google.protobuf.Any;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -94,8 +99,8 @@ public class CommandEnvironment {
   private final BlazeWorkspace workspace;
   private final BlazeDirectories directories;
 
-  private final UUID commandId;  // Unique identifier for the command being run
-  private final String buildRequestId;  // Unique identifier for the build being run
+  private final UUID commandId; // Unique identifier for the command being run
+  private final String buildRequestId; // Unique identifier for the build being run
   private final Reporter reporter;
   private final EventBus eventBus;
   private final BlazeModule.ModuleEnvironment blazeModuleEnvironment;
@@ -108,6 +113,7 @@ public class CommandEnvironment {
   private final Thread commandThread;
   private final Command command;
   private final OptionsParsingResult options;
+  private final InvocationPolicy invocationPolicy;
   private final PathPackageLocator packageLocator;
   private final Path workingDirectory;
   private final PathFragment relativeWorkingDirectory;
@@ -122,6 +128,8 @@ public class CommandEnvironment {
   private final CommandLinePathFactory commandLinePathFactory;
   private final CommandExtensionReporter commandExtensionReporter;
   private final int attemptNumber;
+  private final HttpDownloader httpDownloader;
+  private final DelegatingDownloader delegatingDownloader;
 
   private boolean mergedAnalysisAndExecution;
 
@@ -153,7 +161,7 @@ public class CommandEnvironment {
 
   // List of flags and their values that were added by invocation policy. May contain multiple
   // occurrences of the same flag.
-  ImmutableList<OptionAndRawValue> invocationPolicyFlags = ImmutableList.of();
+  private ImmutableList<OptionAndRawValue> invocationPolicyFlags = ImmutableList.of();
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
     @Nullable
@@ -168,8 +176,8 @@ public class CommandEnvironment {
 
     @Override
     public void exit(AbruptExitException exception) {
-      Preconditions.checkNotNull(exception);
-      Preconditions.checkNotNull(exception.getExitCode());
+      checkNotNull(exception);
+      checkNotNull(exception.getExitCode());
       if (pendingException.compareAndSet(null, Optional.of(exception))
           && !Thread.currentThread().equals(commandThread)) {
         // There was no exception, so we're the first one to ask for an exit. Interrupt the command
@@ -193,6 +201,8 @@ public class CommandEnvironment {
       Thread commandThread,
       Command command,
       OptionsParsingResult options,
+      InvocationPolicy invocationPolicy,
+      @Nullable PathPackageLocator packageLocator,
       SyscallCache syscallCache,
       QuiescingExecutors quiescingExecutors,
       List<String> warnings,
@@ -212,6 +222,8 @@ public class CommandEnvironment {
     this.commandThread = commandThread;
     this.command = command;
     this.options = options;
+    this.invocationPolicy = invocationPolicy;
+    this.packageLocator = packageLocator;
     this.shutdownReasonConsumer = shutdownReasonConsumer;
     this.syscallCache = syscallCache;
     this.quiescingExecutors = quiescingExecutors;
@@ -226,7 +238,7 @@ public class CommandEnvironment {
     timestampGranularityMonitor.setCommandStartTime();
 
     CommonCommandOptions commandOptions =
-        Preconditions.checkNotNull(
+        checkNotNull(
             options.getOptions(CommonCommandOptions.class),
             "CommandEnvironment needs its options provider to have CommonCommandOptions loaded.");
     Path workingDirectory;
@@ -249,24 +261,36 @@ public class CommandEnvironment {
     this.waitTime = Duration.ofMillis(waitTimeInMs + commandOptions.waitTime);
     this.commandStartTime = commandStartTime - commandOptions.startupTime;
     this.commandExtensions = ImmutableList.copyOf(commandExtensions);
-    // If this command supports --package_path we initialize the package locator scoped
-    // to the command environment
-    if (commandHasPackageOptions(command) && directories.getWorkspace() != null) {
-      this.packageLocator =
-          workspace
-              .getSkyframeExecutor()
-              .createPackageLocator(
-                  reporter,
-                  options.getOptions(PackageOptions.class).packagePath,
-                  directories.getWorkspace());
-    } else {
-      this.packageLocator = null;
-    }
     workspace.getSkyframeExecutor().setEventBus(eventBus);
     eventBus.register(this);
+    float httpTimeoutScaling = (float) commandOptions.httpTimeoutScaling;
+    if (commandOptions.httpTimeoutScaling <= 0) {
+      reporter.handle(
+          Event.warn("Ignoring request to scale http timeouts by a non-positive factor"));
+      httpTimeoutScaling = 1.0f;
+    }
+    if (commandOptions.httpMaxParallelDownloads <= 0) {
+      this.blazeModuleEnvironment.exit(
+          new AbruptExitException(
+              DetailedExitCode.of(
+                  FailureDetail.newBuilder()
+                      .setMessage(
+                          "The maximum number of parallel downloads needs to be a positive number")
+                      .setExternalRepository(
+                          ExternalRepository.newBuilder().setCode(Code.BAD_DOWNLOADER_CONFIG))
+                      .build())));
+    }
+
+    this.httpDownloader =
+        new HttpDownloader(
+            commandOptions.httpConnectorAttempts,
+            commandOptions.httpConnectorRetryMaxTimeout,
+            commandOptions.httpMaxParallelDownloads,
+            httpTimeoutScaling);
+    this.delegatingDownloader = new DelegatingDownloader(httpDownloader);
 
     ClientOptions clientOptions =
-        Preconditions.checkNotNull(
+        checkNotNull(
             options.getOptions(ClientOptions.class),
             "CommandEnvironment needs its options provider to have ClientOptions loaded.");
 
@@ -278,7 +302,7 @@ public class CommandEnvironment {
             : UUID.randomUUID().toString();
 
     this.repoEnv.putAll(clientEnv);
-    if (command.builds()) {
+    if (command.buildPhase().analyzes() || command.name().equals("info")) {
       // Compute the set of environment variables that are allowlisted on the commandline
       // for inheritance.
       for (Map.Entry<String, String> entry :
@@ -320,7 +344,7 @@ public class CommandEnvironment {
       throws AbruptExitException {
     Path workspace = getWorkspace();
     Path workingDirectory;
-    if (inWorkspace()) {
+    if (directories.inWorkspace()) {
       PathFragment clientCwd = commandOptions.clientCwd;
       if (clientCwd.containsUplevelReferences()) {
         throw new AbruptExitException(
@@ -348,33 +372,9 @@ public class CommandEnvironment {
       }
       workingDirectory = workspace.getRelative(clientCwd);
     } else {
-      workingDirectory = FileSystemUtils.getWorkingDirectory(getRuntime().getFileSystem());
+      workingDirectory = FileSystemUtils.getWorkingDirectory(runtime.getFileSystem());
     }
     return workingDirectory;
-  }
-
-  // Returns whether the given command supports --package_path
-  private static boolean commandHasPackageOptions(Command command) {
-    return commandHasPackageOptions(command, new HashSet<>());
-  }
-
-  private static boolean commandHasPackageOptions(Command command, Set<Command> seen) {
-    if (!seen.add(command)) {
-      return false;
-    }
-    for (int i = 0; i < command.options().length; ++i) {
-      if (command.options()[i] == PackageOptions.class) {
-        return true;
-      }
-    }
-    for (int i = 0; i < command.inherits().length; ++i) {
-      Class<? extends BlazeCommand> blazeCommand = command.inherits()[i];
-      Command annotation = blazeCommand.getAnnotation(Command.class);
-      if (commandHasPackageOptions(annotation, seen)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   public BlazeRuntime getRuntime() {
@@ -382,7 +382,7 @@ public class CommandEnvironment {
   }
 
   public Clock getClock() {
-    return getRuntime().getClock();
+    return runtime.getClock();
   }
 
   public CommandExtensionReporter getCommandExtensionReporter() {
@@ -398,7 +398,7 @@ public class CommandEnvironment {
   }
 
   public OptionsProvider getStartupOptionsProvider() {
-    return getRuntime().getStartupOptionsProvider();
+    return runtime.getStartupOptionsProvider();
   }
 
   public BlazeWorkspace getBlazeWorkspace() {
@@ -414,9 +414,7 @@ public class CommandEnvironment {
     return packageLocator;
   }
 
-  /**
-   * Returns the reporter for events.
-   */
+  /** Returns the reporter for events. */
   public Reporter getReporter() {
     return reporter;
   }
@@ -440,6 +438,7 @@ public class CommandEnvironment {
   public Command getCommand() {
     return command;
   }
+
   public String getCommandName() {
     return command.name();
   }
@@ -448,7 +447,11 @@ public class CommandEnvironment {
     return options;
   }
 
-  public void setInvocationPolicyFlags(ImmutableList<OptionAndRawValue> invocationPolicyFlags) {
+  public InvocationPolicy getInvocationPolicy() {
+    return invocationPolicy;
+  }
+
+  void setInvocationPolicyFlags(ImmutableList<OptionAndRawValue> invocationPolicyFlags) {
     this.invocationPolicyFlags = invocationPolicyFlags;
   }
 
@@ -592,12 +595,11 @@ public class CommandEnvironment {
    */
   @Nullable
   public Path getWorkspace() {
-    return getDirectories().getWorkingDirectory();
+    return directories.getWorkingDirectory();
   }
 
   public String getWorkspaceName() {
-    Preconditions.checkNotNull(workspaceName);
-    return workspaceName;
+    return checkNotNull(workspaceName);
   }
 
   public void setWorkspaceName(String workspaceName) {
@@ -605,30 +607,22 @@ public class CommandEnvironment {
     this.workspaceName = workspaceName;
     eventBus.post(new ExecRootEvent(getExecRoot()));
   }
-  /**
-   * Returns if the client passed a valid workspace to be used for the build.
-   */
-  public boolean inWorkspace() {
-    return getDirectories().inWorkspace();
-  }
 
   /**
-   * Returns the output base directory associated with this Blaze server
-   * process. This is the base directory for shared Blaze state as well as tool
-   * and strategy specific subdirectories.
+   * Returns the output base directory associated with this Blaze server process. This is the base
+   * directory for shared Blaze state as well as tool and strategy specific subdirectories.
    */
   public Path getOutputBase() {
-    return getDirectories().getOutputBase();
+    return directories.getOutputBase();
   }
 
   /**
-   * Returns the execution root directory associated with this Blaze server
-   * process. This is where all input and output files visible to the actual
-   * build reside.
+   * Returns the execution root directory associated with this Blaze server process. This is where
+   * all input and output files visible to the actual build reside.
    */
   public Path getExecRoot() {
-    Preconditions.checkNotNull(workspaceName);
-    return getDirectories().getExecRoot(workspaceName);
+    checkNotNull(workspaceName);
+    return directories.getExecRoot(workspaceName);
   }
 
   /**
@@ -636,7 +630,7 @@ public class CommandEnvironment {
    * returned by {@link #getExecRoot}.
    */
   public Path getActionTempsDirectory() {
-    return getDirectories().getActionTempsDirectory(getExecRoot());
+    return directories.getActionTempsDirectory(getExecRoot());
   }
 
   /**
@@ -650,15 +644,13 @@ public class CommandEnvironment {
     return workingDirectory;
   }
 
-  /** @return the OutputService in use, or null if none. */
+  /**
+   * Returns the {@link OutputService} to use, or {@code null} if this is not a command that
+   * performs analysis according to {@linkplain Command#buildPhase()}.
+   */
   @Nullable
   public OutputService getOutputService() {
     return outputService;
-  }
-
-  @VisibleForTesting
-  public void setOutputServiceForTesting(@Nullable OutputService outputService) {
-    this.outputService = outputService;
   }
 
   /**
@@ -735,8 +727,8 @@ public class CommandEnvironment {
    * Throws the exception currently queued by a Blaze module.
    *
    * <p>This should be called as often as is practical so that errors are reported as soon as
-   * possible. Ideally, we'd not need this, but the event bus swallows exceptions so we raise
-   * the exception this way.
+   * possible. Ideally, we'd not need this, but the event bus swallows exceptions so we raise the
+   * exception this way.
    */
   public void throwPendingException() throws AbruptExitException {
     AbruptExitException exception = getPendingException();
@@ -770,12 +762,13 @@ public class CommandEnvironment {
             .sync(
                 reporter,
                 packageLocator,
-                getCommandId(),
+                commandId,
                 clientEnv,
                 repoEnvFromOptions,
                 timestampGranularityMonitor,
                 quiescingExecutors,
-                options);
+                options,
+                getCommandName());
   }
 
   /** Returns true if {@link #syncPackageLoading} has already been called. */
@@ -784,7 +777,7 @@ public class CommandEnvironment {
   }
 
   public void recordLastExecutionTime() {
-    workspace.recordLastExecutionTime(getCommandStartTime());
+    workspace.recordLastExecutionTime(commandStartTime);
   }
 
   public long getCommandStartTime() {
@@ -829,7 +822,11 @@ public class CommandEnvironment {
 
     outputService = null;
     BlazeModule outputModule = null;
-    if (command.builds()) {
+    if (command.buildPhase().analyzes() || command.name().equals("clean")) {
+      // Output service should only affect commands that execute actions, but due to the legacy
+      // wiring of BuildTool.java, this covers analysis-only commands as well.
+      //
+      // TODO: fix this.
       for (BlazeModule module : runtime.getBlazeModules()) {
         OutputService moduleService = module.getOutputService();
         if (moduleService != null) {
@@ -842,6 +839,9 @@ public class CommandEnvironment {
           outputService = moduleService;
           outputModule = module;
         }
+      }
+      if (outputService == null) {
+        outputService = new LocalOutputService(directories);
       }
     }
 
@@ -857,13 +857,28 @@ public class CommandEnvironment {
     // Modules that are subscribed to CommandStartEvent may create pending exceptions.
     throwPendingException();
 
-    if (commandActuallyBuilds()) {
-      // Need to determine if Skyfocus will run for this command. If so, the evaluator
-      // will need to be configured to remember additional state (e.g. root keys) that it
-      // otherwise doesn't need to for a non-Skyfocus build. Alternately, it might reset
-      // the evaluator, which is why this runs before injecting precomputed values below.
+    // Determine if Skyfocus will run for this command: Skyfocus runs only for commands that
+    // execute actions. Throw an error if this is a command that is not guaranteed to work
+    // correctly on a focused Skyframe graph.
+    if (getCommand().buildPhase().executes()) {
       skyframeExecutor.prepareForSkyfocus(
           options.getOptions(SkyfocusOptions.class), reporter, runtime.getProductName());
+    } else if (getCommand().buildPhase().loads()
+        && !getSkyframeExecutor().getSkyfocusState().workingSet().isEmpty()) {
+      // A non-empty working set implies a focused Skyframe state.
+      throw new AbruptExitException(
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(
+                      command.name()
+                          + " is not supported after using Skyfocus because it can"
+                          + " return partial/incorrect results. Run clean or shutdown and try"
+                          + " again.")
+                  .setSkyfocus(
+                      Skyfocus.newBuilder()
+                          .setCode(Skyfocus.Code.DISALLOWED_OPERATION_ON_FOCUSED_GRAPH)
+                          .build())
+                  .build()));
     }
   }
 
@@ -872,13 +887,12 @@ public class CommandEnvironment {
     // If we have a fancy OutputService, this may be different between consecutive Blaze commands
     // and so we need to compute it freshly. Otherwise, we can used the immutable value that's
     // precomputed by our BlazeWorkspace.
-    if (getOutputService() != null) {
-      try (SilentCloseable c =
-          Profiler.instance().profile(ProfilerTask.INFO, "Finding output file system")) {
-        return getOutputService().getFilesSystemName();
-      }
+    try (SilentCloseable c =
+        Profiler.instance().profile(ProfilerTask.INFO, "Finding output file system")) {
+      return outputService == null
+          ? ""
+          : outputService.getFileSystemName(workspace.getOutputBaseFilesystemTypeName());
     }
-    return workspace.getOutputBaseFilesystemTypeName();
   }
 
   /** Returns the client environment with all settings from --action_env and --repo_env. */
@@ -892,7 +906,7 @@ public class CommandEnvironment {
       if (fileCache == null) {
         fileCache =
             new SingleBuildFileCache(
-                getExecRoot().getPathString(), getRuntime().getFileSystem(), syscallCache);
+                getExecRoot().getPathString(), runtime.getFileSystem(), syscallCache);
       }
       return fileCache;
     }
@@ -915,7 +929,7 @@ public class CommandEnvironment {
   }
 
   public XattrProvider getXattrProvider() {
-    return getSyscallCache();
+    return syscallCache;
   }
 
   public QuiescingExecutors getQuiescingExecutors() {
@@ -991,23 +1005,11 @@ public class CommandEnvironment {
     return attemptNumber;
   }
 
-  /**
-   * Checks if the command builds.
-   *
-   * <p>Not all 'build = true' annotated commands actually run a build.
-   */
-  public boolean commandActuallyBuilds() {
-    if (!command.builds()) {
-      return false;
-    }
-    // 'clean' and 'info' set 'build = true' to make build options accessible to users (and info
-    // uses them), but does not run a build.
-    if (command.name().equals("clean")) {
-      return false;
-    }
-    if (command.name().equals("info")) {
-      return false;
-    }
-    return true;
+  public HttpDownloader getHttpDownloader() {
+    return httpDownloader;
+  }
+
+  public DelegatingDownloader getDownloaderDelegate() {
+    return delegatingDownloader;
   }
 }

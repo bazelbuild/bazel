@@ -20,7 +20,7 @@ syntax = "proto3";
 package stardoc_output;
 
 // option java_api_version = 2;
-option java_package = "com.google.devtools.build.skydoc.rendering.proto";
+option java_package = "com.google.devtools.build.lib.starlarkdocextract";
 option java_outer_classname = "StardocOutputProtos";
 
 // The root output proto of Stardoc. An invocation of Stardoc on a single file
@@ -190,7 +190,16 @@ message StarlarkFunctionInfo {
   // "foo.frobnicate".
   string function_name = 1;
 
-  // The parameters for the function.
+  // The parameters for the function, in the following order:
+  // - positional parameters
+  // - keyword-only parameters
+  // - residual varargs parameter (`*args`)
+  // - residual keyword arguments parameter (`**kwargs`)
+  // This order differs from the order in which parameters are listed in the
+  // function's declaration (where positional parameters and keyword-only
+  // parameters are separated either by `*` or `*args`). The declaration order
+  // can be recovered by looking for the transition from ordinary/positional to
+  // keyword-only.
   repeated FunctionParamInfo parameter = 2;
 
   // The documented description of the function (if specified in the function's
@@ -210,9 +219,28 @@ message StarlarkFunctionInfo {
   OriginKey origin_key = 6;
 }
 
+// Representation of the syntactic role of a given function parameter.
+enum FunctionParamRole {
+  PARAM_ROLE_UNSPECIFIED = 0;
+  // An ordinary parameter which may be used as a positional or by keyword.
+  PARAM_ROLE_ORDINARY = 1;
+  // A positional-only parameter; such parameters cannot be defined in pure
+  // Starlark code, but exist in some natively-defined functions.
+  PARAM_ROLE_POSITIONAL_ONLY = 2;
+  // A keyword-only parameter, i.e. a non-vararg/kwarg parameter that follows
+  // `*` or `*args` in the function's declaration.
+  PARAM_ROLE_KEYWORD_ONLY = 3;
+  // Residual varargs, typically `*args` in the function's declaration.
+  PARAM_ROLE_VARARGS = 4;
+  // Residual keyword arguments, typically `**kwargs` in the function's
+  // declaration.
+  PARAM_ROLE_KWARGS = 5;
+}
+
 // Representation of a Starlark function parameter definition.
 message FunctionParamInfo {
-  // The name of the parameter.
+  // The name of the parameter. This does *not* include the `*` or `**` prefix
+  // for varargs or residual keyword argument parameters.
   string name = 1;
 
   // The documented description of the parameter (if specified in the function's
@@ -227,6 +255,9 @@ message FunctionParamInfo {
   // parameter. This might be false even if defaultValue is empty in the case of
   // special parameter such as *args and **kwargs"
   bool mandatory = 4;
+
+  // The parameter's syntactic role.
+  FunctionParamRole role = 5;
 }
 
 message FunctionReturnInfo {

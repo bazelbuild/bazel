@@ -17,7 +17,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.testutil.MoreAsserts.assertNoEvents;
 import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -46,7 +45,6 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
 
   private Path installBase;
   private Path outputBase;
-  private Path rulesJavaWorkspace;
 
   @Before
   public void setUp() throws Exception {
@@ -54,16 +52,14 @@ public final class BazelPackageLoaderTest extends AbstractPackageLoaderTest {
     installBase.createDirectoryAndParents();
     outputBase = fs.getPath("/outputBase/");
     outputBase.createDirectoryAndParents();
-    Path embeddedBinaries = ServerDirectories.getEmbeddedBinariesRoot(installBase);
-    embeddedBinaries.createDirectoryAndParents();
 
-    mockEmbeddedTools(embeddedBinaries);
+    mockEmbeddedTools(installBase);
     fetchExternalRepo(RepositoryName.create("bazel_tools"));
 
     createWorkspaceFile("");
   }
 
-  private String getDefaultWorkspaceContent() {
+  private static String getDefaultWorkspaceContent() {
     // Skip the WORKSPACE suffix to avoid loading rules_java
     return "# __SKIP_WORKSPACE_SUFFIX__";
   }

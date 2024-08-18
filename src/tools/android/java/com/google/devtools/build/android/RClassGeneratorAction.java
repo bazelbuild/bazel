@@ -15,17 +15,19 @@ package com.google.devtools.build.android;
 
 import com.android.builder.core.DefaultManifestParser;
 import com.android.utils.StdLogger;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
-import com.google.devtools.build.android.Converters.DependencySymbolFileProviderConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.Converters.CompatDependencySymbolFileProviderConverter;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
+import com.google.devtools.build.android.Converters.NoOpSplitter;
+import com.google.devtools.build.android.resources.RPackageId;
 import com.google.devtools.build.android.resources.ResourceSymbols;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.nio.file.FileSystems;
@@ -58,96 +60,82 @@ public class RClassGeneratorAction {
   private static final Logger logger = Logger.getLogger(RClassGeneratorAction.class.getName());
 
   /** Flag specifications for this action. */
-  public static final class Options extends OptionsBase {
+  @Parameters(separators = "= ")
+  public static final class Options extends OptionsBaseWithResidue {
 
-    @Option(
-        name = "primaryRTxt",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "The path to the binary's R.txt file")
+    @Parameter(
+        names = "--primaryRTxt",
+        converter = CompatPathConverter.class,
+        description = "The path to the binary's R.txt file")
     public Path primaryRTxt;
 
-    @Option(
-        name = "primaryManifest",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "The path to the binary's AndroidManifest.xml file. This helps provide the package.")
+    @Parameter(
+        names = "--primaryManifest",
+        converter = CompatPathConverter.class,
+        description =
+            "The path to the binary's AndroidManifest.xml file. This helps provide the package.")
     public Path primaryManifest;
 
-    @Option(
-        name = "packageForR",
-        defaultValue = "null",
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Custom java package to generate the R class files.")
+    @Parameter(
+        names = "--packageForR",
+        description = "Custom java package to generate the R class files.")
     public String packageForR;
 
-    @Option(
-        name = "library",
-        allowMultiple = true,
-        defaultValue = "null",
-        converter = DependencySymbolFileProviderConverter.class,
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--library",
+        converter = CompatDependencySymbolFileProviderConverter.class,
+        splitter = NoOpSplitter.class,
+        description =
             "R.txt and manifests for the libraries in this binary's deps. We will write "
                 + "class files for the libraries as well. Expected format: lib1/R.txt[:lib2/R.txt]")
-    public List<DependencySymbolFileProvider> libraries;
+    public List<DependencySymbolFileProvider> libraries = ImmutableList.of();
 
-    @Option(
-        name = "classJarOutput",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path for the generated jar of R.class files.")
+    @Parameter(
+        names = "--classJarOutput",
+        converter = CompatPathConverter.class,
+        description = "Path for the generated jar of R.class files.")
     public Path classJarOutput;
 
-    @Option(
-        name = "finalFields",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "A boolean to control whether fields get declared as final, defaults to true.")
-    public boolean finalFields;
+    @Parameter(
+        names = "--finalFields",
+        arity = 1,
+        description =
+            "A boolean to control whether fields get declared as final, defaults to true.")
+    public boolean finalFields = true;
 
-    @Option(
-        name = "targetLabel",
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "A label to add to the output jar's manifest as 'Target-Label'")
+    @Parameter(
+        names = "--targetLabel",
+        description = "A label to add to the output jar's manifest as 'Target-Label'")
     public String targetLabel;
 
-    @Option(
-        name = "injectingRuleKind",
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "A string to add to the output jar's manifest as 'Injecting-Rule-Kind'")
+    @Parameter(
+        names = "--injectingRuleKind",
+        description = "A string to add to the output jar's manifest as 'Injecting-Rule-Kind'")
     public String injectingRuleKind;
+
+    @Parameter(
+        names = "--useRPackage",
+        arity = 1,
+        description =
+            "A boolean to control whether fields should be generated with an RPackage"
+                + " class, defaults to false. Used for privacy sandbox.")
+    public boolean useRPackage;
   }
 
   public static void main(String[] args) throws Exception {
     final Stopwatch timer = Stopwatch.createStarted();
+    Options options = new Options();
+    String[] normalizedArgs = AndroidOptionsUtils.normalizeBooleanOptions(options, args);
+    JCommander jc = new JCommander(options);
+    jc.parse(normalizedArgs);
+    List<String> residue = options.getResidue();
+
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(Options.class, ResourceProcessorCommonOptions.class)
+            .optionsClasses(ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
-    optionsParser.parseAndExitUponError(args);
-    Options options = optionsParser.getOptions(Options.class);
+    optionsParser.parseAndExitUponError(residue.toArray(new String[0]));
     Preconditions.checkNotNull(options.classJarOutput);
     final AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(STD_LOGGER);
     try (ScopedTemporaryDirectory scopedTmp =
@@ -175,9 +163,11 @@ public class RClassGeneratorAction {
                 options.libraries, appPackageName, options.primaryRTxt, libSymbolMap);
         logger.fine(
             String.format("Load symbols finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
+        final RPackageId rPackageId =
+            options.useRPackage ? RPackageId.createFor(appPackageName) : null;
         // For now, assuming not used for libraries and setting final access for fields.
         fullSymbolValues.writeClassesTo(
-            libSymbolMap, appPackageName, classOutPath, options.finalFields);
+            libSymbolMap, appPackageName, classOutPath, options.finalFields, rPackageId);
         logger.fine(
             String.format("Finished R.class at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       } else if (!options.libraries.isEmpty()) {
@@ -187,7 +177,8 @@ public class RClassGeneratorAction {
         logger.fine(
             String.format("Load symbols finished at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
         // For now, assuming not used for libraries and setting final access for fields.
-        fullSymbolValues.writeClassesTo(libSymbolMap, null, classOutPath, true);
+        fullSymbolValues.writeClassesTo(
+            libSymbolMap, null, classOutPath, true, /* rPackageId= */ null);
         logger.fine(
             String.format("Finished R.class at %sms", timer.elapsed(TimeUnit.MILLISECONDS)));
       } else {

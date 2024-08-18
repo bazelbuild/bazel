@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -67,6 +67,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.exec.SpawnExecException;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
@@ -175,7 +176,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
 
   @Override
   public List<String> getArguments() throws CommandLineExpansionException, InterruptedException {
-    return commandLines.allArguments(PathMappers.create(this, outputPathsMode));
+    return commandLines.allArguments(
+        PathMappers.create(this, outputPathsMode, this instanceof StarlarkAction));
   }
 
   @Override
@@ -254,8 +256,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     } catch (CommandLineExpansionException e) {
       throw createCommandLineException(e);
     } catch (ExecException e) {
-      if (e instanceof SpawnExecException) {
-        throw ((SpawnExecException) e).toActionExecutionException(this);
+      if (e instanceof SpawnExecException spawnExecException) {
+        throw spawnExecException.toActionExecutionException(this);
       }
       throw ActionExecutionException.fromExecException(e, this);
     }
@@ -339,7 +341,8 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       boolean envResolved,
       boolean reportOutputs)
       throws CommandLineExpansionException, InterruptedException {
-    PathMapper pathMapper = PathMappers.create(this, outputPathsMode);
+    PathMapper pathMapper =
+        PathMappers.create(this, outputPathsMode, this instanceof StarlarkAction);
     ExpandedCommandLines expandedCommandLines =
         commandLines.expand(
             actionExecutionContext.getArtifactExpander(),
@@ -370,11 +373,17 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
-    commandLines.addToFingerprint(actionKeyContext, artifactExpander, fp);
+    commandLines.addToFingerprint(actionKeyContext, artifactExpander, outputPathsMode, fp);
     fp.addString(mnemonic);
     env.addTo(fp);
     fp.addStringMap(getExecutionInfo());
-    PathMappers.addToFingerprint(getMnemonic(), getExecutionInfo(), outputPathsMode, fp);
+    PathMappers.addToFingerprint(
+        getMnemonic(),
+        getExecutionInfo(),
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        actionKeyContext,
+        outputPathsMode,
+        fp);
   }
 
   @Override

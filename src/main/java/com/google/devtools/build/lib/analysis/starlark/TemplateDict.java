@@ -140,10 +140,10 @@ public class TemplateDict implements TemplateDictApi {
                     mapEach,
                     /*args=*/ ImmutableList.of(val),
                     /*kwargs=*/ ImmutableMap.of());
-            if (ret instanceof String) {
-              parts.add((String) ret);
-            } else if (ret instanceof Sequence) {
-              for (Object v : ((Sequence) ret)) {
+            if (ret instanceof String string) {
+              parts.add(string);
+            } else if (ret instanceof Sequence<?> sequence) {
+              for (Object v : sequence) {
                 if (!(v instanceof String)) {
                   throw Starlark.errorf(
                       "Function provided to map_each must return string, None, or list of strings,"

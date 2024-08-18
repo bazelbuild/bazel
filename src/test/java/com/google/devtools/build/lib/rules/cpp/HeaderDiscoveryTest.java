@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -68,16 +69,18 @@ public final class HeaderDiscoveryTest {
       ImmutableList<Path> dependencies,
       NestedSet<Artifact> includedHeaders)
       throws ActionExecutionException {
-    HeaderDiscovery.discoverInputsFromDependencies(
-        new ActionsTestUtil.NullAction(),
-        ActionsTestUtil.createArtifact(artifactRoot, derivedRoot.getRelative("foo.cc")),
-        /*shouldValidateInclusions=*/ true,
-        dependencies,
-        /*permittedSystemIncludePrefixes=*/ ImmutableList.of(),
-        includedHeaders,
-        execRoot,
-        artifactResolver,
-        /*siblingRepositoryLayout=*/ false);
+    var unused =
+        HeaderDiscovery.discoverInputsFromDependencies(
+            new ActionsTestUtil.NullAction(),
+            ActionsTestUtil.createArtifact(artifactRoot, derivedRoot.getRelative("foo.cc")),
+            /* shouldValidateInclusions= */ true,
+            dependencies,
+            /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
+            includedHeaders,
+            execRoot,
+            artifactResolver,
+            /* siblingRepositoryLayout= */ false,
+            PathMapper.NOOP);
   }
 
   private SpecialArtifact treeArtifact(Path path) {

@@ -567,4 +567,146 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
         .hasMessageThat()
         .contains("//test:all: user-defined flags must reference exactly one target");
   }
+
+  @Test
+  public void flagIsAlias() throws Exception {
+    scratch.file(
+        "test/build_setting.bzl",
+        """
+        string_flag = rule(
+            implementation = lambda ctx: [],
+            build_setting = config.string(flag = True),
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:build_setting.bzl", "string_flag")
+
+        alias(
+            name = "one",
+            actual = "//test/pkg:two",
+        )
+
+        string_flag(
+            name = "three",
+            build_setting_default = "",
+        )
+        """);
+    scratch.file(
+        "test/pkg/BUILD",
+        """
+        alias(
+            name = "two",
+            actual = "//test:three",
+        )
+        """);
+
+    OptionsParsingResult result = parseStarlarkOptions("--//test:one=one --//test/pkg:two=two");
+
+    assertThat(result.getStarlarkOptions()).containsExactly("//test:three", "two");
+  }
+
+  @Test
+  public void flagIsAlias_cycle() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        alias(
+            name = "one",
+            actual = "//test/pkg:two",
+        )
+
+        alias(
+            name = "three",
+            actual = ":one",
+        )
+        """);
+    scratch.file(
+        "test/pkg/BUILD",
+        """
+        alias(
+            name = "two",
+            actual = "//test:three",
+        )
+        """);
+
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:one=one"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "Failed to load build setting '//test:one' due to a cycle in alias chain: //test:one"
+                + " -> //test/pkg:two -> //test:three -> //test:one");
+  }
+
+  @Test
+  public void flagIsAlias_usesSelect() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        alias(
+            name = "one",
+            actual = "//test/pkg:two",
+        )
+
+        alias(
+            name = "three",
+            actual = ":one",
+        )
+        """);
+    scratch.file(
+        "test/pkg/BUILD",
+        """
+        alias(
+            name = "two",
+            actual = select({"//conditions:default": "//test:three"}),
+        )
+        """);
+
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:one=one"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo(
+            "Failed to load build setting '//test:one' as it resolves to an alias with an actual"
+                + " value that uses select(): //test:one -> //test/pkg:two. This is not supported"
+                + " as build settings are needed to determine the configuration the select is"
+                + " evaluated in.");
+  }
+
+  @Test
+  public void flagIsAlias_resolvesToNonBuildSettingTarget() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        alias(
+            name = "one",
+            actual = "//test/pkg:two",
+        )
+
+        genrule(
+            name = "three",
+            outs = ["out"],
+            cmd = "echo hello > $@",
+        )
+        """);
+    scratch.file(
+        "test/pkg/BUILD",
+        """
+        alias(
+            name = "two",
+            actual = "//test:three",
+        )
+        """);
+
+    OptionsParsingException e =
+        assertThrows(OptionsParsingException.class, () -> parseStarlarkOptions("--//test:one=one"));
+
+    assertThat(e)
+        .hasMessageThat()
+        .isEqualTo("Unrecognized option: //test:one -> //test/pkg:two -> //test:three");
+  }
 }

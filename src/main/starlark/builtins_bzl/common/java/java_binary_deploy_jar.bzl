@@ -14,8 +14,6 @@
 
 """Auxiliary rule to create the deploy archives for java_binary"""
 
-load(":common/cc/cc_helper.bzl", "cc_helper")
-load(":common/java/java_common.bzl", "java_common")
 load(":common/java/java_helper.bzl", "helper")
 load(":common/java/java_semantics.bzl", "semantics")
 
@@ -28,6 +26,9 @@ def _stamping_enabled(ctx, stamp):
 
 def get_build_info(ctx, stamp):
     if _stamping_enabled(ctx, stamp):
+        # Makes the target depend on BUILD_INFO_KEY, which helps to discover stamped targets
+        # See b/326620485 for more details.
+        ctx.version_file  # buildifier: disable=no-effect
         return ctx.attr._build_info_translator[OutputGroupInfo].non_redacted_build_info_files.to_list()
     else:
         return ctx.attr._build_info_translator[OutputGroupInfo].redacted_build_info_files.to_list()
@@ -39,8 +40,6 @@ def create_deploy_archives(
         main_class,
         coverage_main_class,
         strip_as_default,
-        build_info_files,
-        build_target,
         hermetic = False,
         add_exports = depset(),
         add_opens = depset(),
@@ -48,7 +47,7 @@ def create_deploy_archives(
         one_version_level = "OFF",
         one_version_allowlist = None,
         extra_args = [],
-        manifest_lines = []):
+        extra_manifest_lines = []):
     """ Registers actions for _deploy.jar and _deploy.jar.unstripped
 
     Args:
@@ -59,7 +58,6 @@ def create_deploy_archives(
         coverage_main_class: (String) FQN of the entry point for coverage collection
         build_target: (String) Name of the build target for stamping
         strip_as_default: (bool) Whether to create unstripped deploy jar
-        build_info_files: ([File]) the artifacts containing workspace status for the current build
         hermetic: (bool)
         add_exports: (depset)
         add_opens: (depset)
@@ -67,7 +65,7 @@ def create_deploy_archives(
         one_version_level: (String) Optional one version check level, default OFF
         one_version_allowlist: (File) Optional allowlist for one version check
         extra_args: (list[Args]) Optional arguments for the deploy jar action
-        manifest_lines: (list[String]) Optional lines added to the jar manifest
+        extra_manifest_lines: (list[String]) Optional lines added to the jar manifest
     """
     classpath_resources = java_attrs.classpath_resources
 
@@ -80,7 +78,9 @@ def create_deploy_archives(
         order = "preorder",
     )
     multi_release = ctx.fragments.java.multi_release_deploy_jars
-
+    build_info_files = get_build_info(ctx, ctx.attr.stamp)
+    build_target = str(ctx.label)
+    manifest_lines = ctx.attr.deploy_manifest_lines + extra_manifest_lines
     create_deploy_archive(
         ctx,
         launcher_info.launcher,
@@ -251,49 +251,4 @@ def create_deploy_archive(
         arguments = [args] + extra_args,
         use_default_shell_env = True,
         toolchain = semantics.JAVA_TOOLCHAIN_TYPE,
-    )
-
-def _implicit_outputs(binary):
-    binary_name = binary.name
-    return {
-        "deployjar": "%s_deploy.jar" % binary_name,
-        "unstrippeddeployjar": "%s_deploy.jar.unstripped" % binary_name,
-    }
-
-def make_deploy_jars_rule(
-        implementation,
-        *,
-        create_executable = True,
-        extra_toolchains = []):
-    """Creates the deploy jar auxiliary rule for java_binary
-
-    Args:
-        implementation: (Function) The rule implementation function
-        create_executable: (bool) The value of the create_executable attribute of java_binary
-        extra_toolchains: (list[String]) Additional toolchains
-
-    Returns:
-        The deploy jar rule class
-    """
-    toolchains = [semantics.JAVA_TOOLCHAIN] + cc_helper.use_cpp_toolchain()
-    if create_executable:
-        toolchains.append(semantics.JAVA_RUNTIME_TOOLCHAIN)
-    toolchains.extend(extra_toolchains)
-    return rule(
-        implementation = implementation,
-        attrs = {
-            "binary": attr.label(mandatory = True),
-            # TODO(b/245144242): Used by IDE integration, remove when toolchains are used
-            "_java_toolchain": attr.label(
-                default = semantics.JAVA_TOOLCHAIN_LABEL,
-                providers = [java_common.JavaToolchainInfo],
-            ),
-            "_java_toolchain_type": attr.label(default = semantics.JAVA_TOOLCHAIN_TYPE),
-            "_build_info_translator": attr.label(
-                default = semantics.BUILD_INFO_TRANSLATOR_LABEL,
-            ),
-        },
-        outputs = _implicit_outputs,
-        fragments = ["java"],
-        toolchains = toolchains,
     )

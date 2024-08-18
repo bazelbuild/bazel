@@ -13,9 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedOutputStream;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
@@ -133,10 +135,12 @@ import javax.annotation.Nullable;
 // SerializationException. This requires just a little extra memo tracking for the MEMOIZE_AFTER
 // case.
 abstract class MemoizingSerializationContext extends SerializationContext {
+  private static final int NO_VALUE = -1;
+
   private final Reference2IntOpenHashMap<Object> table = new Reference2IntOpenHashMap<>();
 
-  /** Table for types memoized using values equality, currently only {@link String}. */
-  private final Object2IntOpenHashMap<Object> valuesTable = new Object2IntOpenHashMap<>();
+  /** Table for types serialized with {@link LeafObjectCodec}, using value-based equality. */
+  private final Object2IntOpenHashMap<Object> leafTable = new Object2IntOpenHashMap<>();
 
   private final Set<Class<?>> explicitlyAllowedClasses = new HashSet<>();
 
@@ -149,8 +153,8 @@ abstract class MemoizingSerializationContext extends SerializationContext {
   MemoizingSerializationContext(
       ObjectCodecRegistry codecRegistry, ImmutableClassToInstanceMap<Object> dependencies) {
     super(codecRegistry, dependencies);
-    table.defaultReturnValue(-1);
-    valuesTable.defaultReturnValue(-1);
+    table.defaultReturnValue(NO_VALUE);
+    leafTable.defaultReturnValue(NO_VALUE);
   }
 
   static byte[] serializeToBytes(
@@ -158,10 +162,12 @@ abstract class MemoizingSerializationContext extends SerializationContext {
       ImmutableClassToInstanceMap<Object> dependencies,
       @Nullable Object subject,
       int outputCapacity,
-      int bufferCapacity)
+      int bufferCapacity,
+      @Nullable ProfileCollector profileCollector)
       throws SerializationException {
     ByteArrayOutputStream bytesOut = new ByteArrayOutputStream(outputCapacity);
-    serializeToStream(codecRegistry, dependencies, subject, bytesOut, bufferCapacity);
+    serializeToStream(
+        codecRegistry, dependencies, subject, bytesOut, bufferCapacity, profileCollector);
     return bytesOut.toByteArray();
   }
 
@@ -173,8 +179,50 @@ abstract class MemoizingSerializationContext extends SerializationContext {
       int bufferCapacity)
       throws SerializationException {
     ByteString.Output bytesOut = ByteString.newOutput(outputCapacity);
-    serializeToStream(codecRegistry, dependencies, subject, bytesOut, bufferCapacity);
+    serializeToStream(
+        codecRegistry,
+        dependencies,
+        subject,
+        bytesOut,
+        bufferCapacity,
+        /* profileCollector= */ null);
     return bytesOut.toByteString();
+  }
+
+  @Override
+  public final <T> void serializeLeaf(
+      @Nullable T obj, LeafObjectCodec<T> codec, CodedOutputStream codedOut)
+      throws IOException, SerializationException {
+    ProfileRecorder recorder = getProfileRecorder();
+    if (recorder == null) {
+      serializeLeafImpl(obj, codec, codedOut);
+      return;
+    }
+    int startBytes = codedOut.getTotalBytesWritten();
+    recorder.pushLocation(codec);
+    serializeLeafImpl(obj, codec, codedOut);
+    recorder.recordBytesAndPopLocation(startBytes, codedOut);
+  }
+
+  private <T> void serializeLeafImpl(
+      @Nullable T obj, LeafObjectCodec<T> codec, CodedOutputStream codedOut)
+      throws IOException, SerializationException {
+    if (writeIfNullOrConstant(obj, codedOut)) {
+      return;
+    }
+    int maybePrevious = getMemoizedIndex(obj, /* isLeafType= */ true);
+    if (maybePrevious != NO_VALUE) {
+      // There was a previous entry. Writes a backreference, subtracting 2 to avoid 0 (which
+      // indicates null), and -1 (which indicates an immediate value).
+      codedOut.writeSInt32NoTag(-maybePrevious - 2);
+      return;
+    }
+    // A new entry was added, emits -1 to signal an immediate value, then serializes the value.
+    codedOut.writeSInt32NoTag(-1);
+    codec.serialize((LeafSerializationContext) this, obj, codedOut);
+    // By necessity, a LeafCodec is treated like MEMOIZE_AFTER because when deserializing, the
+    // value will only be available as a backreference after its deserialization is complete.
+    int unusedId = memoize(obj, /* isLeafType= */ true);
   }
 
   @Override
@@ -201,19 +249,20 @@ abstract class MemoizingSerializationContext extends SerializationContext {
     switch (codec.getStrategy()) {
       case MEMOIZE_BEFORE:
         {
-          int id = memoize(obj);
-          codedOut.writeInt32NoTag(id);
+          // Deserialization can determine the value of the tag from the size of its memo table so
+          // the tag does not need to be written to the stream.
+          memoize(obj, /* isLeafType= */ false); // LeafObjectCodec is always MEMOIZE_AFTER.
           codec.serialize(this, obj, codedOut);
           break;
         }
       case MEMOIZE_AFTER:
         {
           codec.serialize(this, obj, codedOut);
+          boolean isLeafType = codec instanceof LeafObjectCodec;
           // If serializing the children caused the parent object itself to be serialized due to a
-          // cycle, then there's now a memo entry for the parent. Don't overwrite it with a new
-          // id.
-          int cylicallyCreatedId = getMemoizedIndex(obj);
-          int id = (cylicallyCreatedId != -1) ? cylicallyCreatedId : memoize(obj);
+          // cycle, then there's now a memo entry for the parent. Don't overwrite it with a new id.
+          int cylicallyCreatedId = getMemoizedIndex(obj, isLeafType);
+          int id = (cylicallyCreatedId != NO_VALUE) ? cylicallyCreatedId : memoize(obj, isLeafType);
           codedOut.writeInt32NoTag(id);
           break;
         }
@@ -221,10 +270,10 @@ abstract class MemoizingSerializationContext extends SerializationContext {
   }
 
   @Override
-  final boolean writeBackReferenceIfMemoized(Object obj, CodedOutputStream codedOut)
-      throws IOException {
-    int memoizedIndex = getMemoizedIndex(obj);
-    if (memoizedIndex == -1) {
+  final boolean writeBackReferenceIfMemoized(
+      Object obj, CodedOutputStream codedOut, boolean isLeafType) throws IOException {
+    int memoizedIndex = getMemoizedIndex(obj, isLeafType);
+    if (memoizedIndex == NO_VALUE) {
       return false;
     }
     // Subtracts 1 so it will be negative and not collide with null.
@@ -237,12 +286,12 @@ abstract class MemoizingSerializationContext extends SerializationContext {
     return true;
   }
 
-  /** If the value is already memoized, return its on-the-wire id; otherwise returns {@code -1}. */
-  private int getMemoizedIndex(Object value) {
-    if (value instanceof String) {
-      return valuesTable.getInt(value);
-    }
-    return table.getInt(value);
+  /**
+   * If the value is already memoized, return its on-the-wire id; otherwise returns {@link
+   * #NO_VALUE}.
+   */
+  private int getMemoizedIndex(Object value, boolean isLeafType) {
+    return isLeafType ? leafTable.getInt(value) : table.getInt(value);
   }
 
   /**
@@ -250,16 +299,12 @@ abstract class MemoizingSerializationContext extends SerializationContext {
    *
    * <p>{@code value} must not already be present.
    */
-  private int memoize(Object value) {
-    Preconditions.checkArgument(
-        getMemoizedIndex(value) == -1, "Tried to memoize object '%s' multiple times", value);
+  @CanIgnoreReturnValue // may be called for side effect
+  private int memoize(Object value, boolean isLeafType) {
     // Ids count sequentially from 0.
-    int newId = table.size() + valuesTable.size();
-    if (value instanceof String) {
-      valuesTable.put(value, newId);
-    } else {
-      table.put(value, newId);
-    }
+    int newId = table.size() + leafTable.size();
+    int maybePrevious = isLeafType ? leafTable.put(value, newId) : table.put(value, newId);
+    checkState(maybePrevious == NO_VALUE, "Memoized object '%s' multiple times", value);
     return newId;
   }
 
@@ -268,15 +313,23 @@ abstract class MemoizingSerializationContext extends SerializationContext {
       ImmutableClassToInstanceMap<Object> dependencies,
       @Nullable Object subject,
       OutputStream output,
-      int bufferCapacity)
+      int bufferCapacity,
+      @Nullable ProfileCollector profileCollector)
       throws SerializationException {
     CodedOutputStream codedOut = CodedOutputStream.newInstance(output, bufferCapacity);
+    MemoizingSerializationContext context =
+        profileCollector == null
+            ? new MemoizingSerializationContextImpl(codecRegistry, dependencies)
+            : new MemoizingSerializationProfilingContext(
+                codecRegistry, dependencies, profileCollector);
     try {
-      new MemoizingSerializationContextImpl(codecRegistry, dependencies)
-          .serialize(subject, codedOut);
+      context.serialize(subject, codedOut);
       codedOut.flush();
     } catch (IOException e) {
       throw new SerializationException("Failed to serialize " + subject, e);
+    }
+    if (profileCollector != null) {
+      context.getProfileRecorder().checkStackEmpty(subject);
     }
   }
 
@@ -296,6 +349,36 @@ abstract class MemoizingSerializationContext extends SerializationContext {
     @Override
     public MemoizingSerializationContext getFreshContext() {
       return new MemoizingSerializationContextImpl(getCodecRegistry(), getDependencies());
+    }
+
+    @Override
+    @Nullable
+    public ProfileRecorder getProfileRecorder() {
+      return null;
+    }
+  }
+
+  private static final class MemoizingSerializationProfilingContext
+      extends MemoizingSerializationContext {
+    private final ProfileRecorder profileRecorder;
+
+    private MemoizingSerializationProfilingContext(
+        ObjectCodecRegistry codecRegistry,
+        ImmutableClassToInstanceMap<Object> dependencies,
+        ProfileCollector profileCollector) {
+      super(codecRegistry, dependencies);
+      this.profileRecorder = new ProfileRecorder(profileCollector);
+    }
+
+    @Override
+    public MemoizingSerializationContext getFreshContext() {
+      return new MemoizingSerializationProfilingContext(
+          getCodecRegistry(), getDependencies(), profileRecorder.getProfileCollector());
+    }
+
+    @Override
+    public ProfileRecorder getProfileRecorder() {
+      return profileRecorder;
     }
   }
 }

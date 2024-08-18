@@ -38,7 +38,7 @@ public final class DirectoryListingFunction implements SkyFunction {
       return null;
     }
 
-    RootedPath realDirRootedPath = dirFileValue.realRootedPath();
+    RootedPath realDirRootedPath = dirFileValue.realRootedPath(dirRootedPath);
     if (!dirFileValue.isDirectory()) {
       // Recall that the directory is assumed to exist (see DirectoryListingValue#key).
       throw new DirectoryListingFunctionException(new InconsistentFilesystemException(

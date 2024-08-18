@@ -22,9 +22,8 @@ import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
@@ -41,6 +40,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
+// LINT.IfChange
 /** Action that represents a linking step. */
 @ThreadCompatible
 public final class CppLinkAction extends SpawnAction {
@@ -49,7 +49,6 @@ public final class CppLinkAction extends SpawnAction {
 
   private static final LinkResourceSetBuilder resourceSetBuilder = new LinkResourceSetBuilder();
   private final ImmutableMap<String, String> toolchainEnv;
-  private final LinkCommandLine linkCommandLine;
 
   /**
    * Use {@link CppLinkActionBuilder} to create instances of this class. Also see there for the
@@ -82,7 +81,6 @@ public final class CppLinkAction extends SpawnAction {
         /* mnemonic= */ mnemonic,
         /* outputPathsMode= */ OutputPathsMode.OFF);
 
-    this.linkCommandLine = linkCommandLine;
     this.toolchainEnv = toolchainEnv;
   }
 
@@ -102,11 +100,6 @@ public final class CppLinkAction extends SpawnAction {
     return ImmutableMap.copyOf(result);
   }
 
-  @VisibleForTesting
-  public LinkCommandLine getLinkCommandLineForTesting() {
-    return linkCommandLine;
-  }
-
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
@@ -122,8 +115,7 @@ public final class CppLinkAction extends SpawnAction {
   @VisibleForTesting
   static class LinkResourceSetBuilder implements ResourceSetOrBuilder {
     @Override
-    public ResourceSet buildResourceSet(OS os, int inputsCount) throws ExecException {
-
+    public ResourceSet buildResourceSet(OS os, int inputsCount) {
       final ResourceSet resourceSet;
       switch (os) {
         case DARWIN:
@@ -144,3 +136,4 @@ public final class CppLinkAction extends SpawnAction {
     }
   }
 }
+// LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/link/finalize_link_action.bzl)

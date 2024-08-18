@@ -93,6 +93,21 @@ public final class BuildOptionsTest {
         effectTags = {OptionEffectTag.NO_OP},
         defaultValue = "null")
     public List<String> accumulatingOption;
+
+    @Option(
+        name = "dummy_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "internal_default",
+        implicitRequirements = {"--implicit_option=set_implicitly"})
+    public String dummyOption;
+
+    @Option(
+        name = "implicit_option",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        defaultValue = "implicit_default")
+    public String implicitOption;
   }
 
   /** Extra options for this test. */
@@ -235,64 +250,6 @@ public final class BuildOptionsTest {
     DummyTestOptions dummyTestOptions = options.get(DummyTestOptions.class);
     assertThrows(
         UnsupportedOperationException.class, () -> dummyTestOptions.accumulatingOption.add("foo"));
-  }
-
-  @Test
-  public void parsingResultTransform() throws Exception {
-    BuildOptions original =
-        BuildOptions.of(BUILD_CONFIG_OPTIONS, "--str_option=foo", "--bool_option");
-
-    OptionsParser parser = OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
-    parser.parse("--str_option=bar", "--nobool_option");
-    parser.setStarlarkOptions(ImmutableMap.of("//custom:flag", "hello"));
-
-    BuildOptions modified = original.applyParsingResult(parser);
-
-    assertThat(original.get(DummyTestOptions.class).strOption)
-        .isNotEqualTo(modified.get(DummyTestOptions.class).strOption);
-    assertThat(modified.get(DummyTestOptions.class).strOption).isEqualTo("bar");
-    assertThat(modified.get(DummyTestOptions.class).boolOption).isFalse();
-    assertThat(modified.getStarlarkOptions().get(Label.parseCanonicalUnchecked("//custom:flag")))
-        .isEqualTo("hello");
-  }
-
-  @Test
-  public void parsingResultTransformNativeIgnored() throws Exception {
-    // Only use the basic flags.
-    BuildOptions original = BuildOptions.of(makeOptionsClassBuilder().build());
-
-    // Add another fragment with different flags.
-    OptionsParser parser =
-        OptionsParser.builder()
-            .optionsClasses(makeOptionsClassBuilder().add(SecondDummyTestOptions.class).build())
-            .build();
-    parser.parse("--second_str_option=bar");
-
-    // The flags that are unknown to the original options should not be present.
-    BuildOptions modified = original.applyParsingResult(parser);
-    assertThat(modified.contains(SecondDummyTestOptions.class)).isFalse();
-  }
-
-  @Test
-  public void parsingResultTransformIllegalStarlarkLabel() throws Exception {
-    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS);
-
-    OptionsParser parser = OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
-    parser.setStarlarkOptions(ImmutableMap.of("@@@", "hello"));
-
-    assertThrows(IllegalArgumentException.class, () -> original.applyParsingResult(parser));
-  }
-
-  @Test
-  public void parsingResultTransformMultiValueOption() throws Exception {
-    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS);
-
-    OptionsParser parser = OptionsParser.builder().optionsClasses(BUILD_CONFIG_OPTIONS).build();
-    parser.parse("--list_option=foo");
-
-    BuildOptions modified = original.applyParsingResult(parser);
-
-    assertThat(modified.get(DummyTestOptions.class).listOption).containsExactly("foo");
   }
 
   @Test

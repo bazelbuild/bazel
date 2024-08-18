@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.cpp;
 
 import com.google.common.collect.ImmutableList;
 
+// LINT.IfChange
 /**
  * A category of artifacts that are candidate input/output to an action, for which the toolchain can
  * select a single artifact.
@@ -80,3 +81,4 @@ public enum ArtifactCategory {
     return allowedExtensions;
   }
 }
+// LINT.ThenChange(//src/main/starlark/builtins_bzl/common/cc/cc_helper_internal.bzl)

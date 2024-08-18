@@ -14,10 +14,13 @@
 
 package com.google.devtools.build.lib.analysis.platform;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.base.Strings;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection.DuplicateConstraintException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -27,6 +30,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.platform.PlatformInfoApi;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Printer;
@@ -74,12 +78,15 @@ public class PlatformInfo extends NativeInfo
 
   private final ImmutableList<String> flags;
 
+  private final ImmutableList<ConfigMatchingProvider> requiredSettings;
+
   private PlatformInfo(
       Label label,
       ConstraintCollection constraints,
       String remoteExecutionProperties,
       PlatformProperties execProperties,
       ImmutableList<String> flags,
+      ImmutableList<ConfigMatchingProvider> requiredSettings,
       Location creationLocation) {
     super(creationLocation);
     this.label = label;
@@ -87,6 +94,7 @@ public class PlatformInfo extends NativeInfo
     this.remoteExecutionProperties = Strings.nullToEmpty(remoteExecutionProperties);
     this.execProperties = execProperties;
     this.flags = flags;
+    this.requiredSettings = requiredSettings;
   }
 
   @Override
@@ -116,6 +124,10 @@ public class PlatformInfo extends NativeInfo
     return flags;
   }
 
+  public ImmutableList<ConfigMatchingProvider> requiredSettings() {
+    return requiredSettings;
+  }
+
   @Override
   public void repr(Printer printer) {
     printer.append(String.format("PlatformInfo(%s, constraints=%s)", label, constraints));
@@ -124,10 +136,15 @@ public class PlatformInfo extends NativeInfo
   /** Add this platform to the given fingerprint. */
   public void addTo(Fingerprint fp) {
     fp.addString(label.toString());
+    constraints.addToFingerprint(fp);
     fp.addNullableString(remoteExecutionProperties);
     fp.addStringMap(execProperties.properties());
     fp.addStrings(flags);
-    constraints.addToFingerprint(fp);
+    fp.addStrings(
+        requiredSettings.stream()
+            .map(ConfigMatchingProvider::label)
+            .map(Label::toString)
+            .collect(toImmutableList()));
   }
 
   @Override
@@ -138,12 +155,15 @@ public class PlatformInfo extends NativeInfo
     return Objects.equals(label, that.label)
         && Objects.equals(constraints, that.constraints)
         && Objects.equals(remoteExecutionProperties, that.remoteExecutionProperties)
-        && Objects.equals(execProperties, that.execProperties);
+        && Objects.equals(execProperties, that.execProperties)
+        && Objects.equals(flags, that.flags)
+        && Objects.equals(requiredSettings, that.requiredSettings);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(label, constraints, remoteExecutionProperties, execProperties);
+    return Objects.hash(
+        label, constraints, remoteExecutionProperties, execProperties, flags, requiredSettings);
   }
 
   /** Returns a new {@link Builder} for creating a fresh {@link PlatformInfo} instance. */
@@ -160,6 +180,8 @@ public class PlatformInfo extends NativeInfo
     private String remoteExecutionProperties = null;
     private final PlatformProperties.Builder execPropertiesBuilder = PlatformProperties.builder();
     private final ImmutableList.Builder<String> flags = new ImmutableList.Builder<>();
+    private final ImmutableList.Builder<ConfigMatchingProvider> requiredSettings =
+        new ImmutableList.Builder<>();
     private Location creationLocation = Location.BUILTIN;
 
     /**
@@ -268,6 +290,13 @@ public class PlatformInfo extends NativeInfo
       return this;
     }
 
+    /** Add the given settings to this {@link PlatformInfo}. */
+    @CanIgnoreReturnValue
+    public Builder addRequiredSettings(List<ConfigMatchingProvider> requiredSettings) {
+      this.requiredSettings.addAll(requiredSettings);
+      return this;
+    }
+
     private static void checkRemoteExecutionProperties(
         PlatformInfo parent,
         String remoteExecutionProperties,
@@ -319,12 +348,16 @@ public class PlatformInfo extends NativeInfo
       }
       flagBuilder.addAll(this.flags.build());
 
+      // Required settings are explicitly **not** inherited from the parent, so do not merge.
+      ImmutableList<ConfigMatchingProvider> settings = requiredSettings.build();
+
       return new PlatformInfo(
           label,
           constraints.build(),
           remoteExecutionProperties,
           execPropertiesBuilder.build(),
           flagBuilder.build(),
+          settings,
           creationLocation);
     }
 

@@ -66,14 +66,6 @@ public class BazelPythonConfigurationTest extends ConfigurationTestCase {
   @Test
   public void legacyFlagsDeprecatedByPythonToolchains() throws Exception {
     checkError(
-        "`--python2_path` is disabled by `--incompatible_use_python_toolchains`",
-        "--incompatible_use_python_toolchains=true",
-        "--python2_path=/system/python2");
-    checkError(
-        "`--python3_path` is disabled by `--incompatible_use_python_toolchains`",
-        "--incompatible_use_python_toolchains=true",
-        "--python3_path=/system/python3");
-    checkError(
         "`--python_top` is disabled by `--incompatible_use_python_toolchains`",
         "--incompatible_use_python_toolchains=true",
         "--python_top=//mypkg:my_py_runtime");

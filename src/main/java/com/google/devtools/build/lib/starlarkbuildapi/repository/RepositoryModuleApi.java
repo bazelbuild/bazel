@@ -228,12 +228,10 @@ public interface RepositoryModuleApi {
                     + " generating tools.",
             named = true,
             positional = false)
-      },
-      useStarlarkThread = true)
+      })
   TagClassApi tagClass(
       Dict<?, ?> attrs, // Dict<String, StarlarkAttrModuleApi.Descriptor>
-      Object doc,
-      StarlarkThread thread)
+      Object doc)
       throws EvalException;
 
   /** Represents a tag class, which is a "class" of tags that share the same attribute schema. */

@@ -19,7 +19,7 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.skyframe.serialization.DynamicCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ImmutableDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
-import com.google.devtools.build.lib.skyframe.serialization.testutils.TestUtils;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.RoundTripping;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import java.util.Arrays;
@@ -84,10 +84,10 @@ public class ConsistencyTest {
       StarlarkSemantics semantics = buildRandomSemantics(new Random(i));
       StarlarkSemantics deserialized =
           (StarlarkSemantics)
-              TestUtils.fromBytes(
+              RoundTripping.fromBytes(
                   new ImmutableDeserializationContext(),
                   codec,
-                  TestUtils.toBytes(
+                  RoundTripping.toBytes(
                       new ObjectCodecs().getSerializationContextForTesting(), codec, semantics));
       assertThat(deserialized).isEqualTo(semantics);
     }
@@ -123,6 +123,7 @@ public class ConsistencyTest {
         "--experimental_builtins_dummy=" + rand.nextBoolean(),
         "--experimental_bzl_visibility=" + rand.nextBoolean(),
         "--experimental_enable_android_migration_apis=" + rand.nextBoolean(),
+        "--experimental_single_package_toolchain_binding=" + rand.nextBoolean(),
         "--enable_bzlmod=" + rand.nextBoolean(),
         "--enable_workspace=" + rand.nextBoolean(),
         "--experimental_isolated_extension_usages=" + rand.nextBoolean(),
@@ -167,6 +168,8 @@ public class ConsistencyTest {
         .setBool(BuildLanguageOptions.EXPERIMENTAL_BZL_VISIBILITY, rand.nextBoolean())
         .setBool(
             BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS, rand.nextBoolean())
+        .setBool(
+            BuildLanguageOptions.EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING, rand.nextBoolean())
         .setBool(BuildLanguageOptions.ENABLE_BZLMOD, rand.nextBoolean())
         .setBool(BuildLanguageOptions.ENABLE_WORKSPACE, rand.nextBoolean())
         .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, rand.nextBoolean())

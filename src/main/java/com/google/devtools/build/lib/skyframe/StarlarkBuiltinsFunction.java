@@ -14,11 +14,14 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment.InjectionException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.BzlLoadFunction.InlineCacheManager;
 import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -60,6 +63,16 @@ import net.starlark.java.eval.StarlarkSemantics;
  *
  * <p>This function has a trivial key, so there can only be one value in the build at a time. It has
  * a single dependency, on the result of evaluating the exports.bzl file to a {@link BzlLoadValue}.
+ *
+ * <p>This function supports a special "inlining" mode, similar to {@link BzlLoadFunction} (see that
+ * class's javadoc and code comments). Whenever we inline {@link BzlLoadFunction} we also inline
+ * {@link StarlarkBuiltinsFunction} (and {@link StarlarkBuiltinsFunction}'s calls to {@link
+ * BzlLoadFunction} are then themselves inlined!). Similar to {@link BzlLoadFunction}'s inlining, we
+ * cache the result of this computation, and this caching is managed by {@link
+ * BzlLoadFunction.InlineCacheManager}. But since there's only a single {@link
+ * StarlarkBuiltinsValue} node and we don't need to worry about that node's value changing at future
+ * invocations or subsequent versions (see {@link InlineCacheManager#reset} for why), our caching
+ * strategy is much simpler and we don't need to bother inlining deps of the Skyframe subgraph.
  */
 public class StarlarkBuiltinsFunction implements SkyFunction {
 
@@ -117,11 +130,30 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       BazelStarlarkEnvironment bazelStarlarkEnvironment,
       BzlLoadFunction bzlLoadFunction)
       throws BuiltinsFailedException, InterruptedException {
+    checkNotNull(bzlLoadFunction.inlineCacheManager);
+    StarlarkBuiltinsValue cachedBuiltins = bzlLoadFunction.inlineCacheManager.builtinsRef.get();
+    if (cachedBuiltins != null) {
+      // See the comment in InlineCacheManager#reset for why it's sound to not inline deps of the
+      // entire subgraph here.
+      return cachedBuiltins;
+    }
+
     // See BzlLoadFunction#computeInline and BzlLoadFunction.InliningState for an explanation of the
     // inlining mechanism and its invariants. For our purposes, the Skyframe environment to use
     // comes from inliningState.
-    return computeInternal(
-        inliningState.getEnvironment(), bazelStarlarkEnvironment, inliningState, bzlLoadFunction);
+    StarlarkBuiltinsValue computedBuiltins =
+        computeInternal(
+            inliningState.getEnvironment(),
+            bazelStarlarkEnvironment,
+            inliningState,
+            bzlLoadFunction);
+    if (computedBuiltins == null) {
+      return null;
+    }
+    // There's a benign race where multiple threads may try to compute-and-cache the single builtins
+    // value. Ensure the value computed by winner of that race gets used by everyone.
+    bzlLoadFunction.inlineCacheManager.builtinsRef.compareAndSet(null, computedBuiltins);
+    return bzlLoadFunction.inlineCacheManager.builtinsRef.get();
   }
 
   // bzlLoadFunction and inliningState are non-null iff using inlining code path.

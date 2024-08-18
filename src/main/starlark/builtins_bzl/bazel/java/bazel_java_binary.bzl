@@ -15,6 +15,7 @@
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/java/android_lint.bzl", "android_lint_subrule")
 load(":common/java/java_binary.bzl", "BASE_TEST_ATTRIBUTES", "BASIC_JAVA_BINARY_ATTRIBUTES", "basic_java_binary")
+load(":common/java/java_binary_deploy_jar.bzl", "create_deploy_archives")
 load(":common/java/java_helper.bzl", "helper")
 load(":common/java/java_info.bzl", "JavaInfo")
 load(":common/java/java_semantics.bzl", "semantics")
@@ -95,6 +96,18 @@ def _bazel_base_binary_impl(ctx, is_test_rule_class):
         files = default_info.files,
         runfiles = runfiles,
         executable = default_info.executable,
+    )
+
+    info = providers.pop("InternalDeployJarInfo")
+    create_deploy_archives(
+        ctx,
+        info.java_attrs,
+        launcher_info,
+        main_class,
+        coverage_main_class,
+        info.strip_as_default,
+        add_exports = info.add_exports,
+        add_opens = info.add_opens,
     )
 
     return providers.values()
@@ -287,6 +300,8 @@ def _make_binary_rule(implementation, *, doc, attrs, executable = False, test = 
             "classjar": "%{name}.jar",
             "sourcejar": "%{name}-src.jar",
             "deploysrcjar": "%{name}_deploy-src.jar",
+            "deployjar": "%{name}_deploy.jar",
+            "unstrippeddeployjar": "%{name}_deploy.jar.unstripped",
         },
         exec_groups = {
             "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),

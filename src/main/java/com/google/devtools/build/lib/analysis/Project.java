@@ -13,36 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.devtools.build.lib.skyframe.PackageLookupFunction.PROJECT_FILE_NAME;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.LinkedListMultimap;
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Lists;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
-import com.google.devtools.build.lib.skyframe.ContainingPackageLookupValue;
-import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
+import com.google.devtools.build.lib.skyframe.ProjectFilesLookupValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.config.FlagSetValue;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.Map;
-import java.util.Objects;
 
 /**
  * Container for reading project metadata.
@@ -81,139 +69,76 @@ public final class Project {
    * Finds and returns the project files for a set of build targets.
    *
    * <p>This walks up each target's package path looking for {@link
-   * PackageLookupFunction#PROJECT_FILE_NAME} files. For example, for {@code
-   * //foo/bar/baz:mytarget}, this might look in {@code foo/bar/baz}, {@code foo/bar}, and {@code
-   * foo} ("might" because it skips directories that don't have BUILD files - those directories
-   * aren't packages).
+   * com.google.devtools.build.lib.skyframe.ProjectFilesLookupFunction#PROJECT_FILE_NAME} files. For
+   * example, for {@code //foo/bar/baz:mytarget}, this might look in {@code foo/bar/baz}, {@code
+   * foo/bar}, and {@code foo} ("might" because it skips directories that don't have BUILD files -
+   * those directories aren't packages).
    *
-   * @return a map from each target to its set of project files, ordered by package depth. So a
-   *     project file in {@code foo} appears before a project file in {@code foo/bar}. Paths are
-   *     workspace-root-relative {@link PathFragment}s
+   * @return a map from each target to its set of project files, ordered by reverse package depth.
+   *     So a project file in {@code foo/bar} appears before a project file in {@code foo}.
    */
   // TODO: b/324127050 - Document resolution semantics when this is less experimental.
-  public static ImmutableMultimap<Label, PathFragment> findProjectFiles(
+  public static ImmutableMultimap<Label, Label> findProjectFiles(
       Collection<Label> targets,
       SkyframeExecutor skyframeExecutor,
       ExtendedEventHandler eventHandler)
       throws ProjectParseException {
-    ImmutableSet<PackageIdentifier> targetPackages =
+    // TODO: b/324127050 - Support other repos.
+    ImmutableMap<Label, ProjectFilesLookupValue.Key> targetsToSkyKeys =
         targets.stream()
-            .map(Label::getPackageFragment)
-            // TODO: b/324127050 - Support other repos.
-            .map(PackageIdentifier::createInMainRepo)
-            .collect(toImmutableSet());
-    // For every target package, we need to walk up its package path. This tracks where in the walk
-    // we currently are, beginning with the targets' direct packages.
-    //
-    // Note that if we evaluate both a/b and a/b/c, both share the common subset a/b. In a naive
-    // lookup, they walk independently: a/b evaluates a/b, then a. a/b/c evaluates a/b/c, then a/b/,
-    // then a. Most of this overlaps, which wastes processing. We avoid this by keeping pointers to
-    // ancestors. Using targetPkgToEvaluatedAncestor, we short-circuit a/b/c's walk once it gets
-    // to a/b. Then as a post-processing step we add whatever results came from a/b's evaluation.
-    Map<PackageIdentifier, PackageIdentifier> targetPkgToCurrentLookupPkg = new LinkedHashMap<>();
-    Map<PackageIdentifier, PackageIdentifier> targetPkgToEvaluatedAncestor = new LinkedHashMap<>();
-    for (PackageIdentifier pkg : targetPackages) {
-      targetPkgToCurrentLookupPkg.put(pkg, pkg);
-    }
-    // Map of each package to its set of project files.
-    ListMultimap<PackageIdentifier, PathFragment> projectFiles = LinkedListMultimap.create();
-
-    while (!targetPkgToCurrentLookupPkg.isEmpty()) {
-      ImmutableMap<PackageIdentifier, SkyKey> targetPkgToSkyKey =
-          ImmutableMap.copyOf(
-              // Maps.transformValues returns a view of the underlying map, which risks
-              // ConcurrentModificationExceptions. Hence the ImmutableMap.copyOf.
-              Maps.transformValues(targetPkgToCurrentLookupPkg, ContainingPackageLookupValue::key));
-      var evalResult =
-          skyframeExecutor.evaluateSkyKeys(
-              eventHandler, targetPkgToSkyKey.values(), /* keepGoing= */ false);
+            .collect(
+                toImmutableMap(
+                    target -> target,
+                    target -> ProjectFilesLookupValue.key(target.getPackageIdentifier())));
+    var evalResult =
+        skyframeExecutor.evaluateSkyKeys(
+            eventHandler, targetsToSkyKeys.values(), /* keepGoing= */ false);
       if (evalResult.hasError()) {
         throw new ProjectParseException(
             "Error finding project files", evalResult.getError().getException());
       }
-      for (var entry : targetPkgToSkyKey.entrySet()) {
-        PackageIdentifier targetPkg = entry.getKey();
-        ContainingPackageLookupValue containingPkg =
-            (ContainingPackageLookupValue) evalResult.get(entry.getValue());
-        if (!containingPkg.hasContainingPackage()
-            || Objects.equals(
-                containingPkg.getContainingPackageName(), PackageIdentifier.EMPTY_PACKAGE_ID)) {
-          // We've fully walked this target's package path.
-          targetPkgToCurrentLookupPkg.remove(targetPkg);
-          continue;
-        }
-        if (containingPkg.hasProjectFile()) {
-          projectFiles.put(
-              targetPkg,
-              containingPkg
-                  .getContainingPackageName()
-                  .getPackageFragment()
-                  .getRelative(PROJECT_FILE_NAME));
-        }
-        // TODO: b/324127050 - Support other repos.
-        PackageIdentifier parentPkg =
-            PackageIdentifier.createInMainRepo(
-                containingPkg.getContainingPackageName().getPackageFragment().getParentDirectory());
-        if (targetPkgToCurrentLookupPkg.containsKey(parentPkg)
-            || projectFiles.containsKey(parentPkg)) {
-          // If the parent directory is another package we're also evaluating, or the results of a
-          // a package we finished evaluating, short-circuit the current package's evaluation and
-          // refer to the results of the other package later. For example, if evaluating a/b/c and
-          // a/b, both walk the common directories a/b and a. But we only have to visit those
-          // directories once.
-          targetPkgToEvaluatedAncestor.put(targetPkg, parentPkg);
-          targetPkgToCurrentLookupPkg.remove(targetPkg);
-        } else {
-          targetPkgToCurrentLookupPkg.put(targetPkg, parentPkg);
-        }
-      }
-    }
 
-    // Add memoized results from ancestor evaluations. For example, if evaluating a/b/c and we also
-    // evaluated a/b, add the results of the a/b evaluation here.
-    for (Map.Entry<PackageIdentifier, PackageIdentifier> ancestorRef :
-        targetPkgToEvaluatedAncestor.entrySet()) {
-      projectFiles.putAll(ancestorRef.getKey(), projectFiles.get(ancestorRef.getValue()));
-    }
-    // projectFiles values are in [child.scl, parent.scl] order. Reverse this.
-    ListMultimap<PackageIdentifier, PathFragment> parentFirstOrder = LinkedListMultimap.create();
-    for (var entry : projectFiles.asMap().entrySet()) {
-      parentFirstOrder.putAll(
-          entry.getKey(), Lists.reverse(ImmutableList.copyOf(entry.getValue())));
-    }
-    ImmutableMultimap.Builder<Label, PathFragment> ans = ImmutableMultimap.builder();
-    for (Label target : targets) {
-      ans.putAll(target, parentFirstOrder.get(target.getPackageIdentifier()));
+    ImmutableMultimap.Builder<Label, Label> ans = ImmutableMultimap.builder();
+    for (var entry : targetsToSkyKeys.entrySet()) {
+      ProjectFilesLookupValue containingProjects =
+          (ProjectFilesLookupValue) evalResult.get(entry.getValue());
+      ans.putAll(entry.getKey(), containingProjects.getProjectFiles());
     }
     return ans.build();
   }
 
   /**
-   * applies {@link CoreOptions.sclConfig} to the top-level {@link BuildOptions}
+   * Applies {@link CoreOptions.sclConfig} to the top-level {@link BuildOptions}.
    *
-   * <p>given an existing PROJECT.scl file and an {@link CoreOptions.sclConfig}, the method creates
+   * <p>Given an existing PROJECT.scl file and an {@link CoreOptions.sclConfig}, the method creates
    * a {@link SkyKey} containing the {@link PathFragment} of the scl file and the config name which
-   * is evaluated by the {@link FlagSetFunction}
+   * is evaluated by the {@link FlagSetFunction}.
    *
    * @return {@link FlagSetValue} which has the effective top-level {@link BuildOptions} after
    *     project file resolution.
    */
   public static FlagSetValue modifyBuildOptionsWithFlagSets(
-      PathFragment projectFile,
+      Label projectFile,
       BuildOptions targetOptions,
+      boolean enforceCanonicalConfigs,
       ExtendedEventHandler eventHandler,
       SkyframeExecutor skyframeExecutor)
       throws InvalidConfigurationException {
 
     FlagSetValue.Key flagSetKey =
         FlagSetValue.Key.create(
-            projectFile, targetOptions.get(CoreOptions.class).sclConfig, targetOptions);
+            projectFile,
+            targetOptions.get(CoreOptions.class).sclConfig,
+            targetOptions,
+            enforceCanonicalConfigs);
 
     EvaluationResult<SkyValue> result =
         skyframeExecutor.evaluateSkyKeys(
             eventHandler, ImmutableList.of(flagSetKey), /* keepGoing= */ false);
     if (result.hasError()) {
-      throw new InvalidConfigurationException("Cannot parse options", Code.INVALID_BUILD_OPTIONS);
+      throw new InvalidConfigurationException(
+          "Cannot parse options: " + result.getError().getException().getMessage(),
+          Code.INVALID_BUILD_OPTIONS);
     }
     return (FlagSetValue) result.get(flagSetKey);
   }

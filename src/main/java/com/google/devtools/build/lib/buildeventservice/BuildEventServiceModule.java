@@ -152,7 +152,6 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   @Nullable private Reporter reporter;
   @Nullable private BuildEventStreamer streamer;
   @Nullable private ConnectivityStatusProvider connectivityProvider;
-  @Nullable private String commandName;
   private static final String CONNECTIVITY_CACHE_KEY = "BES";
 
   protected OptionsT besOptions;
@@ -328,7 +327,6 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   @Override
   public void beforeCommand(CommandEnvironment cmdEnv) throws AbruptExitException {
     this.invocationId = cmdEnv.getCommandId().toString();
-    this.commandName = cmdEnv.getCommandName();
     this.buildRequestId = cmdEnv.getBuildRequestId();
     this.reporter = cmdEnv.getReporter();
 
@@ -436,8 +434,10 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   private void registerOutAndErrOutputStreams() {
     int bufferSize = besOptions.besOuterrBufferSize;
     int chunkSize = besOptions.besOuterrChunkSize;
-    SynchronizedOutputStream out = new SynchronizedOutputStream(bufferSize, chunkSize);
-    SynchronizedOutputStream err = new SynchronizedOutputStream(bufferSize, chunkSize);
+    SynchronizedOutputStream out =
+        new SynchronizedOutputStream(bufferSize, chunkSize, /* isStderr= */ false);
+    SynchronizedOutputStream err =
+        new SynchronizedOutputStream(bufferSize, chunkSize, /* isStderr= */ true);
 
     this.outErr = OutErr.create(out, err);
     streamer.registerOutErrProvider(
@@ -678,17 +678,16 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
     this.buildRequestId = null;
     this.reporter = null;
     this.streamer = null;
-    this.commandName = null;
   }
 
   private void constructAndMaybeReportInvocationIdUrl() {
-    if (!getInvocationIdPrefix(commandName).isEmpty()) {
+    if (!getInvocationIdPrefix().isEmpty()) {
       StringBuilder msg = new StringBuilder();
       msg.append("Streaming build results to: ");
       if (uiUsesColor) {
         msg.append(new String(Color.CYAN.getEscapeSeq(), StandardCharsets.US_ASCII));
       }
-      msg.append(getInvocationIdPrefix(commandName));
+      msg.append(getInvocationIdPrefix());
       msg.append(invocationId);
       if (uiUsesColor) {
         msg.append(new String(Color.DEFAULT.getEscapeSeq(), StandardCharsets.US_ASCII));
@@ -948,7 +947,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   }
 
   /** A prefix used when printing the invocation ID in the command line */
-  protected abstract String getInvocationIdPrefix(String commandName);
+  protected abstract String getInvocationIdPrefix();
 
   /** A prefix used when printing the build request ID in the command line */
   protected abstract String getBuildRequestIdPrefix();

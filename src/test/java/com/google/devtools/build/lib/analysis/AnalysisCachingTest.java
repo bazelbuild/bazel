@@ -27,11 +27,14 @@ import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
+import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.util.AnalysisCachingTestBase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -1073,11 +1076,19 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
           return !optionsThatCanChange.contains(changedOption);
         });
     builder.overrideTrimmingTransitionFactoryForTesting(
-        (ruleData) -> {
-          if (ruleData.rule().getRuleClassObject().getName().equals("uses_irrelevant")) {
-            return NoTransition.INSTANCE;
+        new TransitionFactory<>() {
+          @Override
+          public ConfigurationTransition create(RuleTransitionData ruleData) {
+            if (ruleData.rule().getRuleClassObject().getName().equals("uses_irrelevant")) {
+              return NoTransition.INSTANCE;
+            }
+            return DiffResetOptions.CLEAR_IRRELEVANT;
           }
-          return DiffResetOptions.CLEAR_IRRELEVANT;
+
+          @Override
+          public TransitionType transitionType() {
+            return TransitionType.RULE;
+          }
         });
     useRuleClassProvider(builder.build());
     scratch.file(

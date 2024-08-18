@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.BatchStatRequest;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.BatchStatResponse;
 import com.google.devtools.build.lib.remote.BazelOutputServiceProto.CleanRequest;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.remote.BazelOutputServiceProto.StartBuildRe
 import com.google.devtools.build.lib.remote.BazelOutputServiceREv2Proto.FileArtifactLocator;
 import com.google.devtools.build.lib.remote.BazelOutputServiceREv2Proto.StartBuildArgs;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.FileMetadata;
-import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
@@ -79,10 +79,13 @@ public class BazelOutputService implements OutputService {
   private final Supplier<Path> execRootSupplier;
   private final Supplier<Path> outputPathSupplier;
   private final DigestFunction.Value digestFunction;
-  private final RemoteOptions remoteOptions;
+  private final String remoteCache;
+  private final String remoteInstanceName;
+  private final String remoteOutputServiceOutputPathPrefix;
   private final boolean verboseFailures;
   private final RemoteRetrier retrier;
   private final ReferenceCountedChannel channel;
+  @Nullable private final String lastBuildId;
 
   @Nullable private String buildId;
   @Nullable private PathFragment outputPathTarget;
@@ -92,18 +95,24 @@ public class BazelOutputService implements OutputService {
       Supplier<Path> execRootSupplier,
       Supplier<Path> outputPathSupplier,
       DigestFunction.Value digestFunction,
-      RemoteOptions remoteOptions,
+      String remoteCache,
+      String remoteInstanceName,
+      String remoteOutputServiceOutputPathPrefix,
       boolean verboseFailures,
       RemoteRetrier retrier,
-      ReferenceCountedChannel channel) {
+      ReferenceCountedChannel channel,
+      @Nullable String lastBuildId) {
     this.outputBaseId = DigestUtil.hashCodeToString(md5().hashString(outputBase.toString(), UTF_8));
     this.execRootSupplier = execRootSupplier;
     this.outputPathSupplier = outputPathSupplier;
     this.digestFunction = digestFunction;
-    this.remoteOptions = remoteOptions;
+    this.remoteCache = remoteCache;
+    this.remoteInstanceName = remoteInstanceName;
+    this.remoteOutputServiceOutputPathPrefix = remoteOutputServiceOutputPathPrefix;
     this.verboseFailures = verboseFailures;
     this.retrier = retrier;
     this.channel = channel;
+    this.lastBuildId = lastBuildId;
   }
 
   public void shutdown() {
@@ -111,11 +120,12 @@ public class BazelOutputService implements OutputService {
   }
 
   @Override
-  public String getFilesSystemName() {
+  public String getFileSystemName(String outputBaseFileSystemName) {
     return "BazelOutputService";
   }
 
-  private void prepareOutputPath(Path outputPath, PathFragment target) throws AbruptExitException {
+  private static void prepareOutputPath(Path outputPath, PathFragment target)
+      throws AbruptExitException {
     // Plant a symlink at bazel-out pointing to the target returned from the remote output service.
     try {
       if (!outputPath.isSymbolicLink()) {
@@ -135,7 +145,7 @@ public class BazelOutputService implements OutputService {
     }
   }
 
-  private PathFragment constructOutputPathTarget(
+  private static PathFragment constructOutputPathTarget(
       PathFragment outputPathPrefix, StartBuildResponse response) throws AbruptExitException {
     var outputPathSuffix = PathFragment.create(response.getOutputPathSuffix());
     if (outputPathPrefix.isEmpty() && !outputPathSuffix.isAbsolute()) {
@@ -182,11 +192,11 @@ public class BazelOutputService implements OutputService {
 
   @Override
   public ModifiedFileSet startBuild(
-      EventHandler eventHandler, UUID buildId, boolean finalizeActions)
+      UUID buildId, String workspaceName, EventHandler eventHandler, boolean finalizeActions)
       throws AbruptExitException, InterruptedException {
     checkState(this.buildId == null, "this.buildId must be null");
     this.buildId = buildId.toString();
-    var outputPathPrefix = PathFragment.create(remoteOptions.remoteOutputServiceOutputPathPrefix);
+    var outputPathPrefix = PathFragment.create(remoteOutputServiceOutputPathPrefix);
     if (!outputPathPrefix.isEmpty() && !outputPathPrefix.isAbsolute()) {
       throw new AbruptExitException(
           DetailedExitCode.of(
@@ -211,8 +221,8 @@ public class BazelOutputService implements OutputService {
             .setArgs(
                 Any.pack(
                     StartBuildArgs.newBuilder()
-                        .setRemoteCache(remoteOptions.remoteCache)
-                        .setInstanceName(remoteOptions.remoteInstanceName)
+                        .setRemoteCache(remoteCache)
+                        .setInstanceName(remoteInstanceName)
                         .setDigestFunction(digestFunction)
                         .build()))
             .setOutputPathPrefix(outputPathPrefix.toString())
@@ -237,7 +247,12 @@ public class BazelOutputService implements OutputService {
     outputPathTarget = constructOutputPathTarget(outputPathPrefix, response);
     prepareOutputPath(outputPath, outputPathTarget);
 
-    if (finalizeActions) {
+    if (finalizeActions && response.hasInitialOutputPathContents()) {
+      var initialOutputPathContents = response.getInitialOutputPathContents();
+      if (!initialOutputPathContents.getBuildId().equals(lastBuildId)) {
+        return ModifiedFileSet.EVERYTHING_DELETED;
+      }
+
       // TODO(chiwang): Handle StartBuildResponse.initial_output_path_contents
     }
 
@@ -250,7 +265,7 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc = Profiler.instance().profile("BazelOutputService.StartBuild")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel).startBuild(request);
                   } catch (StatusRuntimeException e) {
                     throw new IOException(e);
@@ -295,7 +310,7 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc = Profiler.instance().profile("BazelOutputService.StageArtifacts")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel).stageArtifacts(request);
                   } catch (StatusRuntimeException e) {
                     throw new IOException(e);
@@ -335,7 +350,7 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc = Profiler.instance().profile("BazelOutputService.FinalizeBuild")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel).finalizeBuild(request);
                   } catch (StatusRuntimeException e) {
                     throw new IOException(e);
@@ -376,7 +391,8 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc =
+                      Profiler.instance().profile("BazelOutputService.FinalizeArtifacts")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel)
                         .finalizeArtifacts(request);
                   } catch (StatusRuntimeException e) {
@@ -385,7 +401,7 @@ public class BazelOutputService implements OutputService {
                 }));
   }
 
-  private void addArtifact(
+  private static void addArtifact(
       OutputMetadataStore outputMetadataStore,
       Path execRoot,
       Path outputPath,
@@ -643,7 +659,7 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc = Profiler.instance().profile("BazelOutputService.Clean")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel).clean(request);
                   } catch (StatusRuntimeException e) {
                     throw new IOException(e);
@@ -657,7 +673,7 @@ public class BazelOutputService implements OutputService {
         () ->
             channel.withChannelBlocking(
                 channel -> {
-                  try {
+                  try (var sc = Profiler.instance().profile("BazelOutputService.BatchStat")) {
                     return BazelOutputServiceGrpc.newBlockingStub(channel).batchStat(request);
                   } catch (StatusRuntimeException e) {
                     throw new IOException(e);

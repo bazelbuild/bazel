@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -63,7 +64,8 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//verify:verify.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//verify:verify.bzl")), "result"));
 
     Label hostPlatform = (Label) info.getValue("host_platform");
     assertThat(hostPlatform).isEqualTo(Label.parseCanonicalUnchecked("//platforms:test_platform"));
@@ -104,7 +106,8 @@ public class PlatformConfigurationApiTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//verify:verify.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//verify:verify.bzl")), "result"));
 
     Label targetPlatform = (Label) info.getValue("target_platform");
     assertThat(targetPlatform)

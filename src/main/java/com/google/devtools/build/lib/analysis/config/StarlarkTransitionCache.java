@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
  *
  * <p>This trivially includes {@link StarlarkTransition}s. But it also includes transitions that
  * delegate to {@link StarlarkTransition}s, like some {@link
- * com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition}s.
+ * com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory} instances.
  *
  * <p>This cache was added to keep builds that heavily rely on Starlark transitions performant. The
  * inspiring build is a large Apple binary that heavily relies on {@code objc_library.bzl}, which

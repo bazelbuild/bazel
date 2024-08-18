@@ -13,16 +13,26 @@
 // limitations under the License.
 package net.starlark.java.eval;
 
+import com.google.auto.value.AutoValue;
+
 /**
  * Class to be used when an object wants to be compared using reference equality. Since reference
  * equality is not usable when comparing objects across multiple Starlark evaluations, we use a more
  * stable method: an object identifying the {@link #owner} of the current Starlark context, and an
  * {@link #index} indicating how many reference-equal objects have already been created (and
- * therefore asked for a unique symbol for themselves).
+ * therefore asked for a unique symbol for themselves). Global symbols may also be identified using
+ * their exported name rather than an anonymous index.
  *
  * <p>Objects that want to use reference equality should instead call {@link #generate} on a
  * provided {@code SymbolGenerator} instance, and compare the returned object for equality, since it
- * will be stable across identical Starlark evaluations.
+ * will be stable across identical Starlark evaluations. Note that equality comparisons are
+ * invalidated by any change to the inputs of a Starlark evaluation. For example, it is not valid to
+ * compare two values that came from different Bazel builds with an intervening edit to a .bzl file.
+ *
+ * <p>For Starlark values that rely on this class, equality comparison across Starlark threads is
+ * not guaranteed to be consistent until both threads are done running. This is due to the edge case
+ * of one value being exported while the other is still unexported, since the export process can
+ * change the equality token.
  */
 public final class SymbolGenerator<T> {
   private final T owner;
@@ -65,42 +75,64 @@ public final class SymbolGenerator<T> {
   }
 
   public synchronized Symbol<T> generate() {
-    return new Symbol<>(owner, index++);
+    return LocalSymbol.create(owner, index++);
+  }
+
+  T getOwner() {
+    return owner;
   }
 
   /** Identifier for an object created by a uniquely defined Starlark thread. */
   // TODO(bazel-team): The name "Symbol", in the context of an interpreter, is a bit confusing.
   // Consider renaming to "Token" or similar.
-  public static final class Symbol<T> {
-    private final T owner;
-    private final int index;
-
-    private Symbol(T owner, int index) {
-      this.owner = owner;
-      this.index = index;
+  public abstract static class Symbol<T> {
+    /**
+     * Creates a new {@link GlobalSymbol} with the same owner as this symbol.
+     *
+     * <p>Objects may start with a {@link LocalSymbol} and are later exported with a global name.
+     * This method can be used to create a suitable {@link GlobalSymbol}.
+     */
+    public final GlobalSymbol<T> exportAs(String name) {
+      return GlobalSymbol.create(getOwner(), name);
     }
 
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (!(o instanceof Symbol<?>)) {
-        return false;
-      }
-      Symbol<?> symbol = (Symbol<?>) o;
-      return index == symbol.index && owner.equals(symbol.owner);
+    public abstract T getOwner();
+
+    public abstract boolean isGlobal();
+  }
+
+  @AutoValue
+  abstract static class LocalSymbol<T> extends Symbol<T> {
+    private static <T> LocalSymbol<T> create(T owner, int index) {
+      return new AutoValue_SymbolGenerator_LocalSymbol<>(owner, index);
     }
 
-    @Override
-    public int hashCode() {
-      // We don't expect multiple indices for the same owner, save the computation.
-      return owner.hashCode();
-    }
+    abstract int getIndex();
 
     @Override
-    public String toString() {
-      return "<symbol=" + owner + ", index=" + index + ">";
+    public final boolean isGlobal() {
+      return false;
+    }
+  }
+
+  /**
+   * An identifier for a global variable.
+   *
+   * <p>Intended as an optimization, allowing the lookup of a global variable from its GlobalSymbol,
+   * e.g. for deserialization: the owner should be a wrapper object for a {@link Module}, and we can
+   * obtain the value from the symbol's name and {@link Module#getGlobal}.
+   */
+  @AutoValue
+  public abstract static class GlobalSymbol<T> extends Symbol<T> {
+    private static <T> GlobalSymbol<T> create(T owner, String name) {
+      return new AutoValue_SymbolGenerator_GlobalSymbol<>(owner, name);
+    }
+
+    public abstract String getName();
+
+    @Override
+    public final boolean isGlobal() {
+      return true;
     }
   }
 }

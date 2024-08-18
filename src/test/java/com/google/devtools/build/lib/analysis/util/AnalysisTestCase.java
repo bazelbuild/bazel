@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.util;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableMultiset.toImmutableMultiset;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -238,7 +239,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             .setExtraPrecomputeValues(
                 ImmutableList.of(
                     PrecomputedValue.injected(
-                        ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+                        ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
                     PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
                     PrecomputedValue.injected(
                         RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
@@ -252,6 +253,8 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                     PrecomputedValue.injected(
                         BazelModuleResolutionFunction.BAZEL_COMPATIBILITY_MODE,
                         BazelCompatibilityMode.ERROR),
+                    PrecomputedValue.injected(
+                        RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
                     PrecomputedValue.injected(
                         BazelLockFileFunction.LOCKFILE_MODE, LockfileMode.UPDATE)))
             .build(ruleClassProvider, fileSystem);
@@ -292,7 +295,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.VENDOR_DIRECTORY, Optional.empty()),
             PrecomputedValue.injected(
-                ModuleFileFunction.REGISTRIES, ImmutableList.of(registry.getUrl())),
+                ModuleFileFunction.REGISTRIES, ImmutableSet.of(registry.getUrl())),
             PrecomputedValue.injected(ModuleFileFunction.IGNORE_DEV_DEPS, false),
             PrecomputedValue.injected(RepositoryDelegatorFunction.DISABLE_NATIVE_REPO_RULES, false),
             PrecomputedValue.injected(
@@ -357,6 +360,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     if (defaultFlags().contains(Flag.NO_LEGACY_EXTERNAL_RUNFILES)) {
       optionsParser.parse("--nolegacy_external_runfiles");
     }
+    optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     optionsParser.parse(args);
 
     buildOptions =
@@ -706,6 +710,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             TestAspects.EXTRA_ATTRIBUTE_ASPECT,
             TestAspects.PACKAGE_GROUP_ATTRIBUTE_ASPECT,
             TestAspects.COMPUTED_ATTRIBUTE_ASPECT,
+            TestAspects.FILE_PROVIDER_ASPECT,
             TestAspects.FOO_PROVIDER_ASPECT,
             TestAspects.ASPECT_REQUIRING_PROVIDER_SETS,
             TestAspects.WARNING_ASPECT,
@@ -753,7 +758,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
   protected StarlarkInfo getStarlarkProvider(
       ProviderCollection target, String label, String providerSymbol) throws Exception {
     StarlarkProvider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical(label), providerSymbol);
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical(label)), providerSymbol);
     return (StarlarkInfo) target.get(key);
   }
 }

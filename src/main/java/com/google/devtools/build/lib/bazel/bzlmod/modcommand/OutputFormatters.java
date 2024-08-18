@@ -44,15 +44,12 @@ public final class OutputFormatters {
   private OutputFormatters() {}
 
   static OutputFormatter getFormatter(OutputFormat format) {
-    switch (format) {
-      case TEXT:
-        return textFormatter;
-      case JSON:
-        return jsonFormatter;
-      case GRAPH:
-        return graphvizFormatter;
-    }
-    throw new IllegalArgumentException("Output format cannot be null.");
+    return switch (format) {
+      case TEXT -> textFormatter;
+      case JSON -> jsonFormatter;
+      case GRAPH -> graphvizFormatter;
+      case null -> throw new IllegalArgumentException("Output format cannot be null.");
+    };
   }
 
   abstract static class OutputFormatter {

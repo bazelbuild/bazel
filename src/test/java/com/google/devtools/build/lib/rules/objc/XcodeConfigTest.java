@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
@@ -46,7 +48,7 @@ import org.junit.runners.JUnit4;
 public class XcodeConfigTest extends BuildViewTestCase {
   private static final Provider.Key XCODE_VERSION_INFO_PROVIDER_KEY =
       new StarlarkProvider.Key(
-          Label.parseCanonicalUnchecked("@_builtins//:common/xcode/providers.bzl"),
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/xcode/providers.bzl")),
           "XcodeVersionInfo");
 
   private final BazelEvaluationTestCase ev = new BazelEvaluationTestCase();
@@ -480,7 +482,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
     StructImpl actual = info.getValue("xcode_version", StructImpl.class);
     assertThat(
             callProviderMethod(actual, "sdk_version_for_platform", ApplePlatform.IOS_DEVICE)
@@ -646,7 +649,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//foo:extension.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//foo:extension.bzl")), "result"));
     assertThat(info.getValue("xcode_version").toString()).isEqualTo("1.11");
     assertThat(info.getValue("min_os").toString()).isEqualTo("1.8");
   }
@@ -1278,7 +1282,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
     useConfiguration(
         "--xcode_version_config=//x:c", "--tvos_sdk_version=2.5", "--watchos_minimum_os=4.5");
     ConfiguredTarget r = getConfiguredTarget("//x:r");
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//x:r.bzl"), "MyInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//x:r.bzl")), "MyInfo");
     StructImpl info = (StructImpl) r.get(key);
 
     assertThat(info.getValue("xcode").toString()).isEqualTo("0.0");
@@ -1371,7 +1376,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     useConfiguration("--xcode_version_config=//x:c");
     ConfiguredTarget r = getConfiguredTarget("//x:r");
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//x:r.bzl"), "MyInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//x:r.bzl")), "MyInfo");
     StructImpl info = (StructImpl) r.get(key);
     assertThat((Map<?, ?>) info.getValue("execution_info"))
         .containsKey(ExecutionRequirements.REQUIRES_DARWIN);
@@ -1453,7 +1459,8 @@ public class XcodeConfigTest extends BuildViewTestCase {
 
     useConfiguration("--xcode_version_config=//x:c");
     ConfiguredTarget r = getConfiguredTarget("//x:r");
-    Provider.Key key = new StarlarkProvider.Key(Label.parseCanonical("//x:r.bzl"), "MyInfo");
+    Provider.Key key =
+        new StarlarkProvider.Key(keyForBuild(Label.parseCanonical("//x:r.bzl")), "MyInfo");
     StructImpl info = (StructImpl) r.get(key);
 
     assertThat(info.getValue("xcode").toString()).isEqualTo("8.4");

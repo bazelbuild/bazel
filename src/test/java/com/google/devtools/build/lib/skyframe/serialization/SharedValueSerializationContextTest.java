@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -22,6 +23,9 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -84,7 +88,8 @@ public final class SharedValueSerializationContextTest {
     Object[] a = new Object[] {b, c};
     NotNestedSet diamond = new NotNestedSet(a);
     SerializationResult<ByteString> result =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, diamond);
+        codecs.serializeMemoizedAndBlocking(
+            fingerprintValueService, diamond, /* profileCollector= */ null);
 
     // 4 remote arrays were written because d is memoized via the cache, despite the fact that d
     // occurs twice in the traversal.
@@ -122,14 +127,16 @@ public final class SharedValueSerializationContextTest {
     NotNestedSet set2 = new NotNestedSet(shared);
 
     SerializationResult<ByteString> result1 =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, set1);
+        codecs.serializeMemoizedAndBlocking(
+            fingerprintValueService, set1, /* profileCollector= */ null);
     ListenableFuture<Void> writeStatus1 = result1.getFutureToBlockWritesOn();
     assertThat(writeStatus1.isDone()).isFalse();
 
     assertThat(store.putResponses).hasSize(1);
 
     SerializationResult<ByteString> result2 =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, set2);
+        codecs.serializeMemoizedAndBlocking(
+            fingerprintValueService, set2, /* profileCollector= */ null);
     ListenableFuture<Void> writeStatus2 = result2.getFutureToBlockWritesOn();
     assertThat(writeStatus2.isDone()).isFalse();
 
@@ -298,17 +305,101 @@ public final class SharedValueSerializationContextTest {
     }
   }
 
+  @Test
+  public void errorInSharedPut() throws Exception {
+    // When a shared value is serialized in error by one thread, another thread serializing the
+    // same shared value reports the same error.
+    FingerprintValueService fingerprintValueService = FingerprintValueService.createForTesting();
+    var codecs =
+        new ObjectCodecs(
+            ObjectCodecRegistry.newBuilder().add(new FaultySharedValueExampleCodec()).build());
+    var subject1 = new SharedValueExample(10);
+    var thrown1 =
+        assertThrows(
+            SerializationException.class,
+            () ->
+                codecs.serializeMemoizedAndBlocking(
+                    fingerprintValueService, subject1, /* profileCollector= */ null));
+
+    var subject2 = new SharedValueExample(subject1.sharedData());
+    var thrown2 =
+        assertThrows(
+            SerializationException.class,
+            () ->
+                codecs.serializeMemoizedAndBlocking(
+                    fingerprintValueService, subject2, /* profileCollector= */ null));
+    assertThat(thrown2).hasCauseThat().isSameInstanceAs(thrown1);
+  }
+
+  /** Test data for {@link #errorInSharedPut}. */
+  private record SharedValueExample(Integer sharedData) {}
+
+  private static class FaultySharedValueExampleCodec
+      extends DeferredObjectCodec<SharedValueExample> {
+    @Override
+    public Class<SharedValueExample> getEncodedClass() {
+      return SharedValueExample.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, SharedValueExample obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          obj.sharedData(), /* distinguisher= */ null, FaultySerializationCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public DeferredValue<SharedValueExample> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn) {
+      throw new AssertionError("not reachable");
+    }
+  }
+
+  private static class FaultySerializationCodec extends DeferredObjectCodec<Integer> {
+    private static final FaultySerializationCodec INSTANCE = new FaultySerializationCodec();
+
+    @Override
+    public Class<Integer> getEncodedClass() {
+      return Integer.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, Integer obj, CodedOutputStream codedOut)
+        throws SerializationException {
+      throw new SerializationException("injected error");
+    }
+
+    @Override
+    public DeferredValue<Integer> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn) {
+      throw new AssertionError("not reachable");
+    }
+  }
+
   private ListenableFuture<SerializationResult<ByteString>> serializeWithExecutor(
       ObjectCodecs codecs, FingerprintValueService fingerprintValueService, Object subject) {
     var task =
         ListenableFutureTask.create(
-            () -> codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject));
+            () ->
+                codecs.serializeMemoizedAndBlocking(
+                    fingerprintValueService, subject, /* profileCollector= */ null));
     executor.execute(task);
     return task;
   }
 
   private Object[] createRandomLeafArray() {
-    return NotNestedSet.createRandomLeafArray(rng);
+    return NotNestedSet.createRandomLeafArray(rng, Random::nextInt);
   }
 
   private static final long POLL_MS = 100;

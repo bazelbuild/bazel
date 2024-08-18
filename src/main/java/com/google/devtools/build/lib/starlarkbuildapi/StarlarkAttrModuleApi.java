@@ -25,6 +25,7 @@ import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkThread;
@@ -95,6 +96,23 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
           + "this attribute will not run. This is a temporary mitigation and WILL be removed in "
           + "the future.";
 
+  String CONFIGURABLE_ARG = "configurable";
+  String CONFIGURABLE_ARG_DOC =
+      "This argument can only be specified for an attribute of a symbolic macro." //
+          + "<p>If <code>"
+          + CONFIGURABLE_ARG
+          + "</code> is explicitly set to <code>False</code>, the symbolic macro attribute is"
+          + " non-configurable - in other words, it cannot take a <code>select()</code> value. If"
+          + " the <code>"
+          + CONFIGURABLE_ARG
+          + "</code> is either unbound or explicitly set to <code>True</code>, the attribute is"
+          + " configurable and can take a <code>select()</code> value." //
+          + "<p>For an attribute of a rule or aspect, <code>"
+          + CONFIGURABLE_ARG
+          + "</code> must be left unbound. Most Starlark rule attributes are always configurable,"
+          + " with the exception of <code>attr.output()</code>, <code>attr.output_list()</code>,"
+          + " and <code>attr.license()</code> rule attributes, which are always non-configurable.";
+
   String CONFIGURATION_ARG = "cfg";
   // TODO(b/151742236): Update when new Starlark-based configuration framework is implemented.
   String CONFIGURATION_DOC =
@@ -159,6 +177,16 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               + " attribute will be of type <a href='../core/int.html'><code>int</code></a>.",
       parameters = {
         @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
+        @Param(
             name = DEFAULT_ARG,
             defaultValue = "0",
             doc = DEFAULT_DOC,
@@ -187,6 +215,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor intAttribute(
+      Object configurable,
       StarlarkInt defaultValue,
       Object doc,
       Boolean mandatory,
@@ -198,6 +227,16 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       name = "string",
       doc = "Creates a schema for a <a href='../core/string.html#attr'>string</a> attribute.",
       parameters = {
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             defaultValue = "''",
@@ -233,7 +272,12 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor stringAttribute(
-      Object defaultValue, Object doc, Boolean mandatory, Sequence<?> values, StarlarkThread thread)
+      Object configurable,
+      Object defaultValue,
+      Object doc,
+      Boolean mandatory,
+      Sequence<?> values,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -252,6 +296,16 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               + " href='https://bazel.build/extending/rules#private-attributes'>Rules</a> page"
               + " for more information.",
       parameters = {
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
@@ -358,15 +412,15 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = ASPECTS_ARG_DOC),
         @Param(
             name = FLAGS_ARG,
-            defaultValue = "unbound",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
             named = true,
             positional = false,
-            documented = false,
             doc = FLAGS_DOC)
       },
       useStarlarkThread = true)
   Descriptor labelAttribute(
+      Object configurable,
       Object defaultValue,
       Object doc,
       Boolean executable,
@@ -378,7 +432,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Object allowRules,
       Object cfg,
       Sequence<?> aspects,
-      Object flags, // Sequence<String> expected
+      Sequence<?> flags,
       StarlarkThread thread)
       throws EvalException;
 
@@ -388,6 +442,16 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       parameters = {
         @Param(name = MANDATORY_ARG, defaultValue = "False", doc = MANDATORY_DOC, named = true),
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
@@ -408,7 +472,12 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor stringListAttribute(
-      Boolean mandatory, Boolean allowEmpty, Object defaultValue, Object doc, StarlarkThread thread)
+      Boolean mandatory,
+      Boolean allowEmpty,
+      Object configurable,
+      Object defaultValue,
+      Object doc,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -419,6 +488,16 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       parameters = {
         @Param(name = MANDATORY_ARG, defaultValue = "False", doc = MANDATORY_DOC, named = true),
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = StarlarkInt.class)},
@@ -438,6 +517,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   Descriptor intListAttribute(
       Boolean mandatory,
       Boolean allowEmpty,
+      Object configurable,
       Sequence<?> defaultValue,
       Object doc,
       StarlarkThread thread)
@@ -453,6 +533,16 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
@@ -538,6 +628,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       useStarlarkThread = true)
   Descriptor labelListAttribute(
       Boolean allowEmpty,
+      Object configurable,
       Object defaultValue,
       Object doc,
       Object allowFiles,
@@ -559,6 +650,16 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               + DEPENDENCY_ATTR_TEXT,
       parameters = {
         @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             allowedTypes = {
@@ -639,6 +740,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       useStarlarkThread = true)
   Descriptor labelKeyedStringDictAttribute(
       Boolean allowEmpty,
+      Object configurable,
       Object defaultValue,
       Object doc,
       Object allowFiles,
@@ -658,6 +760,16 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               + " href='../builtins/ctx.html#attr'><code>ctx.attr</code></a> attribute will be of"
               + " type <a href='../core/bool.html'><code>bool</code></a>.",
       parameters = {
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             defaultValue = "False",
@@ -680,7 +792,11 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       },
       useStarlarkThread = true)
   Descriptor boolAttribute(
-      Boolean defaultValue, Object doc, Boolean mandatory, StarlarkThread thread)
+      Object configurable,
+      Boolean defaultValue,
+      Object doc,
+      Boolean mandatory,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -745,6 +861,16 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = ALLOW_EMPTY_DOC,
             named = true),
         @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
+        @Param(
             name = DEFAULT_ARG,
             named = true,
             positional = false,
@@ -767,6 +893,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       useStarlarkThread = true)
   Descriptor stringDictAttribute(
       Boolean allowEmpty,
+      Object configurable,
       Dict<?, ?> defaultValue,
       Object doc,
       Boolean mandatory,
@@ -784,6 +911,16 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             defaultValue = "True",
             doc = ALLOW_EMPTY_DOC,
             named = true),
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
         @Param(
             name = DEFAULT_ARG,
             defaultValue = "{}",
@@ -807,6 +944,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       useStarlarkThread = true)
   Descriptor stringListDictAttribute(
       Boolean allowEmpty,
+      Object configurable,
       Dict<?, ?> defaultValue,
       Object doc,
       Boolean mandatory,

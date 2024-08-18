@@ -19,7 +19,7 @@ the workspace. Labels with canonical repo names unambiguously identify a target
 no matter which context they appear in.
 
 Often the canonical repo name is an arcane string that looks like
-`@@rules_java~7.1.0~toolchains~local_jdk`. What is much more commonly seen is
+`@@rules_java++toolchains+local_jdk`. What is much more commonly seen is
 labels with an [*apparent* repo name](/external/overview#apparent-repo-name),
 which looks like:
 

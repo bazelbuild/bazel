@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableSortedSet.toImmutableSortedSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.bazel.bzlmod.BzlmodTestUtil.createModuleKey;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
@@ -31,9 +32,9 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -49,6 +50,7 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -63,9 +65,9 @@ import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlark.util.BazelEvaluationTestCase;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -78,6 +80,7 @@ import java.util.regex.Pattern;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Mutability;
 import net.starlark.java.eval.Printer;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
@@ -174,6 +177,12 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
           srcs = ['file3.dat', 'file4.dat'],
           outs = ['r1.txt', 'r2.txt'],
         )
+        genrule(name = 'mixed_cfgs',
+          cmd = 'some_cmd',
+          srcs = ['a.txt', ':baz'],
+          tools = ['r1.txt'],
+          outs = ['out.txt'],
+        )
         """);
   }
 
@@ -191,7 +200,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
   private StructImpl getMyInfoFromTarget(ConfiguredTarget configuredTarget) throws Exception {
     Provider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//myinfo:myinfo.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//myinfo:myinfo.bzl")), "MyInfo");
     return (StructImpl) configuredTarget.get(key);
   }
 
@@ -636,9 +646,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "ruleContext.expand_location('$(location :gl)')");
 
     // We have to use "locations" for multiple targets
-    runExpansion(
-        "locations :gl",
-        "[blaze]*-out/.*/bin/foo/gl.a [blaze]*-out/.*/bin/foo/gl.gcgox");
+    runExpansion("locations :gl", "[blaze]*-out/.*/bin/foo/gl.a [blaze]*-out/.*/bin/foo/gl.gcgox");
 
     // LocationExpander just returns the input string if there is no label
     runExpansion("location", "\\$\\(location\\)");
@@ -892,8 +900,10 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  substitutions = {'a': 'b'},",
         "  is_executable = False)");
 
-    TemplateExpansionAction action = (TemplateExpansionAction) Iterables.getOnlyElement(
-        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    TemplateExpansionAction action =
+        (TemplateExpansionAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(action.getInputs().getSingleton().getExecPathString()).isEqualTo("foo/a.txt");
     assertThat(Iterables.getOnlyElement(action.getOutputs()).getExecPathString())
         .isEqualTo("foo/b.img");
@@ -926,8 +936,10 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "  output = ruleContext.files.srcs[1],",
         "  substitutions = {'a': '" + new String(bytesToDecode, latin1) + "'},",
         "  is_executable = False)");
-    TemplateExpansionAction action = (TemplateExpansionAction) Iterables.getOnlyElement(
-        ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
+    TemplateExpansionAction action =
+        (TemplateExpansionAction)
+            Iterables.getOnlyElement(
+                ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     List<Substitution> substitutions = action.getSubstitutions();
     assertThat(substitutions).hasSize(1);
     assertThat(substitutions.get(0).getValue()).isEqualTo(new String(bytesToDecode, utf8));
@@ -1472,7 +1484,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "foo_provider"));
+            new StarlarkProvider.Key(
+                keyForBuild(Label.parseCanonical("//test:foo.bzl")), "foo_provider"));
   }
 
   @Test
@@ -1519,7 +1532,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     Object provider = getMyInfoFromTarget(configuredTarget).getValue("proxy");
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
-        .isEqualTo(new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "FooInfo"));
+        .isEqualTo(
+            new StarlarkProvider.Key(
+                keyForBuild(Label.parseCanonical("//test:foo.bzl")), "FooInfo"));
   }
 
   @Test
@@ -1552,8 +1567,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
     assertThat(expected)
         .hasMessageThat()
-        .contains("rule advertised the 'FooInfo' provider, "
-            + "but this provider was not among those returned");
+        .contains(
+            "rule advertised the 'FooInfo' provider, "
+                + "but this provider was not among those returned");
   }
 
   @Test
@@ -1581,8 +1597,9 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:my_rule"));
     assertThat(expected)
         .hasMessageThat()
-        .contains("rule advertised the 'JavaInfo' provider, "
-            + "but this provider was not among those returned");
+        .contains(
+            "rule advertised the 'JavaInfo' provider, "
+                + "but this provider was not among those returned");
   }
 
   @Test
@@ -1658,7 +1675,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "foo_provider"));
+            new StarlarkProvider.Key(
+                keyForBuild(Label.parseCanonical("//test:foo.bzl")), "foo_provider"));
     assertThat(((StructImpl) provider).getValue("a")).isEqualTo(StarlarkInt.of(123));
   }
 
@@ -1711,7 +1729,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(provider).isInstanceOf(StructImpl.class);
     assertThat(((StructImpl) provider).getProvider().getKey())
         .isEqualTo(
-            new StarlarkProvider.Key(Label.parseCanonical("//test:foo.bzl"), "foo_provider"));
+            new StarlarkProvider.Key(
+                keyForBuild(Label.parseCanonical("//test:foo.bzl")), "foo_provider"));
   }
 
   @Test
@@ -2085,7 +2104,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_glob");
-    assertContainsEvent("The native module can be accessed only from a BUILD thread.");
+    assertContainsEvent("glob() can only be used while evaluating a BUILD file (or macro)");
   }
 
   @Test
@@ -2741,12 +2760,12 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ev.exec(
         "actions = ruleContext.actions",
         "a = []",
-        "a.append(actions.args().add(Label('@@repo~//:foo')))",
-        "a.append(actions.args().add('-flag', Label('@@repo~//:foo')))",
-        "a.append(actions.args().add('-flag', Label('@@repo~//:foo'), format = '_%s_'))",
-        "a.append(actions.args().add_all(['foo', Label('@@repo~//:foo')]))",
-        "a.append(actions.args().add_all(depset([Label('@@other_repo~//:foo'),"
-            + " Label('@@repo~//:foo')])))",
+        "a.append(actions.args().add(Label('@@repo+//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@repo+//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@repo+//:foo'), format = '_%s_'))",
+        "a.append(actions.args().add_all(['foo', Label('@@repo+//:foo')]))",
+        "a.append(actions.args().add_all(depset([Label('@@other_repo+//:foo'),"
+            + " Label('@@repo+//:foo')])))",
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
@@ -2761,15 +2780,15 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(action.getArguments())
         .containsExactly(
             "foo/t.exe",
-            "@@repo~//:foo",
+            "@@repo+//:foo",
             "-flag",
-            "@@repo~//:foo",
+            "@@repo+//:foo",
             "-flag",
-            "_@@repo~//:foo_",
+            "_@@repo+//:foo_",
             "foo",
-            "@@repo~//:foo",
-            "@@other_repo~//:foo",
-            "@@repo~//:foo")
+            "@@repo+//:foo",
+            "@@other_repo+//:foo",
+            "@@repo+//:foo")
         .inOrder();
   }
 
@@ -2784,11 +2803,11 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ev.exec(
         "actions = ruleContext.actions",
         "a = []",
-        "a.append(actions.args().add(Label('@@foo~//:foo')))",
-        "a.append(actions.args().add('-flag', Label('@@foo~//:foo')))",
-        "a.append(actions.args().add('-flag', Label('@@foo~//:foo'), format = '_%s_'))",
-        "a.append(actions.args().add_all(['foo', Label('@@foo~//:foo')]))",
-        "a.append(actions.args().add_all(depset([Label('@@repo~//:foo'), Label('@@foo~//:foo')])))",
+        "a.append(actions.args().add(Label('@@foo+//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@foo+//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@foo+//:foo'), format = '_%s_'))",
+        "a.append(actions.args().add_all(['foo', Label('@@foo+//:foo')]))",
+        "a.append(actions.args().add_all(depset([Label('@@repo+//:foo'), Label('@@foo+//:foo')])))",
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
@@ -2810,7 +2829,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             "_@foo//:foo_",
             "foo",
             "@foo//:foo",
-            "@@repo~//:foo",
+            "@@repo+//:foo",
             "@foo//:foo")
         .inOrder();
   }
@@ -2970,7 +2989,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
-    assertThat(expected).hasMessageThat()
+    assertThat(expected)
+        .hasMessageThat()
         .contains("invalid configuration fragment name 'notarealfragment'");
   }
 
@@ -3030,7 +3050,8 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
 
-    assertThat(expected).hasMessageThat()
+    assertThat(expected)
+        .hasMessageThat()
         .contains("invalid configuration field name 'notarealfield' on fragment 'apple'");
   }
 
@@ -3061,9 +3082,11 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     AssertionError expected =
         assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:main"));
 
-    assertThat(expected).hasMessageThat()
-        .contains("When an attribute value is a function, "
-            + "the attribute must be private (i.e. start with '_')");
+    assertThat(expected)
+        .hasMessageThat()
+        .contains(
+            "When an attribute value is a function, "
+                + "the attribute must be private (i.e. start with '_')");
   }
 
   @Test
@@ -3254,7 +3277,10 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         CommandLineExpansionException.class,
         () ->
             commandLine.addToFingerprint(
-                actionKeyContext, /* artifactExpander= */ null, new Fingerprint()));
+                actionKeyContext,
+                /* artifactExpander= */ null,
+                OutputPathsMode.OFF,
+                new Fingerprint()));
   }
 
   @Test
@@ -3490,23 +3516,23 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     RepositoryMapping mainRepoMapping =
         RepositoryMapping.create(
-            ImmutableMap.of("apparent", RepositoryName.createUnvalidated("canonical~")),
+            ImmutableMap.of("apparent", RepositoryName.createUnvalidated("canonical+")),
             RepositoryName.MAIN);
     CommandLine commandLine1 =
         getCommandLine(
             mainRepoMapping,
             """
             args = ruleContext.actions.args()
-            args.add(Label("@@canonical~//foo:bar"))
-            args.add(str(Label("@@canonical~//foo:bar")))
+            args.add(Label("@@canonical+//foo:bar"))
+            args.add(str(Label("@@canonical+//foo:bar")))
             """);
     CommandLine commandLine2 =
         getCommandLine(
             mainRepoMapping,
             """
             args = ruleContext.actions.args()
-            args.add(Label("@@canonical~//foo:bar"))
-            args.add(Label("@@canonical~//foo:bar"))
+            args.add(Label("@@canonical+//foo:bar"))
+            args.add(Label("@@canonical+//foo:bar"))
             """);
 
     assertThat(getArguments(commandLine1, PathMapper.NOOP))
@@ -3524,23 +3550,23 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         RepositoryMapping.create(
             ImmutableMap.of(
                 "apparent1",
-                RepositoryName.createUnvalidated("canonical1~"),
+                RepositoryName.createUnvalidated("canonical1+"),
                 "apparent2",
-                RepositoryName.createUnvalidated("canonical2~")),
+                RepositoryName.createUnvalidated("canonical2+")),
             RepositoryName.MAIN);
     CommandLine commandLine1 =
         getCommandLine(
             mainRepoMapping,
             """
 args = ruleContext.actions.args()
-args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:bar")]))
+args.add_all(depset([Label("@@canonical1+//foo:bar"), Label("@@canonical2+//foo:bar")]))
 """);
     CommandLine commandLine2 =
         getCommandLine(
             mainRepoMapping,
             """
             args = ruleContext.actions.args()
-            args.add_all([Label("@@canonical1~//foo:bar"), str(Label("@@canonical2~//foo:bar"))])
+            args.add_all([Label("@@canonical1+//foo:bar"), str(Label("@@canonical2+//foo:bar"))])
             """);
 
     assertThat(getArguments(commandLine1, PathMapper.NOOP))
@@ -3571,7 +3597,8 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
         .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
     assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
         .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
-    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+    assertThat(getDigest(commandLine1, OutputPathsMode.STRIP))
+        .isNotEqualTo(getDigest(commandLine2, OutputPathsMode.STRIP));
   }
 
   @Test
@@ -3598,7 +3625,8 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
         .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
     assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
         .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
-    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+    assertThat(getDigest(commandLine1, OutputPathsMode.STRIP))
+        .isNotEqualTo(getDigest(commandLine2, OutputPathsMode.STRIP));
   }
 
   @Test
@@ -3625,7 +3653,8 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
         .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
     assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
         .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
-    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+    assertThat(getDigest(commandLine1, OutputPathsMode.STRIP))
+        .isNotEqualTo(getDigest(commandLine2, OutputPathsMode.STRIP));
   }
 
   @Test
@@ -3652,7 +3681,120 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
         .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
     assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
         .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
-    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+    assertThat(getDigest(commandLine1, OutputPathsMode.STRIP))
+        .isNotEqualTo(getDigest(commandLine2, OutputPathsMode.STRIP));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringInAddAllDepsetMapEach()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+            def _map_each(x):
+              if type(x.obj) == "File":
+                return x.obj.path
+              return str(x.obj)
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add_all(depset([struct(obj = file.path)]), map_each=_map_each)
+            """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+            def _map_each(x):
+              if type(x.obj) == "File":
+                return x.obj.path
+              return str(x.obj)
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add_all(depset([struct(obj = file)]), map_each=_map_each)
+            """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getDigest(commandLine1)).isEqualTo(getDigest(commandLine2));
+
+    assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
+    assertThat(getDigest(commandLine1, OutputPathsMode.STRIP))
+        .isNotEqualTo(getDigest(commandLine2, OutputPathsMode.STRIP));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringInAddAllListMapEach()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+            def _map_each(x):
+              if type(x.obj) == "File":
+                return x.obj.path
+              return str(x.obj)
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add_all(depset([struct(obj = file.path)]), map_each=_map_each)
+            """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+            def _map_each(x):
+              if type(x.obj) == "File":
+                return x.obj.path
+              return str(x.obj)
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add_all(depset([struct(obj = file)]), map_each=_map_each)
+            """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getDigest(commandLine1)).isEqualTo(getDigest(commandLine2));
+
+    assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
+    assertThat(getDigest(commandLine1, OutputPathsMode.STRIP))
+        .isNotEqualTo(getDigest(commandLine2, OutputPathsMode.STRIP));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringMapEachWithUniquify()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:mixed_cfgs"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+def _map_each(x):
+  return x.field.root.path
+args = ruleContext.actions.args()
+d = depset([struct(field = f) for f in ruleContext.files.srcs + ruleContext.files.tools])
+args.add_all(d, map_each = _map_each, uniquify = True)
+""");
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+def _map_each(x):
+  return x.field
+args = ruleContext.actions.args()
+d = depset([struct(field = f.root.path) for f in ruleContext.files.srcs + ruleContext.files.tools])
+args.add_all(d, map_each = _map_each, uniquify = True)
+""");
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getDigest(commandLine1)).isEqualTo(getDigest(commandLine2));
+
+    List<String> arguments1 = getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER);
+    List<String> arguments2 = getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER);
+    assertThat(arguments1).isNotEqualTo(arguments2);
+    assertThat(arguments1.size()).isNotEqualTo(arguments2.size());
+    assertThat(getDigest(commandLine1, OutputPathsMode.STRIP))
+        .isNotEqualTo(getDigest(commandLine2, OutputPathsMode.STRIP));
   }
 
   private static ArtifactExpander createArtifactExpander(String dirRelativePath, String... files) {
@@ -3672,13 +3814,24 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
 
   private String getDigest(CommandLine commandLine)
       throws CommandLineExpansionException, InterruptedException {
-    return getDigest(commandLine, /*artifactExpander=*/ null);
+    return getDigest(commandLine, /* artifactExpander= */ null, OutputPathsMode.OFF);
   }
 
   private String getDigest(CommandLine commandLine, ArtifactExpander artifactExpander)
       throws CommandLineExpansionException, InterruptedException {
+    return getDigest(commandLine, artifactExpander, OutputPathsMode.OFF);
+  }
+
+  private String getDigest(CommandLine commandLine, OutputPathsMode outputPathsMode)
+      throws CommandLineExpansionException, InterruptedException {
+    return getDigest(commandLine, /* artifactExpander= */ null, outputPathsMode);
+  }
+
+  private String getDigest(
+      CommandLine commandLine, ArtifactExpander artifactExpander, OutputPathsMode outputPathsMode)
+      throws CommandLineExpansionException, InterruptedException {
     Fingerprint fingerprint = new Fingerprint();
-    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+    commandLine.addToFingerprint(actionKeyContext, artifactExpander, outputPathsMode, fingerprint);
     return fingerprint.hexDigestAndReset();
   }
 
@@ -3693,12 +3846,7 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
   }
 
   private static final PathMapper NON_TRIVIAL_PATH_MAPPER =
-      new PathMapper() {
-        @Override
-        public PathFragment map(PathFragment path) {
-          return path.subFragment(0, 1).getChild("cfg").getRelative(path.subFragment(2));
-        }
-      };
+      path -> path.subFragment(0, 1).getChild("cfg").getRelative(path.subFragment(2));
 
   private List<String> getArguments(CommandLine commandLine, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {
@@ -3710,7 +3858,13 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
     setRuleContext(createRuleContext("//foo:foo"));
     ev.exec("args = ruleContext.actions.args()", "args.add_all(['--foo', '--bar'])");
     Args args = (Args) ev.eval("args");
-    assertThat(new Printer().debugPrint(args, getStarlarkSemantics()).toString())
+    assertThat(
+            new Printer()
+                .debugPrint(
+                    args,
+                    StarlarkThread.createTransient(
+                        Mutability.create("test"), getStarlarkSemantics()))
+                .toString())
         .isEqualTo("--foo --bar");
   }
 
@@ -3902,6 +4056,13 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
         r(name = 'exec_configured_child')
         """);
 
+    useConfiguration(
+        "--platforms=" + TestConstants.PLATFORM_LABEL,
+        "--experimental_platform_in_output_dir",
+        String.format(
+            "--experimental_override_name_platform_in_output_dir=%s=k8",
+            TestConstants.PLATFORM_LABEL));
+
     ConfiguredTarget target = getConfiguredTarget("//test:foo");
 
     assertThat(target).isNotNull();
@@ -3920,6 +4081,6 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
             .orElse(null);
     assertThat(a2).isNotNull();
     assertThat(a2.getRoot().getExecPathString())
-        .matches(getRelativeOutputPath() + "/[\\w\\-]+\\-exec\\-[\\w\\-]+/bin");
+        .matches(getRelativeOutputPath() + "/[\\w\\-]+\\-exec/bin");
   }
 }

@@ -330,6 +330,115 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
   }
 
   @Test
+  public void basicToolchainsWithAliasAutoExecGroups() throws Exception {
+    scratch.file(
+        "test/alias/BUILD",
+        """
+        alias(
+            name = "alias_toolchain_type",
+            actual = "//toolchain:test_toolchain",
+        )
+        """);
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _impl(ctx):
+            print(ctx.toolchains["//test/alias:alias_toolchain_type"])
+            print(ctx.toolchains["//toolchain:test_toolchain"])
+            return []
+
+        custom_rule = rule(
+            implementation = _impl,
+            toolchains = ["//test/alias:alias_toolchain_type"],
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "custom_rule")
+
+        custom_rule(
+            name = "custom_rule_name",
+        )
+        """);
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    assertThat(update("//test:custom_rule_name").hasError()).isFalse();
+  }
+
+  @Test
+  public void basicToolchainsWithAliasNoAutoExecGroups() throws Exception {
+    scratch.file(
+        "test/alias/BUILD",
+        """
+        alias(
+            name = "alias_toolchain_type",
+            actual = "//toolchain:test_toolchain",
+        )
+        """);
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _impl(ctx):
+            print(ctx.toolchains["//test/alias:alias_toolchain_type"])
+            print(ctx.toolchains["//toolchain:test_toolchain"])
+            return []
+
+        custom_rule = rule(
+            implementation = _impl,
+            toolchains = ["//test/alias:alias_toolchain_type"],
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load("//test:defs.bzl", "custom_rule")
+
+        custom_rule(
+            name = "custom_rule_name",
+        )
+        """);
+    useConfiguration("--noincompatible_auto_exec_groups");
+
+    assertThat(update("//test:custom_rule_name").hasError()).isFalse();
+  }
+
+  @Test
+  public void basicToolchainsWithAliasNoAutoExecGroups_test() throws Exception {
+    scratch.appendFile(
+        "toolchain/exec_group_rule.bzl",
+        """
+        def _impl(ctx):
+            if "//toolchain:test_toolchain" in ctx.toolchains:
+                fail("this is not expected, it's an exec gp toolchain")
+            if ctx.exec_groups["temp"].toolchains["//toolchain:test_toolchain"] == None:
+                fail("this is not expected, it's an exec gp toolchain")
+            return []
+
+        my_exec_group_rule = rule(
+            implementation = _impl,
+            exec_groups = {
+                "temp": exec_group(
+                    toolchains = ["//toolchain:test_toolchain"],
+                ),
+            },
+        )
+        """);
+
+    scratch.file(
+        "a/BUILD",
+        """
+        load("//toolchain:exec_group_rule.bzl", "my_exec_group_rule")
+
+        my_exec_group_rule(name = "a")
+        """);
+
+    useConfiguration("--incompatible_auto_exec_groups");
+
+    assertThat(update("//a:a").hasError()).isFalse();
+  }
+
+  @Test
   public void execPlatform() throws Exception {
     // Add some platforms and custom constraints.
     scratch.file("platforms/BUILD", "platform(name = 'local_platform_a')");

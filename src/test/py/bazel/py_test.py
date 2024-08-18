@@ -22,7 +22,6 @@ class PyTest(test_base.TestBase):
   """Integration tests for the Python rules of Bazel."""
 
   def createSimpleFiles(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
 
     self.ScratchFile(
         'a/BUILD',
@@ -70,7 +69,6 @@ class PyTest(test_base.TestBase):
 class TestInitPyFiles(test_base.TestBase):
 
   def createSimpleFiles(self, create_init=True):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
 
     self.ScratchFile('src/a/BUILD', [
         'py_binary(name="a", srcs=["a.py"], deps=[":b"], legacy_create_init=%s)'
@@ -118,7 +116,6 @@ class TestInitPyFiles(test_base.TestBase):
 
   # Regression test for https://github.com/bazelbuild/bazel/pull/10119
   def testBuildingZipFileWithTargetNameWithDot(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'py_binary(',
         '  name = "bin.v1",  # .v1 should not be treated as extension and removed accidentally',
@@ -161,7 +158,6 @@ class PyRemoteTest(test_base.TestBase):
     test_base.TestBase.tearDown(self)
 
   def testPyTestRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'py_test(',
         '  name = "foo_test",',
@@ -180,7 +176,6 @@ class PyRemoteTest(test_base.TestBase):
 
   # Regression test for https://github.com/bazelbuild/bazel/issues/9239
   def testPyTestWithStdlibCollisionRunsRemotely(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'py_library(',
         '  name = "io",',
@@ -211,10 +206,17 @@ class PyRemoteTest(test_base.TestBase):
 class PyRunfilesLibraryTest(test_base.TestBase):
 
   def testPyRunfilesLibraryCurrentRepository(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE', [
-        'local_repository(', '  name = "other_repo",',
-        '  path = "other_repo_path",', ')'
-    ])
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            (
+                'local_repository ='
+                ' use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl",'
+                ' "local_repository")'
+            ),
+            'local_repository(name = "other_repo", path = "other_repo_path")',
+        ],
+    )
 
     self.ScratchFile('pkg/BUILD.bazel', [
         'py_library(',
@@ -260,38 +262,53 @@ class PyRunfilesLibraryTest(test_base.TestBase):
         'print("in pkg/test.py: \'%s\'" % runfiles.Create().CurrentRepository())',
     ])
 
-    self.ScratchFile('other_repo_path/WORKSPACE')
-    self.ScratchFile('other_repo_path/pkg/BUILD.bazel', [
-        'py_binary(',
-        '  name = "binary",',
-        '  srcs = ["binary.py"],',
-        '  deps = [',
-        '    "@//pkg:library",',
-        '    "@bazel_tools//tools/python/runfiles",',
-        '  ],',
-        ')',
-        '',
-        'py_test(',
-        '  name = "test",',
-        '  srcs = ["test.py"],',
-        '  deps = [',
-        '    "@//pkg:library",',
-        '    "@bazel_tools//tools/python/runfiles",',
-        '  ],',
-        ')',
-    ])
-    self.ScratchFile('other_repo_path/pkg/binary.py', [
-        'from bazel_tools.tools.python.runfiles import runfiles',
-        'from pkg import library',
-        'library.print_repo_name()',
-        'print("in external/other_repo/pkg/binary.py: \'%s\'" % runfiles.Create().CurrentRepository())',
-    ])
-    self.ScratchFile('other_repo_path/pkg/test.py', [
-        'from bazel_tools.tools.python.runfiles import runfiles',
-        'from pkg import library',
-        'library.print_repo_name()',
-        'print("in external/other_repo/pkg/test.py: \'%s\'" % runfiles.Create().CurrentRepository())',
-    ])
+    self.ScratchFile('other_repo_path/REPO.bazel')
+    self.ScratchFile(
+        'other_repo_path/other_pkg/BUILD.bazel',
+        [
+            'py_binary(',
+            '  name = "binary",',
+            '  srcs = ["binary.py"],',
+            '  deps = [',
+            '    "@//pkg:library",',
+            '    "@bazel_tools//tools/python/runfiles",',
+            '  ],',
+            ')',
+            '',
+            'py_test(',
+            '  name = "test",',
+            '  srcs = ["test.py"],',
+            '  deps = [',
+            '    "@//pkg:library",',
+            '    "@bazel_tools//tools/python/runfiles",',
+            '  ],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'other_repo_path/other_pkg/binary.py',
+        [
+            'from bazel_tools.tools.python.runfiles import runfiles',
+            'from pkg import library',
+            'library.print_repo_name()',
+            (
+                'print("in external/other_repo/other_pkg/binary.py: \'%s\'" %'
+                ' runfiles.Create().CurrentRepository())'
+            ),
+        ],
+    )
+    self.ScratchFile(
+        'other_repo_path/other_pkg/test.py',
+        [
+            'from bazel_tools.tools.python.runfiles import runfiles',
+            'from pkg import library',
+            'library.print_repo_name()',
+            (
+                'print("in external/other_repo/other_pkg/test.py: \'%s\'" %'
+                ' runfiles.Create().CurrentRepository())'
+            ),
+        ],
+    )
 
     _, stdout, _ = self.RunBazel(['run', '//pkg:binary'])
     self.assertIn('in pkg/binary.py: \'\'', stdout)
@@ -303,15 +320,20 @@ class PyRunfilesLibraryTest(test_base.TestBase):
     self.assertIn('in pkg/test.py: \'\'', stdout)
     self.assertIn('in pkg/library.py: \'\'', stdout)
 
-    _, stdout, _ = self.RunBazel(['run', '@other_repo//pkg:binary'])
-    self.assertIn('in external/other_repo/pkg/binary.py: \'other_repo\'',
-                  stdout)
+    _, stdout, _ = self.RunBazel(['run', '@other_repo//other_pkg:binary'])
+    self.assertIn(
+        "in external/other_repo/other_pkg/binary.py: '+_repo_rules+other_repo'",
+        stdout,
+    )
     self.assertIn('in pkg/library.py: \'\'', stdout)
 
     _, stdout, _ = self.RunBazel(
-        ['test', '@other_repo//pkg:test', '--test_output=streamed']
+        ['test', '@other_repo//other_pkg:test', '--test_output=streamed']
     )
-    self.assertIn('in external/other_repo/pkg/test.py: \'other_repo\'', stdout)
+    self.assertIn(
+        "in external/other_repo/other_pkg/test.py: '+_repo_rules+other_repo'",
+        stdout,
+    )
     self.assertIn('in pkg/library.py: \'\'', stdout)
 
 

@@ -13,11 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.config;
 
+import com.google.common.base.Verify;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -33,23 +34,26 @@ public class FlagSetValue implements SkyValue {
   @AutoCodec
   public static final class Key implements SkyKey {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
-    // private final String sclFile;
-    private final PathFragment projectFile;
+    private final Label projectFile;
     private final String sclConfig;
     private final BuildOptions targetOptions;
 
-    public Key(PathFragment projectFile, String sclConfig, BuildOptions targetOptions) {
-      this.projectFile = projectFile;
-      this.sclConfig = sclConfig;
-      this.targetOptions = targetOptions;
+    private final boolean enforceCanonical;
+
+    public Key(
+        Label projectFile, String sclConfig, BuildOptions targetOptions, boolean enforceCanonical) {
+      this.projectFile = Verify.verifyNotNull(projectFile);
+      this.sclConfig = Verify.verifyNotNull(sclConfig);
+      this.targetOptions = Verify.verifyNotNull(targetOptions);
+      this.enforceCanonical = enforceCanonical;
     }
 
     public static Key create(
-        PathFragment projectFile, String sclConfig, BuildOptions targetOptions) {
-      return interner.intern(new Key(projectFile, sclConfig, targetOptions));
+        Label projectFile, String sclConfig, BuildOptions targetOptions, boolean enforceCanonical) {
+      return interner.intern(new Key(projectFile, sclConfig, targetOptions, enforceCanonical));
     }
 
-    public PathFragment getProjectFile() {
+    public Label getProjectFile() {
       return projectFile;
     }
 
@@ -59,6 +63,14 @@ public class FlagSetValue implements SkyValue {
 
     public BuildOptions getTargetOptions() {
       return targetOptions;
+    }
+
+    /**
+     * Whether {@code --scl_config} must match an officially supported project configuration. See
+     * {@link com.google.devtools.build.lib.buildtool.BuildRequestOptions#enforceProjectConfigs}.
+     */
+    public boolean enforceCanonical() {
+      return enforceCanonical;
     }
 
     @Override
@@ -82,12 +94,13 @@ public class FlagSetValue implements SkyValue {
       Key key = (Key) o;
       return Objects.equals(projectFile, key.projectFile)
           && Objects.equals(sclConfig, key.sclConfig)
-          && Objects.equals(targetOptions, key.targetOptions);
+          && Objects.equals(targetOptions, key.targetOptions)
+          && (enforceCanonical == key.enforceCanonical);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(projectFile, sclConfig, targetOptions);
+      return Objects.hash(projectFile, sclConfig, targetOptions, enforceCanonical);
     }
   }
 

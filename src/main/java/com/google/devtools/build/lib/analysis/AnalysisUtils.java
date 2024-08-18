@@ -139,16 +139,6 @@ public final class AnalysisUtils {
   }
 
   /**
-   * Returns the path of the associated manifest file for the path of a Fileset. Works for both
-   * exec paths and root relative paths.
-   */
-  public static PathFragment getManifestPathFromFilesetPath(PathFragment filesetDir) {
-    PathFragment manifestDir = filesetDir.replaceName("_" + filesetDir.getBaseName());
-    PathFragment outputManifestFrag = manifestDir.getRelative("MANIFEST");
-    return outputManifestFrag;
-  }
-
-  /**
    * Returns a path fragment qualified by the rule name and unique fragment to disambiguate
    * artifacts produced from the source file appearing in multiple rules.
    *

@@ -22,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
@@ -40,7 +39,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.FetchProgress;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StructImpl;
@@ -68,6 +66,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -88,8 +87,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
@@ -108,7 +107,7 @@ import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.syntax.Location;
 
 /** A common base class for Starlark "ctx" objects related to external dependencies. */
-public abstract class StarlarkBaseExternalContext implements StarlarkValue {
+public abstract class StarlarkBaseExternalContext implements AutoCloseable, StarlarkValue {
 
   /**
    * An asynchronous task run as part of fetching the repository.
@@ -146,12 +145,16 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   protected final double timeoutScaling;
   @Nullable private final ProcessWrapper processWrapper;
   protected final StarlarkSemantics starlarkSemantics;
+  protected final String identifyingStringForLogging;
   private final HashMap<RepoRecordedInput.File, String> recordedFileInputs = new HashMap<>();
   private final HashMap<RepoRecordedInput.Dirents, String> recordedDirentsInputs = new HashMap<>();
   private final HashSet<String> accumulatedEnvKeys = new HashSet<>();
   private final RepositoryRemoteExecutor remoteExecutor;
   private final List<AsyncTask> asyncTasks;
   private final boolean allowWatchingPathsOutsideWorkspace;
+  private final ExecutorService executorService;
+
+  private boolean wasSuccessful = false;
 
   protected StarlarkBaseExternalContext(
       Path workingDirectory,
@@ -162,6 +165,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       double timeoutScaling,
       @Nullable ProcessWrapper processWrapper,
       StarlarkSemantics starlarkSemantics,
+      String identifyingStringForLogging,
       @Nullable RepositoryRemoteExecutor remoteExecutor,
       boolean allowWatchingPathsOutsideWorkspace) {
     this.workingDirectory = workingDirectory;
@@ -173,22 +177,55 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     this.timeoutScaling = timeoutScaling;
     this.processWrapper = processWrapper;
     this.starlarkSemantics = starlarkSemantics;
+    this.identifyingStringForLogging = identifyingStringForLogging;
     this.remoteExecutor = remoteExecutor;
     this.asyncTasks = new ArrayList<>();
     this.allowWatchingPathsOutsideWorkspace = allowWatchingPathsOutsideWorkspace;
+    this.executorService =
+        Executors.newThreadPerTaskExecutor(
+            Thread.ofVirtual()
+                .name("downloads[" + identifyingStringForLogging + "]-", 0)
+                .factory());
   }
 
-  public boolean ensureNoPendingAsyncTasks(EventHandler eventHandler, boolean forSuccessfulFetch) {
+  /**
+   * Mark the evaluation using this context as otherwise successful. This is used to determine how
+   * to clean up resources in {@link #close()}.
+   */
+  public final void markSuccessful() {
+    wasSuccessful = true;
+  }
+
+  @Override
+  public final void close() throws EvalException, IOException {
+    // Cancel all pending async tasks.
+    boolean hadPendingItems = cancelPendingAsyncTasks();
+    // Wait for all (cancelled) async tasks to complete before cleaning up the working directory.
+    // This is necessary because downloads may still be in progress and could end up writing to the
+    // working directory during deletion, which would cause an error.
+    executorService.close();
+    if (shouldDeleteWorkingDirectoryOnClose(wasSuccessful)) {
+      workingDirectory.deleteTree();
+    }
+    if (hadPendingItems && wasSuccessful) {
+      throw Starlark.errorf(
+          "Pending asynchronous work after %s finished execution", identifyingStringForLogging);
+    }
+  }
+
+  private boolean cancelPendingAsyncTasks() {
     boolean hadPendingItems = false;
     for (AsyncTask task : asyncTasks) {
       if (!task.cancel()) {
         hadPendingItems = true;
-        if (forSuccessfulFetch) {
-          eventHandler.handle(
-              Event.error(
-                  task.getLocation(),
-                  "Work pending after repository rule finished execution: "
-                      + task.getDescription()));
+        if (wasSuccessful) {
+          env.getListener()
+              .handle(
+                  Event.error(
+                      task.getLocation(),
+                      String.format(
+                          "Work pending after %s finished execution: %s",
+                          identifyingStringForLogging, task.getDescription())));
         }
       }
     }
@@ -198,12 +235,12 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
   // There is no unregister(). We don't have that many futures in each repository and it just
   // introduces the failure mode of erroneously unregistering async work that's not done.
-  protected void registerAsyncTask(AsyncTask task) {
+  protected final void registerAsyncTask(AsyncTask task) {
     asyncTasks.add(task);
   }
 
-  /** A string that can be used to identify this context object. Used for logging purposes. */
-  protected abstract String getIdentifyingStringForLogging();
+  @ForOverride
+  protected abstract boolean shouldDeleteWorkingDirectoryOnClose(boolean successful);
 
   /** Returns the file digests used by this context object so far. */
   public ImmutableMap<RepoRecordedInput.File, String> getRecordedFileInputs() {
@@ -214,9 +251,12 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     return ImmutableMap.copyOf(recordedDirentsInputs);
   }
 
-  /** Returns set of environment variable keys encountered so far. */
-  public ImmutableSet<String> getAccumulatedEnvKeys() {
-    return ImmutableSet.copyOf(accumulatedEnvKeys);
+  public ImmutableMap<RepoRecordedInput.EnvVar, Optional<String>> getRecordedEnvVarInputs()
+      throws InterruptedException {
+    // getEnvVarValues doesn't return null since the Skyframe dependencies have already been
+    // established by getenv calls.
+    return RepoRecordedInput.EnvVar.wrap(
+        ImmutableSortedMap.copyOf(RepositoryFunction.getEnvVarValues(env, accumulatedEnvKeys)));
   }
 
   protected void checkInOutputDirectory(String operation, StarlarkPath path)
@@ -353,8 +393,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       Object urlOrList, boolean ensureNonEmpty, boolean checksumGiven)
       throws RepositoryFunctionException, EvalException {
     ImmutableList<String> urlStrings;
-    if (urlOrList instanceof String) {
-      urlStrings = ImmutableList.of((String) urlOrList);
+    if (urlOrList instanceof String string) {
+      urlStrings = ImmutableList.of(string);
     } else {
       urlStrings = checkAllUrls((Iterable<?>) urlOrList);
     }
@@ -414,7 +454,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
         warnAboutChecksumError(urls, e.getMessage());
         throw new RepositoryFunctionException(
             Starlark.errorf(
-                "Checksum error in %s: %s", getIdentifyingStringForLogging(), e.getMessage()),
+                "Checksum error in %s: %s", identifyingStringForLogging, e.getMessage()),
             Transience.PERSISTENT);
       }
     }
@@ -428,8 +468,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     } catch (Checksum.InvalidChecksumException e) {
       warnAboutChecksumError(urls, e.getMessage());
       throw new RepositoryFunctionException(
-          Starlark.errorf(
-              "Checksum error in %s: %s", getIdentifyingStringForLogging(), e.getMessage()),
+          Starlark.errorf("Checksum error in %s: %s", identifyingStringForLogging, e.getMessage()),
           Transience.PERSISTENT);
     }
   }
@@ -511,25 +550,16 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
     @Override
     public boolean cancel() {
-      if (!future.cancel(true)) {
-        return true;
-      }
-
-      try {
-        future.get();
-        return false;
-      } catch (InterruptedException | ExecutionException | CancellationException e) {
-        // Ignore. The only thing we care about is that there is no async work in progress after
-        // this point. Any error reporting should have been done before.
-        return false;
-      }
+      return !future.cancel(true);
     }
 
     @StarlarkMethod(
         name = "wait",
         doc =
-            "Blocks until the completion of the download and returns or throws as blocking "
-                + " download() call would")
+            """
+            Blocks until the completion of the download and returns or throws as blocking \
+            <code>download()</code> call would.
+            """)
     public StructImpl await() throws InterruptedException, RepositoryFunctionException {
       return completeDownload(this);
     }
@@ -571,10 +601,15 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   @StarlarkMethod(
       name = "download",
       doc =
-          "Downloads a file to the output path for the provided url and returns a struct"
-              + " containing <code>success</code>, a flag which is <code>true</code> if the"
-              + " download completed successfully, and if successful, a hash of the file"
-              + " with the fields <code>sha256</code> and <code>integrity</code>.",
+          """
+Downloads a file to the output path for the provided url and returns a struct \
+containing <code>success</code>, a flag which is <code>true</code> if the \
+download completed successfully, and if successful, a hash of the file \
+with the fields <code>sha256</code> and <code>integrity</code>. \
+When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
+<code>canonical_id</code> is highly recommended. e.g. \
+<a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
+""",
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -600,30 +635,40 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             defaultValue = "''",
             named = true,
             doc =
-                "the expected SHA-256 hash of the file downloaded."
-                    + " This must match the SHA-256 hash of the file downloaded. It is a security"
-                    + " risk to omit the SHA-256 as remote files can change. At best omitting this"
-                    + " field will make your build non-hermetic. It is optional to make development"
-                    + " easier but should be set before shipping."),
+                """
+                The expected SHA-256 hash of the file downloaded. \
+                This must match the SHA-256 hash of the file downloaded. It is a security \
+                risk to omit the SHA-256 as remote files can change. At best omitting this \
+                field will make your build non-hermetic. It is optional to make development \
+                easier but should be set before shipping. \
+                If provided, the repository cache will first be checked for a file with the \
+                given hash; a download will only be attempted if the file was not found in \
+                the cache. After a successful download, the file will be added to the cache.
+                """),
         @Param(
             name = "executable",
             defaultValue = "False",
             named = true,
-            doc = "set the executable flag on the created file, false by default."),
+            doc = "Set the executable flag on the created file, false by default."),
         @Param(
             name = "allow_fail",
             defaultValue = "False",
             named = true,
             doc =
-                "If set, indicate the error in the return value"
-                    + " instead of raising an error for failed downloads"),
+                """
+                If set, indicate the error in the return value \
+                instead of raising an error for failed downloads.
+                """),
         @Param(
             name = "canonical_id",
             defaultValue = "''",
             named = true,
             doc =
-                "If set, restrict cache hits to those cases where the file was added to the cache"
-                    + " with the same canonical id"),
+                """
+                If set, restrict cache hits to those cases where the file was added to the cache \
+                with the same canonical id. By default caching uses the checksum \
+                (<code>sha256</code> or <code>integrity</code>).
+                """),
         @Param(
             name = "auth",
             defaultValue = "{}",
@@ -640,21 +685,28 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             named = true,
             positional = false,
             doc =
-                "Expected checksum of the file downloaded, in Subresource Integrity format."
-                    + " This must match the checksum of the file downloaded. It is a security"
-                    + " risk to omit the checksum as remote files can change. At best omitting this"
-                    + " field will make your build non-hermetic. It is optional to make development"
-                    + " easier but should be set before shipping."),
+                """
+                Expected checksum of the file downloaded, in Subresource Integrity format. \
+                This must match the checksum of the file downloaded. It is a security \
+                risk to omit the checksum as remote files can change. At best omitting this \
+                field will make your build non-hermetic. It is optional to make development \
+                easier but should be set before shipping. \
+                If provided, the repository cache will first be checked for a file with the \
+                given checksum; a download will only be attempted if the file was not found in \
+                the cache. After a successful download, the file will be added to the cache.
+                """),
         @Param(
             name = "block",
             defaultValue = "True",
             named = true,
             positional = false,
             doc =
-                "If set to false, the call returns immediately and instead of the regular return"
-                    + " value, it returns a token with one single method, wait(), which blocks"
-                    + " until the download is finished and returns the usual return value or"
-                    + " throws as usual.")
+                """
+                If set to false, the call returns immediately and instead of the regular return \
+                value, it returns a token with one single method, wait(), which blocks \
+                until the download is finished and returns the usual return value or \
+                throws as usual.
+                """)
       })
   public Object download(
       Object url,
@@ -698,7 +750,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             sha256,
             integrity,
             executable,
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
     env.getListener().post(w);
 
@@ -719,6 +771,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     if (download == null) {
       Future<Path> downloadFuture =
           downloadManager.startDownload(
+              executorService,
               urls,
               headers,
               authHeaders,
@@ -728,7 +781,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               outputPath.getPath(),
               env.getListener(),
               envVariables,
-              getIdentifyingStringForLogging());
+              identifyingStringForLogging);
       download =
           new PendingDownload(
               executable,
@@ -750,10 +803,15 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   @StarlarkMethod(
       name = "download_and_extract",
       doc =
-          "Downloads a file to the output path for the provided url, extracts it, and returns a"
-              + " struct containing <code>success</code>, a flag which is <code>true</code> if the"
-              + " download completed successfully, and if successful, a hash of the file with the"
-              + " fields <code>sha256</code> and <code>integrity</code>.",
+          """
+Downloads a file to the output path for the provided url, extracts it, and returns a \
+struct containing <code>success</code>, a flag which is <code>true</code> if the \
+download completed successfully, and if successful, a hash of the file with the \
+fields <code>sha256</code> and <code>integrity</code>. \
+When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
+<code>canonical_id</code> is highly recommended. e.g. \
+<a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
+""",
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -774,56 +832,69 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             defaultValue = "''",
             named = true,
             doc =
-                "path to the directory where the archive will be unpacked,"
-                    + " relative to the repository directory."),
+                """
+                Path to the directory where the archive will be unpacked, \
+                relative to the repository directory.
+                """),
         @Param(
             name = "sha256",
             defaultValue = "''",
             named = true,
             doc =
-                "the expected SHA-256 hash of the file downloaded."
-                    + " This must match the SHA-256 hash of the file downloaded. It is a security"
-                    + " risk to omit the SHA-256 as remote files can change. At best omitting this"
-                    + " field will make your build non-hermetic. It is optional to make development"
-                    + " easier but should be set before shipping."
-                    + " If provided, the repository cache will first be checked for a file with the"
-                    + " given hash; a download will only be attempted if the file was not found in"
-                    + " the cache. After a successful download, the file will be added to the"
-                    + " cache."),
+                """
+                The expected SHA-256 hash of the file downloaded. \
+                This must match the SHA-256 hash of the file downloaded. It is a security \
+                risk to omit the SHA-256 as remote files can change. At best omitting this \
+                field will make your build non-hermetic. It is optional to make development \
+                easier but should be set before shipping. \
+                If provided, the repository cache will first be checked for a file with the \
+                given hash; a download will only be attempted if the file was not found in \
+                the cache. After a successful download, the file will be added to the \
+                cache.
+                """),
         @Param(
             name = "type",
             defaultValue = "''",
             named = true,
             doc =
-                "the archive type of the downloaded file. By default, the archive type is"
-                    + " determined from the file extension of the URL. If the file has no"
-                    + " extension, you can explicitly specify either \"zip\", \"jar\", \"war\","
-                    + " \"aar\", \"tar\", \"tar.gz\", \"tgz\", \"tar.xz\", \"txz\", \".tar.zst\","
-                    + " \".tzst\", \"tar.bz2\", \".tbz\", \".ar\", or \".deb\" here."),
+                """
+                The archive type of the downloaded file. By default, the archive type is \
+                determined from the file extension of the URL. If the file has no \
+                extension, you can explicitly specify either "zip", "jar", "war", \
+                "aar", "tar", "tar.gz", "tgz", "tar.xz", "txz", ".tar.zst", \
+                ".tzst", "tar.bz2", ".tbz", ".ar", or ".deb" here.
+                """),
         @Param(
             name = "stripPrefix",
             defaultValue = "''",
             named = true,
             doc =
-                "a directory prefix to strip from the extracted files."
-                    + "\nMany archives contain a top-level directory that contains all files in the"
-                    + " archive. Instead of needing to specify this prefix over and over in the"
-                    + " <code>build_file</code>, this field can be used to strip it from extracted"
-                    + " files."),
+                """
+                A directory prefix to strip from the extracted files.
+                Many archives contain a top-level directory that contains all files in the \
+                archive. Instead of needing to specify this prefix over and over in the \
+                <code>build_file</code>, this field can be used to strip it from extracted \
+                files.
+                """),
         @Param(
             name = "allow_fail",
             defaultValue = "False",
             named = true,
             doc =
-                "If set, indicate the error in the return value"
-                    + " instead of raising an error for failed downloads"),
+                """
+                If set, indicate the error in the return value \
+                instead of raising an error for failed downloads.
+                """),
         @Param(
             name = "canonical_id",
             defaultValue = "''",
             named = true,
             doc =
-                "If set, restrict cache hits to those cases where the file was added to the cache"
-                    + " with the same canonical id"),
+                """
+                If set, restrict cache hits to those cases where the file was added to the cache \
+                with the same canonical id. By default caching uses the checksum"
+                (<code>sha256</code> or <code>integrity</code>).
+                """),
         @Param(
             name = "auth",
             defaultValue = "{}",
@@ -840,22 +911,29 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             named = true,
             positional = false,
             doc =
-                "Expected checksum of the file downloaded, in Subresource Integrity format."
-                    + " This must match the checksum of the file downloaded. It is a security"
-                    + " risk to omit the checksum as remote files can change. At best omitting this"
-                    + " field will make your build non-hermetic. It is optional to make development"
-                    + " easier but should be set before shipping."),
+                """
+                Expected checksum of the file downloaded, in Subresource Integrity format. \
+                This must match the checksum of the file downloaded. It is a security \
+                risk to omit the checksum as remote files can change. At best omitting this \
+                field will make your build non-hermetic. It is optional to make development \
+                easier but should be set before shipping. \
+                If provided, the repository cache will first be checked for a file with the \
+                given checksum; a download will only be attempted if the file was not found in \
+                the cache. After a successful download, the file will be added to the cache. \
+                """),
         @Param(
             name = "rename_files",
             defaultValue = "{}",
             named = true,
             positional = false,
             doc =
-                "An optional dict specifying files to rename during the extraction. Archive entries"
-                    + " with names exactly matching a key will be renamed to the value, prior to"
-                    + " any directory prefix adjustment. This can be used to extract archives that"
-                    + " contain non-Unicode filenames, or which have files that would extract to"
-                    + " the same path on case-insensitive filesystems."),
+                """
+An optional dict specifying files to rename during the extraction. Archive entries \
+with names exactly matching a key will be renamed to the value, prior to \
+any directory prefix adjustment. This can be used to extract archives that \
+contain non-Unicode filenames, or which have files that would extract to \
+the same path on case-insensitive filesystems.
+"""),
       })
   public StructImpl downloadAndExtract(
       Object url,
@@ -902,7 +980,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             type,
             stripPrefix,
             renameFilesMap,
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
 
     StarlarkPath outputPath = getPath("download_and_extract()", output);
@@ -920,6 +998,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
       Future<Path> pendingDownload =
           downloadManager.startDownload(
+              executorService,
               urls,
               headers,
               authHeaders,
@@ -929,7 +1008,19 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               downloadDirectory,
               env.getListener(),
               envVariables,
-              getIdentifyingStringForLogging());
+              identifyingStringForLogging);
+      // Ensure that the download is cancelled if the repo rule is restarted as it runs in its own
+      // executor.
+      PendingDownload pendingTask =
+          new PendingDownload(
+              /* executable= */ false,
+              allowFail,
+              outputPath,
+              checksum,
+              checksumValidation,
+              pendingDownload,
+              thread.getCallerLocation());
+      registerAsyncTask(pendingTask);
       downloadedPath = downloadManager.finalizeDownload(pendingDownload);
     } catch (IOException e) {
       env.getListener().post(w);
@@ -945,14 +1036,14 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     }
     env.getListener().post(w);
     try (SilentCloseable c =
-        Profiler.instance().profile("extracting: " + getIdentifyingStringForLogging())) {
+        Profiler.instance().profile("extracting: " + identifyingStringForLogging)) {
       env.getListener()
           .post(
               new ExtractProgress(
                   outputPath.getPath().toString(), "Extracting " + downloadedPath.getBaseName()));
       DecompressorValue.decompress(
           DecompressorDescriptor.builder()
-              .setContext(getIdentifyingStringForLogging())
+              .setContext(identifyingStringForLogging)
               .setArchivePath(downloadedPath)
               .setDestinationPath(outputPath.getPath())
               .setPrefix(stripPrefix)
@@ -977,6 +1068,118 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
           Transience.TRANSIENT);
     }
     return downloadResult;
+  }
+
+  @StarlarkMethod(
+      name = "extract",
+      doc = "Extract an archive to the repository directory.",
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = "archive",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            named = true,
+            doc =
+                "path to the archive that will be unpacked,"
+                    + " relative to the repository directory."),
+        @Param(
+            name = "output",
+            allowedTypes = {
+              @ParamType(type = String.class),
+              @ParamType(type = Label.class),
+              @ParamType(type = StarlarkPath.class)
+            },
+            defaultValue = "''",
+            named = true,
+            doc =
+                "path to the directory where the archive will be unpacked,"
+                    + " relative to the repository directory."),
+        @Param(
+            name = "stripPrefix",
+            defaultValue = "''",
+            named = true,
+            doc =
+                "a directory prefix to strip from the extracted files."
+                    + "\nMany archives contain a top-level directory that contains all files in the"
+                    + " archive. Instead of needing to specify this prefix over and over in the"
+                    + " <code>build_file</code>, this field can be used to strip it from extracted"
+                    + " files."),
+        @Param(
+            name = "rename_files",
+            defaultValue = "{}",
+            named = true,
+            positional = false,
+            doc =
+                "An optional dict specifying files to rename during the extraction. Archive entries"
+                    + " with names exactly matching a key will be renamed to the value, prior to"
+                    + " any directory prefix adjustment. This can be used to extract archives that"
+                    + " contain non-Unicode filenames, or which have files that would extract to"
+                    + " the same path on case-insensitive filesystems."),
+        @Param(
+            name = "watch_archive",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                "whether to <a href=\"#watch\">watch</a> the archive file. Can be the string "
+                    + "'yes', 'no', or 'auto'. Passing 'yes' is equivalent to immediately invoking "
+                    + "the <a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does "
+                    + "not attempt to watch the file; passing 'auto' will only attempt to watch "
+                    + "the file when it is legal to do so (see <code>watch()</code> docs for more "
+                    + "information."),
+      })
+  public void extract(
+      Object archive,
+      Object output,
+      String stripPrefix,
+      Dict<?, ?> renameFiles, // <String, String> expected
+      String watchArchive,
+      StarlarkThread thread)
+      throws RepositoryFunctionException, InterruptedException, EvalException {
+    StarlarkPath archivePath = getPath("extract()", archive);
+
+    if (!archivePath.exists()) {
+      throw new RepositoryFunctionException(
+          Starlark.errorf("Archive path '%s' does not exist.", archivePath), Transience.TRANSIENT);
+    }
+    if (archivePath.isDir()) {
+      throw Starlark.errorf("attempting to extract a directory: %s", archivePath);
+    }
+    maybeWatch(archivePath, ShouldWatch.fromString(watchArchive));
+
+    StarlarkPath outputPath = getPath("extract()", output);
+    checkInOutputDirectory("write", outputPath);
+
+    Map<String, String> renameFilesMap =
+        Dict.cast(renameFiles, String.class, String.class, "rename_files");
+
+    WorkspaceRuleEvent w =
+        WorkspaceRuleEvent.newExtractEvent(
+            archive.toString(),
+            output.toString(),
+            stripPrefix,
+            renameFilesMap,
+            identifyingStringForLogging,
+            thread.getCallerLocation());
+    env.getListener().post(w);
+
+    env.getListener()
+        .post(
+            new ExtractProgress(
+                outputPath.getPath().toString(), "Extracting " + archivePath.getBasename()));
+    DecompressorValue.decompress(
+        DecompressorDescriptor.builder()
+            .setContext(identifyingStringForLogging)
+            .setArchivePath(archivePath.getPath())
+            .setDestinationPath(outputPath.getPath())
+            .setPrefix(stripPrefix)
+            .setRenameFiles(renameFilesMap)
+            .build());
+    env.getListener().post(new ExtractProgress(outputPath.getPath().toString()));
   }
 
   /** A progress event that reports about archive extraction. */
@@ -1025,24 +1228,26 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               @ParamType(type = Label.class),
               @ParamType(type = StarlarkPath.class)
             },
-            doc = "path of the file to create, relative to the repository directory."),
+            doc = "Path of the file to create, relative to the repository directory."),
         @Param(
             name = "content",
             named = true,
             defaultValue = "''",
-            doc = "the content of the file to create, empty by default."),
+            doc = "The content of the file to create, empty by default."),
         @Param(
             name = "executable",
             named = true,
             defaultValue = "True",
-            doc = "set the executable flag on the created file, true by default."),
+            doc = "Set the executable flag on the created file, true by default."),
         @Param(
             name = "legacy_utf8",
             named = true,
             defaultValue = "True",
             doc =
-                "encode file content to UTF-8, true by default. Future versions will change"
-                    + " the default and remove this parameter."),
+                """
+                Encode file content to UTF-8, true by default. Future versions will change \
+                the default and remove this parameter.
+                """),
       })
   public void createFile(
       Object path, String content, Boolean executable, Boolean legacyUtf8, StarlarkThread thread)
@@ -1059,7 +1264,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             p.toString(),
             content,
             executable,
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
     env.getListener().post(w);
     try {
@@ -1089,18 +1294,20 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   @StarlarkMethod(
       name = "getenv",
       doc =
-          "Returns the value of an environment variable <code>name</code> as a string if exists, "
-              + "or <code>default</code> if it doesn't."
-              + "<p>When building incrementally, any change to the value of the variable named by "
-              + "<code>name</code> will cause this repository to be re-fetched.",
+          """
+          Returns the value of an environment variable <code>name</code> as a string if exists, \
+          or <code>default</code> if it doesn't. \
+          <p>When building incrementally, any change to the value of the variable named by \
+          <code>name</code> will cause this repository to be re-fetched.
+          """,
       parameters = {
         @Param(
             name = "name",
-            doc = "name of desired environment variable",
+            doc = "Name of desired environment variable.",
             allowedTypes = {@ParamType(type = String.class)}),
         @Param(
             name = "default",
-            doc = "Default value to return if `name` is not found",
+            doc = "Default value to return if <code>name</code> is not found.",
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "None")
       },
@@ -1124,12 +1331,14 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   @StarlarkMethod(
       name = "path",
       doc =
-          "Returns a path from a string, label or path. If the path is relative, it will resolve "
-              + "relative to the repository directory. If the path is a label, it will resolve to "
-              + "the path of the corresponding file. Note that remote repositories are executed "
-              + "during the analysis phase and thus cannot depends on a target result (the "
-              + "label should point to a non-generated file). If path is a path, it will return "
-              + "that path as is.",
+          """
+          Returns a path from a string, label or path. If the path is relative, it will resolve \
+          relative to the repository directory. If the path is a label, it will resolve to \
+          the path of the corresponding file. Note that remote repositories are executed \
+          during the analysis phase and thus cannot depends on a target result (the \
+          label should point to a non-generated file). If path is a path, it will return \
+          that path as is.
+          """,
       parameters = {
         @Param(
             name = "path",
@@ -1138,7 +1347,9 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               @ParamType(type = Label.class),
               @ParamType(type = StarlarkPath.class)
             },
-            doc = "string, label or path from which to create a path from")
+            doc =
+                "<code>string</code>, <code>Label</code> or <code>path</code> from which to create"
+                    + " a path from.")
       })
   public StarlarkPath path(Object path) throws EvalException, InterruptedException {
     return getPath("path()", path);
@@ -1148,10 +1359,10 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
       throws EvalException, InterruptedException {
     if (path instanceof String) {
       return new StarlarkPath(this, workingDirectory.getRelative(path.toString()));
-    } else if (path instanceof Label) {
-      return getPathFromLabel((Label) path);
-    } else if (path instanceof StarlarkPath) {
-      return (StarlarkPath) path;
+    } else if (path instanceof Label label) {
+      return getPathFromLabel(label);
+    } else if (path instanceof StarlarkPath starlarkPath) {
+      return starlarkPath;
     } else {
       // This can never happen because we check it in the Starlark interpreter.
       throw new IllegalArgumentException("expected string or label for path");
@@ -1170,26 +1381,28 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               @ParamType(type = Label.class),
               @ParamType(type = StarlarkPath.class)
             },
-            doc = "path of the file to read from."),
+            doc = "Path of the file to read from."),
         @Param(
             name = "watch",
             defaultValue = "'auto'",
             positional = false,
             named = true,
             doc =
-                "whether to <a href=\"#watch\">watch</a> the file. Can be the string 'yes', 'no', "
-                    + "or 'auto'. Passing 'yes' is equivalent to immediately invoking the "
-                    + "<a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does not "
-                    + "attempt to watch the file; passing 'auto' will only attempt to watch the "
-                    + "file when it is legal to do so (see <code>watch()</code> docs for more "
-                    + "information.")
+                """
+                Whether to <a href="#watch">watch</a> the file. Can be the string 'yes', 'no', \
+                or 'auto'. Passing 'yes' is equivalent to immediately invoking the \
+                <a href="#watch"><code>watch()</code></a> method; passing 'no' does not \
+                attempt to watch the file; passing 'auto' will only attempt to watch the \
+                file when it is legal to do so (see <code>watch()</code> docs for more \
+                information.
+                """)
       })
   public String readFile(Object path, String watch, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
     StarlarkPath p = getPath("read()", path);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newReadEvent(
-            p.toString(), getIdentifyingStringForLogging(), thread.getCallerLocation());
+            p.toString(), identifyingStringForLogging, thread.getCallerLocation());
     env.getListener().post(w);
     maybeWatch(p, ShouldWatch.fromString(watch));
     if (p.isDir()) {
@@ -1258,17 +1471,14 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     AUTO;
 
     static ShouldWatch fromString(String s) throws EvalException {
-      switch (s) {
-        case "yes":
-          return YES;
-        case "no":
-          return NO;
-        case "auto":
-          return AUTO;
-        default:
-          throw Starlark.errorf(
-              "bad value for 'watch' parameter; want 'yes', 'no', or 'auto', got %s", s);
-      }
+      return switch (s) {
+        case "yes" -> YES;
+        case "no" -> NO;
+        case "auto" -> AUTO;
+        default ->
+            throw Starlark.errorf(
+                "bad value for 'watch' parameter; want 'yes', 'no', or 'auto', got %s", s);
+      };
     }
   }
 
@@ -1279,16 +1489,17 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     if (repoCacheFriendlyPath == null) {
       return;
     }
+    var recordedInput = new RepoRecordedInput.File(repoCacheFriendlyPath);
+    var skyKey = recordedInput.getSkyKey(directories);
     try {
-      var recordedInput = new RepoRecordedInput.File(repoCacheFriendlyPath);
-      FileValue fileValue =
-          (FileValue) env.getValueOrThrow(recordedInput.getSkyKey(directories), IOException.class);
+      FileValue fileValue = (FileValue) env.getValueOrThrow(skyKey, IOException.class);
       if (fileValue == null) {
         throw new NeedsSkyframeRestartException();
       }
 
       recordedFileInputs.put(
-          recordedInput, RepoRecordedInput.File.fileValueToMarkerValue(fileValue));
+          recordedInput,
+          RepoRecordedInput.File.fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
     } catch (IOException e) {
       throw new RepositoryFunctionException(e, Transience.TRANSIENT);
     }
@@ -1315,18 +1526,20 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   @StarlarkMethod(
       name = "watch",
       doc =
-          "Tells Bazel to watch for changes to the given path, whether or not it exists, or "
-              + "whether it's a file or a directory. Any changes to the file or directory will "
-              + "invalidate this repository or module extension, and cause it to be refetched or "
-              + "re-evaluated next time.<p>\"Changes\" include changes to the contents of the file "
-              + "(if the path is a file); if the path was a file but is now a directory, or vice "
-              + "versa; and if the path starts or stops existing. Notably, this does <em>not</em> "
-              + "include changes to any files under the directory if the path is a directory. For "
-              + "that, use <a href=\"path.html#readdir\"><code>path.readdir()</code></a> "
-              + "instead.<p>Note that attempting to watch paths inside the repo currently being "
-              + "fetched, or inside the working directory of the current module extension, will "
-              + "result in an error. A module extension attempting to watch a path outside the "
-              + "current Bazel workspace will also result in an error.",
+          """
+          Tells Bazel to watch for changes to the given path, whether or not it exists, or \
+          whether it's a file or a directory. Any changes to the file or directory will \
+          invalidate this repository or module extension, and cause it to be refetched or \
+          re-evaluated next time.<p>"Changes" include changes to the contents of the file \
+          (if the path is a file); if the path was a file but is now a directory, or vice \
+          versa; and if the path starts or stops existing. Notably, this does <em>not</em> \
+          include changes to any files under the directory if the path is a directory. For \
+          that, use <a href="path.html#readdir"><code>path.readdir()</code></a> \
+          instead.<p>Note that attempting to watch paths inside the repo currently being \
+          fetched, or inside the working directory of the current module extension, will \
+          result in an error. A module extension attempting to watch a path outside the \
+          current Bazel workspace will also result in an error.
+          """,
       parameters = {
         @Param(
             name = "path",
@@ -1335,7 +1548,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
               @ParamType(type = Label.class),
               @ParamType(type = StarlarkPath.class)
             },
-            doc = "path of the file to watch."),
+            doc = "Path of the file to watch."),
       })
   public void watchForStarlark(Object path)
       throws RepositoryFunctionException, EvalException, InterruptedException {
@@ -1352,13 +1565,13 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
   @StarlarkMethod(
       name = "report_progress",
-      doc = "Updates the progress status for the fetching of this repository or module extension",
+      doc = "Updates the progress status for the fetching of this repository or module extension.",
       parameters = {
         @Param(
             name = "status",
             defaultValue = "''",
             allowedTypes = {@ParamType(type = String.class)},
-            doc = "string describing the current status of the fetch progress")
+            doc = "<code>string</code> describing the current status of the fetch progress.")
       })
   public void reportProgress(String status) {
     env.getListener()
@@ -1366,7 +1579,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             new FetchProgress() {
               @Override
               public String getResourceIdentifier() {
-                return getIdentifyingStringForLogging();
+                return identifyingStringForLogging;
               }
 
               @Override
@@ -1391,7 +1604,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
     // manually inspect the code where this context object is used if they wish to find the
     // offending ctx.os expression.
     WorkspaceRuleEvent w =
-        WorkspaceRuleEvent.newOsEvent(getIdentifyingStringForLogging(), Location.BUILTIN);
+        WorkspaceRuleEvent.newOsEvent(identifyingStringForLogging, Location.BUILTIN);
     env.getListener().post(w);
     return osObject;
   }
@@ -1526,28 +1739,32 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   @StarlarkMethod(
       name = "execute",
       doc =
-          "Executes the command given by the list of arguments. The execution time of the command"
-              + " is limited by <code>timeout</code> (in seconds, default 600 seconds). This method"
-              + " returns an <code>exec_result</code> structure containing the output of the"
-              + " command. The <code>environment</code> map can be used to override some"
-              + " environment variables to be passed to the process.",
+          """
+          Executes the command given by the list of arguments. The execution time of the command \
+          is limited by <code>timeout</code> (in seconds, default 600 seconds). This method \
+          returns an <code>exec_result</code> structure containing the output of the \
+          command. The <code>environment</code> map can be used to override some \
+          environment variables to be passed to the process.
+          """,
       useStarlarkThread = true,
       parameters = {
         @Param(
             name = "arguments",
             doc =
-                "List of arguments, the first element should be the path to the program to "
-                    + "execute."),
+                """
+                List of arguments, the first element should be the path to the program to \
+                execute.
+                """),
         @Param(
             name = "timeout",
             named = true,
             defaultValue = "600",
-            doc = "maximum duration of the command in seconds (default is 600 seconds)."),
+            doc = "Maximum duration of the command in seconds (default is 600 seconds)."),
         @Param(
             name = "environment",
             defaultValue = "{}",
             named = true,
-            doc = "force some environment variables to be set to be passed to the process."),
+            doc = "Force some environment variables to be set to be passed to the process."),
         @Param(
             name = "quiet",
             defaultValue = "True",
@@ -1558,8 +1775,11 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             defaultValue = "\"\"",
             named = true,
             doc =
-                "Working directory for command execution.\n"
-                    + "Can be relative to the repository root or absolute."),
+                """
+                Working directory for command execution.
+                Can be relative to the repository root or absolute.
+                The default is the repository root.
+                """),
       })
   public StarlarkExecutionResult execute(
       Sequence<?> arguments, // <String> or <StarlarkPath> or <Label> expected
@@ -1583,8 +1803,8 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
 
     List<String> args = new ArrayList<>(arguments.size());
     for (Object arg : arguments) {
-      if (arg instanceof Label) {
-        args.add(getPathFromLabel((Label) arg).toString());
+      if (arg instanceof Label label) {
+        args.add(getPathFromLabel(label).toString());
       } else {
         // String or StarlarkPath expected
         args.add(arg.toString());
@@ -1599,7 +1819,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
             forceEnvVariables,
             workingDirectory.getPathString(),
             quiet,
-            getIdentifyingStringForLogging(),
+            identifyingStringForLogging,
             thread.getCallerLocation());
     env.getListener().post(w);
     createDirectory(workingDirectory);
@@ -1638,8 +1858,10 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   @StarlarkMethod(
       name = "which",
       doc =
-          "Returns the path of the corresponding program or None "
-              + "if there is no such program in the path.",
+          """
+          Returns the <code>path</code> of the corresponding program or <code>None</code> \
+          if there is no such program in the path.
+          """,
       allowReturnNones = true,
       useStarlarkThread = true,
       parameters = {
@@ -1649,7 +1871,7 @@ public abstract class StarlarkBaseExternalContext implements StarlarkValue {
   public StarlarkPath which(String program, StarlarkThread thread) throws EvalException {
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newWhichEvent(
-            program, getIdentifyingStringForLogging(), thread.getCallerLocation());
+            program, identifyingStringForLogging, thread.getCallerLocation());
     env.getListener().post(w);
     if (program.contains("/") || program.contains("\\")) {
       throw Starlark.errorf(

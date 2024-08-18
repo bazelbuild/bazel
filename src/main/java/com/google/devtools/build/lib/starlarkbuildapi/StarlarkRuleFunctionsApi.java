@@ -19,7 +19,7 @@ import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.docgen.annot.StarlarkConstructor;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.starlarkbuildapi.StarlarkConfigApi.BuildSettingApi;
+import com.google.devtools.build.lib.starlarkbuildapi.config.StarlarkConfigApi.BuildSettingApi;
 import net.starlark.java.annot.Param;
 import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
@@ -60,7 +60,8 @@ public interface StarlarkRuleFunctionsApi {
   @StarlarkMethod(
       name = "provider",
       doc =
-          "Defines a provider symbol. The provider may be instantiated by calling it, or used"
+          "Defines a provider symbol. The result of this function must be stored in a global value."
+              + " The provider may be instantiated by calling it, or used"
               + " directly as a key for retrieving an instance of that provider from a target."
               + " Example:<br><pre class=\"language-python\">" //
               + "MyInfo = provider()\n"
@@ -224,10 +225,28 @@ dictionary. There are also reserved attribute names that must not be included:
 site of the rule. Such attributes can be assigned a default value (as in
 <code>attr.label(default="//pkg:foo")</code>) to create an implicit dependency on a label.
 
+<p>Certain APIs are not available within symbolic macros. These include:
+<ul>
+  <li>package(), licenses()
+  <li>environment_group()
+  <li>glob(), subpackages()
+  <li>existing_rules(), existing_rule(),
+  <li>(for WORKSPACE threads) workspace(), register_toolchains(),
+      register_execution_platforms(), bind(), repository rule instantiation
+</ul>
+
 <p>To limit memory usage, there is a cap on the number of attributes that may be declared.
 """),
-        // TODO(#19922): Make good on the above threat of enforcing a cap on the number of
+        // TODO: #19922 - Make a concepts page for symbolic macros, migrate some details like the
+        // list of disallowed APIs to there.
+        // TODO: #19922 - Make good on the above threat of enforcing a cap on the number of
         // attributes.
+        @Param(
+            name = "finalizer",
+            positional = false,
+            named = true,
+            defaultValue = "False",
+            doc = "Whether this macro is a finalizer."),
         @Param(
             name = "doc",
             positional = false,
@@ -243,7 +262,11 @@ site of the rule. Such attributes can be assigned a default value (as in
       },
       useStarlarkThread = true)
   StarlarkCallable macro(
-      StarlarkFunction implementation, Dict<?, ?> attrs, Object doc, StarlarkThread thread)
+      StarlarkFunction implementation,
+      Dict<?, ?> attrs,
+      boolean finalizer,
+      Object doc,
+      StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
@@ -522,8 +545,8 @@ site of the rule. Such attributes can be assigned a default value (as in
             doc =
                 "Experimental: the Stalark function initializing the attributes of the rule. "
                     + "<p>The function is called at load time for each instance of the rule. It's "
-                    + "called with <code>name</code> and the values of public attributes defined by"
-                    + "the rule (not with generic attributes, for example <code>tags</code>). "
+                    + "called with <code>name</code> and the values of public attributes defined "
+                    + "by the rule (not with generic attributes, for example <code>tags</code>). "
                     + "<p>It has to return a dictionary from the attribute names to the desired "
                     + "values. The attributes that are not returned are unaffected. Returning "
                     + "<code>None</code> as value results in using the default value specified in "
@@ -635,6 +658,14 @@ site of the rule. Such attributes can be assigned a default value (as in
                     + "single string <code>\"*\"</code> to propagate along all dependencies of a "
                     + "target."),
         @Param(
+            name = "toolchains_aspects",
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = Object.class)},
+            named = true,
+            defaultValue = "[]",
+            doc =
+                "Experimental: List of toolchain types. The aspect propagates to target"
+                    + " toolchains which match these toolchain types."),
+        @Param(
             name = "attrs",
             allowedTypes = {
               @ParamType(type = Dict.class),
@@ -730,9 +761,9 @@ site of the rule. Such attributes can be assigned a default value (as in
             named = true,
             defaultValue = "[]",
             doc =
-                "If set, the set of toolchains this rule requires. The list can contain String,"
+                "If set, the set of toolchains this aspect requires. The list can contain String,"
                     + " Label, or StarlarkToolchainTypeApi objects, in any combination. Toolchains"
-                    + " will be found by checking the current platform, and provided to the rule"
+                    + " will be found by checking the current platform, and provided to the aspect"
                     + " implementation via <code>ctx.toolchain</code>."),
         @Param(
             name = "incompatible_use_toolchain_transition",
@@ -803,6 +834,7 @@ site of the rule. Such attributes can be assigned a default value (as in
   StarlarkAspectApi aspect(
       StarlarkFunction implementation,
       Sequence<?> attributeAspects,
+      Sequence<?> toolchainsAspects,
       Dict<?, ?> attrs,
       Sequence<?> requiredProvidersArg,
       Sequence<?> requiredAspectProvidersArg,

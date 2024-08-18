@@ -134,16 +134,15 @@ public final class FilesetManifest {
       Map<PathFragment, String> relativeLinks)
       throws ForbiddenRelativeSymlinkException {
     switch (relSymlinkBehavior) {
-      case ERROR:
-        throw new ForbiddenRelativeSymlinkException(artifact);
-      case RESOLVE:
-      case RESOLVE_FULLY:
+      case ERROR -> throw new ForbiddenRelativeSymlinkException(artifact);
+      case RESOLVE, RESOLVE_FULLY -> {
         if (!relativeLinks.containsKey(fullLocation)) { // Keep consistent behavior: no overwriting.
           relativeLinks.put(fullLocation, artifact);
         }
-        break;
-      case IGNORE:
-        break; // Do nothing.
+      }
+      case IGNORE -> {
+        // Do nothing.
+      }
     }
   }
 

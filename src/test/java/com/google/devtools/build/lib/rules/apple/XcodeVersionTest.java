@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.rules.apple;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -34,7 +36,7 @@ import org.junit.runners.JUnit4;
 public final class XcodeVersionTest extends BuildViewTestCase {
   private static final Provider.Key XCODE_VERSION_PROPERTIES_PROVIDER_KEY =
       new StarlarkProvider.Key(
-          Label.parseCanonicalUnchecked("@_builtins//:common/xcode/providers.bzl"),
+          keyForBuiltins(Label.parseCanonicalUnchecked("@_builtins//:common/xcode/providers.bzl")),
           "XcodeVersionPropertiesInfo");
 
   @Test
@@ -92,7 +94,8 @@ public final class XcodeVersionTest extends BuildViewTestCase {
     RuleConfiguredTarget starlarkTarget =
         (RuleConfiguredTarget) getConfiguredTarget("//examples/apple_starlark:my_target");
     Provider.Key key =
-        new StarlarkProvider.Key(Label.parseCanonical("//examples/rule:apple_rules.bzl"), "MyInfo");
+        new StarlarkProvider.Key(
+            keyForBuild(Label.parseCanonical("//examples/rule:apple_rules.bzl")), "MyInfo");
     StructImpl myInfo = (StructImpl) starlarkTarget.get(key);
     assertThat((String) myInfo.getValue("xcode_version")).isEqualTo("8");
     assertThat((String) myInfo.getValue("ios_version")).isEqualTo("9.0");

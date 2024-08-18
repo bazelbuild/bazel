@@ -112,6 +112,9 @@ For instructions for Windows, see [Build Bazel on Windows](#build-bazel-on-windo
     Alternatively you can run `bazel build //src:bazel --compilation_mode=opt`
     to yield a smaller binary but it's slower to build.
 
+    You can build with `--stamp --embed_label=X.Y.Z` flag to embed a Bazel
+    version for the binary so that `bazel --version` outputs the given version.
+
 4.  The output will be at `bazel-bin/src/bazel-dev` (or `bazel-bin/src/bazel`).
 
 ### Step 4b: Build Bazel on Windows {:#build-bazel-on-windows}
@@ -134,10 +137,13 @@ For instructions for Unix-like systems, see
 
 3.  Build Bazel from source:
 
-        bazel build //src:bazel-dev.exe
+    bazel build //src:bazel-dev.exe
 
     Alternatively you can run `bazel build //src:bazel.exe
     --compilation_mode=opt` to yield a smaller binary but it's slower to build.
+
+    You can build with `--stamp --embed_label=X.Y.Z` flag to embed a Bazel
+    version for the binary so that `bazel --version` outputs the given version.
 
 4.  The output will be at `bazel-bin\src\bazel-dev.exe` (or
     `bazel-bin\src\bazel.exe`).

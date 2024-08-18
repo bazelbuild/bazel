@@ -16,11 +16,7 @@ package com.google.devtools.build.lib.starlarkbuildapi.cpp;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
-import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
-import net.starlark.java.annot.StarlarkMethod;
-import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /**
@@ -31,20 +27,10 @@ import net.starlark.java.eval.StarlarkValue;
  *
  * <p>See javadoc for {@link com.google.devtools.build.lib.rules.cpp.CcModule}.
  */
+
+// TODO(blaze-team) Remove this interface
 @StarlarkBuiltin(
     name = "CcLtoBackendArtifacts",
     category = DocCategory.TOP_LEVEL_MODULE,
     documented = false)
-public interface LtoBackendArtifactsApi<FileT extends FileApi> extends StarlarkValue {
-
-  @StarlarkMethod(name = "object_file", documented = false, useStarlarkThread = true)
-  FileT getObjectFileForStarlark(StarlarkThread thread) throws EvalException;
-
-  @StarlarkMethod(
-      name = "dwo_file",
-      documented = false,
-      useStarlarkThread = true,
-      allowReturnNones = true)
-  @Nullable
-  FileT getDwoFileForStarlark(StarlarkThread thread) throws EvalException;
-}
+public interface LtoBackendArtifactsApi<FileT extends FileApi> extends StarlarkValue {}

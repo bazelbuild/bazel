@@ -133,7 +133,7 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
    * same configuration.
    *
    * @param root transition that was applied. Likely a {@link
-   *     com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition} so we
+   *     com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory} so we
    *     decompose and post-process all StarlarkTransitions out of whatever transition is passed
    *     here.
    * @param details a StarlarkBuildSettingsDetailsValue whose corresponding key was all the input
@@ -361,16 +361,12 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       StarlarkTransition transition, Settings settings) {
     ImmutableSet.Builder<Label> result = ImmutableSet.builder();
     switch (settings) {
-      case INPUTS:
-        addLabelIfRelevant(result, transition.getInputs());
-        break;
-      case OUTPUTS:
-        addLabelIfRelevant(result, transition.getOutputs());
-        break;
-      case INPUTS_AND_OUTPUTS:
+      case INPUTS -> addLabelIfRelevant(result, transition.getInputs());
+      case OUTPUTS -> addLabelIfRelevant(result, transition.getOutputs());
+      case INPUTS_AND_OUTPUTS -> {
         addLabelIfRelevant(result, transition.getInputs());
         addLabelIfRelevant(result, transition.getOutputs());
-        break;
+      }
     }
     return result.build();
   }
@@ -417,8 +413,8 @@ public abstract class StarlarkTransition implements ConfigurationTransition {
       extends ConfigurationTransition.Visitor<TransitionException> {
     @Override
     default void accept(ConfigurationTransition transition) throws TransitionException {
-      if (transition instanceof StarlarkTransition) {
-        this.accept((StarlarkTransition) transition);
+      if (transition instanceof StarlarkTransition starlarkTransition) {
+        this.accept(starlarkTransition);
       }
     }
 

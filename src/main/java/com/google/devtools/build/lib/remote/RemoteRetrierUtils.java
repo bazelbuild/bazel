@@ -22,10 +22,10 @@ import io.grpc.StatusRuntimeException;
 public final class RemoteRetrierUtils {
 
   public static boolean causedByStatus(Throwable e, Status.Code expected) {
-    if (e instanceof StatusRuntimeException) {
-      return ((StatusRuntimeException) e).getStatus().getCode() == expected;
-    } else if (e instanceof StatusException) {
-      return ((StatusException) e).getStatus().getCode() == expected;
+    if (e instanceof StatusRuntimeException statusRuntimeException) {
+      return statusRuntimeException.getStatus().getCode() == expected;
+    } else if (e instanceof StatusException statusException) {
+      return statusException.getStatus().getCode() == expected;
     } else if (e.getCause() != null) {
       return causedByStatus(e.getCause(), expected);
     }
@@ -33,8 +33,8 @@ public final class RemoteRetrierUtils {
   }
 
   public static boolean causedByExecTimeout(Throwable e) {
-    if (e instanceof ExecutionStatusException) {
-      return ((ExecutionStatusException) e).isExecutionTimeout();
+    if (e instanceof ExecutionStatusException executionStatusException) {
+      return executionStatusException.isExecutionTimeout();
     } else if (e.getCause() != null) {
       return causedByExecTimeout(e.getCause());
     }

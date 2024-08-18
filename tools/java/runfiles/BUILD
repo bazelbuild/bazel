@@ -40,15 +40,7 @@ java_library(
         "Util.java",
     ],
     visibility = [
-        "//src/main/java/com/google/devtools/build/skydoc:__pkg__",
-        "//src/test/java/com/google/devtools/build/skydoc:__pkg__",
+        "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker:__pkg__",
         "//tools/java/runfiles/testing:__pkg__",
     ],
-)
-
-java_library(
-    name = "runfiles_for_stardoc",
-    srcs = ["RunfilesForStardoc.java"],
-    visibility = ["//src/main/java/com/google/devtools/build/skydoc:__pkg__"],
-    deps = [":runfiles"],
 )

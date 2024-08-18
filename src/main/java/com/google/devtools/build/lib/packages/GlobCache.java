@@ -353,21 +353,17 @@ public class GlobCache {
 
     @Override
     public boolean shouldIncludePathInResult(Path path, boolean isDirectory) {
-      switch (globberOperation) {
-        case FILES_AND_DIRS:
-          return !isDirectory || !isSubPackage(path);
-        case SUBPACKAGES:
+      return switch (globberOperation) {
+        case FILES_AND_DIRS -> !isDirectory || !isSubPackage(path);
+        case SUBPACKAGES -> {
           // no files, or root pkg
           if (!isDirectory || path.equals(packageDirectory)) {
-            return false;
+            yield false;
           }
-          return isSubPackage(path);
-
-        case FILES:
-          return !isDirectory;
-      }
-      throw new IllegalStateException(
-          "Unexpected unhandled Globber.Operation enum value: " + globberOperation);
+          yield isSubPackage(path);
+        }
+        case FILES -> !isDirectory;
+      };
     }
   }
 }

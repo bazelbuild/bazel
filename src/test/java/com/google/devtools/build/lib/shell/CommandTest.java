@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.testutil.BlazeTestUtils;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -95,10 +96,27 @@ public class CommandTest {
   }
 
   @Test
-  public void testEnvironment() throws Exception {
-    Map<String, String> env = Collections.singletonMap("FOO", "BAR");
-    Command command = new Command(new String[] {"/bin/sh", "-c", "echo $FOO"}, env, null);
-    checkSuccess(command.execute(), "BAR\n");
+  public void testNonEmptyEnvironment() throws Exception {
+    ImmutableMap<String, String> env = ImmutableMap.of("FOO", "abc", "BAR", "def");
+    Command command = new Command(new String[] {"/bin/sh", "-c", "echo $FOO $BAR"}, env, null);
+    checkSuccess(command.execute(), "abc def\n");
+  }
+
+  @Test
+  public void testEmptyEnvironment() throws Exception {
+    // Check only that TZ was not inherited instead of verifying the entire environment.
+    assertThat(Strings.nullToEmpty(System.getenv("TZ"))).isNotEmpty();
+    Command command =
+        new Command(new String[] {"/bin/sh", "-c", "echo $TZ"}, ImmutableMap.of(), null);
+    checkSuccess(command.execute(), "\n");
+  }
+
+  @Test
+  public void testInheritedEnvironment() throws Exception {
+    // Check only that TZ was inherited instead of verifying the entire environment.
+    assertThat(Strings.nullToEmpty(System.getenv("TZ"))).isNotEmpty();
+    Command command = new Command(new String[] {"/bin/sh", "-c", "echo $TZ"}, null, null);
+    checkSuccess(command.execute(), System.getenv("TZ") + "\n");
   }
 
   @Test

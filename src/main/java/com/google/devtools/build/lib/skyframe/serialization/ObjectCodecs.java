@@ -90,6 +90,15 @@ public class ObjectCodecs {
   }
 
   @VisibleForTesting // private
+  public ObjectCodecs withCodecOverridesForTesting(ObjectCodec<?>... codecs) {
+    ObjectCodecRegistry.Builder registryBuilder = getCodecRegistry().getBuilder();
+    for (ObjectCodec<?> codec : codecs) {
+      registryBuilder.add(codec);
+    }
+    return new ObjectCodecs(registryBuilder.build(), getDependencies());
+  }
+
+  @VisibleForTesting // private
   public ImmutableDeserializationContext getDeserializationContextForTesting() {
     return deserializationContext;
   }
@@ -149,17 +158,28 @@ public class ObjectCodecs {
    * @param bufferSize size passed to {@link CodedOutputStream#newInstance}
    */
   public byte[] serializeMemoizedToBytes(
-      @Nullable Object subject, int outputCapacity, int bufferSize) throws SerializationException {
+      @Nullable Object subject,
+      int outputCapacity,
+      int bufferSize,
+      @Nullable ProfileCollector profileCollector)
+      throws SerializationException {
     return MemoizingSerializationContext.serializeToBytes(
-        getCodecRegistry(), getDependencies(), subject, outputCapacity, bufferSize);
+        getCodecRegistry(),
+        getDependencies(),
+        subject,
+        outputCapacity,
+        bufferSize,
+        profileCollector);
   }
 
   /** Serializes {@code subject} using a {@link SharedValueSerializationContext}. */
   public SerializationResult<ByteString> serializeMemoizedAndBlocking(
-      FingerprintValueService fingerprintValueService, Object subject)
+      FingerprintValueService fingerprintValueService,
+      Object subject,
+      @Nullable ProfileCollector profileCollector)
       throws SerializationException {
     return SharedValueSerializationContext.serializeToResult(
-        getCodecRegistry(), getDependencies(), fingerprintValueService, subject);
+        getCodecRegistry(), getDependencies(), fingerprintValueService, subject, profileCollector);
   }
 
   /**
@@ -169,14 +189,15 @@ public class ObjectCodecs {
    */
   public SerializationResult<ByteString> serializeMemoizedAndBlocking(
       FingerprintValueService fingerprintValueService,
-      Object subject,
-      ImmutableClassToInstanceMap<?> dependencyOverrides)
+      ImmutableClassToInstanceMap<?> dependencyOverrides,
+      Object subject)
       throws SerializationException {
     return SharedValueSerializationContext.serializeToResult(
         getCodecRegistry(),
         overrideDependencies(getDependencies(), dependencyOverrides),
         fingerprintValueService,
-        subject);
+        subject,
+        /* profileCollector= */ null);
   }
 
   public Object deserialize(byte[] data) throws SerializationException {
@@ -220,6 +241,20 @@ public class ObjectCodecs {
         data);
   }
 
+  /**
+   * Deserializes {@code data}, possibly with Skyframe lookups.
+   *
+   * <p>See comments at {@link SharedValueDeserializationContext#deserializeWithSkyframe} for
+   * possible return values.
+   */
+  @Nullable
+  public Object deserializeWithSkyframe(
+      FingerprintValueService fingerprintValueService, ByteString data)
+      throws SerializationException {
+    return SharedValueDeserializationContext.deserializeWithSkyframe(
+        getCodecRegistry(), getDependencies(), fingerprintValueService, data);
+  }
+
   static Object deserializeStreamFully(CodedInputStream codedIn, DeserializationContext context)
       throws SerializationException {
     // Allows access to buffer without copying (although this means buffer may be pinned in memory).
@@ -230,15 +265,21 @@ public class ObjectCodecs {
     } catch (IOException e) {
       throw new SerializationException("Failed to deserialize data", e);
     }
+    checkInputFullyConsumed(codedIn, result);
+    return result;
+  }
+
+  static void checkInputFullyConsumed(CodedInputStream codedIn, Object resultForDebugging)
+      throws SerializationException {
     try {
       if (!codedIn.isAtEnd()) {
         throw new SerializationException(
-            "input stream not exhausted after deserializing " + result);
+            "input stream not exhausted after deserializing " + resultForDebugging);
       }
     } catch (IOException e) {
-      throw new SerializationException("Error checking for end of stream with " + result, e);
+      throw new SerializationException(
+          "Error checking for end of stream with " + resultForDebugging, e);
     }
-    return result;
   }
 
   // It's awkward that values are read from `serializationContext` instead of
@@ -246,7 +287,8 @@ public class ObjectCodecs {
   // between these two, however, so introducing an extra layer of indirection to store a (codec
   // registry, dependencies) tuple doesn't appear to be worth it.
 
-  private ObjectCodecRegistry getCodecRegistry() {
+  @VisibleForTesting // private
+  public ObjectCodecRegistry getCodecRegistry() {
     return serializationContext.getCodecRegistry();
   }
 

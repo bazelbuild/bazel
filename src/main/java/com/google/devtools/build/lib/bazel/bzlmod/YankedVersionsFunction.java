@@ -27,8 +27,8 @@ import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
- * A simple SkyFunction that computes a {@link RepoSpec} for the given {@link InterimModule} by
- * fetching required information from its {@link Registry}.
+ * A simple SkyFunction that fetches the yanked versions for a given module from its {@link
+ * Registry}.
  */
 public class YankedVersionsFunction implements SkyFunction {
 
@@ -53,7 +53,8 @@ public class YankedVersionsFunction implements SkyFunction {
           .handle(
               Event.warn(
                   String.format(
-                      "Could not read metadata file for module %s: %s", key, e.getMessage())));
+                      "Could not read metadata file for module %s from registry %s: %s",
+                      key.getModuleName(), key.getRegistryUrl(), e.getMessage())));
       // This is failing open: If we can't read the metadata file, we allow yanked modules to be
       // fetched.
       return YankedVersionsValue.create(Optional.empty());

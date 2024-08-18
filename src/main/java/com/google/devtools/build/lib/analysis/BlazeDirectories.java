@@ -21,8 +21,8 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.util.StringCanonicalizer;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.Root;
 import javax.annotation.Nullable;
 
 /**
@@ -216,7 +216,7 @@ public final class BlazeDirectories {
 
   /** Returns the installed embedded binaries directory, under the shared installBase location. */
   public Path getEmbeddedBinariesRoot() {
-    return serverDirectories.getEmbeddedBinariesRoot();
+    return getInstallBase();
   }
 
   /**
@@ -251,10 +251,16 @@ public final class BlazeDirectories {
    * <p>For example: {@code "bazel-out"}.
    */
   public static String getRelativeOutputPath(String productName) {
-    return StringCanonicalizer.intern(productName + "-out");
+    return (productName + "-out").intern();
   }
 
   public String getProductName() {
     return productName;
+  }
+
+  /** Convenience method for {@link ServerDirectories#getVirtualSourceRoot}. */
+  @Nullable
+  public Root getVirtualSourceRoot() {
+    return serverDirectories.getVirtualSourceRoot();
   }
 }

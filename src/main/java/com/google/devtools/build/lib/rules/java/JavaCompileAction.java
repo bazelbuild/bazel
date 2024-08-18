@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.ActionResult;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.BaseSpawn;
 import com.google.devtools.build.lib.actions.CommandAction;
 import com.google.devtools.build.lib.actions.CommandLine;
@@ -61,6 +62,7 @@ import com.google.devtools.build.lib.actions.extra.ExtraActionInfo;
 import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -222,20 +224,26 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
-      @Nullable Artifact.ArtifactExpander artifactExpander,
+      @Nullable ArtifactExpander artifactExpander,
       Fingerprint fp)
       throws CommandLineExpansionException, InterruptedException {
     fp.addUUID(GUID);
     fp.addInt(classpathMode.ordinal());
-    executableLine.addToFingerprint(actionKeyContext, artifactExpander, fp);
-    flagLine.addToFingerprint(actionKeyContext, artifactExpander, fp);
+    CoreOptions.OutputPathsMode outputPathsMode = PathMappers.getOutputPathsMode(configuration);
+    executableLine.addToFingerprint(actionKeyContext, artifactExpander, outputPathsMode, fp);
+    flagLine.addToFingerprint(actionKeyContext, artifactExpander, outputPathsMode, fp);
     // As the classpath is no longer part of commandLines implicitly, we need to explicitly add
     // the transitive inputs to the key here.
     actionKeyContext.addNestedSetToFingerprint(fp, transitiveInputs);
     getEnvironment().addTo(fp);
     fp.addStringMap(executionInfo);
     PathMappers.addToFingerprint(
-        getMnemonic(), getExecutionInfo(), PathMappers.getOutputPathsMode(configuration), fp);
+        getMnemonic(),
+        getExecutionInfo(),
+        getAdditionalArtifactsForPathMapping(),
+        actionKeyContext,
+        outputPathsMode,
+        fp);
   }
 
   /**
@@ -249,18 +257,16 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       ActionExecutionContext actionExecutionContext, JavaCompileActionContext context)
       throws IOException {
     HashSet<String> direct = new HashSet<>();
-    for (Artifact directJar : directJars.toListNoMemoUpdate()) {
+    for (Artifact directJar : directJars.toList()) {
       direct.add(directJar.getExecPathString());
     }
-    for (Artifact depArtifact : dependencyArtifacts.toListNoMemoUpdate()) {
+    for (Artifact depArtifact : dependencyArtifacts.toList()) {
       for (Deps.Dependency dep :
           context.getDependencies(depArtifact, actionExecutionContext).getDependencyList()) {
         direct.add(dep.getPath());
       }
     }
-    // Memory Optimization.
-    // The exact NestedSet instance isn't expected to be traversed more than once.
-    ImmutableList<Artifact> transitiveCollection = transitiveInputs.toListNoMemoUpdate();
+    ImmutableList<Artifact> transitiveCollection = transitiveInputs.toList();
     ImmutableList<Artifact> reducedJars =
         ImmutableList.copyOf(
             Iterables.filter(
@@ -296,7 +302,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       boolean fallback)
       throws CommandLineExpansionException, InterruptedException {
     CustomCommandLine.Builder classpathLine = CustomCommandLine.builder();
-    PathMapper pathMapper = PathMappers.create(this, PathMappers.getOutputPathsMode(configuration));
+    PathMapper pathMapper =
+        PathMappers.create(
+            this, PathMappers.getOutputPathsMode(configuration), /* isStarlarkAction= */ false);
 
     if (fallback) {
       classpathLine.addExecPaths("--classpath", transitiveInputs);
@@ -339,7 +347,9 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   private JavaSpawn getFullSpawn(ActionExecutionContext actionExecutionContext)
       throws CommandLineExpansionException, InterruptedException {
-    PathMapper pathMapper = PathMappers.create(this, PathMappers.getOutputPathsMode(configuration));
+    PathMapper pathMapper =
+        PathMappers.create(
+            this, PathMappers.getOutputPathsMode(configuration), /* isStarlarkAction= */ false);
     CommandLines.ExpandedCommandLines expandedCommandLines =
         getCommandLines()
             .expand(

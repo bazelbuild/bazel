@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.starlarkbuildapi.config;
 
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.lib.analysis.config.transitions.StarlarkExposedRuleTransitionFactory;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ProviderApi;
 import net.starlark.java.annot.Param;
@@ -49,7 +48,7 @@ public interface ConfigStarlarkCommonApi extends StarlarkValue {
             named = false,
             doc = "string corresponding to rule attribute to read")
       })
-  StarlarkExposedRuleTransitionFactory createConfigFeatureFlagTransitionFactory(String attribute);
+  ConfigurationTransitionApi createConfigFeatureFlagTransitionFactory(String attribute);
 
   @StarlarkMethod(
       name = "toolchain_type",

@@ -15,12 +15,14 @@
 package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -29,6 +31,7 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -56,7 +59,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   protected void invalidatePackages() throws InterruptedException, AbruptExitException {
     // Repository shuffling breaks access to config-needed paths like //tools/jdk:toolchain and
     // these tests don't do anything interesting with configurations anyway. So exempt them.
-    invalidatePackages(/*alsoConfigs=*/ false);
+    invalidatePackages(/* alsoConfigs= */ false);
   }
 
   @Test
@@ -64,7 +67,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     // A simple test that recreates local_repository with Starlark.
     scratch.file("/repo2/WORKSPACE");
     scratch.file("/repo2/bar.txt");
-    scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'], path='foo')");
+    scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'])");
     scratch.file(
         "def.bzl",
         """
@@ -86,9 +89,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             .add("repo(name='foo', path='/repo2')")
             .build());
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTargetForTesting().getAssociatedRule().getAttr("path");
-    assertThat(path).isEqualTo("foo");
+    getConfiguredTargetAndData("@foo//:bar");
   }
 
   @Test
@@ -133,7 +134,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
     // A simple test that recreates local_repository with Starlark.
     scratch.file("/repo2/WORKSPACE");
     scratch.file("/repo2/bar.txt");
-    scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'], path='foo')");
+    scratch.file("/repo2/BUILD", "filegroup(name='bar', srcs=['bar.txt'])");
     scratch.file(
         "def.bzl",
         """
@@ -157,15 +158,13 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             .add("repo(name='foo', path='/repo2')")
             .build());
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTargetForTesting().getAssociatedRule().getAttr("path");
-    assertThat(path).isEqualTo("foo");
+    getConfiguredTargetAndData("@foo//:bar");
   }
 
   @Test
   public void testStarlarkSymlinkFileFromRepository() throws Exception {
     // This test creates a symbolic link BUILD -> bar.txt.
-    scratch.file("/repo2/bar.txt", "filegroup(name='bar', srcs=['foo.txt'], path='foo')");
+    scratch.file("/repo2/bar.txt", "filegroup(name='bar', srcs=['foo.txt'])");
     scratch.file("/repo2/BUILD");
     scratch.file("/repo2/WORKSPACE");
     scratch.file(
@@ -190,14 +189,12 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             .add("repo(name='foo')")
             .build());
     invalidatePackages();
-    ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTargetForTesting().getAssociatedRule().getAttr("path");
-    assertThat(path).isEqualTo("foo");
+    getConfiguredTargetAndData("@foo//:bar");
   }
 
   @Test
   public void testStarlarkRepositoryTemplate() throws Exception {
-    scratch.file("/repo2/bar.txt", "filegroup(name='{target}', srcs=['foo.txt'], path='{path}')");
+    scratch.file("/repo2/bar.txt", "filegroup(name='{target}', srcs=['{path}'])");
     scratch.file("/repo2/BUILD");
     scratch.file("/repo2/WORKSPACE");
     scratch.file(
@@ -221,14 +218,16 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             .build());
     invalidatePackages();
     ConfiguredTargetAndData target = getConfiguredTargetAndData("@foo//:bar");
-    Object path = target.getTargetForTesting().getAssociatedRule().getAttr("path");
-    assertThat(path).isEqualTo("foo");
+    @SuppressWarnings("unchecked")
+    List<Label> srcs =
+        (List<Label>) target.getTargetForTesting().getAssociatedRule().getAttr("srcs", LABEL_LIST);
+    assertThat(srcs).containsExactly(Label.parseCanonical("@foo//:foo"));
   }
 
   @Test
   public void testStarlarkRepositoryName() throws Exception {
     // Variation of the template rule to test the repository_ctx.name field.
-    scratch.file("/repo2/bar.txt", "filegroup(name='bar', srcs=['foo.txt'], path='{path}')");
+    scratch.file("/repo2/bar.txt", "filegroup(name='bar', srcs=['{path}'])");
     scratch.file("/repo2/BUILD");
     scratch.file("/repo2/WORKSPACE");
     scratch.file(
@@ -252,8 +251,10 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
             .build());
     invalidatePackages();
     ConfiguredTargetAndData target = getConfiguredTargetAndData("@foobar//:bar");
-    Object path = target.getTargetForTesting().getAssociatedRule().getAttr("path");
-    assertThat(path).isEqualTo("foobar");
+    @SuppressWarnings("unchecked")
+    List<Label> srcs =
+        (List<Label>) target.getTargetForTesting().getAssociatedRule().getAttr("srcs", LABEL_LIST);
+    assertThat(srcs).containsExactly(Label.parseCanonical("@foobar//:foobar"));
   }
 
   @Test
@@ -514,7 +515,7 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
 
     invalidatePackages();
     getConfiguredTarget("//:x");
-    assertContainsEvent("'repository rule repo' can only be called during workspace loading");
+    assertContainsEvent("repository rules can only be used while evaluating a WORKSPACE file");
   }
 
   @Test

@@ -286,20 +286,31 @@ public class ToolchainResolutionFunction implements SkyFunction {
             .build();
 
     // Load the host and target platforms early, to check for errors.
-    var unused =
+    Map<ConfiguredTargetKey, PlatformInfo> platformInfos =
         PlatformLookupUtil.getPlatformInfo(
             ImmutableList.of(hostPlatformKey, targetPlatformKey), environment);
     if (environment.valuesMissing()) {
       throw new ValueMissingException();
     }
 
+    // Update the keys so that any aliases are resolved.
+    hostPlatformLabel = platformInfos.get(hostPlatformKey).label();
+    hostPlatformKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(hostPlatformLabel)
+            .setConfigurationKey(BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
+            .build();
+    targetPlatformLabel = platformInfos.get(targetPlatformKey).label();
+    targetPlatformKey =
+        ConfiguredTargetKey.builder()
+            .setLabel(targetPlatformLabel)
+            .setConfigurationKey(BuildConfigurationKey.create(CommonOptions.EMPTY_OPTIONS))
+            .build();
+
+    // Load the execution platform keys.
     ImmutableList<ConfiguredTargetKey> executionPlatformKeys =
         loadExecutionPlatformKeys(
-            environment,
-            debug,
-            configurationKey,
-            hostPlatformKey,
-            execConstraintLabels);
+            environment, debug, configurationKey, hostPlatformKey, execConstraintLabels);
 
     return PlatformKeys.create(hostPlatformKey, targetPlatformKey, executionPlatformKeys);
   }
@@ -625,7 +636,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       return String.format(
           "No matching toolchains found for types %s."
               + "\nTo debug, rerun with --toolchain_resolution_debug='%s'"
-              + "\nIf platforms or toolchains are a new concept for you, we'd encourage reading "
+              + "\nFor more information on platforms or toolchains see "
               + "https://bazel.build/concepts/platforms-intro.",
           String.join(", ", labelStrings), String.join("|", labelStrings));
     }

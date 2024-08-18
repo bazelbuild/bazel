@@ -22,8 +22,10 @@ java_library(
         "*.java",
     ]),
     deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime/test_summary_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
@@ -51,6 +53,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_context",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_context_utils",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_runner",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_policy",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_strategy_registry",
         "//src/main/java/com/google/devtools/build/lib/exec:standalone_test_result",
         "//src/main/java/com/google/devtools/build/lib/exec:standalone_test_strategy",
@@ -76,6 +79,7 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:spawn_java_proto",
+        "//src/main/protobuf:strategy_policy_java_proto",
         "//src/main/protobuf:test_status_java_proto",
         "//src/test/java/com/google/devtools/build/lib/actions/util",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
@@ -86,8 +90,8 @@ java_library(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
+        "//third_party/protobuf:protobuf_java_util",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
-        "@zstd-jni",
     ],
 )
 

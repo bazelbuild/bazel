@@ -29,7 +29,6 @@ class LibTest(test_base.TestBase):
     test_base.TestBase.setUp(self)
     self._bazel = bazel_api.BazelApi(self.RunBazel)
     self.ScratchFile('WORKSPACE')
-    self.CreateWorkspaceWithDefaultRepos('repo/WORKSPACE')
 
   def tearDown(self):
     test_base.TestBase.tearDown(self)

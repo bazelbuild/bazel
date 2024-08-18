@@ -276,23 +276,23 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
     }
 
     @Override
-    public void debugPrint(Printer printer, StarlarkSemantics semantics) {
+    public void debugPrint(Printer printer, StarlarkThread thread) {
       printer.append("<LinkerInput(owner=");
       if (owner == null) {
         printer.append("[null owner, uses old create_linking_context API]");
       } else {
-        owner.debugPrint(printer, semantics);
+        owner.debugPrint(printer, thread);
       }
       printer.append(", libraries=[");
       for (LibraryToLink libraryToLink : libraries) {
-        libraryToLink.debugPrint(printer, semantics);
+        libraryToLink.debugPrint(printer, thread);
         printer.append(", ");
       }
       printer.append("], userLinkFlags=[");
       printer.append(Joiner.on(", ").join(userLinkFlags));
       printer.append("], nonCodeInputs=[");
       for (Artifact nonCodeInput : nonCodeInputs) {
-        nonCodeInput.debugPrint(printer, semantics);
+        nonCodeInput.debugPrint(printer, thread);
         printer.append(", ");
       }
       // TODO(cparsons): Add debug repesentation of linkstamps.
@@ -390,10 +390,10 @@ public class CcLinkingContext implements CcLinkingContextApi<Artifact> {
   @Nullable private final ExtraLinkTimeLibraries extraLinkTimeLibraries;
 
   @Override
-  public void debugPrint(Printer printer, StarlarkSemantics semantics) {
+  public void debugPrint(Printer printer, StarlarkThread thread) {
     printer.append("<CcLinkingContext([");
     for (LinkerInput linkerInput : linkerInputs.toList()) {
-      linkerInput.debugPrint(printer, semantics);
+      linkerInput.debugPrint(printer, thread);
       printer.append(", ");
     }
     printer.append("])>");

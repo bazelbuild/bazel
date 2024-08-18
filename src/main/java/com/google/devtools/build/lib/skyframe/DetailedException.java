@@ -22,8 +22,8 @@ public interface DetailedException {
 
   @Nullable
   static DetailedExitCode getDetailedExitCode(Exception exception) {
-    return exception instanceof DetailedException
-        ? ((DetailedException) exception).getDetailedExitCode()
+    return exception instanceof DetailedException detailedException
+        ? detailedException.getDetailedExitCode()
         : null;
   }
 }

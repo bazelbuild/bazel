@@ -20,7 +20,6 @@ import com.google.common.base.Ascii;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -66,9 +65,6 @@ public class JavaStarlarkCommon
         StarlarkRuleContext,
         StarlarkActionFactory> {
 
-  private static final ImmutableSet<BuiltinRestriction.AllowlistEntry>
-      PRIVATE_STARLARKIFACTION_ALLOWLIST =
-          ImmutableSet.of(BuiltinRestriction.allowlistEntry("", "bazel_internal/test_rules"));
   private final JavaSemantics javaSemantics;
 
   private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {
@@ -269,20 +265,20 @@ public class JavaStarlarkCommon
   @Override
   public String getTargetKind(Object target, StarlarkThread thread) throws EvalException {
     checkPrivateAccess(thread);
-    if (target instanceof MergedConfiguredTarget) {
-      target = ((MergedConfiguredTarget) target).getBaseConfiguredTarget();
+    if (target instanceof MergedConfiguredTarget mergedConfiguredTarget) {
+      target = mergedConfiguredTarget.getBaseConfiguredTarget();
     }
-    if (target instanceof ConfiguredTarget) {
-      target = ((ConfiguredTarget) target).getActual();
+    if (target instanceof ConfiguredTarget configuredTarget) {
+      target = configuredTarget.getActual();
     }
-    if (target instanceof AbstractConfiguredTarget) {
-      return ((AbstractConfiguredTarget) target).getRuleClassString();
+    if (target instanceof AbstractConfiguredTarget abstractConfiguredTarget) {
+      return abstractConfiguredTarget.getRuleClassString();
     }
     return "";
   }
 
   protected static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFACTION_ALLOWLIST);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
   }
 
   @Override
@@ -351,10 +347,10 @@ public class JavaStarlarkCommon
 
   @VisibleForTesting
   static String printableType(Object elem) {
-    if (elem instanceof StarlarkInfoWithSchema) {
-      return ((StarlarkInfoWithSchema) elem).getProvider().getPrintableName();
-    } else if (elem instanceof NativeInfo) {
-      return ((NativeInfo) elem).getProvider().getPrintableName();
+    if (elem instanceof StarlarkInfoWithSchema starlarkInfoWithSchema) {
+      return starlarkInfoWithSchema.getProvider().getPrintableName();
+    } else if (elem instanceof NativeInfo nativeInfo) {
+      return nativeInfo.getProvider().getPrintableName();
     }
     return Starlark.type(elem);
   }
@@ -412,12 +408,12 @@ public class JavaStarlarkCommon
   }
 
   static boolean isInstanceOfProvider(Object obj, Provider provider) {
-    if (obj instanceof NativeInfo) {
-      return ((NativeInfo) obj).getProvider().getKey().equals(provider.getKey());
-    } else if (obj instanceof StarlarkInfoWithSchema) {
-      return ((StarlarkInfoWithSchema) obj).getProvider().getKey().equals(provider.getKey());
-    } else if (obj instanceof StarlarkInfoNoSchema) {
-      return ((StarlarkInfoNoSchema) obj).getProvider().getKey().equals(provider.getKey());
+    if (obj instanceof NativeInfo nativeInfo) {
+      return nativeInfo.getProvider().getKey().equals(provider.getKey());
+    } else if (obj instanceof StarlarkInfoWithSchema starlarkInfoWithSchema) {
+      return starlarkInfoWithSchema.getProvider().getKey().equals(provider.getKey());
+    } else if (obj instanceof StarlarkInfoNoSchema starlarkInfoNoSchema) {
+      return starlarkInfoNoSchema.getProvider().getKey().equals(provider.getKey());
     }
     return false;
   }

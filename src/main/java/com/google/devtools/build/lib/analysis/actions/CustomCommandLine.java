@@ -26,13 +26,14 @@ import com.google.devtools.build.lib.actions.AbstractCommandLine;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactExpander;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineItem.ExceptionlessMapFn;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -379,8 +380,8 @@ public class CustomCommandLine extends AbstractCommandLine {
         // It'd be nice to build this into ActionInput's CommandLine interface so we don't have
         // to explicitly check if an object is a ActionInput. Unfortunately that would require
         // a lot more dependencies on the Java library ActionInput is built into.
-        return pathMapper != null && object instanceof ActionInput
-            ? pathMapper.getMappedExecPathString((ActionInput) object)
+        return pathMapper != null && object instanceof ActionInput actionInput
+            ? pathMapper.getMappedExecPathString(actionInput)
             : CommandLineItem.expandToCommandLine(object);
       }
 
@@ -1298,11 +1299,11 @@ public class CustomCommandLine extends AbstractCommandLine {
     String previousFlag = null;
     for (int i = 0; i < count; ) {
       Object arg = arguments.get(i++);
-      if (arg instanceof TreeFileArtifactArgvFragment) {
-        arg = substituteTreeFileArtifactArgvFragment((TreeFileArtifactArgvFragment) arg);
+      if (arg instanceof TreeFileArtifactArgvFragment treeFileArtifactArgvFragment) {
+        arg = substituteTreeFileArtifactArgvFragment(treeFileArtifactArgvFragment);
       }
-      if (arg instanceof NestedSet) {
-        evalSimpleVectorArg(((NestedSet<?>) arg).toList(), builder, pathMapper, previousFlag);
+      if (arg instanceof NestedSet<?> nestedSet) {
+        evalSimpleVectorArg(nestedSet.toList(), builder, pathMapper, previousFlag);
       } else if (arg instanceof Iterable) {
         evalSimpleVectorArg((Iterable<?>) arg, builder, pathMapper, previousFlag);
       } else if (arg instanceof ArgvFragment) {
@@ -1312,17 +1313,17 @@ public class CustomCommandLine extends AbstractCommandLine {
         } else {
           i = ((ArgvFragment) arg).eval(arguments, i, builder, pathMapper);
         }
-      } else if (arg instanceof ActionInput) {
-        builder.add(pathMapper.getMappedExecPathString((ActionInput) arg));
-      } else if (arg instanceof PathFragment) {
-        builder.add(pathMapper.map((PathFragment) arg).getPathString());
+      } else if (arg instanceof ActionInput actionInput) {
+        builder.add(pathMapper.getMappedExecPathString(actionInput));
+      } else if (arg instanceof PathFragment pathFragment) {
+        builder.add(pathMapper.map(pathFragment).getPathString());
       } else {
         builder.add(CommandLineItem.expandToCommandLine(arg));
       }
       // Track the last scalar string argument (e.g. "--javacopts") so that the PathMapper can
       // heuristically map subsequent argument collections that contain paths.
-      if (arg instanceof String) {
-        previousFlag = (String) arg;
+      if (arg instanceof String string) {
+        previousFlag = string;
       } else {
         previousFlag = null;
       }
@@ -1337,8 +1338,8 @@ public class CustomCommandLine extends AbstractCommandLine {
       String previousFlag) {
     ExceptionlessMapFn<Object> mapFn = pathMapper.getMapFn(previousFlag);
     for (Object value : arg) {
-      if (value instanceof ActionInput) {
-        builder.add(pathMapper.getMappedExecPathString((ActionInput) value));
+      if (value instanceof ActionInput actionInput) {
+        builder.add(pathMapper.getMappedExecPathString(actionInput));
       } else {
         mapFn.expandToCommandLine(value, builder::add);
       }
@@ -1359,14 +1360,15 @@ public class CustomCommandLine extends AbstractCommandLine {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
+      CoreOptions.OutputPathsMode outputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     List<Object> arguments = rawArgsAsList();
     int count = arguments.size();
     for (int i = 0; i < count; ) {
       Object arg = arguments.get(i++);
-      if (arg instanceof TreeFileArtifactArgvFragment) {
-        arg = substituteTreeFileArtifactArgvFragment((TreeFileArtifactArgvFragment) arg);
+      if (arg instanceof TreeFileArtifactArgvFragment treeFileArtifactArgvFragment) {
+        arg = substituteTreeFileArtifactArgvFragment(treeFileArtifactArgvFragment);
       }
       if (arg instanceof NestedSet) {
         actionKeyContext.addNestedSetToFingerprint(fingerprint, (NestedSet<Object>) arg);
@@ -1374,8 +1376,8 @@ public class CustomCommandLine extends AbstractCommandLine {
         for (Object value : (Iterable<Object>) arg) {
           fingerprint.addString(CommandLineItem.expandToCommandLine(value));
         }
-      } else if (arg instanceof ArgvFragment) {
-        i = ((ArgvFragment) arg).addToFingerprint(arguments, i, actionKeyContext, fingerprint);
+      } else if (arg instanceof ArgvFragment argvFragment) {
+        i = argvFragment.addToFingerprint(arguments, i, actionKeyContext, fingerprint);
       } else {
         fingerprint.addString(CommandLineItem.expandToCommandLine(arg));
       }

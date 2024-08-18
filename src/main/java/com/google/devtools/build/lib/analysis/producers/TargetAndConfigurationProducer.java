@@ -37,7 +37,7 @@ import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
-import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
@@ -138,6 +138,7 @@ public final class TargetAndConfigurationProducer
   @Nullable private final TransitionFactory<RuleTransitionData> trimmingTransitionFactory;
   private final PatchTransition toolchainTaggedTrimmingTransition;
   private final StarlarkTransitionCache transitionCache;
+  private final BuildConfigurationKeyCache buildConfigurationKeyCache;
 
   private final TransitiveDependencyState transitiveState;
 
@@ -153,6 +154,7 @@ public final class TargetAndConfigurationProducer
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
       PatchTransition toolchainTaggedTrimmingTransition,
       StarlarkTransitionCache transitionCache,
+      BuildConfigurationKeyCache buildConfigurationKeyCache,
       TransitiveDependencyState transitiveState,
       ResultSink sink,
       ExtendedEventHandler eventHandler) {
@@ -160,6 +162,7 @@ public final class TargetAndConfigurationProducer
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.transitionCache = transitionCache;
+    this.buildConfigurationKeyCache = buildConfigurationKeyCache;
     this.transitiveState = transitiveState;
     this.sink = sink;
     this.eventHandler = eventHandler;
@@ -300,7 +303,8 @@ public final class TargetAndConfigurationProducer
     // TODO: @aranguyen b/297077082
     public UnloadedToolchainContextsInputs getUnloadedToolchainContextsInputs(
         Target target, @Nullable Label parentExecutionPlatformLabel) throws InterruptedException {
-      if (!(target instanceof Rule rule)) {
+      Rule rule = target.getAssociatedRule();
+      if (rule == null) {
         return UnloadedToolchainContextsInputs.empty();
       }
 
@@ -453,46 +457,33 @@ public final class TargetAndConfigurationProducer
       emitErrorMessage(e.getMessage());
     }
 
+    // Keep in sync with CqueryTransitionResolver.getRuleTransition.
     public StateMachine computeTransition(Tasks tasks) {
       if (configConditions == null) {
         return DONE;
       }
 
-      // logic to compute transition with ConfigConditions
+      TransitionFactory<RuleTransitionData> transitionFactory =
+          target.getAssociatedRule().getRuleClassObject().getTransitionFactory();
+      if (trimmingTransitionFactory != null) {
+        transitionFactory =
+            ComposingTransitionFactory.of(transitionFactory, trimmingTransitionFactory);
+      }
+
       var transitionData =
           RuleTransitionData.create(
               target.getAssociatedRule(),
               configConditions.asProviders(),
               preRuleTransitionKey.getConfigurationKey().getOptionsChecksum());
 
-      ConfigurationTransition transition = null;
-
-      TransitionFactory<RuleTransitionData> transitionFactory =
-          target.getAssociatedRule().getRuleClassObject().getTransitionFactory();
-      if (transitionFactory != null) {
-        transition = transitionFactory.create(transitionData);
-      }
-
-      if (trimmingTransitionFactory != null) {
-        var trimmingTransition = trimmingTransitionFactory.create(transitionData);
-        if (transition != null) {
-          transition = ComposingTransition.of(transition, trimmingTransition);
-        } else {
-          transition = trimmingTransition;
-        }
-      }
-
-      if (transition == null) {
-        lookUpConfigurationValue(tasks);
-        return DONE;
-      }
-
+      ConfigurationTransition transition = transitionFactory.create(transitionData);
       this.ruleTransition = transition;
 
       return new TransitionApplier(
           preRuleTransitionKey.getConfigurationKey(),
           ruleTransition,
           transitionCache,
+          buildConfigurationKeyCache,
           (TransitionApplier.ResultSink) this,
           eventHandler,
           /* runAfter= */ this::processTransitionedKey);
@@ -595,6 +586,7 @@ public final class TargetAndConfigurationProducer
             configurationKey,
             ruleTransition,
             transitionCache,
+            buildConfigurationKeyCache,
             (TransitionApplier.ResultSink) this,
             eventHandler,
             /* runAfter= */ this::checkIdempotencyAndDelegate);
@@ -690,32 +682,5 @@ public final class TargetAndConfigurationProducer
             .setAnalysis(
                 Analysis.newBuilder().setCode(Analysis.Code.CONFIGURED_VALUE_CREATION_FAILED))
             .build());
-  }
-
-  // Public for Cquery.
-  // TODO: @aranguyen keep cquery in sync with ConfiguredTargetFunction
-  @Nullable
-  public static ConfigurationTransition computeTransition(
-      Rule rule, @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory) {
-    var transitionData = RuleTransitionData.create(rule, /* configConditions= */ null, "");
-
-    ConfigurationTransition transition = null;
-
-    TransitionFactory<RuleTransitionData> transitionFactory =
-        rule.getRuleClassObject().getTransitionFactory();
-    if (transitionFactory != null) {
-      transition = transitionFactory.create(transitionData);
-    }
-    boolean isAlias = rule.getAssociatedRule().getName().equals("alias");
-    if (trimmingTransitionFactory != null && !isAlias) {
-      var trimmingTransition = trimmingTransitionFactory.create(transitionData);
-      if (transition != null) {
-        transition = ComposingTransition.of(transition, trimmingTransition);
-      } else {
-        transition = trimmingTransition;
-      }
-    }
-
-    return transition;
   }
 }

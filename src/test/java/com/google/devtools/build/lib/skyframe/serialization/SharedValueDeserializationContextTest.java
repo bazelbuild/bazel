@@ -15,18 +15,19 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import static com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.createRandomLeafArray;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 import static com.google.devtools.build.lib.unsafe.UnsafeProvider.getFieldOffset;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListenableFutureTask;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedArrayCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetDeferredCodec;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore.GetRequest;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
@@ -35,10 +36,9 @@ import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.Random;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.LinkedBlockingQueue;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -60,7 +60,7 @@ public final class SharedValueDeserializationContextTest {
   @TestParameters("{size: 64, useDeferredCodec: false}")
   @TestParameters("{size: 128, useDeferredCodec: false}")
   public void codec_roundTrips(int size, boolean useDeferredCodec) throws Exception {
-    new SerializationTester(NotNestedSet.createRandom(rng, size, size))
+    new SerializationTester(NotNestedSet.createRandom(rng, size, size, Random::nextInt))
         .addCodec(
             useDeferredCodec
                 ? new NotNestedSetDeferredCodec(new NestedArrayCodec())
@@ -69,47 +69,6 @@ public final class SharedValueDeserializationContextTest {
         .setVerificationFunction(
             SharedValueDeserializationContextTest::verifyDeserializedNotNestedSet)
         .runTests();
-  }
-
-  private static final class GetRecordingStore implements FingerprintValueStore {
-    private final ConcurrentHashMap<ByteString, byte[]> fingerprintToContents =
-        new ConcurrentHashMap<>();
-
-    private final LinkedBlockingQueue<GetRequest> requestQueue = new LinkedBlockingQueue<>();
-
-    @Override
-    public ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
-      fingerprintToContents.put(fingerprint, serializedBytes);
-      return immediateVoidFuture();
-    }
-
-    @Override
-    public ListenableFuture<byte[]> get(ByteString fingerprint) {
-      SettableFuture<byte[]> response = SettableFuture.create();
-      requestQueue.offer(new GetRequest(this, fingerprint, response));
-      return response;
-    }
-
-    private GetRequest takeFirstRequest() throws InterruptedException {
-      return requestQueue.take();
-    }
-  }
-
-  private static class GetRequest {
-    private final GetRecordingStore parent;
-    private final ByteString fingerprint;
-    private final SettableFuture<byte[]> response;
-
-    private GetRequest(
-        GetRecordingStore parent, ByteString fingerprint, SettableFuture<byte[]> response) {
-      this.parent = parent;
-      this.fingerprint = fingerprint;
-      this.response = response;
-    }
-
-    private void complete() {
-      response.set(checkNotNull(parent.fingerprintToContents.get(fingerprint)));
-    }
   }
 
   @Test
@@ -125,11 +84,14 @@ public final class SharedValueDeserializationContextTest {
     NotNestedSet subject =
         new NotNestedSet(
             new Object[] {
-              createRandomLeafArray(rng), createRandomLeafArray(rng), createRandomLeafArray(rng)
+              createRandomLeafArray(rng, Random::nextInt),
+              createRandomLeafArray(rng, Random::nextInt),
+              createRandomLeafArray(rng, Random::nextInt)
             });
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
+        codecs.serializeMemoizedAndBlocking(
+            fingerprintValueService, subject, /* profileCollector= */ null);
     ListenableFuture<Void> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       // If it is asynchronous, writing should complete without throwing any exceptions.
@@ -284,9 +246,10 @@ public final class SharedValueDeserializationContextTest {
     if (doesSecondAliasFirst) {
       subject =
           new NotNestedSetContainer(
-              NotNestedSet.createRandom(rng, 4, 4), NotNestedSet.createRandom(rng, 4, 4));
+              NotNestedSet.createRandom(rng, 4, 4, Random::nextInt),
+              NotNestedSet.createRandom(rng, 4, 4, Random::nextInt));
     } else {
-      NotNestedSet contained = NotNestedSet.createRandom(rng, 5, 5);
+      NotNestedSet contained = NotNestedSet.createRandom(rng, 5, 5, Random::nextInt);
       subject = new NotNestedSetContainer(contained, contained);
     }
     new SerializationTester(subject)
@@ -296,6 +259,101 @@ public final class SharedValueDeserializationContextTest {
         .setVerificationFunction(
             SharedValueDeserializationContextTest::verifyDeserializedNotNestedSetContainer)
         .runTests();
+  }
+
+  @Test
+  public void internedValueWithSharedElement() throws Exception {
+    new SerializationTester(InternedValue.create(101), InternedValue.create(45678))
+        .makeMemoizingAndAllowFutureBlocking(/* allowFutureBlocking= */ true)
+        .runTests();
+  }
+
+  private static class InternedValue {
+    private Integer value;
+
+    private static InternedValue create(int value) {
+      InternedValue result = new InternedValue();
+      result.value = value;
+      return result;
+    }
+
+    @Override
+    public int hashCode() {
+      return value;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof InternedValue that) {
+        return Objects.equals(value, that.value);
+      }
+      return false;
+    }
+  }
+
+  @Keep
+  private static class InternedValueCodec extends InterningObjectCodec<InternedValue> {
+    @Override
+    public Class<InternedValue> getEncodedClass() {
+      return InternedValue.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, InternedValue obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          obj.value, /* distinguisher= */ null, DeferredIntegerCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public InternedValue deserializeInterned(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      InternedValue value = new InternedValue();
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          DeferredIntegerCodec.INSTANCE,
+          value,
+          (parent, v) -> parent.value = (Integer) v);
+      return value;
+    }
+
+    @Override
+    @SuppressWarnings("CanIgnoreReturnValueSuggester") // fake implementation just returns input
+    public InternedValue intern(InternedValue interned) {
+      checkNotNull(interned.value);
+      return interned;
+    }
+  }
+
+  private static class DeferredIntegerCodec extends DeferredObjectCodec<Integer> {
+    private static final DeferredIntegerCodec INSTANCE = new DeferredIntegerCodec();
+
+    @Override
+    public Class<Integer> getEncodedClass() {
+      return Integer.class;
+    }
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, Integer obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      codedOut.writeInt32NoTag(obj);
+    }
+
+    @Override
+    public DeferredValue<Integer> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      int value = codedIn.readInt32();
+      return () -> value;
+    }
   }
 
   private ListenableFuture<Object> deserializeWithExecutor(

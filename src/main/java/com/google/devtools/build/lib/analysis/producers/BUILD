@@ -16,13 +16,14 @@ java_library(
     srcs = glob(
         ["*.java"],
         exclude = [
-            "BuildConfigurationKeyProducer.java",
+            "BuildConfigurationKeyMapProducer.java",
             "PlatformFlagsProducer.java",
             "PlatformInfoProducer.java",
         ],
     ),
     deps = [
-        ":build_configuration_key_producer",
+        ":build_configuration_key_map_producer",
+        ":platform_flags_producer",
         ":platform_info_producer",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -36,7 +37,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/invalid_configuration_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/starlark_transition_cache",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/composing_transition",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/composing_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/configuration_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/patch_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_collector",
@@ -45,7 +46,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:constraints/incompatible_target_checker",
         "//src/main/java/com/google/devtools/build/lib/analysis:dependency_kind",
-        "//src/main/java/com/google/devtools/build/lib/analysis:duplicate_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:exec_group_collection",
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_aspect_order_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:inconsistent_null_config_exception",
@@ -85,12 +85,14 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:unloaded_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
+        "//third_party:caffeine",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -98,11 +100,28 @@ java_library(
 )
 
 java_library(
-    name = "build_configuration_key_producer",
-    srcs = ["BuildConfigurationKeyProducer.java"],
+    name = "build_configuration_key_cache",
+    srcs = ["BuildConfigurationKeyCache.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//third_party:caffeine",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "build_configuration_key_map_producer",
+    srcs = [
+        "BuildConfigurationKeyMapProducer.java",
+        "BuildConfigurationKeyProducer.java",
+    ],
+    deps = [
+        ":build_configuration_key_cache",
+        ":platform_flags_producer",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config:exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:platform_lookup_util",

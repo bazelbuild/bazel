@@ -37,7 +37,6 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.util.FileTypeSet;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -62,7 +61,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
 
     NestedSet<Artifact> filesToBuild =
         outputGroupName.isEmpty()
-            ? PrerequisiteArtifacts.nestedSet(ruleContext, "srcs")
+            ? PrerequisiteArtifacts.nestedSet(ruleContext.getRulePrerequisitesCollection(), "srcs")
             : getArtifactsForOutputGroup(outputGroupName, ruleContext.getPrerequisites("srcs"));
 
     InstrumentedFilesInfo instrumentedFilesProvider =
@@ -103,8 +102,7 @@ public class Filegroup implements RuleConfiguredTargetFactory {
             .addProvider(RunfilesProvider.class, runfilesProvider)
             .setFilesToBuild(filesToBuild)
             .setRunfilesSupport(null, getExecutable(filesToBuild))
-            .addNativeDeclaredProvider(instrumentedFilesProvider)
-            .addNativeDeclaredProvider(new FilegroupPathProvider(getFilegroupPath(ruleContext)));
+            .addNativeDeclaredProvider(instrumentedFilesProvider);
 
     return builder.build();
   }
@@ -115,15 +113,6 @@ public class Filegroup implements RuleConfiguredTargetFactory {
   @Nullable
   private Artifact getExecutable(NestedSet<Artifact> filesToBuild) {
     return filesToBuild.isSingleton() ? filesToBuild.getSingleton() : null;
-  }
-
-  private PathFragment getFilegroupPath(RuleContext ruleContext) {
-    String attr = ruleContext.attributes().get("path", Type.STRING);
-    if (attr.isEmpty()) {
-      return PathFragment.EMPTY_FRAGMENT;
-    } else {
-      return ruleContext.getLabel().getPackageIdentifier().getSourceRoot().getRelative(attr);
-    }
   }
 
   /** Returns the artifacts from the given targets that are members of the given output group. */

@@ -38,9 +38,9 @@ public class ConstraintValueRule implements RuleDefinition {
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
         .advertiseStarlarkProvider(ConstraintValueInfo.PROVIDER.id())
-        .cfg(NoConfigTransition.createFactory())
+        .cfg(NoConfigTransition.getFactory())
         .exemptFromConstraintChecking("this rule helps *define* a constraint")
-        .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+        .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
         .removeAttribute(":action_listener")
         .removeAttribute(RuleClass.APPLICABLE_METADATA_ATTR)
         .override(

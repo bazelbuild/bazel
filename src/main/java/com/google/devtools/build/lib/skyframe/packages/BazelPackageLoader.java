@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelLockFileFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelModuleResolutionFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
-import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactory;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFactoryImpl;
 import com.google.devtools.build.lib.bazel.bzlmod.RegistryFunction;
 import com.google.devtools.build.lib.bazel.bzlmod.RepoSpecFunction;
@@ -137,10 +136,11 @@ public class BazelPackageLoader extends AbstractPackageLoader {
       // Set up SkyFunctions and PrecomputedValues needed to make local repositories work correctly.
       RepositoryCache repositoryCache = new RepositoryCache();
       HttpDownloader httpDownloader = new HttpDownloader();
-      DownloadManager downloadManager = new DownloadManager(repositoryCache, httpDownloader);
-      RegistryFactory registryFactory =
-          new RegistryFactoryImpl(
-              directories.getWorkspace(), downloadManager, Suppliers.ofInstance(ImmutableMap.of()));
+      DownloadManager downloadManager =
+          new DownloadManager(repositoryCache, httpDownloader, httpDownloader);
+      RegistryFactoryImpl registryFactory =
+          new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
+      registryFactory.setDownloadManager(downloadManager);
 
       // Allow tests to override the following functions to use fake registry or custom built-in
       // modules
@@ -160,8 +160,12 @@ public class BazelPackageLoader extends AbstractPackageLoader {
       }
       if (!this.extraSkyFunctions.containsKey(SkyFunctions.REGISTRY)) {
         addExtraSkyFunctions(
-            ImmutableMap.of(SkyFunctions.REGISTRY, new RegistryFunction(registryFactory)));
+            ImmutableMap.of(
+                SkyFunctions.REGISTRY,
+                new RegistryFunction(registryFactory, directories.getWorkspace())));
       }
+      StarlarkRepositoryFunction starlarkRepositoryFunction = new StarlarkRepositoryFunction();
+      starlarkRepositoryFunction.setDownloadManager(downloadManager);
 
       addExtraSkyFunctions(
           ImmutableMap.<SkyFunctionName, SkyFunction>builder()
@@ -180,11 +184,14 @@ public class BazelPackageLoader extends AbstractPackageLoader {
                   SkyFunctions.REPOSITORY_DIRECTORY,
                   new RepositoryDelegatorFunction(
                       BazelRepositoryModule.repositoryRules(),
-                      new StarlarkRepositoryFunction(downloadManager),
+                      starlarkRepositoryFunction,
                       isFetch,
                       ImmutableMap::of,
                       directories,
                       EXTERNAL_PACKAGE_HELPER))
+              .put(
+                  SkyFunctions.BAZEL_LOCK_FILE,
+                  new BazelLockFileFunction(directories.getWorkspace()))
               .put(SkyFunctions.BAZEL_DEP_GRAPH, new BazelDepGraphFunction())
               .put(SkyFunctions.BAZEL_MODULE_RESOLUTION, new BazelModuleResolutionFunction())
               .put(SkyFunctions.REPO_SPEC, new RepoSpecFunction())

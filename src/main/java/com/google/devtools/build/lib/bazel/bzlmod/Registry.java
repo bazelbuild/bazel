@@ -17,12 +17,12 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.skyframe.SkyValue;
+import com.google.devtools.build.skyframe.NotComparableSkyValue;
 import java.io.IOException;
 import java.util.Optional;
 
 /** A database where module metadata is stored. */
-public interface Registry extends SkyValue {
+public interface Registry extends NotComparableSkyValue {
 
   /** The URL that uniquely identifies the registry. */
   String getUrl();
@@ -48,4 +48,10 @@ public interface Registry extends SkyValue {
   Optional<ImmutableMap<Version, String>> getYankedVersions(
       String moduleName, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException;
+
+  /**
+   * Returns the yanked versions information, limited to the given selected module version, purely
+   * based on the lockfile (if possible).
+   */
+  Optional<YankedVersionsValue> tryGetYankedVersionsFromLockfile(ModuleKey selectedModuleKey);
 }

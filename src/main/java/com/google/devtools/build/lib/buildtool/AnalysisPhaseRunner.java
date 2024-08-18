@@ -63,7 +63,6 @@ import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.List;
@@ -95,24 +94,27 @@ public final class AnalysisPhaseRunner {
           RepositoryMappingResolutionException {
 
     // Target pattern evaluation.
-    TargetPatternPhaseValue loadingResult;
+    TargetPatternPhaseValue targetPatternPhaseValue;
     Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
     try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
-      loadingResult = evaluateTargetPatterns(env, request, validator);
+      targetPatternPhaseValue = evaluateTargetPatterns(env, request, validator);
     }
-    env.setWorkspaceName(loadingResult.getWorkspaceName());
+    env.setWorkspaceName(targetPatternPhaseValue.getWorkspaceName());
 
     BuildOptions postFlagsetsBuildOptions;
     String sclConfig = buildOptionsBeforeFlagSets.get(CoreOptions.class).sclConfig;
     if (sclConfig != null && !sclConfig.isEmpty()) {
-      PathFragment projectFile =
+      Label projectFile =
           BuildTool.getProjectFile(
-              loadingResult.getTargetLabels(), env.getSkyframeExecutor(), env.getReporter());
+              targetPatternPhaseValue.getTargetLabels(),
+              env.getSkyframeExecutor(),
+              env.getReporter());
       if (projectFile != null) {
         postFlagsetsBuildOptions =
             BuildTool.applySclConfigs(
                 buildOptionsBeforeFlagSets,
                 projectFile,
+                request.getBuildOptions().enforceProjectConfigs,
                 env.getSkyframeExecutor(),
                 env.getReporter());
       } else {
@@ -130,7 +132,7 @@ public final class AnalysisPhaseRunner {
                 env.getReporter(),
                 // TODO(ulfjack): Expensive. Make this part of the TargetPatternPhaseValue or write
                 // a new SkyFunction to compute it?
-                loadingResult.getTestsToRun(env.getReporter(), env.getPackageManager()));
+                targetPatternPhaseValue.getTestsToRun(env.getReporter(), env.getPackageManager()));
         try {
           // We're modifying the buildOptions in place, which is not ideal, but we also don't want
           // to pay the price for making a copy. Maybe reconsider later if this turns out to be a
@@ -151,7 +153,8 @@ public final class AnalysisPhaseRunner {
       Profiler.instance().markPhase(ProfilePhase.ANALYZE);
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
-        analysisResult = runAnalysisPhase(env, request, loadingResult, postFlagsetsBuildOptions);
+        analysisResult =
+            runAnalysisPhase(env, request, targetPatternPhaseValue, postFlagsetsBuildOptions);
       }
 
       for (BlazeModule module : env.getRuntime().getBlazeModules()) {
@@ -173,7 +176,8 @@ public final class AnalysisPhaseRunner {
       env.getReporter().post(new NoAnalyzeEvent());
       logger.atInfo().log("No analysis requested, so finished");
       FailureDetail failureDetail =
-          BuildView.createAnalysisFailureDetail(loadingResult, /* skyframeAnalysisResult= */ null);
+          BuildView.createAnalysisFailureDetail(
+              targetPatternPhaseValue, /* skyframeAnalysisResult= */ null);
       if (failureDetail != null) {
         throw new BuildFailedException(
             failureDetail.getMessage(), DetailedExitCode.of(failureDetail));
@@ -293,6 +297,7 @@ public final class AnalysisPhaseRunner {
                 analysisResult.getTargetsToBuild(),
                 view.getEvaluatedCounts(),
                 view.getEvaluatedActionsCounts(),
+                view.getEvaluatedActionsCountsByMnemonic(),
                 timer.stop().elapsed(TimeUnit.MILLISECONDS),
                 view.getAndClearPkgManagerStatistics(),
                 env.getSkyframeExecutor().wasAnalysisCacheInvalidatedAndResetBit()));

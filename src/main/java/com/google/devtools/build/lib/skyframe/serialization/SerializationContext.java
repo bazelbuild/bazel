@@ -26,16 +26,16 @@ import javax.annotation.Nullable;
 /**
  * API provided to {@link ObjectCodec#serialize} implementations.
  *
- * <p>Implementations may be stateful or stateless. The {@link StalessSerializationContext} is
+ * <p>Implementations may be stateful or stateless. The {@link ImmutableSerializationContext} is
  * thread safe and it has rather flexible usage.
  *
  * <p>The two stateful contexts, {@link MemoizingSerializationContext} and {@link
- * SharedValueSerializationContetx} are tightly coupled to the output bytes. Deserializing memoized
+ * SharedValueSerializationContext} are tightly coupled to the output bytes. Deserializing memoized
  * streams requires the deserializer to know all the previously serialized values. In practice, it
  * only makes sense to tie the lifetime of a {@link CodedOutputStream} to the lifetime of a {@link
  * MemoizingSerializationContext}.
  */
-public abstract class SerializationContext implements SerializationDependencyProvider {
+public abstract class SerializationContext implements LeafSerializationContext {
   private final ObjectCodecRegistry codecRegistry;
   private final ImmutableClassToInstanceMap<Object> dependencies;
 
@@ -51,14 +51,30 @@ public abstract class SerializationContext implements SerializationDependencyPro
     if (writeIfNullOrConstant(object, codedOut)) {
       return;
     }
-    if (writeBackReferenceIfMemoized(object, codedOut)) {
-      return;
-    }
     CodecDescriptor descriptor = codecRegistry.getCodecDescriptorForObject(object);
-    codedOut.writeSInt32NoTag(descriptor.getTag());
-
     @SuppressWarnings("unchecked")
     ObjectCodec<Object> castCodec = (ObjectCodec<Object>) descriptor.getCodec();
+    ProfileRecorder recorder = getProfileRecorder();
+    if (recorder == null) {
+      serializeImpl(descriptor, castCodec, object, codedOut);
+      return;
+    }
+    int startBytes = codedOut.getTotalBytesWritten();
+    recorder.pushLocation(castCodec);
+    serializeImpl(descriptor, castCodec, object, codedOut);
+    recorder.recordBytesAndPopLocation(startBytes, codedOut);
+  }
+
+  private final void serializeImpl(
+      CodecDescriptor descriptor,
+      ObjectCodec<Object> castCodec,
+      Object object,
+      CodedOutputStream codedOut)
+      throws IOException, SerializationException {
+    if (writeBackReferenceIfMemoized(object, codedOut, castCodec instanceof LeafObjectCodec)) {
+      return;
+    }
+    codedOut.writeSInt32NoTag(descriptor.getTag());
     serializeWithCodec(castCodec, object, codedOut);
   }
 
@@ -171,15 +187,17 @@ public abstract class SerializationContext implements SerializationDependencyPro
    *
    * <p>Never succeeds if memoization is disabled.
    *
+   * @param isLeafType true if the codec used for {@code obj} would be an instance of {@link
+   *     LeafObjectCodec}
    * @return true if {@code obj} was serialized to {@code codedOut} as a backreference
    */
   @ForOverride
-  abstract boolean writeBackReferenceIfMemoized(Object obj, CodedOutputStream codedOut)
-      throws IOException;
+  abstract boolean writeBackReferenceIfMemoized(
+      Object obj, CodedOutputStream codedOut, boolean isLeafType) throws IOException;
 
   public abstract boolean isMemoizing();
 
-  private final boolean writeIfNullOrConstant(@Nullable Object object, CodedOutputStream codedOut)
+  final boolean writeIfNullOrConstant(@Nullable Object object, CodedOutputStream codedOut)
       throws IOException {
     if (object == null) {
       codedOut.writeSInt32NoTag(0);
@@ -200,4 +218,7 @@ public abstract class SerializationContext implements SerializationDependencyPro
   final ImmutableClassToInstanceMap<Object> getDependencies() {
     return dependencies;
   }
+
+  @Nullable
+  abstract ProfileRecorder getProfileRecorder();
 }

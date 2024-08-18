@@ -264,15 +264,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     Path treeDir = artifactPathResolver.toPath(parent);
     boolean chmod = executionMode.get();
 
-    FileStatus lstat = treeDir.statIfFound(Symlinks.NOFOLLOW);
-    FileStatus stat;
-    if (lstat == null) {
-      stat = null;
-    } else if (!lstat.isSymbolicLink()) {
-      stat = lstat;
-    } else {
-      stat = treeDir.statIfFound(Symlinks.FOLLOW);
-    }
+    FileStatus stat = treeDir.statIfFound(Symlinks.FOLLOW);
 
     // Make sure the tree artifact root exists and is a regular directory. Note that this is how the
     // action is initialized, so this should hold unless the action itself has deleted the root.
@@ -329,20 +321,12 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
     }
 
     // Same rationale as for constructFileArtifactValue.
-    if (lstat.isSymbolicLink()) {
-      PathFragment materializationExecPath = null;
-      if (stat instanceof FileStatusWithMetadata) {
-        materializationExecPath =
-            ((FileStatusWithMetadata) stat).getMetadata().getMaterializationExecPath().orElse(null);
-      }
-
-      if (materializationExecPath == null) {
-        PathFragment realpath = treeDir.resolveSymbolicLinks().asFragment();
-        materializationExecPath =
-            realpath.startsWith(execRoot) ? realpath.relativeTo(execRoot) : realpath;
-      }
-
-      tree.setMaterializationExecPath(materializationExecPath);
+    if (anyRemote.get() && treeDir.isSymbolicLink() && stat instanceof FileStatusWithMetadata) {
+      FileArtifactValue metadata = ((FileStatusWithMetadata) stat).getMetadata();
+      tree.setMaterializationExecPath(
+          metadata
+              .getMaterializationExecPath()
+              .orElse(treeDir.resolveSymbolicLinks().asFragment().relativeTo(execRoot)));
     }
 
     return tree.build();
@@ -514,13 +498,7 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       return value;
     }
 
-    boolean isResolvedSymlink =
-        statAndValue.statNoFollow() != null
-            && statAndValue.statNoFollow().isSymbolicLink()
-            && statAndValue.realPath() != null
-            && !value.isRemote();
-
-    if (type.isFile() && !isResolvedSymlink && fileDigest != null) {
+    if (type.isFile() && fileDigest != null) {
       // The digest is in the file value and that is all that is needed for this file's metadata.
       return value;
     }
@@ -536,30 +514,22 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
           artifactPathResolver.toPath(artifact).getLastModifiedTime());
     }
 
-    byte[] actualDigest = fileDigest != null ? fileDigest : injectedDigest;
-
-    if (actualDigest == null && type.isFile()) {
+    if (injectedDigest == null && type.isFile()) {
       // We don't have an injected digest and there is no digest in the file value (which attempts a
       // fast digest). Manually compute the digest instead.
+      Path path = statAndValue.pathNoFollow();
+      if (statAndValue.statNoFollow() != null
+          && statAndValue.statNoFollow().isSymbolicLink()
+          && statAndValue.realPath() != null) {
+        // If the file is a symlink, we compute the digest using the target path so that it's
+        // possible to hit the digest cache - we probably already computed the digest for the
+        // target during previous action execution.
+        path = statAndValue.realPath();
+      }
 
-      // If the file is a symlink, we compute the digest using the target path so that it's
-      // possible to hit the digest cache - we probably already computed the digest for the
-      // target during previous action execution.
-      Path pathToDigest = isResolvedSymlink ? statAndValue.realPath() : statAndValue.pathNoFollow();
-      actualDigest = DigestUtils.manuallyComputeDigest(pathToDigest);
+      injectedDigest = DigestUtils.manuallyComputeDigest(path);
     }
-
-    if (!isResolvedSymlink) {
-      return FileArtifactValue.createFromInjectedDigest(value, actualDigest);
-    }
-
-    PathFragment realPathAsFragment = statAndValue.realPath().asFragment();
-    PathFragment execRootRelativeRealPath =
-        realPathAsFragment.startsWith(execRoot)
-            ? realPathAsFragment.relativeTo(execRoot)
-            : realPathAsFragment;
-    return FileArtifactValue.createForResolvedSymlink(
-        execRootRelativeRealPath, value, actualDigest);
+    return FileArtifactValue.createFromInjectedDigest(value, injectedDigest);
   }
 
   /**
@@ -686,8 +656,8 @@ final class ActionOutputMetadataStore implements OutputMetadataStore {
       return FileArtifactValue.createForDirectoryWithMtime(stat.getLastModifiedTime());
     }
 
-    if (stat instanceof FileStatusWithMetadata) {
-      return ((FileStatusWithMetadata) stat).getMetadata();
+    if (stat instanceof FileStatusWithMetadata fileStatusWithMetadata) {
+      return fileStatusWithMetadata.getMetadata();
     }
 
     FileStateValue fileStateValue =

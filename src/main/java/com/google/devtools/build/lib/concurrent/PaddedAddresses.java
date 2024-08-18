@@ -19,6 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import sun.misc.Unsafe;
 
 /** This class encapsulates creating padded addresses for 8-byte values. */
+@SuppressWarnings("SunApi") // TODO: b/359688989 - clean this up
 final class PaddedAddresses {
   /**
    * The target alignment bytes.

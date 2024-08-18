@@ -95,10 +95,11 @@ public abstract class DirectoryListingValue implements SkyValue {
 
   static DirectoryListingValue value(RootedPath dirRootedPath, FileValue dirFileValue,
       DirectoryListingStateValue realDirectoryListingStateValue) {
-    return dirFileValue.realRootedPath().equals(dirRootedPath)
+    RootedPath realRootedPath = dirFileValue.realRootedPath(dirRootedPath);
+    return realRootedPath.equals(dirRootedPath)
         ? new RegularDirectoryListingValue(realDirectoryListingStateValue)
-        : new DifferentRealPathDirectoryListingValue(dirFileValue.realRootedPath(),
-            realDirectoryListingStateValue);
+        : new DifferentRealPathDirectoryListingValue(
+            realRootedPath, realDirectoryListingStateValue);
   }
 
   /** Normal {@link DirectoryListingValue}. */

@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.concurrent.MultiExecutorQueueVisitor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
-import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.skyframe.ParallelEvaluatorErrorClassifier;
 import com.google.devtools.common.options.OptionsProvider;
 import java.util.concurrent.Executors;
@@ -146,8 +145,7 @@ public final class QuiescingExecutorsImpl implements QuiescingExecutors {
             /* parallelism= */ cpuHeavySkyKeysThreadPoolSize, SKYFRAME_EVALUATOR_CPU_HEAVY),
         useAsyncExecution
             ? Executors.newThreadPerTaskExecutor(
-                Profiler.instance()
-                    .profileableVirtualThreadFactory(SKYFRAME_EVALUATOR_EXECUTION + "-"))
+                Thread.ofVirtual().name(SKYFRAME_EVALUATOR_EXECUTION + "-", 0).factory())
             : AbstractQueueVisitor.createExecutorService(
                 /* parallelism= */ executionParallelism, SKYFRAME_EVALUATOR_EXECUTION),
         ExceptionHandlingMode.FAIL_FAST,

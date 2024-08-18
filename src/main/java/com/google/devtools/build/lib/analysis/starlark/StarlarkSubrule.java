@@ -348,7 +348,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
     }
 
     private ImmutableSet<Label> getAutomaticExecGroupLabels() {
-      return starlarkRuleContext.getAutomaticExecGroupLabels().stream()
+      return starlarkRuleContext.getRequestedToolchainTypeLabelsFromAutoExecGroups().stream()
           .filter(label -> requestedToolchains.contains(label))
           .collect(toImmutableSet());
     }
@@ -439,6 +439,16 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       this.requestedToolchains = null;
       this.runfilesFromDeps = null;
       this.fragmentCollection = null;
+    }
+
+    @Override
+    public void repr(Printer printer) {
+      printer.append(
+          "<"
+              + subrule.getName()
+              + " context for "
+              + starlarkRuleContext.getRuleContext().getLabel()
+              + ">");
     }
   }
 

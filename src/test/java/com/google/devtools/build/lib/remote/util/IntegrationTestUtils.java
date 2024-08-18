@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.shell.Subprocess;
 import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.util.OS;
@@ -44,30 +45,6 @@ public final class IntegrationTestUtils {
               + (OS.getCurrent() == OS.WINDOWS ? ".exe" : ""));
 
   private static final AtomicInteger WORKER_COUNTER = new AtomicInteger(0);
-
-  private static void waitForPortOpen(Subprocess process, int port)
-      throws IOException, InterruptedException {
-    var addr = new InetSocketAddress("localhost", port);
-    var timeout = new IOException("Timed out when waiting for port to open");
-    for (var i = 0; i < 20; ++i) {
-      if (!process.isAlive()) {
-        var message = new String(process.getErrorStream().readAllBytes(), UTF_8);
-        throw new IOException("Failed to start worker: " + message);
-      }
-
-      try {
-        try (var socketChannel = SocketChannel.open()) {
-          socketChannel.configureBlocking(/* block= */ true);
-          socketChannel.connect(addr);
-        }
-        return;
-      } catch (IOException e) {
-        timeout.addSuppressed(e);
-        Thread.sleep(1000);
-      }
-    }
-    throw timeout;
-  }
 
   public static WorkerInstance startWorker() throws IOException, InterruptedException {
     return startWorker(/* useHttp= */ false);
@@ -144,7 +121,7 @@ public final class IntegrationTestUtils {
 
       var suffix = String.valueOf(counter.getAndIncrement());
       var stdPath = stdPathPrefix.getRelative(suffix);
-      stdoutPath = stdPath.getRelative("stdoud");
+      stdoutPath = stdPath.getRelative("stdout");
       stderrPath = stdPath.getRelative("stderr");
       workPath = workPathPrefix.getRelative(suffix);
       casPath = casPathPrefix.getRelative(suffix);
@@ -154,9 +131,14 @@ public final class IntegrationTestUtils {
       ensureMkdir(stdPath);
       ensureTouchFile(stdoutPath);
       ensureTouchFile(stderrPath);
-      String workerPath = Runfiles.create().rlocation(WORKER_PATH.getSafePathString());
+      Runfiles runfiles = Runfiles.preload().withSourceRepository("");
+      String workerPath = runfiles.rlocation(WORKER_PATH.getSafePathString());
+      ImmutableMap.Builder<String, String> env = ImmutableMap.builder();
+      env.putAll(System.getenv());
+      env.putAll(runfiles.getEnvVars());
       process =
           new SubprocessBuilder()
+              .setEnv(env.buildKeepingLast())
               .setStdout(new File(stdoutPath.getSafePathString()))
               .setStderr(new File(stderrPath.getSafePathString()))
               .setArgv(
@@ -167,6 +149,34 @@ public final class IntegrationTestUtils {
                       (useHttp ? "--http_listen_port=" : "--listen_port=") + port))
               .start();
       waitForPortOpen(process, port);
+    }
+
+    private void waitForPortOpen(Subprocess process, int port)
+        throws IOException, InterruptedException {
+      var addr = new InetSocketAddress("localhost", port);
+      var timeout = new IOException("Timed out while trying to connect to worker");
+      for (var i = 0; i < 20; ++i) {
+        if (!process.isAlive()) {
+          throw new IOException(
+              String.format(
+                  "Worker died while trying to connect\n"
+                      + "----- STDOUT -----\n%s\n"
+                      + "----- STDERR -----\n%s\n",
+                  getStdout(), getStderr()));
+        }
+
+        try {
+          try (var socketChannel = SocketChannel.open()) {
+            socketChannel.configureBlocking(/* block= */ true);
+            socketChannel.connect(addr);
+          }
+          return;
+        } catch (IOException e) {
+          timeout.addSuppressed(e);
+          Thread.sleep(1000);
+        }
+      }
+      throw timeout;
     }
 
     public void stop() throws IOException {

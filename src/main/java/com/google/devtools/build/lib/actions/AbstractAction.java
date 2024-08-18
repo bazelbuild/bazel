@@ -253,8 +253,8 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
 
   @Override
   public Collection<Artifact> getOutputs() {
-    return outputs instanceof Artifact
-        ? ImmutableSet.of((Artifact) outputs)
+    return outputs instanceof Artifact artifact
+        ? ImmutableSet.of(artifact)
         : new OutputSet((Artifact[]) outputs);
   }
 
@@ -289,6 +289,15 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
     // The default behavior is to return the first input artifact.
     // Call through the method, not the field, because it may be overridden.
     return Iterables.getFirst(getInputs().toList(), null);
+  }
+
+  public Artifact getOriginalPrimaryInput() {
+    // The default behavior is to return the first input artifact of the original input list (before
+    // input discovery).
+    // Call through the method, not the field, because it may be overridden.
+    NestedSet<Artifact> originalInputs = getOriginalInputs();
+    NestedSet<Artifact> inputs = originalInputs == null ? getInputs() : originalInputs;
+    return Iterables.getFirst(inputs.toList(), null);
   }
 
   @Override
@@ -368,21 +377,18 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   private String replaceProgressMessagePlaceholders(
       String progressMessage, @Nullable RepositoryMapping mainRepositoryMapping) {
     if (progressMessage.contains("%{label}") && owner.getLabel() != null) {
-      String labelString;
-      if (mainRepositoryMapping != null) {
-        labelString = owner.getLabel().getDisplayForm(mainRepositoryMapping);
-      } else {
-        labelString = owner.getLabel().toString();
-      }
-      progressMessage = progressMessage.replace("%{label}", labelString);
+      progressMessage =
+          progressMessage.replace(
+              "%{label}", owner.getLabel().getDisplayForm(mainRepositoryMapping));
     }
     if (progressMessage.contains("%{output}") && getPrimaryOutput() != null) {
       progressMessage =
           progressMessage.replace("%{output}", getPrimaryOutput().getRootRelativePathString());
     }
-    if (progressMessage.contains("%{input}") && getPrimaryInput() != null) {
+    if (progressMessage.contains("%{input}") && getOriginalPrimaryInput() != null) {
       progressMessage =
-          progressMessage.replace("%{input}", getPrimaryInput().getRootRelativePathString());
+          progressMessage.replace(
+              "%{input}", getOriginalPrimaryInput().getRootRelativePathString());
     }
     return progressMessage;
   }

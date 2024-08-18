@@ -15,7 +15,12 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
+import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
+import com.google.devtools.build.lib.vfs.Path;
 import java.net.URISyntaxException;
+import java.util.Optional;
 
 /** A factory type for {@link Registry}. */
 public interface RegistryFactory {
@@ -25,5 +30,11 @@ public interface RegistryFactory {
    *
    * <p>Outside of tests, only {@link RegistryFunction} should call this method.
    */
-  Registry createRegistry(String url) throws URISyntaxException;
+  Registry createRegistry(
+      String url,
+      RepositoryOptions.LockfileMode lockfileMode,
+      ImmutableMap<String, Optional<Checksum>> fileHashes,
+      ImmutableMap<ModuleKey, String> previouslySelectedYankedVersions,
+      Optional<Path> vendorDir)
+      throws URISyntaxException;
 }

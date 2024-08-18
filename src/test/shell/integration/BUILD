@@ -129,6 +129,9 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 8,
+    tags = [
+        "requires-network",  # For Bzlmod
+    ],
 )
 
 sh_test(
@@ -288,6 +291,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    shard_count = 5,
 )
 
 sh_test(
@@ -890,6 +894,16 @@ sh_test(
 )
 
 sh_test(
+    name = "rule_transition_test",
+    srcs = ["rule_transition_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "unicode_test",
     srcs = ["unicode_test.sh"],
     data = [
@@ -960,6 +974,15 @@ sh_test(
     ],
     shard_count = 5,
     tags = ["no_windows"],
+)
+
+sh_test(
+    name = "platform_based_flags_test",
+    srcs = ["platform_based_flags_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
 )
 
 ########################################################################

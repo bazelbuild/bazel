@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.platform;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ConstraintCollection;
@@ -160,16 +161,15 @@ public class ConstraintCollectionApiTest extends PlatformTestCase {
     StructImpl info =
         (StructImpl)
             myRuleTarget.get(
-                new StarlarkProvider.Key(Label.parseCanonical("//verify:verify.bzl"), "result"));
+                new StarlarkProvider.Key(
+                    keyForBuild(Label.parseCanonical("//verify:verify.bzl")), "result"));
 
-    @SuppressWarnings("unchecked")
     ConstraintValueInfo constraintValueFromIndex =
         (ConstraintValueInfo) info.getValue("value_from_index");
     assertThat(constraintValueFromIndex).isNotNull();
     assertThat(constraintValueFromIndex.label())
         .isEqualTo(Label.parseCanonicalUnchecked("//foo:value1"));
 
-    @SuppressWarnings("unchecked")
     ConstraintValueInfo constraintValueFromGet =
         (ConstraintValueInfo) info.getValue("value_from_get");
     assertThat(constraintValueFromGet).isNotNull();

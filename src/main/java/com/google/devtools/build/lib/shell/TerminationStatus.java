@@ -243,8 +243,8 @@ public final class TerminationStatus {
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof TerminationStatus
-        && ((TerminationStatus) other).waitResult == this.waitResult;
+    return other instanceof TerminationStatus terminationStatus
+        && terminationStatus.waitResult == this.waitResult;
   }
 
   /** Returns a new {@link TerminationStatus.Builder}. */

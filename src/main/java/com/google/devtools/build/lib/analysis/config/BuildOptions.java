@@ -28,8 +28,9 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
+import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -245,7 +246,13 @@ public final class BuildOptions implements Cloneable {
 
   /** Maps options class definitions to FragmentOptions objects. */
   private final ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap;
-  /** Maps Starlark options names to Starlark options values. */
+
+  /**
+   * Maps Starlark options names to Starlark options values. This should never contain an entry for
+   * a Starlark option and the default value: if a Starlark option is explicitly or implicitly set
+   * to the default it should be removed from this map so that configurations are not duplicated
+   * needlessly.
+   */
   private final ImmutableMap<Label, Object> starlarkOptionsMap;
 
   // Lazily initialized both for performance and correctness - BuildOptions instances may be mutated
@@ -259,74 +266,6 @@ public final class BuildOptions implements Cloneable {
       ImmutableMap<Label, Object> starlarkOptionsMap) {
     this.fragmentOptionsMap = fragmentOptionsMap;
     this.starlarkOptionsMap = starlarkOptionsMap;
-  }
-
-  /**
-   * Applies any options set in the parsing result on top of these options, returning the resulting
-   * build options.
-   *
-   * <p>To preserve fragment trimming, this method will not expand the set of included native
-   * fragments. If the parsing result contains native options whose owning fragment is not part of
-   * these options they will be ignored (i.e. not set on the resulting options). Starlark options
-   * are not affected by this restriction.
-   *
-   * @param parsingResult any options that are being modified
-   * @return the new options after applying the parsing result to the original options
-   */
-  public BuildOptions applyParsingResult(OptionsParsingResult parsingResult) {
-    Map<Class<? extends FragmentOptions>, FragmentOptions> modifiedFragments =
-        toModifiedFragments(parsingResult);
-
-    BuildOptions.Builder builder = builder();
-    for (Map.Entry<Class<? extends FragmentOptions>, FragmentOptions> classAndFragment :
-        fragmentOptionsMap.entrySet()) {
-      Class<? extends FragmentOptions> fragmentClass = classAndFragment.getKey();
-      if (modifiedFragments.containsKey(fragmentClass)) {
-        builder.addFragmentOptions(modifiedFragments.get(fragmentClass));
-      } else {
-        builder.addFragmentOptions(classAndFragment.getValue());
-      }
-    }
-
-    Map<Label, Object> starlarkOptions = new HashMap<>(starlarkOptionsMap);
-    Map<Label, Object> parsedStarlarkOptions =
-        labelizeStarlarkOptions(parsingResult.getStarlarkOptions());
-    for (Map.Entry<Label, Object> starlarkOption : parsedStarlarkOptions.entrySet()) {
-      starlarkOptions.put(starlarkOption.getKey(), starlarkOption.getValue());
-    }
-    builder.addStarlarkOptions(starlarkOptions);
-    return builder.build();
-  }
-
-  private Map<Class<? extends FragmentOptions>, FragmentOptions> toModifiedFragments(
-      OptionsParsingResult parsingResult) {
-    Map<Class<? extends FragmentOptions>, FragmentOptions> replacedOptions = new HashMap<>();
-    for (ParsedOptionDescription parsedOption : parsingResult.asListOfExplicitOptions()) {
-      OptionDefinition optionDefinition = parsedOption.getOptionDefinition();
-
-      // All options obtained from an options parser are guaranteed to have been defined in an
-      // FragmentOptions class.
-      @SuppressWarnings("unchecked")
-      Class<? extends FragmentOptions> fragmentOptionClass =
-          (Class<? extends FragmentOptions>) optionDefinition.getField().getDeclaringClass();
-
-      FragmentOptions originalFragment = fragmentOptionsMap.get(fragmentOptionClass);
-      if (originalFragment == null) {
-        // Preserve trimming by ignoring fragments not present in the original options.
-        continue;
-      }
-      FragmentOptions newOptions =
-          replacedOptions.computeIfAbsent(fragmentOptionClass, unused -> originalFragment.clone());
-      try {
-        Object value =
-            parsingResult.getOptionValueDescription(optionDefinition.getOptionName()).getValue();
-        optionDefinition.getField().set(newOptions, value);
-      } catch (IllegalAccessException e) {
-        throw new IllegalStateException("Couldn't set " + optionDefinition.getField(), e);
-      }
-    }
-
-    return replacedOptions;
   }
 
   /**
@@ -350,9 +289,8 @@ public final class BuildOptions implements Cloneable {
 
       // All options obtained from an options parser are guaranteed to have been defined in an
       // FragmentOptions class.
-      @SuppressWarnings("unchecked")
       Class<? extends FragmentOptions> fragmentClass =
-          (Class<? extends FragmentOptions>) optionDefinition.getField().getDeclaringClass();
+          optionDefinition.getDeclaringClass(FragmentOptions.class);
 
       FragmentOptions originalFragment = fragmentOptionsMap.get(fragmentClass);
       if (originalFragment == null) {
@@ -423,6 +361,23 @@ public final class BuildOptions implements Cloneable {
     }
 
     /**
+     * Returns the {@link FragmentOptions} for the given class, or {@code null} if that fragment is
+     * not present.
+     */
+    @Nullable
+    @SuppressWarnings("unchecked")
+    public <T extends FragmentOptions> T getFragmentOptions(Class<T> key) {
+      return (T) fragmentOptions.get(key);
+    }
+
+    /** Removes the value for the {@link FragmentOptions} with the given FragmentOptions class. */
+    @CanIgnoreReturnValue
+    public Builder removeFragmentOptions(Class<? extends FragmentOptions> key) {
+      fragmentOptions.remove(key);
+      return this;
+    }
+
+    /**
      * Adds multiple Starlark options to the builder. Overrides previous instances of the same key.
      */
     @CanIgnoreReturnValue
@@ -438,10 +393,10 @@ public final class BuildOptions implements Cloneable {
       return this;
     }
 
-    /** Removes the value for the {@link FragmentOptions} with the given FragmentOptions class. */
+    /** Removes the Starlark option from this builder. */
     @CanIgnoreReturnValue
-    public Builder removeFragmentOptions(Class<? extends FragmentOptions> key) {
-      fragmentOptions.remove(key);
+    public Builder removeStarklarkOption(Label key) {
+      starlarkOptions.remove(key);
       return this;
     }
 
@@ -487,23 +442,19 @@ public final class BuildOptions implements Cloneable {
 
     @Override
     public void serialize(
-        SerializationDependencyProvider dependencies,
-        BuildOptions options,
-        CodedOutputStream codedOut)
+        LeafSerializationContext context, BuildOptions options, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      if (!dependencies.getDependency(OptionsChecksumCache.class).prime(options)) {
+      if (!context.getDependency(OptionsChecksumCache.class).prime(options)) {
         throw new SerializationException("Failed to prime cache for " + options.checksum());
       }
-      stringCodec().serialize(dependencies, options.checksum(), codedOut);
+      context.serializeLeaf(options.checksum(), stringCodec(), codedOut);
     }
 
     @Override
-    public BuildOptions deserialize(
-        SerializationDependencyProvider dependencies, CodedInputStream codedIn)
+    public BuildOptions deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
         throws SerializationException, IOException {
-      String checksum = stringCodec().deserialize(dependencies, codedIn);
-      BuildOptions result =
-          dependencies.getDependency(OptionsChecksumCache.class).getOptions(checksum);
+      String checksum = context.deserializeLeaf(codedIn, stringCodec());
+      BuildOptions result = context.getDependency(OptionsChecksumCache.class).getOptions(checksum);
       if (result == null) {
         throw new SerializationException("No options instance for " + checksum);
       }

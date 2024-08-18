@@ -164,7 +164,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
               (builder, env) ->
                   builder
                       .add(attr("deps", LABEL_LIST).allowedFileTypes())
-                      .useToolchainResolution(ToolchainResolutionMode.DISABLED));
+                      .toolchainResolutionMode(ToolchainResolutionMode.DISABLED));
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
@@ -2072,9 +2072,10 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file("java/BUILD");
     scratch.file(
         "java/macros.bzl",
+        analysisMock.javaSupport().getLoadStatementForRule("java_binary"),
         """
         def my_java_binary(name, deps = [], **kwargs):
-            native.java_binary(
+            java_binary(
                 name = name,
                 deps = select({
                     Label('//conditions:a'): [Label('//java/foo:a')],

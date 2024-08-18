@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -276,12 +277,16 @@ public class GenRuleBaseRule implements RuleDefinition {
             attr("executable", BOOLEAN)
                 .value(false)
                 .nonconfigurable(
-                    "Used in computed default for $is_executable, which is itself non-configurable"
+                    "Used in computed default for "
+                        + Rule.IS_EXECUTABLE_ATTRIBUTE_NAME
+                        + " which is itself non-configurable"
                         + " (and thus expects its dependencies to be non-configurable), because"
-                        + " $is_executable  is called from RunCommand.isExecutable, which has no"
-                        + " configuration context"))
+                        + " "
+                        + Rule.IS_EXECUTABLE_ATTRIBUTE_NAME
+                        + " is called from "
+                        + " RunCommand.isExecutable, which has no configuration context"))
         .add(
-            attr("$is_executable", BOOLEAN)
+            attr(Rule.IS_EXECUTABLE_ATTRIBUTE_NAME, BOOLEAN)
                 .nonconfigurable("Called from RunCommand.isExecutable, which takes a Target")
                 .value(
                     new Attribute.ComputedDefault() {

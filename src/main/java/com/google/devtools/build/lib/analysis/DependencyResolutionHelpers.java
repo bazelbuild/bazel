@@ -48,6 +48,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
 import java.util.HashSet;
 import java.util.List;
@@ -91,7 +92,8 @@ public final class DependencyResolutionHelpers {
       TargetAndConfiguration node,
       ImmutableList<Aspect> aspects,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
-      @Nullable ToolchainCollection<ToolchainContext> toolchainContexts)
+      @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
+      @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts)
       throws Failure {
     Target target = node.getTarget();
     BuildConfigurationValue config = node.getConfiguration();
@@ -112,12 +114,18 @@ public final class DependencyResolutionHelpers {
       addToolchainDeps(toolchainContexts, outgoingLabels);
     } else if (target instanceof InputFile || target instanceof EnvironmentGroup) {
       addVisibilityDepLabels(target.getVisibilityDependencyLabels(), outgoingLabels);
-    } else if (target instanceof Rule) {
-      fromRule = (Rule) target;
+    } else if (target instanceof Rule rule) {
+      fromRule = rule;
       attributeMap = ConfiguredAttributeMapper.of(fromRule, configConditions, config);
-      visitRule(node, aspects, attributeMap, toolchainContexts, outgoingLabels);
-    } else if (target instanceof PackageGroup) {
-      outgoingLabels.putAll(VISIBILITY_DEPENDENCY, ((PackageGroup) target).getIncludes());
+      visitRule(
+          node,
+          aspects,
+          attributeMap,
+          toolchainContexts,
+          baseTargetUnloadedToolchainContexts,
+          outgoingLabels);
+    } else if (target instanceof PackageGroup packageGroup) {
+      outgoingLabels.putAll(VISIBILITY_DEPENDENCY, packageGroup.getIncludes());
     } else {
       throw new IllegalStateException(target.getLabel().toString());
     }
@@ -244,6 +252,7 @@ public final class DependencyResolutionHelpers {
       ImmutableList<Aspect> aspects,
       ConfiguredAttributeMapper attributeMap,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
+      @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts,
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels)
       throws Failure {
     Preconditions.checkArgument(node.getTarget() instanceof Rule, node);
@@ -302,6 +311,7 @@ public final class DependencyResolutionHelpers {
     }
 
     addToolchainDeps(toolchainContexts, outgoingLabels);
+    addBaseTargetToolchainDeps(baseTargetUnloadedToolchainContexts, outgoingLabels);
   }
 
   private static void addToolchainDeps(
@@ -313,6 +323,29 @@ public final class DependencyResolutionHelpers {
         outgoingLabels.putAll(
             DependencyKind.forExecGroup(entry.getKey()),
             entry.getValue().resolvedToolchainLabels());
+      }
+    }
+  }
+
+  private static void addBaseTargetToolchainDeps(
+      @Nullable ToolchainCollection<UnloadedToolchainContext> toolchainContexts,
+      OrderedSetMultimap<DependencyKind, Label> outgoingLabels) {
+    if (toolchainContexts == null) {
+      return;
+    }
+    for (Map.Entry<String, UnloadedToolchainContext> execGroup :
+        toolchainContexts.getContextMap().entrySet()) {
+      for (var toolchainTypeToResolved :
+          execGroup.getValue().toolchainTypeToResolved().asMap().entrySet()) {
+        // map entries from (exec group, toolchain type) to resolved toolchain labels. We need to
+        // distinguish the resolved toolchains per type because aspects propagate on toolchains
+        // based on the types specified in `toolchains_aspects`. So even if 2 types resolved to the
+        // same toolchain target, their CT will be different if an aspect propagates to one type but
+        // not the other.
+        outgoingLabels.putAll(
+            DependencyKind.forBaseTargetExecGroup(
+                execGroup.getKey(), toolchainTypeToResolved.getKey().typeLabel()),
+            toolchainTypeToResolved.getValue());
       }
     }
   }
@@ -372,8 +405,8 @@ public final class DependencyResolutionHelpers {
         Object defaultValue = attribute.getDefaultValue(rule);
         attributeValue =
             type.cast(
-                defaultValue instanceof ComputedDefault
-                    ? ((ComputedDefault) defaultValue).getDefault(attributeMap)
+                defaultValue instanceof ComputedDefault computedDefault
+                    ? computedDefault.getDefault(attributeMap)
                     : defaultValue);
       }
     } else if (attribute.isLateBound()) {

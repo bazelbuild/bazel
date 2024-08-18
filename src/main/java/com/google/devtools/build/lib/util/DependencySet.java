@@ -26,6 +26,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -104,7 +106,7 @@ public final class DependencySet {
     if (OS.getCurrent() != OS.WINDOWS) {
       return path;
     }
-    return WindowsPath.translateWindowsPath(path);
+    return WindowsPath.removeWorkspace(WindowsPath.translateWindowsPath(path));
   }
 
   /** Reads a dotd file into this DependencySet instance. */
@@ -239,8 +241,8 @@ public final class DependencySet {
 
   @Override
   public boolean equals(Object other) {
-    return other instanceof DependencySet
-        && ((DependencySet) other).dependencies.equals(dependencies);
+    return other instanceof DependencySet dependencySet
+        && dependencySet.dependencies.equals(dependencies);
   }
 
   @Override
@@ -250,6 +252,17 @@ public final class DependencySet {
 
   private static final class WindowsPath {
     private static final AtomicReference<String> UNIX_ROOT = new AtomicReference<>(null);
+
+    private static final Pattern EXECROOT_BASE_HEADER_PATTERN =
+        Pattern.compile(".*execroot[\\\\/](?<headerPath>.*)");
+
+    private static String removeWorkspace(String path) {
+      Matcher m = EXECROOT_BASE_HEADER_PATTERN.matcher(path);
+      if (m.matches()) {
+        path = "../" + m.group("headerPath");
+      }
+      return path;
+    }
 
     private static String translateWindowsPath(String path) {
       int n = path.length();

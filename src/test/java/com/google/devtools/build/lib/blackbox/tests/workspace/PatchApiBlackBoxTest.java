@@ -79,8 +79,8 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
             """);
     context()
         .write(
-            WORKSPACE,
-            "load(\":patched_repo.bzl\", \"patched_repo\")",
+            MODULE_DOT_BAZEL,
+            "patched_repo = use_repo_rule(\"//:patched_repo.bzl\", \"patched_repo\")",
             "",
             "patched_repo(",
             "    name = \"test\",",
@@ -157,7 +157,7 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
     } else {
       assertFooIsPatched(bazel);
       // foo.sh.orig should be generated due to "-b" argument.
-      Path fooOrig = context().resolveExecRootPath(bazel, "external/test/foo.sh.orig");
+      Path fooOrig = context().resolveExecRootPath(bazel, "external/+_repo_rules+test/foo.sh.orig");
       assertThat(fooOrig.toFile().exists()).isTrue();
     }
   }
@@ -200,7 +200,7 @@ public class PatchApiBlackBoxTest extends AbstractBlackBoxTest {
   }
 
   private void assertFooIsPatched(BuilderRunner bazel) throws Exception {
-    Path foo = context().resolveExecRootPath(bazel, "external/test/foo.sh");
+    Path foo = context().resolveExecRootPath(bazel, "external/+_repo_rules+test/foo.sh");
     assertThat(foo.toFile().exists()).isTrue();
     ImmutableList<String> patchedFoo =
         ImmutableList.of(

@@ -306,7 +306,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
                   .mandatory()
                   .allowedFileTypes()
                   .cfg(
-                      new TransitionFactory<AttributeTransitionData>() {
+                      new TransitionFactory<>() {
                         @Override
                         public SplitTransition create(AttributeTransitionData data) {
                           return new SplitTransition() {
@@ -330,6 +330,11 @@ public class CircularDependencyTest extends BuildViewTestCase {
                               return ImmutableMap.of("define_cleaner", newOptions.underlying());
                             }
                           };
+                        }
+
+                        @Override
+                        public TransitionType transitionType() {
+                          return TransitionType.ATTRIBUTE;
                         }
 
                         @Override

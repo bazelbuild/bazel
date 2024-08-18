@@ -17,7 +17,6 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.NUM_JOBS;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
@@ -301,55 +300,6 @@ public final class IncrementalArtifactConflictFinder {
         ImmutableMap.copyOf(temporaryBadActionMap), threadSafeMutableActionGraph.getSize());
   }
 
-  ActionConflictsAndStats findArtifactConflictsNoIncrementality(
-      ImmutableCollection<SkyValue> actionLookupValues) throws InterruptedException {
-    ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> temporaryBadActionMap =
-        new ConcurrentHashMap<>();
-
-    try (SilentCloseable c =
-        Profiler.instance()
-            .profile(ProfilerTask.CONFLICT_CHECK, "constructActionGraphAndArtifactList")) {
-      constructActionGraphAndArtifactList(
-          pathFragmentTrieRoot, actionLookupValues, temporaryBadActionMap);
-    }
-
-    return ActionConflictsAndStats.create(
-        ImmutableMap.copyOf(temporaryBadActionMap), threadSafeMutableActionGraph.getSize());
-  }
-
-  private void constructActionGraphAndArtifactList(
-      ConcurrentMap<String, Object> pathFragmentTrieRoot,
-      ImmutableCollection<SkyValue> actionLookupValues,
-      ConcurrentMap<ActionAnalysisMetadata, ActionConflictException> badActionMap)
-      throws InterruptedException {
-    List<ListenableFuture<Void>> futures = new ArrayList<>(actionLookupValues.size());
-    synchronized (freeForAllPool) {
-      // Some other thread shut down the executor, exit now.
-      if (freeForAllPool.isShutdown()) {
-        return;
-      }
-      for (SkyValue alv : actionLookupValues) {
-        if (!(alv instanceof ActionLookupValue)) {
-          continue;
-        }
-        futures.add(
-            freeForAllPool.submit(
-                () ->
-                    actionRegistration(
-                        (ActionLookupValue) alv,
-                        threadSafeMutableActionGraph,
-                        pathFragmentTrieRoot,
-                        badActionMap)));
-      }
-    }
-    // Now wait on the futures.
-    try {
-      Futures.whenAllSucceed(futures).call(() -> null, directExecutor()).get();
-    } catch (ExecutionException e) {
-      throw new IllegalStateException("Unexpected exception", e);
-    }
-  }
-
   void shutdown() {
     try {
       synchronized (exclusivePortionLock) {
@@ -492,8 +442,8 @@ public final class IncrementalArtifactConflictFinder {
   private static Artifact getOwningArtifactFromTrie(Object trieNode) {
     Preconditions.checkArgument(
         trieNode instanceof Artifact || trieNode instanceof ConcurrentHashMap);
-    if (trieNode instanceof Artifact) {
-      return (Artifact) trieNode;
+    if (trieNode instanceof Artifact artifact) {
+      return artifact;
     }
     Object nodeIter = trieNode;
     while (!(nodeIter instanceof Artifact)) {

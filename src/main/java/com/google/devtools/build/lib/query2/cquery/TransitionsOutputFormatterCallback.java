@@ -23,11 +23,13 @@ import com.google.devtools.build.lib.analysis.config.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
+import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyCache;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.LabelPrinter;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
@@ -49,6 +51,7 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
   private final RuleClassProvider ruleClassProvider;
   private final LabelPrinter labelPrinter;
   private final StarlarkTransitionCache transitionCache;
+  private final BuildConfigurationKeyCache buildConfigurationKeyCache;
 
   @Override
   public String getName() {
@@ -71,6 +74,8 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
     this.partialResultMap = Maps.newHashMap();
     this.labelPrinter = labelPrinter;
     this.transitionCache = skyframeExecutor.getSkyframeBuildView().getStarlarkTransitionCache();
+    this.buildConfigurationKeyCache =
+        skyframeExecutor.getSkyframeBuildView().getBuildConfigurationKeyCache();
   }
 
   @Override
@@ -102,11 +107,26 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
         // anyway.
         dependencies =
             new CqueryTransitionResolver(
-                    eventHandler, accessor, this, ruleClassProvider, transitionCache)
+                    eventHandler,
+                    accessor,
+                    this,
+                    ruleClassProvider,
+                    transitionCache,
+                    buildConfigurationKeyCache)
                 .dependencies(keyedConfiguredTarget);
       } catch (EvaluateException e) {
-        // This is an abuse of InterruptedException.
-        throw new InterruptedException(e.getMessage());
+        eventHandler.handle(
+            Event.error(
+                String.format(
+                    "Failed to evaluate %s: %s", keyedConfiguredTarget.getOriginalLabel(), e)));
+        return;
+      } catch (IncompatibleTargetChecker.IncompatibleTargetException e) {
+        eventHandler.handle(
+            Event.warn(
+                String.format(
+                    "Skipping dependencies of incompatible target %s",
+                    keyedConfiguredTarget.getOriginalLabel())));
+        return;
       }
       for (ResolvedTransition dep : dependencies) {
         addResult(
@@ -131,22 +151,20 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
   }
 
   private static String getRuleClassTransition(CqueryNode ct, Target target) {
-    String output = "";
-    if (ct instanceof RuleConfiguredTarget) {
-      TransitionFactory<RuleTransitionData> factory =
-          target.getAssociatedRule().getRuleClassObject().getTransitionFactory();
-      if (factory != null) {
-        output =
-            factory
-                .create(
-                    RuleTransitionData.create(
-                        target.getAssociatedRule(),
-                        null,
-                        ct.getConfigurationKey().getOptionsChecksum()))
-                .getName()
-                .concat(" -> ");
-      }
+    Rule rule = target.getAssociatedRule();
+    if (rule == null) {
+      return "";
     }
-    return output;
+
+    TransitionFactory<RuleTransitionData> factory =
+        rule.getRuleClassObject().getTransitionFactory();
+    return factory
+        .create(
+            RuleTransitionData.create(
+                target.getAssociatedRule(),
+                /* configConditions= */ null,
+                ct.getConfigurationKey().getOptionsChecksum()))
+        .getName()
+        .concat(" -> ");
   }
 }

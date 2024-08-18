@@ -39,6 +39,7 @@ public class PlatformRule implements RuleDefinition {
   public static final String REMOTE_EXECUTION_PROPS_ATTR = "remote_execution_properties";
   public static final String EXEC_PROPS_ATTR = "exec_properties";
   public static final String FLAGS_ATTR = "flags";
+  public static final String REQUIRED_SETTINGS_ATTR = "required_settings";
 
   @Override
   public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment env) {
@@ -46,9 +47,9 @@ public class PlatformRule implements RuleDefinition {
     <!-- #END_BLAZE_RULE.NAME --> */
     return builder
         .advertiseStarlarkProvider(PlatformInfo.PROVIDER.id())
-        .cfg(NoConfigTransition.createFactory())
+        .cfg(NoConfigTransition.getFactory())
         .exemptFromConstraintChecking("this rule helps *define* a constraint")
-        .useToolchainResolution(ToolchainResolutionMode.DISABLED)
+        .toolchainResolutionMode(ToolchainResolutionMode.DISABLED)
         .removeAttribute(":action_listener")
         .removeAttribute(RuleClass.APPLICABLE_METADATA_ATTR)
         .override(
@@ -121,6 +122,16 @@ public class PlatformRule implements RuleDefinition {
             attr(FLAGS_ATTR, Types.STRING_LIST)
                 .value(ImmutableList.of())
                 .nonconfigurable("Part of the configuration"))
+        /* <!-- #BLAZE_RULE(platform).ATTRIBUTE(required_settings) -->
+        A list of <code>config_setting</code>s that must be satisfied by the target configuration
+        in order for this platform to be used as an execution platform during toolchain resolution.
+
+        Required settings are not inherited from parent platforms.
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        .add(
+            attr(REQUIRED_SETTINGS_ATTR, BuildType.LABEL_LIST)
+                .allowedRuleClasses("config_setting")
+                .allowedFileTypes(FileTypeSet.NO_FILE))
         .build();
   }
 
@@ -165,6 +176,69 @@ platform(
     ],
 )
 </pre>
+
+<h3 id="platform_flags">Platform Flags</h3>
+<p>
+  Platforms may use the <code>flags</code> attribute to specify a list of flags that will be added
+  to the configuration whenever the platform is used as the target platform (i.e., as the value of
+  the <code>--platforms</code> flag).
+</p>
+
+<p>
+  Flags set from the platform effectively have the highest precedence and overwrite any previous
+  value for that flag, from the command line, rc file, or transition.
+</p>
+
+<h4 id="platform_flags_examples">Example</h4>
+
+<pre class="code">
+platform(
+    name = "foo",
+    flags = [
+        "--dynamic_mode=fully",
+        "--//bool_flag",
+        "--no//package:other_bool_flag",
+    ],
+)
+</pre>
+
+<p>
+  This defines a platform named <code>foo</code>. When this is the target platform (either because
+  the user specified <code>--platforms//:foo</code>, because a transition set the
+  <code>//command_line_option:platforms</code> flag to <code>["//:foo"]</code>, or because
+  <code>//:foo</code> was used as an execution platform), then the given flags will be set in the
+  configuration.
+</p>
+
+<h4 id=platform_flags_repeated>Platforms and Repeatable Flags</h4>
+
+<p>
+  Some flags will accumulate values when they are repeated, such as <code>--features</code>,
+  <code>--copt</code>, any Starlark flag created as <code>config.string(repeatable = True)</code>.
+  These flags are not compatible with setting the flags from the platform: instead, all previous
+  values will be removed and overwritten with the values from the platform.
+</p>
+
+<p>
+  As an example, given the following platform, the invocation <code>build --platforms=//:repeat_demo
+  --features feature_a --features feature_b</code> will end up with the value of the
+  <code>--feature</code> flag being <code>["feature_c", "feature_d"]</code>, removing the features
+  set on the command line.
+</p>
+
+<pre class="code">
+platform(
+    name = "repeat_demo",
+    flags = [
+        "--features=feature_c",
+        "--features=feature_d",
+    ],
+)
+</pre>
+
+<p>
+  For this reason, it is discouraged to use repeatable flags in the <code>flags</code> attribute.
+</p>
 
 <h3 id="platform_inheritance">Platform Inheritance</h3>
 <p>

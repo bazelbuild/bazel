@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.bazel.rules.cpp;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
@@ -50,18 +53,22 @@ public class BazelCppSemantics implements AspectLegalCppSemantics {
   // the repo name set.
   public static final Provider.Key CC_SHARED_INFO_PROVIDER_RULES_CC =
       new StarlarkProvider.Key(
-          Label.parseCanonicalUnchecked("@rules_cc//examples:experimental_cc_shared_library.bzl"),
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  "@rules_cc//examples:experimental_cc_shared_library.bzl")),
           "CcSharedLibraryInfo");
 
   public static final Provider.Key CC_SHARED_INFO_PROVIDER =
       new StarlarkProvider.Key(
-          Label.parseCanonicalUnchecked("//examples:experimental_cc_shared_library.bzl"),
+          keyForBuild(
+              Label.parseCanonicalUnchecked("//examples:experimental_cc_shared_library.bzl")),
           "CcSharedLibraryInfo");
 
   public static final Provider.Key CC_SHARED_INFO_PROVIDER_BUILT_INS =
       new StarlarkProvider.Key(
-          Label.parseCanonicalUnchecked(
-              "@_builtins//:common/cc/experimental_cc_shared_library.bzl"),
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked(
+                  "@_builtins//:common/cc/experimental_cc_shared_library.bzl")),
           "CcSharedLibraryInfo");
 
   private final Language language;

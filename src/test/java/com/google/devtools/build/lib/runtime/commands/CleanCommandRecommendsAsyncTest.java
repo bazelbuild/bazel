@@ -33,7 +33,7 @@ public class CleanCommandRecommendsAsyncTest {
   private final boolean asyncOnCommandLine;
   private final OS os;
   private final boolean expectSuggestion;
-  private static final String EXPECTED_SUGGESTION = "Consider using --async";
+  private static final String EXPECTED_SUGGESTION = "Use --async";
 
   public CleanCommandRecommendsAsyncTest(
       boolean asyncOnCommandLine, OS os, boolean expectSuggestion) throws Exception {

@@ -181,6 +181,39 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
   }
 
   @Test
+  public void testRegisteredExecutionPlatforms_aliased() throws Exception {
+    // Add an extra execution platform.
+    scratch.file(
+        "extra/BUILD",
+        """
+        platform(name = "execution_platform_1")
+
+        platform(name = "execution_platform_2")
+        """);
+    scratch.file(
+        "alias/BUILD",
+        """
+        alias(name = "alias_platform_1", actual = "//extra:execution_platform_1");
+
+        alias(name = "alias_platform_2", actual = "//extra:execution_platform_2");
+        """);
+
+    rewriteWorkspace("register_execution_platforms('//alias/...')");
+
+    SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
+    EvaluationResult<RegisteredExecutionPlatformsValue> result =
+        requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
+    assertThatEvaluationResult(result).hasNoError();
+
+    // Verify that aliases were resolved to actual targets.
+    assertExecutionPlatformLabels(result.get(executionPlatformsKey))
+        .containsAtLeast(
+            Label.parseCanonicalUnchecked("//extra:execution_platform_1"),
+            Label.parseCanonicalUnchecked("//extra:execution_platform_2"))
+        .inOrder();
+  }
+
+  @Test
   public void testRegisteredExecutionPlatforms_targetPattern_otherRepo() throws Exception {
     scratch.file("myrepo/WORKSPACE", "workspace(name='myrepo')");
     scratch.file("myrepo/BUILD");
@@ -354,7 +387,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
             "register_execution_platforms('@eee//:plat', '//:plat')",
             "bazel_dep(name='eee',version='1.0')")
         .addModule(createModuleKey("eee", "1.0"), "module(name='eee', version='1.0')");
-    for (String repo : ImmutableList.of("bbb~1.0", "ccc~1.1", "ddd~1.0", "ddd~1.1", "eee~1.0")) {
+    for (String repo : ImmutableList.of("bbb+1.0", "ccc+1.1", "ddd+1.0", "ddd+1.1", "eee+1.0")) {
       scratch.file(moduleRoot.getRelative(repo).getRelative("WORKSPACE").getPathString());
       scratch.file(
           moduleRoot.getRelative(repo).getRelative("BUILD").getPathString(),
@@ -388,10 +421,10 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
             Label.parseCanonical("//:wsplat"),
             Label.parseCanonical("//:wsplat2"),
             // Other modules' toolchains
-            Label.parseCanonical("@@bbb~//:plat"),
-            Label.parseCanonical("@@ccc~//:plat"),
-            Label.parseCanonical("@@eee~//:plat"),
-            Label.parseCanonical("@@ddd~//:plat"))
+            Label.parseCanonical("@@bbb+//:plat"),
+            Label.parseCanonical("@@ccc+//:plat"),
+            Label.parseCanonical("@@eee+//:plat"),
+            Label.parseCanonical("@@ddd+//:plat"))
         .inOrder();
   }
 

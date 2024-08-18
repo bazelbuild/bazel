@@ -287,16 +287,11 @@ public class AttributeFormatter {
   }
 
   private static Tristate triStateToProto(TriState value) {
-    switch (value) {
-      case AUTO:
-        return Tristate.AUTO;
-      case NO:
-        return Tristate.NO;
-      case YES:
-        return Tristate.YES;
-      default:
-        throw new AssertionError("Expected AUTO/NO/YES to cover all possible cases");
-    }
+    return switch (value) {
+      case AUTO -> Tristate.AUTO;
+      case NO -> Tristate.NO;
+      case YES -> Tristate.YES;
+    };
   }
 
   /**
@@ -411,29 +406,27 @@ public class AttributeFormatter {
     @Override
     public void setTristateValue(Tristate tristate) {
       switch (tristate) {
-        case AUTO:
+        case AUTO -> {
           attributeBuilder.setTristateValue(Tristate.AUTO);
           if (encodeBooleanAndTriStateAsIntegerAndString) {
             attributeBuilder.setIntValue(-1);
             attributeBuilder.setStringValue("auto");
           }
-          break;
-        case NO:
+        }
+        case NO -> {
           attributeBuilder.setTristateValue(Tristate.NO);
           if (encodeBooleanAndTriStateAsIntegerAndString) {
             attributeBuilder.setIntValue(0);
             attributeBuilder.setStringValue("no");
           }
-          break;
-        case YES:
+        }
+        case YES -> {
           attributeBuilder.setTristateValue(Tristate.YES);
           if (encodeBooleanAndTriStateAsIntegerAndString) {
             attributeBuilder.setIntValue(1);
             attributeBuilder.setStringValue("yes");
           }
-          break;
-        default:
-          throw new AssertionError("Expected AUTO/NO/YES to cover all possible cases");
+        }
       }
     }
   }

@@ -16,6 +16,7 @@
 package com.google.devtools.build.lib.bazel.bzlmod;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 
@@ -71,7 +72,7 @@ public class GitRepoSpecBuilder {
   }
 
   @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setPatches(List<Object> patches) {
+  public GitRepoSpecBuilder setPatches(List<Label> patches) {
     return setAttr("patches", patches);
   }
 
@@ -83,11 +84,6 @@ public class GitRepoSpecBuilder {
   @CanIgnoreReturnValue
   public GitRepoSpecBuilder setPatchCmds(List<String> patchCmds) {
     return setAttr("patch_cmds", patchCmds);
-  }
-
-  @CanIgnoreReturnValue
-  public GitRepoSpecBuilder setPatchCmdsWin(List<String> patchCmdsWin) {
-    return setAttr("patch_cmds_win", patchCmdsWin);
   }
 
   public RepoSpec build() {

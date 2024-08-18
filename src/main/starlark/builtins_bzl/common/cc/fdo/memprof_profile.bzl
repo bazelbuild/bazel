@@ -14,32 +14,19 @@
 
 """Starlark implementation of memprof_profile rule."""
 
-load(":common/paths.bzl", "paths")
-
 MemProfProfileInfo = provider(
     doc = "Contains the memprof profile",
-    fields = ["artifact", "absolute_path"],
+    fields = ["artifact"],
 )
 
 def _impl(ctx):
-    if bool(ctx.file.profile) == bool(ctx.attr.absolute_path_profile):
-        fail("exactly one of profile and absolute_path_profile should be specified")
-
-    if ctx.attr.profile:
-        return MemProfProfileInfo(artifact = ctx.file.profile)
-    else:
-        if not ctx.fragments.cpp.enable_fdo_profile_absolute_path():
-            fail("absolute_path_profile cannot be used when --enable_fdo_profile_absolute_path is false")
-        if not paths.is_absolute(ctx.attr.absolute_path_profile):
-            fail("Attribute: absolute_path_profile: %s is not an absolute path" % ctx.attr.absolute_path_profile)
-        return MemProfProfileInfo(absolute_path = ctx.attr.absolute_path_profile)
+    return MemProfProfileInfo(artifact = ctx.file.profile)
 
 memprof_profile = rule(
     implementation = _impl,
     doc = """
-<p>Represents a MEMPROF profile that is either in the workspace or at a specified
-absolute path.
-Examples:</p>
+<p>Represents a MEMPROF profile that is in the workspace.
+Example:</p>
 
 <pre><code class="lang-starlark">
 memprof_profile(
@@ -47,14 +34,11 @@ memprof_profile(
     profile = "//path/to/memprof:profile.afdo",
 )
 
-memprof_profile(
-  name = "memprof_abs",
-  absolute_path_profile = "/absolute/path/profile.afdo",
-)
 </code></pre>""",
     attrs = {
         "profile": attr.label(
             allow_single_file = [".profdata", ".zip"],
+            mandatory = True,
             doc = """
 Label of the MEMPROF profile. The profile is expected to have
 either a .profdata extension (for an indexed/symbolized memprof
@@ -62,12 +46,6 @@ profile), or a .zip extension for a zipfile containing a memprof.profdata
 file.
 The label can also point to an fdo_absolute_path_profile rule.""",
         ),
-        "absolute_path_profile": attr.string(
-            doc = """
-Absolute path to the MEMPROF profile. The file may only have a .profdata or
-.zip extension (where the zipfile must contain a memprof.profdata file).""",
-        ),
     },
     provides = [MemProfProfileInfo],
-    fragments = ["cpp"],
 )

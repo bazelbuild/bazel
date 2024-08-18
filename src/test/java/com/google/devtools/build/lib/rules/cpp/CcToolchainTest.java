@@ -639,7 +639,7 @@ public class CcToolchainTest extends BuildViewTestCase {
     loadCcToolchainConfigLib();
     writeStarlarkRule();
 
-    useConfiguration("--cpu=k8");
+    useConfiguration("--platforms=" + TestConstants.PLATFORM_LABEL);
 
     ConfiguredTarget target = getConfiguredTarget("//a:b");
     CcToolchainProvider toolchainProvider = target.get(CcToolchainProvider.PROVIDER);

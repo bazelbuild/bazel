@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.ObjcConfigurationApi;
 import javax.annotation.Nullable;
@@ -37,7 +36,7 @@ import net.starlark.java.eval.StarlarkThread;
 /** A compiler configuration containing flags required for Objective-C compilation. */
 @Immutable
 @RequiresOptions(options = {ObjcCommandLineOptions.class})
-public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<PlatformType> {
+public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi {
   @VisibleForTesting
   static final ImmutableList<String> DBG_COPTS =
       ImmutableList.of("-O0", "-DDEBUG=1", "-fstack-protector", "-fstack-protector-all", "-g");
@@ -174,7 +173,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Override
   public boolean targetShouldAlwayslink(StarlarkRuleContext ruleContext, StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
 
     AttributeMap attributes = ruleContext.getRuleContext().attributes();
     if (attributes.isAttributeValueExplicitlySpecified("alwayslink")) {

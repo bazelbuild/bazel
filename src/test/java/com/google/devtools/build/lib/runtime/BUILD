@@ -16,6 +16,8 @@ java_library(
         exclude = [
             "commands/ConfigCommandTest.java",
             "commands/DumpCommandTest.java",
+            "commands/FrontierSerializerTestBase.java",
+            "commands/FrontierSerializerTest.java",
             "commands/RunCommandLineTest.java",
         ],
     ),
@@ -28,6 +30,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib:runtime/command_line_path_factory",
         "//src/main/java/com/google/devtools/build/lib:runtime/memory_pressure",
         "//src/main/java/com/google/devtools/build/lib:runtime/safe_request_logging",
+        "//src/main/java/com/google/devtools/build/lib:runtime/test_summary_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
@@ -169,6 +172,40 @@ java_test(
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+    ],
+)
+
+java_library(
+    name = "FrontierSerializerTestBase",
+    srcs = ["commands/FrontierSerializerTestBase.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/collect",
+        "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:project_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:dumper",
+        "//src/main/java/com/google/devtools/build/skyframe",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+        "//third_party/pprof:profile_java_proto",
+        "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_test(
+    name = "FrontierSerializerTest",
+    srcs = ["commands/FrontierSerializerTest.java"],
+    deps = [
+        ":FrontierSerializerTestBase",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:serialization_module",
+        "//third_party:junit4",
     ],
 )
 

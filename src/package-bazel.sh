@@ -76,18 +76,18 @@ fi
 (
   cd $PACKAGE_DIR
   tar -xf $WORKDIR/$PLATFORMS_ARCHIVE -C .
-  # Rename "platforms~<version>" to "platforms" in case of Bzlmod is enabled.
-  if [[ $(find . -maxdepth 1 -type d -name "platforms~*" | wc -l) -eq 1 ]]; then
-    mv platforms~* platforms
-  fi
+  # "platforms" is a well-known module, so no need to tamper with anything here.
 )
 
 (
   cd $PACKAGE_DIR
   tar -xf $WORKDIR/$RULES_JAVA_ARCHIVE -C .
-  # Rename "rules_java~<version>" to "rules_java" in case of Bzlmod is enabled.
-  if [[ $(find . -maxdepth 1 -type d -name "rules_java~*" | wc -l) -eq 1 ]]; then
-    mv rules_java~* rules_java
+  # Rename "rules_java~" or "rules_java+" to "rules_java".
+  if [[ -d rules_java~ ]]; then
+    mv rules_java~ rules_java
+  fi
+  if [[ -d rules_java+ ]]; then
+    mv rules_java+ rules_java
   fi
 )
 

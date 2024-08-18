@@ -57,6 +57,8 @@ fi
 
 add_to_bazelrc "build --experimental_enable_skyfocus"
 add_to_bazelrc "build --genrule_strategy=local"
+add_to_bazelrc "test --test_strategy=standalone"
+add_to_bazelrc "test --strategy=TestRunner=local"
 
 function set_up() {
   # Ensure we always start with a fresh server so that the following
@@ -70,7 +72,7 @@ function set_up() {
   export DONT_SANITY_CHECK_SERIALIZATION=1
 }
 
-function test_focus_command_prints_info_about_graph() {
+function test_print_info_about_graph() {
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
   mkdir -p ${pkg}
@@ -86,18 +88,17 @@ EOF
 
   out=$(bazel info "${PRODUCT_NAME}-genfiles")/${pkg}/out.txt
   bazel build //${pkg}:g\
+    --experimental_skyfocus_dump_keys=count \
     --experimental_skyfocus_dump_post_gc_stats \
     --experimental_working_set=${pkg}/in.txt >$TEST_log 2>&1
 
   expect_log "Focusing on .\+ roots, .\+ leafs"
-  expect_log "Nodes in reverse transitive closure from leafs: .\+"
-  expect_log "Nodes in direct deps of reverse transitive closure: .\+"
   expect_log "Rdep edges: .\+ -> .\+"
-  expect_log "Heap: .\+MB -> .\+MB (-.\+%)"
-  expect_log "Node count: .\+ -> .\+ (-.\+%)"
+  expect_log "Heap: .\+MB -> .\+MB"
+  expect_log "Node count: .\+ -> .\+"
 }
 
-function test_focus_command_dump_keys_verbose() {
+function test_dump_keys_verbose() {
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
   mkdir -p ${pkg}
@@ -132,7 +133,7 @@ EOF
   expect_not_log "FILE_STATE: .\+ -> .\+ (-.\+%)"
 }
 
-function test_focus_command_dump_keys_count() {
+function test_dump_keys_count() {
   local -r pkg=${FUNCNAME[0]}
   mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
   mkdir -p ${pkg}
@@ -188,8 +189,7 @@ EOF
 
   expect_log '"SkyframeFocuser"'
   expect_log '"focus.mark"'
-  expect_log '"focus.sweep_nodes"'
-  expect_log '"focus.sweep_edges"'
+  expect_log '"focus.sweep"'
 }
 
 function test_info_supports_printing_working_set() {
@@ -208,36 +208,31 @@ genrule(
 )
 EOF
 
-  # Fresh build, so there is no working set.
-  bazel info working_set &> "$TEST_log" \
-    || fail "expected working_set to be a valid key"
-  expect_log "No working set found."
-  expect_not_log "${pkg}/in.txt"
-
   # Initial build with working set.
   bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt
-  bazel info working_set &> "$TEST_log"
+  bazel dump --skyframe=working_set &> "$TEST_log"
   expect_log "${pkg}/in.txt"
 
   # Working set is expanded.
   bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt
-  bazel info working_set &> "$TEST_log"
+  bazel dump --skyframe=working_set &> "$TEST_log"
   expect_log "${pkg}/in.txt"
   expect_log "${pkg}/in2.txt"
 
-  # Working set can be expanded to include files not in the downward transitive closure.
+  # Working set can be defined with files not in the downward transitive
+  # closure but `dump --skyframe=working_set` will not report it.
   bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt,${pkg}/in2.txt,${pkg}/not.used
-  bazel info working_set &> "$TEST_log"
+  bazel dump --skyframe=working_set &> "$TEST_log"
   expect_log "${pkg}/in.txt"
   expect_log "${pkg}/in2.txt"
-  expect_log "${pkg}/not.used"
+  expect_not_log "${pkg}/not.used"
 
   # The active set is retained for subsequent builds that don't pass the flag.
   bazel build //${pkg}:g
-  bazel info working_set &> "$TEST_log"
+  bazel dump --skyframe=working_set &> "$TEST_log"
   expect_log "${pkg}/in.txt"
   expect_log "${pkg}/in2.txt"
-  expect_log "${pkg}/not.used"
+  expect_not_log "${pkg}/not.used"
 }
 
 function test_glob_inputs_change_with_dir_in_working_set() {
@@ -475,53 +470,58 @@ EOF
   assert_contains "another change" ${out}
 }
 
-function test_skyfocus_sad_path_handling_strategy_strict() {
+function test_test_command_runs_skyfocus() {
   local -r pkg=${FUNCNAME[0]}
-  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
   mkdir -p ${pkg}
-  echo "input" > ${pkg}/in.txt
-  cat > ${pkg}/BUILD <<'EOF'
-genrule(
+  cat > ${pkg}/in.sh <<EOF
+exit 0
+EOF
+  chmod +x ${pkg}/in.sh
+  cat > ${pkg}/BUILD <<EOF
+sh_test(
   name = "g",
-  srcs = ["in.txt"],
-  outs = ["out.txt"],
-  cmd = "cp $< $@",
+  srcs = ["in.sh"],
 )
 EOF
 
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt || fail "unexpected failure"
-  bazel build //${pkg}:g --experimental_skyfocus_handling_strategy=strict \
-    -c opt &>"$TEST_log" && fail "unexpected success"
-  local -r exit_code="$?"
-  # See failure_details.proto -> Skyfocus.Code.CONFIGURATION_CHANGE (exit_code: 2)
-  [[ "$exit_code" == 2 ]] || fail "Unexpected exit code: $exit_code"
-  expect_not_log "blaze crashed"
-  expect_log "Skyfocus: detected changes to the build configuration."
-  expect_log "not allowed in a focused build."
+  bazel test //${pkg}:g || fail "expected to succeed"
+  bazel dump --skyframe=working_set &> "$TEST_log" || fail "expected to succeed"
+  expect_log "${pkg}/in.sh"
+  expect_log "${pkg}/BUILD"
 }
 
-function test_skyfocus_sad_path_handling_strategy_warn() {
+function test_disallowed_commands_after_focus() {
   local -r pkg=${FUNCNAME[0]}
-  mkdir ${pkg}|| fail "cannot mkdir ${pkg}"
   mkdir -p ${pkg}
-  echo "input" > ${pkg}/in.txt
-  cat > ${pkg}/BUILD <<'EOF'
-genrule(
+  cat > ${pkg}/in.sh <<EOF
+exit 0
+EOF
+  chmod +x ${pkg}/in.sh
+  cat > ${pkg}/BUILD <<EOF
+sh_test(
   name = "g",
-  srcs = ["in.txt"],
-  outs = ["out.txt"],
-  cmd = "cp $< $@",
+  srcs = ["in.sh"],
 )
 EOF
 
-  bazel build //${pkg}:g --experimental_working_set=${pkg}/in.txt || fail "unexpected failure"
-  bazel build //${pkg}:g --experimental_skyfocus_handling_strategy=warn \
-    -c opt &>"$TEST_log" || fail "unexpected failure"
-  expect_log "Skyfocus: detected changes to the build configuration."
-  expect_log "will be discarding the analysis cache"
-  bazel build //${pkg}:g --experimental_skyfocus_handling_strategy=warn \
-    -c opt &>"$TEST_log" || fail "unexpected failure"
-  expect_not_log "Skyfocus: detected changes to the build configuration."
+  bazel build //${pkg}:g || fail "expected to succeed"
+
+  bazel query //${pkg}:g &> "$TEST_log" && fail "expected to fail"
+  expect_log "query is not supported after using Skyfocus"
+
+  bazel cquery //${pkg}:g &> "$TEST_log" && fail "expected to fail"
+  expect_log "cquery is not supported after using Skyfocus"
+
+  bazel aquery //${pkg}:g &> "$TEST_log" && fail "expected to fail"
+  expect_log "aquery is not supported after using Skyfocus"
+
+  bazel print_action //${pkg}:g &> "$TEST_log" && fail "expected to fail"
+  expect_log "print_action is not supported after using Skyfocus"
+
+  bazel info || fail "expected to succeed"
+  bazel dump --skyframe=summary || fail "expected to succeed"
+
+  bazel build //${pkg}:g || fail "expected to succeed"
 }
 
 run_suite "Tests for Skyfocus"

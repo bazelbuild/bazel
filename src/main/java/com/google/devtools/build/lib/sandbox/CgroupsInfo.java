@@ -18,11 +18,13 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.io.Files;
 import com.google.devtools.build.lib.util.OS;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
@@ -30,7 +32,7 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** This class manages cgroups directories for memory-limiting sandboxed processes. */
-public abstract class CgroupsInfo {
+public abstract class CgroupsInfo implements Cgroup {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
@@ -182,6 +184,7 @@ public abstract class CgroupsInfo {
   }
 
   /** Returns whether the cgroup at {@code cgroupDir} exists. */
+  @Override
   public boolean exists() {
     return cgroupDir != null && cgroupDir.exists() && cgroupDir.isDirectory();
   }
@@ -196,6 +199,11 @@ public abstract class CgroupsInfo {
     return cgroupDir;
   }
 
+  @Override
+  public ImmutableSet<Path> paths() {
+    return ImmutableSet.of(getCgroupDir().toPath());
+  }
+
   @Nullable
   public Version getVersion() {
     return version;
@@ -205,6 +213,7 @@ public abstract class CgroupsInfo {
     return type;
   }
 
+  @Override
   public int getMemoryUsageInKb() {
     return 0;
   }
@@ -218,8 +227,14 @@ public abstract class CgroupsInfo {
     }
   }
 
+  @Override
   public void addProcess(long pid) throws IOException {
     Files.asCharSink(new File(cgroupDir, "cgroup.procs"), UTF_8).write(Long.toString(pid));
+  }
+
+  @Override
+  public void destroy() {
+    getCgroupDir().delete();
   }
 
   /**

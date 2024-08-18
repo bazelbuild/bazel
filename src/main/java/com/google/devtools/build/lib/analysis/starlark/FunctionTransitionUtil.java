@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.common.options.OptionDefinition;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.lang.reflect.Field;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -164,10 +163,7 @@ public final class FunctionTransitionUtil {
    */
   private static BuildOptions maybeGetExecDefaults(
       BuildOptions fromOptions, StarlarkDefinedConfigTransition starlarkTransition) {
-    if (starlarkTransition == null
-        || fromOptions.get(CoreOptions.class).starlarkExecConfig == null
-        || !starlarkTransition.matchesExecConfigFlag(
-            fromOptions.get(CoreOptions.class).starlarkExecConfig)) {
+    if (starlarkTransition == null || !starlarkTransition.isExecTransition()) {
       // Not an exec transition: the baseline options are just the input options.
       return fromOptions;
     }
@@ -390,16 +386,11 @@ public final class FunctionTransitionUtil {
       return Optional.empty();
     }
     OptionInfo optionInfo = optionInfoMap.get(setting);
-    Field field = optionInfo.getDefinition().getField();
     FragmentOptions options = buildOptions.get(optionInfo.getOptionClass());
-    try {
-      Object optionValue = field.get(options);
-      // convert nulls here b/c ImmutableMap bans null values
-      return Optional.of(optionValue == null ? Starlark.NONE : optionValue);
-    } catch (IllegalAccessException e) {
-      // These exceptions should not happen, but if they do, throw a RuntimeException.
-      throw new IllegalStateException(e);
-    }
+    // Get the raw value to avoid the default handling for null values.
+    Object optionValue = optionInfo.getDefinition().getRawValue(options);
+    // convert nulls here b/c ImmutableMap bans null values
+    return Optional.of(optionValue == null ? Starlark.NONE : optionValue);
   }
 
   private static Object findStarlarkOptionValue(BuildOptions buildOptions, String setting) {
@@ -477,8 +468,8 @@ public final class FunctionTransitionUtil {
         // Convert NoneType to null.
         if (optionValue instanceof NoneType) {
           optionValue = null;
-        } else if (optionValue instanceof StarlarkInt) {
-          optionValue = ((StarlarkInt) optionValue).toIntUnchecked();
+        } else if (optionValue instanceof StarlarkInt starlarkInt) {
+          optionValue = starlarkInt.toIntUnchecked();
         } else if (optionValue instanceof List<?>) {
           // Converting back to the Java-native type makes it easier to check if a Starlark
           // transition set the same value a native transition would. This is important for
@@ -494,7 +485,6 @@ public final class FunctionTransitionUtil {
         }
         try {
           OptionDefinition def = optionInfo.getDefinition();
-          Field field = def.getField();
           // TODO(b/153867317): check for crashing options types in this logic.
           Object convertedValue;
           if (def.getType() == List.class && optionValue instanceof List<?> optionValueAsList) {
@@ -516,8 +506,8 @@ public final class FunctionTransitionUtil {
                           optionValueAsList.stream()
                               .map(
                                   element ->
-                                      element instanceof Label
-                                          ? ((Label) element).getUnambiguousCanonicalForm()
+                                      element instanceof Label label
+                                          ? label.getUnambiguousCanonicalForm()
                                           : element.toString())
                               .collect(joining(",")),
                           starlarkTransition.getPackageContext());
@@ -529,8 +519,8 @@ public final class FunctionTransitionUtil {
                 Object converted =
                     def.getConverter()
                         .convert(e.toString(), starlarkTransition.getPackageContext());
-                if (converted instanceof List) {
-                  valueBuilder.addAll((List<?>) converted);
+                if (converted instanceof List<?> list) {
+                  valueBuilder.addAll(list);
                 } else {
                   valueBuilder.add(converted);
                 }
@@ -556,12 +546,12 @@ public final class FunctionTransitionUtil {
             throw ValidationException.format("Invalid value type for option '%s'", optionName);
           }
 
-          Object oldValue = field.get(fromOptions.get(optionInfo.getOptionClass()));
+          Object oldValue = def.getRawValue(fromOptions.get(optionInfo.getOptionClass()));
           if (!Objects.equals(oldValue, convertedValue)) {
             if (toOptions == null) {
               toOptions = fromOptions.clone();
             }
-            field.set(toOptions.get(optionInfo.getOptionClass()), convertedValue);
+            def.setValue(toOptions.get(optionInfo.getOptionClass()), convertedValue);
 
             convertedAffectedOptions.add(optionKey);
           }
@@ -569,9 +559,6 @@ public final class FunctionTransitionUtil {
         } catch (IllegalArgumentException e) {
           throw ValidationException.format(
               "IllegalArgumentError for option '%s': %s", optionName, e.getMessage());
-        } catch (IllegalAccessException e) {
-          throw new VerifyException(
-              "IllegalAccess for option " + optionName + ": " + e.getMessage());
         } catch (OptionsParsingException e) {
           throw ValidationException.format(
               "OptionsParsingError for option '%s': %s", optionName, e.getMessage());
@@ -597,10 +584,7 @@ public final class FunctionTransitionUtil {
     }
 
     CoreOptions coreOptions = toOptions.get(CoreOptions.class);
-    boolean isExecTransition =
-        coreOptions.starlarkExecConfig != null
-            && starlarkTransition != null
-            && starlarkTransition.matchesExecConfigFlag(coreOptions.starlarkExecConfig);
+    boolean isExecTransition = starlarkTransition != null && starlarkTransition.isExecTransition();
 
     if (!isExecTransition
         && coreOptions.outputDirectoryNamingScheme.equals(

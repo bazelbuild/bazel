@@ -3,7 +3,7 @@
 
 load("@bazel_skylib//rules:write_file.bzl", "write_file")
 load("@rules_java//java:defs.bzl", "java_library", "java_test")
-load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
+load("//src/tools/bzlmod:blazel_utils.bzl", "get_canonical_repo_name")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -57,6 +57,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:template_variable_info",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/clock",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -65,6 +66,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/rules/config",
         "//src/main/java/com/google/devtools/build/lib/rules/core",
         "//src/main/java/com/google/devtools/build/lib/rules/platform",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:filetype",
         "//src/main/java/com/google/devtools/build/lib/util:os",
@@ -148,6 +150,7 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -254,7 +257,7 @@ write_file(
     content = [
         "package com.google.devtools.build.lib.testutil;",
         "class RulesCcRepoName {",
-        "  protected static final String CANONICAL_REPO_NAME = \"%s\";" % get_canonical_repo_name("@rules_cc"),
+        "  protected static final String CANONICAL_REPO_NAME = \"%s\";" % get_canonical_repo_name("@rules_cc").replace("+", "~"),
         "}",
     ],
 )
@@ -331,6 +334,7 @@ java_library(
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:middleman_type",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",

@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.python;
 
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -20,6 +22,7 @@ import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -39,6 +42,8 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -347,11 +352,7 @@ public abstract class PyBuiltins implements StarlarkValue {
     private static final String GUID = "67513fa7-3824-493b-aeab-95a8b778ea07";
 
     CopyWithoutCachingAction(ActionOwner owner, Artifact readFrom, Artifact writeTo) {
-      super(
-          owner,
-          NestedSetBuilder.create(Order.STABLE_ORDER, readFrom),
-          writeTo,
-          /* makeExecutable= */ false);
+      super(owner, NestedSetBuilder.create(Order.STABLE_ORDER, readFrom), writeTo);
     }
 
     @Override
@@ -373,7 +374,7 @@ public abstract class PyBuiltins implements StarlarkValue {
     @Override
     protected void computeKey(
         ActionKeyContext actionKeyContext,
-        @Nullable Artifact.ArtifactExpander artifactExpander,
+        @Nullable ArtifactExpander artifactExpander,
         Fingerprint fp) {
       fp.addString(GUID);
       fp.addPath(getPrimaryInput().getPath());
@@ -458,14 +459,15 @@ public abstract class PyBuiltins implements StarlarkValue {
         starlarkCtx.getRuleContext(), dependencyTransitivePythonSources);
   }
 
-  private static final StarlarkProvider starlarkVisibleForTestingInfo =
+  @SerializationConstant @VisibleForSerialization
+  static final StarlarkProvider starlarkVisibleForTestingInfo =
       StarlarkProvider.builder(Location.BUILTIN)
-          .setExported(
+          .buildExported(
               new StarlarkProvider.Key(
-                  Label.parseCanonicalUnchecked(
-                      "//tools/build_defs/python/tests/base_rules:util.bzl"),
-                  "VisibleForTestingInfo"))
-          .build();
+                  keyForBuild(
+                      Label.parseCanonicalUnchecked(
+                          "//tools/build_defs/python/tests/base_rules:util.bzl")),
+                  "VisibleForTestingInfo"));
 
   @StarlarkMethod(name = "VisibleForTestingInfo", documented = false, structField = true)
   public StarlarkProvider visibleForTestingInfo() throws EvalException {

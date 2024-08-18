@@ -57,6 +57,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.common.options.Options;
+import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
@@ -91,10 +92,13 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
             new ServerDirectories(
                 fileSystem.getPath("/install"),
                 fileSystem.getPath("/output"),
-                fileSystem.getPath("/user_root")),
+                fileSystem.getPath("/user_root"),
+                fileSystem.getPath("/execroot"),
+                useVirtualSourceRoot() ? root : null,
+                null),
             workingDir,
-            /*defaultSystemJavabase=*/ null,
-            /*productName=*/ "DummyProductNameForUnitTests");
+            /* defaultSystemJavabase= */ null,
+            /* productName= */ "DummyProductNameForUnitTests");
     eventCollector = new EventCollector();
     reporter = new Reporter(new EventBus());
     reporter.addHandler(eventCollector);
@@ -107,6 +111,9 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
   protected abstract ImmutableMap<SkyFunctionName, SkyFunction> getExtraSkyFunctions();
 
   protected abstract SkyframeExecutorFactory makeSkyframeExecutorFactory();
+
+  @ForOverride
+  protected abstract boolean useVirtualSourceRoot();
 
   @Test
   public void noPackageErrors() throws Exception {
@@ -322,7 +329,8 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
         /* repoEnvOption= */ ImmutableMap.of(),
         new TimestampGranularityMonitor(BlazeClock.instance()),
         QuiescingExecutorsImpl.forTesting(),
-        FakeOptions.builder().put(packageOptions).putDefaults(BuildLanguageOptions.class).build());
+        FakeOptions.builder().put(packageOptions).putDefaults(BuildLanguageOptions.class).build(),
+        /* commandName= */ "build");
     evaluator = skyframeExecutor.getEvaluator();
   }
 

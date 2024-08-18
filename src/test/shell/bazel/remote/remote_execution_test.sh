@@ -1208,9 +1208,6 @@ EOF
 
 function test_nobuild_runfile_links() {
   mkdir data && echo "hello" > data/hello && echo "world" > data/world
-    cat > WORKSPACE <<EOF
-workspace(name = "foo")
-EOF
 
   cat > test.sh <<'EOF'
 #!/bin/bash
@@ -1835,8 +1832,8 @@ foo_configure = repository_rule(
 )
 EOF
 
-  cat > WORKSPACE <<'EOF'
-load("//:test.bzl", "foo_configure")
+  cat > MODULE.bazel <<'EOF'
+foo_configure = use_repo_rule("//:test.bzl", "foo_configure")
 
 foo_configure(
   name = "default_foo",
@@ -1873,8 +1870,8 @@ foo_configure = repository_rule(
 )
 EOF
 
-  cat > WORKSPACE <<'EOF'
-load("//:test.bzl", "foo_configure")
+  cat > MODULE.bazel <<'EOF'
+foo_configure = use_repo_rule("//:test.bzl", "foo_configure")
 
 foo_configure(
   name = "default_foo",
@@ -1906,8 +1903,8 @@ foo_configure = repository_rule(
 )
 EOF
 
-  cat > WORKSPACE <<'EOF'
-load("//:test.bzl", "foo_configure")
+  cat > MODULE.bazel <<'EOF'
+foo_configure = use_repo_rule("//:test.bzl", "foo_configure")
 
 foo_configure(
   name = "default_foo",
@@ -1964,8 +1961,9 @@ local_foo_configure = repository_rule(
 )
 EOF
 
-  cat > WORKSPACE <<'EOF'
-load("//:test.bzl", "remote_foo_configure", "local_foo_configure")
+  cat > MODULE.bazel <<'EOF'
+local_foo_configure = use_repo_rule("//:test.bzl", "local_foo_configure")
+remote_foo_configure = use_repo_rule("//:test.bzl", "remote_foo_configure")
 
 remote_foo_configure(
   name = "remote_foo",
@@ -2002,7 +2000,6 @@ EOF
 
 function test_remote_cache_intermediate_outputs() {
   # test that remote cache is hit when intermediate output is not executable
-  touch WORKSPACE
   cat > BUILD <<'EOF'
 genrule(
   name = "dep",
@@ -2196,7 +2193,6 @@ end_of_record"
 }
 
 function generate_empty_tree_artifact_as_inputs() {
-  touch WORKSPACE
   mkdir -p pkg
 
   cat > pkg/def.bzl <<'EOF'
@@ -2274,7 +2270,6 @@ function test_empty_tree_artifact_as_inputs_remote_cache() {
 }
 
 function generate_tree_artifact_output() {
-  touch WORKSPACE
   mkdir -p pkg
 
   cat > pkg/def.bzl <<'EOF'
@@ -2937,7 +2932,8 @@ EOF
 }
 
 function setup_external_cc_test() {
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
@@ -2945,7 +2941,7 @@ local_repository(
 EOF
 
   mkdir -p other_repo
-  touch other_repo/WORKSPACE
+  touch other_repo/REPO.bazel
 
   mkdir -p other_repo/lib
   cat > other_repo/lib/BUILD <<'EOF'
@@ -3113,7 +3109,8 @@ function test_unresolved_symlink_spawn_absolute() {
 function setup_cc_binary_tool_with_dynamic_deps() {
   local repo=$1
 
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
@@ -3121,7 +3118,7 @@ local_repository(
 EOF
 
   mkdir -p $repo
-  touch $repo/WORKSPACE
+  touch $repo/REPO.bazel
 
   mkdir -p $repo/lib
   # Use a comma in the target name as that is known to be problematic whith -Wl,
@@ -3334,6 +3331,143 @@ EOF
       || fail "failed to build with input bar and a remote cache hit"
   expect_log "will be executed locally instead"
   expect_log "2 processes: 1 remote cache hit, 1 internal"
+}
+
+function test_platform_no_remote_exec() {
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+platform(
+    name = "no_remote_exec_platform",
+    exec_properties = {
+        "foo": "bar",
+        "no-remote-exec": "true",
+    },
+)
+
+genrule(
+    name = "foo",
+    srcs = [],
+    outs = ["foo.txt"],
+    cmd = "echo \"foo\" > \"$@\"",
+)
+EOF
+
+  bazel build \
+    --extra_execution_platforms=//a:no_remote_exec_platform \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_log "1 local"
+  expect_not_log "1 remote"
+
+  bazel clean
+
+  bazel build \
+    --extra_execution_platforms=//a:no_remote_exec_platform \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_log "1 remote cache hit"
+  expect_not_log "1 local"
+}
+
+function test_platform_no_remote_exec_test_action() {
+  add_platforms "MODULE.bazel"
+  mkdir -p a
+  cat > a/test.sh <<'EOF'
+#!/bin/sh
+exit 0
+EOF
+  chmod 755 a/test.sh
+  cat > a/BUILD <<'EOF'
+constraint_setting(name = "foo")
+
+constraint_value(
+    name = "has_foo",
+    constraint_setting = ":foo",
+    visibility = ["//visibility:public"],
+)
+
+platform(
+    name = "host",
+    constraint_values = [":has_foo"],
+    exec_properties = {
+        "no-remote-exec": "1",
+    },
+    parents = ["@bazel_tools//tools:host_platform"],
+    visibility = ["//visibility:public"],
+)
+
+platform(
+    name = "remote",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+    exec_properties = {
+        "OSFamily": "Linux",
+        "dockerNetwork": "off",
+    },
+)
+
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+    exec_compatible_with = [":has_foo"],
+)
+
+sh_test(
+    name = "test2",
+    srcs = ["test.sh"],
+    exec_compatible_with = [":has_foo"],
+    target_compatible_with = [":has_foo"],
+)
+EOF
+
+  # A test target includes 2 actions: 1 build action (a) and 1 test action (b)
+  # This test currently demonstrates that:
+  #  - (b) would always be executed on Bazel's target platform, set by "--platforms=" flag.
+  #  - Regardless of 'no-remote-exec' set on (b)'s platform, (b) would still be executed remotely.
+  #    The remote test action will be sent with `"no-remote-exec": "1"` in it's platform.
+  #
+  # TODO: Make this test's result consistent with 'test_platform_no_remote_exec'.
+  # Test action (b) should be executed locally instead of remotely in this setup.
+
+  bazel test \
+    --extra_execution_platforms=//a:remote,//a:host \
+    --platforms=//a:remote \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:test >& $TEST_log || fail "Failed to test //a:test"
+  expect_log "1 local, 1 remote"
+
+  bazel test \
+    --extra_execution_platforms=//a:remote,//a:host \
+    --platforms=//a:host \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:test2 >& $TEST_log || fail "Failed to test //a:test2"
+  expect_log "1 local, 1 remote"
+
+  bazel clean
+
+  bazel test \
+    --extra_execution_platforms=//a:remote,//a:host \
+    --platforms=//a:remote \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:test >& $TEST_log || fail "Failed to test //a:test"
+  expect_log "2 remote cache hit"
+
+  bazel test \
+    --extra_execution_platforms=//a:remote,//a:host \
+    --platforms=//a:host \
+    --spawn_strategy=remote,local \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:test2 >& $TEST_log || fail "Failed to test //a:test2"
+  expect_log "2 remote cache hit"
 }
 
 run_suite "Remote execution and remote cache tests"

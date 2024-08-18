@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition.PATCH_TRANSITION_KEY;
-import static com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.ALLOWLIST_RULE_EXTENSION_API;
 import static com.google.devtools.build.lib.packages.RuleClass.Builder.STARLARK_BUILD_SETTING_DEFAULT_ATTR_NAME;
 
 import com.google.common.base.Optional;
@@ -122,15 +121,6 @@ import net.starlark.java.eval.Tuple;
  */
 public final class StarlarkRuleContext
     implements StarlarkRuleContextApi<ConstraintValueInfo>, StarlarkActionContext {
-
-  public static final ImmutableSet<BuiltinRestriction.AllowlistEntry>
-      PRIVATE_STARLARKIFICATION_ALLOWLIST =
-          ImmutableSet.of(
-              BuiltinRestriction.allowlistEntry("", "test"), // for tests
-              BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_android"),
-              BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
-              BuiltinRestriction.allowlistEntry("rules_android", ""),
-              BuiltinRestriction.allowlistEntry("", "tools/build_defs/android"));
 
   private static final String EXECUTABLE_OUTPUT_NAME = "executable";
 
@@ -293,8 +283,8 @@ public final class StarlarkRuleContext
               this, ((AspectContext) ruleContext).getMainAspectPrerequisitesCollection());
       for (Attribute attribute : attributes) {
         Object defaultValue = attribute.getDefaultValue(null);
-        if (defaultValue instanceof ComputedDefault) {
-          defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
+        if (defaultValue instanceof ComputedDefault computedDefault) {
+          defaultValue = computedDefault.getDefault(ruleContext.attributes());
         }
         aspectBuilder.addAttribute(attribute, defaultValue);
       }
@@ -315,8 +305,8 @@ public final class StarlarkRuleContext
         }
         for (Attribute attribute : aspect.getDefinition().getAttributes().values()) {
           Object defaultValue = attribute.getDefaultValue(null);
-          if (defaultValue instanceof ComputedDefault) {
-            defaultValue = ((ComputedDefault) defaultValue).getDefault(ruleContext.attributes());
+          if (defaultValue instanceof ComputedDefault computedDefault) {
+            defaultValue = computedDefault.getDefault(ruleContext.attributes());
           }
           ruleBuilder.addAttribute(attribute, defaultValue);
         }
@@ -521,7 +511,7 @@ public final class StarlarkRuleContext
         continue;
       }
       Map<Optional<String>, List<ConfiguredTargetAndData>> splitPrereqs =
-          ruleContext.getSplitPrerequisites(attr.getName());
+          ruleContext.getRulePrerequisitesCollection().getSplitPrerequisites(attr.getName());
 
       Map<Object, Object> splitPrereqsMap = new LinkedHashMap<>();
       for (Map.Entry<Optional<String>, List<ConfiguredTargetAndData>> splitPrereq :
@@ -596,9 +586,6 @@ public final class StarlarkRuleContext
 
   @Override
   public Object callParent(StarlarkThread thread) throws EvalException, InterruptedException {
-    if (!thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_RULE_EXTENSION_API)) {
-      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, ALLOWLIST_RULE_EXTENSION_API);
-    }
     checkMutable("super()");
     if (isForAspect()) {
       throw Starlark.errorf("Can't use 'super' call in an aspect.");
@@ -843,19 +830,19 @@ public final class StarlarkRuleContext
   }
 
   // visible for subrules
-  ImmutableSet<Label> getAutomaticExecGroupLabels() {
+  ImmutableSet<Label> getRequestedToolchainTypeLabelsFromAutoExecGroups() {
     ToolchainCollection<ResolvedToolchainContext> toolchainContexts =
         ruleContext.getToolchainContexts();
 
     return toolchainContexts.getExecGroupNames().stream()
+        .filter(e -> ruleContext.isAutomaticExecGroup(e))
         .flatMap(
             execGroupName ->
                 toolchainContexts
                     .getToolchainContext(execGroupName)
                     .requestedToolchainTypeLabels()
                     .keySet()
-                    .stream()
-                    .filter(label -> label.toString().equals(execGroupName)))
+                    .stream())
         .collect(toImmutableSet());
   }
 
@@ -871,7 +858,7 @@ public final class StarlarkRuleContext
       return StarlarkToolchainContext.create(
           /* targetDescription= */ ruleContext.getToolchainContext().targetDescription(),
           /* resolveToolchainInfoFunc= */ ruleContext::getToolchainInfo,
-          /* resolvedToolchainTypeLabels= */ getAutomaticExecGroupLabels());
+          /* resolvedToolchainTypeLabels= */ getRequestedToolchainTypeLabelsFromAutoExecGroups());
     } else {
       return StarlarkToolchainContext.create(
           /* targetDescription= */ ruleContext.getToolchainContext().targetDescription(),
@@ -1033,7 +1020,7 @@ public final class StarlarkRuleContext
   }
 
   private static void checkPrivateAccess(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFICATION_ALLOWLIST);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
   }
 
   @Override

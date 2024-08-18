@@ -14,22 +14,20 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.skyframe.PackageLookupFunction.PROJECT_FILE_NAME;
+import static com.google.devtools.build.lib.skyframe.ProjectFilesLookupFunction.PROJECT_FILE_NAME;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.Project.ProjectParseException;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link Project}. */
 @RunWith(JUnit4.class)
-// TODO b/331316530: Temporarily removed to avoid build memory regressions. Re-enable as opt in.
-@Ignore
 public class ProjectTest extends AnalysisTestCase {
   @Before
   public void defineSimpleRule() throws Exception {
@@ -78,7 +76,7 @@ public class ProjectTest extends AnalysisTestCase {
                 .asMap())
         .containsExactly(
             Label.parseCanonical("//foo/bar:s"),
-            ImmutableList.of(PathFragment.create("foo/bar/" + PROJECT_FILE_NAME)));
+            ImmutableList.of(Label.parseCanonical("//foo/bar:" + PROJECT_FILE_NAME)));
   }
 
   @Test
@@ -101,7 +99,7 @@ public class ProjectTest extends AnalysisTestCase {
                 .asMap())
         .containsExactly(
             Label.parseCanonical("//foo/bar:s"),
-            ImmutableList.of(PathFragment.create("foo/" + PROJECT_FILE_NAME)));
+            ImmutableList.of(Label.parseCanonical("//foo:" + PROJECT_FILE_NAME)));
   }
 
   @Test
@@ -126,8 +124,8 @@ public class ProjectTest extends AnalysisTestCase {
         .containsExactly(
             Label.parseCanonical("//foo/bar:s"),
             ImmutableList.of(
-                PathFragment.create("foo/" + PROJECT_FILE_NAME),
-                PathFragment.create("foo/bar/" + PROJECT_FILE_NAME)));
+                Label.parseCanonical("//foo/bar:" + PROJECT_FILE_NAME),
+                Label.parseCanonical("//foo:" + PROJECT_FILE_NAME)));
   }
 
   @Test
@@ -151,7 +149,7 @@ public class ProjectTest extends AnalysisTestCase {
                 .asMap())
         .containsExactly(
             Label.parseCanonical("//foo/bar:s"),
-            ImmutableList.of(PathFragment.create("foo/bar/" + PROJECT_FILE_NAME)));
+            ImmutableList.of(Label.parseCanonical("//foo/bar:" + PROJECT_FILE_NAME)));
   }
 
   @Test
@@ -182,9 +180,9 @@ public class ProjectTest extends AnalysisTestCase {
                 .asMap())
         .containsExactly(
             Label.parseCanonical("//foo:s"),
-            ImmutableList.of(PathFragment.create("foo/" + PROJECT_FILE_NAME)),
+            ImmutableList.of(Label.parseCanonical("//foo:" + PROJECT_FILE_NAME)),
             Label.parseCanonical("//baz:t"),
-            ImmutableList.of(PathFragment.create("baz/" + PROJECT_FILE_NAME)));
+            ImmutableList.of(Label.parseCanonical("//baz:" + PROJECT_FILE_NAME)));
   }
 
   @Test
@@ -216,10 +214,30 @@ public class ProjectTest extends AnalysisTestCase {
                 .asMap())
         .containsExactly(
             Label.parseCanonical("//foo:parent"),
-            ImmutableList.of(PathFragment.create("foo/" + PROJECT_FILE_NAME)),
+            ImmutableList.of(Label.parseCanonical("//foo:" + PROJECT_FILE_NAME)),
             Label.parseCanonical("//foo/bar:child"),
             ImmutableList.of(
-                PathFragment.create("foo/" + PROJECT_FILE_NAME),
-                PathFragment.create("foo/bar/" + PROJECT_FILE_NAME)));
+                Label.parseCanonical("//foo/bar:" + PROJECT_FILE_NAME),
+                Label.parseCanonical("//foo:" + PROJECT_FILE_NAME)));
+  }
+
+  @Test
+  public void testInvalidProjectFile() throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        """
+        load("//foo:defs.bzl", "simple_rule")
+
+        simple_rule(name = "myrule")
+        """);
+    scratch.dir("foo/" + PROJECT_FILE_NAME);
+
+    assertThrows(
+        ProjectParseException.class,
+        () ->
+            Project.findProjectFiles(
+                ImmutableList.of(Label.parseCanonical("//foo:myrule")),
+                skyframeExecutor,
+                reporter));
   }
 }

@@ -377,19 +377,29 @@ public interface SkyFunction {
     void registerDependencies(Iterable<SkyKey> keys);
 
     /**
-     * Returns whether we are currently in error bubbling. Should only be used by SkyFunctions that
-     * can fully recover from a dependency's throwing an exception in --keep_going mode, returning a
-     * value instead of transforming the exception. {@link
-     * com.google.devtools.build.lib.skyframe.TargetPatternFunction} is the classic example of such
-     * a SkyFunction, since it can encounter errors while processing target patterns like
-     * '//foo/...' but still return the list of all found targets.
+     * Returns whether we are currently in error bubbling, which only happens in {@code
+     * --nokeep_going} mode when a dependency is in error.
      *
-     * <p>Such a SkyFunction cannot unconditionally return a value, since in --nokeep_going mode it
-     * may be called upon to transform a lower-level exception. This method can tell it whether to
-     * transform a dependency's exception or ignore it and return a value as usual.
+     * <p>This method should not be needed by a typical {@link SkyFunction}. Examples where it may
+     * be needed:
+     *
+     * <ul>
+     *   <li>A {@link SkyFunction} that can fully recover from a dependency's error in {@code
+     *       --keep_going mode}, returning a value instead of transforming the exception. {@link
+     *       com.google.devtools.build.lib.skyframe.TargetPatternFunction} is the classic example of
+     *       such a function, since it can encounter errors while processing target patterns like
+     *       {@code //foo/...} but still return the list of all found targets. Such a {@link
+     *       SkyFunction} cannot unconditionally return a value, since in {@code --nokeep_going}
+     *       mode it may be called upon to transform a lower-level exception. This method can tell
+     *       it whether to transform a dependency's exception or ignore it and return a value as
+     *       usual.
+     *   <li>A {@link SkyFunction} that needs to perform important side effects such as posting
+     *       events unless interrupted by the user. This method can be used to attempt to
+     *       distinguish user-initiated interrupts from Skyframe-initiated interrupts, which may
+     *       occur during error bubbling.
+     * </ul>
      */
-    // TODO: Rename this as it can be called for other purposes.
-    boolean inErrorBubblingForSkyFunctionsThatCanFullyRecoverFromErrors();
+    boolean inErrorBubbling();
 
     /**
      * Adds a dependency on a Skyframe-external event. If the given future is already complete, this
@@ -491,8 +501,8 @@ public interface SkyFunction {
        *
        * <p>Implementations <strong>MUST</strong> be idempotent.
        *
-       * <p>Note also that this method should not perform any heavy work (especially blocking
-       * operations).
+       * <p>Note also that this method could be invoked from arbitrary threads, so avoid heavy
+       * operations if possible.
        */
       @Override
       default void close() {}

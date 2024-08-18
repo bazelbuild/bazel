@@ -299,7 +299,20 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     }
   }
 
-  /** Schedules a call. Called in a worker thread. */
+  /**
+   * Schedules a {@linkplain Runnable runnable} to be executed in a worker thread.
+   *
+   * <p>The {@linkplain Runnable runnable} is not guaranteed to be executed since it is possible
+   * that the thread where the {@linkplain Runnable runnable} is scheduled blocks new actions or has
+   * already been interrupted. For more details, see:
+   *
+   * <ul>
+   *   <li>{@link WrappedRunnable#run()} immediate returns without executing the {@code
+   *       originalRunnable} when {@link #blockNewActions()} returns true,
+   *   <li>{@link #recordError} swallows {@link RejectedExecutionException} thrown by the
+   *       interrupted thread.
+   * </ul>
+   */
   @Override
   public final void execute(Runnable runnable) {
     executeWithExecutorService(runnable, executorService);
@@ -335,16 +348,12 @@ public class AbstractQueueVisitor implements QuiescingExecutor {
     boolean critical = false;
     ErrorClassification errorClassification = errorClassifier.classify(e);
     switch (errorClassification) {
-      case AS_CRITICAL_AS_POSSIBLE:
-      case CRITICAL_AND_LOG:
+      case AS_CRITICAL_AS_POSSIBLE, CRITICAL_AND_LOG -> {
         critical = true;
         logger.atWarning().withCause(e).log("Found critical error in queue visitor");
-        break;
-      case CRITICAL:
-        critical = true;
-        break;
-      default:
-        break;
+      }
+      case CRITICAL -> critical = true;
+      default -> {}
     }
     if (unhandled == null
         || errorClassification.compareTo(errorClassifier.classify(unhandled)) > 0) {

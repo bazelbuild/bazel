@@ -83,11 +83,6 @@ public interface ConfiguredAspect extends ProviderCollection {
     return new BasicConfiguredAspect(real.getActions(), real.getProviders());
   }
 
-  static ConfiguredAspect forNonapplicableTarget() {
-    return new BasicConfiguredAspect(
-        ImmutableList.of(), new TransitiveInfoProviderMapBuilder().build());
-  }
-
   static Builder builder(RuleContext ruleContext) {
     return new Builder(ruleContext);
   }
@@ -198,8 +193,8 @@ public interface ConfiguredAspect extends ProviderCollection {
       // Initialize every StarlarkApiProvider
       for (int i = 0; i < providerMap.getProviderCount(); i++) {
         Object obj = providerMap.getProviderInstanceAt(i);
-        if (obj instanceof StarlarkApiProvider) {
-          ((StarlarkApiProvider) obj).init(providerMap);
+        if (obj instanceof StarlarkApiProvider starlarkApiProvider) {
+          starlarkApiProvider.init(providerMap);
         }
       }
 
@@ -254,6 +249,35 @@ public interface ConfiguredAspect extends ProviderCollection {
     @Override
     public String toString() {
       return toStringHelper(this).add("actions", actions).add("providers", providers).toString();
+    }
+  }
+
+  /**
+   * Implementation of {@link ConfiguredAspect} that represents aspect that could not be applied to
+   * a target.
+   */
+  class NonApplicableAspect implements ConfiguredAspect {
+    public static final ConfiguredAspect INSTANCE = new NonApplicableAspect();
+
+    private NonApplicableAspect() {}
+
+    private static final ImmutableList<ActionAnalysisMetadata> ACTIONS = ImmutableList.of();
+    private static final TransitiveInfoProviderMap PROVIDERS =
+        new TransitiveInfoProviderMapBuilder().build();
+
+    @Override
+    public ImmutableList<ActionAnalysisMetadata> getActions() {
+      return ACTIONS;
+    }
+
+    @Override
+    public TransitiveInfoProviderMap getProviders() {
+      return PROVIDERS;
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper(this).toString();
     }
   }
 }

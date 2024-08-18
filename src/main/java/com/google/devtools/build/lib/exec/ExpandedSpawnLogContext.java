@@ -124,14 +124,10 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
   }
 
   private MessageOutputStream<SpawnExec> getConvertedOutputStream(Path path) throws IOException {
-    switch (encoding) {
-      case BINARY:
-        return new BinaryOutputStreamWrapper<>(path.getOutputStream());
-      case JSON:
-        return new JsonOutputStreamWrapper<>(path.getOutputStream());
-    }
-    throw new IllegalArgumentException(
-        String.format("invalid execution log encoding: %s", encoding));
+    return switch (encoding) {
+      case BINARY -> new BinaryOutputStreamWrapper<>(path.getOutputStream());
+      case JSON -> new JsonOutputStreamWrapper<>(path.getOutputStream());
+    };
   }
 
   @Override
@@ -169,8 +165,8 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
 
           boolean isTool =
               toolFiles.contains(input)
-                  || (input instanceof TreeFileArtifact
-                      && toolFiles.contains(((TreeFileArtifact) input).getParent()));
+                  || input instanceof TreeFileArtifact treeFileArtifact
+                      && toolFiles.contains(treeFileArtifact.getParent());
 
           Path contentPath = fileSystem.getPath(execRoot.getRelative(input.getExecPathString()));
 

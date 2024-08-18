@@ -30,9 +30,9 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.AttributeInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.ModuleInfo;
-import com.google.devtools.build.skydoc.rendering.proto.StardocOutputProtos.RuleInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.BufferedReader;
 import java.io.File;
@@ -409,6 +409,12 @@ public class BuildDocCollector {
               ruleDocOrigin.get(ruleName).symbol(),
               ruleDocOrigin.get(ruleName).file());
         }
+        ImmutableSet.Builder<String> flags = ImmutableSet.builder();
+        if (ruleType.equals(DocgenConsts.STARLARK_GENERIC_RULE_TYPE)) {
+          // Note that if FLAG_GENERIC_RULE is set, RuleDocumentation constructor will set the rule
+          // type to OTHER.
+          flags.add(DocgenConsts.FLAG_GENERIC_RULE);
+        }
         RuleDocumentation ruleDoc =
             new RuleDocumentation(
                 ruleName,
@@ -417,7 +423,7 @@ public class BuildDocCollector {
                 ruleInfo.getDocString(),
                 ruleOriginFileLabel,
                 urlMapper.urlOfLabel(ruleOriginFileLabel),
-                ImmutableSet.of(),
+                flags.build(),
                 // Add family summary only to the first rule encountered, to avoid duplication in
                 // final rendered output
                 numRulesCollected == 0 ? ruleFamilySummary : "");

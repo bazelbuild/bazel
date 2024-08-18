@@ -20,7 +20,18 @@ from src.test.py.bazel import test_base
 class BazelWindowsTest(test_base.TestBase):
 
   def createProjectFiles(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "platforms", version = "0.0.9")',
+            (
+                'cc_configure ='
+                ' use_extension("@bazel_tools//tools/cpp:cc_configure.bzl",'
+                ' "cc_configure_extension")'
+            ),
+            'use_repo(cc_configure, "local_config_cc")',
+        ],
+    )
     self.ScratchFile('foo/BUILD', [
         'platform(',
         '    name = "x64_windows-msys-gcc",',
@@ -82,7 +93,6 @@ class BazelWindowsTest(test_base.TestBase):
         os.path.exists(os.path.join(bazel_bin, 'foo\\_objs\\x\\x.obj.params')))
 
   def testWindowsCompilesAssembly(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     _, stdout, _ = self.RunBazel(['info', 'bazel-bin'])
     bazel_bin = stdout[0]
     self.ScratchFile('BUILD', [
@@ -135,12 +145,10 @@ class BazelWindowsTest(test_base.TestBase):
   def testWindowsEnvironmentVariablesSetting(self):
     self.ScratchFile('BUILD')
     rule_definition = [
-        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")',
-        'load(":repo.bzl", "my_repo")',
+        'my_repo = use_repo_rule("//:repo.bzl", "my_repo")',
         'my_repo(name = "env_test")',
     ]
-    rule_definition.extend(self.GetDefaultRepoRules())
-    self.ScratchFile('WORKSPACE', rule_definition)
+    self.ScratchFile('MODULE.bazel', rule_definition)
     self.ScratchFile('repo.bzl', [
         'def my_repo_impl(repository_ctx):',
         '  repository_ctx.file("env.bat", "set FOO\\n")',
@@ -167,7 +175,6 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertIn('foo=bar3', result_in_lower_case)
 
   def testRunPowershellInAction(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'load(":execute.bzl", "run_powershell")',
         'run_powershell(name = "powershell_test", out = "out.txt")',
@@ -206,7 +213,6 @@ class BazelWindowsTest(test_base.TestBase):
     )
 
   def testAnalyzeCcRuleWithoutVCInstalled(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'cc_binary(',
         '  name = "bin",',
@@ -230,7 +236,6 @@ class BazelWindowsTest(test_base.TestBase):
     )
 
   def testBuildNonCcRuleWithoutVCInstalled(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'genrule(',
         '  name="gen",',
@@ -279,7 +284,6 @@ class BazelWindowsTest(test_base.TestBase):
     )
 
   def testDeleteReadOnlyFile(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'BUILD',
         [
@@ -295,7 +299,6 @@ class BazelWindowsTest(test_base.TestBase):
     self.RunBazel(['clean'])
 
   def testDeleteReadOnlyDirectory(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'defs.bzl',
         [
@@ -330,7 +333,6 @@ class BazelWindowsTest(test_base.TestBase):
     self.RunBazel(['clean'])
 
   def testBuildJavaTargetWithClasspathJar(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'java_binary(',
         '  name = "java_bin",',
@@ -392,7 +394,6 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertIn('Hello World!', '\n'.join(stdout))
 
   def testRunWithScriptPath(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('BUILD', [
         'sh_binary(',
         '  name = "foo_bin",',
@@ -439,7 +440,6 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertIn('Hello from test!', '\n'.join(stdout))
 
   def testZipUndeclaredTestOutputs(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'BUILD',
         [
@@ -488,7 +488,6 @@ class BazelWindowsTest(test_base.TestBase):
     self.assertFalse(os.path.exists(output_zip))
 
   def testBazelForwardsRequiredEnvVariable(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'BUILD',
         [
@@ -522,7 +521,6 @@ class BazelWindowsTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 0, stderr, stdout)
 
   def testTestShardStatusFile(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'BUILD',
         [
@@ -560,7 +558,6 @@ class BazelWindowsTest(test_base.TestBase):
     if not self.IsWindows():
       return
 
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'BUILD',
         [

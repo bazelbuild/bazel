@@ -221,7 +221,7 @@ public class WorkerTestUtils {
         Path logFile,
         FakeSubprocess fakeSubprocess,
         WorkerOptions options) {
-      super(workerKey, workerId, workDir, logFile, options);
+      super(workerKey, workerId, workDir, logFile, options, null);
       this.fakeSubprocess = fakeSubprocess;
     }
 
@@ -331,6 +331,11 @@ public class WorkerTestUtils {
       @Override
       public int getNumActive(WorkerKey key) {
         return 0;
+      }
+
+      @Override
+      public boolean hasAvailableQuota(WorkerKey key) {
+        return true;
       }
 
       @Override

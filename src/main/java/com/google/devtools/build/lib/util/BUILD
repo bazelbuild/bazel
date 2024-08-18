@@ -244,7 +244,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:digest_hash_function",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/common/options",
         "//third_party:error_prone_annotations",
@@ -312,14 +311,10 @@ java_library(
 java_library(
     name = "string",
     srcs = [
-        "StringCanonicalizer.java",
         "StringUtil.java",
         "StringUtilities.java",
     ],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//third_party:guava",
-    ],
+    deps = ["//third_party:guava"],
 )
 
 java_library(
@@ -396,7 +391,9 @@ java_library(
     name = "heap_offset_helper",
     srcs = ["HeapOffsetHelper.java"],
     deps = [
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//third_party:flogger",
+        "//third_party:guava",
     ],
 )
 
@@ -431,5 +428,14 @@ java_library(
     srcs = ["ValueOrException.java"],
     deps = [
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "temp_path_generator",
+    srcs = ["TempPathGenerator.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//third_party:jsr305",
     ],
 )

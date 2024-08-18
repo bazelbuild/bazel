@@ -460,19 +460,28 @@ public class CppOptions extends FragmentOptions {
   public Label csFdoProfileLabel;
 
   @Option(
-      name = "enable_fdo_profile_absolute_path",
+      name = "enable_remaining_fdo_absolute_paths",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "If set, use of fdo_absolute_profile_path will raise an error.")
+      help = "If set, any use of absolute paths for FDO will raise an error.")
   public boolean enableFdoProfileAbsolutePath;
+
+  @Option(
+      name = "enable_propeller_optimize_absolute_paths",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "If set, any use of absolute paths for propeller optimize will raise an error.")
+  public boolean enablePropellerOptimizeAbsolutePath;
 
   @Option(
       name = "propeller_optimize_absolute_cc_profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Absolute path name of cc_profile file for Propeller Optimized builds.")
+      help = "Absolute path name of cc_profile file for Propeller Optimized builds.",
+      deprecationWarning = "Deprecated. Use --propeller_optimize instead.")
   public String propellerOptimizeAbsoluteCCProfile;
 
   @Option(
@@ -480,7 +489,8 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Absolute path name of ld_profile file for Propeller Optimized builds.")
+      help = "Absolute path name of ld_profile file for Propeller Optimized builds.",
+      deprecationWarning = "Deprecated. Use --propeller_optimize instead.")
   public String propellerOptimizeAbsoluteLdProfile;
 
   @Option(
@@ -1027,6 +1037,23 @@ public class CppOptions extends FragmentOptions {
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If enabled, cc_library targets can use attribute `implementation_deps`.")
   public boolean experimentalCcImplementationDeps;
+
+  @Option(
+      name = "experimental_cpp_modules",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {
+        OptionEffectTag.LOADING_AND_ANALYSIS,
+        OptionEffectTag.EXECUTION,
+        OptionEffectTag.CHANGES_INPUTS
+      },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          "Enables experimental C++20 modules support. Use it with `module_interfaces` attribute on"
+              + " `cc_binary` and `cc_library`. While the support is behind the experimental flag,"
+              + " there are no guarantees about incompatible changes to it or even keeping the"
+              + " support in the future. Consider those risks when using it.")
+  public boolean experimentalCppModules;
 
   @Option(
       name = "experimental_link_static_libraries_once",

@@ -156,5 +156,6 @@ def cc_configure():
 def _cc_configure_extension_impl(ctx):
     cc_autoconf_toolchains(name = "local_config_cc_toolchains")
     cc_autoconf(name = "local_config_cc")
+    return ctx.extension_metadata(reproducible = True)
 
 cc_configure_extension = module_extension(implementation = _cc_configure_extension_impl)

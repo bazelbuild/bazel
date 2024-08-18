@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.util;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Maps;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.collect.ConcurrentIdentitySet;
 import java.lang.reflect.Array;
@@ -28,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
 
 /**
@@ -72,7 +72,8 @@ public class ObjectGraphTraverser {
     private final ImmutableList<DomainSpecificTraverser> domainSpecificTraversers;
 
     public FieldCache(ImmutableList<DomainSpecificTraverser> domainSpecificTraversers) {
-      this.fieldCache = Maps.newConcurrentMap();
+      this.fieldCache =
+          new ConcurrentHashMap<>(128, 0.75f, Runtime.getRuntime().availableProcessors());
       this.domainSpecificTraversers = domainSpecificTraversers;
     }
   }
@@ -95,6 +96,16 @@ public class ObjectGraphTraverser {
      * @return true if the object is handled.
      */
     boolean maybeTraverse(Object o, Traversal traversal);
+
+    /**
+     * Should return true if the object is interned.
+     *
+     * <p>Reachable interned objects are always reported as seen objects, even if they are already
+     * marked as seen. This makes sense because one can't assign a single owner to them so we either
+     * assign them to everyone who references them or no one, and the latter would make us lose
+     * track of their RAM use.
+     */
+    boolean isInterned(Object o);
 
     /**
      * Called on each object to be traversed.
@@ -212,6 +223,7 @@ public class ObjectGraphTraverser {
   private record WorkItem(Object object, String context, WorkItem parent) {}
 
   private final FieldCache fieldCache;
+  private final boolean countInternedObjects;
   private final boolean reportTransientFields;
 
   private final boolean collectContext;
@@ -227,19 +239,29 @@ public class ObjectGraphTraverser {
 
   public ObjectGraphTraverser(
       FieldCache fieldCache,
+      boolean countInternedObjects,
       boolean reportTransientFields,
       ConcurrentIdentitySet seenObjects,
       boolean collectContext,
       ObjectReceiver receiver,
       Object instanceId) {
     this(
-        fieldCache, reportTransientFields, seenObjects, collectContext, receiver, instanceId, null);
+        fieldCache,
+        countInternedObjects,
+        reportTransientFields,
+        seenObjects,
+        collectContext,
+        receiver,
+        instanceId,
+        null);
   }
 
   /**
    * Creates a new traverser.
    *
    * @param fieldCache the cache for reflection results.
+   * @param countInternedObjects whether to count interned objects only once or each them they are
+   *     encountered
    * @param reportTransientFields whether to recurse into transient fields
    * @param seenObjects the set of objects already seen. These are not traversed and references to
    *     them are reported as {@link EdgeType#ALREADY_SEEN} .
@@ -249,6 +271,7 @@ public class ObjectGraphTraverser {
    */
   public ObjectGraphTraverser(
       FieldCache fieldCache,
+      boolean countInternedObjects,
       boolean reportTransientFields,
       ConcurrentIdentitySet seenObjects,
       boolean collectContext,
@@ -257,6 +280,7 @@ public class ObjectGraphTraverser {
       String needle) {
     this.needle = needle;
     this.fieldCache = fieldCache;
+    this.countInternedObjects = countInternedObjects;
     this.reportTransientFields = reportTransientFields;
     this.seenObjects = seenObjects;
     this.collectContext = collectContext;
@@ -331,16 +355,29 @@ public class ObjectGraphTraverser {
       return;
     }
 
+    boolean traverse;
+
     if (!seenObjects.add(to)) {
       // A reference to an object already seen, but not during this traversal.
       receiver.edgeFound(currentWorkItem.object, to, toContext, EdgeType.ALREADY_SEEN);
-      return;
+      traverse = false;
+      if (countInternedObjects) {
+        for (DomainSpecificTraverser traverser : fieldCache.domainSpecificTraversers) {
+          if (traverser.isInterned(to)) {
+            traverse = true;
+            break;
+          }
+        }
+      }
+    } else {
+      // A new object.
+      receiver.edgeFound(currentWorkItem.object, to, toContext, EdgeType.CURRENT_TRAVERSAL);
+      traverse = true;
     }
 
-    // A new object.
-    receiver.edgeFound(currentWorkItem.object, to, toContext, EdgeType.CURRENT_TRAVERSAL);
-
-    queue.offer(new WorkItem(to, toContext, currentWorkItem));
+    if (traverse) {
+      queue.offer(new WorkItem(to, toContext, currentWorkItem));
+    }
   }
 
   @Nullable

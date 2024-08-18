@@ -29,7 +29,6 @@
 #include <ctype.h>
 #include <fcntl.h>
 #include <grpc/grpc.h>
-#include <grpc/support/log.h>
 #include <grpcpp/channel.h>
 #include <grpcpp/client_context.h>
 #include <grpcpp/create_channel.h>
@@ -69,6 +68,7 @@
 #include "src/main/cpp/util/errors.h"
 #include "src/main/cpp/util/exit_code.h"
 #include "src/main/cpp/util/file.h"
+#include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/logging.h"
 #include "src/main/cpp/util/numbers.h"
 #include "src/main/cpp/util/path.h"
@@ -1451,6 +1451,8 @@ static void RunLauncher(const string &self_path,
 
 int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
          OptionProcessor *option_processor, uint64_t start_time) {
+  blaze_util::InitializeStdOutErrForUtf8();
+
   // Logging must be set first to assure no log statements are missed.
   std::unique_ptr<blaze_util::BazelLogHandler> default_handler(
       new blaze_util::BazelLogHandler());
@@ -1516,8 +1518,8 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
     startup_options->batch = true;
     BAZEL_LOG(WARNING) << "Invoking " << startup_options->product_name
                        << " in batch mode since it is not invoked from within"
-                       << " a workspace (below a directory having a WORKSPACE"
-                       << " file).";
+                       << " a workspace (below a directory having a"
+                       << " MODULE.bazel file).";
   }
 
   vector<string> archive_contents;
@@ -1532,8 +1534,6 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
               *option_processor, *workspace_layout, workspace, &logging_info);
   return 0;
 }
-
-static void null_grpc_log_function(gpr_log_func_args *args) {}
 
 // There might be a mismatch between std::string and the string type returned
 // from protos. This function is the safe way to compare such strings.
@@ -1556,10 +1556,6 @@ BlazeServer::BlazeServer(const StartupOptions &startup_options)
       block_for_lock_(startup_options.block_for_lock),
       preemptible_(startup_options.preemptible),
       output_base_(startup_options.output_base) {
-  if (!startup_options.client_debug) {
-    gpr_set_log_function(null_grpc_log_function);
-  }
-
   pipe_.reset(blaze_util::CreatePipe());
   if (!pipe_) {
     BAZEL_DIE(blaze_exit_code::LOCAL_ENVIRONMENTAL_ERROR)

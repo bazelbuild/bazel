@@ -135,12 +135,12 @@ public class ConditionalEdges {
             (key, value) -> {
               if (value instanceof List<?> deps) {
                 for (Object dep : deps) {
-                  if (dep instanceof Label) {
-                    conditions.put((Label) dep, key);
+                  if (dep instanceof Label label) {
+                    conditions.put(label, key);
                   }
                 }
-              } else if (value instanceof Label) {
-                conditions.put((Label) value, key);
+              } else if (value instanceof Label label) {
+                conditions.put(label, key);
               }
             });
       }

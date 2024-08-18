@@ -178,7 +178,9 @@ final class PathCanonicalizer {
 
       if (!hasNext) {
         // Found the path prefix.
-        node.tab.remove(segment);
+        if (node.tab != null) {
+          node.tab.remove(segment);
+        }
         return;
       }
 

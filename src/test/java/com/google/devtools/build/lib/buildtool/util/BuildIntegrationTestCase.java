@@ -38,7 +38,10 @@ import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FileArtifactValue.InlineFileArtifactValue;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -108,6 +111,7 @@ import com.google.devtools.build.lib.server.FailureDetails.Spawn.Code;
 import com.google.devtools.build.lib.shell.AbnormalTerminationException;
 import com.google.devtools.build.lib.shell.Command;
 import com.google.devtools.build.lib.shell.CommandException;
+import com.google.devtools.build.lib.skyframe.ActionExecutionValue;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -133,11 +137,13 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.util.FileSystems;
 import com.google.devtools.build.lib.worker.WorkerModule;
 import com.google.devtools.build.skyframe.NotifyingHelper;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
@@ -260,6 +266,7 @@ public abstract class BuildIntegrationTestCase {
             /* outputBase= */ outputBase,
             /* outputUserRoot= */ outputBase,
             /* execRootBase= */ getExecRootBase(),
+            /* virtualSourceRoot= */ getVirtualSourceRoot(),
             // Arbitrary install base hash.
             /* installMD5= */ "83bc4458738962b9b77480bac76164a9");
     directories =
@@ -330,8 +337,14 @@ public abstract class BuildIntegrationTestCase {
         BugReport.handleCrash(Crash.from(exception), CrashContext.keepAlive());
   }
 
+  @ForOverride
+  @Nullable
+  protected Root getVirtualSourceRoot() {
+    return null;
+  }
+
   protected Path getExecRootBase() {
-    return outputBase.getRelative("execroot");
+    return outputBase.getRelative(ServerDirectories.EXECROOT);
   }
 
   protected void createRuntimeWrapper() throws Exception {
@@ -675,6 +688,7 @@ public abstract class BuildIntegrationTestCase {
 
     runtimeWrapper.addOptions("--experimental_extended_sanity_checks");
     runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_FLAGS);
+    runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     // TODO(rosica): Remove this once g3 is migrated.
     runtimeWrapper.addOptions("--noincompatible_use_specific_tool_files");
   }
@@ -811,6 +825,11 @@ public abstract class BuildIntegrationTestCase {
     events.setOutErr(outErr);
     runtimeWrapper.executeBuild(Arrays.asList(targets));
     return runtimeWrapper.getLastResult();
+  }
+
+  @CanIgnoreReturnValue
+  public final BuildResult buildTarget(List<String> targets) throws Exception {
+    return buildTarget(targets.toArray(String[]::new));
   }
 
   /** Runs the {@code info} command. */
@@ -1006,6 +1025,24 @@ public abstract class BuildIntegrationTestCase {
     return ByteString.copyFrom(FileSystemUtils.readContent(artifact.getPath()));
   }
 
+  protected String readInlineOutput(Artifact output) throws IOException, InterruptedException {
+    assertThat(output).isInstanceOf(DerivedArtifact.class);
+
+    SkyValue actionExecutionValue =
+        getSkyframeExecutor()
+            .getEvaluator()
+            .getExistingValue(((DerivedArtifact) output).getGeneratingActionKey());
+    assertThat(actionExecutionValue).isInstanceOf(ActionExecutionValue.class);
+
+    FileArtifactValue fileArtifactValue =
+        ((ActionExecutionValue) actionExecutionValue).getExistingFileArtifactValue(output);
+    assertThat(fileArtifactValue).isInstanceOf(InlineFileArtifactValue.class);
+
+    return new String(
+        FileSystemUtils.readContentAsLatin1(
+            ((InlineFileArtifactValue) fileArtifactValue).getInputStream()));
+  }
+
   /**
    * Given a collection of Artifacts, returns a corresponding set of strings of the form "<root>
    * <relpath>", such as "bin x/libx.a". Such strings make assertions easier to write.
@@ -1125,6 +1162,11 @@ public abstract class BuildIntegrationTestCase {
   @CanIgnoreReturnValue
   public final Event assertContainsEvent(String expectedEvent) {
     return assertContainsEvent(events.collector(), expectedEvent);
+  }
+
+  @CanIgnoreReturnValue
+  public final Event assertContainsEvent(EventKind kind, String expectedEvent) {
+    return MoreAsserts.assertContainsEvent(events.collector(), expectedEvent, kind);
   }
 
   @CanIgnoreReturnValue

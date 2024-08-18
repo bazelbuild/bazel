@@ -12,23 +12,25 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <cstddef>
+#include <memory>
+#include <string>
 #include <vector>
 
-#include "src/main/cpp/blaze_util.h"
 #include "src/main/cpp/blaze_util_platform.h"
 #include "src/main/cpp/option_processor.h"
 #include "src/main/cpp/util/file.h"
 #include "src/main/cpp/util/file_platform.h"
 #include "src/main/cpp/util/path.h"
-#include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "googlemock/include/gmock/gmock.h"
 #include "googletest/include/gtest/gtest.h"
+#include "absl/container/flat_hash_map.h"
+#include "src/main/cpp/rc_file.h"
 
 namespace blaze {
-using std::string;
-using std::unordered_map;
-using std::vector;
+namespace {
+
 using ::testing::MatchesRegex;
 
 #if _WIN32
@@ -46,10 +48,10 @@ class RcOptionsTest : public ::testing::Test {
         workspace_layout_() {
   }
 
-  const string test_file_dir_;
+  const std::string test_file_dir_;
   const WorkspaceLayout workspace_layout_;
 
-  void WriteRc(const string& filename, const string& contents) {
+  void WriteRc(const std::string& filename, const std::string& contents) {
     bool success_mkdir = blaze_util::MakeDirectories(test_file_dir_, 0755);
     ASSERT_TRUE(success_mkdir) << "Failed to mkdir -p " << test_file_dir_;
     bool success_write = blaze_util::WriteFile(
@@ -57,7 +59,7 @@ class RcOptionsTest : public ::testing::Test {
     ASSERT_TRUE(success_write) << "Failed to write " << filename;
   }
 
-  std::unique_ptr<RcFile> Parse(const string& filename,
+  std::unique_ptr<RcFile> Parse(const std::string& filename,
                                 RcFile::ParseError* error,
                                 std::string* error_text) {
     return RcFile::Parse(
@@ -70,10 +72,11 @@ class RcOptionsTest : public ::testing::Test {
   }
 
   void SuccessfullyParseRcWithExpectedArgs(
-      const string& filename,
-      const unordered_map<string, vector<string>>& expected_args_map) {
+      const std::string& filename,
+      const absl::flat_hash_map<std::string, std::vector<std::string>>&
+          expected_args_map) {
     RcFile::ParseError error;
-    string error_text;
+    std::string error_text;
     std::unique_ptr<RcFile> rc = Parse(filename, &error, &error_text);
     EXPECT_EQ(error_text, "");
     ASSERT_EQ(error, RcFile::ParseError::NONE);
@@ -83,11 +86,11 @@ class RcOptionsTest : public ::testing::Test {
     // correct order. Note that this is not just an exercise in rewriting map
     // equality - the results have type RcOption, and the expected values
     // are just strings. This is ignoring the source_path for convenience.
-    const RcFile::OptionMap& result = rc->options();
+    RcFile::OptionMap result = rc->options();
     ASSERT_EQ(expected_args_map.size(), result.size());
     for (const auto& command_args_pair : expected_args_map) {
-      const string& expected_command = command_args_pair.first;
-      const vector<string>& expected_args = command_args_pair.second;
+      const std::string& expected_command = command_args_pair.first;
+      const std::vector<std::string>& expected_args = command_args_pair.second;
       const auto result_args_iter = result.find(expected_command);
       ASSERT_NE(result_args_iter, rc->options().end());
       const std::vector<RcOption>& result_args = result_args_iter->second;
@@ -102,21 +105,21 @@ class RcOptionsTest : public ::testing::Test {
 TEST_F(RcOptionsTest, Empty) {
   WriteRc("empty.bazelrc",
           "");
-  unordered_map<string, vector<string>> no_expected_args;
+  absl::flat_hash_map<std::string, std::vector<std::string>> no_expected_args;
   SuccessfullyParseRcWithExpectedArgs("empty.bazelrc", no_expected_args);
 }
 
 TEST_F(RcOptionsTest, Whitespace) {
   WriteRc("whitespace.bazelrc",
           "      \n\t      ");
-  unordered_map<string, vector<string>> no_expected_args;
+  absl::flat_hash_map<std::string, std::vector<std::string>> no_expected_args;
   SuccessfullyParseRcWithExpectedArgs("whitespace.bazelrc", no_expected_args);
 }
 
 TEST_F(RcOptionsTest, CommentedStartup) {
   WriteRc("commented_startup.bazelrc",
           "# startup foo");
-  unordered_map<string, vector<string>> no_expected_args;
+  absl::flat_hash_map<std::string, std::vector<std::string>> no_expected_args;
   SuccessfullyParseRcWithExpectedArgs("commented_startup.bazelrc",
                                       no_expected_args);
 }
@@ -124,7 +127,7 @@ TEST_F(RcOptionsTest, CommentedStartup) {
 TEST_F(RcOptionsTest, EmptyStartupLine) {
   WriteRc("empty_startup_line.bazelrc",
           "startup");
-  unordered_map<string, vector<string>> no_expected_args;
+  absl::flat_hash_map<std::string, std::vector<std::string>> no_expected_args;
   SuccessfullyParseRcWithExpectedArgs("empty_startup_line.bazelrc",
                                       no_expected_args);
 }
@@ -132,7 +135,7 @@ TEST_F(RcOptionsTest, EmptyStartupLine) {
 TEST_F(RcOptionsTest, StartupWithOnlyCommentedArg) {
   WriteRc("startup_with_comment.bazelrc",
           "startup # bar");
-  unordered_map<string, vector<string>> no_expected_args;
+  absl::flat_hash_map<std::string, std::vector<std::string>> no_expected_args;
   SuccessfullyParseRcWithExpectedArgs("startup_with_comment.bazelrc",
                                       no_expected_args);
 }
@@ -356,7 +359,7 @@ TEST_F(RcOptionsTest, ImportCycleFails) {
           "import %workspace%/import_cycle_1.bazelrc");
 
   RcFile::ParseError error;
-  string error_text;
+  std::string error_text;
   std::unique_ptr<RcFile> rc =
       Parse("import_cycle_1.bazelrc", &error, &error_text);
   EXPECT_EQ(error, RcFile::ParseError::IMPORT_LOOP);
@@ -383,7 +386,7 @@ TEST_F(RcOptionsTest, LongImportCycleFails) {
           "import %workspace%/import_cycle_1.bazelrc");
 
   RcFile::ParseError error;
-  string error_text;
+  std::string error_text;
   std::unique_ptr<RcFile> rc =
       Parse("chain_to_cycle_1.bazelrc", &error, &error_text);
   EXPECT_EQ(error, RcFile::ParseError::IMPORT_LOOP);
@@ -401,15 +404,16 @@ TEST_F(RcOptionsTest, LongImportCycleFails) {
 
 TEST_F(RcOptionsTest, FileDoesNotExist) {
   RcFile::ParseError error;
-  string error_text;
+  std::string error_text;
   std::unique_ptr<RcFile> rc = Parse("not_a_file.bazelrc", &error, &error_text);
   EXPECT_EQ(error, RcFile::ParseError::UNREADABLE_FILE);
   ASSERT_THAT(
       error_text,
-      MatchesRegex(kIsWindows
-        ? "Unexpected error reading \\.blazerc file '.*not_a_file\\.bazelrc':.*"
-        : "Unexpected error reading \\.blazerc file '.*not_a_file\\.bazelrc': "
-          "\\(error: 2\\): No such file or directory"));
+      MatchesRegex(kIsWindows ? "Unexpected error reading config file "
+                                "'.*not_a_file\\.bazelrc':.*"
+                              : "Unexpected error reading config file "
+                                "'.*not_a_file\\.bazelrc': "
+                                "\\(error: 2\\): No such file or directory"));
 }
 
 TEST_F(RcOptionsTest, ImportedFileDoesNotExist) {
@@ -417,24 +421,26 @@ TEST_F(RcOptionsTest, ImportedFileDoesNotExist) {
           "import somefile");
 
   RcFile::ParseError error;
-  string error_text;
+  std::string error_text;
   std::unique_ptr<RcFile> rc =
       Parse("import_fake_file.bazelrc", &error, &error_text);
   EXPECT_EQ(error, RcFile::ParseError::UNREADABLE_FILE);
   if (kIsWindows) {
-    ASSERT_THAT(error_text, MatchesRegex(
-      "Unexpected error reading \\.blazerc file 'somefile':.*"));
+    ASSERT_THAT(
+        error_text,
+        MatchesRegex("Unexpected error reading config file 'somefile':.*"));
   } else {
-    ASSERT_EQ(error_text,
-      "Unexpected error reading .blazerc file 'somefile': (error: 2): No such "
-      "file or directory");
+    ASSERT_EQ(
+        error_text,
+        "Unexpected error reading config file 'somefile': (error: 2): No such "
+        "file or directory");
   }
 }
 
 TEST_F(RcOptionsTest, TryImportedFileDoesNotExist) {
   WriteRc("try_import_fake_file.bazelrc", "try-import somefile");
 
-  unordered_map<string, vector<string>> no_expected_args;
+  absl::flat_hash_map<std::string, std::vector<std::string>> no_expected_args;
   SuccessfullyParseRcWithExpectedArgs("try_import_fake_file.bazelrc",
                                       no_expected_args);
 }
@@ -444,28 +450,25 @@ TEST_F(RcOptionsTest, ImportHasTooManyArgs) {
           "import somefile bar");
 
   RcFile::ParseError error;
-  string error_text;
+  std::string error_text;
   std::unique_ptr<RcFile> rc = Parse("bad_import.bazelrc", &error, &error_text);
   EXPECT_EQ(error, RcFile::ParseError::INVALID_FORMAT);
-  ASSERT_THAT(
-      error_text,
-      MatchesRegex("Invalid import declaration in .blazerc file "
-                   "'.*bad_import.bazelrc': 'import somefile bar' \\(are you "
-                   "in your source checkout/WORKSPACE\\?\\)"));
+  ASSERT_THAT(error_text,
+              MatchesRegex("Invalid import declaration in config file "
+                           "'.*bad_import.bazelrc': 'import somefile bar'"));
 }
 
 TEST_F(RcOptionsTest, TryImportHasTooManyArgs) {
   WriteRc("bad_import.bazelrc", "try-import somefile bar");
 
   RcFile::ParseError error;
-  string error_text;
+  std::string error_text;
   std::unique_ptr<RcFile> rc = Parse("bad_import.bazelrc", &error, &error_text);
   EXPECT_EQ(error, RcFile::ParseError::INVALID_FORMAT);
   ASSERT_THAT(
       error_text,
-      MatchesRegex("Invalid import declaration in .blazerc file "
-                   "'.*bad_import.bazelrc': 'try-import somefile bar' \\(are "
-                   "you in your source checkout/WORKSPACE\\?\\)"));
+      MatchesRegex("Invalid import declaration in config file "
+                   "'.*bad_import.bazelrc': 'try-import somefile bar'"));
 }
 
 // TODO(b/34811299) The tests below identify ways that '\' used as a line
@@ -519,5 +522,5 @@ TEST_F(RcOptionsTest, BadStartupLineContinuation_InterpretsNextLineAsNewline) {
       {{"startup", {"foo", " "}}, {"bar", {"baz"}}});
 }
 
+}  // namespace
 }  // namespace blaze
-

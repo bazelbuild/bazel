@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime.commands;
 
+import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
+
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
@@ -56,7 +58,6 @@ import com.google.devtools.build.lib.runtime.commands.info.PackagePathInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.ReleaseInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.ServerLogInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.ServerPidInfoItem;
-import com.google.devtools.build.lib.runtime.commands.info.SkyfocusWorkingSetItem;
 import com.google.devtools.build.lib.runtime.commands.info.StarlarkSemanticsInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeAfterGcInfoItem;
 import com.google.devtools.build.lib.runtime.commands.info.UsedHeapSizeInfoItem;
@@ -82,27 +83,24 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
 
-/**
- * Implementation of 'blaze info'.
- */
-@Command(name = "info",
-         // TODO(bazel-team): this is not really a build command, but needs access to the
-         // configuration options to do its job
-         builds = true,
-         allowResidue = true,
-         binaryStdOut = true,
-         help = "resource:info.txt",
-         shortDescription = "Displays runtime info about the %{product} server.",
-         options = { InfoCommand.Options.class },
-         completion = "info-key",
-         // We have InfoCommand inherit from {@link BuildCommand} because we want all
-         // configuration defaults specified in ~/.blazerc for {@code build} to apply to
-         // {@code info} too, even though it doesn't actually do a build.
-         //
-         // (Ideally there would be a way to make {@code info} inherit just the bare
-         // minimum of relevant options from {@code build}, i.e. those that affect the
-         // values it prints.  But there's no such mechanism.)
-         inherits = { BuildCommand.class })
+/** Implementation of 'blaze info'. */
+@Command(
+    name = "info",
+    buildPhase = NONE,
+    allowResidue = true,
+    binaryStdOut = true,
+    help = "resource:info.txt",
+    shortDescription = "Displays runtime info about the %{product} server.",
+    options = {InfoCommand.Options.class},
+    completion = "info-key",
+    // We have InfoCommand inherit from {@link BuildCommand} because we want all
+    // configuration defaults specified in ~/.blazerc for {@code build} to apply to
+    // {@code info} too, even though it doesn't actually do a build.
+    //
+    // (Ideally there would be a way to make {@code info} inherit just the bare
+    // minimum of relevant options from {@code build}, i.e. those that affect the
+    // values it prints.  But there's no such mechanism.)
+    inheritsOptionsFrom = {BuildCommand.class})
 public class InfoCommand implements BlazeCommand {
 
   /** Options for the info command. */
@@ -300,8 +298,7 @@ public class InfoCommand implements BlazeCommand {
             new DefaultPackagePathInfoItem(commandOptions),
             new StarlarkSemanticsInfoItem(commandOptions),
             new WorkerMetricsInfoItem(),
-            new LocalResourcesInfoItem(),
-            new SkyfocusWorkingSetItem());
+            new LocalResourcesInfoItem());
     ImmutableMap.Builder<String, InfoItem> result = new ImmutableMap.Builder<>();
     for (InfoItem item : hardwiredInfoItems) {
       result.put(item.getName(), item);

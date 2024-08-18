@@ -57,53 +57,6 @@ class TestBase(absltest.TestCase):
   _worker_proc = None
   _cas_path = None
 
-  # Keep in sync with shared repos in src/test/shell/testenv.sh.tmpl
-  _SHARED_REPOS = (
-      'android_tools_for_testing',
-      'android_gmaven_r8',
-      'bazel_skylib',
-      'bazel_toolchains',
-      'com_google_protobuf',
-      'openjdk_linux_aarch64_vanilla',
-      'openjdk_linux_vanilla',
-      'openjdk_macos_x86_64_vanilla',
-      'openjdk_macos_aarch64_vanilla',
-      'openjdk_win_vanilla',
-      'remote_coverage_tools',
-      'remote_java_tools',
-      'remote_java_tools_darwin_x86_64',
-      'remote_java_tools_darwin_arm64',
-      'remote_java_tools_linux',
-      'remote_java_tools_windows',
-      'remotejdk11_linux',
-      'remotejdk11_linux_aarch64',
-      'remotejdk11_linux_ppc64le',
-      'remotejdk11_linux_s390x',
-      'remotejdk11_macos',
-      'remotejdk11_macos_aarch64',
-      'remotejdk11_win',
-      'remotejdk11_win_arm64',
-      'remotejdk17_linux',
-      'remotejdk17_linux_s390x',
-      'remotejdk17_macos',
-      'remotejdk17_macos_aarch64',
-      'remotejdk17_win',
-      'remotejdk17_win_arm64',
-      'remotejdk21_linux',
-      'remotejdk21_macos',
-      'remotejdk21_macos_aarch64',
-      'remotejdk21_win',
-      'remotejdk21_win_arm64',
-      'rules_cc',
-      'rules_java',
-      'rules_java_builtin_for_testing',
-      'rules_license',
-      'rules_proto',
-      'rules_python',
-      'rules_pkg',
-      'rules_testing',
-  )
-
   def setUp(self):
     absltest.TestCase.setUp(self)
     if self._runfiles is None:
@@ -116,12 +69,6 @@ class TestBase(absltest.TestCase):
     self._test_bazelrc = os.path.join(self._temp, 'test_bazelrc')
     with open(self._test_bazelrc, 'wt') as f:
       f.write('common --nolegacy_external_runfiles\n')
-      shared_repo_home = os.environ.get('TEST_REPOSITORY_HOME')
-      if shared_repo_home and os.path.exists(shared_repo_home):
-        for repo in self._SHARED_REPOS:
-          f.write('common --override_repository={}={}\n'.format(
-              repo.replace('_for_testing', ''),
-              os.path.join(shared_repo_home, repo).replace('\\', '/')))
       shared_install_base = os.environ.get('TEST_INSTALL_BASE')
       if shared_install_base:
         f.write('startup --install_base={}\n'.format(shared_install_base))
@@ -141,6 +88,14 @@ class TestBase(absltest.TestCase):
         # Prefer ipv6 network on macOS
         f.write('startup --host_jvm_args=-Djava.net.preferIPv6Addresses=true\n')
         f.write('build --jvmopt=-Djava.net.preferIPv6Addresses\n')
+
+      # Disable WORKSPACE in python tests by default
+      # TODO(pcloudy): Remove when --enable_workspace defaults to false
+      f.write('common --noenable_workspace\n')
+
+    # An empty MODULE.bazel and a corresponding MODULE.bazel.lock will prevent
+    # tests from accessing BCR
+    self.ScratchFile('MODULE.bazel')
     self.CopyFile(
         self.Rlocation('io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock'),
         'MODULE.bazel.lock',
@@ -150,6 +105,7 @@ class TestBase(absltest.TestCase):
   def DisableBzlmod(self):
     with open(self._test_bazelrc, 'at') as f:
       f.write('common --noenable_bzlmod\n')
+      f.write('common --enable_workspace\n')
 
   def tearDown(self):
     self.RunBazel(['shutdown'])
@@ -212,32 +168,14 @@ class TestBase(absltest.TestCase):
       if entry in f.read():
         self.fail('File "%s" does contain "%s"' % (file_path, entry))
 
-  def CreateWorkspaceWithDefaultRepos(self, path, lines=None):
-    """Creates a `WORKSPACE` file with default repos and register C++ toolchains."""
-    rule_definition = [
-        'load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")'
-    ]
-    rule_definition.extend(self.GetDefaultRepoRules())
-    if lines:
-      rule_definition.extend(lines)
-    rule_definition.extend([
-        'register_toolchains(',
-        '  "@local_config_cc//:all",',
-        ')',
-    ])
-    self.ScratchFile(path, rule_definition)
-    self.ScratchFile(
-        path.replace('WORKSPACE.bazel', 'MODULE.bazel').replace(
-            'WORKSPACE', 'MODULE.bazel'
-        )
-    )
-
-  def GetDefaultRepoRules(self):
-    with open(
-        self.Rlocation('io_bazel/src/test/py/bazel/default_repos_stanza.txt'),
-        'r') as repo_rules:
-      return repo_rules.read().split('\n')
-    return []
+  def AssertPathIsSymlink(self, path):
+    if self.IsWindows():
+      self.assertTrue(
+          self.IsReparsePoint(path),
+          "Path '%s' is not a symlink or junction" % path,
+      )
+    else:
+      self.assertTrue(os.path.islink(path), "Path '%s' is not a symlink" % path)
 
   @staticmethod
   def GetEnv(name, default=None):
@@ -280,8 +218,8 @@ class TestBase(absltest.TestCase):
     """Returns true if the current platform is Linux."""
     return sys.platform.startswith('linux')
 
-  def IsJunction(self, path):
-    """Returns whether a folder is a junction or not. Used with Windows folders.
+  def IsReparsePoint(self, path):
+    """Returns whether a path is a reparse point (symlink or junction) on Windows.
 
     Args:
       path: string; an absolute path to a folder e.g. "C://foo/bar/aaa"
@@ -463,13 +401,6 @@ class TestBase(absltest.TestCase):
     port = s.getsockname()[1]
     s.close()
 
-    env_add = {}
-    try:
-      env_add['RUNFILES_MANIFEST_FILE'] = TestBase.GetEnv(
-          'RUNFILES_MANIFEST_FILE')
-    except EnvVarUndefinedError:
-      pass
-
     # Tip: To help debug remote build problems, add the --debug flag below.
     self._worker_proc = subprocess.Popen(
         [
@@ -484,7 +415,8 @@ class TestBase(absltest.TestCase):
         stdout=self._worker_stdout,
         stderr=self._worker_stderr,
         cwd=self._test_cwd,
-        env=self._EnvMap(env_add=env_add))
+        env=self._EnvMap(env_add=self._runfiles.EnvVars()),
+    )
 
     return port
 

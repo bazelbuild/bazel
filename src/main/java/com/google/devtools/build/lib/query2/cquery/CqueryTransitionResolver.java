@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.query2.cquery;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.analysis.producers.TargetAndConfigurationProducer.computeTransition;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.HashBasedTable;
@@ -31,16 +30,19 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
-import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.ComposingTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.NoTransition;
-import com.google.devtools.build.lib.analysis.config.transitions.NullTransition;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
+import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyCache;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
+import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.query2.common.CqueryNode;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -55,9 +57,10 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
- * TransitionResolver resolves the dependencies of a {@link ConfiguredTarget}, reporting which
- * configurations its dependencies are actually needed in according to the transitions applied to
- * them. See {@link TransitionsOutputFormatterCallback}.
+ * TransitionResolver resolves the dependencies of a {@link
+ * com.google.devtools.build.lib.analysis.ConfiguredTarget}, reporting which configurations its
+ * dependencies are actually needed in according to the transitions applied to them. See {@link
+ * TransitionsOutputFormatterCallback}.
  */
 public class CqueryTransitionResolver {
 
@@ -104,18 +107,21 @@ public class CqueryTransitionResolver {
   private final CqueryThreadsafeCallback cqueryThreadsafeCallback;
   private final RuleClassProvider ruleClassProvider;
   private final StarlarkTransitionCache transitionCache;
+  private final BuildConfigurationKeyCache buildConfigurationKeyCache;
 
   public CqueryTransitionResolver(
       ExtendedEventHandler eventHandler,
       ConfiguredTargetAccessor accessor,
       CqueryThreadsafeCallback cqueryThreadsafeCallback,
       RuleClassProvider ruleClassProvider,
-      StarlarkTransitionCache transitionCache) {
+      StarlarkTransitionCache transitionCache,
+      BuildConfigurationKeyCache buildConfigurationKeyCache) {
     this.eventHandler = eventHandler;
     this.accessor = accessor;
     this.cqueryThreadsafeCallback = cqueryThreadsafeCallback;
     this.ruleClassProvider = ruleClassProvider;
     this.transitionCache = transitionCache;
+    this.buildConfigurationKeyCache = buildConfigurationKeyCache;
   }
 
   /**
@@ -125,8 +131,8 @@ public class CqueryTransitionResolver {
    * @see ResolvedTransition for more details.
    * @param configuredTarget the configured target whose dependencies are being looked up.
    */
-  public ImmutableSet<ResolvedTransition> dependencies(CqueryNode configuredTarget)
-      throws EvaluateException, InterruptedException {
+  ImmutableSet<ResolvedTransition> dependencies(CqueryNode configuredTarget)
+      throws EvaluateException, InterruptedException, IncompatibleTargetException {
     if (!(configuredTarget instanceof RuleConfiguredTarget)) {
       return ImmutableSet.of();
     }
@@ -149,12 +155,13 @@ public class CqueryTransitionResolver {
           ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
           ruleClassProvider,
           transitionCache,
+          buildConfigurationKeyCache,
           /* semaphoreLocker= */ () -> {},
           accessor.getLookupEnvironment(),
           eventHandler)) {
         throw new EvaluateException("DependencyResolver.evaluate did not complete");
       }
-    } catch (ReportedException | UnreportedException | IncompatibleTargetException e) {
+    } catch (ReportedException | UnreportedException e) {
       throw new EvaluateException(e.getMessage());
     }
 
@@ -187,15 +194,12 @@ public class CqueryTransitionResolver {
         Label label = labelEntry.getKey();
         Collection<ConfiguredTargetAndData> targets = labelEntry.getValue();
 
-        ConfigurationTransition noOrNullTransition =
-            getTransitionIfNoOrNull(configuration, targets);
-        if (noOrNullTransition != null) {
+        // The most common case, so short-circuit this.
+        String transitionName = usesNoTransition(configuration, targets);
+        if (transitionName != null) {
           resolved.add(
               ResolvedTransition.create(
-                  label,
-                  /* buildOptions= */ ImmutableList.of(),
-                  dependencyName,
-                  noOrNullTransition.getName()));
+                  label, /* buildOptions= */ ImmutableList.of(), dependencyName, transitionName));
           continue;
         }
 
@@ -224,15 +228,16 @@ public class CqueryTransitionResolver {
   }
 
   @Nullable
-  private static ConfigurationTransition getTransitionIfNoOrNull(
+  private static String usesNoTransition(
       BuildConfigurationValue fromConfiguration, Collection<ConfiguredTargetAndData> targets) {
     ConfiguredTargetAndData first = targets.iterator().next();
+    // Check whether the configuration changed.
     if (targets.size() == 1 && Objects.equals(fromConfiguration, first.getConfiguration())) {
-      return NoTransition.INSTANCE;
+      return NoTransition.INSTANCE.getName();
     }
     // If any target has a null configuration, they all do, so it's sufficient to check the first.
     if (first.getConfiguration() == null) {
-      return NullTransition.INSTANCE;
+      return "(null transition)";
     }
     return null;
   }
@@ -248,26 +253,37 @@ public class CqueryTransitionResolver {
     return kind.getAttribute().getName();
   }
 
+  // Keep in sync with TargetAndConfigurationProducer.computeTransition.
   @Nullable
   private ConfigurationTransition getRuleTransition(CqueryNode configuredTarget) {
-    if (configuredTarget instanceof RuleConfiguredTarget) {
-      return computeTransition(
-          accessor.getTarget(configuredTarget).getAssociatedRule(),
-          ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory());
+    Rule rule = accessor.getTarget(configuredTarget).getAssociatedRule();
+    if (rule == null) {
+      return null;
     }
-    return null;
+    TransitionFactory<RuleTransitionData> transitionFactory =
+        rule.getRuleClassObject().getTransitionFactory();
+    TransitionFactory<RuleTransitionData> trimmingTransitionFactory =
+        ((ConfiguredRuleClassProvider) ruleClassProvider).getTrimmingTransitionFactory();
+
+    boolean isAlias = rule.getAssociatedRule().getName().equals("alias");
+    if (trimmingTransitionFactory != null && !isAlias) {
+      transitionFactory =
+          ComposingTransitionFactory.of(transitionFactory, trimmingTransitionFactory);
+    }
+
+    var transitionData = RuleTransitionData.create(rule, /* configConditions= */ null, "");
+    return transitionFactory.create(transitionData);
   }
 
   private static String getTransitionName(
       @Nullable ConfigurationTransition attributeTransition,
-      @Nullable ConfigurationTransition ruleTransition) {
-    ConfigurationTransition transition = NoTransition.INSTANCE;
-    if (attributeTransition != null) {
-      transition = ComposingTransition.of(transition, attributeTransition);
+      ConfigurationTransition ruleTransition) {
+    if (attributeTransition == null || NoTransition.isInstance(attributeTransition)) {
+      return ruleTransition.getName();
+    } else if (NoTransition.isInstance(ruleTransition)) {
+      return attributeTransition.getName();
+    } else {
+      return "(" + attributeTransition.getName() + " + " + ruleTransition.getName() + ")";
     }
-    if (ruleTransition != null) {
-      transition = ComposingTransition.of(transition, ruleTransition);
-    }
-    return transition.getName();
   }
 }

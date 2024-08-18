@@ -21,7 +21,32 @@ from src.test.py.bazel import test_base
 
 # pylint: disable=g-import-not-at-top
 if os.name == 'nt':
-  import win32api
+  import ctypes
+  from ctypes import wintypes
+
+  kernel32 = ctypes.WinDLL('kernel32')
+  _GetShortPathNameW = kernel32.GetShortPathNameW
+  _GetShortPathNameW.argtypes = [
+      wintypes.LPCWSTR,
+      wintypes.LPWSTR,
+      wintypes.DWORD,
+  ]
+  _GetShortPathNameW.restype = wintypes.DWORD
+
+  def _get_short_path_name(long_name):
+    # Gets the short path name of a given long path.
+    # http://stackoverflow.com/a/23598461/200291
+
+    output_buf_size = len(long_name)
+    while True:
+      output_buf = ctypes.create_unicode_buffer(output_buf_size)
+      needed = _GetShortPathNameW(long_name, output_buf, output_buf_size)
+      if needed == 0:
+        raise ctypes.WinError()
+      elif output_buf_size >= needed:
+        return output_buf.value
+      else:
+        output_buf_size = needed
 
 
 class LauncherTest(test_base.TestBase):
@@ -53,15 +78,15 @@ class LauncherTest(test_base.TestBase):
     self.assertEqual(len(stdout), 4)
     self.assertEqual(stdout[0], 'hello java')
     if self.IsWindows():
-      self.assertRegexpMatches(
+      self.assertRegex(
           stdout[1], r'java_runfiles=.*foo\\foo%s.runfiles' % binary_suffix)
       self.assertEqual(stdout[2], 'runfiles_manifest_only=1')
-      self.assertRegexpMatches(
+      self.assertRegex(
           stdout[3], r'^runfiles_manifest_file=[a-zA-Z]:[/\\].*MANIFEST$')
     else:
-      self.assertRegexpMatches(stdout[1], r'java_runfiles=.*/foo/foo.runfiles')
+      self.assertRegex(stdout[1], r'java_runfiles=.*/foo/foo.runfiles')
       self.assertEqual(stdout[2], 'runfiles_manifest_only=')
-      self.assertRegexpMatches(stdout[3], r'^runfiles_manifest_file.*MANIFEST$')
+      self.assertRegex(stdout[3], r'^runfiles_manifest_file.*MANIFEST$')
 
   def _buildShBinaryTargets(self, bazel_bin, bin1_suffix):
     self.RunBazel(['build', '//foo:bin1.sh'])
@@ -134,7 +159,7 @@ class LauncherTest(test_base.TestBase):
     self.assertEqual(stdout[0], 'hello shell')
     if self.IsWindows():
       self.assertEqual(stdout[1], 'runfiles_manifest_only=1')
-      self.assertRegexpMatches(
+      self.assertRegex(
           stdout[2],
           (r'^runfiles_manifest_file='
            r'[a-zA-Z]:/.*/foo/bin1.sh%s.runfiles/MANIFEST$' % bin1_suffix))
@@ -212,7 +237,6 @@ class LauncherTest(test_base.TestBase):
     self.assertEqual(stdout, arguments)
 
   def testJavaBinaryLauncher(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'java_binary(',
         '  name = "foo",',
@@ -242,7 +266,6 @@ class LauncherTest(test_base.TestBase):
     self._buildJavaTargets(bazel_bin, '.exe' if self.IsWindows() else '')
 
   def testJavaBinaryArgumentPassing(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'java_binary(',
         '  name = "bin",',
@@ -263,7 +286,6 @@ class LauncherTest(test_base.TestBase):
     self._buildAndCheckArgumentPassing('foo', 'bin')
 
   def testShBinaryLauncher(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'foo/BUILD',
         [
@@ -306,7 +328,6 @@ class LauncherTest(test_base.TestBase):
     self._buildShBinaryTargets(bazel_bin, '.exe' if self.IsWindows() else '')
 
   def testShBinaryArgumentPassing(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'sh_binary(',
         '  name = "bin",',
@@ -329,7 +350,6 @@ class LauncherTest(test_base.TestBase):
     self._buildAndCheckArgumentPassing('foo', 'bin')
 
   def testPyBinaryLauncher(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'foo/foo.bzl',
         [
@@ -386,7 +406,6 @@ class LauncherTest(test_base.TestBase):
     self._buildPyTargets(bazel_bin, '.exe' if self.IsWindows() else '')
 
   def testPyBinaryArgumentPassing(self):
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'py_binary(',
         '  name = "bin",',
@@ -403,7 +422,6 @@ class LauncherTest(test_base.TestBase):
 
   def testPyBinaryLauncherWithDifferentArgv0(self):
     """Test for https://github.com/bazelbuild/bazel/issues/14343."""
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'py_binary(',
         '  name = "bin",',
@@ -429,7 +447,6 @@ class LauncherTest(test_base.TestBase):
     # Skip this test on non-Windows platforms
     if not self.IsWindows():
       return
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('foo/BUILD', [
         'java_binary(',
         '  name = "foo",',
@@ -547,12 +564,11 @@ class LauncherTest(test_base.TestBase):
     _, stdout, _ = self.RunProgram([binary, '--classpath_limit=0', print_cmd])
     self.assertIn('-classpath', stdout)
     classpath = stdout[stdout.index('-classpath') + 1]
-    self.assertRegexpMatches(classpath, r'foo-[A-Za-z0-9]+-classpath.jar$')
+    self.assertRegex(classpath, r'foo-[A-Za-z0-9]+-classpath.jar$')
 
   def testWindowsNativeLauncherInNonEnglishPath(self):
     if not self.IsWindows():
       return
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile('bin/BUILD', [
         'java_binary(',
         '  name = "bin_java",',
@@ -601,7 +617,6 @@ class LauncherTest(test_base.TestBase):
   def testWindowsNativeLauncherInLongPath(self):
     if not self.IsWindows():
       return
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'bin/BUILD',
         [
@@ -670,7 +685,7 @@ class LauncherTest(test_base.TestBase):
     _, stdout, _ = self.RunProgram([long_binary_path], shell=True)
     self.assertEqual('helloworld', ''.join(stdout))
     # Make sure we can launch the binary with a shortened Windows 8dot3 path
-    short_binary_path = win32api.GetShortPathName(long_binary_path)
+    short_binary_path = _get_short_path_name(long_binary_path)
     self.assertIn('~', os.path.basename(short_binary_path))
     _, stdout, _ = self.RunProgram([short_binary_path], shell=True)
     self.assertEqual('helloworld', ''.join(stdout))
@@ -680,7 +695,7 @@ class LauncherTest(test_base.TestBase):
     _, stdout, _ = self.RunProgram([long_binary_path], shell=True)
     self.assertEqual('helloworld', ''.join(stdout))
     # Make sure we can launch the binary with a shortened Windows 8dot3 path
-    short_binary_path = win32api.GetShortPathName(long_binary_path)
+    short_binary_path = _get_short_path_name(long_binary_path)
     self.assertIn('~', os.path.basename(short_binary_path))
     _, stdout, _ = self.RunProgram([short_binary_path], shell=True)
     self.assertEqual('helloworld', ''.join(stdout))
@@ -690,7 +705,7 @@ class LauncherTest(test_base.TestBase):
     _, stdout, _ = self.RunProgram([long_binary_path], shell=True)
     self.assertEqual('helloworld', ''.join(stdout))
     # Make sure we can launch the binary with a shortened Windows 8dot3 path
-    short_binary_path = win32api.GetShortPathName(long_binary_path)
+    short_binary_path = _get_short_path_name(long_binary_path)
     self.assertIn('~', os.path.basename(short_binary_path))
     _, stdout, _ = self.RunProgram([short_binary_path], shell=True)
     self.assertEqual('helloworld', ''.join(stdout))
@@ -698,7 +713,6 @@ class LauncherTest(test_base.TestBase):
   def testWindowsNativeLauncherInvalidArgv0(self):
     if not self.IsWindows():
       return
-    self.CreateWorkspaceWithDefaultRepos('WORKSPACE')
     self.ScratchFile(
         'bin/BUILD',
         [

@@ -91,8 +91,8 @@ public abstract class KeyToConsolidate {
 
   /** Gets the key whose operation was delayed for the given object. */
   static SkyKey key(Object obj) {
-    if (obj instanceof SkyKey) {
-      return (SkyKey) obj;
+    if (obj instanceof SkyKey skyKey) {
+      return skyKey;
     }
     Preconditions.checkState(obj instanceof KeyToConsolidate, obj);
     return ((KeyToConsolidate) obj).key;
@@ -106,6 +106,7 @@ public abstract class KeyToConsolidate {
    * to {@link #op} when decoding an operation emitted by this method.
    */
   static Object create(SkyKey key, Op op, IncrementalInMemoryNodeEntry entry) {
+    Preconditions.checkNotNull(key);
     if (op == ReverseDepsUtility.getOpToStoreBare(entry)) {
       return key;
     }

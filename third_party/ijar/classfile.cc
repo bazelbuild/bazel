@@ -35,6 +35,7 @@
 #include <set>
 #include <sstream>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 #include "third_party/ijar/common.h"
@@ -112,10 +113,11 @@ enum TARGET_TYPE {
 struct Constant;
 
 // TODO(adonovan) these globals are unfortunate
-static std::vector<Constant*>        const_pool_in; // input constant pool
-static std::vector<Constant*>        const_pool_out; // output constant_pool
-static std::set<std::string>         used_class_names;
-static Constant *                    class_name;
+static std::vector<Constant *> const_pool_in;   // input constant pool
+static std::vector<Constant *> const_pool_out;  // output constant_pool
+static std::set<std::string> used_class_names;
+static Constant *class_name;
+static std::unordered_set<std::string> unknown_attributes;
 
 // Returns the Constant object, given an index into the input constant pool.
 // Note: constant(0) == NULL; this invariant is exploited by the
@@ -1592,8 +1594,11 @@ void HasAttrs::ReadAttrs(const u1 *&p) {
       // not relevant for ijar.
       if (attr_name != "com.android.tools.r8.SynthesizedClass" &&
           attr_name != "com.android.tools.r8.SynthesizedClassV2") {
-        fprintf(stderr, "ijar: skipping unknown attribute: \"%s\".\n",
-                attr_name.c_str());
+        // Only warn about the first occurrence of each unknown attribute.
+        if (unknown_attributes.insert(attr_name).second) {
+          fprintf(stderr, "ijar: skipping unknown attribute: \"%s\".\n",
+                  attr_name.c_str());
+        }
       }
       p += attribute_length;
     }
