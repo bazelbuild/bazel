@@ -119,13 +119,13 @@ most build rules</a>.
    and that rule's <code>outs</code> are automatically added to
    this <code>cc_library</code>'s data files.
 </p>
-<p>Using the functionality defined by the <code>runfiles_src.h</code> located under 
+<p>Using the functionality defined by the <code>runfiles.h</code> located under 
    <code>tools/cpp/runfiles/runfiles_src.h</code> Your C++ code can access these data files,
    like so:
 </p>
 <pre><code class="lang-starlark">
   
-  #include "runfiles_src.h"
+  #include "tools/cpp/runfiles/runfiles.h"
 
   int main(int argc, char** argv) {
     
@@ -136,7 +136,7 @@ most build rules</a>.
     std::string error;
     std::unique_ptr<Runfiles> runfiles(Runfiles::Create(argv[0], BAZEL_CURRENT_REPOSITORY, &error));
     
-    // "cpp_example" is the WORKSPACE name attribute
+    // "cpp_example" is the module name attribute
     // "data/example.json" is the path relative from the project root
 
     std::string path = runfiles->Rlocation("cpp_example/data/example.json");
