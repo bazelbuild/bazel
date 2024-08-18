@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.testutil.FakeAttributeMapper;
 import com.google.devtools.common.options.OptionMetadataTag;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -229,13 +230,13 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
             .filter(
                 // Skipping this explicitly because it is a no-op but can't be removed yet.
                 o -> !o.getKey().equals("incompatible_enable_android_toolchain_resolution"))
-            .collect(toImmutableMap(k -> k.getKey(), v -> v.getValue()));
+            .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
     // Verify all "--incompatible_*" options also have the INCOMPATIBLE_CHANGE metadata tag.
     ImmutableList<String> missingMetadataTagOptions =
-        incompatibleOptions.entrySet().stream()
-            .filter(o -> !o.getValue().hasOptionMetadataTag(OptionMetadataTag.INCOMPATIBLE_CHANGE))
-            .map(o -> "--" + o.getValue().getDefinition().getOptionName())
+        incompatibleOptions.values().stream()
+            .filter(o -> !o.hasOptionMetadataTag(OptionMetadataTag.INCOMPATIBLE_CHANGE))
+            .map(o -> "--" + o.getDefinition().getOptionName())
             .collect(toImmutableList());
     assertThat(missingMetadataTagOptions).isEmpty();
 
@@ -258,8 +259,7 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
             new StoredEventHandler());
 
     // Find which incompatible options are different in the exec config (shouldn't be any).
-    ImmutableList.Builder<ChangedIncompatibleFlag> unpreservedOptions =
-        new ImmutableList.Builder<>();
+    ImmutableList.Builder<ChangedFlag> unpreservedOptions = new ImmutableList.Builder<>();
     for (OptionInfo incompatibleOption : incompatibleOptions.values()) {
       Class<? extends FragmentOptions> optionClass = incompatibleOption.getOptionClass();
       boolean execValue =
@@ -268,7 +268,7 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
           incompatibleOption.getDefinition().getBooleanValue(flipped.get(optionClass));
       if (execValue != flippedValue) {
         unpreservedOptions.add(
-            new ChangedIncompatibleFlag(
+            new ChangedFlag(
                 incompatibleOption.getOptionClass().getName(),
                 incompatibleOption.getDefinition().getOptionName(),
                 flippedValue,
@@ -279,9 +279,79 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
     assertThat(unpreservedOptions.build()).isEmpty();
   }
 
-  /** Store details of incompatible flags that have changed values unexpectedly. */
-  private record ChangedIncompatibleFlag(
+  /** Store details of flags that have changed values unexpectedly. */
+  private record ChangedFlag(
       String fragment, String flag, Object expectedValue, Object foundValue) {}
+
+  /** Checks all experimental options propagate to the exec configuration. */
+  @Test
+  public void experimentalOptionsPreservedInExec() throws Exception {
+    BuildOptions defaultOptions =
+        BuildOptions.getDefaultBuildOptionsForFragments(
+            targetConfig.getOptions().getFragmentClasses());
+    ImmutableMap<String, OptionInfo> optionInfoMap = OptionInfo.buildMapFrom(defaultOptions);
+
+    // Find all options with the EXPERIMENTAL metadata tag or start with "--experimental_".
+    ImmutableMap<String, OptionInfo> experimentalOptions =
+        optionInfoMap.entrySet().stream()
+            .filter(
+                o ->
+                    o.getKey().startsWith("experimental_")
+                        || o.getValue().hasOptionMetadataTag(OptionMetadataTag.EXPERIMENTAL))
+            .filter(o -> o.getValue().getDefinition().getType().isAssignableFrom(boolean.class))
+            .filter(o -> !o.getValue().getDefinition().isDeprecated())
+            .filter(
+                // Skipping this explicitly as propagating it causes a cycle when compiling the
+                // optimizer itself.
+                o -> !o.getKey().equals("experimental_local_java_optimizations"))
+            .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    // Verify all "--experimental_*" options also have the INCOMPATIBLE_CHANGE metadata tag.
+    ImmutableList<String> missingMetadataTagOptions =
+        experimentalOptions.values().stream()
+            .filter(o -> !o.hasOptionMetadataTag(OptionMetadataTag.EXPERIMENTAL))
+            .map(o -> "--" + o.getDefinition().getOptionName())
+            .collect(toImmutableList());
+    assertThat(missingMetadataTagOptions).isEmpty();
+
+    // Flip all experimental (boolean) options to their non-default value.
+    BuildOptions flipped = defaultOptions.clone(); // To be flipped by below logic.
+    for (OptionInfo option : experimentalOptions.values()) {
+      FragmentOptions fragment = flipped.get(option.getOptionClass());
+      boolean value = option.getDefinition().getBooleanValue(fragment);
+      option.getDefinition().setValue(fragment, !value);
+    }
+
+    // Fix the details of the exec transition so that the check passes.
+    flipped.get(CoreOptions.class).starlarkExecConfig =
+        targetConfig.getOptions().get(CoreOptions.class).starlarkExecConfig;
+
+    PatchTransition execTransition = getExecTransition(EXECUTION_PLATFORM);
+    BuildOptions execOptions =
+        execTransition.patch(
+            new BuildOptionsView(flipped, execTransition.requiresOptionFragments()),
+            new StoredEventHandler());
+
+    // Find which experimental options are different in the exec config (shouldn't be any).
+    ImmutableList.Builder<ChangedFlag> unpreservedOptions = new ImmutableList.Builder<>();
+    for (OptionInfo experimentalOption : experimentalOptions.values()) {
+      Class<? extends FragmentOptions> optionClass = experimentalOption.getOptionClass();
+      boolean execValue =
+          experimentalOption.getDefinition().getBooleanValue(execOptions.get(optionClass));
+      boolean flippedValue =
+          experimentalOption.getDefinition().getBooleanValue(flipped.get(optionClass));
+      if (execValue != flippedValue) {
+        unpreservedOptions.add(
+            new ChangedFlag(
+                experimentalOption.getOptionClass().getName(),
+                experimentalOption.getDefinition().getOptionName(),
+                flippedValue,
+                execValue));
+      }
+    }
+
+    assertThat(unpreservedOptions.build()).isEmpty();
+  }
 
   @Test
   public void platformInOutputPathWorksInExecMode() throws Exception {

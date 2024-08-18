@@ -517,6 +517,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           OptionEffectTag.AFFECTS_OUTPUTS,
           OptionEffectTag.LOADING_AND_ANALYSIS,
         },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
         help = "Enables resource shrinking for android_binary APKs that use ProGuard.")
     public boolean useExperimentalAndroidResourceShrinking;
 
@@ -677,6 +678,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           OptionEffectTag.LOADING_AND_ANALYSIS,
           OptionEffectTag.LOSES_INCREMENTAL_STATE,
         },
+        metadataTags = OptionMetadataTag.EXPERIMENTAL,
         help = "The default value of the exports_manifest attribute on android_library.")
     public boolean exportsManifestDefault;
 
@@ -685,6 +687,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "Omit AndroidResourcesInfo provider from android_binary rules."
                 + " Propagating resources out to other binaries is usually unintentional.")
@@ -743,6 +746,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         effectTags = {
           OptionEffectTag.CHANGES_INPUTS,
         },
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "If enabled, R Jars will be filtered from the test apk built by android_test.")
     public boolean filterRJarsFromAndroidTest;
 
@@ -755,6 +759,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
           OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION,
           OptionEffectTag.ACTION_COMMAND_LINES
         },
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "If enabled, one version enforcement for android_test uses the binary_under_test's "
                 + "transitive classpath, otherwise it uses the deploy jar")
@@ -767,6 +772,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         effectTags = {
           OptionEffectTag.EXECUTION,
         },
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "Enable persistent aar extractor by using workers.")
     public boolean persistentAarExtractor;
 
@@ -945,6 +951,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         effectTags = {
           OptionEffectTag.CHANGES_INPUTS,
         },
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "If enabled and the test instruments an application, all the R classes from the test's "
                 + "deploy jar will be removed.")
@@ -957,6 +964,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         effectTags = {
           OptionEffectTag.CHANGES_INPUTS,
         },
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "If enabled and the android_test defines a binary_under_test, the class filterering "
                 + "applied to the test's deploy jar will always filter duplicate classes based "
@@ -968,6 +976,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.BUILD_TIME_OPTIMIZATION,
         effectTags = {OptionEffectTag.ACTION_COMMAND_LINES},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "Filter the ProGuard ProgramJar to remove any classes also present in the LibraryJar.")
     public boolean filterLibraryJarWithProgramJar;
@@ -977,6 +986,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.CHANGES_INPUTS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "Use R.txt from the merging action, instead of from the validation action.")
     public boolean useRTxtFromMergedResources;
 
@@ -1015,6 +1025,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "Disables manifest merging when an android_binary has instruments set (i.e. is used "
                 + "for instrumentation testing).")
@@ -1025,6 +1036,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
         effectTags = {OptionEffectTag.CHANGES_INPUTS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "Get Java resources from _proguard.jar instead of _deploy.jar in android_binary when "
                 + "bundling the final APK.")
