@@ -569,4 +569,74 @@ EOF
   assert_contains '/link_two$' *-bin/a/go
 }
 
+function test_spaces_in_runfiles_source_paths() {
+  mkdir -p pkg
+  cat > pkg/defs.bzl <<'EOF'
+def _spaces_impl(ctx):
+    out = ctx.actions.declare_file(" a b .txt")
+    ctx.actions.write(out, "my content")
+    return [DefaultInfo(files = depset([out]))]
+
+spaces = rule(
+    implementation = _spaces_impl,
+)
+EOF
+  cat > pkg/BUILD <<'EOF'
+load(":defs.bzl", "spaces")
+spaces(name = "spaces")
+sh_test(
+    name = "foo",
+    srcs = ["foo.sh"],
+    data = [":spaces"],
+)
+EOF
+  cat > pkg/foo.sh <<'EOF'
+#!/bin/bash
+if [[ "$(cat "pkg/ a b .txt")" != "my content" ]]; then
+  echo "unexpected content or not found"
+  exit 1
+fi
+EOF
+  chmod +x pkg/foo.sh
+
+  bazel test //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
+}
+
+function test_spaces_in_runfiles_source_and_target_paths() {
+  dir=$(mktemp -d -t 'runfiles test.XXXXXX')
+  cd "$dir" || fail "failed to cd to $dir"
+  touch MODULE.bazel
+
+  mkdir -p pkg
+  cat > pkg/defs.bzl <<'EOF'
+def _spaces_impl(ctx):
+    out = ctx.actions.declare_file(" a b .txt")
+    ctx.actions.write(out, "my content")
+    return [DefaultInfo(files = depset([out]))]
+
+spaces = rule(
+    implementation = _spaces_impl,
+)
+EOF
+  cat > pkg/BUILD <<'EOF'
+load(":defs.bzl", "spaces")
+spaces(name = "spaces")
+sh_test(
+    name = "foo",
+    srcs = ["foo.sh"],
+    data = [":spaces"],
+)
+EOF
+  cat > pkg/foo.sh <<'EOF'
+#!/bin/bash
+if [[ "$(cat "pkg/ a b .txt")" != "my content" ]]; then
+  echo "unexpected content or not found"
+  exit 1
+fi
+EOF
+  chmod +x pkg/foo.sh
+
+  bazel test //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
+}
+
 run_suite "runfiles"
