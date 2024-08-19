@@ -234,6 +234,7 @@ public final class ConfigSetting implements RuleConfiguredTargetFactory {
     if (ruleContext.getToolchainContext() == null) {
       ruleContext.attributeError(
           ConfigSettingRule.CONSTRAINT_VALUES_ATTRIBUTE, "No target platform is present");
+      return false;
     }
 
     return ruleContext
