@@ -2897,15 +2897,11 @@ EOF
   local marker_file=$(bazel info output_base)/external/@+_repo_rules+foo.marker
   # the marker file for this repo should contain a reference to "@@+_repo_rules+bar". Mangle that.
   sed -i'' -e 's/@@+_repo_rules+bar/@@LOL@@LOL/g' ${marker_file}
-  # add some more nonsensical lines for good measure...
-  echo 'BLAH:BLEH:BLOO BLEE' > ${marker_file}
-  echo 'no colons at all' > ${marker_file}
-  echo 'REPO_MAPPING:bad**bad,worse**worse gaaa'
-  echo 'REPO_MAPPING:bad,worse worst**worst'
 
-  # Running Bazel again shouldn't crash.
+  # Running Bazel again shouldn't crash, and should result in a refetch.
   bazel shutdown
   bazel build @foo >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: nothing"
 }
 
 function test_file_watching_in_undefined_repo() {

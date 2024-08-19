@@ -80,26 +80,28 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
      * example, the {@code MY_ENV_VAR} part of {@code ENV:MY_ENV_VAR}. Returns null if the parsed
      * part is invalid.
      */
-    @Nullable
     public abstract RepoRecordedInput parse(String s);
   }
 
   private static final Comparator<RepoRecordedInput> COMPARATOR =
-      Comparator.comparing((RepoRecordedInput rri) -> rri.getParser().getPrefix())
-          .thenComparing(RepoRecordedInput::toStringInternal);
+      (o1, o2) ->
+          o1 == o2
+              ? 0
+              : Comparator.comparing((RepoRecordedInput rri) -> rri.getParser().getPrefix())
+                  .thenComparing(RepoRecordedInput::toStringInternal)
+                  .compare(o1, o2);
 
   /**
    * Parses a recorded input from its string representation.
    *
    * @param s the string representation
-   * @return The parsed recorded input object, or {@code null} if the string representation is
-   *     invalid
+   * @return The parsed recorded input object, or {@link #NEVER_UP_TO_DATE} if the string
+   *     representation is invalid
    */
-  @Nullable
   public static RepoRecordedInput parse(String s) {
     List<String> parts = Splitter.on(':').limit(2).splitToList(s);
     if (parts.size() < 2) {
-      return null;
+      return NEVER_UP_TO_DATE;
     }
     for (Parser parser :
         new Parser[] {
@@ -109,7 +111,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
         return parser.parse(parts.get(1));
       }
     }
-    return null;
+    return NEVER_UP_TO_DATE;
   }
 
   /**
@@ -177,6 +179,42 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
   public abstract boolean isUpToDate(
       Environment env, BlazeDirectories directories, @Nullable String oldValue)
       throws InterruptedException;
+
+  /** A sentinel "input" that's always out-of-date to signify parse failure. */
+  public static final RepoRecordedInput NEVER_UP_TO_DATE =
+      new RepoRecordedInput() {
+        @Override
+        public boolean equals(Object obj) {
+          return this == obj;
+        }
+
+        @Override
+        public int hashCode() {
+          return 12345678;
+        }
+
+        @Override
+        public String toStringInternal() {
+          throw new UnsupportedOperationException("this sentinel input should never be serialized");
+        }
+
+        @Override
+        public Parser getParser() {
+          throw new UnsupportedOperationException("this sentinel input should never be parsed");
+        }
+
+        @Override
+        public SkyKey getSkyKey(BlazeDirectories directories) {
+          // Return a random SkyKey to satisfy the contract.
+          return PrecomputedValue.STARLARK_SEMANTICS.getKey();
+        }
+
+        @Override
+        public boolean isUpToDate(
+            Environment env, BlazeDirectories directories, @Nullable String oldValue) {
+          return false;
+        }
+      };
 
   /**
    * Represents a filesystem path stored in a way that is repo-cache-friendly. That is, if the path
@@ -268,14 +306,13 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
             return "FILE";
           }
 
-          @Nullable
           @Override
           public RepoRecordedInput parse(String s) {
             try {
               return new File(RepoCacheFriendlyPath.parse(s));
             } catch (LabelSyntaxException e) {
-              // ignore malformed input
-              return null;
+              // malformed inputs cause refetch
+              return NEVER_UP_TO_DATE;
             }
           }
         };
@@ -366,14 +403,13 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
             return "DIRENTS";
           }
 
-          @Nullable
           @Override
           public RepoRecordedInput parse(String s) {
             try {
               return new Dirents(RepoCacheFriendlyPath.parse(s));
             } catch (LabelSyntaxException e) {
-              // Ignore malformed input.
-              return null;
+              // malformed inputs cause refetch
+              return NEVER_UP_TO_DATE;
             }
           }
         };
@@ -455,14 +491,13 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
             return "DIRTREE";
           }
 
-          @Nullable
           @Override
           public RepoRecordedInput parse(String s) {
             try {
               return new DirTree(RepoCacheFriendlyPath.parse(s));
             } catch (LabelSyntaxException e) {
-              // ignore malformed input
-              return null;
+              // malformed inputs cause refetch
+              return NEVER_UP_TO_DATE;
             }
           }
         };
@@ -597,15 +632,14 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
             return "REPO_MAPPING";
           }
 
-          @Nullable
           @Override
           public RepoRecordedInput parse(String s) {
             List<String> parts = Splitter.on(',').limit(2).splitToList(s);
             try {
               return new RecordedRepoMapping(RepositoryName.create(parts.get(0)), parts.get(1));
             } catch (LabelSyntaxException | IndexOutOfBoundsException e) {
-              // ignore malformed input
-              return null;
+              // malformed inputs cause refetch
+              return NEVER_UP_TO_DATE;
             }
           }
         };
@@ -666,7 +700,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
             && RepositoryName.create(oldValue)
                 .equals(repoMappingValue.getRepositoryMapping().get(apparentName));
       } catch (LabelSyntaxException e) {
-        // ignore malformed old value
+        // malformed old value causes refetch
         return false;
       }
     }

@@ -710,12 +710,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           int sChar = line.indexOf(' ');
           if (sChar > 0) {
             RepoRecordedInput input = RepoRecordedInput.parse(unescape(line.substring(0, sChar)));
-            if (input == null) {
-              // ignore invalid entries.
+            if (!input.equals(RepoRecordedInput.NEVER_UP_TO_DATE)) {
+              recordedInputValues.put(input, unescape(line.substring(sChar + 1)));
               continue;
             }
-            recordedInputValues.put(input, unescape(line.substring(sChar + 1)));
           }
+          // On parse failure, just forget everything else and mark the whole input out of date.
+          recordedInputValues.clear();
+          recordedInputValues.put(RepoRecordedInput.NEVER_UP_TO_DATE, "");
+          break;
         }
       }
       return markerRuleKey;
