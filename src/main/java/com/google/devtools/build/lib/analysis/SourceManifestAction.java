@@ -302,6 +302,9 @@ public final class SourceManifestAction extends AbstractFileWriteAction
           @Nullable PathFragment symlinkTarget)
           throws IOException {
         String rootRelativePathString = rootRelativePath.getPathString();
+        // Source paths with spaces require escaping. Target paths with spaces don't as consumers
+        // are expected to split on the first space (without escaping) or after the part indicated
+        // by the length prefix (with escaping).
         if (rootRelativePathString.indexOf(' ') != -1) {
           manifestWriter.append(' ');
           manifestWriter.append(String.valueOf(rootRelativePathString.length()));

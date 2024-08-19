@@ -157,9 +157,10 @@ public final class Runfiles {
         if (this == o) {
           return true;
         }
-        if (!(o instanceof RepoMappingKey that)) {
+        if (o == null || !(o instanceof RepoMappingKey)) {
           return false;
         }
+        RepoMappingKey that = (RepoMappingKey) o;
         return sourceRepo.equals(that.sourceRepo)
             && targetRepoApparentName.equals(that.targetRepoApparentName);
       }
