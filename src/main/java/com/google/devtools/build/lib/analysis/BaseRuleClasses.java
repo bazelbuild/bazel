@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
-import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.test.CoverageConfiguration;
@@ -406,7 +405,7 @@ public class BaseRuleClasses {
         .add(
             attr(RuleClass.COMPATIBLE_ENVIRONMENT_ATTR, LABEL_LIST)
                 .allowedRuleClasses(ConstraintConstants.ENVIRONMENT_RULE)
-                .cfg(NoConfigTransition.getFactory())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()
                 .nonconfigurable(
@@ -414,7 +413,7 @@ public class BaseRuleClasses {
         .add(
             attr(RuleClass.RESTRICTED_ENVIRONMENT_ATTR, LABEL_LIST)
                 .allowedRuleClasses(ConstraintConstants.ENVIRONMENT_RULE)
-                .cfg(NoConfigTransition.getFactory())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()
                 .nonconfigurable(
@@ -425,7 +424,7 @@ public class BaseRuleClasses {
         .add(
             attr(RuleClass.APPLICABLE_METADATA_ATTR, LABEL_LIST)
                 .value(packageMetadataDefault)
-                .cfg(NoConfigTransition.getFactory())
+                .cfg(ExecutionTransitionFactory.createFactory())
                 .allowedFileTypes(FileTypeSet.NO_FILE)
                 .dontCheckConstraints()
                 .nonconfigurable("applicable_metadata is not configurable"))
