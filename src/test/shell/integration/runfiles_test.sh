@@ -603,7 +603,7 @@ EOF
 }
 
 function test_spaces_in_runfiles_source_and_target_paths() {
-  dir=$(mktemp -d -t 'runfiles test.XXXXXX')
+  dir=$(mktemp -d 'runfiles test.XXXXXX')
   cd "$dir" || fail "failed to cd to $dir"
   touch MODULE.bazel
 
