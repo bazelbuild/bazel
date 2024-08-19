@@ -318,6 +318,7 @@ tasks:
       - "--experimental_remote_cache_async"
       - "--experimental_remote_merkle_tree_cache"
       - "--remote_download_minimal"
+      - "--experimental_output_paths=strip"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
@@ -329,6 +330,7 @@ tasks:
       - "--experimental_remote_cache_async"
       - "--experimental_remote_merkle_tree_cache"
       - "--remote_download_minimal"
+      - "--experimental_output_paths=strip"
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."
