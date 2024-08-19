@@ -301,7 +301,13 @@ public final class SourceManifestAction extends AbstractFileWriteAction
           PathFragment rootRelativePath,
           @Nullable PathFragment symlinkTarget)
           throws IOException {
-        manifestWriter.append(rootRelativePath.getPathString());
+        String rootRelativePathString = rootRelativePath.getPathString();
+        if (rootRelativePathString.indexOf(' ') != -1) {
+          manifestWriter.append(' ');
+          manifestWriter.append(String.valueOf(rootRelativePathString.length()));
+          manifestWriter.append(' ');
+        }
+        manifestWriter.append(rootRelativePathString);
         // This trailing whitespace is REQUIRED to process the single entry line correctly.
         manifestWriter.append(' ');
         if (symlinkTarget != null) {

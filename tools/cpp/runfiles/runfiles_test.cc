@@ -227,7 +227,12 @@ TEST_F(RunfilesTest, CannotCreateManifestBasedRunfilesDueToBadManifest) {
 
 TEST_F(RunfilesTest, ManifestBasedRunfilesRlocationAndEnvVars) {
   unique_ptr<MockFile> mf(MockFile::Create(
-      "foo" LINE_AS_STRING() ".runfiles_manifest", {"a/b c/d"}));
+      "foo" LINE_AS_STRING() ".runfiles_manifest", {
+          "a/b c/d",
+          "e/f target path with spaces",
+          " 4 h/ i j k",
+          " 15 dir with spaces l/m",
+      }));
   ASSERT_TRUE(mf != nullptr);
 
   string error;
@@ -256,6 +261,12 @@ TEST_F(RunfilesTest, ManifestBasedRunfilesRlocationAndEnvVars) {
   EXPECT_EQ(r->Rlocation("c:\\Foo"), "c:\\Foo");
   EXPECT_EQ(r->Rlocation("a/b/file"), "c/d/file");
   EXPECT_EQ(r->Rlocation("a/b/deeply/nested/file"), "c/d/deeply/nested/file");
+  EXPECT_EQ(r->Rlocation("a/b/deeply/nested/file with spaces"), "c/d/deeply/nested/file with spaces");
+  EXPECT_EQ(r->Rlocation("e/f"), "target path with spaces");
+  EXPECT_EQ(r->Rlocation("e/f/file"), "target path with spaces/file");
+  EXPECT_EQ(r->Rlocation("h/ i"), "j k");
+  EXPECT_EQ(r->Rlocation("dir with spaces"), "l/m");
+  EXPECT_EQ(r->Rlocation("dir with spaces/file"), "l/m/file");
 }
 
 TEST_F(RunfilesTest, DirectoryBasedRunfilesRlocationAndEnvVars) {

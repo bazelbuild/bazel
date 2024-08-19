@@ -141,6 +141,8 @@ e/f $tmpdir/g h
 y $tmpdir/y
 c/dir $tmpdir/dir
 unresolved $tmpdir/unresolved
+ 4 h/ i $tmpdir/ j k
+ 15 dir with spaces $tmpdir/dir with spaces
 EOF
   mkdir "${tmpdir}/c"
   mkdir "${tmpdir}/y"
@@ -149,7 +151,11 @@ EOF
   touch "${tmpdir}/dir/file"
   ln -s /does/not/exist "${tmpdir}/dir/unresolved"
   touch "${tmpdir}/dir/deeply/nested/file"
+  touch "${tmpdir}/dir/deeply/nested/file with spaces"
   ln -s /does/not/exist "${tmpdir}/unresolved"
+  touch "${tmpdir}/ j k"
+  mkdir -p "${tmpdir}/dir with spaces/nested"
+  touch "${tmpdir}/dir with spaces/nested/file"
 
   export RUNFILES_DIR=
   export RUNFILES_MANIFEST_FILE=$tmpdir/foo.runfiles_manifest
@@ -166,14 +172,21 @@ EOF
   [[ "$(rlocation c/dir/file || echo failed)" == "$tmpdir/dir/file" ]] || fail
   [[ -z "$(rlocation c/dir/unresolved || echo failed)" ]] || fail
   [[ "$(rlocation c/dir/deeply/nested/file || echo failed)" == "$tmpdir/dir/deeply/nested/file" ]] || fail
+  [[ "$(rlocation "c/dir/deeply/nested/file with spaces" || echo failed)" == "$tmpdir/dir/deeply/nested/file with spaces" ]] || fail
   [[ -z "$(rlocation unresolved || echo failed)" ]] || fail
-  rm -r "$tmpdir/c/d" "$tmpdir/g h" "$tmpdir/y" "$tmpdir/dir" "$tmpdir/unresolved"
+  [[ "$(rlocation "h/ i" || echo failed)" == "$tmpdir/ j k" ]] || fail
+  [[ "$(rlocation "dir with spaces" || echo failed)" == "$tmpdir/dir with spaces" ]] || fail
+  [[ "$(rlocation "dir with spaces/nested/file" || echo failed)" == "$tmpdir/dir with spaces/nested/file" ]] || fail
+  rm -r "$tmpdir/c/d" "$tmpdir/g h" "$tmpdir/y" "$tmpdir/dir" "$tmpdir/unresolved" "$tmpdir/ j k" "$tmpdir/dir with spaces"
   [[ -z "$(rlocation a/b || echo failed)" ]] || fail
   [[ -z "$(rlocation e/f || echo failed)" ]] || fail
   [[ -z "$(rlocation y || echo failed)" ]] || fail
   [[ -z "$(rlocation c/dir || echo failed)" ]] || fail
   [[ -z "$(rlocation c/dir/file || echo failed)" ]] || fail
   [[ -z "$(rlocation c/dir/deeply/nested/file || echo failed)" ]] || fail
+  [[ -z "$(rlocation "h/ i" || echo failed)" ]] || fail
+  [[ -z "$(rlocation "dir with spaces" || echo failed)" ]] || fail
+  [[ -z "$(rlocation "dir with spaces/nested/file" || echo failed)" ]] || fail
 }
 
 function test_manifest_based_envvars() {

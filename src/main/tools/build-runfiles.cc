@@ -157,15 +157,28 @@ class RunfilesCreator {
       if (buf[0] ==  '/') {
         DIE("paths must not be absolute: line %d: '%s'\n", lineno, buf);
       }
-      const char *s = strchr(buf, ' ');
-      if (!s) {
-        DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
-      } else if (strchr(s+1, ' ')) {
-        DIE("link or target filename contains space on line %d: '%s'\n",
-            lineno, buf);
+      std::string link;
+      const char *target;
+      if (buf[0] == ' ') {
+        // The line is of the form " 7 foo bar /tar get/path", with the first
+        // field indicating the length of the source path.
+        std::size_t length_field_length;
+        std::size_t link_length = std::stoul(buf+1, &length_field_length);
+        const char *after_length_field = buf + 1 + length_field_length + 1;
+        target = after_length_field + link_length + 1;
+        if (target >= buf + n || *(target - 1) != ' ') {
+          DIE("invalid length field at line %d: '%s'\n", lineno, buf);
+        }
+        link = std::string(after_length_field, link_length);
+      } else {
+        // The line is of the form "foo /target/path", with only a single space.
+        const char *s = strchr(buf, ' ');
+        if (!s) {
+          DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
+        }
+        link = std::string(buf, s-buf);
+        target = s+1;
       }
-      std::string link(buf, s-buf);
-      const char *target = s+1;
       if (!allow_relative && target[0] != '\0' && target[0] != '/'
           && target[1] != ':') {  // Match Windows paths, e.g. C:\foo or C:/foo.
         DIE("expected absolute path at line %d: '%s'\n", lineno, buf);

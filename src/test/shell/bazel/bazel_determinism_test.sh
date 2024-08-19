@@ -61,7 +61,7 @@ function hash_outputs() {
 }
 
 function test_determinism()  {
-    local workdir="${TEST_TMPDIR}/workdir"
+    local workdir="${TEST_TMPDIR}/work dir"
     mkdir "${workdir}" || fail "Could not create work directory"
     cd "${workdir}" || fail "Could not change to work directory"
     unzip -q "${DISTFILE}"

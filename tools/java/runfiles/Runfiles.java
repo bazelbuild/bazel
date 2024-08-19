@@ -157,10 +157,9 @@ public final class Runfiles {
         if (this == o) {
           return true;
         }
-        if (o == null || !(o instanceof RepoMappingKey)) {
+        if (!(o instanceof RepoMappingKey that)) {
           return false;
         }
-        RepoMappingKey that = (RepoMappingKey) o;
         return sourceRepo.equals(that.sourceRepo)
             && targetRepoApparentName.equals(that.targetRepoApparentName);
       }
@@ -490,11 +489,38 @@ public final class Runfiles {
       try (BufferedReader r =
           new BufferedReader(
               new InputStreamReader(new FileInputStream(path), StandardCharsets.UTF_8))) {
-        String line = null;
+        String line;
         while ((line = r.readLine()) != null) {
-          int index = line.indexOf(' ');
-          String runfile = (index == -1) ? line : line.substring(0, index);
-          String realPath = (index == -1) ? line : line.substring(index + 1);
+          String runfile;
+          String realPath;
+          if (line.startsWith(" ")) {
+            // Lines starting with a space are of the form " 7 foo bar /tar get/path", with
+            // the first field indicating the length of the runfiles path.
+            int endOfLengthField = line.indexOf(' ', 1);
+            if (endOfLengthField == -1) {
+              throw new IOException(
+                  "Invalid runfiles manifest line, expected second space with leading space: "
+                      + line);
+            }
+            int runfileLength;
+            try {
+              runfileLength = Integer.parseUnsignedInt(line.substring(1, endOfLengthField));
+            } catch (NumberFormatException e) {
+              throw new IOException(
+                  "Invalid runfiles manifest line, expected unsigned integer length field: "
+                      + line);
+            }
+            runfile = line.substring(endOfLengthField + 1, endOfLengthField + 1 + runfileLength);
+            realPath = line.substring(endOfLengthField + 1 + runfileLength + 1);
+          } else {
+            int firstSpace = line.indexOf(' ');
+            if (firstSpace == -1) {
+              throw new IOException(
+                  "Invalid runfiles manifest line, expected at least one space: " + line);
+            }
+            runfile = line.substring(0, firstSpace);
+            realPath = line.substring(firstSpace + 1);
+          }
           result.put(runfile, realPath);
         }
       }
