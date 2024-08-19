@@ -3165,14 +3165,17 @@ java_library(
     srcs = [
         "BaseRuleConfiguredTargetValue.java",
         "NonRuleConfiguredTargetValue.java",
+        "RemoteConfiguredTargetValue.java",
         "RuleConfiguredTargetValue.java",
     ],
     deps = [
+        ":prerequisite_package_function",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_configured_object_value",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",

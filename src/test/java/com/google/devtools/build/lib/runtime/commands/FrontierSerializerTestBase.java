@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 
 import com.google.common.collect.ImmutableList;
@@ -303,11 +304,22 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         .containsAtLeast(
             "com.google.devtools.build.lib.actions.Artifact.DerivedArtifact",
             "com.google.devtools.build.lib.actions.Artifact.SourceArtifact",
-            "com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue",
-            "com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue",
+            "com.google.devtools.build.lib.analysis.ConfiguredTargetValue",
             "com.google.devtools.build.lib.skyframe.ConfiguredTargetKey",
             "com.google.devtools.build.lib.cmdline.Label",
             "java.lang.Object[]");
+
+    assertWithMessage(
+            "ConfiguredTargetValue subtypes should be represented in the profile as"
+                + " ConfiguredTargetValue")
+        .that(topLevelClassNames)
+        .doesNotContain("com.google.devtools.build.lib.skyframe.RuleConfiguredTargetValue");
+
+    assertWithMessage(
+            "ConfiguredTargetValue subtypes should be represented in the profile as"
+                + " ConfiguredTargetValue")
+        .that(topLevelClassNames)
+        .doesNotContain("com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue");
   }
 
   private void setupScenarioWithAspects() throws Exception {
