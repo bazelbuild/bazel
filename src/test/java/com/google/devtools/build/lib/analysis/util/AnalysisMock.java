@@ -77,25 +77,6 @@ public abstract class AnalysisMock extends LoadingMock {
     }
   }
 
-  public static AnalysisMock getAnalysisMockWithMinimalBuiltinModules() {
-    return new AnalysisMock.Delegate(AnalysisMock.get()) {
-      @Override
-      public ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
-          BlazeDirectories directories) {
-        return ImmutableMap.of("bazel_tools", LocalPathOverride.create(
-            directories
-                .getWorkingDirectory()
-                .getRelative("embedded_tools")
-                .getPathString()),
-            "platforms", LocalPathOverride.create(
-                directories
-                    .getWorkingDirectory()
-                    .getRelative("platforms_workspace")
-                    .getPathString()));
-      }
-    };
-  }
-
   public static AnalysisMock getAnalysisMockWithoutBuiltinModules() {
     return new AnalysisMock.Delegate(AnalysisMock.get()) {
       @Override

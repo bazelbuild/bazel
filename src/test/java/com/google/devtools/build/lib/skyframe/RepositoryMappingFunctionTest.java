@@ -21,8 +21,11 @@ import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.testing.EqualsTester;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
+import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.Version;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -58,8 +61,23 @@ public class RepositoryMappingFunctionTest extends BuildViewTestCase {
 
   @Override
   protected AnalysisMock getAnalysisMock() {
-    // Make sure we don't have built-in modules affecting the dependency graph.
-    return AnalysisMock.getAnalysisMockWithMinimalBuiltinModules();
+    // Make sure we have minimal built-in modules affecting the dependency graph.
+    return new AnalysisMock.Delegate(AnalysisMock.get()) {
+      @Override
+      public ImmutableMap<String, NonRegistryOverride> getBuiltinModules(
+          BlazeDirectories directories) {
+        return ImmutableMap.of("bazel_tools", LocalPathOverride.create(
+                directories
+                    .getWorkingDirectory()
+                    .getRelative("embedded_tools")
+                    .getPathString()),
+            "platforms", LocalPathOverride.create(
+                directories
+                    .getWorkingDirectory()
+                    .getRelative("platforms_workspace")
+                    .getPathString()));
+      }
+    };
   }
 
   private static RepositoryMappingValue valueForWorkspace(
