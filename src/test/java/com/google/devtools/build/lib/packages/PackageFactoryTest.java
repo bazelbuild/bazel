@@ -1365,6 +1365,36 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
+  public void testSymbolicMacro_implicitCreationOfInputFilesIsNotTriggeredByMacros()
+      throws Exception {
+    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _impl(name):
+            native.cc_library(
+                name = name,
+                srcs = ["//pkg:src_A.txt", "//pkg:src_B.txt"],
+            )
+        my_macro = macro(implementation = _impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name = "foo")
+        cc_library(
+            name = "bar",
+            srcs = ["src_A.txt"],
+        )
+        """);
+
+    Package pkg = loadPackage("pkg");
+    assertThat(pkg.getTargets()).containsKey("src_A.txt");
+    assertThat(pkg.getTargets()).doesNotContainKey("src_B.txt");
+  }
+
+  @Test
   public void testSymbolicMacro_deferredEvaluationExpandsTransitively() throws Exception {
     setBuildLanguageOptions("--experimental_enable_first_class_macros");
     scratch.file(
