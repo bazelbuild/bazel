@@ -38,14 +38,14 @@ import sun.misc.Unsafe;
  * programming. 2013.
  */
 @SuppressWarnings("SunApi") // TODO: b/359688989 - clean this up
-final class ConcurrentFifo<T> {
+class ConcurrentFifo<T> { // Non-final for testing only.
   private static final Integer SKIP_SLOW_APPENDER = 1;
 
   /** The power of 2 backing array capacity. */
   @VisibleForTesting static final int CAPACITY = 1 << 20;
 
   /** AND with this mask performs modulo {@link #CAPACITY}. */
-  private static final int CAPACITY_MASK = CAPACITY - 1;
+  static final int CAPACITY_MASK = CAPACITY - 1;
 
   /**
    * Maximum number of elements the FIFO can contain, one less than {@link #CAPACITY}.
@@ -55,7 +55,7 @@ final class ConcurrentFifo<T> {
    * of bits needed to represent the element count for a queue of size 256 is 9, but only 8 bits are
    * needed for a queue of size 255.
    */
-  private static final int MAX_ELEMENTS = CAPACITY - 1;
+  @VisibleForTesting static final int MAX_ELEMENTS = CAPACITY - 1;
 
   /**
    * Circular buffer containing tasks and skip metadata.
