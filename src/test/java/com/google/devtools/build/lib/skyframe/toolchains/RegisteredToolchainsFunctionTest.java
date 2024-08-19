@@ -211,7 +211,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   // don't provide the DeclaredToolchainInfo provider.
   @Test
   public void testRegisteredToolchains_fakeToolchain() throws Exception {
-    rewriteWorkspace("register_toolchains('//error:not_a_toolchain')");
+    rewriteModuleDotBazel("register_toolchains('//error:not_a_toolchain')");
     scratch.file(
         "error/fake_toolchain.bzl",
         """
@@ -245,7 +245,7 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
   // RegisteredToolchainsFunction will fail.
   @Test
   public void testRegisteredToolchains_wildcard_fakeToolchain() throws Exception {
-    rewriteWorkspace("register_toolchains('//error:all')");
+    rewriteModuleDotBazel("register_toolchains('//error:all')");
     scratch.file(
         "error/fake_toolchain.bzl",
         """
