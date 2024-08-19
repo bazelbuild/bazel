@@ -68,8 +68,7 @@ public class RuleFactory {
     String name = (String) nameObject;
     Label label;
     try {
-      // Test that this would form a valid label name -- in particular, this
-      // catches cases where Makefile variables $(foo) appear in "name".
+      // Test that this would form a valid label name.
       label = pkgBuilder.createLabel(name);
     } catch (LabelSyntaxException e) {
       throw new InvalidRuleException("illegal rule name: " + name + ": " + e.getMessage());

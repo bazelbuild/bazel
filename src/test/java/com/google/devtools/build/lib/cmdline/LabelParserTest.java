@@ -56,8 +56,12 @@ public class LabelParserTest {
             validateAndCreate("repo", true, true, "foo/bar", false, "bar", "@@repo//foo/bar"));
     assertThat(parse(":quux"))
         .isEqualTo(validateAndCreate(null, false, false, "", false, "quux", ":quux"));
+    assertThat(parse(":qu:ux"))
+        .isEqualTo(validateAndCreate(null, false, false, "", false, "qu:ux", ":qu:ux"));
     assertThat(parse("foo/bar:quux"))
         .isEqualTo(validateAndCreate(null, false, false, "foo/bar", false, "quux", "foo/bar:quux"));
+    assertThat(parse("foo/bar:qu:ux"))
+        .isEqualTo(validateAndCreate(null, false, false, "foo/bar", false, "qu:ux", "foo/bar:qu:ux"));
     assertThat(parse("//foo/bar:quux"))
         .isEqualTo(
             validateAndCreate(null, false, true, "foo/bar", false, "quux", "//foo/bar:quux"));

@@ -531,12 +531,15 @@ public class PackageFunctionTest extends BuildViewTestCase {
   }
 
   @Test
-  public void globEscapesAt() throws Exception {
+  public void globEscapesAtAndColon() throws Exception {
     scratch.file("foo/BUILD", "filegroup(name = 'foo', srcs = glob(['*.txt']))");
     scratch.file("foo/@f.txt");
+    scratch.file("foo/f@.txt");
+    scratch.file("foo/f:.txt");
     preparePackageLoading(rootDirectory);
     SkyKey skyKey = PackageIdentifier.createInMainRepo("foo");
-    assertSrcs(validPackageWithoutErrors(skyKey), "foo", "//foo:@f.txt");
+    assertSrcs(
+        validPackageWithoutErrors(skyKey), "foo", "//foo:@f.txt", "//foo:f:.txt", "//foo:f@.txt");
 
     scratch.overwriteFile("foo/BUILD", "filegroup(name = 'foo', srcs = glob(['*.txt'])) # comment");
     getSkyframeExecutor()
@@ -544,7 +547,8 @@ public class PackageFunctionTest extends BuildViewTestCase {
             reporter,
             ModifiedFileSet.builder().modify(PathFragment.create("foo/BUILD")).build(),
             Root.fromPath(rootDirectory));
-    assertSrcs(validPackageWithoutErrors(skyKey), "foo", "//foo:@f.txt");
+    assertSrcs(
+        validPackageWithoutErrors(skyKey), "foo", "//foo:@f.txt", "//foo:f:.txt", "//foo:f@.txt");
   }
 
   /**

@@ -26,7 +26,6 @@ public final class LabelValidator {
 
   // Target names allow all 7-bit ASCII characters except
   // 0-31 (control characters)
-  // 58 ':' (colon)
   // 92 '\' (backslash) - directory separator (on Windows); may be allowed in the future
   // 127 (delete)
   /** Matches punctuation in target names which requires quoting in a blaze query. */
@@ -36,11 +35,11 @@ public final class LabelValidator {
   /**
    * Matches punctuation in target names which doesn't require quoting in a blaze query.
    *
-   * Note that . is also allowed in target names, and doesn't require quoting, but has restrictions
-   * on its surrounding characters; see {@link #validateTargetName(String)}.
+   * <p>Note that . is also allowed in target names, and doesn't require quoting, but has
+   * restrictions on its surrounding characters; see {@link #validateTargetName(String)}. The same
+   * applies to :.
    */
-  private static final CharMatcher PUNCTUATION_NOT_REQUIRING_QUOTING =
-      CharMatcher.anyOf("!%-@^_`");
+  private static final CharMatcher PUNCTUATION_NOT_REQUIRING_QUOTING = CharMatcher.anyOf("!%-@^_`");
 
   // Package names allow all 7-bit ASCII characters except
   // 0-31 (control characters)
@@ -52,7 +51,7 @@ public final class LabelValidator {
       CharMatcher.inRange('0', '9')
           .or(CharMatcher.inRange('a', 'z'))
           .or(CharMatcher.inRange('A', 'Z'))
-          .or(CharMatcher.anyOf(" !\"#$%&'()*+,-./;<=>?@[]^_`{|}~"))
+          .or(CharMatcher.anyOf(" !\"#$%&'()*+,-./:;<=>?@[]^_`{|}~"))
           .precomputed();
 
   /**
@@ -153,6 +152,8 @@ public final class LabelValidator {
     char c = targetName.charAt(0);
     if (c == '/') {
       return "target names may not start with '/'";
+    } else if (c == ':') {
+      return "target names may not start with ':'";
     } else if (c == '.') {
       if (targetName.startsWith("../") || targetName.equals("..")) {
         return "target names may not contain up-level references '..'";
@@ -174,7 +175,7 @@ public final class LabelValidator {
       if (ALWAYS_ALLOWED_TARGET_CHARACTERS.matches(c)) {
         continue;
       }
-      if (c == '.') {
+      if (c == '.' || c == ':') {
         continue;
       }
       if (c == '/') {

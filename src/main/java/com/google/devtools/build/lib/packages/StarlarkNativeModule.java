@@ -117,8 +117,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
 
     ArrayList<String> result = new ArrayList<>(matches.size());
     for (String match : matches) {
-      if (match.charAt(0) == '@') {
-        // Add explicit colon to disambiguate from external repository.
+      if (match.charAt(0) == '@' || match.contains(":")) {
+        // Add explicit colon to disambiguate from external repository or target reference.
         match = ":" + match;
       }
       result.add(match);

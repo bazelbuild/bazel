@@ -136,7 +136,8 @@ file; the name of a file is its pathname relative to the directory containing
 the `BUILD` file.
 
 Target names must be composed entirely of characters drawn from the set `a`–`z`,
-`A`–`Z`, `0`–`9`, and the punctuation symbols `!%-@^_"#$&'()*-+,;<=>?[]{|}~/.`.
+`A`–`Z`, `0`–`9`, and the punctuation symbols `!%-@^_"#$&'()*-+,:;<=>?[]{|}~/.`.
+They must not start with `:`.
 
 Filenames must be relative pathnames in normal form, which means they must
 neither start nor end with a slash (for example, `/foo` and `foo/` are

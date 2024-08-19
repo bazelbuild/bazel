@@ -68,7 +68,6 @@ public class LabelValidatorTest {
     assertThat(LabelValidator.validatePackageName("foo,bar")).isNull();
     assertThat(LabelValidator.validatePackageName("foo-bar")).isNull();
     assertThat(LabelValidator.validatePackageName("foo.bar")).isNull();
-    assertThat(LabelValidator.validatePackageName("foo+bar")).isNull();
     assertThat(LabelValidator.validatePackageName("foo;bar")).isNull();
     assertThat(LabelValidator.validatePackageName("foo<bar")).isNull();
     assertThat(LabelValidator.validatePackageName("foo=bar")).isNull();
@@ -145,13 +144,13 @@ public class LabelValidatorTest {
 
     assertThat(LabelValidator.validateTargetName("foo/bar")).isNull();
     assertThat(LabelValidator.validateTargetName("foo@bar")).isNull();
+    assertThat(LabelValidator.validateTargetName("bar:baz")).isNull();
+    assertThat(LabelValidator.validateTargetName("bar:")).isNull();
 
     assertThat(LabelValidator.validateTargetName("foo/"))
         .isEqualTo("target names may not end with '/'");
-    assertThat(LabelValidator.validateTargetName("bar:baz"))
-        .isEqualTo("target names may not contain ':'");
-    assertThat(LabelValidator.validateTargetName("bar:"))
-        .isEqualTo("target names may not contain ':'");
+    assertThat(LabelValidator.validateTargetName(":foo"))
+        .isEqualTo("target names may not start with ':'");
   }
 
   @Test
@@ -176,6 +175,8 @@ public class LabelValidatorTest {
         .isEqualTo(new PackageAndTarget("@foo", "@foo"));
     assertThat(LabelValidator.validateAbsoluteLabel("//@foo:@bar"))
         .isEqualTo(new PackageAndTarget("@foo", "@bar"));
+    assertThat(LabelValidator.validateAbsoluteLabel("@repo//f$( )oo:b$() :ar"))
+        .isEqualTo(new PackageAndTarget("f$( )oo", "b$() :ar"));
   }
 
   @Test

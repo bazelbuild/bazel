@@ -101,7 +101,9 @@ final class LabelParser {
      * "@repo//foo/bar"      | "repo" | false     | true     | "foo/bar" | false        | "bar"
      * "@@repo//foo/bar"     | "repo" | true      | true     | "foo/bar" | false        | "bar"
      * ":quux"               | null   | false     | false    | ""        | false        | "quux"
+     * ":qu:ux"              | null   | false     | false    | ""        | false        | "qu:ux"
      * "foo/bar:quux"        | null   | false     | false    | "foo/bar" | false        | "quux"
+     * "foo/bar:qu:ux"       | null   | false     | false    | "foo/bar" | false        | "qu:ux"
      * "//foo/bar:quux"      | null   | false     | true     | "foo/bar" | false        | "quux"
      * "@repo//foo/bar:quux" | "repo" | false     | true     | "foo/bar" | false        | "quux"
      * }</pre>
