@@ -82,7 +82,7 @@ public class AnalysisWithIOExceptionsTest extends AnalysisTestCase {
   @Test
   public void testWorkspaceError() throws IOException {
     scratch.file("a/BUILD");
-    crashMessage = path -> path.toString().contains("WORKSPACE") ? "bork" : null;
+    crashMessage = path -> path.toString().contains("MODULE.bazel") ? "bork" : null;
     reporter.removeHandler(failFastHandler);
     assertThrows(
         TargetParsingException.class,

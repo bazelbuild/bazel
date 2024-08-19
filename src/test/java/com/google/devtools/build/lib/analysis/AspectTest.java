@@ -202,6 +202,9 @@ public class AspectTest extends AnalysisTestCase {
             .add("bind(name='b', actual='//a:b')")
             .build());
 
+    useConfiguration("--enable_workspace");
+    update();
+
     skyframeExecutor.invalidateFilesUnderPathForTesting(
         reporter, ModifiedFileSet.EVERYTHING_MODIFIED, Root.fromPath(rootDirectory));
 
