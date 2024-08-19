@@ -15,10 +15,17 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static org.junit.Assert.assertThrows;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry.CodecDescriptor;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException.NoCodecException;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -200,6 +207,7 @@ public class ObjectCodecRegistryTest {
       }
     };
 
+    @SuppressWarnings("unused")
     public abstract int val();
   }
 
@@ -374,5 +382,73 @@ public class ObjectCodecRegistryTest {
     assertThat(checksum1).isNotNull();
     assertThat(checksum2).isNotNull();
     assertThat(checksum1).isNotEqualTo(checksum2);
+  }
+
+  sealed interface TestIntf permits ClassA, ClassB, ClassC {}
+
+  @AutoCodec
+  static final class ClassA implements TestIntf {}
+
+  static final class ClassB implements TestIntf {
+
+    static class Codec extends DeferredObjectCodec<TestIntf> {
+
+      @Override
+      public boolean autoRegister() {
+        // Will be registered by the test explicitly.
+        return false;
+      }
+
+      @Override
+      public Class<? extends TestIntf> getEncodedClass() {
+        return ClassB.class;
+      }
+
+      @Override
+      public ImmutableSet<Class<? extends TestIntf>> additionalEncodedClasses() {
+        return ImmutableSet.of(ClassA.class, ClassC.class);
+      }
+
+      @Override
+      public void serialize(SerializationContext context, TestIntf obj, CodedOutputStream codedOut)
+          throws SerializationException, IOException {
+        // unused
+      }
+
+      @Override
+      public DeferredValue<? extends TestIntf> deserializeDeferred(
+          AsyncDeserializationContext context, CodedInputStream codedIn)
+          throws SerializationException, IOException {
+        return ClassB::new;
+      }
+    }
+  }
+
+  @AutoCodec
+  static final class ClassC implements TestIntf {}
+
+  @Test
+  public void testDescriptorLookups_respectsInsertionOrder() throws Exception {
+    var a = new ClassA();
+    var b = new ClassB();
+    var c = new ClassC();
+    var tester = new SerializationTester(a, b, c);
+
+    // The AutoCodecs for ClassA and ClassC will be added first.
+    tester.addCodec(new ClassB.Codec());
+
+    tester.setVerificationFunction(
+        (in, out) ->
+            // Expect that all three objects use ClassB.Codec() as it's registered as one of the
+            // last.
+            //
+            // If there is implicit alphabetical ordering when processing codec descriptors,
+            // then:
+            // - a will be deserialized as an instance of A.class, or
+            // - c will be deserialized as an instance of C.class.
+            assertWithMessage("incorrect codec look up for %s", in)
+                .that(out)
+                .isInstanceOf(ClassB.class));
+    tester.runTests();
   }
 }
