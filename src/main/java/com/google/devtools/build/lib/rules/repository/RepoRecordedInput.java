@@ -26,6 +26,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
@@ -76,8 +77,10 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
 
     /**
      * Parses a recorded input from the post-colon substring that identifies the specific input: for
-     * example, the {@code MY_ENV_VAR} part of {@code ENV:MY_ENV_VAR}.
+     * example, the {@code MY_ENV_VAR} part of {@code ENV:MY_ENV_VAR}. Returns null if the parsed
+     * part is invalid.
      */
+    @Nullable
     public abstract RepoRecordedInput parse(String s);
   }
 
@@ -95,6 +98,9 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
   @Nullable
   public static RepoRecordedInput parse(String s) {
     List<String> parts = Splitter.on(':').limit(2).splitToList(s);
+    if (parts.size() < 2) {
+      return null;
+    }
     for (Parser parser :
         new Parser[] {
           File.PARSER, Dirents.PARSER, DirTree.PARSER, EnvVar.PARSER, RecordedRepoMapping.PARSER
@@ -213,12 +219,12 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       return repoName().map(repoName -> repoName + "//" + path()).orElse(path().toString());
     }
 
-    public static RepoCacheFriendlyPath parse(String s) {
+    public static RepoCacheFriendlyPath parse(String s) throws LabelSyntaxException {
       if (LabelValidator.isAbsolute(s)) {
         int doubleSlash = s.indexOf("//");
         int skipAts = s.startsWith("@@") ? 2 : s.startsWith("@") ? 1 : 0;
         return createInsideWorkspace(
-            RepositoryName.createUnvalidated(s.substring(skipAts, doubleSlash)),
+            RepositoryName.create(s.substring(skipAts, doubleSlash)),
             PathFragment.create(s.substring(doubleSlash + 2)));
       }
       return createOutsideWorkspace(PathFragment.create(s));
@@ -262,9 +268,15 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
             return "FILE";
           }
 
+          @Nullable
           @Override
           public RepoRecordedInput parse(String s) {
-            return new File(RepoCacheFriendlyPath.parse(s));
+            try {
+              return new File(RepoCacheFriendlyPath.parse(s));
+            } catch (LabelSyntaxException e) {
+              // ignore malformed input
+              return null;
+            }
           }
         };
 
@@ -354,9 +366,15 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
             return "DIRENTS";
           }
 
+          @Nullable
           @Override
           public RepoRecordedInput parse(String s) {
-            return new Dirents(RepoCacheFriendlyPath.parse(s));
+            try {
+              return new Dirents(RepoCacheFriendlyPath.parse(s));
+            } catch (LabelSyntaxException e) {
+              // Ignore malformed input.
+              return null;
+            }
           }
         };
 
@@ -437,9 +455,15 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
             return "DIRTREE";
           }
 
+          @Nullable
           @Override
           public RepoRecordedInput parse(String s) {
-            return new DirTree(RepoCacheFriendlyPath.parse(s));
+            try {
+              return new DirTree(RepoCacheFriendlyPath.parse(s));
+            } catch (LabelSyntaxException e) {
+              // ignore malformed input
+              return null;
+            }
           }
         };
 
@@ -573,11 +597,16 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
             return "REPO_MAPPING";
           }
 
+          @Nullable
           @Override
           public RepoRecordedInput parse(String s) {
             List<String> parts = Splitter.on(',').limit(2).splitToList(s);
-            return new RecordedRepoMapping(
-                RepositoryName.createUnvalidated(parts.get(0)), parts.get(1));
+            try {
+              return new RecordedRepoMapping(RepositoryName.create(parts.get(0)), parts.get(1));
+            } catch (LabelSyntaxException | IndexOutOfBoundsException e) {
+              // ignore malformed input
+              return null;
+            }
           }
         };
 
@@ -632,9 +661,14 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
         throws InterruptedException {
       RepositoryMappingValue repoMappingValue =
           (RepositoryMappingValue) env.getValue(getSkyKey(directories));
-      return repoMappingValue != RepositoryMappingValue.NOT_FOUND_VALUE
-          && RepositoryName.createUnvalidated(oldValue)
-              .equals(repoMappingValue.getRepositoryMapping().get(apparentName));
+      try {
+        return repoMappingValue != RepositoryMappingValue.NOT_FOUND_VALUE
+            && RepositoryName.create(oldValue)
+                .equals(repoMappingValue.getRepositoryMapping().get(apparentName));
+      } catch (LabelSyntaxException e) {
+        // ignore malformed old value
+        return false;
+      }
     }
   }
 }
