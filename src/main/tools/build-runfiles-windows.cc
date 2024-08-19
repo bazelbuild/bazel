@@ -164,20 +164,30 @@ class RunfilesCreator {
         continue;
       }
 
-      size_t space_pos = line.find_first_of(' ');
-      wstring wline = blaze_util::CstringToWstring(line);
-      wstring link, target;
-      if (space_pos == string::npos) {
-        link = wline;
-        target = wstring();
+      wstring link;
+      wstring target;
+      if (!line.empty() && line[0] == ' ') {
+        // Lines starting with a space are of the form " 7 foo bar /tar get/path", with
+        // the first field indicating the length of the runfiles path.
+        std::size_t length_field_end = line.find_first_of(' ', 1);
+        if (length_field_end == string::npos) {
+          die(L"Invalid length field: %hs", line.c_str());
+        }
+        std::size_t link_length = std::stoul(line.substr(1, length_field_end - 1));
+        std::size_t after_length_field = length_field_end + 1;
+        if (line.size() < after_length_field + link_length || line[after_length_field + link_length] != ' ') {
+          die(L"Invalid length field: %hs", line.c_str());
+        }
+        link = blaze_util::CstringToWstring(line.substr(after_length_field, link_length));
+        target = blaze_util::CstringToWstring(line.substr(after_length_field + link_length + 1));
       } else {
-        link = wline.substr(0, space_pos);
-        target = wline.substr(space_pos + 1);
+        string::size_type idx = line.find_first_of(' ');
+        if (idx == string::npos) {
+          die(L"Missing separator in manifest line: %hs", line.c_str());
+        }
+        link = blaze_util::CstringToWstring(line.substr(0, idx));
+        target = blaze_util::CstringToWstring(line.substr(idx + 1));
       }
-
-      // Removing leading and trailing spaces
-      Trim(link);
-      Trim(target);
 
       // We sometimes need to create empty files under the runfiles tree.
       // For example, for python binary, __init__.py is needed under every
