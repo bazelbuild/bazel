@@ -1,3 +1,20 @@
+## Release 8.0.0-pre.20240814.2 (2024-08-20)
+
+```
+Baseline: 9d86712432fa7c6276ad5620a3185557631f36f1
+
+Cherry picks:
+
+   + 0000000000000000000000000000000000000000:
+     
+```
+
+Important changes:
+
+  - Deleted native Android mobile-install
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Javier Maestro.
+
 ## Release 7.3.1 (2024-08-19)
 
 ```
