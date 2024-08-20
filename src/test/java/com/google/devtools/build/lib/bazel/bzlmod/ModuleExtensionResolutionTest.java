@@ -1340,6 +1340,38 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
   }
 
   @Test
+  public void invalidAttributeValue() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "ext = use_extension('//:defs.bzl','ext')",
+        "bazel_dep(name='data_repo', version='1.0')",
+        "use_repo(ext,'ext')");
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        "load('@data_repo//:defs.bzl','data_repo')",
+        "def _ext_impl(ctx):",
+        "  data_repo(name='ext',data=42)",
+        "ext = module_extension(implementation=_ext_impl)");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@ext//:data.bzl', ext_data='data')",
+        "data=ext_data");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "ERROR /ws/defs.bzl:3:12: //:+ext+ext: expected value of type 'string' for attribute 'data'"
+            + " of 'data_repo', but got 42 (int)");
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .isEqualTo("error evaluating module extension ext in //:defs.bzl");
+  }
+
+  @Test
   public void badRepoNameInExtensionImplFunction() throws Exception {
     scratch.file(
         workspaceRoot.getRelative("MODULE.bazel").getPathString(),
@@ -2901,5 +2933,53 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         .contains(
             "//:repo.bzl does not export a repository_rule called data_repo, yet its use is"
                 + " requested at /ws/MODULE.bazel");
+  }
+
+  @Test
+  public void innate_invalidAttributeValue() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='foo',version='1.0')",
+        "data_repo = use_repo_rule('@foo//:repo.bzl', 'data_repo')",
+        "data_repo(name='data', data=5)");
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        "load('@data//:data.bzl', self_data='data')",
+        "load('@foo//:data.bzl', foo_data='data')",
+        "data=self_data+' '+foo_data");
+
+    registry.addModule(
+        createModuleKey("foo", "1.0"),
+        "module(name='foo',version='1.0')",
+        "data_repo = use_repo_rule('//:repo.bzl', 'data_repo')",
+        "data_repo(name='data', data='go to bed at 11pm.')");
+    scratch.file(modulesRoot.getRelative("foo+1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("foo+1.0/BUILD").getPathString());
+    scratch.file(
+        modulesRoot.getRelative("foo+1.0/data.bzl").getPathString(),
+        "load('@data//:data.bzl',repo_data='data')",
+        "data=repo_data");
+    scratch.file(
+        modulesRoot.getRelative("foo+1.0/repo.bzl").getPathString(),
+        "def _data_repo_impl(ctx):",
+        "  ctx.file('BUILD.bazel')",
+        "  ctx.file('data.bzl', 'data='+json.encode(ctx.attr.data))",
+        "data_repo = repository_rule(",
+        "  implementation=_data_repo_impl, attrs={'data':attr.string()})");
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertContainsEvent(
+        "ERROR /ws/MODULE.bazel:3:10: //:+_repo_rules+data: expected value of type 'string' for"
+            + " attribute 'data' of 'data_repo', but got 5 (int)");
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .isEqualTo(
+            "error creating repo data requested at /ws/MODULE.bazel:3:10: failed to instantiate"
+                + " 'data_repo' from this module extension");
   }
 }
