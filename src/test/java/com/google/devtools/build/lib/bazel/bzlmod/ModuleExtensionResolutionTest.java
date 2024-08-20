@@ -3071,7 +3071,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             "@@+other_ext+other_foo//:target3",
             "@@+other_ext+other_bar//:target4",
             "@@+other_ext+other_foo//:foo",
-            "@@+other_ext+other_bar//:bar");
+            "@@+other_ext+other_bar//:bar")
+        .inOrder();
     assertThat((List<?>) result.get(skyKey).getModule().getGlobal("bar_list"))
         .containsExactly(
             "@@+other_ext+other_foo//:target5",
@@ -3079,6 +3080,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             "@@+other_ext+other_foo//:target7",
             "@@+other_ext+other_bar//:target8",
             "@@+other_ext+other_foo//:foo",
-            "@@+other_ext+other_bar//:bar");
+            "@@+other_ext+other_bar//:bar")
+        .inOrder();
   }
 }
