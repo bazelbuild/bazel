@@ -239,7 +239,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
 
   @Before
   public void createToolchains() throws Exception {
-    scratch.appendFile("WORKSPACE", "register_toolchains('//toolchains:all')");
+    scratch.appendFile("MODULE.bazel", "register_toolchains('//toolchains:all')");
 
     scratch.file(
         "toolchain/toolchain_def.bzl",
@@ -783,7 +783,7 @@ public final class ToolchainsForTargetsTest extends AnalysisTestCase {
         .setupCcToolchainConfig(
             mockToolsConfig,
             CcToolchainConfig.builder()
-                .withToolchainTargetConstraints("@//platforms:local_value_a")
+                .withToolchainTargetConstraints("@@//platforms:local_value_a")
                 .withToolchainExecConstraints()
                 .withCpu("fake"));
     scratch.file(

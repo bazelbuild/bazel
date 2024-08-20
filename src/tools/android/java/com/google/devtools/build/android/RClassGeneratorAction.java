@@ -21,6 +21,7 @@ import com.beust.jcommander.Parameters;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.devtools.build.android.Converters.CompatDependencySymbolFileProviderConverter;
 import com.google.devtools.build.android.Converters.CompatPathConverter;
@@ -32,7 +33,6 @@ import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -88,7 +88,7 @@ public class RClassGeneratorAction {
         description =
             "R.txt and manifests for the libraries in this binary's deps. We will write "
                 + "class files for the libraries as well. Expected format: lib1/R.txt[:lib2/R.txt]")
-    public List<DependencySymbolFileProvider> libraries = new ArrayList<>();
+    public List<DependencySymbolFileProvider> libraries = ImmutableList.of();
 
     @Parameter(
         names = "--classJarOutput",

@@ -22,11 +22,11 @@ import static java.util.Arrays.sort;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.AspectCollection;
-import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.InconsistentAspectOrderException;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.MergingException;
 import com.google.devtools.build.lib.analysis.configuredtargets.PackageGroupConfiguredTarget;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
@@ -243,7 +243,7 @@ final class PrerequisitesProducer
   }
 
   @Override
-  public void acceptConfiguredAspectError(DuplicateException error) {
+  public void acceptConfiguredAspectError(MergingException error) {
     hasError = true;
     sink.acceptPrerequisitesAspectError(
         new DependencyEvaluationException(

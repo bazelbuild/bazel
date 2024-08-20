@@ -70,6 +70,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.TargetDefinitionContext.MacroNamespaceViolationException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;
@@ -216,6 +217,18 @@ public final class ConfiguredTargetFactory {
       }
     }
 
+    // Enforce that targets whose names are outside their declaring macro's namespace cannot be
+    // analyzed. (createRule() already enforces this above for rule targets, with optional error
+    // interception through analysis_test.)
+    try {
+      target.getPackage().checkMacroNamespaceCompliance(target);
+    } catch (MacroNamespaceViolationException e) {
+      analysisEnvironment
+          .getEventHandler()
+          .handle(Event.error(target.getLocation(), e.getMessage()));
+      return null;
+    }
+
     // Visibility, like all package groups, doesn't have a configuration
     NestedSet<PackageGroupContents> visibility =
         convertVisibility(prerequisiteMap, analysisEnvironment.getEventHandler(), target);
@@ -339,6 +352,13 @@ public final class ConfiguredTargetFactory {
       return erroredConfiguredTargetWithFailures(ruleContext, analysisFailures);
     }
     if (ruleContext.hasErrors()) {
+      return erroredConfiguredTarget(ruleContext, null);
+    }
+
+    try {
+      rule.getPackage().checkMacroNamespaceCompliance(rule);
+    } catch (MacroNamespaceViolationException e) {
+      ruleContext.ruleError(e.getMessage());
       return erroredConfiguredTarget(ruleContext, null);
     }
 

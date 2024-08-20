@@ -270,16 +270,16 @@ class BazelModuleTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(['run', '@foo//...'],
                                          allow_failure=True)
     self.AssertExitCode(exit_code, 48, stderr)
+    stderr = '\n'.join(stderr)
     self.assertIn(
-        'ERROR: <builtin>: //pkg:+module_ext+foo: no such attribute'
+        '/pkg/extension.bzl:3:14: //pkg:+module_ext+foo: no such attribute'
         " 'invalid_attr' in 'repo_rule' rule",
         stderr,
     )
-    self.assertTrue(
-        any([
-            '/pkg/extension.bzl", line 3, column 14, in _module_ext_impl'
-            in line for line in stderr
-        ]))
+    self.assertIn(
+        '/pkg/extension.bzl", line 3, column 14, in _module_ext_impl',
+        stderr,
+    )
 
   def testDownload(self):
     data_path = self.ScratchFile('data.txt', ['some data'])

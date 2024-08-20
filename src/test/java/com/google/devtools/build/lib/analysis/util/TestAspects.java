@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.AspectContext;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleConfiguredTargetFactory;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
+import com.google.devtools.build.lib.analysis.actions.FileWriteAction;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -170,6 +172,18 @@ public class TestAspects {
     return result.build();
   }
 
+  public static class FileProviderForwardingRuleFactory implements RuleConfiguredTargetFactory {
+    @Override
+    public ConfiguredTarget create(RuleContext ruleContext)
+        throws InterruptedException, RuleErrorException, ActionConflictException {
+      return new RuleConfiguredTargetBuilder(ruleContext)
+          .setFilesToBuild(ruleContext.getPrerequisite("dep", FileProvider.class).getFilesToBuild())
+          .setRunfilesSupport(null, null)
+          .addProvider(RunfilesProvider.class, RunfilesProvider.simple(Runfiles.EMPTY))
+          .build();
+    }
+  }
+
   /**
    * A simple rule configured target factory that is used in all the mock rules in this class.
    */
@@ -273,7 +287,30 @@ public class TestAspects {
     }
   }
 
+  public static class FileProviderAspect extends BaseAspect {
+    @Override
+    public ConfiguredAspect create(
+        Label targetLabel,
+        ConfiguredTarget ct,
+        RuleContext ruleContext,
+        AspectParameters parameters,
+        RepositoryName toolsRepository)
+        throws ActionConflictException, InterruptedException {
+      Artifact artifact = ruleContext.getBinArtifact("file_provider_aspect_file");
+      ruleContext.registerAction(FileWriteAction.create(ruleContext, artifact, "empty", false));
+      return new ConfiguredAspect.Builder(ruleContext)
+          .addProvider(FileProvider.of(NestedSetBuilder.create(Order.STABLE_ORDER, artifact)))
+          .build();
+    }
+
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      return SIMPLE_ASPECT_DEFINITION;
+    }
+  }
+
   public static final SimpleAspect SIMPLE_ASPECT = new SimpleAspect();
+  public static final FileProviderAspect FILE_PROVIDER_ASPECT = new FileProviderAspect();
   public static final FooProviderAspect FOO_PROVIDER_ASPECT = new FooProviderAspect();
   public static final BarProviderAspect BAR_PROVIDER_ASPECT = new BarProviderAspect();
   public static final SimpleStarlarkNativeAspect SIMPLE_STARLARK_NATIVE_ASPECT =
@@ -802,6 +839,16 @@ public class TestAspects {
    */
   public static final MockRule BASE_RULE = () ->
       MockRule.factory(DummyRuleFactory.class).define("base");
+
+  public static final MockRule FILE_PROVIDER_ASPECT_REQUIRING_RULE =
+      () ->
+          MockRule.ancestor(BASE_RULE.getClass())
+              .factory(FileProviderForwardingRuleFactory.class)
+              .define(
+                  "file_provider_aspect",
+                  attr("dep", LABEL)
+                      .allowedFileTypes(FileTypeSet.ANY_FILE)
+                      .aspect(FILE_PROVIDER_ASPECT));
 
   /**
    * A rule that defines an aspect on one of its attributes.

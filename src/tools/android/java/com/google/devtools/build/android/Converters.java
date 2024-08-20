@@ -64,6 +64,24 @@ public final class Converters {
 
   /**
    * Converter for {@link UnvalidatedAndroidData}. Relies on {@code
+   * UnvalidatedAndroidData#valueOf(String)} to perform conversion and validation. Compatible with
+   * JCommander.
+   */
+  public static class CompatUnvalidatedAndroidDataConverter
+      implements IStringConverter<UnvalidatedAndroidData> {
+    @Override
+    public UnvalidatedAndroidData convert(String input) throws ParameterException {
+      try {
+        return UnvalidatedAndroidData.valueOf(input);
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(
+            String.format("invalid UnvalidatedAndroidData: %s", e.getMessage()), e);
+      }
+    }
+  }
+
+  /**
+   * Converter for {@link UnvalidatedAndroidData}. Relies on {@code
    * UnvalidatedAndroidData#valueOf(String)} to perform conversion and validation.
    */
   public static class UnvalidatedAndroidDataConverter
@@ -85,6 +103,20 @@ public final class Converters {
     }
   }
 
+  /** Converter for {@link UnvalidatedAndroidDirectories}. Compatible with JCommander. */
+  public static class CompatUnvalidatedAndroidDirectoriesConverter
+      implements IStringConverter<UnvalidatedAndroidDirectories> {
+    @Override
+    public UnvalidatedAndroidDirectories convert(String input) throws ParameterException {
+      try {
+        return UnvalidatedAndroidDirectories.valueOf(input);
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(
+            String.format("invalid UnvalidatedAndroidDirectories: %s", e.getMessage()), e);
+      }
+    }
+  }
+
   /** Converter for {@link UnvalidatedAndroidDirectories}. */
   public static class UnvalidatedAndroidDirectoriesConverter
       extends Converter.Contextless<UnvalidatedAndroidDirectories> {
@@ -103,6 +135,20 @@ public final class Converters {
     public String getTypeDescription() {
       return "unvalidated android directories in the format "
           + UnvalidatedAndroidDirectories.EXPECTED_FORMAT;
+    }
+  }
+
+  /** Converter for {@link DependencyAndroidData}. Compatible with JCommander. */
+  public static class CompatDependencyAndroidDataConverter
+      implements IStringConverter<DependencyAndroidData> {
+    @Override
+    public DependencyAndroidData convert(String input) throws ParameterException {
+      try {
+        return DependencyAndroidData.valueOf(input);
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(
+            String.format("invalid DependencyAndroidData: %s", e.getMessage()), e);
+      }
     }
   }
 
@@ -158,6 +204,20 @@ public final class Converters {
     }
   }
 
+  /** Converter for a single {@link SerializedAndroidData}. Compatible with JCommander. */
+  public static class CompatSerializedAndroidDataConverter
+      implements IStringConverter<SerializedAndroidData> {
+    @Override
+    public SerializedAndroidData convert(String input) throws ParameterException {
+      try {
+        return SerializedAndroidData.valueOf(input);
+      } catch (IllegalArgumentException e) {
+        throw new ParameterException(
+            String.format("invalid SerializedAndroidData: %s", e.getMessage()), e);
+      }
+    }
+  }
+
   /** Converter for a list of {@link SerializedAndroidData}. */
   public static class SerializedAndroidDataListConverter
       extends Converter.Contextless<List<SerializedAndroidData>> {
@@ -184,6 +244,22 @@ public final class Converters {
       return "a list of preparsed android data in the format "
           + SerializedAndroidData.EXPECTED_FORMAT
           + "[&...]";
+    }
+  }
+
+  /** A splitter class for JCommander flags that splits on ampersands ("&"). */
+  public static class AmpersandSplitter implements IParameterSplitter {
+    @Override
+    public List<String> split(String value) {
+      return ImmutableList.copyOf(value.split("&"));
+    }
+  }
+
+  /** A splitter class for JCommander flags that splits on colons (":"). */
+  public static class ColonSplitter implements IParameterSplitter {
+    @Override
+    public List<String> split(String value) {
+      return ImmutableList.copyOf(value.split(":"));
     }
   }
 
@@ -349,6 +425,35 @@ public final class Converters {
   public static class MergeTypeConverter extends EnumConverter<MergeType> {
     public MergeTypeConverter() {
       super(MergeType.class, "merge type");
+    }
+  }
+
+  /**
+   * Validating converter for a list of Paths. A Path is considered valid if it resolves to a file.
+   *
+   * <p>Compatible with JCommander.
+   */
+  @Deprecated // Not _actually_ deprecated (see cl/162194755).
+  public static class CompatPathListConverter implements IStringConverter<List<Path>> {
+    private final CompatPathConverter baseConverter;
+
+    public CompatPathListConverter() {
+      this(false);
+    }
+
+    public CompatPathListConverter(boolean mustExist) {
+      this.baseConverter = new CompatPathConverter(mustExist);
+    }
+
+    @Override
+    public List<Path> convert(String input) throws ParameterException {
+      List<Path> list = new ArrayList<>();
+      for (String piece : input.split(":")) {
+        if (!piece.isEmpty()) {
+          list.add(baseConverter.convert(piece));
+        }
+      }
+      return Collections.unmodifiableList(list);
     }
   }
 
@@ -562,6 +667,24 @@ public final class Converters {
     }
   }
 
+  /** Converts a list of static library strings into paths. Compatible with JCommander. */
+  @Deprecated
+  public static class CompatStaticLibraryListConverter
+      implements IStringConverter<List<StaticLibrary>> {
+    static final Splitter SPLITTER = Splitter.on(File.pathSeparatorChar);
+
+    static final CompatStaticLibraryConverter libraryConverter = new CompatStaticLibraryConverter();
+
+    @Override
+    public List<StaticLibrary> convert(String input) throws ParameterException {
+      final ImmutableList.Builder<StaticLibrary> builder = ImmutableList.<StaticLibrary>builder();
+      for (String path : SPLITTER.splitToList(input)) {
+        builder.add(libraryConverter.convert(path));
+      }
+      return builder.build();
+    }
+  }
+
   /** Converts a list of static library strings into paths. */
   @Deprecated
   public static class StaticLibraryListConverter
@@ -585,6 +708,16 @@ public final class Converters {
     }
   }
 
+  /** Converts a list of static library strings into paths. Compatible with JCommander. */
+  public static class CompatStaticLibraryConverter implements IStringConverter<StaticLibrary> {
+    static final CompatPathConverter pathConverter = new CompatPathConverter(true);
+
+    @Override
+    public StaticLibrary convert(String input) throws ParameterException {
+      return StaticLibrary.from(pathConverter.convert(input));
+    }
+  }
+
   /** Converts a static library string into path. */
   public static class StaticLibraryConverter extends Converter.Contextless<StaticLibrary> {
 
@@ -598,6 +731,24 @@ public final class Converters {
     @Override
     public String getTypeDescription() {
       return "Static resource library.";
+    }
+  }
+
+  /** Converts a string of resources and manifest into paths. Compatible with JCommander. */
+  public static class CompatCompiledResourcesConverter
+      implements IStringConverter<CompiledResources> {
+    static final CompatPathConverter pathConverter = new CompatPathConverter(true);
+    static final Pattern COMPILED_RESOURCE_FORMAT = Pattern.compile("(.+):(.+)");
+
+    @Override
+    public CompiledResources convert(String input) throws ParameterException {
+      final Matcher matched = COMPILED_RESOURCE_FORMAT.matcher(input);
+      if (!matched.find()) {
+        throw new ParameterException("Expected format <resources zip>:<manifest>");
+      }
+      Path resources = pathConverter.convert(matched.group(1));
+      Path manifest = pathConverter.convert(matched.group(2));
+      return CompiledResources.from(resources, manifest);
     }
   }
 

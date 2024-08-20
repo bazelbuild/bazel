@@ -63,6 +63,7 @@ add_to_bazelrc "test --notest_loasd"
 #### HELPER FUNCTIONS ##################################################
 
 function write_py_files() {
+  add_rules_python "MODULE.bazel"
   mkdir -p py || fail "mkdir py failed"
 
   cat > py/BUILD <<'EOF'

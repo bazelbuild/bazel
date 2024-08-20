@@ -741,6 +741,7 @@ java_test(
     name = "ConfigurationsForTargetsTest",
     timeout = "short",
     srcs = ["ConfigurationsForTargetsTest.java"],
+    shard_count = 2,
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
@@ -1631,7 +1632,6 @@ java_test(
 
 java_test(
     name = "RepositoryMappingFunctionTest",
-    timeout = "short",
     srcs = ["RepositoryMappingFunctionTest.java"],
     deps = [
         ":testutil",
@@ -1781,7 +1781,6 @@ java_test(
 
 java_test(
     name = "WorkspaceFileFunctionTest",
-    timeout = "short",
     srcs = ["WorkspaceFileFunctionTest.java"],
     deps = [
         ":testutil",
@@ -2178,5 +2177,29 @@ java_test(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:junit4",
+    ],
+)
+
+java_test(
+    name = "RemoteConfiguredTargetValueCodecTest",
+    srcs = ["RemoteConfiguredTargetValueCodecTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:prerequisite_package_function",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:depsutils",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:dumper",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/skyframe/util:SkyframeExecutorTestUtils",
+        "//third_party:junit4",
+        "//third_party:truth",
     ],
 )

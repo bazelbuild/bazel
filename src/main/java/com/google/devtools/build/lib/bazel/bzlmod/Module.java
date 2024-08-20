@@ -116,6 +116,6 @@ public abstract class Module extends ModuleBase {
       return this;
     }
 
-    abstract Module build();
+    public abstract Module build();
   }
 }

@@ -661,8 +661,9 @@ public final class JavaInfo extends NativeInfo
     }
   }
 
+  // TODO: b/359437873 - generate with @AutoCodec.
   @Keep
-  private static final class Codec extends DeferredObjectCodec<JavaInfo> {
+  private static final class JavaInfoValueSharingCodec extends DeferredObjectCodec<JavaInfo> {
 
     @Override
     public Class<? extends JavaInfo> getEncodedClass() {
@@ -672,7 +673,7 @@ public final class JavaInfo extends NativeInfo
     @Override
     public void serialize(SerializationContext context, JavaInfo obj, CodedOutputStream codedOut)
         throws SerializationException, IOException {
-      context.putSharedValue(obj, null, InternalNonSharingCodec.INSTANCE, codedOut);
+      context.putSharedValue(obj, null, JavaInfoCodec.INSTANCE, codedOut);
     }
 
     @Override
@@ -681,19 +682,19 @@ public final class JavaInfo extends NativeInfo
         throws SerializationException, IOException {
       SimpleDeferredValue<JavaInfo> deferredValue = SimpleDeferredValue.create();
       context.getSharedValue(
-          codedIn, null, InternalNonSharingCodec.INSTANCE, deferredValue, SimpleDeferredValue::set);
+          codedIn, null, JavaInfoCodec.INSTANCE, deferredValue, SimpleDeferredValue::set);
       return deferredValue;
     }
   }
 
   @Keep
-  private static final class InternalNonSharingCodec extends DeferredObjectCodec<JavaInfo> {
+  private static final class JavaInfoCodec extends DeferredObjectCodec<JavaInfo> {
 
-    public static final InternalNonSharingCodec INSTANCE = new InternalNonSharingCodec();
+    public static final JavaInfoCodec INSTANCE = new JavaInfoCodec();
 
     private final ImmutableList<FieldHandler> handlers;
 
-    private InternalNonSharingCodec() {
+    private JavaInfoCodec() {
       this.handlers =
           ImmutableList.copyOf(DynamicCodec.getFieldHandlerMap(JavaInfo.class).values());
     }

@@ -13,24 +13,24 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.ProtoApk;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
 import com.google.devtools.build.android.aapt2.StaticLibrary;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.util.List;
 
 /**
  * An action that will take a ResourcesZip and convert it into a proto APK.
@@ -49,15 +49,17 @@ public final class ConvertResourceZipToApkAction {
     final Profiler profiler =
         LoggingProfiler.createAndStart("convert_proto_apk").startTask("flags");
     // Parse arguments.
+    Options options = new Options();
+    JCommander jc = new JCommander(options);
+    jc.parse(args);
+    List<String> residue = options.getResidue();
     OptionsParser optionsParser =
         OptionsParser.builder()
-            .optionsClasses(
-                Options.class, Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
+            .optionsClasses(Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
             .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
             .build();
-    optionsParser.parseAndExitUponError(args);
+    optionsParser.parseAndExitUponError(residue.toArray(new String[0]));
     Aapt2ConfigOptions aapt2ConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
-    Options options = optionsParser.getOptions(Options.class);
     Preconditions.checkArgument(options.resourcesZip != null, "Missing input resource zip.");
     profiler.recordEndOf("flags").startTask("setup");
     try (ScopedTemporaryDirectory scopedTmp =
@@ -85,25 +87,18 @@ public final class ConvertResourceZipToApkAction {
   }
 
   /** Extra options specific to {@link ConvertResourceZipToApkAction}. */
-  public static class Options extends OptionsBase {
-    @Option(
-        name = "resources",
-        defaultValue = "null",
-        category = "input",
-        converter = ExistingPathConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to the resources zip to be shrunk.")
+  @Parameters(separators = "= ")
+  public static class Options extends OptionsBaseWithResidue {
+    @Parameter(
+        names = "--resources",
+        converter = CompatExistingPathConverter.class,
+        description = "Path to the resources zip to be shrunk.")
     public Path resourcesZip;
 
-    @Option(
-        name = "outputApk",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to the output resource APK.")
+    @Parameter(
+        names = "--outputApk",
+        converter = CompatPathConverter.class,
+        description = "Path to the output resource APK.")
     public Path outputApk;
   }
 }

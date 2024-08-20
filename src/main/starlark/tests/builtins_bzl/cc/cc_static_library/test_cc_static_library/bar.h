@@ -1,4 +1,4 @@
-// Copyright 2014 The Bazel Authors. All rights reserved.
+// Copyright 2022 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,15 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#ifndef EXAMPLES_TEST_CC_STATIC_LIBRARY_BAR_H_
+#define EXAMPLES_TEST_CC_STATIC_LIBRARY_BAR_H_
 
-package com.google.devtools.build.android.incrementaldeployment;
+int bar();
+int unused();
 
-/**
- * A dummy class.
- *
- * <p>This class exists because Android L requires that a .dex file be present in a main .apk.
- * We do not want to put any class in there so that we can replace them without reinstalling the
- * complete app, thus, we put this tiny little class in there.
- */
-public final class Placeholder {
-}
+#endif  // EXAMPLES_TEST_CC_STATIC_LIBRARY_BAR_H_

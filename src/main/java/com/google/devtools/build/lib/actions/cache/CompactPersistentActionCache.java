@@ -78,7 +78,7 @@ public class CompactPersistentActionCache implements ActionCache {
 
   private static final int NO_INPUT_DISCOVERY_COUNT = -1;
 
-  private static final int VERSION = 16;
+  private static final int VERSION = 17;
 
   private static final class ActionMap extends PersistentMap<Integer, byte[]> {
     private final Clock clock;

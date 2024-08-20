@@ -155,7 +155,4 @@ public class PathsSubject extends Subject {
     return writer.toString().replaceAll("\n|\r", "").replaceAll(">\\s+<", "><");
   }
 
-  public void containsExactlyTheseLines(String... lines) throws IOException {
-    assertThat(Files.readAllLines(actual, StandardCharsets.UTF_8)).containsExactlyElementsIn(lines);
-  }
 }

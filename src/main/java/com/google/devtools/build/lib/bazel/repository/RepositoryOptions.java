@@ -252,19 +252,6 @@ public class RepositoryOptions extends OptionsBase {
   public CheckDirectDepsMode checkDirectDependencies;
 
   @Option(
-      name = "experimental_repository_cache_urls_as_default_canonical_id",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = OptionMetadataTag.DEPRECATED,
-      effectTags = {OptionEffectTag.NO_OP},
-      deprecationWarning =
-          "This behavior is enabled by default for http_* and jvm_* rules and no "
-              + "longer controlled by this flag. Use "
-              + "--repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 to disable it instead.",
-      help = "No-op.")
-  public boolean urlsAsDefaultCanonicalId;
-
-  @Option(
       name = "experimental_check_external_repository_files",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

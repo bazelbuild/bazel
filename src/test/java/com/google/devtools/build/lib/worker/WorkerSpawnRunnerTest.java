@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
-import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ExecutionRequirements.WorkerProtocolFormat;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -99,7 +98,7 @@ public class WorkerSpawnRunnerTest {
   @Mock ResourceManager.ResourceHandle resourceHandle;
 
   @Before
-  public void setUp() throws InterruptedException, IOException, ExecException {
+  public void setUp() throws Exception {
     when(spawn.getInputFiles()).thenReturn(NestedSetBuilder.emptySet(Order.COMPILE_ORDER));
     when(context.getArtifactExpander()).thenReturn(treeArtifact -> ImmutableSortedSet.of());
     doNothing()
@@ -112,7 +111,7 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
-  public void testExecInWorker_happyPath() throws ExecException, InterruptedException, IOException {
+  public void testExecInWorker_happyPath() throws Exception {
     WorkerSpawnRunner runner = createWorkerSpawnRunner(new WorkerOptions());
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
@@ -141,8 +140,7 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
-  public void testExecInWorker_virtualInputs_doesntQueryInputFileCache()
-      throws ExecException, InterruptedException, IOException {
+  public void testExecInWorker_virtualInputs_doesntQueryInputFileCache() throws Exception {
     Path execRoot = fs.getPath("/execRoot");
     Path workDir = execRoot.getRelative("workdir");
 
@@ -199,8 +197,7 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
-  public void testExecInWorker_finishesAsyncOnInterrupt()
-      throws InterruptedException, IOException, ExecException {
+  public void testExecInWorker_finishesAsyncOnInterrupt() throws Exception {
     WorkerSpawnRunner runner = createWorkerSpawnRunner(new WorkerOptions());
     WorkerKey key = createWorkerKey(fs, "mnem", false);
     Path logFile = fs.getPath("/worker.log");
@@ -228,8 +225,7 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
-  public void testExecInWorker_sendsCancelMessageOnInterrupt()
-      throws ExecException, InterruptedException, IOException {
+  public void testExecInWorker_sendsCancelMessageOnInterrupt() throws Exception {
     WorkerOptions workerOptions = new WorkerOptions();
     workerOptions.workerCancellation = true;
     workerOptions.workerSandboxing = true;
@@ -280,8 +276,7 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
-  public void testExecInWorker_unsandboxedDiesOnInterrupt()
-      throws InterruptedException, IOException, ExecException {
+  public void testExecInWorker_unsandboxedDiesOnInterrupt() throws Exception {
     WorkerOptions workerOptions = new WorkerOptions();
     workerOptions.workerCancellation = true;
     workerOptions.workerSandboxing = false;
@@ -317,8 +312,7 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
-  public void testExecInWorker_noMultiplexWithDynamic()
-      throws ExecException, InterruptedException, IOException {
+  public void testExecInWorker_noMultiplexWithDynamic() throws Exception {
     WorkerOptions workerOptions = new WorkerOptions();
     workerOptions.workerMultiplex = true;
     WorkerSpawnRunner runner = createWorkerSpawnRunner(workerOptions);
@@ -407,8 +401,7 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
-  public void testExpandArgument_expandsArgumentsRecursively()
-      throws IOException, InterruptedException {
+  public void testExpandArgument_expandsArgumentsRecursively() throws Exception {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     FileSystemUtils.writeIsoLatin1(fs.getPath("/file"), "arg1\n@file2\nmulti arg\n");
     FileSystemUtils.writeIsoLatin1(fs.getPath("/file2"), "arg2\narg3");
@@ -427,8 +420,7 @@ public class WorkerSpawnRunnerTest {
   }
 
   @Test
-  public void testExpandArgument_expandsOnlyProperArguments()
-      throws IOException, InterruptedException {
+  public void testExpandArgument_expandsOnlyProperArguments() throws Exception {
     WorkRequest.Builder requestBuilder = WorkRequest.newBuilder();
     FileSystemUtils.writeIsoLatin1(fs.getPath("/file"), "arg1\n@@nonfile\n@foo//bar\narg2");
     SandboxInputs inputs =

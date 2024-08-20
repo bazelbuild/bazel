@@ -943,6 +943,7 @@ message DumpCommand {
     STARLARK_HEAP_DUMP_FAILED = 5 [(metadata) = { exit_code: 8 }];
      reserved 6; // For internal use
     SKYFRAME_MEMORY_DUMP_FAILED = 7 [(metadata) = { exit_code: 7 }];
+    SERIALIZED_FRONTIER_PROFILE_FAILED = 8 [(metadata) = { exit_code: 7 }];
   }
 
   Code code = 1;

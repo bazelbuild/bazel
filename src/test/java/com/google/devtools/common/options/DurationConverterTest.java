@@ -47,6 +47,7 @@ public class DurationConverterTest {
     assertThat(converter.convert("30m")).isEqualTo(Duration.ofMinutes(30));
     assertThat(converter.convert("40s")).isEqualTo(Duration.ofSeconds(40));
     assertThat(converter.convert("50ms")).isEqualTo(Duration.ofMillis(50));
+    assertThat(converter.convert("60ns")).isEqualTo(Duration.ofNanos(60));
   }
 
   @Test

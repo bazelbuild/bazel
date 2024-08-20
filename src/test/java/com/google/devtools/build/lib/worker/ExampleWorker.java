@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.worker;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Ascii;
@@ -37,6 +38,7 @@ import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -275,7 +277,9 @@ public final class ExampleWorker {
     if (!options.printDirListing.isEmpty()) {
       Path rootDir = Path.of(options.printDirListing);
       try (Stream<Path> paths = Files.walk(rootDir, Integer.MAX_VALUE)) {
-        paths.forEach((path) -> outputs.add("DIRENT " + rootDir.relativize(path)));
+        for (Path path : paths.collect(toImmutableList())) {
+          outputs.add(String.format("DIRENT %s %s", rootDir.relativize(path), getInode(path)));
+        }
       }
     }
 
@@ -306,6 +310,10 @@ public final class ExampleWorker {
         outputFile.println(outputStr);
       }
     }
+  }
+
+  private static long getInode(Path path) throws IOException {
+    return (long) Files.getAttribute(path, "unix:ino", LinkOption.NOFOLLOW_LINKS);
   }
 
   private ExampleWorker() {}

@@ -35,9 +35,12 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -774,6 +777,74 @@ public final class Label implements Comparable<Label>, StarlarkValue, SkyKey, Co
 
   public static Codec labelCodec() {
     return Codec.INSTANCE;
+  }
+
+  public static DeferredObjectCodec<Label> valueSharingCodec() {
+    return LabelValueSharingCodec.INSTANCE;
+  }
+
+  // TODO: b/359437873 - generate with @AutoCodec.
+  private static class LabelValueSharingCodec extends DeferredObjectCodec<Label> {
+
+    private static final LabelValueSharingCodec INSTANCE = new LabelValueSharingCodec();
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<Label> getEncodedClass() {
+      return Label.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, Label id, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(id, /* distinguisher= */ null, LabelDeferredCodec.INSTANCE, codedOut);
+    }
+
+    @Override
+    public DeferredValue<Label> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      SimpleDeferredValue<Label> value = SimpleDeferredValue.create();
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          LabelDeferredCodec.INSTANCE,
+          value,
+          SimpleDeferredValue::set);
+      return value;
+    }
+  }
+
+  private static class LabelDeferredCodec extends DeferredObjectCodec<Label> {
+    private static final LabelDeferredCodec INSTANCE = new LabelDeferredCodec();
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<Label> getEncodedClass() {
+      return Label.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, Label obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.serializeLeaf(obj, labelCodec(), codedOut);
+    }
+
+    @Override
+    public DeferredValue<Label> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      Label value = context.deserializeLeaf(codedIn, labelCodec());
+      return () -> value;
+    }
   }
 
   @Keep

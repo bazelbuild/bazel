@@ -179,16 +179,13 @@ public class BuildSummaryStatsModule extends BlazeModule {
           }
         }
       }
-      if (profileEvent != null && profileEvent.getProfilePath() != null) {
+      if (profileEvent != null && profileEvent.getProfile() != null) {
         // This leads to missing the afterCommand profiles of the other modules in the profile.
         // Since the BEP currently shuts down at the BuildCompleteEvent, we cannot just move posting
         // the BuildToolLogs to afterCommand of this module.
         try {
           Profiler.instance().stop();
-          event
-              .getResult()
-              .getBuildToolLogCollection()
-              .addLocalFile(profileEvent.getName(), profileEvent.getProfilePath());
+          profileEvent.getProfile().publish(event.getResult().getBuildToolLogCollection());
         } catch (IOException e) {
           reporter.handle(Event.error("Error while writing profile file: " + e.getMessage()));
         }

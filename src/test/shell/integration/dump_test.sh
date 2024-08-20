@@ -111,8 +111,13 @@ EOF
   expect_log '"PACKAGE:b":'
 
   bazel dump --memory=full,count >& $TEST_log || fail "dump failed"
-  # //a, //b, //external and EXTERNAL_PACKAGE
-  expect_log_n '"com.google.devtools.build.lib.skyframe.PackageValue": 1' 4
+  if [[ $PRODUCT_NAME == "bazel" ]]; then
+    # WORSKAPCE disabled: //a, //b
+    expect_log_n '"com.google.devtools.build.lib.skyframe.PackageValue": 1' 2
+  else
+    # WORKSPACE enabled: //a, //b, //external and EXTERNAL_PACKAGE
+    expect_log_n '"com.google.devtools.build.lib.skyframe.PackageValue": 1' 4
+  fi
 }
 
 function test_memory_needle() {

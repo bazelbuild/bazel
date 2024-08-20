@@ -193,7 +193,7 @@ public class BuildViewTest extends BuildViewTestBase {
         """);
 
     update("//foo:a");
-    assertContainsEvent("DEBUG /workspace/foo/rule.bzl:3:8: f owner is @//foo:a");
+    assertContainsEvent("DEBUG /workspace/foo/rule.bzl:3:8: f owner is @@//foo:a");
   }
 
   @Test

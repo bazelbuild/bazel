@@ -12,21 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.packages;
+package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
+import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.NoSuchPackageException;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
 import javax.annotation.Nullable;
+import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests the execution of symbolic macro implementations. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class SymbolicMacroTest extends BuildViewTestCase {
 
   @Before
@@ -67,6 +73,27 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     assertThat(pkg).isNotNull();
     assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent(msg);
+  }
+
+  /**
+   * Convenience method for asserting that a package evaluates without error, but that the given
+   * target cannot be configured due to violating macro naming rules.
+   */
+  private void assertPackageLoadsButGetConfiguredTargetFailsMacroNamingCheck(
+      String pkgName, String macroName, String targetName) throws Exception {
+    Package pkg = getPackage(pkgName);
+    assertPackageNotInError(pkg);
+    assertThat(pkg.getTargets()).containsKey(targetName);
+
+    String labelString = String.format("//%s:%s", pkgName, targetName);
+    AssertionError error =
+        Assert.assertThrows(AssertionError.class, () -> getConfiguredTarget(labelString));
+    assertThat(error)
+        .hasMessageThat()
+        .contains(
+            String.format(
+                "Target %s declared in symbolic macro '%s' violates macro naming rules",
+                labelString, macroName));
   }
 
   @Test
@@ -110,12 +137,13 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   }
 
   /**
-   * Writes source files for package {@code //pkg} such that there is a macro by the given name
+   * Writes source files for package with a given name such that there is a macro by the given name
    * declaring a target by the given name.
    */
-  private void setupForMacroWithSingleTarget(String macroName, String targetName) throws Exception {
+  private void setupForMacroWithSingleTarget(String pkgName, String macroName, String targetName)
+      throws Exception {
     scratch.file(
-        "pkg/foo.bzl",
+        String.format("%s/foo.bzl", pkgName),
         String.format(
             """
             def _impl(name):
@@ -124,7 +152,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
             """,
             targetName));
     scratch.file(
-        "pkg/BUILD",
+        String.format("%s/BUILD", pkgName),
         String.format(
             """
             load(":foo.bzl", "my_macro")
@@ -134,46 +162,76 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   }
 
   @Test
-  public void macroTargetName_canBeNamePlusUnderscorePlusSomething() throws Exception {
-    setupForMacroWithSingleTarget("abc", "abc_lib");
+  @TestParameters({"{separator: '_'}", "{separator: '-'}", "{separator: '.'}"})
+  public void macroTargetName_canBeNamePlusSeparatorPlusSomething(String separator)
+      throws Exception {
+    String targetName = String.format("abc%slib", separator);
+    setupForMacroWithSingleTarget("pkg", "abc", targetName);
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc_lib");
+    assertThat(pkg.getTargets()).containsKey(targetName);
+    assertThat(getConfiguredTarget(String.format("//pkg:%s", targetName))).isNotNull();
   }
 
   @Test
   public void macroTargetName_canBeJustNameForMainTarget() throws Exception {
-    setupForMacroWithSingleTarget("abc", "abc");
+    setupForMacroWithSingleTarget("pkg", "abc", "abc");
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
     assertThat(pkg.getTargets()).containsKey("abc");
+    assertThat(getConfiguredTarget("//pkg:abc")).isNotNull();
     assertThat(pkg.getMacrosById()).containsKey("abc:1");
   }
 
   @Test
   public void macroTargetName_cannotBeNonSuffixOfName() throws Exception {
-    setupForMacroWithSingleTarget("abc", "xyz");
+    setupForMacroWithSingleTarget("pkg", "abc", "xyz");
 
-    assertGetPackageFailsWithEvent("pkg", "macro 'abc' cannot declare target named 'xyz'");
+    assertPackageLoadsButGetConfiguredTargetFailsMacroNamingCheck("pkg", "abc", "xyz");
   }
 
   @Test
-  public void macroTargetName_cannotBeNamePlusUnderscorePlusNothing() throws Exception {
-    setupForMacroWithSingleTarget("abc", "abc_");
+  public void macroTargetName_cannotBeLibPrefixOfName() throws Exception {
+    setupForMacroWithSingleTarget("pkg", "abc", "libabc.so");
 
-    assertGetPackageFailsWithEvent("pkg", "macro 'abc' cannot declare target named 'abc_'");
+    assertPackageLoadsButGetConfiguredTargetFailsMacroNamingCheck("pkg", "abc", "libabc.so");
   }
 
   @Test
-  public void exportsFilesInMacroIsSubjectToNamingRestriction() throws Exception {
+  @TestParameters({"{separator: ''}", "{separator: '@'}"})
+  public void macroTargetName_cannotBeInvalidSeparatorPlusSomething(String separator)
+      throws Exception {
+    String targetName = String.format("abc%sxyz", separator);
+    setupForMacroWithSingleTarget("pkg", "abc", targetName);
+
+    assertPackageLoadsButGetConfiguredTargetFailsMacroNamingCheck("pkg", "abc", targetName);
+  }
+
+  @Test
+  @TestParameters({"{separator: '_'}", "{separator: '-'}", "{separator: '.'}"})
+  public void macroTargetName_cannotBeNamePlusSeparatorPlusNothing(String separator)
+      throws Exception {
+    String targetName = "abc" + separator;
+    setupForMacroWithSingleTarget("pkg", "abc", targetName);
+
+    assertPackageLoadsButGetConfiguredTargetFailsMacroNamingCheck("pkg", "abc", targetName);
+  }
+
+  @Test
+  public void illegallyNamedExportsFilesDoNotBreakPackageLoadingButCannotBeConfigured()
+      throws Exception {
     scratch.file(
         "pkg/foo.bzl",
         """
         def _impl(name):
-            native.exports_files(srcs=["abc_txt"])  # ok
-            native.exports_files(srcs=["xyz.txt"])  # bad
+            # valid names
+            native.exports_files(srcs=["abc_txt"])
+            native.exports_files(srcs=["abc-txt"])
+            native.exports_files(srcs=["abc.txt"])
+            # allowed during package loading, but cannot be configured
+            native.exports_files(srcs=["xyz.txt"])
         my_macro = macro(implementation=_impl)
         """);
     scratch.file(
@@ -183,24 +241,34 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         my_macro(name="abc")
         """);
 
-    assertGetPackageFailsWithEvent(
-        "pkg", "Error in exports_files: macro 'abc' cannot declare target named 'xyz.txt'.");
+    assertPackageLoadsButGetConfiguredTargetFailsMacroNamingCheck("pkg", "abc", "xyz.txt");
+    assertThat(getConfiguredTarget("//pkg:abc_txt")).isNotNull();
+    assertThat(getConfiguredTarget("//pkg:abc-txt")).isNotNull();
+    assertThat(getConfiguredTarget("//pkg:abc.txt")).isNotNull();
   }
 
-  // TODO: #19922 - Consider allowing "foo.bar" to satisfy prefix naming requirement for macro named
-  // "foo", by treating "." as equivalent to "_". Otherwise we limit what rule types may be used as
-  // main targets of macros. Suffixes besides "." are probably unlikely in implicit outputs, but
-  // investigate to confirm.
   @Test
-  public void implicitOutputsOfMainTargetIsSubjectToNamingRestriction() throws Exception {
+  public void illegallyNamedOutputsDoNotBreakPackageLoadingButCannotBeConfigured()
+      throws Exception {
     scratch.file(
         "pkg/foo.bzl",
         """
         def _my_rule_impl(ctx):
-            pass
+            ctx.actions.write(ctx.outputs.out1, "")
+            ctx.actions.write(ctx.outputs.out2, "")
+            ctx.actions.write(ctx.outputs.out3, "")
+            ctx.actions.write(ctx.outputs.out4, "")
+            return []
         my_rule = rule(
             implementation = _my_rule_impl,
-            outputs = {"out": "%{name}.txt"},
+            outputs = {
+              # valid names
+              "out1": "%{name}_out1",
+              "out2": "%{name}-out2",
+              "out3": "%{name}.out3",
+              # allowed during package loading, but cannot be configured
+              "out4": "lib%{name}.so",
+            },
         )
         def _my_macro_impl(name):
             my_rule(name=name)
@@ -213,10 +281,28 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         my_macro(name="abc")
         """);
 
-    assertGetPackageFailsWithEvent(
-        "pkg",
-        "macro 'abc' cannot declare target named 'abc.txt'. Name must be the same as the macro's"
-            + " name or a suffix of the macro's name plus '_'.");
+    assertPackageLoadsButGetConfiguredTargetFailsMacroNamingCheck("pkg", "abc", "libabc.so");
+    assertThat(getConfiguredTarget("//pkg:abc")).isNotNull();
+    assertThat(getConfiguredTarget("//pkg:abc_out1")).isNotNull();
+    assertThat(getConfiguredTarget("//pkg:abc-out2")).isNotNull();
+    assertThat(getConfiguredTarget("//pkg:abc.out3")).isNotNull();
+  }
+
+  @Test
+  public void illegallyNamedTargetsProvideAnalysisFailureInfo() throws Exception {
+    useConfiguration("--allow_analysis_failures=true");
+    setupForMacroWithSingleTarget("pkg", "abc", "libabc.so");
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+
+    ConfiguredTarget target = getConfiguredTarget("//pkg:libabc.so");
+    AnalysisFailureInfo info =
+        (AnalysisFailureInfo) target.get(AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey());
+    AnalysisFailure failure = info.getCauses().getSet(AnalysisFailure.class).toList().get(0);
+    assertThat(failure.getMessage())
+        .contains(
+            "Target //pkg:libabc.so declared in symbolic macro 'abc' violates macro naming rules"
+                + " and cannot be built.");
   }
 
   @Test
@@ -347,24 +433,35 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
   @Test
   public void submacroNameMustFollowPrefixNamingConvention() throws Exception {
+    scratch.file("pkg/BUILD");
     scratch.file(
         "pkg/foo.bzl",
         """
         def _inner_impl(name):
             pass
         inner_macro = macro(implementation=_inner_impl)
-        def _impl(name):
-            inner_macro(name = name + "$inner")
-        my_macro = macro(implementation=_impl)
+        def _impl(name, sep):
+            inner_macro(name = name + sep + "inner")
+        my_macro = macro(implementation=_impl, attrs={"sep": attr.string(configurable=False)})
         """);
     scratch.file(
-        "pkg/BUILD",
+        "good/BUILD",
         """
-        load(":foo.bzl", "my_macro")
-        my_macro(name="abc")
+        load("//pkg:foo.bzl", "my_macro")
+        my_macro(name="abc", sep = "_")  # ok
+        my_macro(name="def", sep = "-")  # ok
+        my_macro(name="ghi", sep = ".")  # ok
+        """);
+    scratch.file(
+        "bad/BUILD",
+        """
+        load("//pkg:foo.bzl", "my_macro")
+        my_macro(name="jkl", sep = "$")  # bad
         """);
 
-    assertGetPackageFailsWithEvent("pkg", "macro 'abc' cannot declare submacro named 'abc$inner'");
+    Package good = getPackage("good");
+    assertPackageNotInError(good);
+    assertGetPackageFailsWithEvent("bad", "macro 'jkl' cannot declare submacro named 'jkl$inner'");
   }
 
   @Test
@@ -566,10 +663,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   // Starlark-defined repository rules might technically be callable but we skip over that edge
   // case here.
 
-  // TODO: #19922 - This behavior is necessary to preserve compatibility with use cases for
-  // native.existing_rules(), but it's a blocker for making symbolic macro evaluation lazy.
   @Test
-  public void macroDeclaredTargetsAreVisibleToExistingRules() throws Exception {
+  public void existingRules_canSeeTargetsCreatedByOrdinaryMacros() throws Exception {
     scratch.file(
         "pkg/foo.bzl",
         """
@@ -591,6 +686,31 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
     assertContainsEvent("existing_rules() keys: [\"outer_target\", \"abc_lib\"]");
+  }
+
+  @Test
+  public void existingRules_cannotSeeTargetsCreatedByFinalizers() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name):
+            native.cc_binary(name = name + "_lib")
+        my_macro = macro(implementation=_impl, finalizer=True)
+        def query():
+            print("existing_rules() keys: %s" % native.existing_rules().keys())
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro", "query")
+        cc_library(name = "outer_target")
+        my_macro(name="abc")
+        query()
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertContainsEvent("existing_rules() keys: [\"outer_target\"]");
   }
 
   @Test
@@ -705,8 +825,6 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
   @Test
   public void noneAttrValue_doesNotSatisfyMandatoryRequirement() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
@@ -735,8 +853,6 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
   @Test
   public void noneAttrValue_disallowedWhenAttrDoesNotExist() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """

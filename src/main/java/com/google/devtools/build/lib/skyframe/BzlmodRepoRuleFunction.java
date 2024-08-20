@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -52,6 +51,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -194,7 +194,9 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
               directories,
               starlarkSemantics,
               env.getListener(),
-              "BzlmodRepoRuleFunction.createRule",
+              ImmutableList.of(
+                  StarlarkThread.callStackEntry(
+                      "BzlmodRepoRuleFunction.createRuleFromSpec", Location.BUILTIN)),
               ruleClass,
               attributes);
       return new BzlmodRepoRuleValue(rule.getPackage(), rule.getName());

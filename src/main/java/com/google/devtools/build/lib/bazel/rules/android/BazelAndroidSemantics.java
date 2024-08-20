@@ -40,10 +40,6 @@ public class BazelAndroidSemantics implements AndroidSemantics {
       // Internal package identifiers that are allowed to use the native Android rules until they
       // can be fully moved into the rules_android Starlark implementation.
       ImmutableSet.<PackageIdentifier>builder()
-          .add(
-              PackageIdentifier.createUnchecked(
-                  "bazel_tools",
-                  "src/tools/android/java/com/google/devtools/build/android/incrementaldeployment"))
           .add(PackageIdentifier.createUnchecked("bazel_tools", "tools/android"))
           .build();
   private static final String BAZEL_TEST_RUNNER_MAIN_CLASS =

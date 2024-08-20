@@ -22,6 +22,7 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -90,7 +91,7 @@ public class ObjectCodecs {
   }
 
   @VisibleForTesting // private
-  public ObjectCodecs withCodecOverridesForTesting(ObjectCodec<?>... codecs) {
+  public ObjectCodecs withCodecOverridesForTesting(List<ObjectCodec<?>> codecs) {
     ObjectCodecRegistry.Builder registryBuilder = getCodecRegistry().getBuilder();
     for (ObjectCodec<?> codec : codecs) {
       registryBuilder.add(codec);

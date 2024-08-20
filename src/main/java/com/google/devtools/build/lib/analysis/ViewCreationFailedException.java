@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 
@@ -46,7 +47,7 @@ public class ViewCreationFailedException extends Exception {
   }
 
   private static String combineMessages(String message, Throwable cause) {
-    if (cause.getMessage().isEmpty()) {
+    if (isNullOrEmpty(cause.getMessage())) {
       return message;
     } else {
       return message + ": " + cause.getMessage();

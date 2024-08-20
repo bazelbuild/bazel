@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -151,7 +152,10 @@ public class WorkerMultiplexer {
    * sets up the sandbox root dir with the required worker files.
    */
   public synchronized void createSandboxedProcess(
-      Path workDir, Set<PathFragment> workerFiles, SandboxInputs inputFiles)
+      Path workDir,
+      Set<PathFragment> workerFiles,
+      SandboxInputs inputFiles,
+      TreeDeleter treeDeleter)
       throws IOException, InterruptedException {
     // TODO: Make blaze clean remove the workdir.
     if (this.process == null) {
@@ -167,7 +171,12 @@ public class WorkerMultiplexer {
           workerFiles,
           SandboxOutputs.getEmptyInstance());
       SandboxHelpers.cleanExisting(
-          workDir.getParentDirectory(), inputFiles, inputsToCreate, dirsToCreate, workDir);
+          workDir.getParentDirectory(),
+          inputFiles,
+          inputsToCreate,
+          dirsToCreate,
+          workDir,
+          treeDeleter);
       SandboxHelpers.createDirectories(dirsToCreate, workDir, /* strict=*/ false);
       WorkerExecRoot.createInputs(inputsToCreate, inputFiles.limitedCopy(workerFiles), workDir);
       createProcess(workDir);

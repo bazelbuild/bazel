@@ -1,4 +1,4 @@
-// Copyright 2020 The Bazel Authors. All rights reserved.
+// Copyright 2022 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,14 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.analysis;
+#ifndef EXAMPLES_TEST_CC_STATIC_LIBRARY_FOO_H_
+#define EXAMPLES_TEST_CC_STATIC_LIBRARY_FOO_H_
 
-/**
- * This exception is thrown when configured targets and aspects being merged provide duplicate
- * things that they shouldn't (output groups or providers).
- */
-public final class DuplicateException extends Exception {
-  public DuplicateException(String message) {
-    super(message);
-  }
-}
+int foo();
+
+#endif  // EXAMPLES_TEST_CC_STATIC_LIBRARY_FOO_H_

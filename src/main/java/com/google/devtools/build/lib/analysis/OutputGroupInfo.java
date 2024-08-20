@@ -26,6 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.MergingException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleConfiguredTargetUtil;
 import com.google.devtools.build.lib.collect.ImmutableSharedKeyMap;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
@@ -178,7 +179,7 @@ public abstract class OutputGroupInfo extends StructImpl
    * disjoint, except for the special validation output group, which is always merged.
    */
   @Nullable
-  public static OutputGroupInfo merge(List<OutputGroupInfo> providers) throws DuplicateException {
+  public static OutputGroupInfo merge(List<OutputGroupInfo> providers) throws MergingException {
     if (providers.isEmpty()) {
       return null;
     }
@@ -193,7 +194,7 @@ public abstract class OutputGroupInfo extends StructImpl
           continue;
         }
         if (outputGroups.put(group, provider.getOutputGroup(group)) != null) {
-          throw new DuplicateException("Output group " + group + " provided twice");
+          throw new MergingException("Output group " + group + " provided twice");
         }
       }
     }
@@ -204,7 +205,7 @@ public abstract class OutputGroupInfo extends StructImpl
         validationOutputs.addTransitive(provider.getOutputGroup(VALIDATION));
       } catch (IllegalArgumentException e) {
         // Thrown if nested set orders aren't compatible.
-        throw new DuplicateException(
+        throw new MergingException(
             "Output group " + VALIDATION + " provided twice with incompatible depset orders");
       }
     }

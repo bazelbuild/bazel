@@ -328,11 +328,6 @@ public abstract class PostAnalysisQueryHelper<T> extends AbstractQueryHelper<T> 
       return super.update(labels);
     }
 
-    @Override
-    protected FlagBuilder defaultFlags() {
-      return super.defaultFlags().with(Flag.ENABLE_BZLMOD);
-    }
-
     protected SkyframeExecutor getSkyframeExecutor() {
       return skyframeExecutor;
     }
