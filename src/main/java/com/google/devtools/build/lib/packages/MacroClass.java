@@ -55,6 +55,10 @@ public final class MacroClass {
    * <p>Of these, {@code name} is special cased as an actual attribute, and the rest do not exist.
    */
   // Keep in sync with `macro()`'s `attrs` user documentation in StarlarkRuleFunctionsApi.
+  // TODO: #19922 - Current thinking is that when/if we allow macros to have built-in attributes or
+  // inherit the attributes of a wrapped rule class, then we'll allow the attrs dict to shadow any
+  // inherited attr. In that case we can relax this list to be just "name" and "visibility", which
+  // are always innately meaningful to a macro and should never be user-defined.
   public static final ImmutableSet<String> RESERVED_MACRO_ATTR_NAMES =
       ImmutableSet.of("name", "visibility", "deprecation", "tags", "testonly", "features");
 

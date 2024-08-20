@@ -553,6 +553,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
             : RuleVisibility.parse(
                 BuildType.LABEL_LIST.convert(
                     visibilityO, "'exports_files' operand", pkgBuilder.getLabelConverter()));
+    visibility = pkgBuilder.copyAppendingCurrentMacroLocation(visibility);
 
     // TODO(bazel-team): is licenses plural or singular?
     License license = BuildType.LICENSE.convertOptional(licensesO, "'exports_files' operand");
@@ -565,6 +566,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       }
       try {
         InputFile inputFile = pkgBuilder.createInputFile(file, loc);
+        // TODO: #19922 - The use of identity inequality in this visibility check seems suspect,
+        // since the same logical visibility may have multiple RuleVisibility instances. But it's
+        // unclear why we want to support idempotent exports_files() with the same logical
+        // visibility at all. With Macro-Aware Visibility, it becomes possible for two identical
+        // visibility lines to declare different actual visibility values depending on context.
         if (inputFile.isVisibilitySpecified() && inputFile.getVisibility() != visibility) {
           throw Starlark.errorf(
               "visibility for exported file '%s' declared twice", inputFile.getName());

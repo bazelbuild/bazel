@@ -155,6 +155,27 @@ public class Package {
   // in {@link #finishInit} when name conflict checking is disabled.
   @Nullable private ImmutableMap<String, String> macroNamespaceViolatingTargets;
 
+  /**
+   * A map from names of targets declared in a symbolic macro to the (innermost) macro instance
+   * where they were declared.
+   */
+  // TODO: #19922 - This likely subsumes macroNamespaceViolatingTargets, since we can just map the
+  // target to its macro and then check whether it is in the macro's namespace.
+  //
+  // TODO: #19922 - Don't maintain this extra map of all macro-instantiated targets. We have a
+  // couple options:
+  //   1) Have Target store a reference to its declaring MacroInstance directly. To avoid adding a
+  //      field to that class (a not insignificant cost), we can merge it with the reference to its
+  //      package: If we're not in a macro, we point to the package, and if we are, we point to the
+  //      innermost macro, and hop to the MacroInstance to get a reference to the Package (or parent
+  //      macro).
+  //   2) To support lazy macro evaluation, we'll probably need a prefix trie in Package to find the
+  //      macros whose namespaces contain the requested target name. For targets that respect their
+  //      macro's namespace, we could just look them up in the trie. This assumes we already know
+  //      whether the target is well-named, which we wouldn't if we got rid of
+  //      macroNamespaceViolatingTargets.
+  private ImmutableMap<String, MacroInstance> targetsToDeclaringMacros;
+
   public PackageArgs getPackageArgs() {
     return metadata.packageArgs;
   }
@@ -367,6 +388,7 @@ public class Package {
         builder.macroNamespaceViolatingTargets != null
             ? ImmutableMap.copyOf(builder.macroNamespaceViolatingTargets)
             : ImmutableMap.of();
+    this.targetsToDeclaringMacros = ImmutableSortedMap.copyOf(builder.targetsToDeclaringMacros);
     this.failureDetail = builder.getFailureDetail();
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
@@ -718,6 +740,15 @@ public class Package {
   }
 
   /**
+   * Returns the (innermost) symbolic macro instance that declared the given target, or null if the
+   * target was not created in a symbolic macro or no such target by the given name exists.
+   */
+  @Nullable
+  public MacroInstance getDeclaringMacroForTarget(String target) {
+    return targetsToDeclaringMacros.get(target);
+  }
+
+  /**
    * How to enforce visibility on <code>config_setting</code> See {@link
    * ConfigSettingVisibilityPolicy} for details.
    */
@@ -1000,6 +1031,8 @@ public class Package {
     //
     // We use SnapshottableBiMap to help track insertion order of Rule targets, for use by
     // native.existing_rules().
+    //
+    // Use addOrReplaceTarget() to add new entries.
     private BiMap<String, Target> targets =
         new SnapshottableBiMap<>(target -> target instanceof Rule);
 
@@ -1104,6 +1137,12 @@ public class Package {
      * manipulated only in {@link #checkRuleAndOutputs}.
      */
     @Nullable private Map<String, String> macroNamespaceViolatingTargets = new HashMap<>();
+
+    /**
+     * A map from target name to the (innermost) macro instance that declared it. See {@link
+     * Package#targetsToDeclaringMacros}.
+     */
+    private LinkedHashMap<String, MacroInstance> targetsToDeclaringMacros = new LinkedHashMap<>();
 
     /**
      * The collection of the prefixes of every output file. Maps each prefix to an arbitrary output
@@ -1665,7 +1704,11 @@ public class Package {
     @CanIgnoreReturnValue
     @Nullable
     private Target addOrReplaceTarget(Target target) {
-      return targets.put(target.getName(), target);
+      Target existing = targets.put(target.getName(), target);
+      if (currentMacroFrame != null) {
+        targetsToDeclaringMacros.put(target.getName(), currentMacroFrame.macroInstance);
+      }
+      return existing;
     }
 
     @Nullable
@@ -2032,6 +2075,36 @@ public class Package {
       return prev;
     }
 
+    /**
+     * If we are currently executing a symbolic macro, returns the result of unioning the given
+     * visibility with the location of the innermost macro's code. Otherwise, returns the given
+     * visibility unmodified.
+     *
+     * <p>The location of the macro's code is considered to be the package containing the .bzl file
+     * from which the macro's {@code MacroClass} was exported.
+     */
+    RuleVisibility copyAppendingCurrentMacroLocation(RuleVisibility visibility) {
+      if (currentMacroFrame == null) {
+        return visibility;
+      }
+      MacroClass macroClass = currentMacroFrame.macroInstance.getMacroClass();
+      PackageIdentifier macroLocation = macroClass.getDefiningBzlLabel().getPackageIdentifier();
+      Label newVisibilityItem = Label.createUnvalidated(macroLocation, "__pkg__");
+
+      if (visibility.equals(RuleVisibility.PRIVATE)) {
+        // Private is dropped.
+        return PackageGroupsRuleVisibility.create(ImmutableList.of(newVisibilityItem));
+      } else if (visibility.equals(RuleVisibility.PUBLIC)) {
+        // Public is idempotent.
+        return visibility;
+      } else {
+        ImmutableList.Builder<Label> items = new ImmutableList.Builder<>();
+        items.addAll(visibility.getDeclaredLabels());
+        items.add(newVisibilityItem);
+        return PackageGroupsRuleVisibility.create(items.build());
+      }
+    }
+
     void addRegisteredExecutionPlatforms(List<TargetPattern> platforms) {
       this.registeredExecutionPlatforms.addAll(platforms);
     }
@@ -2144,9 +2217,11 @@ public class Package {
                 macroConflictsFound |= nameIsWithinMacroNamespace(name, macro.getName());
               }
               if (!macroConflictsFound) {
-              Location loc = rule.getLocation();
+                Location loc = rule.getLocation();
                 newInputFiles.put(
                     name,
+                    // Targets added this way are not in any macro, so
+                    // copyAppendingCurrentMacroLocation() munging isn't applicable.
                     noImplicitFileExport
                         ? new PrivateVisibilityInputFile(pkg, label, loc)
                         : new InputFile(pkg, label, loc));
