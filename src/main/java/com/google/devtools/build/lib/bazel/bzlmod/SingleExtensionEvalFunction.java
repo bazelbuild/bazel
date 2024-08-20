@@ -569,7 +569,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         SingleExtensionUsagesValue usagesValue,
         StarlarkSemantics starlarkSemantics,
         ModuleExtensionId extensionId,
-        RepositoryMapping repositoryMapping)
+        RepositoryMapping mainRepositoryMapping)
         throws InterruptedException, SingleExtensionEvalFunctionException;
   }
 

@@ -57,6 +57,10 @@ public class EvalException extends Exception {
     super(getCauseMessage(cause), cause);
   }
 
+  /**
+   * Constructs an EvalException using the same message as the cause exception and with the given
+   * callstack.
+   */
   public EvalException(Throwable cause, List<StarlarkThread.CallStackEntry> callstack) {
     this(cause);
     this.callstack = ImmutableList.copyOf(callstack);
