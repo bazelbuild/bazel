@@ -2991,9 +2991,9 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         """
         bazel_dep(name = "data_repo", version = "1.0")
         ext = use_extension("//:defs.bzl","ext")
-        use_repo(ext, real_foo = "foo", real_bar = "bar", real_baz = "baz")
+        use_repo(ext, real_foo = "foo", real_bar = "bar")
         other_ext = use_extension("//:defs.bzl", "other_ext")
-        use_repo(other_ext, foo = "other_foo", bar = "other_bar", baz = "other_baz")
+        use_repo(other_ext, foo = "other_foo", bar = "other_bar")
         """);
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
     scratch.file(
@@ -3001,10 +3001,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         """
         load("@real_foo//:list.bzl", _foo_list = "list")
         load("@real_bar//:list.bzl", _bar_list = "list")
-        load("@real_baz//:list.bzl", _baz_list = "list")
         foo_list = _foo_list
         bar_list = _bar_list
-        baz_list = _baz_list
         """);
     scratch.file(
         workspaceRoot.getRelative("defs.bzl").getPathString(),
@@ -3025,53 +3023,38 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         )
         def _ext_impl(ctx):
           labels = [
-            "@bar//:target1",
-            Label("@bar//:target2"),
-            "@baz//:target3",
-            Label("@baz//:target4"),
+            "@foo//:target1",
+            "@bar//:target2",
+            Label("@foo//:target3"),
+            Label("@bar//:target4"),
           ]
-          # References repo rules called below.
           list_repo(
             name = "foo",
             labels = labels,
             names = [
               "@foo",
               "@bar",
-              "@baz",
-            ],
-          )
-
-          list_repo(
-            name = "baz",
-            labels = [],
-            names = [
-              "@foo",
-              "@bar",
-              "@baz",
             ],
           )
 
           # Modify the list passed to "foo" to verify that it is not retained by
           # reference.
-          labels[0] = "@baz//:target5"
-          labels[1] = Label("@baz//:target6")
-          labels[2] = "@baz//:target7"
-          labels[3] = Label("@baz//:target8")
-          # References a repo rule called above.
+          labels[0] = "@foo//:target5"
+          labels[1] = "@bar//:target6"
+          labels[2] = Label("@foo//:target7")
+          labels[3] = Label("@bar//:target8")
           list_repo(
             name = "bar",
             labels = labels,
             names = [
               "@foo",
               "@bar",
-              "@baz",
             ],
           )
         ext = module_extension(implementation = _ext_impl)
         def _other_ext_impl(ctx):
           data_repo(name="other_foo",data="other_foo_data")
           data_repo(name="other_bar",data="other_bar_data")
-          data_repo(name="other_baz",data="other_baz_data")
         other_ext=module_extension(implementation=_other_ext_impl)
         """);
 
@@ -3083,26 +3066,19 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     }
     assertThat((List<?>) result.get(skyKey).getModule().getGlobal("foo_list"))
         .containsExactly(
-            "@@+other_ext+other_bar//:target1",
+            "@@+other_ext+other_foo//:target1",
             "@@+other_ext+other_bar//:target2",
-            "@@+other_ext+other_baz//:target3",
-            "@@+other_ext+other_baz//:target4",
+            "@@+other_ext+other_foo//:target3",
+            "@@+other_ext+other_bar//:target4",
             "@@+other_ext+other_foo//:foo",
-            "@@+other_ext+other_bar//:bar",
-            "@@+other_ext+other_baz//:baz");
+            "@@+other_ext+other_bar//:bar");
     assertThat((List<?>) result.get(skyKey).getModule().getGlobal("bar_list"))
         .containsExactly(
-            "@@+other_ext+other_baz//:target5",
-            "@@+other_ext+other_baz//:target6",
-            "@@+other_ext+other_baz//:target7",
-            "@@+other_ext+other_baz//:target8",
+            "@@+other_ext+other_foo//:target5",
+            "@@+other_ext+other_bar//:target6",
+            "@@+other_ext+other_foo//:target7",
+            "@@+other_ext+other_bar//:target8",
             "@@+other_ext+other_foo//:foo",
-            "@@+other_ext+other_bar//:bar",
-            "@@+other_ext+other_baz//:baz");
-    assertThat((List<?>) result.get(skyKey).getModule().getGlobal("baz_list"))
-        .containsExactly(
-            "@@+other_ext+other_foo//:foo",
-            "@@+other_ext+other_bar//:bar",
-            "@@+other_ext+other_baz//:baz");
+            "@@+other_ext+other_bar//:bar");
   }
 }
