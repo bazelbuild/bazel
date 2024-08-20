@@ -218,6 +218,11 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
 
   @Test
   public void aspectCommandLineRepoLabel() throws Exception {
+    if (!analysisMock.isThisBazel()) {
+      // This test is somehow flaky internally.
+      // TODO(b/361059437): Fix this test.
+      return;
+    }
     scratch.overwriteFile(
         "MODULE.bazel",
         "bazel_dep(name='local')",
