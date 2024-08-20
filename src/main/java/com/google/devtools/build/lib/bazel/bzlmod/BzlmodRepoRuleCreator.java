@@ -35,9 +35,7 @@ import java.util.Map;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkThread.CallStackEntry;
-import net.starlark.java.syntax.Location;
 
 /**
  * Creates a repo rule instance for Bzlmod. This class contrasts with the WORKSPACE repo rule
@@ -53,7 +51,7 @@ public final class BzlmodRepoRuleCreator {
       BlazeDirectories directories,
       StarlarkSemantics semantics,
       ExtendedEventHandler eventHandler,
-      String callStackEntry,
+      ImmutableList<CallStackEntry> callStack,
       RuleClass ruleClass,
       Map<String, Object> attributes)
       throws InterruptedException, InvalidRuleException, NoSuchPackageException, EvalException {
@@ -72,8 +70,6 @@ public final class BzlmodRepoRuleCreator {
             repoMapping);
     BuildLangTypedAttributeValuesMap attributeValues =
         new BuildLangTypedAttributeValuesMap(attributes);
-    ImmutableList<CallStackEntry> callStack =
-        ImmutableList.of(StarlarkThread.callStackEntry(callStackEntry, Location.BUILTIN));
     Rule rule;
     try {
       rule =

@@ -113,7 +113,7 @@ public final class ModuleExtensionEvalStarlarkThreadContext extends StarlarkThre
               directories,
               thread.getSemantics(),
               eventHandler,
-              "RepositoryRuleFunction.createRule",
+              thread.getCallStack(),
               ruleClass,
               Maps.transformEntries(kwargs, (k, v) -> k.equals("name") ? prefixedName : v));
 
