@@ -67,8 +67,6 @@ import javax.annotation.Nullable;
 class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     implements BuildEventArtifactUploader {
   private static final Pattern TEST_LOG_PATTERN = Pattern.compile(".*/bazel-out/[^/]*/testlogs/.*");
-  private static final Pattern BUILD_LOG_PATTERN =
-      Pattern.compile(".*/bazel-out/_tmp/actions/std(err|out)-.*");
 
   private final Executor executor;
   private final ExtendedEventHandler reporter;
@@ -201,6 +199,29 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private PathMetadata readPathMetadata(Path path, LocalFile file) throws IOException {
     DigestUtil digestUtil = new DigestUtil(xattrProvider, path.getFileSystem().getDigestFunction());
 
+    if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
+      // Omit all unimportant paths
+      if (!(
+        // Logs (regex needed for test logs as they lack a dedicated `LocalFileType`)
+        TEST_LOG_PATTERN.matcher(path.getPathString()).matches()
+        || file.type == LocalFileType.LOG
+        || file.type == LocalFileType.PERFORMANCE_LOG
+        // std(out|err)
+        || file.type == LocalFileType.STDOUT
+        || file.type == LocalFileType.STDERR
+      )) {
+        return new PathMetadata(
+            path,
+            /* digest= */ null,
+            /* directory= */ false,
+            /* symlink= */ false,
+            /* remote= */ false,
+            /* omitted= */ false,
+            /* isBuildToolLog= */ false,
+            digestUtil.getDigestFunction());
+      }
+    }
+
     if (file.type == LocalFileType.OUTPUT_DIRECTORY
         || ((file.type == LocalFileType.SUCCESSFUL_TEST_OUTPUT
                 || file.type == LocalFileType.FAILED_TEST_OUTPUT
@@ -286,16 +307,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
             && !path.isSymlink()
             && !path.isOmitted();
 
-    if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
-      result = result && (path.isBuildToolLog() || isBuildOrTestLog(path));
-    }
-
     return result;
-  }
-
-  private boolean isBuildOrTestLog(PathMetadata path) {
-    return TEST_LOG_PATTERN.matcher(path.getPath().getPathString()).matches()
-        || BUILD_LOG_PATTERN.matcher(path.getPath().getPathString()).matches();
   }
 
   private Single<List<PathMetadata>> queryRemoteCache(
@@ -518,7 +530,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         if (skippedPaths.contains(path)) {
           return null;
         }
-        // It's a programming error to reference a file that has not been uploaded.
+        // It's a programming error to reference a file that has not had the oportunity to be uploaded.
         throw new IllegalStateException(
             String.format("Illegal file reference: '%s'", path.getPathString()));
       }

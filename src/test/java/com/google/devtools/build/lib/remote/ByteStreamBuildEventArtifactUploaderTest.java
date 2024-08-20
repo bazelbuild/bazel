@@ -188,7 +188,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     RemoteCache remoteCache = newRemoteCache(refCntChannel, retrier);
-    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache, RemoteBuildEventUploadMode.ALL);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     for (Path file : filesToUpload.keySet()) {
@@ -197,6 +197,54 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       String conversion = pathConverter.apply(file);
       assertThat(conversion)
           .isEqualTo("bytestream://localhost/instance/blobs/" + hash + "/" + size);
+    }
+
+    artifactUploader.release();
+
+    assertThat(remoteCache.refCnt()).isEqualTo(0);
+    assertThat(refCntChannel.isShutdown()).isTrue();
+  }
+
+  
+  @Test
+  public void uploadsShouldWorkWithMinimalMode() throws Exception {
+    int numUploads = 2;
+    Map<HashCode, byte[]> blobsByHash = new HashMap<>();
+    Map<Path, LocalFile> filesToUpload = new HashMap<>();
+    Random rand = new Random();
+    for (LocalFileType localFileType : new LocalFileType[]{ LocalFileType.OUTPUT, LocalFileType.LOG }) {
+      Path file = fs.getPath("/file" + localFileType.name());
+      OutputStream out = file.getOutputStream();
+      int blobSize = rand.nextInt(100) + 1;
+      byte[] blob = new byte[blobSize];
+      rand.nextBytes(blob);
+      out.write(blob);
+      out.close();
+      blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
+      filesToUpload.put(
+          file,
+          new LocalFile(
+              file, localFileType, /* artifact= */ null, /* artifactMetadata= */ null));
+    }
+    serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
+
+    RemoteRetrier retrier =
+        TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
+    ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
+    RemoteCache remoteCache = newRemoteCache(refCntChannel, retrier);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache, RemoteBuildEventUploadMode.MINIMAL);
+
+    PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
+    for (LocalFile file : filesToUpload.values()) {
+      if (file.type == LocalFileType.OUTPUT) {
+        assertThat(pathConverter.apply(file.path)).isEqualTo(null);
+      } else {
+        String hash = BaseEncoding.base16().lowerCase().encode(file.path.getDigest());
+        long size = file.path.getFileSize();
+        String conversion = pathConverter.apply(file.path);
+        assertThat(conversion)
+            .isEqualTo("bytestream://localhost/instance/blobs/" + hash + "/" + size);
+      }
     }
 
     artifactUploader.release();
@@ -232,7 +280,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     // number of permits is less than number of uploads to affirm permit is released
     RemoteCache remoteCache = newRemoteCache(refCntChannel, retrier);
-    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache, RemoteBuildEventUploadMode.ALL);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     for (Path file : filesToUpload.keySet()) {
@@ -264,7 +312,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     RemoteCache remoteCache = newRemoteCache(refCntChannel, retrier);
-    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache, RemoteBuildEventUploadMode.ALL);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(dir)).isNull();
@@ -283,7 +331,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     RemoteCache remoteCache = newRemoteCache(refCntChannel, retrier);
-    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache, RemoteBuildEventUploadMode.ALL);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(sym)).isNull();
@@ -303,7 +351,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     RemoteCache remoteCache = newRemoteCache(refCntChannel, retrier);
-    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache, RemoteBuildEventUploadMode.ALL);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     String hash = BaseEncoding.base16().lowerCase().encode(file.getDigest());
@@ -329,7 +377,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     RemoteCache remoteCache = newRemoteCache(refCntChannel, retrier);
-    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache, RemoteBuildEventUploadMode.ALL);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     String hash = BaseEncoding.base16().lowerCase().encode(file.getDigest());
@@ -369,7 +417,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     RemoteCache remoteCache = newRemoteCache(refCntChannel, retrier);
-    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache, RemoteBuildEventUploadMode.ALL);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     assertThat(pathConverter.apply(dir)).isNull();
@@ -442,7 +490,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     RemoteCache remoteCache = newRemoteCache(refCntChannel, retrier);
-    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache, RemoteBuildEventUploadMode.ALL);
 
     artifactUploader.upload(filesToUpload).get();
 
@@ -468,7 +516,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
     RemoteCache remoteCache = spy(newRemoteCache(refCntChannel, retrier));
     RemoteActionInputFetcher actionInputFetcher = mock(RemoteActionInputFetcher.class);
-    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache, RemoteBuildEventUploadMode.ALL);
 
     ActionInputMap outputs = new ActionInputMap(2);
     Artifact artifact = createRemoteArtifact("file1.txt", "foo", outputs);
@@ -530,7 +578,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     doAnswer(invocationOnMock -> Futures.immediateFuture(null))
         .when(remoteCache)
         .uploadFile(any(), any(), any());
-    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache);
+    ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache, RemoteBuildEventUploadMode.ALL);
 
     // act
     Map<Path, LocalFile> files =
@@ -598,7 +646,8 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     return new RemoteCache(cacheClient, remoteOptions, DIGEST_UTIL);
   }
 
-  private ByteStreamBuildEventArtifactUploader newArtifactUploader(RemoteCache remoteCache) {
+  private ByteStreamBuildEventArtifactUploader newArtifactUploader(
+      RemoteCache remoteCache, RemoteBuildEventUploadMode remoteBuildEventUploadMode) {
 
     return new ByteStreamBuildEventArtifactUploader(
         MoreExecutors.directExecutor(),
@@ -610,7 +659,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         /* buildRequestId= */ "none",
         /* commandId= */ "none",
         SyscallCache.NO_CACHE,
-        RemoteBuildEventUploadMode.ALL);
+        remoteBuildEventUploadMode);
   }
 
   private static class StaticMissingDigestsFinder implements MissingDigestsFinder {
