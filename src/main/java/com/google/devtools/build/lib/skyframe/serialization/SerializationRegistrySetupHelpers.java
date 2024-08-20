@@ -121,6 +121,18 @@ public final class SerializationRegistrySetupHelpers {
     return builder;
   }
 
+  public static final ImmutableList<ObjectCodec<?>> ANALYSIS_CACHING_CODECS =
+      ImmutableList.<ObjectCodec<?>>builder()
+          .add(ArrayCodec.forComponentType(Artifact.class))
+          .add(new DeferredNestedSetCodec())
+          .add(Label.valueSharingCodec())
+          .add(PackageIdentifier.valueSharingCodec())
+          .add(ConfiguredTargetKey.valueSharingCodec())
+          .add(TransitiveInfoProviderMapImpl.valueSharingCodec())
+          .add(RemoteConfiguredTargetValue.codec())
+          .addAll(ArtifactCodecs.VALUE_SHARING_CODECS)
+          .build();
+
   /**
    * Initializes an {@link ObjectCodecRegistry} for analysis serialization.
    *
@@ -134,16 +146,9 @@ public final class SerializationRegistrySetupHelpers {
           AutoRegistry.get()
               .getBuilder()
               .addReferenceConstants(additionalReferenceConstants)
-              .computeChecksum(false)
-              .add(ArrayCodec.forComponentType(Artifact.class))
-              .add(new DeferredNestedSetCodec())
-              .add(Label.valueSharingCodec())
-              .add(PackageIdentifier.valueSharingCodec())
-              .add(ConfiguredTargetKey.valueSharingCodec())
-              .add(RemoteConfiguredTargetValue.codec())
-              .add(TransitiveInfoProviderMapImpl.valueSharingCodec());
+              .computeChecksum(false);
       builder = addStarlarkFunctionality(builder, runtime.getRuleClassProvider());
-      ArtifactCodecs.VALUE_SHARING_CODECS.forEach(builder::add);
+      ANALYSIS_CACHING_CODECS.forEach(builder::add);
       return builder.build();
     };
   }

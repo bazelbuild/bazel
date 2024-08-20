@@ -20,6 +20,7 @@ import static org.mockito.Mockito.mock;
 
 import com.google.common.base.Equivalence;
 import com.google.common.collect.ImmutableClassToInstanceMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
 import com.google.common.testing.EqualsTester;
 import com.google.common.testing.EquivalenceTester;
@@ -359,7 +360,7 @@ public final class ArtifactTest {
     if (useSharedValues) {
       service = FingerprintValueService.createForTesting(FingerprintValueStore.inMemoryStore());
       for (ObjectCodec<? extends Artifact> codec : ArtifactCodecs.VALUE_SHARING_CODECS) {
-        objectCodecs = objectCodecs.withCodecOverridesForTesting(codec);
+        objectCodecs = objectCodecs.withCodecOverridesForTesting(ImmutableList.of(codec));
       }
     }
 
