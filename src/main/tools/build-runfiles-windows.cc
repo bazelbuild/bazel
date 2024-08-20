@@ -100,11 +100,6 @@ wstring GetParentDirFromPath(const wstring& path) {
   return path.substr(0, path.find_last_of(L"\\/"));
 }
 
-inline void Trim(wstring& str) {
-  str.erase(0, str.find_first_not_of(' '));
-  str.erase(str.find_last_not_of(' ') + 1);
-}
-
 bool ReadSymlink(const wstring& abs_path, wstring* target, wstring* error) {
   switch (bazel::windows::ReadSymlinkOrJunction(abs_path, target, error)) {
     case bazel::windows::ReadSymlinkOrJunctionResult::kSuccess:
