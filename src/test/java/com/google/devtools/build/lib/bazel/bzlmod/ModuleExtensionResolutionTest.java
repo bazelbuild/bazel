@@ -92,6 +92,7 @@ import com.google.devtools.build.skyframe.SequencedRecordingDifferencer;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -2981,5 +2982,103 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         .isEqualTo(
             "error creating repo data requested at /ws/MODULE.bazel:3:10: failed to instantiate"
                 + " 'data_repo' from this module extension");
+  }
+
+  @Test
+  public void extensionRepoMapping() throws Exception {
+    scratch.file(
+        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
+        """
+        bazel_dep(name = "data_repo", version = "1.0")
+        ext = use_extension("//:defs.bzl","ext")
+        use_repo(ext, real_foo = "foo", real_bar = "bar")
+        other_ext = use_extension("//:defs.bzl", "other_ext")
+        use_repo(other_ext, foo = "other_foo", bar = "other_bar")
+        """);
+    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
+    scratch.file(
+        workspaceRoot.getRelative("data.bzl").getPathString(),
+        """
+        load("@real_foo//:list.bzl", _foo_list = "list")
+        load("@real_bar//:list.bzl", _bar_list = "list")
+        foo_list = _foo_list
+        bar_list = _bar_list
+        """);
+    scratch.file(
+        workspaceRoot.getRelative("defs.bzl").getPathString(),
+        """
+        load("@data_repo//:defs.bzl", "data_repo")
+        def _list_repo_impl(ctx):
+          ctx.file("WORKSPACE")
+          ctx.file("BUILD")
+          labels = [str(Label(l)) for l in ctx.attr.labels]
+          names = [str(Label(n)) for n in ctx.attr.names]
+          ctx.file("list.bzl", "list = " + repr(labels + names))
+        list_repo = repository_rule(
+          implementation = _list_repo_impl,
+          attrs = {
+            "names": attr.string_list(),
+            "labels": attr.label_list(),
+          },
+        )
+        def _ext_impl(ctx):
+          labels = [
+            "@foo//:target1",
+            "@bar//:target2",
+            Label("@foo//:target3"),
+            Label("@bar//:target4"),
+          ]
+          list_repo(
+            name = "foo",
+            labels = labels,
+            names = [
+              "@foo",
+              "@bar",
+            ],
+          )
+
+          # Modify the list passed to "foo" to verify that it is not retained by
+          # reference.
+          labels[0] = "@foo//:target5"
+          labels[1] = "@bar//:target6"
+          labels[2] = Label("@foo//:target7")
+          labels[3] = Label("@bar//:target8")
+          list_repo(
+            name = "bar",
+            labels = labels,
+            names = [
+              "@foo",
+              "@bar",
+            ],
+          )
+        ext = module_extension(implementation = _ext_impl)
+        def _other_ext_impl(ctx):
+          data_repo(name="other_foo",data="other_foo_data")
+          data_repo(name="other_bar",data="other_bar_data")
+        other_ext=module_extension(implementation=_other_ext_impl)
+        """);
+
+    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
+    EvaluationResult<BzlLoadValue> result =
+        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat((List<?>) result.get(skyKey).getModule().getGlobal("foo_list"))
+        .containsExactly(
+            "@@+other_ext+other_foo//:target1",
+            "@@+other_ext+other_bar//:target2",
+            "@@+other_ext+other_foo//:target3",
+            "@@+other_ext+other_bar//:target4",
+            "@@+other_ext+other_foo//:foo",
+            "@@+other_ext+other_bar//:bar");
+    assertThat((List<?>) result.get(skyKey).getModule().getGlobal("bar_list"))
+        .containsExactly(
+            "@@+other_ext+other_foo//:target5",
+            "@@+other_ext+other_bar//:target6",
+            "@@+other_ext+other_foo//:target7",
+            "@@+other_ext+other_bar//:target8",
+            "@@+other_ext+other_foo//:foo",
+            "@@+other_ext+other_bar//:bar");
   }
 }

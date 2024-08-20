@@ -37,9 +37,9 @@ public class EvalException extends Exception {
   // built-in function has no stack until it is thrown out of a function call.
   @Nullable private ImmutableList<StarlarkThread.CallStackEntry> callstack;
 
-  /** Constructs an EvalException. Use {@link Starlak#errorf} if you want string formatting. */
+  /** Constructs an EvalException. Use {@link Starlark#errorf} if you want string formatting. */
   public EvalException(String message) {
-    this(message, /*cause=*/ null);
+    this(message, /* cause= */ (Throwable) null);
   }
 
   /**
@@ -55,6 +55,11 @@ public class EvalException extends Exception {
   /** Constructs an EvalException using the same message as the cause exception. */
   public EvalException(Throwable cause) {
     super(getCauseMessage(cause), cause);
+  }
+
+  public EvalException(Throwable cause, List<StarlarkThread.CallStackEntry> callstack) {
+    this(cause);
+    this.callstack = ImmutableList.copyOf(callstack);
   }
 
   private static String getCauseMessage(Throwable cause) {

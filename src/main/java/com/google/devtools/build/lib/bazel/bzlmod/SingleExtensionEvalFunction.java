@@ -967,7 +967,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
             moduleContext.getRecordedFileInputs(),
             moduleContext.getRecordedDirentsInputs(),
             moduleContext.getRecordedEnvVarInputs(),
-            threadContext.getGeneratedRepoSpecs(),
+            threadContext.createAndGetRepos(starlarkSemantics),
             moduleExtensionMetadata,
             repoMappingRecorder.recordedEntries());
       } catch (EvalException e) {

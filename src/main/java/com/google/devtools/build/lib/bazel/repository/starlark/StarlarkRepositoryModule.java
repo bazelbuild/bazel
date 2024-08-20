@@ -222,7 +222,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       if (!isExported()) {
         throw new EvalException("attempting to instantiate a non-exported repository rule");
       }
-      extensionEvalContext.createRepo(thread, kwargs, getRuleClass());
+      extensionEvalContext.lazilyCreateRepos(thread, kwargs, getRuleClass());
       return Starlark.NONE;
     }
 
