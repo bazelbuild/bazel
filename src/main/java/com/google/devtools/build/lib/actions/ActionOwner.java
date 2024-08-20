@@ -46,7 +46,7 @@ public abstract class ActionOwner {
           /* configurationChecksum= */ "system",
           /* buildConfigurationEvent= */ null,
           /* isToolConfiguration= */ false,
-          /* executionPlatform= */ PlatformInfo.BUILTIN_PLATFORM_INFO,
+          /* executionPlatform= */ PlatformInfo.EMPTY_PLATFORM_INFO,
           /* aspectDescriptors= */ ImmutableList.of(),
           /* execProperties= */ ImmutableMap.of());
 
