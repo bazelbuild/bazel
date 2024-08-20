@@ -53,7 +53,7 @@ public abstract class SerializationContext implements LeafSerializationContext {
     }
     CodecDescriptor descriptor = codecRegistry.getCodecDescriptorForObject(object);
     @SuppressWarnings("unchecked")
-    ObjectCodec<Object> castCodec = (ObjectCodec<Object>) descriptor.getCodec();
+    ObjectCodec<Object> castCodec = (ObjectCodec<Object>) descriptor.codec();
     ProfileRecorder recorder = getProfileRecorder();
     if (recorder == null) {
       serializeImpl(descriptor, castCodec, object, codedOut);
@@ -65,7 +65,7 @@ public abstract class SerializationContext implements LeafSerializationContext {
     recorder.recordBytesAndPopLocation(startBytes, codedOut);
   }
 
-  private final void serializeImpl(
+  private void serializeImpl(
       CodecDescriptor descriptor,
       ObjectCodec<Object> castCodec,
       Object object,
@@ -74,7 +74,7 @@ public abstract class SerializationContext implements LeafSerializationContext {
     if (writeBackReferenceIfMemoized(object, codedOut, castCodec instanceof LeafObjectCodec)) {
       return;
     }
-    codedOut.writeSInt32NoTag(descriptor.getTag());
+    codedOut.writeSInt32NoTag(descriptor.tag());
     serializeWithCodec(castCodec, object, codedOut);
   }
 

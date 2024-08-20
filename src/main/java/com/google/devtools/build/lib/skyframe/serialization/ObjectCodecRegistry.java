@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
+import static java.util.Comparator.comparing;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
@@ -35,7 +35,6 @@ import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -217,7 +216,7 @@ public class ObjectCodecRegistry {
     Builder builder = newBuilder();
     builder.setAllowDefaultCodec(allowDefaultCodec);
     for (Map.Entry<Class<?>, CodecDescriptor> entry : classMappedCodecs.entrySet()) {
-      builder.add(entry.getValue().getCodec());
+      builder.add(entry.getValue().codec());
     }
 
     for (Object constant : referenceConstants) {
@@ -234,39 +233,18 @@ public class ObjectCodecRegistry {
     return classNames;
   }
 
-  /** Describes encoding logic. */
-  static final class CodecDescriptor {
-    private final int tag;
-    private final ObjectCodec<?> codec;
-
-    @VisibleForTesting
-    CodecDescriptor(int tag, ObjectCodec<?> codec) {
-      this.tag = tag;
-      this.codec = codec;
-    }
-
-    /**
-     * Unique identifier for the associated codec.
-     *
-     * <p>Intended to be used as a compact on-the-wire representation of an encoded object's type.
-     *
-     * <p>Returns a value ≥ 1.
-     *
-     * <p>0 is a special tag representing null while negative numbers are reserved for
-     * backreferences.
-     */
-    public int getTag() {
-      return tag;
-    }
-
-    /** Returns the underlying codec. */
-    public ObjectCodec<?> getCodec() {
-      return codec;
-    }
-
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this).add("codec", codec).add("tag", tag).toString();
+  /**
+   * Describes encoding logic.
+   *
+   * @param tag Unique identifier for the associated codec. Intended to be used as a compact
+   *     on-the-wire representation of an encoded object's type. Returns a value ≥ 1. 0 is a special
+   *     tag representing null while negative numbers are reserved for backreferences.
+   * @param codec The underlying codec.
+   */
+  record CodecDescriptor(int tag, ObjectCodec<?> codec) {
+    CodecDescriptor {
+      // Check that the tag is not a reserved value.
+      Preconditions.checkArgument(tag >= 1);
     }
   }
 
@@ -377,8 +355,7 @@ public class ObjectCodecRegistry {
     var sortedCodecDescriptors =
         Streams.mapWithIndex(
                 // Sort the codecs by their primary encoded class name.
-                stream(memoizingCodecs)
-                    .sorted(Comparator.comparing(o -> o.getEncodedClass().getName())),
+                stream(memoizingCodecs).sorted(comparing(o -> o.getEncodedClass().getName())),
                 // Then create a codec descriptor for each codec.
                 (codec, idx) ->
                     // idx is small enough to be casted from long to int without loss of
@@ -389,15 +366,14 @@ public class ObjectCodecRegistry {
     // Then, perform checksumming and check that there's a unique codec descriptor for each encoded
     // class.
     for (CodecDescriptor codecDescriptor : sortedCodecDescriptors) {
-      addToChecksum(
-          checksum, codecDescriptor.getTag(), codecDescriptor.getCodec().getClass().getName());
+      addToChecksum(checksum, codecDescriptor.tag(), codecDescriptor.codec().getClass().getName());
 
       CodecDescriptor previousCodecDescriptor =
-          codecsBuilder.put(codecDescriptor.getCodec().getEncodedClass(), codecDescriptor);
+          codecsBuilder.put(codecDescriptor.codec().getEncodedClass(), codecDescriptor);
       Preconditions.checkState(
           previousCodecDescriptor == null,
           "found duplicate codec descriptor for %s, was: %s, new: %s",
-          codecDescriptor.getCodec().getEncodedClass(),
+          codecDescriptor.codec().getEncodedClass(),
           previousCodecDescriptor,
           codecDescriptor);
     }
@@ -405,7 +381,7 @@ public class ObjectCodecRegistry {
     // Finally, for all codec descriptors, map their additional encoded classes, and overwrite
     // any existing descriptor mappings.
     for (CodecDescriptor codecDescriptor : sortedCodecDescriptors) {
-      for (Class<?> otherClass : codecDescriptor.getCodec().additionalEncodedClasses()) {
+      for (Class<?> otherClass : codecDescriptor.codec().additionalEncodedClasses()) {
         codecsBuilder.put(otherClass, codecDescriptor);
       }
     }
