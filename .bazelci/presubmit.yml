@@ -210,7 +210,7 @@ tasks:
       - build
       - test
   macos_arm64:
-    shards: 5
+    shards: 10
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
