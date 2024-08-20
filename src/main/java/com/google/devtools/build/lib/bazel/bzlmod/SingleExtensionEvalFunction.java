@@ -19,6 +19,7 @@ import static com.google.common.base.StandardSystemProperty.OS_ARCH;
 import static com.google.common.collect.ImmutableBiMap.toImmutableBiMap;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static java.util.stream.Collectors.joining;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Splitter;
@@ -209,6 +210,22 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     Optional<ModuleExtensionMetadata> moduleExtensionMetadata =
         moduleExtensionResult.getModuleExtensionMetadata();
 
+    if (!lockfileMode.equals(LockfileMode.OFF)) {
+      var nonVisibleRepoNames =
+          moduleExtensionResult.getRecordedRepoMappingEntries().values().stream()
+              .filter(repoName -> !repoName.isVisible())
+              .map(RepositoryName::toString)
+              .collect(joining(", "));
+      if (!nonVisibleRepoNames.isEmpty()) {
+        env.getListener()
+            .handle(
+                Event.warn(
+                    String.format(
+                        "The module extension %s produced an invalid lockfile entry because it"
+                            + " referenced %s. Please report this issue to its maintainers.",
+                        extensionId.asTargetString(), nonVisibleRepoNames)));
+      }
+    }
     if (lockfileMode.equals(LockfileMode.ERROR)) {
       boolean extensionShouldHaveBeenLocked =
           moduleExtensionMetadata.map(metadata -> !metadata.getReproducible()).orElse(true);
