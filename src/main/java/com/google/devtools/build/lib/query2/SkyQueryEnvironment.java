@@ -359,7 +359,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   private static final Duration MIN_LOGGING = Duration.ofMillis(50);
 
   @Override
-  public QueryExpression transformParsedQuery(QueryExpression queryExpression) {
+  public final QueryExpression transformParsedQuery(QueryExpression queryExpression) {
     QueryExpressionMapper<Void> mapper = getQueryExpressionMapper();
     QueryExpression transformedQueryExpression;
     try (AutoProfiler p = GoogleAutoProfilerUtils.logged("transforming query", MIN_LOGGING)) {
