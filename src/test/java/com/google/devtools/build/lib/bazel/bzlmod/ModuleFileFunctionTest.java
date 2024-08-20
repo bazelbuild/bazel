@@ -757,7 +757,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext1")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(myMod)
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -788,7 +787,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext2")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(myMod)
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -833,7 +831,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@rules_jvm_external//:defs.bzl")
                         .setExtensionName("maven")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(myMod)
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -911,7 +908,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@//:defs.bzl")
                         .setExtensionName("myext")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(ModuleKey.ROOT)
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -1043,7 +1039,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(myMod)
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -1163,7 +1158,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("//:MODULE.bazel")
                         .setExtensionName("_repo_rules")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(ModuleKey.ROOT)
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(

@@ -21,7 +21,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -35,7 +34,6 @@ import javax.annotation.Nullable;
  * <p>For the intermediate type used during module resolution, see {@link InterimModule}.
  */
 @AutoValue
-@GenerateTypeAdapter
 public abstract class Module extends ModuleBase {
 
   /**

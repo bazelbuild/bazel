@@ -47,9 +47,6 @@ public abstract class ModuleExtensionUsage {
    */
   public abstract Optional<ModuleExtensionId.IsolationKey> getIsolationKey();
 
-  /** The module that contains this particular extension usage. */
-  public abstract ModuleKey getUsingModule();
-
   /** Represents one "proxy object" returned from one {@code use_extension} call. */
   @AutoValue
   @GenerateTypeAdapter
@@ -167,8 +164,6 @@ public abstract class ModuleExtensionUsage {
     public abstract Builder setExtensionName(String value);
 
     public abstract Builder setIsolationKey(Optional<ModuleExtensionId.IsolationKey> value);
-
-    public abstract Builder setUsingModule(ModuleKey value);
 
     public abstract Builder setProxies(ImmutableList<Proxy> value);
 

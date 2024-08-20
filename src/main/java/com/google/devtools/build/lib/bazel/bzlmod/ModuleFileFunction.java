@@ -50,7 +50,6 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
-import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -163,8 +162,6 @@ public class ModuleFileFunction implements SkyFunction {
       return null;
     }
     getModuleFileResult.downloadEventHandler.replayOn(env.getListener());
-    String moduleFileHash =
-        new Fingerprint().addBytes(getModuleFileResult.moduleFile.getContent()).hexDigestAndReset();
 
     CompiledModuleFile compiledModuleFile;
     try {
@@ -224,7 +221,6 @@ public class ModuleFileFunction implements SkyFunction {
 
     return NonRootModuleFileValue.create(
         module,
-        moduleFileHash,
         RegistryFileDownloadEvent.collectToMap(
             getModuleFileResult.downloadEventHandler.getPosts()));
   }
@@ -420,10 +416,6 @@ public class ModuleFileFunction implements SkyFunction {
       StarlarkSemantics starlarkSemantics,
       ExtendedEventHandler eventHandler)
       throws ModuleFileFunctionException, InterruptedException {
-    String moduleFileHash =
-        new Fingerprint()
-            .addBytes(compiledRootModuleFile.moduleFile().getContent())
-            .hexDigestAndReset();
     ModuleThreadContext moduleThreadContext =
         execModuleFile(
             compiledRootModuleFile,
@@ -487,7 +479,6 @@ public class ModuleFileFunction implements SkyFunction {
             .collect(toImmutableSet());
     return RootModuleFileValue.create(
         module,
-        moduleFileHash,
         overrides,
         nonRegistryOverrideCanonicalRepoNameLookup,
         moduleFilePaths);

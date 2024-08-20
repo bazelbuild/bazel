@@ -137,7 +137,7 @@ public class FakeRepositoryModule implements RepositoryModuleApi {
   }
 
   @Override
-  public TagClassApi tagClass(Dict<?, ?> attrs, Object doc, StarlarkThread thread)
+  public TagClassApi tagClass(Dict<?, ?> attrs, Object doc)
       throws EvalException {
     return new TagClassApi() {};
   }
