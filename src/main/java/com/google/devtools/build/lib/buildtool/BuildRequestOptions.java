@@ -448,6 +448,38 @@ public class BuildRequestOptions extends OptionsBase {
               + " which can be found by walking up the target's packagge path. See b/324126745.")
   public boolean enforceProjectConfigs;
 
+  @Option(
+      name = "experimental_aquery_dump_after_build_format",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Writes the state of Skyframe (which includes previous invocations on this blaze instance"
+              + " as well) after a build. Output is streamed remotely unless local output is"
+              + " requested with --experimental_aquery_dump_after_build_output_file.  Does not"
+              + " honor aquery flags for --include_*, but uses the same defaults, except for"
+              + " --include_commandline=false. Possible output formats:"
+              + " proto|streamed_proto|textproto|jsonproto.")
+  @Nullable
+  public String aqueryDumpAfterBuildFormat;
+
+  @Option(
+      name = "experimental_aquery_dump_after_build_output_file",
+      defaultValue = "null",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      converter = OptionsUtils.PathFragmentConverter.class,
+      // NOTE: This produces a very very large amount of data on large builds,
+      // very useful for debugging, but may not be used regularly. When removing
+      // unused flags based on usage this may not be a good candidate for
+      // removal.
+      help =
+          "Specify the output file for the aquery dump after a build. Use in conjunction with"
+              + " --experimental_aquery_dump_after_build_format. The path provided is relative to"
+              + " Bazel's output base, unless it's an absolute path.")
+  @Nullable
+  public PathFragment aqueryDumpAfterBuildOutputFile;
+
   /**
    * Converter for jobs: Takes keyword ({@value #FLAG_SYNTAX}). Values must be between 1 and
    * MAX_JOBS.
