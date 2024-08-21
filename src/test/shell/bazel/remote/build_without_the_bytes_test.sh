@@ -2228,7 +2228,6 @@ EOF
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
-      --experimental_java_classpath=bazel \
       //a:bin >& $TEST_log || fail "Failed to build"
 
   bazel clean
@@ -2237,7 +2236,6 @@ EOF
   bazel build \
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
-      --experimental_java_classpath=bazel \
       //a:bin >& $TEST_log || fail "Failed to build"
 
   if [[ -f bazel-bin/a/liblib-hjar.jdeps ]]; then
@@ -2263,7 +2261,6 @@ EOF
       --remote_executor=grpc://localhost:${worker_port} \
       --remote_download_minimal \
       --experimental_remote_cache_eviction_retries=1 \
-      --experimental_java_classpath=bazel \
       //a:bin >& $TEST_log || fail "Failed to build"
 
   expect_log "Lost inputs no longer available remotely: a/liblib-hjar.jdeps (.*)"
