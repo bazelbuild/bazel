@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.testutil.MoreAsserts;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import java.lang.ref.WeakReference;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -289,6 +290,7 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
     write("pkg/BUILD");
     for (String option : ImmutableList.of("", "--nobuild", "--noanalyze")) {
       resetOptions();
+      addOptions(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
       addOptions(option);
       buildTarget("//pkg:all");
       assertDoesNotContainEvent("test target");

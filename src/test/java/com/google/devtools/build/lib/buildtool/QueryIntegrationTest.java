@@ -40,6 +40,7 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.skyframe.DefaultSyscallCache;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.unix.UnixFileSystem;
 import com.google.devtools.build.lib.util.ExitCode;
@@ -1059,6 +1060,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
   private QueryOutput getQueryResult(String queryString, String... flags) throws Exception {
     Collections.addAll(options, flags);
     runtimeWrapper.resetOptions();
+    runtimeWrapper.addOptions(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     runtimeWrapper.addOptions(options);
     runtimeWrapper.addOptions(queryString);
     CommandEnvironment env = runtimeWrapper.newCommand(QueryCommand.class);

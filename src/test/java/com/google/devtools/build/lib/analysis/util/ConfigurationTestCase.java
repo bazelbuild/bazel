@@ -144,6 +144,7 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     // TODO: enable Bzlmod for this test case
     // https://github.com/bazelbuild/bazel/issues/19824
     options.enableBzlmod = false;
+    options.experimentalGoogleLegacyApi = !analysisMock.isThisBazel();
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
