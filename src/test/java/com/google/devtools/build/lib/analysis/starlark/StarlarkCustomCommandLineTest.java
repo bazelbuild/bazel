@@ -37,15 +37,24 @@ import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine.VectorArg;
+import com.google.devtools.build.lib.cmdline.BazelModuleContext;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
+import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Mutability;
+import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkSemantics;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Tuple;
+import net.starlark.java.syntax.FileOptions;
 import net.starlark.java.syntax.Location;
+import net.starlark.java.syntax.ParserInput;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -54,8 +63,10 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link StarlarkCustomCommandLine}. */
 @RunWith(JUnit4.class)
 public final class StarlarkCustomCommandLineTest {
-
-  private static final ArtifactExpander EMPTY_EXPANDER = artifact -> ImmutableSortedSet.of();
+  private static final ArtifactExpander EMPTY_EXPANDER =
+      artifact -> {
+        throw new ArtifactExpander.MissingExpansionException("Missing expansion for " + artifact);
+      };
 
   private final Scratch scratch = new Scratch();
   private Path execRoot;
@@ -197,21 +208,18 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void vectorArgAddToFingerprint_treeArtifactMissingExpansion_returnsDigest()
-      throws Exception {
+  public void vectorArgAddToFingerprint_treeArtifactMissingExpansion_fails() {
     SpecialArtifact tree = createTreeArtifact("tree");
     CommandLine commandLine =
         builder
             .add(vectorArg(tree).setExpandDirectories(true))
             .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
-    ActionKeyContext actionKeyContext = new ActionKeyContext();
-    Fingerprint fingerprint = new Fingerprint();
 
-    // TODO(b/167696101): Fail arguments computation when we are missing the directory from inputs.
-    commandLine.addToFingerprint(
-        actionKeyContext, EMPTY_EXPANDER, CoreOptions.OutputPathsMode.OFF, fingerprint);
-
-    assertThat(fingerprint.digestAndReset()).isNotEmpty();
+    CommandLineExpansionException e =
+        assertThrows(
+            CommandLineExpansionException.class,
+            () -> commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP));
+    assertThat(e).hasMessageThat().contains("Failed to expand directory <generated file tree>");
   }
 
   @Test
@@ -227,7 +235,7 @@ public final class StarlarkCustomCommandLineTest {
     Fingerprint fingerprint = new Fingerprint();
     ArtifactExpander artifactExpander =
         createArtifactExpander(
-            /*treeExpansions=*/ ImmutableMap.of(),
+            /* treeExpansions= */ ImmutableMap.of(),
             ImmutableMap.of(fileset, ImmutableList.of(symlink1, symlink2)));
 
     commandLine.addToFingerprint(
@@ -304,7 +312,7 @@ public final class StarlarkCustomCommandLineTest {
     FilesetOutputSymlink symlink2 = createFilesetSymlink("file2");
     ArtifactExpander artifactExpander =
         createArtifactExpander(
-            /*treeExpansions=*/ ImmutableMap.of(),
+            /* treeExpansions= */ ImmutableMap.of(),
             ImmutableMap.of(fileset, ImmutableList.of(symlink1, symlink2)));
 
     Iterable<String> arguments = commandLine.arguments(artifactExpander, PathMapper.NOOP);
@@ -313,15 +321,42 @@ public final class StarlarkCustomCommandLineTest {
   }
 
   @Test
-  public void vectorArgArguments_treeArtifactMissingExpansion_returnsEmptyList() throws Exception {
+  public void vectorArgArguments_treeArtifactMissingExpansion_fails() {
     SpecialArtifact tree = createTreeArtifact("tree");
     CommandLine commandLine =
         builder
             .add(vectorArg(tree).setExpandDirectories(true))
             .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
 
-    // TODO(b/167696101): Fail arguments computation when we are missing the directory from inputs.
-    assertThat(commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP)).isEmpty();
+    assertThrows(
+        CommandLineExpansionException.class,
+        () -> commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP));
+  }
+
+  @Test
+  public void vectorArgArguments_manuallyExpandedTreeArtifactMissingExpansion_fails()
+      throws Exception {
+    SpecialArtifact tree = createTreeArtifact("tree");
+    CommandLine commandLine =
+        builder
+            .add(
+                vectorArg(tree)
+                    .setExpandDirectories(false)
+                    .setMapEach(
+                        (StarlarkFunction)
+                            execStarlark(
+                                """
+                                def map_each(x, expander):
+                                  expander.expand(x)
+                                map_each
+                                """)))
+            .build(/* flagPerLine= */ false, RepositoryMapping.ALWAYS_FALLBACK);
+
+    CommandLineExpansionException e =
+        assertThrows(
+            CommandLineExpansionException.class,
+            () -> commandLine.arguments(EMPTY_EXPANDER, PathMapper.NOOP));
+    assertThat(e).hasMessageThat().contains("Failed to expand directory <generated file tree>");
   }
 
   @Test
@@ -379,9 +414,14 @@ public final class StarlarkCustomCommandLineTest {
       ImmutableMap<SpecialArtifact, ImmutableList<FilesetOutputSymlink>> filesetExpansions) {
     return new ArtifactExpander() {
       @Override
-      public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact) {
+      public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact)
+          throws MissingExpansionException {
         //noinspection SuspiciousMethodCalls
-        return treeExpansions.getOrDefault(treeArtifact, ImmutableSortedSet.of());
+        ImmutableSortedSet<TreeFileArtifact> expansion = treeExpansions.get(treeArtifact);
+        if (expansion == null) {
+          throw new MissingExpansionException("Cannot expand " + treeArtifact);
+        }
+        return expansion;
       }
 
       @Override
@@ -395,5 +435,24 @@ public final class StarlarkCustomCommandLineTest {
         return filesetLinks;
       }
     };
+  }
+
+  private static Object execStarlark(String code) throws Exception {
+    try (Mutability mutability = Mutability.create("test")) {
+      StarlarkThread thread = StarlarkThread.createTransient(mutability, StarlarkSemantics.DEFAULT);
+      return Starlark.execFile(
+          ParserInput.fromString(code, "test/label.bzl"),
+          FileOptions.DEFAULT,
+          Module.withPredeclaredAndData(
+              StarlarkSemantics.DEFAULT,
+              ImmutableMap.of(),
+              BazelModuleContext.create(
+                  Label.parseCanonicalUnchecked("//test:label"),
+                  RepositoryMapping.ALWAYS_FALLBACK,
+                  "test/label.bzl",
+                  /* loads= */ ImmutableList.of(),
+                  /* bzlTransitiveDigest= */ new byte[0])),
+          thread);
+    }
   }
 }
