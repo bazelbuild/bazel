@@ -58,7 +58,6 @@ import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -515,67 +514,5 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   @Override
   public String toString() {
     return "repository_ctx[" + rule.getLabel() + "]";
-  }
-
-  /**
-   * Try to compute the paths of all attributes that are labels, including labels in list and dict
-   * arguments.
-   *
-   * <p>The value is ignored, but any missing information from the environment is detected (and an
-   * exception thrown). In this way, we can enforce that all arguments are evaluated before we start
-   * potentially more expensive operations.
-   */
-  // TODO(wyv): somehow migrate this to the base context too.
-  public void enforceLabelAttributes()
-      throws EvalException, InterruptedException, NeedsSkyframeRestartException {
-    // TODO: If a labels fails to resolve to an existing regular file, we do not add a dependency on
-    //  that fact - if the file is created later or changes its type, it will not trigger a rerun of
-    //  the repository function.
-    StructImpl attr = getAttr();
-    // Batch restarts as they are expensive
-    boolean needsRestart = false;
-    for (String name : attr.getFieldNames()) {
-      Object value = attr.getValue(name);
-      if (value instanceof Label) {
-        if (dependOnLabelIgnoringErrors((Label) value)) {
-          needsRestart = true;
-        }
-      }
-      if (value instanceof Sequence) {
-        for (Object entry : (Sequence) value) {
-          if (entry instanceof Label) {
-            if (dependOnLabelIgnoringErrors((Label) entry)) {
-              needsRestart = true;
-            }
-          }
-        }
-      }
-      if (value instanceof Dict) {
-        for (Object entry : ((Dict) value).keySet()) {
-          if (entry instanceof Label) {
-            if (dependOnLabelIgnoringErrors((Label) entry)) {
-              needsRestart = true;
-            }
-          }
-        }
-      }
-    }
-
-    if (needsRestart) {
-      throw new NeedsSkyframeRestartException();
-    }
-  }
-
-  private boolean dependOnLabelIgnoringErrors(Label label) throws InterruptedException {
-    try {
-      getPathFromLabel(label);
-    } catch (NeedsSkyframeRestartException e) {
-      return true;
-    } catch (EvalException e) {
-      // EvalExceptions indicate labels not referring to existing files. This is fine,
-      // as long as they are never resolved to files in the execution of the rule; we allow
-      // non-strict rules.
-    }
-    return false;
   }
 }
