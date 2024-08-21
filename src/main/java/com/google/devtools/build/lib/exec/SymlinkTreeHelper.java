@@ -268,6 +268,8 @@ public final class SymlinkTreeHelper {
         Path next = at.getChild(entry.getKey());
         if (entry.getValue() == null) {
           FileSystemUtils.createEmptyFile(next);
+        } else if (entry.getValue().isSymlink()) {
+          FileSystemUtils.ensureSymbolicLink(next, entry.getValue().getPath().readSymbolicLink());
         } else {
           FileSystemUtils.ensureSymbolicLink(next, entry.getValue().getPath().asFragment());
         }
