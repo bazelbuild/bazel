@@ -342,16 +342,6 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.NO_OP})
     public String makeVariableSource;
 
-    @Deprecated
-    @Option(
-        name = "glibc",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help = "Deprecated no-op.")
-    public String glibc;
-
     @Option(
         name = "force_ignore_dash_static",
         defaultValue = "false",
