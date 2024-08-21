@@ -208,12 +208,15 @@ public class ByteStreamBuildEventArtifactUploaderTest {
   
   @Test
   public void uploadsShouldWorkWithMinimalMode() throws Exception {
-    int numUploads = 2;
     Map<HashCode, byte[]> blobsByHash = new HashMap<>();
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
+    Path expectToUpload = null;
     Random rand = new Random();
     for (LocalFileType localFileType : new LocalFileType[]{ LocalFileType.OUTPUT, LocalFileType.LOG }) {
       Path file = fs.getPath("/file" + localFileType.name());
+      if (localFileType == LocalFileType.LOG) {
+        expectToUpload = file;
+      }
       OutputStream out = file.getOutputStream();
       int blobSize = rand.nextInt(100) + 1;
       byte[] blob = new byte[blobSize];
@@ -231,21 +234,20 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
-    RemoteCache remoteCache = newRemoteCache(refCntChannel, retrier);
+    RemoteCache remoteCache = spy(newRemoteCache(refCntChannel, retrier));
     ByteStreamBuildEventArtifactUploader artifactUploader = newArtifactUploader(remoteCache, RemoteBuildEventUploadMode.MINIMAL);
 
     PathConverter pathConverter = artifactUploader.upload(filesToUpload).get();
     for (LocalFile file : filesToUpload.values()) {
-      if (file.type == LocalFileType.OUTPUT) {
-        assertThat(pathConverter.apply(file.path)).isEqualTo(null);
-      } else {
-        String hash = BaseEncoding.base16().lowerCase().encode(file.path.getDigest());
-        long size = file.path.getFileSize();
-        String conversion = pathConverter.apply(file.path);
-        assertThat(conversion)
-            .isEqualTo("bytestream://localhost/instance/blobs/" + hash + "/" + size);
-      }
+      String hash = BaseEncoding.base16().lowerCase().encode(file.path.getDigest());
+      long size = file.path.getFileSize();
+      String conversion = pathConverter.apply(file.path);
+      assertThat(conversion)
+          .isEqualTo("bytestream://localhost/instance/blobs/" + hash + "/" + size);
     }
+
+    // Confirm only log file uploaded
+    verify(remoteCache, times(1)).uploadFile(any(), any(), eq(expectToUpload));
 
     artifactUploader.release();
 
