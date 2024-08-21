@@ -89,7 +89,6 @@ StartupOptions::StartupOptions(const string &product_name,
       preemptible(false),
       java_logging_formatter(
           "com.google.devtools.build.lib.util.SingleLineFormatter"),
-      expand_configs_in_place(true),
       digest_function(),
       idle_server_tasks(true),
       original_startup_options_(std::vector<RcStartupFlag>()),
@@ -136,8 +135,6 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("block_for_lock", &block_for_lock);
   RegisterNullaryStartupFlag("client_debug", &client_debug);
   RegisterNullaryStartupFlag("preemptible", &preemptible);
-  RegisterNullaryStartupFlag("expand_configs_in_place",
-                             &expand_configs_in_place);
   RegisterNullaryStartupFlag("fatal_event_bus_exceptions",
                              &fatal_event_bus_exceptions);
   RegisterNullaryStartupFlag("host_jvm_debug", &host_jvm_debug);
