@@ -58,12 +58,14 @@ public class EvalException extends Exception {
   }
 
   /**
-   * Constructs an EvalException using the same message as the cause exception and with the given
-   * callstack.
+   * Fills in the callstack if it hasn't been set yet.
    */
-  public EvalException(Throwable cause, List<StarlarkThread.CallStackEntry> callstack) {
-    this(cause);
-    this.callstack = ImmutableList.copyOf(callstack);
+  @CanIgnoreReturnValue
+  public EvalException withCallStack(List<StarlarkThread.CallStackEntry> callstack) {
+    if (this.callstack == null) {
+      this.callstack = ImmutableList.copyOf(callstack);
+    }
+    return this;
   }
 
   private static String getCauseMessage(Throwable cause) {

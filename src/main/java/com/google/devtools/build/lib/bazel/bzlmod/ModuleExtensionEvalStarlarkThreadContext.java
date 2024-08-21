@@ -175,8 +175,10 @@ public final class ModuleExtensionEvalStarlarkThreadContext extends StarlarkThre
                 .setAttributes(attributesValue)
                 .build();
         repoSpecs.put(name, repoSpec);
+      } catch (EvalException e) {
+        throw e.withCallStack(repoRuleCall.callStack);
       } catch (InvalidRuleException | NoSuchPackageException e) {
-        throw new EvalException(e, repoRuleCall.callStack);
+        throw new EvalException(e).withCallStack(repoRuleCall.callStack);
       }
     }
     return repoSpecs.buildOrThrow();
