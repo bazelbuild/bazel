@@ -413,7 +413,7 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
     scratch.file(
         "a/BUILD",
         "genrule(name = 'gen_rule', cmd = '', outs = [ 'out' ], " + srcs,
-        "cc_library(name = 'cc_rule', " + srcs);
+        "cc_binary(name = 'cc_rule', " + srcs);
 
     assertThat(parseListCompileOneDep("a/a.cc")).containsExactlyElementsIn(labels("//a:cc_rule"));
     assertThat(parseListCompileOneDep("a/a.c")).containsExactlyElementsIn(labels("//a:cc_rule"));
