@@ -15,6 +15,9 @@ platforms:
       - "-c"
       - "opt"
   ubuntu2004_arm64:
+    shell_commands:
+      # Our Arm64 machine keeps state between builds, so we need to clean it.
+      - "bazel clean --expunge"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_nojdk"
