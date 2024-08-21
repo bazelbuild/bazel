@@ -106,11 +106,8 @@ class NamedArtifactGroup implements BuildEvent {
     for (Object elem : set.getLeaves()) {
       ExpandedArtifact expandedArtifact = (ExpandedArtifact) elem;
       if (expandedArtifact.relPath == null) {
-        String uri =
+        @Nullable String uri =
             pathConverter.apply(completionContext.pathResolver().toPath(expandedArtifact.artifact));
-        if (uri == null) {
-          continue;
-        }
         BuildEventStreamProtos.File file =
             newFileFromArtifact(
                 /* name= */ null, expandedArtifact.artifact, completionContext, uri);
@@ -119,12 +116,9 @@ class NamedArtifactGroup implements BuildEvent {
           builder.addFiles(file);
         }
       } else {
-        String uri =
+        @Nullable String uri =
             pathConverter.apply(
                 completionContext.pathResolver().convertPath(expandedArtifact.target));
-        if (uri == null) {
-          continue;
-        }
         BuildEventStreamProtos.File file =
             newFileFromArtifact(
                 /* name= */ null,
