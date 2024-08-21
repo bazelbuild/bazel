@@ -1333,6 +1333,14 @@ public class RemoteExecutionService {
   public static final class LocalExecution {
     private final RemoteAction action;
     private final SettableFuture<SpawnResult> spawnResultFuture;
+    private final Phaser spawnResultConsumers =
+        new Phaser(1) {
+          @Override
+          protected boolean onAdvance(int phase, int registeredParties) {
+            // We only use a single phase.
+            return true;
+          }
+        };
 
     private LocalExecution(RemoteAction action) {
       this.action = action;
@@ -1354,6 +1362,37 @@ public class RemoteExecutionService {
         return null;
       }
       return new LocalExecution(action);
+    }
+
+    /**
+     * Attempts to register a thread waiting for the {@link #spawnResultFuture} to become available
+     * and returns true if successful.
+     *
+     * <p>Every call to this method must be matched by a call to {@link #unregister()} via
+     * try-finally.
+     *
+     * <p>This always returns true for actions that do not modify their spawns' outputs after
+     * execution.
+     */
+    public boolean registerForOutputReuse() {
+      // We only use a single phase.
+      return spawnResultConsumers.register() == 0;
+    }
+
+    /**
+     * Unregisters a thread waiting for the {@link #spawnResultFuture}, either after successful
+     * reuse of the outputs or upon failure.
+     */
+    public void unregister() {
+      spawnResultConsumers.arriveAndDeregister();
+    }
+
+    /**
+     * Waits for all potential consumers of the {@link #spawnResultFuture} to be done with their
+     * output reuse.
+     */
+    public void awaitAllOutputReuse() {
+      spawnResultConsumers.arriveAndAwaitAdvance();
     }
 
     /**
@@ -1571,7 +1610,8 @@ public class RemoteExecutionService {
         SpawnResult.Status.SUCCESS.equals(spawnResult.status()) && spawnResult.exitCode() == 0,
         "shouldn't upload outputs of failed local action");
 
-    if (remoteOptions.remoteCacheAsync) {
+    if (remoteOptions.remoteCacheAsync
+        && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
       Single.using(
               remoteCache::retain,
               remoteCache ->
