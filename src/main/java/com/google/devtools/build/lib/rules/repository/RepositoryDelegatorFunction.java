@@ -703,6 +703,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
       boolean firstLine = true;
       for (String line : lines) {
+        if (line.isEmpty()) {
+          continue;
+        }
         if (firstLine) {
           markerRuleKey = line;
           firstLine = false;
