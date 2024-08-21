@@ -2183,6 +2183,54 @@ EOF
   expect_log "^    String a = 5; // __sandbox/1/_main/pkg/Lib.java:3: error: incompatible types: int cannot be converted to String"
 }
 
+function test_sandboxed_multiplexing_full_classpath_fallback() {
+  mkdir -p "pkg/java/hello/" || fail "Expected success"
+  cat > "pkg/java/hello/A.java" <<'EOF'
+package hello;
+public class A {
+  public void f(B b) { b.getC().getD(); }
+}
+EOF
+  cat > "pkg/java/hello/B.java" <<'EOF'
+package hello;
+public class B {
+  public C getC() { return null; }
+}
+EOF
+  cat > "pkg/java/hello/C.java" <<'EOF'
+package hello;
+public class C {
+  public D getD() { return null; }
+}
+EOF
+  cat > "pkg/java/hello/D.java" <<'EOF'
+package hello;
+public class D {}
+EOF
+  cat > "pkg/java/hello/BUILD" <<'EOF'
+load("@rules_java//java:java_library.bzl", "java_library")
+load("@rules_java//toolchains:default_java_toolchain.bzl", "default_java_toolchain")
+
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    javac_supports_worker_multiplex_sandboxing = True,
+)
+java_library(name='a', srcs=['A.java'], deps = [':b'])
+java_library(name='b', srcs=['B.java'], deps = [':c'])
+java_library(name='c', srcs=['C.java'], deps = [':d'])
+java_library(name='d', srcs=['D.java'])
+EOF
+
+  bazel build //pkg/java/hello:a \
+    --experimental_worker_multiplex_sandboxing \
+    --java_language_version=17 \
+    --experimental_java_classpath=bazel \
+    --extra_toolchains=//pkg/java/hello:java_toolchain_definition \
+    >& $TEST_log || fail "build succeeded"
+}
+
 function test_strict_deps_error_external_repo_starlark_action() {
   cat << 'EOF' > MODULE.bazel
 bazel_dep(
