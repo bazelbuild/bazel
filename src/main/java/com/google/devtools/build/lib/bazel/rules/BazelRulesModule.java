@@ -496,15 +496,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean useEventBasedBuildCompletionStatus;
 
     @Option(
-        name = "incompatible_generated_protos_in_virtual_imports",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help = "No-op.")
-    public boolean generatedProtosInVirtualImports;
-
-    @Option(
         name = "experimental_java_proto_add_allowed_public_imports",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
