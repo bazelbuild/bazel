@@ -2684,6 +2684,26 @@ public class RemoteExecutionServiceTest {
       public String getWorkspaceName() {
         return "__main__";
       }
+
+      @Override
+      public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
+        return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
+      }
+
+      @Override
+      public Map<PathFragment, Artifact> getAllSymlinksForLogging() {
+        return Map.of();
+      }
+
+      @Override
+      public NestedSet<String> getEmptyFilenamesForLogging() {
+        return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      }
+
+      @Override
+      public boolean isLegacyExternalRunfiles() {
+        return false;
+      }
     };
   }
 

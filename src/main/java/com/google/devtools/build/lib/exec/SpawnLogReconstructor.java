@@ -32,6 +32,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
@@ -246,11 +247,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
                                 .setPath(runfilesTree.getPath() + "/" + relativePath)
                                 .build()))
         .forEach(file -> builder.put(file.getPath(), file));
-    String workspaceDir = runfilesTree.getPath() + "/" + workspaceRunfilesDirectory + "/";
-    if (builder.keySet().stream().noneMatch(p -> p.startsWith(workspaceDir))) {
-      String emptyRunfile = workspaceDir + ".runfile";
-      builder.put(emptyRunfile, File.newBuilder().setPath(emptyRunfile).build());
-    }
+    getDotRunfileFileIfNeeded(runfilesTree).ifPresent(file -> builder.put(file.getPath(), file));
     return Pair.of(runfilesTree.getPath(), ImmutableList.copyOf(builder.values()));
   }
 
@@ -298,6 +295,63 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
           throw new IOException(
               String.format("unknown target type %d", target.getTargetCase().getNumber()));
     };
+  }
+
+  /**
+   * Returns the empty "_main/.runfile" file if the runfiles tree would otherwise not contain a
+   * file under "_main" and thus wouldn't implicitly create that directory.
+   *
+   * <p>TODO: This is bug-for-bug compatible with the implementation in Runfiles and in particular
+   * doesn't create the file if the only runfile under "_main" is an empty directory.
+   */
+  private Optional<File> getDotRunfileFileIfNeeded(ExecLogEntry.RunfilesTree runfilesTree)
+      throws IOException {
+    if (runfilesTree.getLegacyExternalRunfiles()) {
+      return Optional.empty();
+    }
+    String externalPrefix = LabelConstants.EXTERNAL_PATH_PREFIX.getPathString() + "/";
+    ArrayDeque<Integer> setsToVisit = new ArrayDeque<>();
+    HashSet<Integer> visited = new HashSet<>();
+    if (runfilesTree.getArtifactsId() != 0) {
+      setsToVisit.addLast(runfilesTree.getArtifactsId());
+      visited.add(runfilesTree.getArtifactsId());
+    }
+    while (!setsToVisit.isEmpty()) {
+      ExecLogEntry.InputSet set = getFromMap(setMap, setsToVisit.removeFirst());
+      for (int fileId : set.getFileIdsList()) {
+        if (visited.add(fileId)) {
+          File file = getFromMap(fileMap, fileId);
+          if (!file.getPath().startsWith(externalPrefix)) {
+            return Optional.empty();
+          }
+        }
+      }
+      for (int dirId : Iterables.concat(set.getDirectoryIdsList(), set.getRunfilesTreeIdsList())) {
+        if (visited.add(dirId)) {
+          Pair<String, Collection<File>> dir = getFromMap(dirMap, dirId);
+          if (!dir.getFirst().startsWith(externalPrefix)) {
+            return Optional.empty();
+          }
+        }
+      }
+      for (int symlinkId : set.getUnresolvedSymlinkIdsList()) {
+        if (visited.add(symlinkId)) {
+          File symlink = getFromMap(symlinkMap, symlinkId);
+          if (!symlink.getPath().startsWith(externalPrefix)) {
+            return Optional.empty();
+          }
+        }
+      }
+      for (int transitiveSetId : set.getTransitiveSetIdsList()) {
+        if (visited.add(transitiveSetId)) {
+          setsToVisit.addLast(transitiveSetId);
+        }
+      }
+    }
+    return Optional.of(
+        File.newBuilder()
+            .setPath("%s/%s/.runfile".formatted(runfilesTree.getPath(), workspaceRunfilesDirectory))
+            .build());
   }
 
   private static <T> T getFromMap(Map<Integer, T> map, int id) throws IOException {
