@@ -789,13 +789,37 @@ class BazelWindowsCppTest(test_base.TestBase):
         '',
         'cc_binary(',
         '  name = "main",',
-        '  srcs = ["main.cc"],',
+        '  srcs = ['
+        '    "main.cc",',
+        '    "inc.asm",',  # Test assemble action_config
+        '    "dec.S",',    # Test preprocess-assemble action_config
+        '  ],',
         ')',
     ])
     self.ScratchFile('main.cc', [
         'int main() {',
         '  return 0;',
         '}',
+    ])
+    self.ScratchFile('inc.asm', [
+        '.code',
+        'PUBLIC increment',
+        'increment PROC x:WORD',
+        '  xchg rcx,rax',
+        '  inc rax',
+        '  ret',
+        'increment EndP',
+        'END',
+    ])
+    self.ScratchFile('dec.S', [
+        '.code',
+        'PUBLIC decrement',
+        'decrement PROC x:WORD',
+        '  xchg rcx,rax',
+        '  dec rax',
+        '  ret',
+        'decrement EndP',
+        'END',
     ])
     exit_code, _, stderr = self.RunBazel(['build', '-s', '//:main'])
     self.AssertExitCode(exit_code, 0, stderr)
