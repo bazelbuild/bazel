@@ -785,6 +785,8 @@ message Sandbox {
     MOUNT_TARGET_DOES_NOT_EXIST = 9 [(metadata) = { exit_code: 1 }];
     SUBPROCESS_START_FAILED = 10 [(metadata) = { exit_code: 36 }];
     FORBIDDEN_INPUT = 11 [(metadata) = { exit_code: 1 }];
+    COPY_INPUTS_IO_EXCEPTION = 12 [(metadata) = { exit_code: 36 }];
+    COPY_OUTPUTS_IO_EXCEPTION = 13 [(metadata) = { exit_code: 36 }];
   }
 
   Code code = 1;
