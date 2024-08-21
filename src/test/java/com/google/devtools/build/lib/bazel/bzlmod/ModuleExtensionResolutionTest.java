@@ -1413,7 +1413,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "  attrs={'data':attr.label()})",
         "def _ext_impl(ctx):",
         "  data_repo(name='other_repo')",
-        "  data_repo(name='ext',data='@other_repo//:foo')",
+        "  data_repo(name='ext',data='@not_other_repo//:foo')",
         "ext = module_extension(implementation=_ext_impl)");
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
     scratch.file(
@@ -1425,9 +1425,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     reporter.removeHandler(failFastHandler);
     evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertContainsEvent(
-        "Error in repository_rule: no repository visible as '@other_repo' to the main repository,"
-            + " but referenced by label '@other_repo//:foo' in attribute 'data' of data_repo 'ext'."
-            + " Is the root module missing a bazel_dep or use_repo(..., \"other_repo\")?");
+        """
+            ERROR /ws/defs.bzl:9:12: Traceback (most recent call last):
+            \tFile "/ws/defs.bzl", line 9, column 12, in _ext_impl
+            Error in repository_rule: no repository visible as '@not_other_repo' in the extension '@@//:defs.bzl%ext', but referenced by label '@not_other_repo//:foo' in attribute 'data' of data_repo 'ext'.""");
   }
 
   @Test
@@ -1464,10 +1465,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     reporter.removeHandler(failFastHandler);
     evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertContainsEvent(
-        "Error in repository_rule: no repository visible as '@not_other_repo' to the repository"
-            + " '@@ext_module+', but referenced by label '@not_other_repo//:foo' in attribute"
-            + " 'data' of data_repo 'ext'. Is the module 'ext_module' missing a bazel_dep or"
-            + " use_repo(..., \"other_repo\")?");
+        """
+            ERROR /usr/local/google/_blaze_jrluser/FAKEMD5/external/ext_module+/defs.bzl:9:12: Traceback (most recent call last):
+            \tFile "/usr/local/google/_blaze_jrluser/FAKEMD5/external/ext_module+/defs.bzl", line 9, column 12, in _ext_impl
+            Error in repository_rule: no repository visible as '@not_other_repo' in the extension '@@ext_module+//:defs.bzl%ext', but referenced by label '@not_other_repo//:foo' in attribute 'data' of data_repo 'ext'.""");
   }
 
   @Test
@@ -1507,10 +1508,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     assertThat(result.getError().getException())
         .hasMessageThat()
         .isEqualTo(
-            "in tag at /ws/MODULE.bazel:2:10: no repository visible as '@other_repo' to the main"
-                + " repository, but referenced by label '@other_repo//:foo' in attribute 'label' of"
-                + " tag 'label'. Is the root module missing a bazel_dep or use_repo(...,"
-                + " \"other_repo\")?");
+            "in tag at /ws/MODULE.bazel:2:10: no repository visible as '@other_repo' to the root module, but referenced by label '@other_repo//:foo' in attribute 'label' of tag 'label'.");
   }
 
   @Test
@@ -1541,10 +1539,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     reporter.removeHandler(failFastHandler);
     evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertContainsEvent(
-        "Error in repository_rule: no repository visible as '@not_other_repo' to the main"
-            + " repository, but referenced by label '@not_other_repo//:foo' in attribute 'data' of"
-            + " data_repo 'ext'. Is the root module missing a bazel_dep or use_repo(...,"
-            + " \"other_repo\")?");
+        """
+            ERROR /ws/defs.bzl:9:12: Traceback (most recent call last):
+            \tFile "/ws/defs.bzl", line 9, column 12, in _ext_impl
+            Error in repository_rule: no repository visible as '@not_other_repo' in the extension '@@//:defs.bzl%ext', but referenced by label '@not_other_repo//:foo' in attribute 'data' of data_repo 'ext'.""");
   }
 
   @Test
@@ -1575,10 +1573,10 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     reporter.removeHandler(failFastHandler);
     evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertContainsEvent(
-        "Error in repository_rule: no repository visible as '@not_other_repo' to the main"
-            + " repository, but referenced by label '@not_other_repo//:foo' in attribute 'data' of"
-            + " data_repo 'ext'. Is the root module missing a bazel_dep or use_repo(...,"
-            + " \"other_repo\")?");
+        """
+            ERROR /ws/defs.bzl:9:12: Traceback (most recent call last):
+            \tFile "/ws/defs.bzl", line 9, column 12, in _ext_impl
+            Error in repository_rule: no repository visible as '@not_other_repo' in the extension '@@//:defs.bzl%ext', but referenced by label '@not_other_repo//:foo' in attribute 'data' of data_repo 'ext'.""");
   }
 
   @Test

@@ -73,6 +73,14 @@ public abstract class ModuleKey {
     return getName() + "@" + (getVersion().isEmpty() ? "_" : getVersion().toString());
   }
 
+  /** Returns a string such as "root module" or "module foo@1.2.3" for display purposes. */
+  public final String toDisplayString() {
+    if (this.equals(ROOT)) {
+      return "root module";
+    }
+    return String.format("module '%s'", this);
+  }
+
   /**
    * Returns the canonical name of the repo backing this module, including its version. This name is
    * always guaranteed to be unique.

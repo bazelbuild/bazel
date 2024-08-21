@@ -65,6 +65,7 @@ public final class ModuleExtensionEvalStarlarkThreadContext extends StarlarkThre
       Location location,
       ImmutableList<StarlarkThread.CallStackEntry> callStack) {}
 
+  private final ModuleExtensionId extensionId;
   private final String repoPrefix;
   private final PackageIdentifier basePackageId;
   private final RepositoryMapping baseRepoMapping;
@@ -73,6 +74,7 @@ public final class ModuleExtensionEvalStarlarkThreadContext extends StarlarkThre
   private final Map<String, RepoRuleCall> deferredRepos = new LinkedHashMap<>();
 
   public ModuleExtensionEvalStarlarkThreadContext(
+      ModuleExtensionId extensionId,
       String repoPrefix,
       PackageIdentifier basePackageId,
       RepositoryMapping baseRepoMapping,
@@ -80,6 +82,7 @@ public final class ModuleExtensionEvalStarlarkThreadContext extends StarlarkThre
       BlazeDirectories directories,
       ExtendedEventHandler eventHandler) {
     super(() -> mainRepoMapping);
+    this.extensionId = extensionId;
     this.repoPrefix = repoPrefix;
     this.basePackageId = basePackageId;
     this.baseRepoMapping = baseRepoMapping;
@@ -167,7 +170,9 @@ public final class ModuleExtensionEvalStarlarkThreadContext extends StarlarkThre
                 .getUnambiguousCanonicalForm();
         var attributesValue = AttributeValues.create(attributes);
         AttributeValues.validateAttrs(
-            attributesValue, String.format("%s '%s'", rule.getRuleClass(), name));
+            attributesValue,
+            String.format("in the extension '%s'", extensionId.asTargetString()),
+            String.format("%s '%s'", rule.getRuleClass(), name));
         RepoSpec repoSpec =
             RepoSpec.builder()
                 .setBzlFile(bzlFile)

@@ -786,7 +786,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                       Maps.transformEntries(kwargs, (k, v) -> ruleInstance.getAttr(k)),
                       k -> !k.equals("name")));
           AttributeValues.validateAttrs(
-              attributesValue, String.format("%s '%s'", ruleInstance.getRuleClass(), name));
+              attributesValue,
+              String.format("to the %s", moduleKey.toDisplayString()),
+              String.format("%s '%s'", ruleInstance.getRuleClass(), name));
         } catch (InvalidRuleException | NoSuchPackageException | EvalException e) {
           throw new SingleExtensionEvalFunctionException(
               ExternalDepsException.withCauseAndMessage(
@@ -907,6 +909,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         throws InterruptedException, SingleExtensionEvalFunctionException {
       ModuleExtensionEvalStarlarkThreadContext threadContext =
           new ModuleExtensionEvalStarlarkThreadContext(
+              extensionId,
               usagesValue.getExtensionUniqueName() + "+",
               extensionId.getBzlFileLabel().getPackageIdentifier(),
               BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
@@ -971,7 +974,13 @@ public class SingleExtensionEvalFunction implements SkyFunction {
             moduleExtensionMetadata,
             repoMappingRecorder.recordedEntries());
       } catch (EvalException e) {
-        env.getListener().handle(Event.error(e.getMessageWithStack()));
+        Location innermostLocation =
+            e.getCallStack().reverse().stream()
+                .map(entry -> entry.location)
+                .filter(location -> location != Location.BUILTIN)
+                .findFirst()
+                .orElse(null);
+        env.getListener().handle(Event.error(innermostLocation, e.getMessageWithStack()));
         throw new SingleExtensionEvalFunctionException(
             ExternalDepsException.withMessage(
                 ExternalDeps.Code.BAD_MODULE,

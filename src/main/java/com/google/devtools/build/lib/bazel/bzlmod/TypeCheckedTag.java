@@ -57,7 +57,8 @@ public class TypeCheckedTag implements Structure {
   }
 
   /** Creates a {@link TypeCheckedTag}. */
-  public static TypeCheckedTag create(TagClass tagClass, Tag tag, LabelConverter labelConverter)
+  public static TypeCheckedTag create(
+      TagClass tagClass, Tag tag, LabelConverter labelConverter, String moduleDisplayString)
       throws ExternalDepsException {
     Object[] attrValues = new Object[tagClass.getAttributes().size()];
     for (Map.Entry<String, Object> attrValue : tag.getAttributeValues().attributes().entrySet()) {
@@ -113,7 +114,10 @@ public class TypeCheckedTag implements Structure {
       }
       try {
         AttributeValues.validateSingleAttr(
-            attr.getPublicName(), attrValues[i], String.format("tag '%s'", tag.getTagName()));
+            attr.getPublicName(),
+            attrValues[i],
+            String.format("to the %s", moduleDisplayString),
+            String.format("tag '%s'", tag.getTagName()));
       } catch (EvalException e) {
         throw ExternalDepsException.withMessage(
             Code.BAD_MODULE, "in tag at %s: %s", tag.getLocation(), e.getMessage());
