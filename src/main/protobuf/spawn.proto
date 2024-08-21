@@ -260,6 +260,7 @@ message ExecLogEntry {
   }
 
   message RunfilesTree {
+    // The target of a runfile staged at a custom location.
     message SymlinkTarget {
       oneof target {
         int32 file_id = 1;
@@ -274,22 +275,27 @@ message ExecLogEntry {
     // The entry ID of the set of artifacts in the runfiles tree that are
     // symlinked at their canonical locations relative to the tree path.
     //
-    // The canonical relative path of an artifact is obtained as follows:
+    // The canonical relative paths of an artifact are obtained as follows:
     // 1. If the path starts with "bazel-out/", drop the first three components.
-    // 2. If the path starts with "external/", drop the first component.
-    //    If not, prepend the workspace runfiles directory (see Invocation).
+    // 2. If legacy_external_runfiles is true, the path prepended with the
+    //    workspace runfiles directory (see Invocation) is one canonical
+    //    location.
+    // 3. If the path starts with "external/", drop the first component.
+    //    If not, prepend the workspace runfiles directory. This is (another)
+    //    canonical location.
     //
     // In case of path collisions, later artifacts overwrite earlier ones and
     // artifacts override symlinks.
     //
     // The referenced set must not contain any runfile trees.
     // TODO: Document the procedure to obtain the canonical relative path
-    // with --experimental_sibling_repository_layout and
-    // --legacy_external_runfiles.
+    // with --experimental_sibling_repository_layout.
     int32 artifacts_id = 2;
     // The artifacts in the runfiles tree that are symlinked at custom
     // locations.
     map<string, SymlinkTarget> symlinks = 3;
+    // Whether the runfiles tree contains external runfiles at their legacy
+    // locations (e.g. _main/external/bazel_tools/tools/bash/runfiles.bash).
     bool legacy_external_runfiles = 4;
   }
 

@@ -302,7 +302,8 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
    * file under "_main" and thus wouldn't implicitly create that directory.
    *
    * <p>TODO: This is bug-for-bug compatible with the implementation in Runfiles and in particular
-   * doesn't create the file if the only runfile under "_main" is an empty directory.
+   * doesn't create the file if the only runfile under "_main" is an empty directory. If not for
+   * this bug, the flattened list of files could be checked instead.
    */
   private Optional<File> getDotRunfileFileIfNeeded(ExecLogEntry.RunfilesTree runfilesTree)
       throws IOException {
