@@ -893,7 +893,8 @@ public final class UnixGlob {
     if (complexPatterns.isEmpty()) {
       return;
     }
-    // TODO(adonovan): validate pattern unconditionally (potentially breaking change).
+    // TODO: b/361409364 - Fully validate exclude patterns. This is a breaking change, so there
+    // needs to first be a depot cleanup.
     List<String[]> splitPatterns = checkAndSplitPatterns(complexPatterns);
     HashMap<String, Pattern> patternCache = new HashMap<>();
     paths.removeIf(
