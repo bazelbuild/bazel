@@ -212,11 +212,11 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       )) {
         return new PathMetadata(
             path,
-            /* digest= */ null,
+            digestUtil.compute(path),
             /* directory= */ false,
             /* symlink= */ false,
             /* remote= */ false,
-            /* omitted= */ false,
+            /* omitted= */ true,
             /* isBuildToolLog= */ false,
             digestUtil.getDigestFunction());
       }
