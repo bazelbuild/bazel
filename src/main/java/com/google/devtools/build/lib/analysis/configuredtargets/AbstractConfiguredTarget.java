@@ -26,8 +26,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Provider;
@@ -87,10 +85,6 @@ public abstract class AbstractConfiguredTarget implements ConfiguredTarget, Visi
           FILES_FIELD,
           FilesToRunProvider.STARLARK_NAME,
           OutputGroupInfo.STARLARK_NAME);
-
-  AbstractConfiguredTarget(ActionLookupKey actionLookupKey) {
-    this(actionLookupKey, NestedSetBuilder.emptySet(Order.STABLE_ORDER));
-  }
 
   protected AbstractConfiguredTarget(
       ActionLookupKey actionLookupKey, NestedSet<PackageGroupContents> visibility) {

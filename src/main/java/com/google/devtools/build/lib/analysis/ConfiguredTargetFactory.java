@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationExc
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -62,7 +61,6 @@ import com.google.devtools.build.lib.packages.OutputFile;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageGroup;
 import com.google.devtools.build.lib.packages.PackageGroupsRuleVisibility;
-import com.google.devtools.build.lib.packages.PackageSpecification;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
@@ -94,14 +92,6 @@ import net.starlark.java.eval.Mutability;
 @ThreadSafe
 public final class ConfiguredTargetFactory {
 
-  private static final NestedSet<PackageGroupContents> PUBLIC_VISIBILITY =
-      NestedSetBuilder.create(
-          Order.STABLE_ORDER,
-          PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything())));
-
-  private static final NestedSet<PackageGroupContents> PRIVATE_VISIBILITY =
-      NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-
   // This class is not meant to be outside of the analysis phase machinery and is only public
   // in order to be accessible from the .view.skyframe package.
 
@@ -123,12 +113,22 @@ public final class ConfiguredTargetFactory {
       OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> prerequisiteMap,
       EventHandler reporter,
       Target target) {
+    // Targets declared inside symbolic macros already have a RuleVisibility that includes the
+    // target's declaration location. Targets that are *not* declared inside symbolic macros do not
+    // necessarily have their declaration location (i.e. the package they live in) in their
+    // RuleVisibility, but CommonPrerequisiteValidator takes that into account. See also javadoc of
+    // Rule#getRuleVisibility.
+    //
+    // TODO: #19922 - Ideally we'd just put the location into the visibility attribute even for
+    // targets not declared in symbolic macros. But this has a wide user-facing blast radius since
+    // it changes all existing targets' visibilities (when inspected via existing_rules(),
+    // `bazel query`, etc.).
     RuleVisibility ruleVisibility = target.getVisibility();
     if (ruleVisibility.equals(RuleVisibility.PUBLIC)) {
-      return PUBLIC_VISIBILITY;
+      return VisibilityProvider.PUBLIC_VISIBILITY;
     }
     if (ruleVisibility.equals(RuleVisibility.PRIVATE)) {
-      return PRIVATE_VISIBILITY;
+      return VisibilityProvider.PRIVATE_VISIBILITY;
     }
     checkState(ruleVisibility instanceof PackageGroupsRuleVisibility, ruleVisibility);
     PackageGroupsRuleVisibility packageGroupsVisibility =

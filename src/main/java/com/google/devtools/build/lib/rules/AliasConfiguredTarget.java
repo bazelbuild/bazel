@@ -101,7 +101,12 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
         ImmutableClassToInstanceMap.<TransitiveInfoProvider>builder()
             .putAll(overrides)
             .put(AliasProvider.class, AliasProvider.fromAliasRule(ruleContext.getRule(), actual))
-            .put(VisibilityProvider.class, new VisibilityProviderImpl(visibility));
+            .put(
+                VisibilityProvider.class,
+                new VisibilityProviderImpl(
+                    visibility,
+                    /* isCreatedInSymbolicMacro= */ ruleContext.getRule().getDeclaringMacro()
+                        != null));
     if (ruleContext.getRequiredConfigFragments() != null) {
       // This causes "blaze cquery --show_config_fragments=direct" to only show the
       // fragments/options the alias directly uses, not those of its actual target. Since alias

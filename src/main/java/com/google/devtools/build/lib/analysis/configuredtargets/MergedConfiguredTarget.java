@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
+import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
@@ -85,12 +86,22 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       ConfiguredTarget base,
       Iterable<ConfiguredAspect> aspects,
       TransitiveInfoProviderMap nonBaseProviders) {
-    // TODO(b/281522692): it's unsound to pass a null key here, but the type system doesn't
-    // currently provide a better way to do this.
-    super(/* actionLookupKey= */ null);
+    super(
+        // TODO(b/281522692): it's unsound to pass a null key here, but the type system doesn't
+        // currently provide a better way to do this.
+        /* actionLookupKey= */ null,
+        // Placeholder visibility because this target isn't consumed.
+        VisibilityProvider.PRIVATE_VISIBILITY);
     this.base = base;
     this.aspects = ImmutableList.copyOf(aspects);
     this.nonBaseProviders = nonBaseProviders;
+  }
+
+  @Override
+  public boolean isCreatedInSymbolicMacro() {
+    // Technically, like visibility, we can return anything here because this target isn't consumed.
+    // If we wanted the correct answer we could obtain it from the base CT's visibility provider.
+    return false;
   }
 
   @Override

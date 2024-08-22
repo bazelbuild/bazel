@@ -1292,6 +1292,7 @@ java_library(
         ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
+        "//third_party:guava",
     ],
 )
 
@@ -2445,6 +2446,7 @@ java_library(
         ":test/test_configuration",
         ":transitive_dependency_state",
         ":transitive_info_provider_map_builder",
+        ":visibility_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

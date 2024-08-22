@@ -92,6 +92,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   private RuleConfiguredTarget(
       ActionLookupKey actionLookupKey,
       NestedSet<PackageGroupContents> visibility,
+      boolean isCreatedInSymbolicMacro,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ImmutableSet<ConfiguredTargetKey> implicitDeps,
@@ -103,6 +104,12 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     // providers by passing them in.
     TransitiveInfoProviderMapBuilder providerBuilder =
         new TransitiveInfoProviderMapBuilder().addAll(providers);
+    if (isCreatedInSymbolicMacro) {
+      // Rather than add a boolean field to all RuleConfiguredTargets, we add a marker provider to
+      // just the ones that are created in symbolic macros. (This tradeoff may make less sense if
+      // many targets are created in macros.)
+      providerBuilder.add(CreatedInSymbolicMacroMarker.INSTANCE);
+    }
     checkState(providerBuilder.contains(RunfilesProvider.class), actionLookupKey);
     checkState(providerBuilder.contains(FileProvider.class), actionLookupKey);
     checkState(providerBuilder.contains(FilesToRunProvider.class), actionLookupKey);
@@ -129,6 +136,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     this(
         ruleContext.getOwner(),
         ruleContext.getVisibility(),
+        /* isCreatedInSymbolicMacro= */ ruleContext.getRule().getDeclaringMacro() != null,
         providers,
         ruleContext.getConfigConditions(),
         Util.findImplicitDeps(ruleContext),
@@ -147,18 +155,35 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   public RuleConfiguredTarget(
       ActionLookupKey actionLookupKey,
       NestedSet<PackageGroupContents> visibility,
+      boolean isCreatedInSymbolicMacro,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       RuleClassId ruleClassId) {
     this(
         actionLookupKey,
         visibility,
+        isCreatedInSymbolicMacro,
         providers,
         configConditions,
         ImmutableSet.of(),
         ruleClassId,
         ImmutableList.of());
     checkState(providers.get(IncompatiblePlatformProvider.PROVIDER) != null, actionLookupKey);
+  }
+
+  /**
+   * Marker provider that indicates this target was instantiated within one or more symbolic macros.
+   */
+  private static class CreatedInSymbolicMacroMarker implements TransitiveInfoProvider {
+    public static final CreatedInSymbolicMacroMarker INSTANCE = new CreatedInSymbolicMacroMarker();
+
+    // Singleton.
+    private CreatedInSymbolicMacroMarker() {}
+  }
+
+  @Override
+  public boolean isCreatedInSymbolicMacro() {
+    return getProvider(CreatedInSymbolicMacroMarker.class) != null;
   }
 
   /** The configuration conditions that trigger this rule's configurable attributes. */
