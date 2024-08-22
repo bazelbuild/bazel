@@ -283,8 +283,8 @@ public class RuleFactory {
    * the package where the innermost currently executing symbolic macro was exported.
    *
    * <p>For targets not created inside one or more symbolic macros, no change is made to the
-   * visibility attribute at this time, but during analysis the target's package will be added to
-   * its visibility provider.
+   * visibility attribute. The visibility check will account for this by permitting access to the
+   * target from locations in the same package as the target.
    */
   @Nullable
   private static List<Label> getModifiedVisibility(

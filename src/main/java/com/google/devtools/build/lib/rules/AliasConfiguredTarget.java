@@ -65,6 +65,10 @@ import net.starlark.java.eval.Structure;
 @Immutable
 public final class AliasConfiguredTarget implements ConfiguredTarget, Structure {
 
+  /**
+   * Convenience wrapper for {@link #createWithOverrides} that does not specify any additional
+   * overrides.
+   */
   public static AliasConfiguredTarget create(
       RuleContext ruleContext,
       ConfiguredTarget actual,
@@ -73,6 +77,21 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
         ruleContext, actual, visibility, /*overrides=*/ ImmutableClassToInstanceMap.of());
   }
 
+  /**
+   * Constructs an {@code AliasConfiguredTarget} that forwards most of the providers of {@code
+   * actual}, with certain providers shadowed.
+   *
+   * <p>The shadowed providers are anything given in {@code overrides}, plus the following built-in
+   * changes which take priority above both {@code actual} and {@code overrides}:
+   *
+   * <ul>
+   *   <li>{@link AliasProvider} is set to indicate that this is an alias configured target.
+   *   <li>{@link VisibilityProvider} has the information describing this alias target (as passed
+   *       here in the {@code visibility} parameter), not the information describing the {@code
+   *       actual} underlying target.
+   *   <li>{@link RequiredConfigFragmentsProvider} may be set}
+   * </ul>
+   */
   public static AliasConfiguredTarget createWithOverrides(
       RuleContext ruleContext,
       ConfiguredTarget actual,
@@ -131,6 +150,11 @@ public final class AliasConfiguredTarget implements ConfiguredTarget, Structure 
     return p != null ? p : actual.getProvider(provider);
   }
 
+  // TODO(bazel-team): It's a bit confusing that we're returning the label of the target we directly
+  // point to, rather than our own label, or the label of the eventual endpoint of the alias chain.
+  // Is there a reason we need to put that behavior in this override rather than having this return
+  // our own label and making a separate method to get the actual's label? (If so, update this
+  // comment.)
   @Override
   public Label getLabel() {
     return actual.getLabel();

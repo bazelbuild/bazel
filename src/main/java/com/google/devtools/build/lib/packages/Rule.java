@@ -1068,14 +1068,33 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   /**
-   * Returns the effective visibility of this rule. For most rules, visibility is computed from
-   * these sources in this order of preference:
+   * Returns the effective visibility of this rule target, as best as can be determined at loading
+   * time.
    *
-   * <ol>
-   *   <li>'visibility' attribute
-   *   <li>Package default visibility ('default_visibility' attribute of package() declaration)
-   * </ol>
+   * <p>Conceptually, this is taken from the target's {@code visibility} attribute, with a few
+   * caveats described below. The actual visibility check is based on analysis-time information that
+   * traverses possibly multiple levels of {@code package_group} definitions; see {@link
+   * VisibilityProvider}.
+   *
+   * <p>Under the Macro-Aware Visibility model, targets are always visible to the location of the
+   * code of the symbolic macro in which they are declared, or the target's package if they are not
+   * in a symbolic macro. For targets in symbolic macros, we realize this by automatically appending
+   * this location to {@code visibility} when the target is created (see {@link
+   * RuleFactory#createRule}).
+   *
+   * <p>However, for targets created by the BUILD file and legacy macros (i.e. outside any symbolic
+   * macro), we do not append anything, because that would be a backwards incompatible change (as
+   * well as a minor memory regression). So instead, when checking visibility at analysis time, we
+   * simply implicitly allow the target's own package anytime the target was not created in a
+   * symbolic macro.
+   *
+   * <p>The package's {@code default_visibility} is used as the starting point for targets that are
+   * not created in any symbolic macro and that do not specify an explicit {@code visibility}.
    */
+  // TODO: #19922 - Technically, I think the fact that we munge visibility for targets in symbolic
+  // macros means that they appear as though they were explicitly specified
+  // (AttributeMap#isAttributeValueExplicitlySpecified). I doubt this matters in practice, as most
+  // logic should not be relying on that bit.
   @Override
   public RuleVisibility getVisibility() {
     List<Label> rawLabels = getRawVisibilityLabels();
@@ -1116,6 +1135,13 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   private RuleVisibility getDefaultVisibility() {
+    // TODO: #19922 - This logic is only reached from getVisibility() when the visibility attribute
+    // is not set on this target. But since we munge the visibility attribute to be non-empty for
+    // all targets created in symbolic macros, this logic is bypassed anytime the target is in a
+    // symbolic macro. The likely fix is to factor this out into something that can be consulted by
+    // RuleFactory#getModifiedVisibility in place of accessing the package's default_visibility
+    // (which isn't supposed to be consulted inside symbolic macros anyway).
+
     if (ruleClass.getName().equals("bind")) {
       return RuleVisibility.PUBLIC; // bind rules are always public.
     }

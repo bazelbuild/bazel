@@ -140,6 +140,8 @@ public final class BlazeTargetAccessor implements TargetAccessor<Target> {
   }
 
   // CAUTION: keep in sync with ConfiguredTargetFactory#convertVisibility()
+  // TODO: #19922 - And... it's not in sync with Macro-Aware Visibility for symbolic macros. Fix
+  // this. Also mind the samePackage logic in getVisibility above.
   private void convertVisibility(
       QueryExpression caller,
       ImmutableSet.Builder<QueryVisibility<Target>> packageSpecifications,

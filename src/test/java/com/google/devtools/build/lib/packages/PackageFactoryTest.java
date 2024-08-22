@@ -1629,7 +1629,6 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     assertVisibilityIs(pkg.getTarget("foo"), "//other_pkg:__pkg__", "//inner:__pkg__");
   }
 
-  // TODO: #19922 - Invert this behavior, default visibility should not propagate to within a macro.
   @Test
   public void testDeclarationVisibilityUnioning_respectsPackageDefaultVisibility()
       throws Exception {
@@ -1654,6 +1653,8 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     Package pkg = loadPackageAndAssertSuccess("pkg");
     assertVisibilityIs(pkg.getTarget("foo"), "//other_pkg:__pkg__");
+    // TODO: #19922 - Change this behavior, default visibility should not propagate to within a
+    // macro.
     assertVisibilityIs(pkg.getTarget("bar"), "//other_pkg:__pkg__", "//lib:__pkg__");
   }
 
