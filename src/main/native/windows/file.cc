@@ -505,11 +505,6 @@ int CreateSymlink(const wstring& symlink_name, const wstring& symlink_target,
   const wstring target = AddUncPrefixMaybe(symlink_target);
 
   DWORD attrs = GetFileAttributesW(target.c_str());
-  if (attrs & FILE_ATTRIBUTE_DIRECTORY) {
-    // Instead of creating a symlink to a directory use a Junction.
-    return CreateSymlinkResult::kTargetIsDirectory;
-  }
-
   if (!CreateSymbolicLinkW(name.c_str(), target.c_str(),
                            symlinkPrivilegeFlag)) {
     if (GetLastError() == ERROR_INVALID_PARAMETER) {
