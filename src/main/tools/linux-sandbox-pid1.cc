@@ -406,12 +406,22 @@ static void MakeFilesystemMostlyReadOnly() {
   endmntent(mounts);
 }
 
-static void MountProc() {
+static void MountProcAndSys() {
   // Mount a new proc on top of the old one, because the old one still refers to
   // our parent PID namespace.
   if (mount("/proc", "/proc", "proc", MS_NODEV | MS_NOEXEC | MS_NOSUID,
             nullptr) < 0) {
-    DIE("mount");
+    DIE("mount /proc");
+  }
+
+  if (opt.create_netns == NO_NETNS) {
+    return;
+  }
+
+  // Same for sys, but only if a separate network namespace was requested.
+  if (mount("none", "/sys", "sysfs",
+            MS_NOEXEC | MS_NOSUID | MS_NODEV | MS_RDONLY, nullptr) < 0) {
+    DIE("mount /sys");
   }
 }
 
@@ -688,13 +698,13 @@ int Pid1Main(void *args) {
     MountSandboxAndGoThere();
     CreateEmptyFile();
     MountDev();
-    MountProc();
+    MountProcAndSys();
     MountAllMounts();
     ChangeRoot();
   } else {
     MountFilesystems();
     MakeFilesystemMostlyReadOnly();
-    MountProc();
+    MountProcAndSys();
   }
   SetupNetworking();
   EnterWorkingDirectory();
