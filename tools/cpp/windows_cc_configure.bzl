@@ -793,7 +793,8 @@ def _get_clang_cl_vars(repository_ctx, paths, msvc_vars, target_arch):
         "%{clang_cl_cl_path_" + target_arch + "}": clang_cl_path,
         "%{clang_cl_link_path_" + target_arch + "}": lld_link_path,
         "%{clang_cl_lib_path_" + target_arch + "}": llvm_lib_path,
-        "%{clang_cl_ml_path_" + target_arch + "}": clang_cl_path,
+        # clang-cl does not support assembly files as input.
+        "%{clang_cl_ml_path_" + target_arch + "}": msvc_vars["%{msvc_ml_path_" + target_arch + "}"],
         # LLVM's lld-link.exe doesn't support /DEBUG:FASTLINK.
         "%{clang_cl_dbg_mode_debug_flag_" + target_arch + "}": "/DEBUG",
         "%{clang_cl_fastbuild_mode_debug_flag_" + target_arch + "}": "/DEBUG",
