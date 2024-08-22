@@ -264,7 +264,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                   lastResult,
                   commandExtensionReporter);
           break;
-        } catch (RemoteCacheEvictedException e) {
+        } catch (RemoteCacheTransientErrorException e) {
           attemptedCommandIds.add(e.getCommandId());
           lastResult = e.getResult();
         }
@@ -322,7 +322,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       Set<UUID> attemptedCommandIds,
       @Nullable BlazeCommandResult lastResult,
       CommandExtensionReporter commandExtensionReporter)
-      throws RemoteCacheEvictedException {
+      throws RemoteCacheTransientErrorException {
     // Record the start time for the profiler. Do not put anything before this!
     long execStartTimeNanos = runtime.getClock().nanoTime();
 
@@ -365,7 +365,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
                 env.getCommandId()));
         return Preconditions.checkNotNull(lastResult);
       } else {
-        outErr.printErrLn("Found fatal remote cache error, retrying the build...");
+        outErr.printErrLn("Found transient remote cache error, retrying the build...");
       }
     }
 
@@ -704,13 +704,13 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       if (newResult.getExitCode().equals(ExitCode.REMOTE_CACHE_EVICTED)) {
         var executionOptions =
             Preconditions.checkNotNull(options.getOptions(ExecutionOptions.class));
-        if (attemptedCommandIds.size() < executionOptions.remoteRetryOnCacheError) {
-          throw new RemoteCacheEvictedException(env.getCommandId(), newResult);
+        if (attemptedCommandIds.size() < executionOptions.remoteRetryOnTransientCacheError) {
+          throw new RemoteCacheTransientErrorException(env.getCommandId(), newResult);
         }
       }
 
       return newResult;
-    } catch (RemoteCacheEvictedException e) {
+    } catch (RemoteCacheTransientErrorException e) {
       throw e;
     } catch (Throwable e) {
       logger.atSevere().withCause(e).log("Shutting down due to exception");
@@ -745,11 +745,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
     }
   }
 
-  private static class RemoteCacheEvictedException extends IOException {
+  private static class RemoteCacheTransientErrorException extends IOException {
     private final UUID commandId;
     private final BlazeCommandResult result;
 
-    private RemoteCacheEvictedException(UUID commandId, BlazeCommandResult result) {
+    private RemoteCacheTransientErrorException(UUID commandId, BlazeCommandResult result) {
       this.commandId = commandId;
       this.result = result;
     }

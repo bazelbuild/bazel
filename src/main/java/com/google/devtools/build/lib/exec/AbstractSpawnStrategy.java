@@ -293,28 +293,25 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
                     Priority.MEDIUM),
             BulkTransferException.class,
             (BulkTransferException e) -> {
-              if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
-                var code =
-                    (executionOptions.useNewExitCodeForLostInputs
-                            || executionOptions.remoteRetryOnCacheError > 0)
-                        ? Code.REMOTE_CACHE_EVICTED
-                        : Code.REMOTE_CACHE_FAILED;
+              if (executionOptions.useNewExitCodeForLostInputs
+                            || executionOptions.remoteRetryOnTransientCacheError > 0) {
+                var message = BulkTransferException.allCausedByCacheNotFoundException(e)
+                    ? "Failed to fetch blobs because they do not exist remotely."
+                    : "Failed to fetch blobs because from the remote cache.";
                 throw new EnvironmentalExecException(
                     e,
                     FailureDetail.newBuilder()
-                        .setMessage("Failed to fetch blobs because they do not exist remotely.")
-                        .setSpawn(FailureDetails.Spawn.newBuilder().setCode(code))
+                        .setMessage(message)
+                        .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
                         .build());
               } else {
-                if (executionOptions.remoteRetryOnCacheError > 0) {
+                if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
                   throw new EnvironmentalExecException(
                       e,
                       FailureDetail.newBuilder()
-                          .setMessage("Failed to fetch blobs because from the remote cache.")
-                          .setSpawn(
-                              FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_EVICTED))
+                          .setMessage("Failed to fetch blobs because they do not exist remotely.")
+                          .setSpawn(FailureDetails.Spawn.newBuilder().setCode(Code.REMOTE_CACHE_FAILED))
                           .build());
-
                 } else {
                   throw e;
                 }

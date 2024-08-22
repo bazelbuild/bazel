@@ -227,8 +227,10 @@ message Spawn {
     //   refactored to prohibit undetailed failures
     UNSPECIFIED_EXECUTION_FAILURE = 12 [(metadata) = { exit_code: 1 }];
     FORBIDDEN_INPUT = 13 [(metadata) = { exit_code: 1 }];
-    // TODO: This also includes other remote cache errors, not just evictions,
+    // This also includes other remote cache errors, not just evictions,
     // if --incompatible_remote_use_new_exit_code_for_lost_inputs is set.
+    // TODO: Rename it to a more general name when
+    // --experimental_remote_cache_eviction_retries is moved to non-experimental.
     REMOTE_CACHE_EVICTED = 14 [(metadata) = { exit_code: 39 }];
     SPAWN_LOG_IO_EXCEPTION = 15 [(metadata) = { exit_code: 36 }];
   }

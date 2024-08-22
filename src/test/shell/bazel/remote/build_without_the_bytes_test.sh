@@ -2022,7 +2022,7 @@ EOF
       //a:bar >& $TEST_log || fail "Failed to build"
 
   expect_log 'Failed to fetch blobs because they do not exist remotely.'
-  expect_log "Found fatal remote cache error, retrying the build..."
+  expect_log "Found transient remote cache error, retrying the build..."
 
   local invocation_ids=$(grep "Invocation ID:" $TEST_log)
   local first_id=$(echo "$invocation_ids" | head -n 1)

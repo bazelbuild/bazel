@@ -546,17 +546,16 @@ public class ExecutionOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "The maximum number of attempts to retry if the build encountered a remote cache"
+          "The maximum number of attempts to retry if the build encountered a transient remote cache"
               + " error that would otherwise fail the build. Applies for example when artifacts"
-              + " are evicted from the remote cache, or in certain cache failure conditions"
-              + " when using --remote_download_minimal."
+              + " are evicted from the remote cache, or in certain cache failure conditions."
               + " A non-zero value will implicitly set"
               + " --incompatible_remote_use_new_exit_code_for_lost_inputs to true. A new invocation"
               + " id will be generated for each attempt. If you generate invocation id and provide"
               + " it to Bazel with --invocation_id, you should not use this flag. Instead, set flag"
               + " --incompatible_remote_use_new_exit_code_for_lost_inputs and check for the exit"
               + " code 39.")
-  public int remoteRetryOnCacheError;
+  public int remoteRetryOnTransientCacheError;
 
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
