@@ -203,7 +203,6 @@ class HttpConnector {
           throw new IOException(describeHttpResponse(connection));
         } else if (code < 500          // 4xx means client seems to have erred quoth RFC7231 § 6.5
                     || code == 501     // Server doesn't support function quoth RFC7231 § 6.6.2
-                    || code == 502     // Host not configured on server cf. RFC7231 § 6.6.3
                     || code == 505) {  // Server refuses to support version quoth RFC7231 § 6.6.6
           // This is a permanent error so we're not going to retry.
           readAllBytesAndClose(connection.getErrorStream());
@@ -214,7 +213,7 @@ class HttpConnector {
           }
           throw new UnrecoverableHttpException(describeHttpResponse(connection));
         } else {
-          // However we will retry on some 5xx errors, particularly 500 and 503.
+          // However we will retry on some 5xx errors, particularly 500, 502 and 503.
           throw new IOException(describeHttpResponse(connection));
         }
       } catch (UnrecoverableHttpException | FileNotFoundException e) {
