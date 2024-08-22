@@ -12,7 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// daemonize [-a] -l log_path -p pid_path -- binary_path binary_name [args]
+// daemonize [-a] -l log_path -p pid_path [-c cgroup] -- binary_path binary_name
+// [args]
 //
 // daemonize spawns a program as a daemon, redirecting all of its output to the
 // given log_path and writing the daemon's PID to pid_path.  binary_path
@@ -35,19 +36,20 @@
 //   we take the freedom to immediatey exit from anywhere as soon as we
 //   hit an error.
 
-#include <sys/types.h>
-
 #include <assert.h>
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <getopt.h>
-#include <inttypes.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <sys/types.h>
 #include <unistd.h>
+
+#include "src/main/tools/process-tools.h"
 
 // Configures std{in,out,err} of the current process to serve as a daemon.
 //
@@ -89,11 +91,11 @@ static void WritePidFile(pid_t pid, const char* pid_path, int pid_done_fd) {
   if (pid_file == NULL) {
     err(EXIT_FAILURE, "Failed to create %s", pid_path);
   }
-  if (fprintf(pid_file, "%" PRIdMAX, (intmax_t) pid) < 0) {
-    err(EXIT_FAILURE, "Failed to write pid %"PRIdMAX" to %s", (intmax_t) pid, pid_path);
+  if (fprintf(pid_file, "%d", pid) < 0) {
+    err(EXIT_FAILURE, "Failed to write pid %d to %s", pid, pid_path);
   }
   if (fclose(pid_file) < 0) {
-    err(EXIT_FAILURE, "Failed to write pid %"PRIdMAX" to %s", (intmax_t) pid, pid_path);
+    err(EXIT_FAILURE, "Failed to write pid %d to %s", pid, pid_path);
   }
 
   char dummy = '\0';
@@ -147,6 +149,38 @@ static void ExecAsDaemon(const char* log_path, bool log_append, int pid_done_fd,
   err(EXIT_FAILURE, "Failed to execute %s", exe);
 }
 
+#ifdef __linux__
+// Moves the bazel server into the specified cgroup for all the discovered
+// cgroups. This is useful when using the cgroup features in bazel and thus the
+// server must be started in a user-writable cgroup. Users can specify a
+// pre-setup cgroup where the server will be moved to. This is enabled by
+// the --experimental_cgroup_parent startup flag.
+static void MoveToCgroup(pid_t pid, const char* cgroup_path) {
+  FILE* mounts_fp = fopen("/proc/self/mounts", "r");
+  if (mounts_fp == NULL) {
+    err(EXIT_FAILURE, "Failed to open /proc/self/mounts");
+  }
+
+  char* line = NULL;
+  size_t len = 0;
+  while (getline(&line, &len, mounts_fp) != -1) {
+    char* saveptr;
+    strtok_r(line, " ", &saveptr);
+    char* fs_file = strtok_r(NULL, " ", &saveptr);
+    char* fs_vfstype = strtok_r(NULL, " ", &saveptr);
+    if (strcmp(fs_vfstype, "cgroup") == 0 ||
+        strcmp(fs_vfstype, "cgroup2") == 0) {
+      char* procs_path;
+      asprintf(&procs_path, "%s%s/cgroup.procs", fs_file, cgroup_path);
+      WriteFile(procs_path, "%d", pid);
+      free(procs_path);
+    }
+  }
+  free(line);
+  fclose(mounts_fp);
+}
+#endif
+
 // Starts the given process as a daemon.
 //
 // This spawns a subprocess that will be configured to run the desired program
@@ -154,7 +188,8 @@ static void ExecAsDaemon(const char* log_path, bool log_append, int pid_done_fd,
 // are given in the NULL-terminated argv.  argv[0] must be present and
 // contain the program name (which may or may not match the basename of exe).
 static void Daemonize(const char* log_path, bool log_append,
-                      const char* pid_path, const char* exe, char** argv) {
+                      const char* pid_path, const char* cgroup_path,
+                      const char* exe, char** argv) {
   assert(argv[0] != NULL);
 
   int pid_done_fds[2];
@@ -167,6 +202,11 @@ static void Daemonize(const char* log_path, bool log_append,
     err(EXIT_FAILURE, "fork failed");
   } else if (pid == 0) {
     close(pid_done_fds[1]);
+#ifdef __linux__
+    if (cgroup_path != NULL) {
+      MoveToCgroup(pid, cgroup_path);
+    }
+#endif
     ExecAsDaemon(log_path, log_append, pid_done_fds[0], exe, argv);
     abort();  // NOLINT Unreachable.
   }
@@ -183,8 +223,9 @@ int main(int argc, char** argv) {
   bool log_append = false;
   const char* log_path = NULL;
   const char* pid_path = NULL;
+  const char* cgroup_path = NULL;
   int opt;
-  while ((opt = getopt(argc, argv, ":al:p:")) != -1) {
+  while ((opt = getopt(argc, argv, ":al:p:c:")) != -1) {
     switch (opt) {
       case 'a':
         log_append = true;
@@ -196,6 +237,10 @@ int main(int argc, char** argv) {
 
       case 'p':
         pid_path = optarg;
+        break;
+
+      case 'c':
+        cgroup_path = optarg;
         break;
 
       case ':':
@@ -219,6 +264,6 @@ int main(int argc, char** argv) {
   if (argc < 2) {
     errx(EXIT_FAILURE, "Must provide at least an executable name and arg0");
   }
-  Daemonize(log_path, log_append, pid_path, argv[0], argv + 1);
+  Daemonize(log_path, log_append, pid_path, cgroup_path, argv[0], argv + 1);
   return EXIT_SUCCESS;
 }
