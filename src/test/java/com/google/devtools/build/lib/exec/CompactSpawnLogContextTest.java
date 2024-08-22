@@ -146,7 +146,9 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
             Protos.ExecLogEntry.newBuilder()
                 .setId(1)
                 .setInvocation(
-                    Protos.ExecLogEntry.Invocation.newBuilder().setHashFunctionName("SHA-256"))
+                    Protos.ExecLogEntry.Invocation.newBuilder()
+                        .setHashFunctionName("SHA-256")
+                        .setWorkspaceRunfilesDirectory(TestConstants.WORKSPACE_NAME))
                 .build(),
             Protos.ExecLogEntry.newBuilder()
                 .setId(2)
