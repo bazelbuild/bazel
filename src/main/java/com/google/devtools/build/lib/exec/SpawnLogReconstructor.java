@@ -70,6 +70,9 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
           break;
         case SPAWN:
           return reconstructSpawnExec(entry.getSpawn());
+        case SYMLINK_ACTION:
+          // Symlink actions are not represented in the expanded format.
+          break;
         default:
           throw new IOException(
               String.format("unknown entry type %d", entry.getTypeCase().getNumber()));
