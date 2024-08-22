@@ -38,13 +38,10 @@ import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
-import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidBinaryDataSettingsApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDataProcessingApi;
 import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.annotation.Nullable;
@@ -292,196 +289,6 @@ public abstract class AndroidStarlarkData
     throw new IllegalStateException("Unhandled RuleErrorException", exception);
   }
 
-  @Override
-  public BinaryDataSettings makeBinarySettings(
-      AndroidDataContext ctx,
-      Object shrinkResources,
-      Sequence<?> resourceConfigurationFilters, // <String>
-      Sequence<?> densities, // <String>
-      Sequence<?> noCompressExtensions) // <String>
-      throws EvalException {
-    return new BinaryDataSettings(
-        fromNoneableOrDefault(
-            shrinkResources, Boolean.class, ctx.getAndroidConfig().useAndroidResourceShrinking()),
-        ResourceFilterFactory.from(
-            Sequence.cast(
-                resourceConfigurationFilters, String.class, "resource_configuration_filters"),
-            Sequence.cast(densities, String.class, "densities")),
-        ImmutableList.copyOf(
-            Sequence.cast(noCompressExtensions, String.class, "nocompress_extensions")));
-  }
-
-  @Override
-  public Artifact resourcesFromValidatedRes(ValidatedAndroidResources resources) {
-    return resources.getMergedResources();
-  }
-
-  /**
-   * Helper method to get default {@link
-   * AndroidStarlarkData.BinaryDataSettings}.
-   */
-  private BinaryDataSettings defaultBinaryDataSettings(AndroidDataContext ctx)
-      throws EvalException {
-    return makeBinarySettings(
-        ctx, Starlark.NONE, StarlarkList.empty(), StarlarkList.empty(), StarlarkList.empty());
-  }
-
-  private static class BinaryDataSettings implements AndroidBinaryDataSettingsApi {
-    private final boolean shrinkResources;
-    private final ResourceFilterFactory resourceFilterFactory;
-    private final ImmutableList<String> noCompressExtensions;
-
-    private BinaryDataSettings(
-        boolean shrinkResources,
-        ResourceFilterFactory resourceFilterFactory,
-        ImmutableList<String> noCompressExtensions) {
-      this.shrinkResources = shrinkResources;
-      this.resourceFilterFactory = resourceFilterFactory;
-      this.noCompressExtensions = noCompressExtensions;
-    }
-  }
-
-  @Override
-  public AndroidBinaryDataInfo processBinaryData(
-      AndroidDataContext ctx,
-      Sequence<?> resources,
-      Object assets,
-      Object assetsDir,
-      Object manifest,
-      Object customPackage,
-      Dict<?, ?> manifestValues, // <String, String>
-      Sequence<?> deps, // <ConfiguredTarget>
-      String manifestMerger,
-      Object maybeSettings,
-      boolean crunchPng,
-      boolean dataBindingEnabled)
-      throws InterruptedException, EvalException {
-    StarlarkErrorReporter errorReporter = StarlarkErrorReporter.from(ctx.getRuleErrorConsumer());
-    List<ConfiguredTarget> depsTargets = Sequence.cast(deps, ConfiguredTarget.class, "deps");
-    Map<String, String> manifestValueMap =
-        Dict.cast(manifestValues, String.class, String.class, "manifest_values");
-
-    try {
-      BinaryDataSettings settings =
-          fromNoneableOrDefault(
-              maybeSettings, BinaryDataSettings.class, defaultBinaryDataSettings(ctx));
-
-      AndroidManifest rawManifest =
-          AndroidManifest.from(
-              ctx,
-              fromNoneable(manifest, Artifact.class),
-              getAndroidSemantics(),
-              fromNoneable(customPackage, String.class),
-              /* exportsManifest = */ false);
-
-      ResourceDependencies resourceDeps =
-          ResourceDependencies.fromProviders(
-              getProviders(depsTargets, AndroidResourcesInfo.PROVIDER), /* neverlink = */ false);
-
-      StampedAndroidManifest stampedManifest =
-          rawManifest.mergeWithDeps(
-              ctx,
-              getAndroidSemantics(),
-              errorReporter,
-              resourceDeps,
-              manifestValueMap,
-              manifestMerger);
-
-      ResourceApk resourceApk =
-          ProcessedAndroidData.processBinaryDataFrom(
-                  ctx,
-                  errorReporter,
-                  stampedManifest,
-                  ctx.shouldShrinkResourceCycles(errorReporter, settings.shrinkResources),
-                  manifestValueMap,
-                  AndroidResources.from(
-                      errorReporter,
-                      getFileProviders(
-                          Sequence.cast(resources, ConfiguredTarget.class, "resource_files")),
-                      "resource_files"),
-                  AndroidAssets.from(
-                      errorReporter,
-                      isNone(assets)
-                          ? null
-                          : Sequence.cast(assets, ConfiguredTarget.class, "assets"),
-                      isNone(assetsDir) ? null : PathFragment.create((String) assetsDir)),
-                  resourceDeps,
-                  AssetDependencies.fromProviders(
-                      getProviders(depsTargets, AndroidAssetsInfo.PROVIDER),
-                      /* neverlink = */ false),
-                  settings.resourceFilterFactory,
-                  settings.noCompressExtensions,
-                  crunchPng,
-                  DataBinding.contextFrom(
-                      dataBindingEnabled,
-                      ctx.getActionConstructionContext(),
-                      ctx.getAndroidConfig()))
-              .generateRClass(ctx);
-
-      return AndroidBinaryDataInfo.of(
-          resourceApk.getArtifact(),
-          resourceApk.getResourceProguardConfig(),
-          resourceApk.toResourceInfo(ctx.getLabel()),
-          resourceApk.toAssetsInfo(ctx.getLabel()),
-          resourceApk.toManifestInfo().get());
-
-    } catch (RuleErrorException e) {
-      throw handleRuleException(errorReporter, e);
-    }
-  }
-
-  @Override
-  public AndroidBinaryDataInfo shrinkDataApk(
-      AndroidDataContext ctx,
-      AndroidBinaryDataInfo binaryDataInfo,
-      Artifact proguardOutputJar,
-      Artifact proguardMapping,
-      Object maybeSettings,
-      Sequence<?> deps, // <ConfiguredTarget>
-      Sequence<?> localProguardSpecs) // <ConfiguredTarget>
-      throws EvalException, InterruptedException {
-    BinaryDataSettings settings =
-        fromNoneableOrDefault(
-            maybeSettings, BinaryDataSettings.class, defaultBinaryDataSettings(ctx));
-    List<ConfiguredTarget> depsTargets = Sequence.cast(deps, ConfiguredTarget.class, "deps");
-
-    if (!settings.shrinkResources) {
-      return binaryDataInfo;
-    }
-
-    ImmutableList<Artifact> proguardSpecs =
-        AndroidBinary.getProguardSpecs(
-            ctx,
-            getAndroidSemantics(),
-            binaryDataInfo.getResourceProguardConfig(),
-            binaryDataInfo.getManifestInfo().getManifest(),
-            filesFromConfiguredTargets(
-                Sequence.cast(localProguardSpecs, ConfiguredTarget.class, "proguard_specs")),
-            getProviders(depsTargets, ProguardSpecProvider.PROVIDER));
-
-    // TODO(asteinb): There should never be more than one direct resource exposed in the provider.
-    // Can we adjust its structure to take this into account?
-    if (!binaryDataInfo.getResourcesInfo().getDirectAndroidResources().isSingleton()) {
-      throw new EvalException(
-          "Expected exactly 1 direct android resource container, but found: "
-              + binaryDataInfo.getResourcesInfo().getDirectAndroidResources());
-    }
-
-    if (!proguardSpecs.isEmpty()) {
-      Artifact shrunkApk =
-          AndroidBinary.shrinkResources(
-              ctx,
-              binaryDataInfo.getResourcesInfo().getDirectAndroidResources().toList().get(0),
-              proguardOutputJar,
-              proguardMapping,
-              settings.resourceFilterFactory,
-              settings.noCompressExtensions);
-      return binaryDataInfo.withShrunkApk(shrunkApk);
-    }
-
-    return binaryDataInfo;
-  }
-
   public static Dict<Provider, StructApi> getNativeInfosFrom(ResourceApk resourceApk, Label label)
       throws RuleErrorException {
     Dict.Builder<Provider, StructApi> builder = Dict.builder();
@@ -565,16 +372,6 @@ public abstract class AndroidStarlarkData
       return null;
     }
     return Depset.cast(depset, Artifact.class, what);
-  }
-
-  private static ImmutableList<Artifact> filesFromConfiguredTargets(
-      List<ConfiguredTarget> targets) {
-    ImmutableList.Builder<Artifact> builder = ImmutableList.builder();
-    for (FileProvider provider : getFileProviders(targets)) {
-      builder.addAll(provider.getFilesToBuild().toList());
-    }
-
-    return builder.build();
   }
 
   private static ImmutableList<FileProvider> getFileProviders(List<ConfiguredTarget> targets) {
