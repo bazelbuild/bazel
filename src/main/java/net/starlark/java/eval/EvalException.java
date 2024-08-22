@@ -99,6 +99,19 @@ public class EvalException extends Exception {
     return callstack != null ? callstack : ImmutableList.of();
   }
 
+  /** Returns the innermost non-builtin location in the call stack, or null if there is none. */
+  @Nullable
+  public Location getInnermostLocation() {
+    if (callstack == null) {
+      return null;
+    }
+    return callstack.reverse().stream()
+        .map(entry -> entry.location)
+        .filter(location -> location != Location.BUILTIN)
+        .findFirst()
+        .orElse(null);
+  }
+
   /** Returns the error message along with its call stack. May be overridden by subclasses. */
   @Override
   public String toString() {

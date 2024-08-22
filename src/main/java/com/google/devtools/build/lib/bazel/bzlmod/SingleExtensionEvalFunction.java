@@ -484,7 +484,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                     generatedRepoSpecs.keySet(),
                     env.getListener());
       } catch (EvalException e) {
-        env.getListener().handle(Event.error(e.getMessageWithStack()));
+        env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
         throw new SingleExtensionEvalFunctionException(
             ExternalDepsException.withMessage(
                 Code.BAD_MODULE,
@@ -970,17 +970,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
             moduleContext.getRecordedFileInputs(),
             moduleContext.getRecordedDirentsInputs(),
             moduleContext.getRecordedEnvVarInputs(),
-            threadContext.createAndGetRepos(starlarkSemantics),
+            threadContext.createRepos(starlarkSemantics),
             moduleExtensionMetadata,
             repoMappingRecorder.recordedEntries());
       } catch (EvalException e) {
-        Location innermostLocation =
-            e.getCallStack().reverse().stream()
-                .map(entry -> entry.location)
-                .filter(location -> location != Location.BUILTIN)
-                .findFirst()
-                .orElse(null);
-        env.getListener().handle(Event.error(innermostLocation, e.getMessageWithStack()));
+        env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
         throw new SingleExtensionEvalFunctionException(
             ExternalDepsException.withMessage(
                 ExternalDeps.Code.BAD_MODULE,

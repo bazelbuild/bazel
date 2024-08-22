@@ -100,7 +100,8 @@ public class ResolvedFileFunction implements SkyFunction {
                   SymbolGenerator.create(skyKey));
           Starlark.execFileProgram(prog, module, thread);
         } catch (EvalException ex) {
-          env.getListener().handle(Event.error(null, ex.getMessageWithStack()));
+          env.getListener()
+              .handle(Event.error(ex.getInnermostLocation(), ex.getMessageWithStack()));
           throw resolvedValueError("Failed to evaluate resolved file " + key.getPath());
         }
         Object resolved = module.getGlobal("resolved");

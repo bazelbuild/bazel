@@ -353,6 +353,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       env.getListener()
           .handle(
               Event.error(
+                  e.getInnermostLocation(),
                   "An error occurred during the fetch of repository '"
                       + rule.getName()
                       + "':\n   "
