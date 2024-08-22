@@ -986,6 +986,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
     exec.strictConflictChecks = strictConflictChecks;
     exec.disallowUnsoundDirectoryOutputs = disallowUnsoundDirectoryOutputs;
     exec.additiveModifyExecutionInfo = additiveModifyExecutionInfo;
+    exec.inProcessSymlinkCreation = inProcessSymlinkCreation;
 
     // === Output path calculation
     exec.outputDirectoryNamingScheme = outputDirectoryNamingScheme;
