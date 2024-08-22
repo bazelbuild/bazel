@@ -86,6 +86,7 @@ import com.google.devtools.build.lib.query2.engine.QueryUtil.ThreadSafeMutableKe
 import com.google.devtools.build.lib.query2.engine.QueryUtil.UniquifierImpl;
 import com.google.devtools.build.lib.query2.engine.StreamableQueryEnvironment;
 import com.google.devtools.build.lib.query2.engine.ThreadSafeOutputFormatterCallback;
+import com.google.devtools.build.lib.query2.engine.TotalWeightQueryExpressionVisitor;
 import com.google.devtools.build.lib.query2.engine.Uniquifier;
 import com.google.devtools.build.lib.query2.query.BlazeTargetAccessor;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -357,6 +358,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
   }
 
   private static final Duration MIN_LOGGING = Duration.ofMillis(50);
+  private static final int MAX_QUERY_WEIGHT_TO_LOG = 10 * 1024 * 1024;
 
   @Override
   public final QueryExpression transformParsedQuery(QueryExpression queryExpression) {
@@ -365,9 +367,15 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
     try (AutoProfiler p = GoogleAutoProfilerUtils.logged("transforming query", MIN_LOGGING)) {
       transformedQueryExpression = queryExpression.accept(mapper);
     }
-    logger.atInfo().log(
-        "transformed query [%s] to [%s]",
-        queryExpression.toTrunctatedString(), transformedQueryExpression.toTrunctatedString());
+    long queryWeightEstimate = queryExpression.accept(new TotalWeightQueryExpressionVisitor());
+    if (queryWeightEstimate <= MAX_QUERY_WEIGHT_TO_LOG) {
+      logger.atInfo().log(
+          "transformed query [%s] to [%s]",
+          queryExpression.toTrunctatedString(), transformedQueryExpression.toTrunctatedString());
+    } else {
+      logger.atInfo().log(
+          "not logging transformed query with estimated size: %d", queryWeightEstimate);
+    }
     return transformedQueryExpression;
   }
 
