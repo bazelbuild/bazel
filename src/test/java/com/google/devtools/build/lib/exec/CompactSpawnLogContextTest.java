@@ -15,10 +15,17 @@ package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.github.luben.zstd.ZstdInputStream;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
+import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.exec.Protos.File;
@@ -32,7 +39,9 @@ import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
+import net.starlark.java.syntax.Location;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -95,6 +104,58 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
                     .setDigest(getDigest("ghi"))
                     .setIsTool(inputsMode.isTool()))
             .build());
+  }
+
+  @Test
+  public void testSymlinkAction() throws IOException, InterruptedException {
+    Artifact source = ActionsTestUtil.createArtifact(rootDir, "source");
+    Artifact target = ActionsTestUtil.createArtifact(rootDir, "target");
+    ActionOwner owner =
+        ActionOwner.createDummy(
+            Label.parseCanonicalUnchecked("//pkg:symlink"),
+            new Location("dummy-file", 0, 0),
+            "some_rule",
+            "configurationMnemonic",
+            /* configurationChecksum= */ "configurationChecksum",
+            new BuildConfigurationEvent(
+                BuildEventStreamProtos.BuildEventId.getDefaultInstance(),
+                BuildEventStreamProtos.BuildEvent.getDefaultInstance()),
+            /* isToolConfiguration= */ false,
+            /* executionPlatform= */ null,
+            /* aspectDescriptors= */ ImmutableList.of(),
+            /* execProperties= */ ImmutableMap.of());
+    SymlinkAction symlinkAction =
+        SymlinkAction.toArtifact(owner, source, target, "Creating symlink");
+
+    SpawnLogContext context = createSpawnLogContext();
+    context.logSymlinkAction(symlinkAction);
+    context.close();
+
+    var entries = new ArrayList<Protos.ExecLogEntry>();
+    try (InputStream in = logPath.getInputStream();
+        ZstdInputStream zstdIn = new ZstdInputStream(in)) {
+      Protos.ExecLogEntry entry;
+      while ((entry = Protos.ExecLogEntry.parseDelimitedFrom(zstdIn)) != null) {
+        entries.add(entry);
+      }
+    }
+
+    assertThat(entries)
+        .containsExactly(
+            Protos.ExecLogEntry.newBuilder()
+                .setId(1)
+                .setInvocation(
+                    Protos.ExecLogEntry.Invocation.newBuilder().setHashFunctionName("SHA-256"))
+                .build(),
+            Protos.ExecLogEntry.newBuilder()
+                .setId(2)
+                .setSymlinkAction(
+                    Protos.ExecLogEntry.SymlinkAction.newBuilder()
+                        .setInputPath("source")
+                        .setOutputPath("target")
+                        .setMnemonic("Symlink")
+                        .setTargetLabel("//pkg:symlink"))
+                .build());
   }
 
   @Override

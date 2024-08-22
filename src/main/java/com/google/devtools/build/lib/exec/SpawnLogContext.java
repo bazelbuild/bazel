@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.hash.HashCode;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -71,6 +72,16 @@ public abstract class SpawnLogContext implements ActionContext {
       Duration timeout,
       SpawnResult result)
       throws IOException, InterruptedException, ExecException;
+
+  /**
+   * Logs an internal symlink action, which is not backed by a spawn.
+   *
+   * <p>May be called concurrently.
+   *
+   * @param action the action to log
+   */
+  public abstract void logSymlinkAction(AbstractAction action)
+      throws IOException, InterruptedException;
 
   /** Finishes writing the log and performs any required post-processing. */
   public abstract void close() throws IOException;
