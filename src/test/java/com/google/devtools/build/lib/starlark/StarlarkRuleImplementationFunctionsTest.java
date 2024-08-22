@@ -2909,63 +2909,6 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
   }
 
   @Test
-  public void testConfigurationField_nativeSplitTransitionProviderProhibited() throws Exception {
-    scratch.file(
-        "test/rule.bzl",
-        """
-        def _foo_impl(ctx):
-          return []
-
-        foo = rule(
-          implementation = _foo_impl,
-          attrs = {
-            '_attr': attr.label(
-                cfg = android_common.multi_cpu_configuration,
-                default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})
-        """);
-
-    scratch.file(
-        "test/BUILD",
-        """
-        load('//test:rule.bzl', 'foo')
-        foo(name='foo')
-        """);
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:foo");
-    assertContainsEvent("late-bound attributes must not have a split configuration transition");
-  }
-
-  @Test
-  public void testConfigurationField_nativeSplitTransitionProhibited() throws Exception {
-    scratch.file(
-        "test/rule.bzl",
-        """
-        def _foo_impl(ctx):
-          return []
-
-        foo = rule(
-          implementation = _foo_impl,
-          attrs = {
-            '_attr': attr.label(
-                cfg = android_common.multi_cpu_configuration,
-                default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})
-        """);
-    setBuildLanguageOptions("--experimental_google_legacy_api");
-
-    scratch.file(
-        "test/BUILD",
-        """
-        load('//test:rule.bzl', 'foo')
-        foo(name='foo')
-        """);
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:foo");
-    assertContainsEvent("late-bound attributes must not have a split configuration transition");
-  }
-
-  @Test
   public void testConfigurationField_invalidFragment() throws Exception {
     scratch.file(
         "test/main_rule.bzl",

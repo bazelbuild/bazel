@@ -68,15 +68,6 @@ public interface AndroidStarlarkCommonApi<
   String getSourceDirectoryRelativePathFromResource(FileT resource);
 
   @StarlarkMethod(
-      name = "multi_cpu_configuration",
-      doc =
-          "A configuration for rule attributes that compiles native code according to "
-              + "the --android_platforms flag.",
-      documented = false,
-      structField = true)
-  AndroidSplitTransitionApi getAndroidSplitTransition();
-
-  @StarlarkMethod(
       name = "enable_implicit_sourceless_deps_exports_compatibility",
       doc = "Takes a JavaInfo and converts it to an implicit exportable JavaInfo.",
       documented = false,

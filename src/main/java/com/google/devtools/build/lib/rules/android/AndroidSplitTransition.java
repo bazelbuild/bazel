@@ -31,9 +31,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration.ConfigurationDistinguisher;
 import com.google.devtools.build.lib.rules.cpp.CppOptions;
-import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSplitTransitionApi;
 import java.util.List;
-import net.starlark.java.eval.Printer;
 
 /** Android Split configuration transition for properly handling native dependencies */
 public final class AndroidSplitTransition implements SplitTransition {
@@ -43,8 +41,7 @@ public final class AndroidSplitTransition implements SplitTransition {
   public static final Factory FACTORY = new Factory();
 
   /** A {@link TransitionFactory} instance that returns the {@link AndroidSplitTransition}. */
-  static final class Factory
-      implements TransitionFactory<AttributeTransitionData>, AndroidSplitTransitionApi {
+  static final class Factory implements TransitionFactory<AttributeTransitionData> {
 
     @Override
     public ConfigurationTransition create(AttributeTransitionData unused) {
@@ -64,16 +61,6 @@ public final class AndroidSplitTransition implements SplitTransition {
     @Override
     public boolean isSplit() {
       return true;
-    }
-
-    @Override
-    public boolean isImmutable() {
-      return true;
-    }
-
-    @Override
-    public void repr(Printer printer) {
-      printer.append("android_common.multi_cpu_configuration");
     }
   }
 
