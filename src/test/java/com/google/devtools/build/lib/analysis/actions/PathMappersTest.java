@@ -232,7 +232,7 @@ public class PathMappersTest extends BuildViewTestCase {
         .inOrder();
   }
 
-    @Test
+  @Test
   public void starlarkRule_stringExecutablePath() throws Exception {
     scratch.file("defs/BUILD");
     scratch.file(
