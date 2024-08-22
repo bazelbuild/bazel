@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -284,6 +285,11 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
         rawOutputStream.write(builder.build());
       }
     }
+  }
+
+  @Override
+  public void logSymlinkAction(AbstractAction action) {
+    // The expanded log does not report symlink actions.
   }
 
   @Override
