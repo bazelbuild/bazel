@@ -1384,8 +1384,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
-        "ERROR /ws/defs.bzl:3:12: //:+ext+ext: expected value of type 'string' for attribute 'data'"
-            + " of 'data_repo', but got 42 (int)");
+        "ERROR /ws/defs.bzl:3:12: //:_main~ext~ext: expected value of type 'string' for attribute 'data'"
+            + " in 'data_repo' rule, but got 42 (int)");
     assertThat(result.getError().getException())
         .hasMessageThat()
         .isEqualTo("error evaluating module extension ext in //:defs.bzl");
@@ -2976,14 +2976,14 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "module(name='foo',version='1.0')",
         "data_repo = use_repo_rule('//:repo.bzl', 'data_repo')",
         "data_repo(name='data', data='go to bed at 11pm.')");
-    scratch.file(modulesRoot.getRelative("foo+1.0/WORKSPACE").getPathString());
-    scratch.file(modulesRoot.getRelative("foo+1.0/BUILD").getPathString());
+    scratch.file(modulesRoot.getRelative("foo~v1.0/WORKSPACE").getPathString());
+    scratch.file(modulesRoot.getRelative("foo~v1.0/BUILD").getPathString());
     scratch.file(
-        modulesRoot.getRelative("foo+1.0/data.bzl").getPathString(),
+        modulesRoot.getRelative("foo~v1.0/data.bzl").getPathString(),
         "load('@data//:data.bzl',repo_data='data')",
         "data=repo_data");
     scratch.file(
-        modulesRoot.getRelative("foo+1.0/repo.bzl").getPathString(),
+        modulesRoot.getRelative("foo~v1.0/repo.bzl").getPathString(),
         "def _data_repo_impl(ctx):",
         "  ctx.file('BUILD.bazel')",
         "  ctx.file('data.bzl', 'data='+json.encode(ctx.attr.data))",
@@ -2996,8 +2996,8 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
     assertThat(result.hasError()).isTrue();
     assertContainsEvent(
-        "ERROR /ws/MODULE.bazel:3:10: //:+_repo_rules+data: expected value of type 'string' for"
-            + " attribute 'data' of 'data_repo', but got 5 (int)");
+        "ERROR /ws/MODULE.bazel:3:10: //:_main~_repo_rules~data: expected value"
+            + " of type 'string' for attribute 'data' in 'data_repo' rule, but got 5 (int)");
     assertThat(result.getError().getException())
         .hasMessageThat()
         .isEqualTo(

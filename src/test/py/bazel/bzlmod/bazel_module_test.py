@@ -267,7 +267,7 @@ class BazelModuleTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 48, stderr)
     stderr = '\n'.join(stderr)
     self.assertIn(
-        '/pkg/extension.bzl:3:14: //pkg:+module_ext+foo: no such attribute'
+        '/pkg/extension.bzl:3:14: //pkg:_main~module_ext~foo: no such attribute'
         " 'invalid_attr' in 'repo_rule' rule",
         stderr,
     )
