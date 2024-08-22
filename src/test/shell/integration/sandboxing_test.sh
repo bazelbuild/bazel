@@ -664,7 +664,7 @@ EOF
   expect_not_log "Executing genrule //:test failed: linux-sandbox failed: error executing command"
 
   # This is the error message telling us that some output artifacts couldn't be copied.
-  expect_log "Could not move output artifacts from sandboxed execution"
+  expect_log "Could not copy outputs from sandbox:.*readonlydir/output.txt (Permission denied)"
 
   # The build fails, because the action didn't generate its output artifact.
   expect_log "ERROR:.*Executing genrule //:test failed"
@@ -689,10 +689,10 @@ EOF
 
   # This is the error message printed by the EventHandler telling us that some
   # output artifacts couldn't be copied.
-  expect_log "Could not move output artifacts from sandboxed execution"
+  expect_log "Could not copy outputs from sandbox:.*readonlydir/output.txt (Permission denied)"
 
   # This is the UserExecException telling us that the build failed.
-  expect_log "Executing genrule //:test failed:"
+  expect_log "ERROR:.*Executing genrule //:test failed:"
 }
 
 function test_read_non_hermetic_tmp {
