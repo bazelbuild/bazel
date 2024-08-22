@@ -1955,6 +1955,41 @@ EOF
     >& $TEST_log || fail "build failed"
 }
 
+function test_sandboxed_multiplexing_hermetic_paths_in_diagnostics() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+    # TODO: Enable test after the next java_tools release.
+    return 0
+  fi
+
+  mkdir -p pkg
+  cat << 'EOF' > pkg/BUILD
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    javac_supports_worker_multiplex_sandboxing = True,
+)
+java_library(name = "lib", srcs = ["Lib.java"])
+EOF
+  cat << 'EOF' > pkg/Lib.java
+public class Lib {
+  public static void foo() {
+    String a = 5; // __sandbox/1/_main/pkg/Lib.java:3: error: incompatible types: int cannot be converted to String
+  }
+}
+EOF
+
+  bazel build //pkg:lib \
+    --experimental_worker_multiplex_sandboxing \
+    --java_language_version=17 \
+    --extra_toolchains=//pkg:java_toolchain_definition \
+    >& $TEST_log && fail "build succeeded"
+  # Verify that the working directory is only stripped from source file paths.
+  expect_log "^pkg[\\/]Lib.java:3: error:"
+  expect_log "^    String a = 5; // __sandbox/1/_main/pkg/Lib.java:3: error: incompatible types: int cannot be converted to String"
+}
+
 function test_strict_deps_error_external_repo_starlark_action() {
   cat << 'EOF' > MODULE.bazel
 bazel_dep(
