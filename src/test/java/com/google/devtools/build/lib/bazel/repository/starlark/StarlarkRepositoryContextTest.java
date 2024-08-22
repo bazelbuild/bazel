@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,13 +27,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.CharStreams;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
@@ -48,6 +53,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reposit
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -79,7 +85,6 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.mockito.Mockito;
 
 /** Unit tests for complex function of StarlarkRepositoryContext. */
 @RunWith(JUnit4.class)
@@ -91,6 +96,7 @@ public final class StarlarkRepositoryContextTest {
   private Root root;
   private Path workspaceFile;
   private StarlarkRepositoryContext context;
+  private Label fakeFileLabel;
   private static final StarlarkThread thread =
       StarlarkThread.createTransient(Mutability.create("test"), StarlarkSemantics.DEFAULT);
 
@@ -149,7 +155,7 @@ public final class StarlarkRepositoryContextTest {
             RepositoryMapping.ALWAYS_FALLBACK,
             starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
             PackageOverheadEstimator.NOOP_ESTIMATOR);
-    ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
+    ExtendedEventHandler listener = mock(ExtendedEventHandler.class);
     Rule rule =
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
             packageBuilder,
@@ -157,9 +163,16 @@ public final class StarlarkRepositoryContextTest {
             null,
             kwargs,
             DUMMY_STACK);
-    DownloadManager downloader = Mockito.mock(DownloadManager.class);
-    SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
+    DownloadManager downloader = mock(DownloadManager.class);
+    SkyFunction.Environment environment = mock(SkyFunction.Environment.class);
     when(environment.getListener()).thenReturn(listener);
+    fakeFileLabel = Label.parseCanonical("//:foo");
+    when(environment.getValue(PackageLookupValue.key(fakeFileLabel.getPackageIdentifier())))
+        .thenReturn(
+            PackageLookupValue.success(
+                Root.fromPath(workspaceFile.getParentDirectory()), BuildFileName.BUILD));
+    when(environment.getValueOrThrow(any(), eq(IOException.class)))
+        .thenReturn(mock(FileValue.class));
     PathPackageLocator packageLocator =
         new PathPackageLocator(
             outputDirectory,
@@ -411,7 +424,7 @@ public final class StarlarkRepositoryContextTest {
             "exec_properties",
             Dict.builder().put("OSFamily", "Linux").buildImmutable());
 
-    RepositoryRemoteExecutor repoRemoteExecutor = Mockito.mock(RepositoryRemoteExecutor.class);
+    RepositoryRemoteExecutor repoRemoteExecutor = mock(RepositoryRemoteExecutor.class);
     ExecutionResult executionResult =
         new ExecutionResult(
             0,
@@ -491,5 +504,45 @@ public final class StarlarkRepositoryContextTest {
   public void testWorkspaceRoot() throws Exception {
     setUpContextForRule("test");
     assertThat(context.getWorkspaceRoot().getPath()).isEqualTo(root.asPath());
+  }
+
+  @Test
+  public void testPath_watchAuto_starlarkPathAndAbsolutePathNotWatched() throws Exception {
+    setUpContextForRule("test");
+    scratch.file("/my/folder/a");
+    context.path(context.path("/my/folder/a", "auto"), "auto");
+    assertThat(context.getRecordedFileInputs()).isEmpty();
+  }
+
+  @Test
+  public void testPath_watchAuto_labelWatched() throws Exception {
+    setUpContextForRule("test");
+    scratch.file("/my/folder/a");
+    context.path(fakeFileLabel, "auto");
+    assertThat(context.getRecordedFileInputs()).isNotEmpty();
+  }
+
+  @Test
+  public void testPath_watchYes_starlarkPathWatched() throws Exception {
+    setUpContextForRule("test");
+    scratch.file("/my/folder/a");
+    context.path(context.path("/my/folder/a", "no"), "yes");
+    assertThat(context.getRecordedFileInputs()).isNotEmpty();
+  }
+
+  @Test
+  public void testPath_watchYes_absolutePathWatched() throws Exception {
+    setUpContextForRule("test");
+    scratch.file("/my/folder/a");
+    context.path("/my/folder/a", "yes");
+    assertThat(context.getRecordedFileInputs()).isNotEmpty();
+  }
+
+  @Test
+  public void testPath_watchNo_labelNotWatched() throws Exception {
+    setUpContextForRule("test");
+    scratch.file("/my/folder/a");
+    context.path(Label.parseCanonical("//:foo"), "no");
+    assertThat(context.getRecordedFileInputs()).isEmpty();
   }
 }

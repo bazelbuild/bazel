@@ -742,7 +742,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
       checksumValidation = e;
     }
 
-    StarlarkPath outputPath = getPath("download()", output);
+    StarlarkPath outputPath = path(output);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newDownloadEvent(
             urls,
@@ -983,7 +983,7 @@ the same path on case-insensitive filesystems.
             identifyingStringForLogging,
             thread.getCallerLocation());
 
-    StarlarkPath outputPath = getPath("download_and_extract()", output);
+    StarlarkPath outputPath = path(output);
     checkInOutputDirectory("write", outputPath);
     createDirectory(outputPath.getPath());
 
@@ -1130,7 +1130,7 @@ the same path on case-insensitive filesystems.
                     + "the <a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does "
                     + "not attempt to watch the file; passing 'auto' will only attempt to watch "
                     + "the file when it is legal to do so (see <code>watch()</code> docs for more "
-                    + "information."),
+                    + "information)."),
       })
   public void extract(
       Object archive,
@@ -1140,7 +1140,7 @@ the same path on case-insensitive filesystems.
       String watchArchive,
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
-    StarlarkPath archivePath = getPath("extract()", archive);
+    StarlarkPath archivePath = path(archive);
 
     if (!archivePath.exists()) {
       throw new RepositoryFunctionException(
@@ -1151,7 +1151,7 @@ the same path on case-insensitive filesystems.
     }
     maybeWatch(archivePath, ShouldWatch.fromString(watchArchive));
 
-    StarlarkPath outputPath = getPath("extract()", output);
+    StarlarkPath outputPath = path(output);
     checkInOutputDirectory("write", outputPath);
 
     Map<String, String> renameFilesMap =
@@ -1252,7 +1252,7 @@ the same path on case-insensitive filesystems.
   public void createFile(
       Object path, String content, Boolean executable, Boolean legacyUtf8, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath("file()", path);
+    StarlarkPath p = path(path);
     byte[] contentBytes;
     if (legacyUtf8) {
       contentBytes = content.getBytes(UTF_8);
@@ -1349,24 +1349,42 @@ the same path on case-insensitive filesystems.
             },
             doc =
                 "<code>string</code>, <code>Label</code> or <code>path</code> from which to create"
-                    + " a path from.")
+                    + " a path from."),
+        @Param(
+            name = "watch",
+            defaultValue = "'auto'",
+            positional = false,
+            named = true,
+            doc =
+                """
+                Whether to <a href="#watch">watch</a> the path. Can be the string 'yes', 'no', \
+                or 'auto'. Passing 'yes' is equivalent to immediately invoking the \
+                <a href="#watch"><code>watch()</code></a> method; passing 'no' does not \
+                attempt to watch the path; passing 'auto' will only attempt to watch the \
+                path when it is a <code>Label</code> and legal to do so (see <code>watch()</code> \
+                docs for more information).
+                """)
       })
-  public StarlarkPath path(Object path) throws EvalException, InterruptedException {
-    return getPath("path()", path);
+  public StarlarkPath path(Object path, String watch)
+      throws EvalException, InterruptedException, RepositoryFunctionException {
+    var shouldWatch = ShouldWatch.fromString(watch);
+    var result =
+        switch (path) {
+          case String s -> new StarlarkPath(this, workingDirectory.getRelative(s));
+          case Label label -> getPathFromLabel(label, shouldWatch);
+          case StarlarkPath starlarkPath -> starlarkPath;
+            // This can never happen because we check it in the Starlark interpreter.
+          default -> throw new IllegalArgumentException("expected string or label for path");
+        };
+    if (shouldWatch == ShouldWatch.YES) {
+      maybeWatch(result, ShouldWatch.YES);
+    }
+    return result;
   }
 
-  protected StarlarkPath getPath(String method, Object path)
-      throws EvalException, InterruptedException {
-    if (path instanceof String) {
-      return new StarlarkPath(this, workingDirectory.getRelative(path.toString()));
-    } else if (path instanceof Label label) {
-      return getPathFromLabel(label);
-    } else if (path instanceof StarlarkPath starlarkPath) {
-      return starlarkPath;
-    } else {
-      // This can never happen because we check it in the Starlark interpreter.
-      throw new IllegalArgumentException("expected string or label for path");
-    }
+  protected StarlarkPath path(Object path)
+      throws EvalException, InterruptedException, RepositoryFunctionException {
+    return path(path, "auto");
   }
 
   @StarlarkMethod(
@@ -1394,12 +1412,12 @@ the same path on case-insensitive filesystems.
                 <a href="#watch"><code>watch()</code></a> method; passing 'no' does not \
                 attempt to watch the file; passing 'auto' will only attempt to watch the \
                 file when it is legal to do so (see <code>watch()</code> docs for more \
-                information.
+                information).
                 """)
       })
   public String readFile(Object path, String watch, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath("read()", path);
+    StarlarkPath p = path(path);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newReadEvent(
             p.toString(), identifyingStringForLogging, thread.getCallerLocation());
@@ -1552,7 +1570,7 @@ the same path on case-insensitive filesystems.
       })
   public void watchForStarlark(Object path)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    maybeWatch(getPath("watch()", path), ShouldWatch.YES);
+    maybeWatch(path(path), ShouldWatch.YES);
   }
 
   // Create parent directories for the given path
@@ -1835,7 +1853,7 @@ the same path on case-insensitive filesystems.
 
     Path workingDirectoryPath;
     if (overrideWorkingDirectory != null && !overrideWorkingDirectory.isEmpty()) {
-      workingDirectoryPath = getPath("execute()", overrideWorkingDirectory).getPath();
+      workingDirectoryPath = path(overrideWorkingDirectory).getPath();
     } else {
       workingDirectoryPath = workingDirectory;
     }
@@ -1919,10 +1937,15 @@ the same path on case-insensitive filesystems.
 
   // Resolve the label given by value into a file path.
   protected StarlarkPath getPathFromLabel(Label label) throws EvalException, InterruptedException {
+    return getPathFromLabel(label, ShouldWatch.AUTO);
+  }
+
+  protected StarlarkPath getPathFromLabel(Label label, ShouldWatch shouldWatch)
+      throws EvalException, InterruptedException {
     RootedPath rootedPath = RepositoryFunction.getRootedPathFromLabel(label, env);
     StarlarkPath starlarkPath = new StarlarkPath(this, rootedPath.asPath());
     try {
-      maybeWatch(starlarkPath, ShouldWatch.AUTO);
+      maybeWatch(starlarkPath, shouldWatch);
     } catch (RepositoryFunctionException e) {
       throw Starlark.errorf("%s", e.getCause().getMessage());
     }
