@@ -1769,7 +1769,6 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         getActions("//test:custom_rule_name").stream()
             .filter(action -> action.getMnemonic().equals("JavaIjar"))
             .collect(toImmutableList());
-    ;
 
     assertThat(actions).hasSize(1);
     assertThat(actions.get(0).getProgressMessage())
