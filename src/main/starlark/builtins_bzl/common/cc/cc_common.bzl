@@ -621,7 +621,7 @@ def _get_tool_requirement_for_action(*, feature_configuration, action_name):
     return cc_common_internal.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = action_name)
 
 def _create_extra_link_time_library(*, build_library_func, **kwargs):
-    cc_common_internal.check_private_api(allowlist = _BUILTINS)
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.create_extra_link_time_library(build_library_func = build_library_func, **kwargs)
 
 def _register_linkstamp_compile_action(
@@ -841,7 +841,7 @@ def _create_compile_action(
     )
 
 def _implementation_deps_allowed_by_allowlist(*, ctx):
-    cc_common_internal.check_private_api(allowlist = _BUILTINS)
+    cc_common_internal.check_private_api(allowlist = _PRIVATE_STARLARKIFICATION_ALLOWLIST)
     return cc_common_internal.implementation_deps_allowed_by_allowlist(ctx = ctx)
 
 cc_common = struct(

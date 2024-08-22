@@ -2647,10 +2647,7 @@ public abstract class CcModule
       StarlarkCallable buildLibraryFunc, Dict<String, Object> dataSetsMap, StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
-    if (!isStarlarkCcCommonCalledFromBuiltins(thread)) {
-      throw Starlark.errorf(
-          "Cannot use experimental ExtraLinkTimeLibrary creation API outside of builtins");
-    }
+    checkPrivateStarlarkificationAllowlist(thread);
     boolean nonGlobalFunc = false;
     if (buildLibraryFunc instanceof StarlarkFunction fn) {
       if (fn.getModule().getGlobal(fn.getName()) != fn) {
