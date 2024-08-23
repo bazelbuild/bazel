@@ -558,6 +558,10 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     if (isOutput(linkPath)) {
       remoteOutputTree.getPath(linkPath).createSymbolicLink(targetFragment);
     }
+
+    if (targetFragment.isAbsolute()) {
+      localFs.getPath(linkPath).createSymbolicLink(targetFragment);
+    }
   }
 
   @Override
