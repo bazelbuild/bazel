@@ -2407,6 +2407,7 @@ java_library(
         ":bzl_load_value",
         ":repository_mapping_value",
         ":sky_functions",
+        ":starlark_builtins_value",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:repo_rule_value",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
@@ -2449,17 +2450,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
-    ],
-)
-
-java_library(
-    name = "bzl_load_failed_exception",
-    srcs = ["BzlLoadFailedException.java"],
-    deps = [
-        ":sane_analysis_exception",
-        "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
-        "//src/main/protobuf:failure_details_java_proto",
     ],
 )
 
