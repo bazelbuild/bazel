@@ -484,7 +484,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                     generatedRepoSpecs.keySet(),
                     env.getListener());
       } catch (EvalException e) {
-        env.getListener().handle(Event.error(e.getMessageWithStack()));
+        env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
         throw new SingleExtensionEvalFunctionException(
             ExternalDepsException.withMessage(
                 Code.BAD_MODULE,
@@ -569,7 +569,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         SingleExtensionUsagesValue usagesValue,
         StarlarkSemantics starlarkSemantics,
         ModuleExtensionId extensionId,
-        RepositoryMapping repositoryMapping)
+        RepositoryMapping mainRepositoryMapping)
         throws InterruptedException, SingleExtensionEvalFunctionException;
   }
 
@@ -786,7 +786,9 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                       Maps.transformEntries(kwargs, (k, v) -> ruleInstance.getAttr(k)),
                       k -> !k.equals("name")));
           AttributeValues.validateAttrs(
-              attributesValue, String.format("%s '%s'", ruleInstance.getRuleClass(), name));
+              attributesValue,
+              String.format("to the %s", moduleKey.toDisplayString()),
+              String.format("%s '%s'", ruleInstance.getRuleClass(), name));
         } catch (InvalidRuleException | NoSuchPackageException | EvalException e) {
           throw new SingleExtensionEvalFunctionException(
               ExternalDepsException.withCauseAndMessage(
@@ -907,6 +909,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         throws InterruptedException, SingleExtensionEvalFunctionException {
       ModuleExtensionEvalStarlarkThreadContext threadContext =
           new ModuleExtensionEvalStarlarkThreadContext(
+              extensionId,
               usagesValue.getExtensionUniqueName() + "+",
               extensionId.getBzlFileLabel().getPackageIdentifier(),
               BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
@@ -967,11 +970,11 @@ public class SingleExtensionEvalFunction implements SkyFunction {
             moduleContext.getRecordedFileInputs(),
             moduleContext.getRecordedDirentsInputs(),
             moduleContext.getRecordedEnvVarInputs(),
-            threadContext.getGeneratedRepoSpecs(),
+            threadContext.createRepos(starlarkSemantics),
             moduleExtensionMetadata,
             repoMappingRecorder.recordedEntries());
       } catch (EvalException e) {
-        env.getListener().handle(Event.error(e.getMessageWithStack()));
+        env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
         throw new SingleExtensionEvalFunctionException(
             ExternalDepsException.withMessage(
                 ExternalDeps.Code.BAD_MODULE,
