@@ -20,6 +20,7 @@ import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.common.options.Converters.CommaSeparatedNonEmptyOptionListConverter;
 import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionSetConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -96,6 +97,58 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "Bazel within its own source tree. Finally, a value of the empty string disables "
               + "the builtins injection mechanism entirely.")
   public String experimentalBuiltinsBzlPath;
+
+  @Option(
+      name = "incompatible_autoload_externally",
+      converter = CommaSeparatedOptionSetConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "A comma-separated list of rules (or other symbols) that were previously part of Bazel"
+              + " and which are now to be retrieved from their respective external repositories."
+              + " This flag is intended to be used to facilitate migration of rules out of Bazel."
+              + " See also https://github.com/bazelbuild/bazel/issues/23043.\n"
+              + "A symbol that is autoloaded within a file behaves as if its built-into-Bazel"
+              + " definition were replaced by its canonical new definition in an external"
+              + " repository. For a BUILD file, this essentially means implicitly adding a load()"
+              + " statement. For a .bzl file, it's either a load() statement or a change to a field"
+              + " of the `native` object, depending on whether the autoloaded symbol is a rule.\n"
+              + "Bazel maintains a hardcoded list of all symbols that may be autoloaded; only those"
+              + " symbols may appear in this flag. For each symbol, Bazel knows the new definition"
+              + " location in an external repository, as well as a set of special-cased"
+              + " repositories that must not autoload it to avoid creating cycles.\n"
+              + "A list item of \"+foo\" in this flag causes symbol foo to be autoloaded, except in"
+              + " foo's exempt repositories, within which the Bazel-defined version of foo is still"
+              + " available.\n"
+              + "A list item of \"foo\" triggers autoloading as above, but the Bazel-defined"
+              + " version of foo is not made available to the excluded repositories. This ensures"
+              + " that foo's external repository does not depend on the old Bazel implementation of"
+              + " foo\n"
+              + "A list item of \"-foo\" does not trigger any autoloading, but makes the"
+              + " Bazel-defined version of foo inaccessible throughout the workspace. This is used"
+              + " to validate that the workspace is ready for foo's definition to be deleted from"
+              + " Bazel.\n"
+              + "If a symbol is not named in this flag then it continues to work as normal -- no"
+              + " autoloading is done, nor is the Bazel-defined version suppressed. For"
+              + " configuration see"
+              + " https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/packages/AutoloadSymbols.java")
+  public List<String> incompatibleAutoloadExternally;
+
+  @Option(
+      name = "repositories_without_autoloads",
+      converter = CommaSeparatedOptionSetConverter.class,
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "A list of additional repositories (beyond the hardcoded ones Bazel knows about) where "
+              + "autoloads are not to be added. This should typically contain repositories that are"
+              + " transitively depended on by a repository that may be loaded automatically "
+              + "(and which can therefore potentially create a cycle).")
+  public List<String> repositoriesWithoutAutoloads;
 
   @Option(
       name = "experimental_builtins_dummy",
@@ -737,6 +790,8 @@ public final class BuildLanguageOptions extends OptionsBase {
                 incompatibleStopExportingLanguageModules)
             .setBool(INCOMPATIBLE_ALLOW_TAGS_PROPAGATION, experimentalAllowTagsPropagation)
             .set(EXPERIMENTAL_BUILTINS_BZL_PATH, experimentalBuiltinsBzlPath)
+            .set(INCOMPATIBLE_AUTOLOAD_EXTERNALLY, incompatibleAutoloadExternally)
+            .set(REPOSITORIES_WITHOUT_AUTOLOAD, repositoriesWithoutAutoloads)
             .setBool(EXPERIMENTAL_BUILTINS_DUMMY, experimentalBuiltinsDummy)
             .set(EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE, experimentalBuiltinsInjectionOverride)
             .setBool(EXPERIMENTAL_BZL_VISIBILITY, experimentalBzlVisibility)
@@ -927,6 +982,10 @@ public final class BuildLanguageOptions extends OptionsBase {
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");
+  public static final StarlarkSemantics.Key<List<String>> INCOMPATIBLE_AUTOLOAD_EXTERNALLY =
+      new StarlarkSemantics.Key<>("incompatible_autoload_externally", ImmutableList.of());
+  public static final StarlarkSemantics.Key<List<String>> REPOSITORIES_WITHOUT_AUTOLOAD =
+      new StarlarkSemantics.Key<>("repositories_without_autoloads", ImmutableList.of());
   public static final StarlarkSemantics.Key<List<String>> EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE =
       new StarlarkSemantics.Key<>("experimental_builtins_injection_override", ImmutableList.of());
   public static final StarlarkSemantics.Key<Long> MAX_COMPUTATION_STEPS =
