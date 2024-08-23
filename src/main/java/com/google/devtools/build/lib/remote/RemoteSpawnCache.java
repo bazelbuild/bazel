@@ -129,8 +129,6 @@ final class RemoteSpawnCache implements SpawnCache {
           previousExecution =
               previousOrThisExecution == thisExecution ? null : previousOrThisExecution;
         }
-        // Metadata will be available in context.current() until we detach.
-        // This is done via a thread-local variable.
         try {
           RemoteActionResult result;
           try (SilentCloseable c =
@@ -269,7 +267,9 @@ final class RemoteSpawnCache implements SpawnCache {
             // existing executions finish the reuse.
             // Note that while this call itself isn't interruptible, all operations it awaits are
             // interruptible.
-            thisExecutionFinal.awaitAllOutputReuse();
+            try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "await output reuse")) {
+              thisExecutionFinal.awaitAllOutputReuse();
+            }
           }
         }
 

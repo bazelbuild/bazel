@@ -713,7 +713,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
   public boolean mayModifySpawnOutputsAfterExecution() {
     // Causes of spawn output modification after execution:
     // - Fallback to the full classpath with --experimental_java_classpath=bazel.
-    // - In-place rewriting of .jdeps files when with --experimental_output_paths=strip.
+    // - In-place rewriting of .jdeps files with --experimental_output_paths=strip.
     return true;
   }
 

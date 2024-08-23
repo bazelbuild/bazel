@@ -116,7 +116,7 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
   }
 
   /**
-   * Returns true if the action may modify its outputs after executing spawns.
+   * Returns true if the action may modify spawn outputs after the spawn has executed.
    *
    * <p>If this returns true, any kind of spawn output caching or reuse needs to happen
    * synchronously directly after the spawn execution.
