@@ -408,4 +408,16 @@ EOF
 }
 
 
+function test_whole_repo_flag() {
+  setup_module_dot_bazel
+
+  cat > BUILD << EOF
+py_library(
+    name = 'py_library',
+)
+EOF
+  bazel query --incompatible_autoload_externally=+@rules_python ':py_library' --output=build >&$TEST_log 2>&1 || fail "build failed"
+}
+
+
 run_suite "load_removed_symbols"
