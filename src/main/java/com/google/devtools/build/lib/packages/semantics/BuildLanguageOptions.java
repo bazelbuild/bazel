@@ -133,7 +133,9 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "If a symbol is not named in this flag then it continues to work as normal -- no"
               + " autoloading is done, nor is the Bazel-defined version suppressed. For"
               + " configuration see"
-              + " https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/packages/AutoloadSymbols.java")
+              + " https://github.com/bazelbuild/bazel/blob/master/src/main/java/com/google/devtools/build/lib/packages/AutoloadSymbols.java"
+              + " As a shortcut also whole repository may be used, for example +@rules_python will"
+              + " autoload all Python rules.")
   public List<String> incompatibleAutoloadExternally;
 
   @Option(

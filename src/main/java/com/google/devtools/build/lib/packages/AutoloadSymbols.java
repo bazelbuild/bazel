@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
@@ -98,6 +99,25 @@ public class AutoloadSymbols {
       this.partiallyRemovedSymbols = ImmutableList.of();
       return;
     }
+
+    // Expand symbols given with @rules_foo
+    symbolConfiguration =
+        symbolConfiguration.stream()
+            .flatMap(
+                flag -> {
+                  String prefix = "";
+                  String flagWithoutPrefix = flag;
+                  if (flag.startsWith("+") || flag.startsWith("-")) {
+                    prefix = flag.substring(0, 1);
+                    flagWithoutPrefix = flag.substring(1);
+                  }
+                  if (flagWithoutPrefix.startsWith("@")) {
+                    return getAllSymbols(flagWithoutPrefix, prefix).stream();
+                  } else {
+                    return Stream.of(flag);
+                  }
+                })
+            .collect(toImmutableList());
 
     // Validates the inputs
     Set<String> uniqueSymbols = new HashSet<>();
@@ -283,6 +303,13 @@ public class AutoloadSymbols {
         .map(
             symbol ->
                 symbol.startsWith("+") || symbol.startsWith("-") ? symbol.substring(1) : symbol)
+        .collect(toImmutableList());
+  }
+
+  private ImmutableList<String> getAllSymbols(String repository, String prefix) {
+    return AUTOLOAD_CONFIG.entrySet().stream()
+        .filter(entry -> entry.getValue().getLoadLabel().startsWith(repository + "//"))
+        .map(entry -> prefix + entry.getKey())
         .collect(toImmutableList());
   }
 
