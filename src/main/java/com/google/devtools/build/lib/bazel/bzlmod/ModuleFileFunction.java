@@ -201,7 +201,7 @@ public class ModuleFileFunction implements SkyFunction {
     try {
       module = moduleThreadContext.buildModule(getModuleFileResult.registry);
     } catch (EvalException e) {
-      env.getListener().handle(Event.error(e.getMessageWithStack()));
+      env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
     }
     if (!module.getName().equals(moduleKey.getName())) {
@@ -478,10 +478,7 @@ public class ModuleFileFunction implements SkyFunction {
                     .map(label -> Label.parseCanonicalUnchecked(label).toPathFragment()))
             .collect(toImmutableSet());
     return RootModuleFileValue.create(
-        module,
-        overrides,
-        nonRegistryOverrideCanonicalRepoNameLookup,
-        moduleFilePaths);
+        module, overrides, nonRegistryOverrideCanonicalRepoNameLookup, moduleFilePaths);
   }
 
   private static ModuleThreadContext execModuleFile(

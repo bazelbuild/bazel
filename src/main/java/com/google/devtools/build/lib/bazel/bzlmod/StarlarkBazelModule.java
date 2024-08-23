@@ -135,7 +135,9 @@ public class StarlarkBazelModule implements StarlarkValue {
       // (for example, String to Label).
       typeCheckedTags
           .get(tag.getTagName())
-          .add(TypeCheckedTag.create(tagClass, tag, labelConverter));
+          .add(
+              TypeCheckedTag.create(
+                  tagClass, tag, labelConverter, module.getKey().toDisplayString()));
     }
     return new StarlarkBazelModule(
         module.getName(),

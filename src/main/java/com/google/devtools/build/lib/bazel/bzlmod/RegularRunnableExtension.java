@@ -259,6 +259,7 @@ final class RegularRunnableExtension implements RunnableExtension {
             : '~';
     ModuleExtensionEvalStarlarkThreadContext threadContext =
         new ModuleExtensionEvalStarlarkThreadContext(
+            extensionId,
             usagesValue.getExtensionUniqueName() + separator,
             extensionId.getBzlFileLabel().getPackageIdentifier(),
             BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
@@ -315,11 +316,11 @@ final class RegularRunnableExtension implements RunnableExtension {
           moduleContext.getRecordedFileInputs(),
           moduleContext.getRecordedDirentsInputs(),
           moduleContext.getRecordedEnvVarInputs(),
-          threadContext.getGeneratedRepoSpecs(),
+          threadContext.createRepos(starlarkSemantics),
           moduleExtensionMetadata,
           repoMappingRecorder.recordedEntries());
     } catch (EvalException e) {
-      env.getListener().handle(Event.error(e.getMessageWithStack()));
+      env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw ExternalDepsException.withMessage(
           ExternalDeps.Code.BAD_MODULE,
           "error evaluating module extension %s in %s",
