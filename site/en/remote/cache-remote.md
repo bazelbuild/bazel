@@ -147,6 +147,10 @@ each action there is a
 element containing all of the information from the action key, Thus, if the
 logs are identical then so are the action cache keys.
 
+If you're using the `--experimental_execution_log_compact_file` flag you
+must first convert to the binary or json format using the
+`//src/tools/execlog:converter` tool.
+
 To compare logs for two builds that are not sharing cache hits as expected,
 do the following:
 
