@@ -396,13 +396,6 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   protected void createSymbolicLink(PathFragment linkPath, PathFragment targetFragment)
       throws IOException {
     var comp = Blocker.begin();
-    PathFragment targetPath =
-        targetFragment.isAbsolute()
-            ? targetFragment
-            : linkPath.getParentDirectory().getRelative(targetFragment);
-    if (!getPath(targetPath).exists()) {
-      throw new IllegalStateException("Target of symlink does not exist: " + targetFragment);
-    }
     try {
       NativePosixFiles.symlink(targetFragment.getSafePathString(), linkPath.toString());
     } finally {

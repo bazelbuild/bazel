@@ -186,7 +186,6 @@ public interface SpawnRunner {
       ListenableFuture<Void> future = prefetchInputs();
       try (SilentCloseable s =
           Profiler.instance().profile(ProfilerTask.REMOTE_DOWNLOAD, "stage remote inputs")) {
-        System.err.println("prefetching input");
         future.get();
       } catch (ExecutionException e) {
         Throwable cause = e.getCause();

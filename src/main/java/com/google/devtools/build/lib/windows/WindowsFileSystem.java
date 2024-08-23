@@ -79,13 +79,12 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     try {
       java.nio.file.Path link = getIoFile(linkPath).toPath();
       java.nio.file.Path target = getIoFile(targetPath).toPath();
-      if (createSymbolicLinks) {
-        WindowsFileOperations.createSymlink(link.toString(), target.toString());
+      // Still Create a dangling junction if the target doesn't exist.
+      if (!target.toFile().exists() || target.toFile().isDirectory()) {
+        WindowsFileOperations.createJunction(link.toString(), target.toString());
       } else {
-        // As junctions can only point at directories, we can't create one if we
-        // don't know what the target is.
-        if (!target.toFile().exists() || target.toFile().isDirectory()) {
-          WindowsFileOperations.createJunction(link.toString(), target.toString());
+        if (createSymbolicLinks) {
+          WindowsFileOperations.createSymlink(link.toString(), target.toString());
         } else {
           Files.copy(target, link);
         }

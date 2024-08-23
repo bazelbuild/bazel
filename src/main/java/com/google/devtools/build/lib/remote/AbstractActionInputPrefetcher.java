@@ -353,8 +353,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
 
       @Nullable PathFragment treeRootExecPath = maybeGetTreeRoot(action, input, metadataSupplier);
 
-      System.err.println("download file " + execRoot.getRelative(execPath));
-
       Completable result =
           downloadFileNoCheckRx(
               action,
@@ -366,7 +364,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               priority);
 
       if (symlink != null) {
-        System.err.println("plant " + symlink.getTargetExecPath());
         result = result.andThen(plantSymlink(symlink));
       }
 
@@ -532,7 +529,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                         directExecutor())
                     .doOnComplete(
                         () -> {
-                          System.err.println("Finalizing download to " + finalPath);
                           finalizeDownload(tempPath, finalPath, dirsWithOutputPermissions);
                           alreadyDeleted.set(true);
                         })
@@ -629,7 +625,6 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
               // Delete the link path if it already exists. This is the case for tree artifacts,
               // whose root directory is created before the action runs.
               link.delete();
-              System.err.println("Creating symlink to " + target);
               link.createSymbolicLink(target);
               return Completable.complete();
             }));
