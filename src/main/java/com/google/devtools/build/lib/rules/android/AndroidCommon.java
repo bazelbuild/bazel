@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
+import com.google.common.base.Function;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -1009,5 +1011,56 @@ public class AndroidCommon {
     }
 
     builder.build();
+  }
+
+  private static class FlagMatcher implements Predicate<String> {
+    private final ImmutableList<String> matching;
+
+    FlagMatcher(ImmutableList<String> matching) {
+      this.matching = matching;
+    }
+
+    @Override
+    public boolean apply(String input) {
+      for (String match : matching) {
+        if (input.contains(match)) {
+          return true;
+        }
+      }
+      return false;
+    }
+  }
+
+  private enum FlagConverter implements Function<String, String> {
+    DX_TO_DEXBUILDER;
+
+    @Override
+    public String apply(String input) {
+      return input.replace("--no-", "--no");
+    }
+  }
+
+  private static ImmutableSet<String> normalizeDexopts(Iterable<String> tokenizedDexopts) {
+    // Sort and use ImmutableSet to drop duplicates and get fixed (sorted) order.  Fixed order is
+    // important so we generate one dex archive per set of flag in create() method, regardless of
+    // how those flags are listed in all the top-level targets being built.
+    return Streams.stream(tokenizedDexopts)
+        .map(FlagConverter.DX_TO_DEXBUILDER)
+        .sorted()
+        .collect(ImmutableSet.toImmutableSet()); // collector with dedupe
+  }
+
+  /**
+   * Derives options to use in DexFileMerger actions from the given context and dx flags, where the
+   * latter typically come from a {@code dexopts} attribute on a top-level target.
+   */
+  public static ImmutableSet<String> mergerDexopts(
+      RuleContext ruleContext, Iterable<String> tokenizedDexopts) {
+    // We don't need an ordered set but might as well.  Note we don't need to worry about coverage
+    // builds since the merger doesn't use --no-locals.
+    return normalizeDexopts(
+        Iterables.filter(
+            tokenizedDexopts,
+            new FlagMatcher(getAndroidConfig(ruleContext).getDexoptsSupportedInDexMerger())));
   }
 }

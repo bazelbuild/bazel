@@ -120,7 +120,7 @@ public class AndroidStarlarkCommon
             .addPlaceholderTreeArtifactExecPath("--output", outputTree)
             .add("--multidex=given_shard")
             .addAll(
-                DexArchiveAspect.mergerDexopts(
+                AndroidCommon.mergerDexopts(
                     ruleContext,
                     Iterables.filter(
                         dexopts, Predicates.not(Predicates.equalTo("--minimal-main-dex")))));
