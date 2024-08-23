@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSema
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics.PlatformCompatibility;
 import com.google.devtools.build.lib.analysis.constraints.TopLevelConstraintSemantics.TargetCompatibilityCheckException;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Target;
@@ -233,12 +234,13 @@ public class BuildDriverFunction implements SkyFunction {
       // It's possible that this code path is triggered AFTER the analysis cache clean up and the
       // transitive packages for package root resolution is already cleared. In such a case, the
       // symlinks should have already been planted.
-      if (configuredTargetValue.getTransitivePackages() != null) {
+      NestedSet<Package> transitivePackagesForSymlinkPlanting =
+          configuredTargetValue.getTransitivePackages();
+      if (transitivePackagesForSymlinkPlanting != null) {
         postEventIfNecessary(
             postedEventsTypes,
             env,
-            TopLevelTargetReadyForSymlinkPlanting.create(
-                configuredTargetValue.getTransitivePackages()));
+            TopLevelTargetReadyForSymlinkPlanting.create(transitivePackagesForSymlinkPlanting));
       }
 
       BuildConfigurationValue buildConfigurationValue =
@@ -334,11 +336,13 @@ public class BuildDriverFunction implements SkyFunction {
         // It's possible that this code path is triggered AFTER the analysis cache clean up and the
         // transitive packages for package root resolution is already cleared. In such a case, the
         // symlinks should have already been planted.
-        if (aspectValue.getTransitivePackages() != null) {
+        NestedSet<Package> transitivePackagesForSymlinkPlanting =
+            aspectValue.getTransitivePackages();
+        if (transitivePackagesForSymlinkPlanting != null) {
           postEventIfNecessary(
               postedEventsTypes,
               env,
-              TopLevelTargetReadyForSymlinkPlanting.create(aspectValue.getTransitivePackages()));
+              TopLevelTargetReadyForSymlinkPlanting.create(transitivePackagesForSymlinkPlanting));
         }
         aspectCompletionKeys.add(AspectCompletionKey.create(aspectKey, topLevelArtifactContext));
       }
