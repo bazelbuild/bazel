@@ -2665,7 +2665,7 @@ EOF
 
   mkdir main
   cd main
-  cat > foo.bzl <<'EOF'
+  cat > foo.bzl <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def foo():
@@ -2675,7 +2675,7 @@ def foo():
     build_file = "@b//:a.BUILD",
   )
 EOF
-  cat > bar.bzl <<'EOF'
+  cat > bar.bzl <<EOF
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def bar():
@@ -3001,6 +3001,50 @@ EOF
     || fail 'Expected build to succeed with Skymeld'
 
   test -h "$execroot/external/ext" || fail "Expected symlink to external repo."
+}
+
+function test_default_canonical_id_enabled() {
+    cat > repo.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:cache.bzl", "get_default_canonical_id")
+
+def _impl(rctx):
+  print("canonical_id", repr(get_default_canonical_id(rctx, ["url-1", "url-2"])))
+  rctx.file("BUILD", "")
+
+dummy_repository = repository_rule(_impl)
+EOF
+  touch BUILD
+  cat > MODULE.bazel <<EOF
+dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
+dummy_repository(name = 'foo')
+EOF
+
+  # NOTE: Test environment modifies defaults, so --repo_env must be explicitly set
+  bazel query @foo//:all --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=1 \
+    2>$TEST_log || fail 'Expected fetch to succeed'
+  expect_log "canonical_id \"url-1 url-2\""
+}
+
+function test_default_canonical_id_disabled() {
+    cat > repo.bzl <<EOF
+load("@bazel_tools//tools/build_defs/repo:cache.bzl", "get_default_canonical_id")
+
+def _impl(rctx):
+  print("canonical_id", repr(get_default_canonical_id(rctx, ["url-1", "url-2"])))
+  rctx.file("BUILD", "")
+
+dummy_repository = repository_rule(_impl)
+EOF
+  touch BUILD
+  cat > MODULE.bazel <<EOF
+dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
+dummy_repository(name = 'foo')
+EOF
+
+  # NOTE: Test environment modifies defaults, so --repo_env must be explicitly set
+  bazel query @foo//:all --repo_env=BAZEL_HTTP_RULES_URLS_AS_DEFAULT_CANONICAL_ID=0 \
+    2>$TEST_log || fail 'Expected fetch to succeed'
+  expect_log "canonical_id \"\""
 }
 
 function test_environ_incrementally() {

@@ -556,8 +556,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     @StarlarkMethod(
         name = "wait",
         doc =
-            "Blocks until the completion of the download and returns or throws as blocking "
-                + " download() call would")
+            """
+            Blocks until the completion of the download and returns or throws as blocking \
+            <code>download()</code> call would.
+            """)
     public StructImpl await() throws InterruptedException, RepositoryFunctionException {
       return completeDownload(this);
     }
@@ -599,10 +601,15 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @StarlarkMethod(
       name = "download",
       doc =
-          "Downloads a file to the output path for the provided url and returns a struct"
-              + " containing <code>success</code>, a flag which is <code>true</code> if the"
-              + " download completed successfully, and if successful, a hash of the file"
-              + " with the fields <code>sha256</code> and <code>integrity</code>.",
+          """
+Downloads a file to the output path for the provided url and returns a struct \
+containing <code>success</code>, a flag which is <code>true</code> if the \
+download completed successfully, and if successful, a hash of the file \
+with the fields <code>sha256</code> and <code>integrity</code>. \
+When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
+<code>canonical_id</code> is highly recommended. e.g. \
+<a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
+""",
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -628,34 +635,40 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             defaultValue = "''",
             named = true,
             doc =
-                "the expected SHA-256 hash of the file downloaded."
-                    + " This must match the SHA-256 hash of the file downloaded. It is a security"
-                    + " risk to omit the SHA-256 as remote files can change. At best omitting this"
-                    + " field will make your build non-hermetic. It is optional to make development"
-                    + " easier but should be set before shipping."
-                    + " If provided, the repository cache will first be checked for a file with the"
-                    + " given hash; a download will only be attempted if the file was not found in"
-                    + " the cache. After a successful download, the file will be added to the cache."),
+                """
+                The expected SHA-256 hash of the file downloaded. \
+                This must match the SHA-256 hash of the file downloaded. It is a security \
+                risk to omit the SHA-256 as remote files can change. At best omitting this \
+                field will make your build non-hermetic. It is optional to make development \
+                easier but should be set before shipping. \
+                If provided, the repository cache will first be checked for a file with the \
+                given hash; a download will only be attempted if the file was not found in \
+                the cache. After a successful download, the file will be added to the cache.
+                """),
         @Param(
             name = "executable",
             defaultValue = "False",
             named = true,
-            doc = "set the executable flag on the created file, false by default."),
+            doc = "Set the executable flag on the created file, false by default."),
         @Param(
             name = "allow_fail",
             defaultValue = "False",
             named = true,
             doc =
-                "If set, indicate the error in the return value"
-                    + " instead of raising an error for failed downloads"),
+                """
+                If set, indicate the error in the return value \
+                instead of raising an error for failed downloads.
+                """),
         @Param(
             name = "canonical_id",
             defaultValue = "''",
             named = true,
             doc =
-                "If set, restrict cache hits to those cases where the file was added to the cache"
-                    + " with the same canonical id. By default caching uses the checksum"
-                    + "(<code>sha256</code> or <code>integrity</code>)."),
+                """
+                If set, restrict cache hits to those cases where the file was added to the cache \
+                with the same canonical id. By default caching uses the checksum \
+                (<code>sha256</code> or <code>integrity</code>).
+                """),
         @Param(
             name = "auth",
             defaultValue = "{}",
@@ -672,24 +685,28 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             named = true,
             positional = false,
             doc =
-                "Expected checksum of the file downloaded, in Subresource Integrity format."
-                    + " This must match the checksum of the file downloaded. It is a security"
-                    + " risk to omit the checksum as remote files can change. At best omitting this"
-                    + " field will make your build non-hermetic. It is optional to make development"
-                    + " easier but should be set before shipping."
-                    + " If provided, the repository cache will first be checked for a file with the"
-                    + " given checksum; a download will only be attempted if the file was not found in"
-                    + " the cache. After a successful download, the file will be added to the cache."),
+                """
+                Expected checksum of the file downloaded, in Subresource Integrity format. \
+                This must match the checksum of the file downloaded. It is a security \
+                risk to omit the checksum as remote files can change. At best omitting this \
+                field will make your build non-hermetic. It is optional to make development \
+                easier but should be set before shipping. \
+                If provided, the repository cache will first be checked for a file with the \
+                given checksum; a download will only be attempted if the file was not found in \
+                the cache. After a successful download, the file will be added to the cache.
+                """),
         @Param(
             name = "block",
             defaultValue = "True",
             named = true,
             positional = false,
             doc =
-                "If set to false, the call returns immediately and instead of the regular return"
-                    + " value, it returns a token with one single method, wait(), which blocks"
-                    + " until the download is finished and returns the usual return value or"
-                    + " throws as usual.")
+                """
+                If set to false, the call returns immediately and instead of the regular return \
+                value, it returns a token with one single method, wait(), which blocks \
+                until the download is finished and returns the usual return value or \
+                throws as usual.
+                """)
       })
   public Object download(
       Object url,
@@ -786,10 +803,15 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @StarlarkMethod(
       name = "download_and_extract",
       doc =
-          "Downloads a file to the output path for the provided url, extracts it, and returns a"
-              + " struct containing <code>success</code>, a flag which is <code>true</code> if the"
-              + " download completed successfully, and if successful, a hash of the file with the"
-              + " fields <code>sha256</code> and <code>integrity</code>.",
+          """
+Downloads a file to the output path for the provided url, extracts it, and returns a \
+struct containing <code>success</code>, a flag which is <code>true</code> if the \
+download completed successfully, and if successful, a hash of the file with the \
+fields <code>sha256</code> and <code>integrity</code>. \
+When <code>sha256</code> or <code>integrity</code> is user specified, setting an explicit \
+<code>canonical_id</code> is highly recommended. e.g. \
+<a href='/rules/lib/repo/cache#get_default_canonical_id'><code>get_default_canonical_id</code></a>
+""",
       useStarlarkThread = true,
       parameters = {
         @Param(
@@ -810,57 +832,69 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             defaultValue = "''",
             named = true,
             doc =
-                "path to the directory where the archive will be unpacked,"
-                    + " relative to the repository directory."),
+                """
+                Path to the directory where the archive will be unpacked, \
+                relative to the repository directory.
+                """),
         @Param(
             name = "sha256",
             defaultValue = "''",
             named = true,
             doc =
-                "the expected SHA-256 hash of the file downloaded."
-                    + " This must match the SHA-256 hash of the file downloaded. It is a security"
-                    + " risk to omit the SHA-256 as remote files can change. At best omitting this"
-                    + " field will make your build non-hermetic. It is optional to make development"
-                    + " easier but should be set before shipping."
-                    + " If provided, the repository cache will first be checked for a file with the"
-                    + " given hash; a download will only be attempted if the file was not found in"
-                    + " the cache. After a successful download, the file will be added to the"
-                    + " cache."),
+                """
+                The expected SHA-256 hash of the file downloaded. \
+                This must match the SHA-256 hash of the file downloaded. It is a security \
+                risk to omit the SHA-256 as remote files can change. At best omitting this \
+                field will make your build non-hermetic. It is optional to make development \
+                easier but should be set before shipping. \
+                If provided, the repository cache will first be checked for a file with the \
+                given hash; a download will only be attempted if the file was not found in \
+                the cache. After a successful download, the file will be added to the \
+                cache.
+                """),
         @Param(
             name = "type",
             defaultValue = "''",
             named = true,
             doc =
-                "the archive type of the downloaded file. By default, the archive type is"
-                    + " determined from the file extension of the URL. If the file has no"
-                    + " extension, you can explicitly specify either \"zip\", \"jar\", \"war\","
-                    + " \"aar\", \"tar\", \"tar.gz\", \"tgz\", \"tar.xz\", \"txz\", \".tar.zst\","
-                    + " \".tzst\", \"tar.bz2\", \".tbz\", \".ar\", or \".deb\" here."),
+                """
+                The archive type of the downloaded file. By default, the archive type is \
+                determined from the file extension of the URL. If the file has no \
+                extension, you can explicitly specify either "zip", "jar", "war", \
+                "aar", "tar", "tar.gz", "tgz", "tar.xz", "txz", ".tar.zst", \
+                ".tzst", "tar.bz2", ".tbz", ".ar", or ".deb" here.
+                """),
         @Param(
             name = "stripPrefix",
             defaultValue = "''",
             named = true,
             doc =
-                "a directory prefix to strip from the extracted files."
-                    + "\nMany archives contain a top-level directory that contains all files in the"
-                    + " archive. Instead of needing to specify this prefix over and over in the"
-                    + " <code>build_file</code>, this field can be used to strip it from extracted"
-                    + " files."),
+                """
+                A directory prefix to strip from the extracted files.
+                Many archives contain a top-level directory that contains all files in the \
+                archive. Instead of needing to specify this prefix over and over in the \
+                <code>build_file</code>, this field can be used to strip it from extracted \
+                files.
+                """),
         @Param(
             name = "allow_fail",
             defaultValue = "False",
             named = true,
             doc =
-                "If set, indicate the error in the return value"
-                    + " instead of raising an error for failed downloads"),
+                """
+                If set, indicate the error in the return value \
+                instead of raising an error for failed downloads.
+                """),
         @Param(
             name = "canonical_id",
             defaultValue = "''",
             named = true,
             doc =
-                "If set, restrict cache hits to those cases where the file was added to the cache"
-                    + " with the same canonical id. By default caching uses the checksum"
-                    + "(<code>sha256</code> or <code>integrity</code>)."),
+                """
+                If set, restrict cache hits to those cases where the file was added to the cache \
+                with the same canonical id. By default caching uses the checksum"
+                (<code>sha256</code> or <code>integrity</code>).
+                """),
         @Param(
             name = "auth",
             defaultValue = "{}",
@@ -877,25 +911,29 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             named = true,
             positional = false,
             doc =
-                "Expected checksum of the file downloaded, in Subresource Integrity format."
-                    + " This must match the checksum of the file downloaded. It is a security"
-                    + " risk to omit the checksum as remote files can change. At best omitting this"
-                    + " field will make your build non-hermetic. It is optional to make development"
-                    + " easier but should be set before shipping."
-                    + " If provided, the repository cache will first be checked for a file with the"
-                    + " given checksum; a download will only be attempted if the file was not found in"
-                    + " the cache. After a successful download, the file will be added to the cache."),
+                """
+                Expected checksum of the file downloaded, in Subresource Integrity format. \
+                This must match the checksum of the file downloaded. It is a security \
+                risk to omit the checksum as remote files can change. At best omitting this \
+                field will make your build non-hermetic. It is optional to make development \
+                easier but should be set before shipping. \
+                If provided, the repository cache will first be checked for a file with the \
+                given checksum; a download will only be attempted if the file was not found in \
+                the cache. After a successful download, the file will be added to the cache. \
+                """),
         @Param(
             name = "rename_files",
             defaultValue = "{}",
             named = true,
             positional = false,
             doc =
-                "An optional dict specifying files to rename during the extraction. Archive entries"
-                    + " with names exactly matching a key will be renamed to the value, prior to"
-                    + " any directory prefix adjustment. This can be used to extract archives that"
-                    + " contain non-Unicode filenames, or which have files that would extract to"
-                    + " the same path on case-insensitive filesystems."),
+                """
+An optional dict specifying files to rename during the extraction. Archive entries \
+with names exactly matching a key will be renamed to the value, prior to \
+any directory prefix adjustment. This can be used to extract archives that \
+contain non-Unicode filenames, or which have files that would extract to \
+the same path on case-insensitive filesystems.
+"""),
       })
   public StructImpl downloadAndExtract(
       Object url,
@@ -1190,24 +1228,26 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
               @ParamType(type = Label.class),
               @ParamType(type = StarlarkPath.class)
             },
-            doc = "path of the file to create, relative to the repository directory."),
+            doc = "Path of the file to create, relative to the repository directory."),
         @Param(
             name = "content",
             named = true,
             defaultValue = "''",
-            doc = "the content of the file to create, empty by default."),
+            doc = "The content of the file to create, empty by default."),
         @Param(
             name = "executable",
             named = true,
             defaultValue = "True",
-            doc = "set the executable flag on the created file, true by default."),
+            doc = "Set the executable flag on the created file, true by default."),
         @Param(
             name = "legacy_utf8",
             named = true,
             defaultValue = "True",
             doc =
-                "encode file content to UTF-8, true by default. Future versions will change"
-                    + " the default and remove this parameter."),
+                """
+                Encode file content to UTF-8, true by default. Future versions will change \
+                the default and remove this parameter.
+                """),
       })
   public void createFile(
       Object path, String content, Boolean executable, Boolean legacyUtf8, StarlarkThread thread)
@@ -1254,18 +1294,20 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @StarlarkMethod(
       name = "getenv",
       doc =
-          "Returns the value of an environment variable <code>name</code> as a string if exists, "
-              + "or <code>default</code> if it doesn't."
-              + "<p>When building incrementally, any change to the value of the variable named by "
-              + "<code>name</code> will cause this repository to be re-fetched.",
+          """
+          Returns the value of an environment variable <code>name</code> as a string if exists, \
+          or <code>default</code> if it doesn't. \
+          <p>When building incrementally, any change to the value of the variable named by \
+          <code>name</code> will cause this repository to be re-fetched.
+          """,
       parameters = {
         @Param(
             name = "name",
-            doc = "name of desired environment variable",
+            doc = "Name of desired environment variable.",
             allowedTypes = {@ParamType(type = String.class)}),
         @Param(
             name = "default",
-            doc = "Default value to return if `name` is not found",
+            doc = "Default value to return if <code>name</code> is not found.",
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "None")
       },
@@ -1289,12 +1331,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @StarlarkMethod(
       name = "path",
       doc =
-          "Returns a path from a string, label or path. If the path is relative, it will resolve "
-              + "relative to the repository directory. If the path is a label, it will resolve to "
-              + "the path of the corresponding file. Note that remote repositories are executed "
-              + "during the analysis phase and thus cannot depends on a target result (the "
-              + "label should point to a non-generated file). If path is a path, it will return "
-              + "that path as is.",
+          """
+          Returns a path from a string, label or path. If the path is relative, it will resolve \
+          relative to the repository directory. If the path is a label, it will resolve to \
+          the path of the corresponding file. Note that remote repositories are executed \
+          during the analysis phase and thus cannot depends on a target result (the \
+          label should point to a non-generated file). If path is a path, it will return \
+          that path as is.
+          """,
       parameters = {
         @Param(
             name = "path",
@@ -1303,7 +1347,9 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
               @ParamType(type = Label.class),
               @ParamType(type = StarlarkPath.class)
             },
-            doc = "string, label or path from which to create a path from")
+            doc =
+                "<code>string</code>, <code>Label</code> or <code>path</code> from which to create"
+                    + " a path from.")
       })
   public StarlarkPath path(Object path) throws EvalException, InterruptedException {
     return getPath("path()", path);
@@ -1335,19 +1381,21 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
               @ParamType(type = Label.class),
               @ParamType(type = StarlarkPath.class)
             },
-            doc = "path of the file to read from."),
+            doc = "Path of the file to read from."),
         @Param(
             name = "watch",
             defaultValue = "'auto'",
             positional = false,
             named = true,
             doc =
-                "whether to <a href=\"#watch\">watch</a> the file. Can be the string 'yes', 'no', "
-                    + "or 'auto'. Passing 'yes' is equivalent to immediately invoking the "
-                    + "<a href=\"#watch\"><code>watch()</code></a> method; passing 'no' does not "
-                    + "attempt to watch the file; passing 'auto' will only attempt to watch the "
-                    + "file when it is legal to do so (see <code>watch()</code> docs for more "
-                    + "information.")
+                """
+                Whether to <a href="#watch">watch</a> the file. Can be the string 'yes', 'no', \
+                or 'auto'. Passing 'yes' is equivalent to immediately invoking the \
+                <a href="#watch"><code>watch()</code></a> method; passing 'no' does not \
+                attempt to watch the file; passing 'auto' will only attempt to watch the \
+                file when it is legal to do so (see <code>watch()</code> docs for more \
+                information.
+                """)
       })
   public String readFile(Object path, String watch, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
@@ -1480,18 +1528,20 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @StarlarkMethod(
       name = "watch",
       doc =
-          "Tells Bazel to watch for changes to the given path, whether or not it exists, or "
-              + "whether it's a file or a directory. Any changes to the file or directory will "
-              + "invalidate this repository or module extension, and cause it to be refetched or "
-              + "re-evaluated next time.<p>\"Changes\" include changes to the contents of the file "
-              + "(if the path is a file); if the path was a file but is now a directory, or vice "
-              + "versa; and if the path starts or stops existing. Notably, this does <em>not</em> "
-              + "include changes to any files under the directory if the path is a directory. For "
-              + "that, use <a href=\"path.html#readdir\"><code>path.readdir()</code></a> "
-              + "instead.<p>Note that attempting to watch paths inside the repo currently being "
-              + "fetched, or inside the working directory of the current module extension, will "
-              + "result in an error. A module extension attempting to watch a path outside the "
-              + "current Bazel workspace will also result in an error.",
+          """
+          Tells Bazel to watch for changes to the given path, whether or not it exists, or \
+          whether it's a file or a directory. Any changes to the file or directory will \
+          invalidate this repository or module extension, and cause it to be refetched or \
+          re-evaluated next time.<p>"Changes" include changes to the contents of the file \
+          (if the path is a file); if the path was a file but is now a directory, or vice \
+          versa; and if the path starts or stops existing. Notably, this does <em>not</em> \
+          include changes to any files under the directory if the path is a directory. For \
+          that, use <a href="path.html#readdir"><code>path.readdir()</code></a> \
+          instead.<p>Note that attempting to watch paths inside the repo currently being \
+          fetched, or inside the working directory of the current module extension, will \
+          result in an error. A module extension attempting to watch a path outside the \
+          current Bazel workspace will also result in an error.
+          """,
       parameters = {
         @Param(
             name = "path",
@@ -1500,7 +1550,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
               @ParamType(type = Label.class),
               @ParamType(type = StarlarkPath.class)
             },
-            doc = "path of the file to watch."),
+            doc = "Path of the file to watch."),
       })
   public void watchForStarlark(Object path)
       throws RepositoryFunctionException, EvalException, InterruptedException {
@@ -1517,13 +1567,13 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
   @StarlarkMethod(
       name = "report_progress",
-      doc = "Updates the progress status for the fetching of this repository or module extension",
+      doc = "Updates the progress status for the fetching of this repository or module extension.",
       parameters = {
         @Param(
             name = "status",
             defaultValue = "''",
             allowedTypes = {@ParamType(type = String.class)},
-            doc = "string describing the current status of the fetch progress")
+            doc = "<code>string</code> describing the current status of the fetch progress.")
       })
   public void reportProgress(String status) {
     env.getListener()
@@ -1692,28 +1742,32 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @StarlarkMethod(
       name = "execute",
       doc =
-          "Executes the command given by the list of arguments. The execution time of the command"
-              + " is limited by <code>timeout</code> (in seconds, default 600 seconds). This method"
-              + " returns an <code>exec_result</code> structure containing the output of the"
-              + " command. The <code>environment</code> map can be used to override some"
-              + " environment variables to be passed to the process.",
+          """
+          Executes the command given by the list of arguments. The execution time of the command \
+          is limited by <code>timeout</code> (in seconds, default 600 seconds). This method \
+          returns an <code>exec_result</code> structure containing the output of the \
+          command. The <code>environment</code> map can be used to override some \
+          environment variables to be passed to the process.
+          """,
       useStarlarkThread = true,
       parameters = {
         @Param(
             name = "arguments",
             doc =
-                "List of arguments, the first element should be the path to the program to "
-                    + "execute."),
+                """
+                List of arguments, the first element should be the path to the program to \
+                execute.
+                """),
         @Param(
             name = "timeout",
             named = true,
             defaultValue = "600",
-            doc = "maximum duration of the command in seconds (default is 600 seconds)."),
+            doc = "Maximum duration of the command in seconds (default is 600 seconds)."),
         @Param(
             name = "environment",
             defaultValue = "{}",
             named = true,
-            doc = "force some environment variables to be set to be passed to the process."),
+            doc = "Force some environment variables to be set to be passed to the process."),
         @Param(
             name = "quiet",
             defaultValue = "True",
@@ -1724,8 +1778,11 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
             defaultValue = "\"\"",
             named = true,
             doc =
-                "Working directory for command execution.\n"
-                    + "Can be relative to the repository root or absolute."),
+                """
+                Working directory for command execution.
+                Can be relative to the repository root or absolute.
+                The default is the repository root.
+                """),
       })
   public StarlarkExecutionResult execute(
       Sequence<?> arguments, // <String> or <StarlarkPath> or <Label> expected
@@ -1804,8 +1861,10 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   @StarlarkMethod(
       name = "which",
       doc =
-          "Returns the path of the corresponding program or None "
-              + "if there is no such program in the path.",
+          """
+          Returns the <code>path</code> of the corresponding program or <code>None</code> \
+          if there is no such program in the path.
+          """,
       allowReturnNones = true,
       useStarlarkThread = true,
       parameters = {
