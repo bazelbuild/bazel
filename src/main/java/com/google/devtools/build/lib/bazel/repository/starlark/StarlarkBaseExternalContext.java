@@ -1376,6 +1376,8 @@ the same path on case-insensitive filesystems.
             // This can never happen because we check it in the Starlark interpreter.
           default -> throw new IllegalArgumentException("expected string or label for path");
         };
+    // Do not use maybeWatch(result, shouldWatch) instead as that would result in StarlarkPath and
+    // string absolute paths being watched, which would break backwards compatibility.
     if (shouldWatch == ShouldWatch.YES) {
       maybeWatch(result, ShouldWatch.YES);
     }
