@@ -611,6 +611,10 @@ message OutputGroup {
   // Indicates that one or more of the output group's files were not built
   // successfully (the generating action failed).
   bool incomplete = 4;
+
+  // Inlined files that belong to this output group, requested via
+  // --build_event_inline_output_groups.
+  repeated File inline_files = 5;
 }
 
 // Payload of the event indicating the completion of a target. The target is

@@ -14,11 +14,21 @@
 
 package com.google.devtools.build.lib.buildeventstream;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.buildeventstream.BuildEventContext.OutputGroupFileMode;
+import com.google.devtools.common.options.Converter;
+import com.google.devtools.common.options.Converters.AssignmentConverter;
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
+import com.google.devtools.common.options.OptionsParsingException;
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
 /** Options used to configure the build event protocol. */
 public class BuildEventProtocolOptions extends OptionsBase {
@@ -107,4 +117,74 @@ public class BuildEventProtocolOptions extends OptionsBase {
               + " residue. By default, the residue is not included in run command build events that"
               + " could contain the residue.")
   public boolean includeResidueInRunBepEvent;
+
+  /** Simple String to {@link OutputGroupFileMode} Converter. */
+  static final class OutputGroupFileModeConverter extends EnumConverter<OutputGroupFileMode> {
+    public OutputGroupFileModeConverter() {
+      super(OutputGroupFileMode.class, "Output group file reporting mode");
+    }
+  }
+
+  /**
+   * Options converter that parses the assignment of an {@link OutputGroupFileMode} for an output
+   * group by name, e.g. {@code default=fileset} or {@code baseline.lcov=inline}.
+   */
+  static final class BuildEventOutputGroupModeConverter
+      extends Converter.Contextless<Map.Entry<String, OutputGroupFileMode>> {
+    private final AssignmentConverter assignmentConverter = new AssignmentConverter();
+    private final OutputGroupFileModeConverter modeConverter = new OutputGroupFileModeConverter();
+
+    @Override
+    public String getTypeDescription() {
+      return "an output group name followed by an OutputGroupFileMode, e.g. default=both";
+    }
+
+    @Override
+    public Map.Entry<String, OutputGroupFileMode> convert(String input)
+        throws OptionsParsingException {
+      Entry<String, String> entry = assignmentConverter.convert(input);
+      OutputGroupFileMode mode = modeConverter.convert(entry.getValue());
+      return Maps.immutableEntry(entry.getKey(), mode);
+    }
+  }
+
+  /**
+   * A mapping from output group name to the {@link OutputGroupFileMode} to use for that output
+   * group.
+   */
+  @FunctionalInterface
+  public interface OutputGroupFileModes {
+    OutputGroupFileMode getMode(String outputGroup);
+
+    OutputGroupFileModes DEFAULT = (outputGroup) -> OutputGroupFileMode.NAMED_SET_OF_FILES_ONLY;
+  }
+
+  /**
+   * Collects the values in {@link #outputGroupFileModes} into a map and returns a {@link
+   * OutputGroupFileModes} backed by that map and defaulting to {@link
+   * OutputGroupFileMode.NAMED_SET_OF_FILES_ONLY} for out groups not in that map.
+   */
+  public OutputGroupFileModes getOutputGroupFileModesMapping() {
+    var modeMap =
+        ImmutableMap.<String, OutputGroupFileMode>builder()
+            .putAll(outputGroupFileModes)
+            .buildKeepingLast();
+    return (outputGroup) ->
+        modeMap.getOrDefault(outputGroup, OutputGroupFileMode.NAMED_SET_OF_FILES_ONLY);
+  }
+
+  @Option(
+      name = "experimental_build_event_output_group_mode",
+      defaultValue = "null",
+      converter = BuildEventOutputGroupModeConverter.class,
+      allowMultiple = true,
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
+      help =
+          "Specify how an output group's files will be represented in TargetComplete/AspectComplete"
+              + " BEP events. Values are an assignment of an output group name to one of"
+              + " 'NAMED_SET_OF_FILES_ONLY', 'INLINE_ONLY', or 'BOTH'. The default value is"
+              + " 'NAMED_SET_OF_FILES_ONLY'. If an output group is repeated, the final value to"
+              + " appear is used.")
+  public List<Map.Entry<String, OutputGroupFileMode>> outputGroupFileModes;
 }

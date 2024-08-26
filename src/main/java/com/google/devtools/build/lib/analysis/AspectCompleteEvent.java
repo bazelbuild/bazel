@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
@@ -136,9 +137,12 @@ public final class AspectCompleteEvent
   }
 
   @Override
-  public ReportedArtifacts reportedArtifacts() {
+  public ReportedArtifacts reportedArtifacts(OutputGroupFileModes outputGroupFileModes) {
     return TargetCompleteEvent.toReportedArtifacts(
-        artifactOutputGroups, completionContext, /* baselineCoverage= */ null);
+        artifactOutputGroups,
+        completionContext,
+        /* baselineCoverage= */ null,
+        outputGroupFileModes);
   }
 
   @Override
@@ -148,7 +152,7 @@ public final class AspectCompleteEvent
     builder.setSuccess(!failed());
     builder.addAllOutputGroup(
         TargetCompleteEvent.toOutputGroupProtos(
-            artifactOutputGroups, converters.artifactGroupNamer(), /* baselineCoverage= */ null));
+            artifactOutputGroups, /* baselineCoverage= */ null, completionContext, converters));
     return GenericBuildEvent.protoChaining(this).setCompleted(builder.build()).build();
   }
 

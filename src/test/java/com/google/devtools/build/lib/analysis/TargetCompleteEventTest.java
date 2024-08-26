@@ -37,6 +37,7 @@ import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.File;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -218,7 +219,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
             /*announceTargetSummary=*/ false);
 
     ArrayList<File> fileProtos = new ArrayList<>();
-    ReportedArtifacts reportedArtifacts = event.reportedArtifacts();
+    ReportedArtifacts reportedArtifacts = event.reportedArtifacts(OutputGroupFileModes.DEFAULT);
     for (NestedSet<Artifact> artifactSet : reportedArtifacts.artifacts) {
       for (Artifact a : artifactSet.toListInterruptibly()) {
         fileProtos.add(

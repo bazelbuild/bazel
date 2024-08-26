@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.LargeBuildEventSerializedEvent;
 import com.google.devtools.build.lib.buildeventstream.PathConverter;
@@ -359,8 +360,12 @@ public final class BuildEventServiceUploader implements Runnable {
   private BuildEventStreamProtos.BuildEvent createSerializedRegularBuildEvent(
       PathConverter pathConverter, SendRegularBuildEventCommand buildEvent)
       throws InterruptedException {
+
     BuildEventContext ctx =
         new BuildEventContext() {
+          private final OutputGroupFileModes outputGroupModes =
+              buildEventProtocolOptions.getOutputGroupFileModesMapping();
+
           @Override
           public PathConverter pathConverter() {
             return pathConverter;
@@ -374,6 +379,11 @@ public final class BuildEventServiceUploader implements Runnable {
           @Override
           public BuildEventProtocolOptions getOptions() {
             return buildEventProtocolOptions;
+          }
+
+          @Override
+          public OutputGroupFileMode getFileModeForOutputGroup(String outputGroup) {
+            return outputGroupModes.getMode(outputGroup);
           }
         };
     BuildEventStreamProtos.BuildEvent serializedBepEvent = buildEvent.getEvent().asStreamProto(ctx);

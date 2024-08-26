@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.Aborted.AbortReason;
@@ -286,7 +287,7 @@ public final class BuildEventStreamerTest extends FoundationTestCase {
     }
 
     @Override
-    public ReportedArtifacts reportedArtifacts() {
+    public ReportedArtifacts reportedArtifacts(OutputGroupFileModes outputGroupFileModes) {
       return new ReportedArtifacts(artifacts, CompletionContext.FAILED_COMPLETION_CTX);
     }
 

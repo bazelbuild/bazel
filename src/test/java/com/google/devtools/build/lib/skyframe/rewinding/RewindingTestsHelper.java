@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions.JobsConverter;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase.RecordingBugReporter;
@@ -3318,7 +3319,7 @@ public class RewindingTestsHelper {
 
   final void assertOutputsReported(
       EventReportingArtifacts event, String... expectedRootRelativePaths) throws Exception {
-    ReportedArtifacts reported = event.reportedArtifacts();
+    ReportedArtifacts reported = event.reportedArtifacts(OutputGroupFileModes.DEFAULT);
     List<PathFragment> expectedExecPaths = new ArrayList<>();
     for (String path : expectedRootRelativePaths) {
       expectedExecPaths.add(PathFragment.create(getExecPath(path)));
