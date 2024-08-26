@@ -768,11 +768,19 @@ public class RemoteExecutionService {
         action.getRemoteActionExecutionContext().getReadCachePolicy().allowAnyCache(),
         "spawn doesn't accept cached result");
 
+    Set<String> inlineOutputFiles = ImmutableSet.of();
+    PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
+    if (inMemoryOutputPath != null) {
+      inlineOutputFiles =
+          ImmutableSet.of(action.getRemotePathResolver().localPathToOutputPath(inMemoryOutputPath));
+    }
+
     CachedActionResult cachedActionResult =
         remoteCache.downloadActionResult(
             action.getRemoteActionExecutionContext(),
             action.getActionKey(),
-            /* inlineOutErr= */ false);
+            /* inlineOutErr= */ false,
+            inlineOutputFiles);
 
     if (cachedActionResult == null) {
       return null;
@@ -958,11 +966,13 @@ public class RemoteExecutionService {
       private final Path path;
       private final Digest digest;
       private final boolean isExecutable;
+      private final ByteString content;
 
-      private FileMetadata(Path path, Digest digest, boolean isExecutable) {
+      private FileMetadata(Path path, Digest digest, boolean isExecutable, ByteString content) {
         this.path = path;
         this.digest = digest;
         this.isExecutable = isExecutable;
+        this.content = content;
       }
 
       public Path path() {
@@ -975,6 +985,10 @@ public class RemoteExecutionService {
 
       public boolean isExecutable() {
         return isExecutable;
+      }
+
+      public ByteString content() {
+        return content;
       }
     }
 
@@ -1039,7 +1053,10 @@ public class RemoteExecutionService {
     for (FileNode file : dir.getFilesList()) {
       filesBuilder.add(
           new FileMetadata(
-              parent.getRelative(file.getName()), file.getDigest(), file.getIsExecutable()));
+              parent.getRelative(file.getName()),
+              file.getDigest(),
+              file.getIsExecutable(),
+              ByteString.EMPTY));
     }
 
     ImmutableList.Builder<SymlinkMetadata> symlinksBuilder = ImmutableList.builder();
@@ -1105,7 +1122,11 @@ public class RemoteExecutionService {
               reencodeExternalToInternal(outputFile.getPath()));
       files.put(
           localPath,
-          new FileMetadata(localPath, outputFile.getDigest(), outputFile.getIsExecutable()));
+          new FileMetadata(
+              localPath,
+              outputFile.getDigest(),
+              outputFile.getIsExecutable(),
+              outputFile.getContents()));
     }
 
     var symlinkMap = new HashMap<Path, SymlinkMetadata>();
@@ -1181,7 +1202,7 @@ public class RemoteExecutionService {
     var expireAtEpochMilli = Instant.now().plus(remoteOptions.remoteCacheTtl).toEpochMilli();
 
     ActionInput inMemoryOutput = null;
-    AtomicReference<byte[]> inMemoryOutputData = new AtomicReference<>(null);
+    AtomicReference<ByteString> inMemoryOutputData = new AtomicReference<>(null);
     PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
     if (inMemoryOutputPath != null) {
       for (ActionInput output : action.getSpawn().getOutputFiles()) {
@@ -1227,15 +1248,21 @@ public class RemoteExecutionService {
         }
 
         if (isInMemoryOutputFile) {
-          downloadsBuilder.add(
-              transform(
-                  remoteCache.downloadBlob(
-                      context, inMemoryOutputPath.getPathString(), file.digest()),
-                  data -> {
-                    inMemoryOutputData.set(data);
-                    return null;
-                  },
-                  directExecutor()));
+          // There is no way to distinguish between an empty file and a file that has not been
+          // inlined.
+          if (file.content.isEmpty()) {
+            downloadsBuilder.add(
+                transform(
+                    remoteCache.downloadBlob(
+                        context, inMemoryOutputPath.getPathString(), file.digest()),
+                    data -> {
+                      inMemoryOutputData.set(ByteString.copyFrom(data));
+                      return null;
+                    },
+                    directExecutor()));
+          } else {
+            inMemoryOutputData.set(file.content);
+          }
         }
       }
     }
@@ -1369,7 +1396,7 @@ public class RemoteExecutionService {
     }
 
     if (inMemoryOutput != null && inMemoryOutputData.get() != null) {
-      return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(inMemoryOutputData.get()));
+      return new InMemoryOutput(inMemoryOutput, inMemoryOutputData.get());
     }
 
     return null;
@@ -1810,6 +1837,11 @@ public class RemoteExecutionService {
     }
     if (remoteOptions.remoteExecutionPriority != 0) {
       requestBuilder.getExecutionPolicyBuilder().setPriority(remoteOptions.remoteExecutionPriority);
+    }
+    PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
+    if (inMemoryOutputPath != null) {
+      requestBuilder.addInlineOutputFiles(
+          action.getRemotePathResolver().localPathToOutputPath(inMemoryOutputPath));
     }
 
     ExecuteRequest request = requestBuilder.build();

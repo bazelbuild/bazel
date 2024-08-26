@@ -88,6 +88,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -621,7 +622,10 @@ public final class HttpCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<CachedActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      Set<String> inlineOutputFiles) {
     if (context.getSpawnExecutionContext() != null) {
       context.getSpawnExecutionContext().report(SPAWN_CHECKING_CACHE_EVENT);
     }

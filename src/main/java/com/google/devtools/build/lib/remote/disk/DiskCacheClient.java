@@ -49,6 +49,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.Instant;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import javax.annotation.Nullable;
@@ -130,9 +131,9 @@ public class DiskCacheClient implements RemoteCacheClient {
    * deliberately use the mtime because the atime is more likely to be externally modified and may
    * be unavailable on some filesystems.
    *
-   * <p>Prefer calling {@link #downloadBlob} or {@link #downloadActionResult} instead, which will
-   * automatically update the mtime. This method should only be called by the remote worker
-   * implementation.
+   * <p>Prefer calling {@link #downloadBlob} or {@link RemoteCacheClient#downloadActionResult}
+   * instead, which will automatically update the mtime. This method should only be called by the
+   * remote worker implementation.
    *
    * @throws IOException if an I/O error other than a missing file occurs.
    */
@@ -260,7 +261,10 @@ public class DiskCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<CachedActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      @Nullable Set<String> inlineOutputFiles) {
     if (context.getSpawnExecutionContext() != null) {
       context.getSpawnExecutionContext().report(SPAWN_CHECKING_CACHE_EVENT);
     }

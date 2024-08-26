@@ -61,6 +61,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
@@ -121,7 +122,10 @@ public class RemoteCache extends AbstractReferenceCounted {
   }
 
   public CachedActionResult downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr)
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      Set<String> inlineOutputFiles)
       throws IOException, InterruptedException {
     ListenableFuture<CachedActionResult> future = immediateFuture(null);
 
@@ -133,7 +137,7 @@ public class RemoteCache extends AbstractReferenceCounted {
       // TODO(chiwang): With lease service, instead of doing the integrity check against local
       // filesystem, we can check whether referenced blobs are alive in the lease service to
       // increase the cache-hit rate for disk cache.
-      future = diskCacheClient.downloadActionResult(context, actionKey, inlineOutErr);
+      future = diskCacheClient.downloadActionResult(context, actionKey, inlineOutErr, inlineOutputFiles);
     }
 
     if (remoteCacheClient != null && context.getReadCachePolicy().allowRemoteCache()) {
@@ -142,7 +146,7 @@ public class RemoteCache extends AbstractReferenceCounted {
               future,
               (result) -> {
                 if (result == null) {
-                  return downloadActionResultFromRemote(context, actionKey, inlineOutErr);
+                  return downloadActionResultFromRemote(context, actionKey, inlineOutErr, inlineOutputFiles);
                 } else {
                   return immediateFuture(result);
                 }
@@ -154,10 +158,10 @@ public class RemoteCache extends AbstractReferenceCounted {
   }
 
   private ListenableFuture<CachedActionResult> downloadActionResultFromRemote(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr, Set<String> inlineOutputFiles) {
     checkState(remoteCacheClient != null && context.getReadCachePolicy().allowRemoteCache());
     return Futures.transformAsync(
-        remoteCacheClient.downloadActionResult(context, actionKey, inlineOutErr),
+        remoteCacheClient.downloadActionResult(context, actionKey, inlineOutErr, inlineOutputFiles),
         (cachedActionResult) -> {
           if (cachedActionResult == null) {
             return immediateFuture(null);
