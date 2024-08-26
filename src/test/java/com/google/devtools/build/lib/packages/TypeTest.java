@@ -375,6 +375,37 @@ public class TypeTest {
   }
 
   @Test
+  public void testStringListDict_concat() throws Exception {
+    assertThat(Types.STRING_LIST_DICT.concat(ImmutableList.of()))
+      .isEqualTo(ImmutableMap.of());
+
+    Map<String, List<String>> expected =
+      ImmutableMap.of(
+          "foo", Arrays.asList("foo", "bar"),
+          "wiz", Arrays.asList("bang"));
+    assertThat(Types.STRING_LIST_DICT.concat(ImmutableList.of(expected)))
+    .isEqualTo(expected);
+    
+    Map<String, List<String>> map1 =
+      ImmutableMap.of(
+          "foo", Arrays.asList("a", "b"),
+          "bar", Arrays.asList("c", "d"));
+    Map<String, List<String>> map2 =
+      ImmutableMap.of(
+          "bar", Arrays.asList("x", "y"),
+          "baz", Arrays.asList("z"));
+    
+    Map<String, List<String>> expected_after_concat =
+      ImmutableMap.of(
+          "foo", Arrays.asList("a", "b"),
+          "bar", Arrays.asList("x", "y"),
+          "baz", Arrays.asList("z"));
+
+    assertThat(Types.STRING_LIST_DICT.concat(ImmutableList.of(map1, map2)))
+      .isEqualTo(expected_after_concat);
+  }
+
+  @Test
   public void testStringListDictBadFirstElement() throws Exception {
     Object input =
         ImmutableMap.of(
