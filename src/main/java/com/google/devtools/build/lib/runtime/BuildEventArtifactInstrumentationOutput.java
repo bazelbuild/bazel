@@ -19,6 +19,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
 import com.google.devtools.build.lib.buildtool.BuildResult.BuildToolLogCollection;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.OutputStream;
 import javax.annotation.Nullable;
 
@@ -26,7 +27,7 @@ import javax.annotation.Nullable;
  * Used when instrumentation output should be treated as a build event artifact so that it will be
  * uploaded to a specified location.
  */
-final class BuildEventArtifactInstrumentationOutput implements InstrumentationOutput {
+public final class BuildEventArtifactInstrumentationOutput implements InstrumentationOutput {
   private final String name;
   private final BuildEventArtifactUploader buildEventArtifactUploader;
   @Nullable private UploadContext uploadContext;
@@ -47,5 +48,33 @@ final class BuildEventArtifactInstrumentationOutput implements InstrumentationOu
   public OutputStream createOutputStream() {
     uploadContext = buildEventArtifactUploader.startUpload(LocalFileType.LOG, null);
     return uploadContext.getOutputStream();
+  }
+
+  /** Builder for {@link BuildEventArtifactInstrumentationOutput} */
+  public static class Builder implements InstrumentationOutputBuilder {
+    private String name;
+    private BuildEventArtifactUploader uploader;
+
+    @CanIgnoreReturnValue
+    @Override
+    public Builder setName(String name) {
+      this.name = name;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setUploader(BuildEventArtifactUploader uploader) {
+      this.uploader = uploader;
+      return this;
+    }
+
+    @Override
+    public InstrumentationOutput build() {
+      return new BuildEventArtifactInstrumentationOutput(
+          checkNotNull(name, "Cannot create BuildEventArtifactInstrumentationOutput without name"),
+          checkNotNull(
+              uploader,
+              "Cannot create BuildEventArtifactInstrumentationOutput without bepUploader"));
+    }
   }
 }

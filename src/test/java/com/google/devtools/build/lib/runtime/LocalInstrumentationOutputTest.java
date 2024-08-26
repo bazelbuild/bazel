@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -23,18 +24,49 @@ import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class LocalInstrumentationOutputTest {
+  private LocalInstrumentationOutput.Builder localInstrumentationOutputBuilder;
+
+  @Before
+  public void setup() {
+    localInstrumentationOutputBuilder = new LocalInstrumentationOutput.Builder();
+  }
+
+  @Test
+  public void testLocalInstrumentationOutputBuilder_failToBuildWhenMissingName() {
+    Throwable throwable =
+        assertThrows(
+            NullPointerException.class,
+            localInstrumentationOutputBuilder.setPath(
+                    new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/file"))
+                ::build);
+    assertThat(throwable)
+        .hasMessageThat()
+        .isEqualTo("Cannot create LocalInstrumentationOutputBuilder without name");
+  }
+
+  @Test
+  public void testLocalInstrumentationOutputBuilder_failToBuildWhenMissingPath() {
+    Throwable throwable =
+        assertThrows(
+            NullPointerException.class, localInstrumentationOutputBuilder.setName("local")::build);
+    assertThat(throwable)
+        .hasMessageThat()
+        .isEqualTo("Cannot create LocalInstrumentationOutputBuilder without path");
+  }
+
   @Test
   public void testLocalInstrumentation_publishNameAndPath() {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     Path path = fs.getPath("/file");
     InstrumentationOutput localInstrumentationOutput =
-        new LocalInstrumentationOutput("local", path);
+        localInstrumentationOutputBuilder.setName("local").setPath(path).build();
 
     assertThat(localInstrumentationOutput).isInstanceOf(LocalInstrumentationOutput.class);
     BuildToolLogCollection buildToolLogCollection = new BuildToolLogCollection();

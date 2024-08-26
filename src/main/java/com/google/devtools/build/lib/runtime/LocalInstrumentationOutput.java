@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.devtools.build.lib.buildtool.BuildResult.BuildToolLogCollection;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.IOException;
 import java.io.OutputStream;
 
@@ -40,5 +43,32 @@ final class LocalInstrumentationOutput implements InstrumentationOutput {
 
   public OutputStream createOutputStream(boolean append, boolean internal) throws IOException {
     return path.getOutputStream(append, internal);
+  }
+
+  /** Builder for {@link LocalInstrumentationOutput}. */
+  public static class Builder implements InstrumentationOutputBuilder {
+    private String name;
+    private Path path;
+
+    @CanIgnoreReturnValue
+    @Override
+    public Builder setName(String name) {
+      this.name = name;
+      return this;
+    }
+
+    /** Sets the path to the local {@link InstrumentationOutput}. */
+    @CanIgnoreReturnValue
+    public Builder setPath(Path path) {
+      this.path = path;
+      return this;
+    }
+
+    @Override
+    public InstrumentationOutput build() {
+      return new LocalInstrumentationOutput(
+          checkNotNull(name, "Cannot create LocalInstrumentationOutputBuilder without name"),
+          checkNotNull(path, "Cannot create LocalInstrumentationOutputBuilder without path"));
+    }
   }
 }

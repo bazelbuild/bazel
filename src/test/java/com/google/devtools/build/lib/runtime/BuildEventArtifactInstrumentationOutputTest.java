@@ -28,18 +28,51 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.concurrent.ExecutionException;
+import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class BuildEventArtifactInstrumentationOutputTest {
+  private BuildEventArtifactInstrumentationOutput.Builder bepInstrumentationOutputBuilder;
+
+  @Before
+  public void setup() {
+    bepInstrumentationOutputBuilder = new BuildEventArtifactInstrumentationOutput.Builder();
+  }
+
+  @Test
+  public void testBepInstrumentationBuilder_failToBuildWhenMissingName() {
+    Throwable throwable =
+        assertThrows(
+            NullPointerException.class,
+            bepInstrumentationOutputBuilder.setUploader(mock(BuildEventArtifactUploader.class))
+                ::build);
+    assertThat(throwable)
+        .hasMessageThat()
+        .isEqualTo("Cannot create BuildEventArtifactInstrumentationOutput without name");
+  }
+
+  @Test
+  public void testBepInstrumentationBuilder_failToBuildWhenMissingBepUploader() {
+    Throwable throwable =
+        assertThrows(
+            NullPointerException.class, bepInstrumentationOutputBuilder.setName("bep")::build);
+    assertThat(throwable)
+        .hasMessageThat()
+        .isEqualTo("Cannot create BuildEventArtifactInstrumentationOutput without bepUploader");
+  }
+
   @Test
   public void testBepInstrumentation_cannotPublishIfUploadNeverStarts() {
     BuildEventArtifactUploader fakeBuildEventArtifactUploader =
         mock(BuildEventArtifactUploader.class);
     InstrumentationOutput bepInstrumentationOutput =
-        new BuildEventArtifactInstrumentationOutput("bep", fakeBuildEventArtifactUploader);
+        bepInstrumentationOutputBuilder
+            .setName("bep")
+            .setUploader(fakeBuildEventArtifactUploader)
+            .build();
 
     BuildToolLogCollection buildToolLogCollection = new BuildToolLogCollection();
     assertThrows(
@@ -67,7 +100,10 @@ public class BuildEventArtifactInstrumentationOutputTest {
         .thenReturn(fakeUploadLoadContext);
 
     InstrumentationOutput bepInstrumentationOutput =
-        new BuildEventArtifactInstrumentationOutput("bep", fakeBuildEventArtifactUploader);
+        bepInstrumentationOutputBuilder
+            .setName("bep")
+            .setUploader(fakeBuildEventArtifactUploader)
+            .build();
     // Create the OutputStream will enforce fakeBuildEventArtifactUploader to create the
     // uploadContext.
     var unused = bepInstrumentationOutput.createOutputStream();

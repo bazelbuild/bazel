@@ -196,6 +196,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   @Nullable // not all environments provide this
   private Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier;
+  private final InstrumentationOutputFactory instrumentationOutputFactory;
 
   private BlazeRuntime(
       FileSystem fileSystem,
@@ -219,7 +220,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       String productName,
       BuildEventArtifactUploaderFactoryMap buildEventArtifactUploaderFactoryMap,
       ImmutableMap<String, AuthHeadersProvider> authHeadersProviderMap,
-      RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory) {
+      RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory,
+      InstrumentationOutputFactory instrumentationOutputFactory) {
     // Server state
     this.fileSystem = fileSystem;
     this.blazeModules = blazeModules;
@@ -249,6 +251,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     this.authHeadersProviderMap =
         Preconditions.checkNotNull(authHeadersProviderMap, "authHeadersProviderMap");
     this.repositoryRemoteExecutorFactory = repositoryRemoteExecutorFactory;
+    this.instrumentationOutputFactory = instrumentationOutputFactory;
   }
 
   public BlazeWorkspace initWorkspace(BlazeDirectories directories, BinTools binTools)
@@ -329,15 +332,21 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           String profileName = "command.profile.gz";
           format = Format.JSON_TRACE_FILE_COMPRESSED_FORMAT;
           if (bepOptions != null && bepOptions.streamingLogFileUploads) {
-            BuildEventArtifactUploader buildEventArtifactUploader =
-                newUploader(env, bepOptions.buildEventUploadStrategy);
             profile =
-                new BuildEventArtifactInstrumentationOutput(
-                    profileName, buildEventArtifactUploader);
+                instrumentationOutputFactory
+                    .createBuildEventArtifactInstrumentationOutputBuilder()
+                    .setName(profileName)
+                    .setUploader(newUploader(env, bepOptions.buildEventUploadStrategy))
+                    .build();
             out = profile.createOutputStream();
           } else {
             profilePath = workspace.getOutputBase().getRelative(profileName);
-            profile = new LocalInstrumentationOutput(profileName, profilePath);
+            profile =
+                instrumentationOutputFactory
+                    .createLocalInstrumentationOutputBuilder()
+                    .setName(profileName)
+                    .setPath(profilePath)
+                    .build();
             out = profile.createOutputStream();
           }
         } else {
@@ -345,12 +354,16 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               options.profilePath.toString().endsWith(".gz")
                   ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
                   : Format.JSON_TRACE_FILE_FORMAT;
-          String profileName =
-              (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT)
-                  ? "command.profile.gz"
-                  : "command.profile.json";
           profilePath = workspace.getWorkspace().getRelative(options.profilePath);
-          profile = new LocalInstrumentationOutput(profileName, profilePath);
+          profile =
+              instrumentationOutputFactory
+                  .createLocalInstrumentationOutputBuilder()
+                  .setName(
+                      (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT)
+                          ? "command.profile.gz"
+                          : "command.profile.json")
+                  .setPath(profilePath)
+                  .build();
           out =
               ((LocalInstrumentationOutput) profile)
                   .createOutputStream(/* append= */ false, /* internal= */ true);
@@ -1603,7 +1616,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               productName,
               serverBuilder.getBuildEventArtifactUploaderMap(),
               serverBuilder.getAuthHeadersProvidersMap(),
-              serverBuilder.getRepositoryRemoteExecutorFactory());
+              serverBuilder.getRepositoryRemoteExecutorFactory(),
+              new InstrumentationOutputFactory.Builder()
+                  .setLocalInstrumentationOutputBuilderSupplier(
+                      LocalInstrumentationOutput.Builder::new)
+                  .setBuildEventArtifactInstrumentationOutputBuilderSupplier(
+                      BuildEventArtifactInstrumentationOutput.Builder::new)
+                  .build());
       AutoProfiler.setClock(runtime.getClock());
       BugReport.setRuntime(runtime);
       return runtime;
