@@ -469,13 +469,6 @@ class TestBase(absltest.TestCase):
     port = s.getsockname()[1]
     s.close()
 
-    env_add = {}
-    try:
-      env_add['RUNFILES_MANIFEST_FILE'] = TestBase.GetEnv(
-          'RUNFILES_MANIFEST_FILE')
-    except EnvVarUndefinedError:
-      pass
-
     # Tip: To help debug remote build problems, add the --debug flag below.
     self._worker_proc = subprocess.Popen(
         [
@@ -490,7 +483,8 @@ class TestBase(absltest.TestCase):
         stdout=self._worker_stdout,
         stderr=self._worker_stderr,
         cwd=self._test_cwd,
-        env=self._EnvMap(env_add=env_add))
+        env=self._EnvMap(env_add=self._runfiles.EnvVars()),
+    )
 
     return port
 
