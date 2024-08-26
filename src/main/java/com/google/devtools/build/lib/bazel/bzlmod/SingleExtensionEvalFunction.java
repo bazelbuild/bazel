@@ -785,6 +785,12 @@ public class SingleExtensionEvalFunction implements SkyFunction {
         String prefixedName = usagesValue.getExtensionUniqueName() + separator + name;
         Rule ruleInstance;
         AttributeValues attributesValue;
+        var fakeCallStackEntry =
+            StarlarkThread.callStackEntry("InnateRunnableExtension.run", repo.tag().getLocation());
+        // Rule creation strips the top-most entry from the call stack, so we need to add the fake
+        // one twice.
+        ImmutableList<StarlarkThread.CallStackEntry> fakeCallStack =
+            ImmutableList.of(fakeCallStackEntry, fakeCallStackEntry);
         try {
           ruleInstance =
               BzlmodRepoRuleCreator.createRule(
@@ -793,7 +799,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                   directories,
                   starlarkSemantics,
                   env.getListener(),
-                  "SingleExtensionEval.createInnateExtensionRepoRule",
+                  fakeCallStack,
                   repoRule.getRuleClass(),
                   Maps.transformEntries(kwargs, (k, v) -> k.equals("name") ? prefixedName : v));
           attributesValue =
