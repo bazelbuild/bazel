@@ -78,6 +78,7 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -382,7 +383,7 @@ public final class CompletionFunction<
   }
 
   private void ensureToplevelArtifacts(
-      Environment env, ImmutableCollection<Artifact> artifacts, ActionInputMap inputMap)
+      Environment env, ImmutableCollection<Artifact> importantArtifacts, ActionInputMap inputMap)
       throws CompletionFunctionException, InterruptedException {
     // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
     // is the last chance to download the missing toplevel outputs in this case before sending out
@@ -403,53 +404,16 @@ public final class CompletionFunction<
     }
 
     var futures = new ArrayList<ListenableFuture<Void>>();
-    for (var artifact : artifacts) {
-      if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
-        continue;
-      }
 
-      // Metadata can be null during error bubbling, only download outputs that are already
-      // generated. b/342188273
-      if (artifact.isTreeArtifact()) {
-        var treeMetadata = inputMap.getTreeMetadata(artifact.getExecPath());
-        if (treeMetadata == null) {
-          continue;
-        }
+    for (var artifact : importantArtifacts) {
+      downloadArtifact(
+          env, remoteArtifactChecker, actionInputPrefetcher, inputMap, artifact, futures);
+    }
 
-        var filesToDownload = new ArrayList<ActionInput>(treeMetadata.getChildValues().size());
-        for (var child : treeMetadata.getChildValues().entrySet()) {
-          var treeFile = child.getKey();
-          var metadata = child.getValue();
-          if (metadata.isRemote()
-              && !remoteArtifactChecker.shouldTrustRemoteArtifact(
-                  treeFile, (RemoteFileArtifactValue) metadata)) {
-            filesToDownload.add(treeFile);
-          }
-        }
-        if (!filesToDownload.isEmpty()) {
-          var action =
-              ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
-          var future =
-              actionInputPrefetcher.prefetchFiles(
-                  action, filesToDownload, inputMap::getInputMetadata, Priority.LOW);
-          futures.add(future);
-        }
-      } else {
-        var metadata = inputMap.getInputMetadata(artifact);
-        if (metadata == null) {
-          continue;
-        }
-
-        if (metadata.isRemote()
-            && !remoteArtifactChecker.shouldTrustRemoteArtifact(
-                artifact, (RemoteFileArtifactValue) metadata)) {
-          var action =
-              ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
-          var future =
-              actionInputPrefetcher.prefetchFiles(
-                  action, ImmutableList.of(artifact), inputMap::getInputMetadata, Priority.LOW);
-          futures.add(future);
-        }
+    for (var runfileTree : inputMap.getRunfilesTrees()) {
+      for (var artifact : runfileTree.getArtifacts().toList()) {
+        downloadArtifact(
+            env, remoteArtifactChecker, actionInputPrefetcher, inputMap, artifact, futures);
       }
     }
 
@@ -467,6 +431,63 @@ public final class CompletionFunction<
                               .setCode(RemoteExecution.Code.TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
                               .build())
                       .build())));
+    }
+  }
+
+  private void downloadArtifact(
+      Environment env,
+      RemoteArtifactChecker remoteArtifactChecker,
+      ActionInputPrefetcher actionInputPrefetcher,
+      ActionInputMap inputMap,
+      Artifact artifact,
+      List<ListenableFuture<Void>> futures)
+      throws InterruptedException {
+    if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
+      return;
+    }
+
+    // Metadata can be null during error bubbling, only download outputs that are already
+    // generated. b/342188273
+    if (artifact.isTreeArtifact()) {
+      var treeMetadata = inputMap.getTreeMetadata(artifact.getExecPath());
+      if (treeMetadata == null) {
+        return;
+      }
+
+      var filesToDownload = new ArrayList<ActionInput>(treeMetadata.getChildValues().size());
+      for (var child : treeMetadata.getChildValues().entrySet()) {
+        var treeFile = child.getKey();
+        var metadata = child.getValue();
+        if (metadata.isRemote()
+            && !remoteArtifactChecker.shouldTrustRemoteArtifact(
+                treeFile, (RemoteFileArtifactValue) metadata)) {
+          filesToDownload.add(treeFile);
+        }
+      }
+      if (!filesToDownload.isEmpty()) {
+        var action =
+            ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
+        var future =
+            actionInputPrefetcher.prefetchFiles(
+                action, filesToDownload, inputMap::getInputMetadata, Priority.LOW);
+        futures.add(future);
+      }
+    } else {
+      var metadata = inputMap.getInputMetadata(artifact);
+      if (metadata == null) {
+        return;
+      }
+
+      if (metadata.isRemote()
+          && !remoteArtifactChecker.shouldTrustRemoteArtifact(
+              artifact, (RemoteFileArtifactValue) metadata)) {
+        var action =
+            ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
+        var future =
+            actionInputPrefetcher.prefetchFiles(
+                action, ImmutableList.of(artifact), inputMap::getInputMetadata, Priority.LOW);
+        futures.add(future);
+      }
     }
   }
 
