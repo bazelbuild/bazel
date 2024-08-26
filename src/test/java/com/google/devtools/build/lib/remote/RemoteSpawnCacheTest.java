@@ -852,6 +852,7 @@ public class RemoteSpawnCacheTest {
     while (completeFirstSpawn.getState().compareTo(Thread.State.WAITING) < 0) {
       Thread.sleep(10);
     }
+    assertThat(completeFirstSpawn.getState()).isEqualTo(Thread.State.WAITING);
 
     // Let the second spawn complete its output reuse.
     completeWaitForAndReuseOutputs.countDown();
