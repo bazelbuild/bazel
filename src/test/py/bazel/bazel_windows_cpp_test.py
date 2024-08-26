@@ -775,10 +775,6 @@ class BazelWindowsCppTest(test_base.TestBase):
         '  "@local_config_cc//:cc-toolchain-x64_windows-clang-cl",',
         ')',
     ])
-    exit_code, _, stderr = self.RunBazel([
-        'build', '-s', '--incompatible_enable_cc_toolchain_resolution=true',
-        '//:main'
-    ])
     self.ScratchFile(
         'BUILD',
         [
@@ -834,6 +830,10 @@ class BazelWindowsCppTest(test_base.TestBase):
             'END',
         ],
     )
+    exit_code, _, stderr = self.RunBazel([
+        'build', '-s', '--incompatible_enable_cc_toolchain_resolution=true',
+        '//:main'
+    ])
     self.AssertExitCode(exit_code, 0, stderr)
     self.assertIn('clang-cl.exe', ''.join(stderr))
 
