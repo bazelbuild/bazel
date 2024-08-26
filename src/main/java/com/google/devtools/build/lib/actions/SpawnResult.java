@@ -38,7 +38,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings("GoodTime") // Use ints instead of Durations to improve build time (cl/505728570)
 public interface SpawnResult {
 
-  int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/ 128 + /*SIGALRM=*/ 14;
+  int POSIX_TIMEOUT_EXIT_CODE = /* SIGNAL_BASE= */ 128 + /* SIGALRM= */ 14;
 
   /** The status of the attempted Spawn execution. */
   enum Status {
@@ -260,16 +260,30 @@ public interface SpawnResult {
    *
    * <p>This behavior may be triggered with {@link
    * ExecutionRequirements#REMOTE_EXECUTION_INLINE_OUTPUTS}.
+   *
+   * <p>Implementing classes should override {@link #getInMemoryOutputBytes(ActionInput)} instead.
    */
   @Nullable
   default InputStream getInMemoryOutput(ActionInput output) {
+    ByteString bytes = getInMemoryOutputBytes(output);
+    if (bytes == null) {
+      return null;
+    }
+    return bytes.newInput();
+  }
+
+  /**
+   * Returns a {@link Spawn}'s output in-memory, if supported and available.
+   *
+   * <p>This behavior may be triggered with {@link
+   * ExecutionRequirements#REMOTE_EXECUTION_INLINE_OUTPUTS}.
+   */
+  @Nullable
+  default ByteString getInMemoryOutputBytes(ActionInput output) {
     return null;
   }
 
-  String getDetailMessage(
-      String message,
-      boolean catastrophe,
-      boolean forciblyRunRemotely);
+  String getDetailMessage(String message, boolean catastrophe, boolean forciblyRunRemotely);
 
   /** Returns a file path to the action metadata log. */
   @Nullable
@@ -434,11 +448,8 @@ public interface SpawnResult {
 
     @Override
     public String getDetailMessage(
-        String message,
-        boolean catastrophe,
-        boolean forciblyRunRemotely) {
-      TerminationStatus status = new TerminationStatus(
-          exitCode(), status() == Status.TIMEOUT);
+        String message, boolean catastrophe, boolean forciblyRunRemotely) {
+      TerminationStatus status = new TerminationStatus(exitCode(), status() == Status.TIMEOUT);
       String reason = "(" + status.toShortString() + ")"; // e.g. "(Exit 1)"
       String explanation = Strings.isNullOrEmpty(message) ? "" : ": " + message;
 
@@ -457,17 +468,18 @@ public interface SpawnResult {
         explanation += " (Remote action was terminated due to Out of Memory.)";
       }
       if (status() != Status.TIMEOUT && forciblyRunRemotely) {
-        explanation += " Action tagged as local was forcibly run remotely and failed - it's "
-            + "possible that the action simply doesn't work remotely";
+        explanation +=
+            " Action tagged as local was forcibly run remotely and failed - it's "
+                + "possible that the action simply doesn't work remotely";
       }
       return reason + explanation;
     }
 
     @Nullable
     @Override
-    public InputStream getInMemoryOutput(ActionInput output) {
+    public ByteString getInMemoryOutputBytes(ActionInput output) {
       if (inMemoryOutputFile != null && inMemoryOutputFile.equals(output)) {
-        return inMemoryContents.newInput();
+        return inMemoryContents;
       }
       return null;
     }
@@ -603,8 +615,8 @@ public interface SpawnResult {
 
     @Override
     @Nullable
-    public InputStream getInMemoryOutput(ActionInput output) {
-      return delegate.getInMemoryOutput(output);
+    public ByteString getInMemoryOutputBytes(ActionInput output) {
+      return delegate.getInMemoryOutputBytes(output);
     }
 
     @Override
