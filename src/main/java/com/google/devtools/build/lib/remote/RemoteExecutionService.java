@@ -28,8 +28,8 @@ import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputP
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
-import static com.google.devtools.build.lib.util.StringUtil.decodeBytestringUtf8;
-import static com.google.devtools.build.lib.util.StringUtil.encodeBytestringUtf8;
+import static com.google.devtools.build.lib.util.StringUtil.reencodeExternalToInternal;
+import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToExternal;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -53,7 +53,6 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -250,7 +249,7 @@ public class RemoteExecutionService {
     ArrayList<String> outputDirectories = new ArrayList<>();
     ArrayList<String> outputPaths = new ArrayList<>();
     for (ActionInput output : outputs) {
-      String pathString = decodeBytestringUtf8(remotePathResolver.localPathToOutputPath(output));
+      String pathString = remotePathResolver.localPathToOutputPath(output);
       if (output.isDirectory()) {
         outputDirectories.add(pathString);
       } else {
@@ -272,21 +271,18 @@ public class RemoteExecutionService {
       if (spawnScrubber != null) {
         arg = spawnScrubber.transformArgument(arg);
       }
-      command.addArguments(decodeBytestringUtf8(arg));
+      command.addArguments(reencodeInternalToExternal(arg));
     }
     // Sorting the environment pairs by variable name.
     TreeSet<String> variables = new TreeSet<>(env.keySet());
     for (String var : variables) {
       command
           .addEnvironmentVariablesBuilder()
-          .setName(decodeBytestringUtf8(var))
-          .setValue(decodeBytestringUtf8(env.get(var)));
+          .setName(reencodeInternalToExternal(var))
+          .setValue(reencodeInternalToExternal(env.get(var)));
     }
 
-    String workingDirectory = remotePathResolver.getWorkingDirectory();
-    if (!Strings.isNullOrEmpty(workingDirectory)) {
-      command.setWorkingDirectory(decodeBytestringUtf8(workingDirectory));
-    }
+    command.setWorkingDirectory(remotePathResolver.getWorkingDirectory());
     return command.build();
   }
 
@@ -1034,7 +1030,7 @@ public class RemoteExecutionService {
     Map<Path, ListenableFuture<Tree>> dirMetadataDownloads =
         Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
     for (OutputDirectory dir : result.getOutputDirectories()) {
-      var outputPath = encodeBytestringUtf8(dir.getPath());
+      var outputPath = dir.getPath();
       dirMetadataDownloads.put(
           remotePathResolver.outputPathToLocalPath(outputPath),
           Futures.transformAsync(
@@ -1061,8 +1057,7 @@ public class RemoteExecutionService {
 
     ImmutableMap.Builder<Path, FileMetadata> files = ImmutableMap.builder();
     for (OutputFile outputFile : result.getOutputFiles()) {
-      Path localPath =
-          remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(outputFile.getPath()));
+      Path localPath = remotePathResolver.outputPathToLocalPath(outputFile.getPath());
       files.put(
           localPath,
           new FileMetadata(localPath, outputFile.getDigest(), outputFile.getIsExecutable()));
@@ -1075,9 +1070,8 @@ public class RemoteExecutionService {
             result.getOutputDirectorySymlinks(),
             result.getOutputSymlinks());
     for (var symlink : outputSymlinks) {
-      var localPath =
-          remotePathResolver.outputPathToLocalPath(encodeBytestringUtf8(symlink.getPath()));
-      var target = PathFragment.create(symlink.getTarget());
+      var localPath = remotePathResolver.outputPathToLocalPath(symlink.getPath());
+      var target = PathFragment.create(reencodeExternalToInternal(symlink.getTarget()));
       var existingMetadata = symlinkMap.get(localPath);
       if (existingMetadata != null) {
         if (!target.equals(existingMetadata.target())) {
@@ -1425,10 +1419,7 @@ public class RemoteExecutionService {
     try {
       for (String output : action.getCommand().getOutputPathsList()) {
         Path sourcePath =
-            previousExecution
-                .action
-                .getRemotePathResolver()
-                .outputPathToLocalPath(encodeBytestringUtf8(output));
+            previousExecution.action.getRemotePathResolver().outputPathToLocalPath(output);
         ActionInput outputArtifact = previousOutputs.get(sourcePath);
         Path tmpPath = tempPathGenerator.generateTempPath();
         tmpPath.getParentDirectory().createDirectoryAndParents();
@@ -1442,8 +1433,7 @@ public class RemoteExecutionService {
             FileSystemUtils.copyFile(sourcePath, tmpPath);
           }
 
-          Path targetPath =
-              action.getRemotePathResolver().outputPathToLocalPath(encodeBytestringUtf8(output));
+          Path targetPath = action.getRemotePathResolver().outputPathToLocalPath(output);
           realToTmpPath.put(targetPath, tmpPath);
         } catch (FileNotFoundException e) {
           // The spawn this action was deduplicated against failed to create an output file. If the
