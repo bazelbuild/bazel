@@ -24,6 +24,7 @@ import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.GetActionResultRequest;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.UpdateActionResultRequest;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import io.grpc.stub.StreamObserver;
 
@@ -54,15 +56,31 @@ final class ActionCacheServer extends ActionCacheImplBase {
       RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
       ActionKey actionKey = digestUtil.asActionKey(request.getActionDigest());
+      var inlineOutputFiles = ImmutableSet.copyOf(request.getInlineOutputFilesList());
       CachedActionResult result =
-          cache.downloadActionResult(context, actionKey, /* inlineOutErr= */ false);
+          cache.downloadActionResult(
+              context, actionKey, /* inlineOutErr= */ false, inlineOutputFiles);
 
       if (result == null) {
         responseObserver.onError(StatusUtils.notFoundError(request.getActionDigest()));
         return;
       }
 
-      responseObserver.onNext(result.actionResult());
+      ActionResult actionResult = result.actionResult();
+      for (int i = 0; i < actionResult.getOutputFilesCount(); i++) {
+        var outputFile = actionResult.getOutputFiles(i);
+        if (inlineOutputFiles.contains(outputFile.getPath())) {
+          var content =
+              ByteString.copyFrom(cache.downloadBlob(context, outputFile.getDigest()).get());
+          actionResult =
+              actionResult.toBuilder()
+                  .setOutputFiles(i, outputFile.toBuilder().setContents(content))
+                  .build();
+          break;
+        }
+      }
+
+      responseObserver.onNext(actionResult);
       responseObserver.onCompleted();
     } catch (CacheNotFoundException e) {
       responseObserver.onError(StatusUtils.notFoundError(request.getActionDigest()));

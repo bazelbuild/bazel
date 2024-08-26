@@ -53,6 +53,7 @@ import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
@@ -300,7 +301,8 @@ public class GrpcCacheClientTest {
             client.downloadActionResult(
                 context,
                 DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
-                /* inlineOutErr= */ false));
+                /* inlineOutErr= */ false,
+                /* inlineOutputFiles= */ ImmutableSet.of()));
 
     verify(context.getSpawnExecutionContext())
         .report(SpawnCheckingCacheEvent.create("remote-cache"));
@@ -719,7 +721,7 @@ public class GrpcCacheClientTest {
             action,
             command,
             outputs,
-            outErr,
+            /* inlineOutErr= */ outErr,
             /* exitCode= */ 0,
             /* startTime= */ null,
             /* wallTimeInMs= */ 0);
@@ -802,7 +804,8 @@ public class GrpcCacheClientTest {
     remoteCache.downloadActionResult(
         context,
         DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
-        /* inlineOutErr= */ false);
+        /* inlineOutErr= */ false,
+        /* inlineOutputFiles= */ ImmutableSet.of());
   }
 
   @Test
@@ -1116,7 +1119,11 @@ public class GrpcCacheClientTest {
         });
     assertThat(
             getFromFuture(
-                client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false)))
+                client.downloadActionResult(
+                    context,
+                    actionKey,
+                    /* inlineOutErr= */ false,
+                    /* inlineOutputFiles= */ ImmutableSet.of())))
         .isNull();
   }
 

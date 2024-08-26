@@ -345,7 +345,14 @@ public interface StarlarkActionFactoryApi extends StarlarkValue {
                     + "<p>The content of this file (generally one of the outputs of the action) "
                     + "corresponds to  the list of input files that were not used during the whole "
                     + "action execution. Any change in those files must not affect in any way the "
-                    + "outputs of the action."),
+                    + "outputs of the action."
+                    + ""
+                    + "<p>When using this mechanism, consider adding an entry to"
+                    + "<code>execution_requirements</code> with key"
+                    + "<code>internal-inline-outputs</code> and value the path of this file to "
+                    + "provide remote execution services with a hint that this file will be read "
+                    + "directly after the action execution and should be inlined into the action "
+                    + "result."),
         @Param(
             name = "executable",
             allowedTypes = {

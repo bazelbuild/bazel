@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Set;
 
 /**
  * A {@link RemoteCacheClient} implementation combining two blob stores. A local disk blob store and
@@ -203,9 +204,12 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
   }
 
   private ListenableFuture<CachedActionResult> downloadActionResultFromRemote(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      Set<String> inlineOutputFiles) {
     return Futures.transformAsync(
-        remoteCache.downloadActionResult(context, actionKey, inlineOutErr),
+        remoteCache.downloadActionResult(context, actionKey, inlineOutErr, inlineOutputFiles),
         (cachedActionResult) -> {
           if (cachedActionResult == null) {
             return immediateFuture(null);
@@ -231,7 +235,10 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
 
   @Override
   public ListenableFuture<CachedActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      Set<String> inlineOutputFiles) {
     ListenableFuture<CachedActionResult> future = immediateFuture(null);
 
     if (context.getReadCachePolicy().allowDiskCache()) {
@@ -242,7 +249,7 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
       // TODO(chiwang): With lease service, instead of doing the integrity check against local
       // filesystem, we can check whether referenced blobs are alive in the lease service to
       // increase the cache-hit rate for disk cache.
-      future = diskCache.downloadActionResult(context, actionKey, inlineOutErr);
+      future = diskCache.downloadActionResult(context, actionKey, inlineOutErr, inlineOutputFiles);
     }
 
     if (context.getReadCachePolicy().allowRemoteCache()) {
@@ -251,7 +258,8 @@ public final class DiskAndRemoteCacheClient implements RemoteCacheClient {
               future,
               (result) -> {
                 if (result == null) {
-                  return downloadActionResultFromRemote(context, actionKey, inlineOutErr);
+                  return downloadActionResultFromRemote(
+                      context, actionKey, inlineOutErr, inlineOutputFiles);
                 } else {
                   return immediateFuture(result);
                 }

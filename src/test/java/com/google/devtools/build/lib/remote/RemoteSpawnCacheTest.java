@@ -337,7 +337,8 @@ public class RemoteSpawnCacheTest {
     when(remoteCache.downloadActionResult(
             any(RemoteActionExecutionContext.class),
             actionKeyCaptor.capture(),
-            /* inlineOutErr= */ eq(false)))
+            /* inlineOutErr= */ eq(false),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of())))
         .thenAnswer(
             new Answer<CachedActionResult>() {
               @Override
@@ -392,7 +393,10 @@ public class RemoteSpawnCacheTest {
     RemoteExecutionService service = cache.getRemoteExecutionService();
     ArgumentCaptor<ActionKey> actionKeyCaptor = ArgumentCaptor.forClass(ActionKey.class);
     when(remoteCache.downloadActionResult(
-            any(RemoteActionExecutionContext.class), actionKeyCaptor.capture(), anyBoolean()))
+            any(RemoteActionExecutionContext.class),
+            actionKeyCaptor.capture(),
+            anyBoolean(),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of())))
         .thenReturn(null);
 
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
@@ -458,7 +462,10 @@ public class RemoteSpawnCacheTest {
       CacheHandle entry = remoteSpawnCache.lookup(uncacheableSpawn, simplePolicy);
       verify(remoteCache, never())
           .downloadActionResult(
-              any(RemoteActionExecutionContext.class), any(ActionKey.class), anyBoolean());
+              any(RemoteActionExecutionContext.class),
+              any(ActionKey.class),
+              anyBoolean(),
+              any(Set.class));
       assertThat(simplePolicy.getDigest()).isNull();
       assertThat(entry.hasResult()).isFalse();
       SpawnResult result =
@@ -491,7 +498,8 @@ public class RemoteSpawnCacheTest {
           .downloadActionResult(
               any(RemoteActionExecutionContext.class),
               any(ActionKey.class),
-              /* inlineOutErr= */ eq(false));
+              /* inlineOutErr= */ eq(false),
+              /* inlineOutputFiles= */ eq(ImmutableSet.of()));
       assertThat(simplePolicy.getDigest()).isNull();
       assertThat(entry.hasResult()).isFalse();
       SpawnResult result =
@@ -512,7 +520,10 @@ public class RemoteSpawnCacheTest {
     RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);
     ArgumentCaptor<ActionKey> actionKeyCaptor = ArgumentCaptor.forClass(ActionKey.class);
     when(remoteCache.downloadActionResult(
-            any(RemoteActionExecutionContext.class), actionKeyCaptor.capture(), anyBoolean()))
+            any(RemoteActionExecutionContext.class),
+            actionKeyCaptor.capture(),
+            anyBoolean(),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of())))
         .thenReturn(null);
     SimpleSpawn cacheableSpawn =
         simpleSpawnWithExecutionInfo(ImmutableMap.of(ExecutionRequirements.NO_REMOTE_CACHE, ""));
@@ -525,7 +536,8 @@ public class RemoteSpawnCacheTest {
         .downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
-            /* inlineOutErr= */ eq(false));
+            /* inlineOutErr= */ eq(false),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of()));
   }
 
   @Test
@@ -535,7 +547,10 @@ public class RemoteSpawnCacheTest {
         simpleSpawnWithExecutionInfo(ImmutableMap.of(ExecutionRequirements.NO_REMOTE_EXEC, ""));
     ArgumentCaptor<ActionKey> actionKeyCaptor = ArgumentCaptor.forClass(ActionKey.class);
     when(remoteCache.downloadActionResult(
-            any(RemoteActionExecutionContext.class), actionKeyCaptor.capture(), anyBoolean()))
+            any(RemoteActionExecutionContext.class),
+            actionKeyCaptor.capture(),
+            anyBoolean(),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of())))
         .thenReturn(null);
 
     cache.lookup(cacheableSpawn, simplePolicy);
@@ -546,7 +561,8 @@ public class RemoteSpawnCacheTest {
         .downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
-            /* inlineOutErr= */ eq(false));
+            /* inlineOutErr= */ eq(false),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of()));
   }
 
   @Test
@@ -559,7 +575,8 @@ public class RemoteSpawnCacheTest {
         .downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
-            /* inlineOutErr= */ eq(false));
+            /* inlineOutErr= */ eq(false),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of()));
     assertThat(entry.hasResult()).isFalse();
     SpawnResult result =
         new SpawnResult.Builder()
@@ -584,7 +601,8 @@ public class RemoteSpawnCacheTest {
         .downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
-            /* inlineOutErr= */ eq(false));
+            /* inlineOutErr= */ eq(false),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of()));
 
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
     assertThat(entry.hasResult()).isFalse();
@@ -617,7 +635,8 @@ public class RemoteSpawnCacheTest {
     when(remoteCache.downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
-            /* inlineOutErr= */ eq(false)))
+            /* inlineOutErr= */ eq(false),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of())))
         .thenAnswer(
             new Answer<CachedActionResult>() {
               @Override
@@ -656,7 +675,8 @@ public class RemoteSpawnCacheTest {
     when(remoteCache.downloadActionResult(
             any(RemoteActionExecutionContext.class),
             any(ActionKey.class),
-            /* inlineOutErr= */ eq(false)))
+            /* inlineOutErr= */ eq(false),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of())))
         .thenReturn(CachedActionResult.remote(actionResult));
 
     CacheHandle entry = cache.lookup(simpleSpawn, simplePolicy);
@@ -673,7 +693,10 @@ public class RemoteSpawnCacheTest {
 
     ActionResult success = ActionResult.newBuilder().setExitCode(0).build();
     when(remoteCache.downloadActionResult(
-            any(RemoteActionExecutionContext.class), any(), /* inlineOutErr= */ eq(false)))
+            any(RemoteActionExecutionContext.class),
+            any(),
+            /* inlineOutErr= */ eq(false),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of())))
         .thenReturn(CachedActionResult.remote(success));
     doReturn(null).when(cache.getRemoteExecutionService()).downloadOutputs(any(), any());
 
@@ -699,7 +722,10 @@ public class RemoteSpawnCacheTest {
 
     ActionResult success = ActionResult.newBuilder().setExitCode(0).build();
     when(remoteCache.downloadActionResult(
-            any(RemoteActionExecutionContext.class), any(), /* inlineOutErr= */ eq(false)))
+            any(RemoteActionExecutionContext.class),
+            any(),
+            /* inlineOutErr= */ eq(false),
+            /* inlineOutputFiles= */ eq(ImmutableSet.of())))
         .thenReturn(CachedActionResult.remote(success));
     doThrow(downloadFailure)
         .when(cache.getRemoteExecutionService())
