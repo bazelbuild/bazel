@@ -13,18 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.build.android.Converters.UnvalidatedAndroidDirectoriesConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.nio.file.FileSystems;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
+import com.google.devtools.build.android.Converters.CompatUnvalidatedAndroidDirectoriesConverter;
 import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
@@ -40,43 +36,35 @@ public class AndroidResourceParsingAction {
       Logger.getLogger(AndroidResourceParsingAction.class.getName());
 
   /** Flag specifications for this action. */
-  public static final class Options extends OptionsBase {
+  @Parameters(separators = "= ")
+  public static final class Options {
 
-    @Option(
-      name = "primaryData",
-      defaultValue = "null",
-      converter = UnvalidatedAndroidDirectoriesConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      category = "input",
-      help =
-          "The resource and asset directories to parse and summarize in a symbols file."
-              + " The expected format is "
-              + UnvalidatedAndroidDirectories.EXPECTED_FORMAT
-    )
+    @Parameter(
+        names = "--primaryData",
+        converter = CompatUnvalidatedAndroidDirectoriesConverter.class,
+        description =
+            "The resource and asset directories to parse and summarize in a symbols file."
+                + " The expected format is "
+                + UnvalidatedAndroidDirectories.EXPECTED_FORMAT)
     public UnvalidatedAndroidDirectories primaryData;
 
-    @Option(
-      name = "output",
-      defaultValue = "null",
-      converter = PathConverter.class,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      category = "output",
-      help = "Path to write the output protobuf."
-    )
+    @Parameter(
+        names = "--output",
+        converter = CompatPathConverter.class,
+        description = "Path to write the output protobuf.")
     public Path output;
-
   }
 
   public static void main(String[] args) throws Exception {
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(Options.class, ResourceProcessorCommonOptions.class)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parseAndExitUponError(args);
-    Options options = optionsParser.getOptions(Options.class);
+    Options options = new Options();
+    ResourceProcessorCommonOptions resourceProcessorCommonOptions =
+        new ResourceProcessorCommonOptions();
+    Object[] allOptions = new Object[] {options, resourceProcessorCommonOptions};
+    JCommander jc = new JCommander(allOptions);
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(options, preprocessedArgs);
+    jc.parse(normalizedArgs);
 
     Preconditions.checkNotNull(options.primaryData);
     Preconditions.checkNotNull(options.output);

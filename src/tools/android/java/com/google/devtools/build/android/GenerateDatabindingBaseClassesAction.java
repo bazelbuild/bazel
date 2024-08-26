@@ -15,17 +15,13 @@
 package com.google.devtools.build.android;
 
 import android.databinding.AndroidDataBinding;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
-import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.nio.file.FileSystems;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.logging.Level;
@@ -35,70 +31,49 @@ import java.util.logging.Logger;
 public final class GenerateDatabindingBaseClassesAction {
 
   /** Options for GenerateDatabindingBaseClassesAction. */
-  public static final class Options extends OptionsBase {
-    @Option(
-        name = "layoutInfoFiles",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to layout-info.zip file produced by databinding processor")
+  @Parameters(separators = "= ")
+  public static final class Options extends OptionsBaseWithResidue {
+    @Parameter(
+        names = "--layoutInfoFiles",
+        converter = CompatPathConverter.class,
+        description = "Path to layout-info.zip file produced by databinding processor")
     public Path layoutInfoFile;
 
-    @Option(
-        name = "package",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Package name of the android target")
+    @Parameter(names = "--package", description = "Package name of the android target")
     public String packageName;
 
-    @Option(
-        name = "classInfoOut",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to write classInfo.zip file")
+    @Parameter(
+        names = "--classInfoOut",
+        converter = CompatPathConverter.class,
+        description = "Path to write classInfo.zip file")
     public Path classInfoOut;
 
-    @Option(
-        name = "sourceOut",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        help = "Path to write databinding base classes to be used in Java compilation")
+    @Parameter(
+        names = "--sourceOut",
+        converter = CompatPathConverter.class,
+        description = "Path to write databinding base classes to be used in Java compilation")
     public Path sourceOut;
 
-    @Option(
-        name = "dependencyClassInfoList",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        allowMultiple = true,
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "List of dependency class info zip files")
-    public List<Path> dependencyClassInfoList;
+    @Parameter(
+        names = "--dependencyClassInfoList",
+        converter = CompatPathConverter.class,
+        description = "List of dependency class info zip files")
+    public List<Path> dependencyClassInfoList = ImmutableList.of();
   }
 
   static final Logger logger =
       Logger.getLogger(GenerateDatabindingBaseClassesAction.class.getName());
 
   public static void main(String[] args) throws Exception {
-    final OptionsParser optionsParser =
-        OptionsParser.builder()
-            .allowResidue(true)
-            .optionsClasses(
-                Options.class, AaptConfigOptions.class, ResourceProcessorCommonOptions.class)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parseAndExitUponError(args);
-    final Options options = optionsParser.getOptions(Options.class);
-    final AaptConfigOptions aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
+    Options options = new Options();
+    AaptConfigOptions aaptConfigOptions = new AaptConfigOptions();
+    Object[] allOptions =
+        new Object[] {options, aaptConfigOptions, new ResourceProcessorCommonOptions()};
+    JCommander jc = new JCommander(allOptions);
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(allOptions, preprocessedArgs);
+    jc.parse(normalizedArgs);
 
     if (options.layoutInfoFile == null) {
       throw new IllegalArgumentException("--layoutInfoFiles is required");

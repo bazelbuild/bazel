@@ -28,9 +28,6 @@ import com.google.devtools.build.android.Converters.CompatPathConverter;
 import com.google.devtools.build.android.Converters.NoOpSplitter;
 import com.google.devtools.build.android.resources.RPackageId;
 import com.google.devtools.build.android.resources.ResourceSymbols;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -61,7 +58,7 @@ public class RClassGeneratorAction {
 
   /** Flag specifications for this action. */
   @Parameters(separators = "= ")
-  public static final class Options extends OptionsBaseWithResidue {
+  public static final class Options {
 
     @Parameter(
         names = "--primaryRTxt",
@@ -125,17 +122,12 @@ public class RClassGeneratorAction {
   public static void main(String[] args) throws Exception {
     final Stopwatch timer = Stopwatch.createStarted();
     Options options = new Options();
-    String[] normalizedArgs = AndroidOptionsUtils.normalizeBooleanOptions(options, args);
-    JCommander jc = new JCommander(options);
+    JCommander jc = new JCommander(new Object[] {options, new ResourceProcessorCommonOptions()});
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(options, preprocessedArgs);
     jc.parse(normalizedArgs);
-    List<String> residue = options.getResidue();
 
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(ResourceProcessorCommonOptions.class)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parseAndExitUponError(residue.toArray(new String[0]));
     Preconditions.checkNotNull(options.classJarOutput);
     final AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(STD_LOGGER);
     try (ScopedTemporaryDirectory scopedTmp =

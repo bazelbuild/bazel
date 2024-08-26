@@ -14,17 +14,14 @@
 package com.google.devtools.build.android;
 
 import com.android.builder.core.VariantTypeImpl;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
-import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.build.android.Converters.VariantTypeConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
+import com.google.devtools.build.android.Converters.CompatVariantTypeConverter;
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
@@ -40,76 +37,55 @@ import java.util.zip.ZipOutputStream;
 public class AndroidDataBindingProcessingAction {
 
   /** Flag specifications for this action. */
-  public static final class Options extends OptionsBase {
+  @Parameters(separators = "= ")
+  public static final class Options extends OptionsBaseWithResidue {
 
-    @Option(
-        name = "resource_root",
-        defaultValue = "null",
-        converter =  PathConverter.class,
-        allowMultiple =  true,
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Input resource root. A corresponding output resource root must be passed to "
-            + "--output_resource_root. Multiple roots will be paired in the order they're passed.")
-    public List<Path> resourceRoots;
+    @Parameter(
+        names = "--resource_root",
+        converter = CompatPathConverter.class,
+        description =
+            "Input resource root. A corresponding output resource root must be passed to"
+                + " --output_resource_root. Multiple roots will be paired in the order they're"
+                + " passed.")
+    public List<Path> resourceRoots = ImmutableList.of();
 
-    @Option(
-        name = "output_resource_directory",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--output_resource_directory",
+        converter = CompatPathConverter.class,
+        description =
             "The output resource directory. Input source roots will be appended to this to "
                 + "create the output resource roots.")
     public Path outputResourceDirectory;
 
-    @Option(
-        name = "packageType",
-        defaultValue = "BASE_APK",
-        converter = VariantTypeConverter.class,
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--packageType",
+        converter = CompatVariantTypeConverter.class,
+        description =
             "Variant configuration type for packaging the resources."
                 + " Acceptable values BASE_APK, LIBRARY, ANDROID_TEST, UNIT_TEST")
-    public VariantTypeImpl packageType;
+    public VariantTypeImpl packageType = VariantTypeImpl.BASE_APK;
 
-    @Option(
-        name = "dataBindingInfoOut",
-        defaultValue = "null",
-        converter = PathConverter.class,
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to where data binding's layout info output should be written.")
+    @Parameter(
+        names = "--dataBindingInfoOut",
+        converter = CompatPathConverter.class,
+        description = "Path to where data binding's layout info output should be written.")
     public Path dataBindingInfoOut;
 
-    @Option(
-        name = "appId",
-        defaultValue = "null",
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "The java package for the app.")
+    @Parameter(names = "--appId", description = "The java package for the app.")
     public String appId;
   }
 
-  public static void main(String[] args) throws IOException {
-
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .allowResidue(true)
-            .optionsClasses(
-                Options.class, AaptConfigOptions.class, ResourceProcessorCommonOptions.class)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parseAndExitUponError(args);
-    Options options = optionsParser.getOptions(Options.class);
-    AaptConfigOptions aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
+  public static void main(String[] args) throws CompatOptionsParsingException, IOException {
+    Options options = new Options();
+    AaptConfigOptions aaptConfigOptions = new AaptConfigOptions();
+    ResourceProcessorCommonOptions resourceProcessorCommonOptions =
+        new ResourceProcessorCommonOptions();
+    Object[] allOptions = new Object[] {options, aaptConfigOptions, resourceProcessorCommonOptions};
+    JCommander jc = new JCommander(allOptions);
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(allOptions, preprocessedArgs);
+    jc.parse(normalizedArgs);
 
     if (options.dataBindingInfoOut == null) {
       throw new IllegalArgumentException("--dataBindingInfoOut is required");

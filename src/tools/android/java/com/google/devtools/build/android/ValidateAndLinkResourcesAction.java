@@ -31,9 +31,6 @@ import com.google.devtools.build.android.aapt2.ResourceLinker;
 import com.google.devtools.build.android.aapt2.StaticLibrary;
 import com.google.devtools.build.android.resources.Visibility;
 import com.google.devtools.build.android.xml.ProtoXmlUtils;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -44,7 +41,7 @@ import java.util.Optional;
 public final class ValidateAndLinkResourcesAction {
 
   /** Action configuration options. */
-  public static class Options extends OptionsBaseWithResidue {
+  public static class Options {
     /**
      * TODO(b/64570523): Still used by blaze. Will be removed as part of the command line cleanup.
      *
@@ -124,16 +121,15 @@ public final class ValidateAndLinkResourcesAction {
 
   public static void main(String[] args) throws Exception {
     Options options = new Options();
-    JCommander jc = new JCommander(options);
-    jc.parse(args);
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parse(options.getResidue());
+    Aapt2ConfigOptions aapt2Options = new Aapt2ConfigOptions();
+    Object[] allOptions =
+        new Object[] {options, aapt2Options, new ResourceProcessorCommonOptions()};
+    JCommander jc = new JCommander(allOptions);
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(allOptions, preprocessedArgs);
+    jc.parse(normalizedArgs);
 
-    final Aapt2ConfigOptions aapt2Options = optionsParser.getOptions(Aapt2ConfigOptions.class);
     final Profiler profiler = LoggingProfiler.createAndStart("manifest");
 
     try (ScopedTemporaryDirectory scopedTmp =

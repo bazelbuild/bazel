@@ -29,12 +29,9 @@ import com.google.common.io.ByteStreams;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
 import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
 import com.google.devtools.build.android.Converters.CompatPathConverter;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -73,7 +70,7 @@ public class ResourceShrinkerAction {
 
   /** Flag specifications for this action. */
   @Parameters(separators = "= ")
-  public static final class Options extends OptionsBaseWithResidue {
+  public static class Options {
     @Parameter(
         names = "--shrunkJar",
         converter = CompatExistingPathConverter.class,
@@ -174,18 +171,15 @@ public class ResourceShrinkerAction {
     final Stopwatch timer = Stopwatch.createStarted();
     // Parse arguments.
     Options options = new Options();
-    JCommander jc = new JCommander(options);
-    jc.parse(args);
-
-    List<String> residue = options.getResidue();
-
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(AaptConfigOptions.class)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parseAndExitUponError(residue.toArray(new String[0]));
-    AaptConfigOptions aaptConfigOptions = optionsParser.getOptions(AaptConfigOptions.class);
+    AaptConfigOptions aaptConfigOptions = new AaptConfigOptions();
+    ResourceProcessorCommonOptions resourceProcessorCommonOptions =
+        new ResourceProcessorCommonOptions();
+    Object[] allOptions = new Object[] {options, resourceProcessorCommonOptions, aaptConfigOptions};
+    JCommander jc = new JCommander(allOptions);
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(allOptions, preprocessedArgs);
+    jc.parse(normalizedArgs);
 
     AndroidResourceProcessor resourceProcessor = new AndroidResourceProcessor(stdLogger);
     // Setup temporary working directories.

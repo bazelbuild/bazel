@@ -13,10 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
+import java.nio.file.FileSystem;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,6 +29,34 @@ import java.util.List;
 public class AndroidOptionsUtils {
 
   private AndroidOptionsUtils() {}
+
+  /** Run the CompatShellQuotedParamsFilePreProcessor on a list of args. */
+  public static String[] runArgFilePreprocessor(JCommander jc, String[] argsAsArray)
+      throws CompatOptionsParsingException {
+    List<String> args = ImmutableList.copyOf(argsAsArray);
+    jc.setExpandAtSign(false);
+    if (args.size() == 1 && args.get(0).startsWith("@")) {
+      // Use CompatShellQuotedParamsFilePreProcessor to handle the arg file.
+      FileSystem fs = FileSystems.getDefault();
+      Path argFile = fs.getPath(args.get(0).substring(1));
+      CompatShellQuotedParamsFilePreProcessor paramsFilePreProcessor =
+          new CompatShellQuotedParamsFilePreProcessor(fs);
+      args = paramsFilePreProcessor.preProcess(ImmutableList.of("@" + argFile));
+    }
+    return args.toArray(new String[0]);
+  }
+
+  /**
+   * Same as AndroidOptionsUtils#normalizeBooleanOptions, but accepts an array of option classes
+   * instead.
+   */
+  public static String[] normalizeBooleanOptions(Object[] options, String[] args) {
+    String[] normalizedArgs = args;
+    for (Object optionsObject : options) {
+      normalizedArgs = normalizeBooleanOptions(optionsObject, normalizedArgs);
+    }
+    return normalizedArgs;
+  }
 
   /**
    * Normalize boolean options to use --<flagname>=true or --<flagname>=false syntax.

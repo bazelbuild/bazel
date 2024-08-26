@@ -38,11 +38,8 @@ import com.google.devtools.build.android.aapt2.ProtoApk;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
 import com.google.devtools.build.android.aapt2.StaticLibrary;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import com.google.devtools.common.options.TriState;
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -73,7 +70,7 @@ public class Aapt2ResourcePackagingAction {
 
   /** Flag specifications for this action. */
   @Parameters(separators = "= ")
-  public static final class Options extends OptionsBaseWithResidue {
+  public static final class Options {
     @Parameter(
         names = "--primaryData",
         converter = CompatUnvalidatedAndroidDataConverter.class,
@@ -229,18 +226,23 @@ public class Aapt2ResourcePackagingAction {
 
     @Parameter(
         names = "--throwOnResourceConflict",
+        arity = 1,
         description =
             "If passed, resource merge conflicts will be treated as errors instead of warnings")
     public boolean throwOnResourceConflict;
 
-    @Parameter(names = "--packageUnderTest", description = "Unused/deprecated option.")
+    @Parameter(names = "--packageUnderTest", arity = 1, description = "Unused/deprecated option.")
     public String packageUnderTest;
 
-    @Parameter(names = "--isTestWithResources", description = "Unused/deprecated option.")
+    @Parameter(
+        names = "--isTestWithResources",
+        arity = 1,
+        description = "Unused/deprecated option.")
     public boolean isTestWithResources;
 
     @Parameter(
         names = "--includeProguardLocationReferences",
+        arity = 1,
         description = "When generating proguard configurations, include location references.")
     public boolean includeProguardLocationReferences;
 
@@ -255,18 +257,15 @@ public class Aapt2ResourcePackagingAction {
   public static void main(String[] args) throws Exception {
     Profiler profiler = InMemoryProfiler.createAndStart("setup");
     Options options = new Options();
-    String[] normalizedArgs = AndroidOptionsUtils.normalizeBooleanOptions(options, args);
-    JCommander jc = new JCommander(options);
+    Aapt2ConfigOptions aaptConfigOptions = new Aapt2ConfigOptions();
+    ResourceProcessorCommonOptions resourceProcessorCommonOptions =
+        new ResourceProcessorCommonOptions();
+    Object[] allOptions = new Object[] {options, aaptConfigOptions, resourceProcessorCommonOptions};
+    JCommander jc = new JCommander(allOptions);
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(allOptions, preprocessedArgs);
     jc.parse(normalizedArgs);
-    List<String> residue = options.getResidue();
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parseAndExitUponError(residue.toArray(new String[0]));
-
-    Aapt2ConfigOptions aaptConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
 
     Preconditions.checkArgument(
         options.packageId == -1 || (options.packageId >= 2 && options.packageId <= 255),
@@ -312,8 +311,7 @@ public class Aapt2ResourcePackagingAction {
                               options.versionName,
                               manifest,
                               processedManifest,
-                              optionsParser.getOptions(ResourceProcessorCommonOptions.class)
-                                  .logWarnings))
+                              resourceProcessorCommonOptions.logWarnings))
               .processManifest(
                   manifest ->
                       new DensitySpecificManifestProcessor(options.densities, densityManifest)

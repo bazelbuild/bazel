@@ -19,19 +19,16 @@ import com.android.manifmerger.ManifestMerger2.MergeType;
 import com.android.utils.StdLogger;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
 import com.google.devtools.build.android.Converters.CompatExistingPathStringDictionaryConverter;
 import com.google.devtools.build.android.Converters.CompatPathConverter;
 import com.google.devtools.build.android.Converters.CompatStringDictionaryConverter;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
 import javax.xml.parsers.DocumentBuilder;
@@ -65,9 +62,8 @@ import org.xml.sax.SAXException;
  */
 public class ManifestMergerAction {
   /** Flag specifications for this action. */
-  public static final class Options extends OptionsBaseWithResidue {
-    // TODO(b/351006636): Remove residue after migrating ResourceProcessorCommonOptions to
-    // JCommander, since residue was not originally used in this action.
+  @Parameters(separators = "= ")
+  public static final class Options {
     @Parameter(
         names = "--manifest",
         converter = CompatExistingPathConverter.class,
@@ -81,10 +77,10 @@ public class ManifestMergerAction {
         converter = CompatExistingPathStringDictionaryConverter.class,
         description =
             "A dictionary of manifests, and originating target, to be merged into manifest.")
-    public Map<Path, String> mergeeManifests;
+    public Map<Path, String> mergeeManifests = ImmutableMap.of();
 
     @Parameter(names = "--mergeType", description = "The type of merging to perform.")
-    public MergeType mergeType;
+    public MergeType mergeType = MergeType.APPLICATION;
 
     @Parameter(
         names = "--manifestValues",
@@ -99,7 +95,7 @@ public class ManifestMergerAction {
                 + " The expected format of this string is: key:value[,key:value]*. The keys and"
                 + " values may contain colons and commas as long as they are escaped with a"
                 + " backslash.")
-    public Map<String, String> manifestValues;
+    public Map<String, String> manifestValues = ImmutableMap.of();
 
     @Parameter(
         names = "--customPackage",
@@ -120,19 +116,9 @@ public class ManifestMergerAction {
 
     @Parameter(
         names = "--mergeManifestPermissions",
+        arity = 1,
         description = "If enabled, manifest permissions will be merged.")
     public boolean mergeManifestPermissions;
-
-    public Options() {
-      this.manifest = null;
-      this.mergeeManifests = ImmutableMap.of();
-      this.mergeType = MergeType.APPLICATION;
-      this.manifestValues = ImmutableMap.of();
-      this.customPackage = null;
-      this.manifestOutput = null;
-      this.log = null;
-      this.mergeManifestPermissions = false;
-    }
   }
 
   private static final String[] PERMISSION_TAGS =
@@ -166,16 +152,14 @@ public class ManifestMergerAction {
     // First parse the local Action flags using JCommander, then parse the remaining common flags
     // using OptionsParser.
     Options options = new Options();
-    JCommander jc = new JCommander(options);
-    jc.parse(args);
-    List<String> residue = options.getResidue();
-
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(ResourceProcessorCommonOptions.class)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parseAndExitUponError(residue.toArray(new String[0]));
+    ResourceProcessorCommonOptions resourceProcessorCommonOptions =
+        new ResourceProcessorCommonOptions();
+    Object[] allOptions = new Object[] {options, resourceProcessorCommonOptions};
+    JCommander jc = new JCommander(allOptions);
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(allOptions, preprocessedArgs);
+    jc.parse(normalizedArgs);
 
     try {
       Path mergedManifest;
@@ -212,7 +196,7 @@ public class ManifestMergerAction {
               options.customPackage,
               options.manifestOutput,
               options.log,
-              optionsParser.getOptions(ResourceProcessorCommonOptions.class).logWarnings);
+              resourceProcessorCommonOptions.logWarnings);
       // Bazel expects a log file output as a result of manifest merging, even if it is a no-op.
       if (options.log != null && !options.log.toFile().exists()) {
         options.log.toFile().createNewFile();

@@ -20,12 +20,8 @@ import com.google.devtools.build.android.ResourcesZip.ShrunkProtoApk;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
 import com.google.devtools.build.android.aapt2.StaticLibrary;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Set;
 
 /**
@@ -49,17 +45,15 @@ public class Aapt2ResourceShrinkingAction {
     final Profiler profiler = LoggingProfiler.createAndStart("shrink").startTask("flags");
     // Parse arguments.
     Options options = new Options();
-    JCommander jc = new JCommander(options);
-    jc.parse(args);
-    List<String> residue = options.getResidue();
+    Aapt2ConfigOptions aapt2ConfigOptions = new Aapt2ConfigOptions();
+    Object[] allOptions =
+        new Object[] {options, aapt2ConfigOptions, new ResourceProcessorCommonOptions()};
+    JCommander jc = new JCommander(allOptions);
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(allOptions, preprocessedArgs);
+    jc.parse(normalizedArgs);
 
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parseAndExitUponError(residue.toArray(new String[0]));
-    Aapt2ConfigOptions aapt2ConfigOptions = optionsParser.getOptions(Aapt2ConfigOptions.class);
     profiler.recordEndOf("flags").startTask("setup");
 
     try (ScopedTemporaryDirectory scopedTmp =

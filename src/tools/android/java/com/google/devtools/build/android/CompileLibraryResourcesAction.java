@@ -23,13 +23,9 @@ import com.google.devtools.build.android.Converters.CompatPathConverter;
 import com.google.devtools.build.android.Converters.CompatUnvalidatedAndroidDirectoriesConverter;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Logger;
 
@@ -37,7 +33,7 @@ import java.util.logging.Logger;
 @Parameters(separators = "= ")
 public class CompileLibraryResourcesAction {
   /** Flag specifications for this action. */
-  public static final class Options extends OptionsBaseWithResidue {
+  public static final class Options {
 
     @Parameter(
         names = "--resources",
@@ -79,17 +75,13 @@ public class CompileLibraryResourcesAction {
 
   public static void main(String[] args) throws Exception {
     Options options = new Options();
-    JCommander jc = new JCommander(options);
-    jc.parse(args);
-    List<String> residue = options.getResidue();
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parseAndExitUponError(residue.toArray(new String[0]));
-
-    Aapt2ConfigOptions aapt2Options = optionsParser.getOptions(Aapt2ConfigOptions.class);
+    Aapt2ConfigOptions aapt2Options = new Aapt2ConfigOptions();
+    Object[] allOptions = {options, aapt2Options, new ResourceProcessorCommonOptions()};
+    JCommander jc = new JCommander(allOptions);
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(allOptions, preprocessedArgs);
+    jc.parse(normalizedArgs);
 
     Preconditions.checkNotNull(options.resources);
     Preconditions.checkNotNull(options.output);

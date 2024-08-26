@@ -16,6 +16,9 @@ package com.google.devtools.build.android;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.android.builder.core.VariantTypeImpl;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
@@ -23,19 +26,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.android.AndroidDataMerger.MergeConflictException;
 import com.google.devtools.build.android.AndroidResourceMerger.MergingException;
-import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.build.android.Converters.UnvalidatedAndroidDataConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
+import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
+import com.google.devtools.build.android.Converters.CompatUnvalidatedAndroidDataConverter;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -77,96 +73,65 @@ public class AarGeneratorAction {
   private static final Logger logger = Logger.getLogger(AarGeneratorAction.class.getName());
 
   /** Flag specifications for this action. */
-  public static final class AarGeneratorOptions extends OptionsBase {
-    @Option(
-      name = "mainData",
-      defaultValue = "null",
-      converter = UnvalidatedAndroidDataConverter.class,
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "The directory containing the primary resource directory."
-              + "The contents will override the contents of any other resource directories during "
-              + "merging. The expected format is resources[#resources]:assets[#assets]:manifest"
-    )
+  @Parameters(separators = "= ")
+  public static final class AarGeneratorOptions {
+    @Parameter(
+        names = "--mainData",
+        converter = CompatUnvalidatedAndroidDataConverter.class,
+        description =
+            "The directory containing the primary resource directory.The contents will override the"
+                + " contents of any other resource directories during merging. The expected format"
+                + " is resources[#resources]:assets[#assets]:manifest")
     public UnvalidatedAndroidData mainData;
 
-    @Option(
-      name = "manifest",
-      defaultValue = "null",
-      converter = ExistingPathConverter.class,
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path to AndroidManifest.xml."
-    )
+    @Parameter(
+        names = "--manifest",
+        converter = CompatExistingPathConverter.class,
+        description = "Path to AndroidManifest.xml.")
     public Path manifest;
 
-    @Option(
-      name = "rtxt",
-      defaultValue = "null",
-      converter = ExistingPathConverter.class,
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path to R.txt."
-    )
+    @Parameter(
+        names = "--rtxt",
+        converter = CompatExistingPathConverter.class,
+        description = "Path to R.txt.")
     public Path rtxt;
 
-    @Option(
-      name = "classes",
-      defaultValue = "null",
-      converter = ExistingPathConverter.class,
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path to classes.jar."
-    )
+    @Parameter(
+        names = "--classes",
+        converter = CompatExistingPathConverter.class,
+        description = "Path to classes.jar.")
     public Path classes;
 
-    @Option(
-        name = "proguardSpec",
-        defaultValue = "null",
-        converter = ExistingPathConverter.class,
-        allowMultiple = true,
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to proguard spec file.")
-    public List<Path> proguardSpecs;
+    @Parameter(
+        names = "--proguardSpec",
+        converter = CompatExistingPathConverter.class,
+        description = "Path to proguard spec file.")
+    public List<Path> proguardSpecs = ImmutableList.of();
 
-    @Option(
-      name = "aarOutput",
-      defaultValue = "null",
-      converter = PathConverter.class,
-      category = "output",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Path to write the archive."
-    )
+    @Parameter(
+        names = "--aarOutput",
+        converter = CompatPathConverter.class,
+        description = "Path to write the archive.")
     public Path aarOutput;
 
-    @Option(
-      name = "throwOnResourceConflict",
-      defaultValue = "false",
-      category = "config",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "If passed, resource merge conflicts will be treated as errors instead of warnings"
-    )
+    @Parameter(
+        names = "--throwOnResourceConflict",
+        arity = 1,
+        description =
+            "If passed, resource merge conflicts will be treated as errors instead of warnings")
     public boolean throwOnResourceConflict;
   }
 
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) throws CompatOptionsParsingException, IOException {
     Stopwatch timer = Stopwatch.createStarted();
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(AarGeneratorOptions.class, ResourceProcessorCommonOptions.class)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parseAndExitUponError(args);
-    AarGeneratorOptions options = optionsParser.getOptions(AarGeneratorOptions.class);
+    AarGeneratorOptions options = new AarGeneratorOptions();
+    Object[] allOptions = new Object[] {options, new ResourceProcessorCommonOptions()};
+    JCommander jc = new JCommander(allOptions);
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);
+
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(allOptions, preprocessedArgs);
+    jc.parse(normalizedArgs);
 
     checkFlags(options);
 
