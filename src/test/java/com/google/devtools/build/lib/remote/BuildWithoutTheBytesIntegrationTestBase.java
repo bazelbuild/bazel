@@ -66,11 +66,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     runtimeWrapper.newCommand();
   }
 
-  // TODO(b/281655526) incompatible with Skymeld.
-  protected void setIncompatibleWithSkymeld() {
-    addOptions("--noexperimental_merged_skyframe_analysis_execution");
-  }
-
   @Test
   public void outputsAreNotDownloaded() throws Exception {
     write(
@@ -932,6 +927,40 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
+  public void downloadToplevel_incrementalBuild_anotherTarget() throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'foo1',",
+        "  srcs = [':foo3'],",
+        "  outs = ['out/foo1.txt'],",
+        "  cmd = 'echo foo1 > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foo2',",
+        "  srcs = [],",
+        "  outs = ['out/foo2.txt'],",
+        "  cmd = 'echo foo2 > $@',",
+        ")",
+        "genrule(",
+        "  name = 'foo3',",
+        "  srcs = [],",
+        "  outs = ['out/foo3.txt'],",
+        "  cmd = 'echo foo3 > $@',",
+        ")");
+    setDownloadToplevel();
+    buildTarget("//:foo1");
+
+    assertValidOutputFile("out/foo1.txt", "foo1\n");
+    assertOutputsDoNotExist("//:foo2");
+    assertOutputsDoNotExist("//:foo3");
+
+    buildTarget("//:foo3");
+    assertOutputsDoNotExist("//:foo2");
+    assertValidOutputFile("out/foo3.txt", "foo3\n");
+  }
+
+  @Test
   public void downloadToplevel_symlinkToGeneratedFile() throws Exception {
     setDownloadToplevel();
     writeSymlinkRule();
@@ -1278,7 +1307,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
 
   @Test
   public void incrementalBuild_intermediateOutputDeleted_nothingIsReEvaluated() throws Exception {
-    setIncompatibleWithSkymeld();
     // Arrange: Prepare workspace and run a clean build
     write(
         "BUILD",
@@ -1432,7 +1460,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   @Test
   public void remoteCacheEvictBlobs_whenPrefetchingInputFile_incrementalBuildCanContinue()
       throws Exception {
-    setIncompatibleWithSkymeld();
     // Arrange: Prepare workspace and populate remote cache
     write(
         "a/BUILD",
@@ -1457,7 +1484,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     getOutputPath("a/bar.out").delete();
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     restartServer();
-    setIncompatibleWithSkymeld();
 
     // Clean build, foo.out isn't downloaded
     buildTarget("//a:bar");
@@ -1482,7 +1508,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   @Test
   public void remoteCacheEvictBlobs_whenPrefetchingInputTree_incrementalBuildCanContinue()
       throws Exception {
-    setIncompatibleWithSkymeld();
     // Arrange: Prepare workspace and populate remote cache
     write("BUILD");
     writeOutputDirRule();
@@ -1507,7 +1532,6 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
     getOutputPath("a/bar.out").delete();
     getOutputBase().getRelative("action_cache").deleteTreesBelow();
     restartServer();
-    setIncompatibleWithSkymeld();
 
     // Clean build, foo.out isn't downloaded
     buildTarget("//a:bar");
