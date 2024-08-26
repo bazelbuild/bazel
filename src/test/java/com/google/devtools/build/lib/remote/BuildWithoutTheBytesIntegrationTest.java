@@ -511,6 +511,7 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     restartServer();
 
     // Clean build, foo.out isn't downloaded
+    setDownloadToplevel();
     buildTarget("//a:bar");
     assertOutputDoesNotExist("a/foo.out/file-inside");
 
@@ -518,7 +519,6 @@ public class BuildWithoutTheBytesIntegrationTest extends BuildWithoutTheBytesInt
     evictAllBlobs();
 
     // trigger build error
-    setDownloadToplevel();
     write("a/bar.in", "updated bar");
     // Build failed because of remote cache eviction
     assertThrows(BuildFailedException.class, () -> buildTarget("//a:bar"));

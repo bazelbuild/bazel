@@ -375,8 +375,8 @@ EOF
     --remote_download_toplevel \
     //a:foo >& $TEST_log || fail "Failed to build //a:foobar"
 
-  # Output of foo is missing, the generating action is re-executed
-  expect_log "2 processes: 1 remote cache hit, 1 internal."
+  # action "foo" is not re-executed.
+  expect_log "1 process: 1 internal."
 
   [[ -f bazel-bin/a/foo.txt ]] \
     || fail "Expected toplevel output bazel-bin/a/foo.txt to be downloaded"
