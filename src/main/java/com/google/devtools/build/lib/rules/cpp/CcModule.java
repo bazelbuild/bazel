@@ -1027,6 +1027,7 @@ public abstract class CcModule
       Object userLinkFlagsObject,
       Object nonCodeInputsObject,
       Object extraLinkTimeLibraryObject,
+      Object ownerObject,
       StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
@@ -1073,6 +1074,10 @@ public abstract class CcModule
       if (extraLinkTimeLibrary != null) {
         ccLinkingContextBuilder.setExtraLinkTimeLibraries(
             ExtraLinkTimeLibraries.builder().add(extraLinkTimeLibrary).build());
+      }
+      Label owner = convertFromNoneable(ownerObject, /* defaultValue= */ null);
+      if (owner != null) {
+        ccLinkingContextBuilder.setOwner(owner);
       }
 
       @SuppressWarnings("unchecked")

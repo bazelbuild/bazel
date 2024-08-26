@@ -1518,7 +1518,14 @@ public interface CcModuleApi<
             allowedTypes = {
               @ParamType(type = ExtraLinkTimeLibraryApi.class),
               @ParamType(type = NoneType.class)
-            })
+            }),
+        @Param(
+            name = "owner",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound",
+            allowedTypes = {@ParamType(type = NoneType.class), @ParamType(type = Label.class)})
       })
   LinkingContextT createCcLinkingInfo(
       Object linkerInputs,
@@ -1526,6 +1533,7 @@ public interface CcModuleApi<
       Object userLinkFlagsObject,
       Object nonCodeInputs, // <FileT> expected
       Object extraLinkTimeLibraryObject,
+      Object ownerObject,
       StarlarkThread thread)
       throws EvalException, InterruptedException;
 
