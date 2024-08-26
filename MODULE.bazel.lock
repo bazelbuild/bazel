@@ -1344,11 +1344,11 @@
     "@@rules_jvm_external~//:extensions.bzl%maven": {
       "general": {
         "bzlTransitiveDigest": "6HjpYwTb4aw3ujkkpdKEvg9geToiH1ebaT6hmsvF5xw=",
-        "usagesDigest": "Rj1C+GLS7Y2FV7tmsY5Ktfe2qMIzDBbBMJneWTUvPe0=",
+        "usagesDigest": "/y+i//MRJSbBh7RYWAnTI3QqwWrHio3GaVzHoOgPxSM=",
         "recordedFileInputs": {
           "@@//src/tools/android/maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f",
           "@@rules_jvm_external~//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
-          "@@//maven_install.json": "8b78c22691680730c3188ba176009514b8108752b532cce50330f8b5ae614166"
+          "@@//maven_install.json": "64d962a13d1771daca3e802952f6a3019f0e9537fdaec7b0d3c60ed3316d1d84"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1947,7 +1947,7 @@
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }",
-                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.6.0\" }",
+                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.7.0\" }",
                 "{ \"group\": \"com.guardsquare\", \"artifact\": \"proguard-base\", \"version\": \"7.5.0\", \"packaging\": \"jar\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-extension\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-factory\", \"version\": \"1.3.1\" }",
@@ -2307,6 +2307,17 @@
                 "https://repo1.maven.org/maven2/com/google/cloud/google-cloud-core-grpc/2.22.0/google-cloud-core-grpc-2.22.0.jar"
               ],
               "downloaded_file_path": "v1/com/google/cloud/google-cloud-core-grpc/2.22.0/google-cloud-core-grpc-2.22.0.jar"
+            }
+          },
+          "com_google_errorprone_error_prone_annotations_2_28_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "f3fc8a3a0a4020706a373b00e7f57c2512dd26d1f83d28c7d38768f8682b231e",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_annotations/2.28.0/error_prone_annotations-2.28.0.jar"
+              ],
+              "downloaded_file_path": "v1/com/google/errorprone/error_prone_annotations/2.28.0/error_prone_annotations-2.28.0.jar"
             }
           },
           "net_sf_jopt_simple_jopt_simple_5_0_4": {
@@ -2875,17 +2886,6 @@
               "downloaded_file_path": "v1/com/google/code/java-allocation-instrumenter/java-allocation-instrumenter/3.3.0/java-allocation-instrumenter-3.3.0.jar"
             }
           },
-          "com_google_turbine_turbine_0_6_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "277b6d59934dc8af95675a6cf6f054e9f43e0708344b08ba2aa927a578174950",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/turbine/turbine/0.6.0/turbine-0.6.0.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/turbine/turbine/0.6.0/turbine-0.6.0.jar"
-            }
-          },
           "org_jetbrains_kotlin_kotlin_stdlib_jdk7_1_4_32": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -3364,6 +3364,17 @@
                 "https://repo1.maven.org/maven2/com/google/auth/google-auth-library-credentials/1.19.0/google-auth-library-credentials-1.19.0.jar"
               ],
               "downloaded_file_path": "v1/com/google/auth/google-auth-library-credentials/1.19.0/google-auth-library-credentials-1.19.0.jar"
+            }
+          },
+          "com_google_turbine_turbine_0_7_0": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "sha256": "5c792e7f744c7861de7ce83b249333d8528ce62ee3807b1fc247dbef8d985a1a",
+              "urls": [
+                "https://repo1.maven.org/maven2/com/google/turbine/turbine/0.7.0/turbine-0.7.0.jar"
+              ],
+              "downloaded_file_path": "v1/com/google/turbine/turbine/0.7.0/turbine-0.7.0.jar"
             }
           },
           "net_java_dev_jna_jna_platform_5_6_0": {
@@ -4153,17 +4164,6 @@
               "downloaded_file_path": "v1/jakarta/xml/bind/jakarta.xml.bind-api/2.3.2/jakarta.xml.bind-api-2.3.2.jar"
             }
           },
-          "com_google_errorprone_error_prone_annotations_2_24_1": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "19fe2f7155d20ea093168527999da98108103ee546d1e8b726bc4b27c31a3c30",
-              "urls": [
-                "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_annotations/2.24.1/error_prone_annotations-2.24.1.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/errorprone/error_prone_annotations/2.24.1/error_prone_annotations-2.24.1.jar"
-            }
-          },
           "com_google_api_grpc_grpc_google_cloud_storage_v2_2_26_1_alpha": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -4627,7 +4627,7 @@
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.http-client\", \"artifact\": \"google-http-client-gson\", \"version\": \"1.42.0\" }",
                 "{ \"group\": \"com.google.j2objc\", \"artifact\": \"j2objc-annotations\", \"version\": \"1.3\" }",
-                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.6.0\" }",
+                "{ \"group\": \"com.google.turbine\", \"artifact\": \"turbine\", \"version\": \"0.7.0\" }",
                 "{ \"group\": \"com.guardsquare\", \"artifact\": \"proguard-base\", \"version\": \"7.5.0\", \"packaging\": \"jar\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-extension\", \"version\": \"1.3.1\" }",
                 "{ \"group\": \"com.ryanharter.auto.value\", \"artifact\": \"auto-value-gson-factory\", \"version\": \"1.3.1\" }",
@@ -5284,7 +5284,7 @@
     },
     "@@rules_python~//python/private/bzlmod:pip.bzl%pip_internal": {
       "general": {
-        "bzlTransitiveDigest": "AaI5RNtGV7hUlPmr7bNGSpb/0va7S4FhbjGMasYj4D8=",
+        "bzlTransitiveDigest": "1KLA+JO86fwZ1jWTGwqau6h3Yaf5DxuhX6TreBS8r/A=",
         "usagesDigest": "spYTfmH5Mw462zD7a6kcJXCuJA9q0cpZZc4yYSSxiPw=",
         "recordedFileInputs": {
           "@@rules_python~//tools/publish/requirements.txt": "8ced1e640eab3ee44298590e5ad88cd612f5bf96245af1981709f7a8884a982b",
