@@ -115,10 +115,10 @@ java_library(
     name = "bazel_lockfile_module",
     srcs = ["BazelLockFileModule.java"],
     deps = [
+        ":module_extension",
         ":resolution",
         ":resolution_impl",
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository:repository_options",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
@@ -305,7 +305,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
         "//third_party:guava",
     ],
 )
@@ -316,7 +315,6 @@ java_library(
         "BazelModTidyValue.java",
     ],
     deps = [
-        ":resolution",
         ":root_module_file_fixup",
         "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:serialization-constant",
@@ -376,7 +374,6 @@ java_library(
         ":inspection",
         ":module_extension",
         ":resolution",
-        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
         "//third_party:jsr305",
@@ -389,7 +386,6 @@ java_library(
         "ModuleExtensionMetadata.java",
     ],
     deps = [
-        ":common",
         ":module_extension",
         ":root_module_file_fixup",
         "//src/main/java/com/google/devtools/build/docgen/annot",
@@ -398,7 +394,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
-        "//src/main/java/net/starlark/java/syntax",
         "//third_party:auto_value",
         "//third_party:gson",
         "//third_party:guava",
