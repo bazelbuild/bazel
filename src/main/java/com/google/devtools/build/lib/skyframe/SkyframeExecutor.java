@@ -2040,7 +2040,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
       eventHandler.post(new ConfigurationPhaseStartedEvent(configuredTargetProgress));
       // For the workspace status actions.
-      eventHandler.post(SomeExecutionStartedEvent.create());
+      eventHandler.post(SomeExecutionStartedEvent.notCountedInExecutionTime());
       EvaluationContext evaluationContext =
           newEvaluationContextBuilder()
               .setKeepGoing(keepGoing)

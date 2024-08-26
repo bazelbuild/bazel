@@ -1029,7 +1029,8 @@ message BuildMetrics {
     int64 analysis_phase_time_in_ms = 3;
     // The elapsed wall time in milliseconds during the execution phase.
     // When analysis and execution phases are interleaved, this measures the
-    // elapsed time from the first action execution to the last.
+    // elapsed time from the first action execution (excluding workspace status
+    // actions) to the last.
     int64 execution_phase_time_in_ms = 4;
   }
   TimingMetrics timing_metrics = 5;

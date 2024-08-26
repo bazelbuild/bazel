@@ -127,7 +127,7 @@ public class SkymeldUiStateTrackerTest extends FoundationTestCase {
     assertThat(output).contains(loadingState);
     assertThat(output).contains(loadingActivity);
     assertThat(output).contains(configuredTargetProgressString);
-    assertThat(output).contains("[0 / 0]");
+    assertThat(output).doesNotContain("[0 / 0]");
   }
 
   @Test
