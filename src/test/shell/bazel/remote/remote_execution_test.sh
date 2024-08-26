@@ -2992,8 +2992,7 @@ function test_unicode_cache() {
       --remote_cache=grpc://localhost:${worker_port} \
       //:test_unicode >& $TEST_log \
       || fail "Failed to build //:test_unicode to populate the cache"
-  # Catch any remote cache warnings.
-  expect_not_log WARNING
+  expect_not_log "WARNING: Remote cache:"
 
   # Don't leak LC_ALL into other tests.
   bazel shutdown
@@ -3006,8 +3005,7 @@ function test_unicode_cache() {
       --remote_cache=grpc://localhost:${worker_port} \
       //:test_unicode >& $TEST_log \
       || fail "Failed to build //:test_unicode with remote cache"
-  # Catch any remote cache warnings.
-  expect_not_log WARNING
+  expect_not_log "WARNING: Remote cache:"
   expect_log "3 processes: 1 remote cache hit, 2 internal."
 
   # Don't leak LC_ALL into other tests.
