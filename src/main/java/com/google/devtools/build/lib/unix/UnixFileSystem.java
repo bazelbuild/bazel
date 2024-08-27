@@ -532,6 +532,12 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     }
   }
 
+  @Nullable
+  @Override
+  protected String getJavaPathString(PathFragment path) {
+    return path.getPathString();
+  }
+
   private static File createJavaIoFile(PathFragment path) {
     final String pathStr = path.getPathString();
     if (pathStr.chars().allMatch(c -> c < 128)) {
