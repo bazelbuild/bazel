@@ -135,12 +135,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
             "got invalid named argument: '%s' is an implicit dependency and cannot be overridden",
             attr.attrName);
       }
-      Attribute attribute =
-          ruleContext
-              .getRuleContext()
-              .getRule()
-              .getRuleClassObject()
-              .getAttributeByName(attr.ruleAttrName);
+      Attribute attribute = getAttributeByName(ruleContext, attr.ruleAttrName);
       // We need to use the underlying RuleContext because the subrule attributes are hidden from
       // the rule ctx.attr
       Object value;
@@ -176,6 +171,14 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       // callerSubruleContext may be null if this subrule was called from the rule itself, but in
       // that case null is exactly what we want to set here
       ruleContext.setLockedForSubrule(callerSubruleContext);
+    }
+  }
+
+  private static Attribute getAttributeByName(StarlarkRuleContext ruleContext, String attr) {
+    if (ruleContext.isForAspect()) {
+      return ruleContext.getRuleContext().getMainAspect().getDefinition().getAttributes().get(attr);
+    } else {
+      return ruleContext.getRuleContext().getRule().getRuleClassObject().getAttributeByName(attr);
     }
   }
 
