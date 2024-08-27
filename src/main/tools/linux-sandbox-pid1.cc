@@ -453,6 +453,14 @@ static void SetupNetworking() {
       DIE("close");
     }
   }
+
+  if (opt.create_netns != NO_NETNS && opt.fake_root) {
+    // Allow IPPROTO_ICMP sockets when already allowed outside of the namespace.
+    // In a namespace, /proc/sys/net/ipv4/ping_group_range is reset to the
+    // default of 1 0, which does not match any groups. However, it can only be
+    // overridden when the namespace has a fake root. This may be a kernel bug.
+    WriteFile("/proc/sys/net/ipv4/ping_group_range", "0 0");
+  }
 }
 
 static void EnterWorkingDirectory() {
