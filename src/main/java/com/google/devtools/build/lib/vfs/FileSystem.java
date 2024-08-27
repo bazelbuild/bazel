@@ -824,4 +824,12 @@ public abstract class FileSystem {
    */
   protected void prefetchPackageAsync(PathFragment path, int maxDirs) {}
 
+  /**
+   * Returns a string representation of the path suitable for consumption by Java (N)IO APIs or null
+   * if this file system can't be accessed via Java APIs.
+   */
+  @Nullable
+  protected String getJavaPathString(PathFragment path) {
+    return null;
+  }
 }
