@@ -581,20 +581,25 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_mkdirWritable(
       PostException(env, errno, path_chars);
       return false;
     }
-    // directory does not exist.
-    if (::mkdir(path_chars, 0755) == -1) {
+    // Directory does not exist.
+    // Use 0777 so that the permissions can be overridden by umask(2).
+    if (::mkdir(path_chars, 0777) == -1) {
       PostException(env, errno, path_chars);
     }
     return true;
   }
-  // path already exists
+  // Path already exists, but might not be a directory.
   if (!S_ISDIR(statbuf.st_mode)) {
     PostException(env, ENOTDIR, path_chars);
     return false;
   }
-  // Make sure the mode is correct.
-  if ((statbuf.st_mode & 0755) != 0755 && ::chmod(path_chars, 0755) == -1) {
-    PostException(env, errno, path_chars);
+  // Make sure the permissions are correct.
+  // Avoid touching permissions for group/other, which may have been overridden
+  // by umask(2) when this directory was originally created.
+  if ((statbuf.st_mode & S_IRWXU) != S_IRWXU) {
+    if (::chmod(path_chars, statbuf.st_mode | S_IRWXU) == -1) {
+      PostException(env, errno, path_chars);
+    }
   }
   return false;
 }
