@@ -255,9 +255,13 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     builder.setStatusDetails(statusDetails);
     builder.setExecutionInfo(executionInfo);
     builder.setCachedLocally(cachedLocally);
-    builder.setTestAttemptStart(Timestamps.fromMillis(startTimeMillis));
+    if (startTimeMillis != 0) {
+      builder.setTestAttemptStart(Timestamps.fromMillis(startTimeMillis));
+    }
     builder.setTestAttemptStartMillisEpoch(startTimeMillis);
-    builder.setTestAttemptDuration(Durations.fromMillis(durationMillis));
+    if (durationMillis != 0) {
+      builder.setTestAttemptDuration(Durations.fromMillis(durationMillis));
+    }
     builder.setTestAttemptDurationMillis(durationMillis);
     builder.addAllWarning(testWarnings);
     for (Pair<String, Path> file : files) {
