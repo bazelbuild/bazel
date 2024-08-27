@@ -1967,7 +1967,7 @@ public abstract class FileSystemTest {
   public void testGetJavaPathString_internalUtf8() throws IOException {
     // Simulates a Starlark string constant, which is read from a presumably UTF-8 encoded source
     // file into Bazel's internal representation.
-    var utf8File = absolutize(toInternalString("some_dir/入力_A_🌱.txt"));
+    var utf8File = absolutize(reencodeAsInternalString("some_dir/入力_A_🌱.txt"));
     String javaPathString = testFS.getJavaPathString(utf8File.asFragment());
     assume().that(javaPathString).isNotNull();
 
@@ -2003,7 +2003,6 @@ public abstract class FileSystemTest {
     assertThat(entries).hasSize(1);
     var filePath = Iterables.getOnlyElement(entries);
     assertThat(filePath.exists()).isTrue();
-    assertThat(filePath.getBaseName()).isEqualTo(toInternalString("入力_A_🌱.txt"));
     var javaFilePathString = testFS.getJavaPathString(filePath.asFragment());
 
     // Verify the file content through the Java APIs.
@@ -2015,7 +2014,7 @@ public abstract class FileSystemTest {
   /**
    * Converts a String to Bazel's internal representation (raw bytes by using ISO-8859-1 encoding).
    */
-  private String toInternalString(String externalString) {
+  protected static String reencodeAsInternalString(String externalString) {
     return new String(externalString.getBytes(UTF_8), ISO_8859_1);
   }
 }

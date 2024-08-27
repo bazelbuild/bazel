@@ -20,6 +20,8 @@ import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystem.NotASymlinkException;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Collection;
 import org.junit.Before;
 import org.junit.Test;
@@ -664,5 +666,21 @@ public abstract class SymlinkAwareFileSystemTest extends FileSystemTest {
 
     byte[] inputData = FileSystemUtils.readContent(child);
     assertThat(inputData).isEqualTo(outputData);
+  }
+
+  @Test
+  public void testUtf8Symlink() throws Exception {
+    String target = reencodeAsInternalString("入力_A_🌱.target");
+    Path link = absolutize(reencodeAsInternalString("入力_A_🌱.txt"));
+    createSymbolicLink(link, PathFragment.create(target));
+    assertThat(link.readSymbolicLink().toString()).isEqualTo(target);
+
+    String javaPathString = testFS.getJavaPathString(link.asFragment());
+    if (javaPathString == null) {
+      // testFS does not support Java paths.
+      return;
+    }
+    assertThat(Files.readSymbolicLink(Paths.get(javaPathString)).toString())
+        .isEqualTo("入力_A_🌱.target");
   }
 }
