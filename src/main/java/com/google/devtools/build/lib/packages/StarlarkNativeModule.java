@@ -433,7 +433,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       return Starlark.NONE;
     }
     Package.Builder pkgBuilder =
-        Package.Builder.fromOrFailDisallowSymbolicMacros(thread, "existing_rule()");
+        Package.Builder.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rule()");
     Target target = pkgBuilder.getTarget(name);
     if (target instanceof Rule rule) {
       return new ExistingRuleView(rule);
@@ -499,7 +499,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       return Dict.empty();
     }
     Package.Builder pkgBuilder =
-        Package.Builder.fromOrFailDisallowSymbolicMacros(thread, "existing_rules()");
+        Package.Builder.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rules()");
     return new ExistingRulesView(pkgBuilder.getRulesSnapshotView());
   }
 

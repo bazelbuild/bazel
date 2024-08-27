@@ -1229,14 +1229,21 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                 + " in the .bzl where it's defined)");
       }
 
+      if (macroClass.isFinalizer() && pkgBuilder.currentlyInNonFinalizerMacro()) {
+        throw Starlark.errorf(
+            "Cannot instantiate a rule finalizer within a non-finalizer symbolic macro. Rule"
+                + " finalizers may only be instantiated while evaluating a BUILD file, a legacy"
+                + " macro called from a BUILD file, or another rule finalizer.");
+      }
+
       if (!args.isEmpty()) {
         throw Starlark.errorf("unexpected positional arguments");
       }
 
       MacroInstance macroInstance = macroClass.instantiateAndAddMacro(pkgBuilder, kwargs);
 
-      // Evaluate the macro now, if it's a finalizer. Otherwise, it will be evaluated at the end of
-      // the BUILD file evaluation.
+      // Evaluate the macro now, if it's not a finalizer. Finalizer evaluation will be deferred to
+      // the end of the BUILD file evaluation.
       //
       // Non-finalizers must be evaluated synchronously with the call to instantiate the macro,
       // because their side-effects must be visible to native.existing_rules() calls in legacy

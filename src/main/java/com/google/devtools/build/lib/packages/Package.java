@@ -1036,6 +1036,13 @@ public class Package {
     private BiMap<String, Target> targets =
         new SnapshottableBiMap<>(target -> target instanceof Rule);
 
+    // The snapshot of {@link #targets} for use in rule finalizer macros. Contains all
+    // non-finalizer-instantiated rule targets (i.e. all rule targets except for those instantiated
+    // in a finalizer or in a macro called from a finalizer).
+    //
+    // Initialized by expandAllRemainingMacros() and reset to null by beforeBuild().
+    @Nullable private Map<String, Rule> rulesSnapshotViewForFinalizers;
+
     // All instances of symbolic macros created during package construction, indexed by id (not
     // name).
     private final Map<String, MacroInstance> macros = new LinkedHashMap<>();
@@ -1047,7 +1054,8 @@ public class Package {
      * be protective against possible non-determinism.)
      *
      * <p>Generally, ordinary symbolic macros are evaluated eagerly and not added to this set, while
-     * finalizers are always use deferred evaluation and end up in here.
+     * finalizers, as well as any macros called by finalizers, always use deferred evaluation and
+     * end up in here.
      */
     private final Set<String> unexpandedMacros = new LinkedHashSet<>();
 
@@ -1289,9 +1297,13 @@ public class Package {
      * <p>If {@code allowBuild} is false, this method also throws if we're currently executing a
      * BUILD file (or legacy macro called from a BUILD file).
      *
-     * <p>If {@code allowSymbolicMacros} is false, this method also throws if we're currently
-     * executing a symbolic macro implementation. (Legacy macros that are not called from within a
-     * symbolic macro are fine.)
+     * <p>If {@code allowFinalizers} is false, this method also throws if we're currently executing
+     * a rule finalizer implementation (or a legacy macro called from within such an
+     * implementation).
+     *
+     * <p>If {@code allowNonFinalizerSymbolicMacros} is false, this method also throws if we're
+     * currently executing the implementation of a symbolic macro implementation which is not a rule
+     * finalizer (or a legacy macro called from within such an implementation).
      *
      * <p>If {@code allowWorkspace} is false, this method also throws if we're currently executing a
      * WORKSPACE file (or a legacy macro called from a WORKSPACE file).
@@ -1303,16 +1315,19 @@ public class Package {
         StarlarkThread thread,
         String what,
         boolean allowBuild,
-        boolean allowSymbolicMacros,
+        boolean allowFinalizers,
+        boolean allowNonFinalizerSymbolicMacros,
         boolean allowWorkspace)
         throws EvalException {
-      Preconditions.checkArgument(allowBuild || allowSymbolicMacros || allowWorkspace);
+      Preconditions.checkArgument(
+          allowBuild || allowFinalizers || allowNonFinalizerSymbolicMacros || allowWorkspace);
 
       @Nullable StarlarkThreadContext ctx = thread.getThreadLocal(StarlarkThreadContext.class);
       boolean bad = false;
       if (ctx instanceof Builder builder) {
         bad |= !allowBuild && !builder.isRepoRulePackage();
-        bad |= !allowSymbolicMacros && builder.currentMacroFrame != null;
+        bad |= !allowFinalizers && builder.currentlyInFinalizer();
+        bad |= !allowNonFinalizerSymbolicMacros && builder.currentlyInNonFinalizerMacro();
         bad |= !allowWorkspace && builder.isRepoRulePackage();
         if (!bad) {
           return builder;
@@ -1331,8 +1346,14 @@ public class Package {
       }
       // Even if symbolic macros are allowed, don't mention them in the error message unless they
       // are enabled.
-      if (allowSymbolicMacros && symbolicMacrosEnabled) {
-        allowedUses.add("a symbolic macro");
+      if (symbolicMacrosEnabled) {
+        if (allowFinalizers && allowNonFinalizerSymbolicMacros) {
+          allowedUses.add("a symbolic macro");
+        } else if (allowFinalizers) {
+          allowedUses.add("a rule finalizer");
+        } else if (allowNonFinalizerSymbolicMacros) {
+          allowedUses.add("a non-finalizer symbolic macro");
+        }
       }
       if (allowWorkspace) {
         allowedUses.add("a WORKSPACE file");
@@ -1348,7 +1369,8 @@ public class Package {
           thread,
           what,
           /* allowBuild= */ true,
-          /* allowSymbolicMacros= */ true,
+          /* allowFinalizers= */ true,
+          /* allowNonFinalizerSymbolicMacros= */ true,
           /* allowWorkspace= */ true);
     }
 
@@ -1363,7 +1385,8 @@ public class Package {
           thread,
           what,
           /* allowBuild= */ true,
-          /* allowSymbolicMacros= */ false,
+          /* allowFinalizers= */ false,
+          /* allowNonFinalizerSymbolicMacros= */ false,
           /* allowWorkspace= */ false);
     }
 
@@ -1375,26 +1398,31 @@ public class Package {
           thread,
           what,
           /* allowBuild= */ false,
-          /* allowSymbolicMacros= */ false,
+          /* allowFinalizers= */ false,
+          /* allowNonFinalizerSymbolicMacros= */ false,
           /* allowWorkspace= */ true);
     }
 
     /**
-     * Convenience method for {@link #fromOrFail} that permits BUILD or WORKSPACE contexts (without
-     * symbolic macros).
+     * Convenience method for {@link #fromOrFail} that permits BUILD or WORKSPACE or rule finalizer
+     * contexts.
      */
     @CanIgnoreReturnValue
-    public static Builder fromOrFailDisallowSymbolicMacros(StarlarkThread thread, String what)
+    public static Builder fromOrFailDisallowNonFinalizerMacros(StarlarkThread thread, String what)
         throws EvalException {
       return fromOrFail(
           thread,
           what,
           /* allowBuild= */ true,
-          /* allowSymbolicMacros= */ false,
+          /* allowFinalizers= */ true,
+          /* allowNonFinalizerSymbolicMacros= */ false,
           /* allowWorkspace= */ true);
     }
 
-    /** Convenience method for {@link #fromOrFail} that permits BUILD or symbolic macro contexts. */
+    /**
+     * Convenience method for {@link #fromOrFail} that permits BUILD or symbolic macro contexts
+     * (including rule finalizers).
+     */
     @CanIgnoreReturnValue
     public static Builder fromOrFailDisallowWorkspace(StarlarkThread thread, String what)
         throws EvalException {
@@ -1402,7 +1430,8 @@ public class Package {
           thread,
           what,
           /* allowBuild= */ true,
-          /* allowSymbolicMacros= */ true,
+          /* allowFinalizers= */ true,
+          /* allowNonFinalizerSymbolicMacros= */ true,
           /* allowWorkspace= */ false);
     }
 
@@ -1754,13 +1783,16 @@ public class Package {
 
     /**
      * Returns a lightweight snapshot view of the names of all rule targets belonging to this
-     * package at the time of this call.
+     * package at the time of this call; in finalizer expansion stage, returns a lightweight
+     * snapshot view of only the non-finalizer-instantiated rule targets.
      *
      * @throws IllegalStateException if this method is called after {@link #beforeBuild} has been
      *     called.
      */
     Map<String, Rule> getRulesSnapshotView() {
-      if (targets instanceof SnapshottableBiMap<?, ?>) {
+      if (rulesSnapshotViewForFinalizers != null) {
+        return rulesSnapshotViewForFinalizers;
+      } else if (targets instanceof SnapshottableBiMap<?, ?>) {
         return Maps.transformValues(
             ((SnapshottableBiMap<String, Target>) targets).getTrackedSnapshot(),
             target -> (Rule) target);
@@ -2064,6 +2096,29 @@ public class Package {
     }
 
     /**
+     * Returns true if a symbolic macro is running and the current macro frame is not a rule
+     * finalizer.
+     *
+     * <p>Note that this function examines only the current macro frame, not any parent frames; and
+     * thus returns true even if the current non-finalizer macro was called within a finalizer
+     * macro.
+     */
+    public boolean currentlyInNonFinalizerMacro() {
+      return currentMacroFrame != null
+          ? !currentMacroFrame.macroInstance.getMacroClass().isFinalizer()
+          : false;
+    }
+
+    /**
+     * Returns true if a symbolic macro is running and the current macro frame is a rule finalizer.
+     */
+    public boolean currentlyInFinalizer() {
+      return currentMacroFrame != null
+          ? currentMacroFrame.macroInstance.getMacroClass().isFinalizer()
+          : false;
+    }
+
+    /**
      * Sets the current macro frame and returns the old one.
      *
      * <p>Either the new or old frame may be null, indicating no currently running symbolic macro.
@@ -2133,10 +2188,33 @@ public class Package {
 
       // Note that this operation is idempotent for symmetry with build()/buildPartial(). Though
       // it's not entirely clear that this is necessary.
-      while (!unexpandedMacros.isEmpty()) { // NB: collection mutated by body
-        String id = unexpandedMacros.iterator().next();
-        MacroInstance macro = macros.get(id);
-        MacroClass.executeMacroImplementation(macro, this, semantics);
+
+      // TODO: #19922 - Once compatibility with native.existing_rules() in legacy macros is no
+      // longer a concern, we will want to support delayed expansion of non-finalizer macros before
+      // the finalizer expansion step.
+
+      // Finalizer expansion step.
+      if (!unexpandedMacros.isEmpty()) {
+        Preconditions.checkState(
+            unexpandedMacros.stream().allMatch(id -> macros.get(id).getMacroClass().isFinalizer()),
+            "At the beginning of finalizer expansion, unexpandedMacros must contain only"
+                + " finalizers");
+
+        // Save a snapshot of rule targets for use by native.existing_rules() inside all finalizers.
+        // We must take this snapshot before calling any finalizer because the snapshot must not
+        // include any rule instantiated by a finalizer or macro called from a finalizer.
+        if (rulesSnapshotViewForFinalizers == null) {
+          Preconditions.checkState(
+              targets instanceof SnapshottableBiMap<?, ?>,
+              "Cannot call expandAllRemainingMacros() after beforeBuild() has been called");
+          rulesSnapshotViewForFinalizers = getRulesSnapshotView();
+        }
+
+        while (!unexpandedMacros.isEmpty()) { // NB: collection mutated by body
+          String id = unexpandedMacros.iterator().next();
+          MacroInstance macro = macros.get(id);
+          MacroClass.executeMacroImplementation(macro, this, semantics);
+        }
       }
     }
 
@@ -2169,6 +2247,7 @@ public class Package {
       // getRulesSnapshotView calls will throw.
       if (targets instanceof SnapshottableBiMap<?, ?>) {
         targets = ((SnapshottableBiMap<String, Target>) targets).getUnderlyingBiMap();
+        rulesSnapshotViewForFinalizers = null;
       }
 
       // We create an InputFile corresponding to the BUILD file in Builder's constructor. However,
