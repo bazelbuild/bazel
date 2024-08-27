@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
+import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContextImpl;
@@ -108,7 +110,10 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
       return new Key(new TargetAndConfiguration(target, config));
     }
 
-    private static class Key extends AbstractSkyKey<TargetAndConfiguration> {
+    // This is an ActionLookupKey to identify it as a "analysis object" from the point of view of
+    // serialization testing frameworks. See b/355401678 for more information.
+    private static class Key extends AbstractSkyKey<TargetAndConfiguration>
+        implements ActionLookupKey {
       private Key(TargetAndConfiguration arg) {
         super(arg);
       }
@@ -116,6 +121,20 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
       @Override
       public SkyFunctionName functionName() {
         return SKYFUNCTION_NAME;
+      }
+
+      @Nullable
+      @Override
+      public BuildConfigurationKey getConfigurationKey() {
+        // Technically unused, but needed to mark this key as an ActionLookupKey.
+        return arg.getConfiguration().getKey();
+      }
+
+      @Nullable
+      @Override
+      public Label getLabel() {
+        // Technically unused, but needed to mark this key as an ActionLookupKey.
+        return arg.getLabel();
       }
     }
 
