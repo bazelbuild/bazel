@@ -38,7 +38,7 @@ public final class SymlinkTreeHelperTest {
       new InMemoryFileSystem(DigestHashFunction.SHA256) {
         @Override
         @Nullable
-        protected String getJavaPathString(PathFragment path) {
+        public String getJavaPathString(PathFragment path) {
           // Needed for SymlinkTreeHelper#createCommand.
           return path.getPathString();
         }
