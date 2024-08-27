@@ -151,16 +151,15 @@ public class Package {
    *
    * <p>Initialized by the builder in {@link #finishInit}.
    */
-  // TODO(#19922): ensure this map is serialized/deserialized; the builder might not initialize it
-  // in {@link #finishInit} when name conflict checking is disabled.
   @Nullable private ImmutableMap<String, String> macroNamespaceViolatingTargets;
 
   /**
    * A map from names of targets declared in a symbolic macro to the (innermost) macro instance
    * where they were declared.
    */
-  // TODO: #19922 - This likely subsumes macroNamespaceViolatingTargets, since we can just map the
-  // target to its macro and then check whether it is in the macro's namespace.
+  // TODO: #19922 - If this field were made serializable (currently it's not), it would subsume
+  // macroNamespaceViolatingTargets, since we can just map the target to its macro and then check
+  // whether it is in the macro's namespace.
   //
   // TODO: #19922 - Don't maintain this extra map of all macro-instantiated targets. We have a
   // couple options:
@@ -634,16 +633,26 @@ public class Package {
   }
 
   /**
+   * Returns a map from names of targets declared in a symbolic macro which violate macro naming
+   * rules, such as "lib%{name}-src.jar" implicit outputs in java rules, to the name of the macro
+   * instance where they were declared.
+   */
+  ImmutableMap<String, String> getMacroNamespaceViolatingTargets() {
+    Preconditions.checkNotNull(
+        macroNamespaceViolatingTargets,
+        "This method is only available after the package has been loaded.");
+    return macroNamespaceViolatingTargets;
+  }
+
+  /**
    * Throws {@link MacroNamespaceViolationException} if the given target (which must be a member of
    * this package) violates macro naming rules.
    */
   public void checkMacroNamespaceCompliance(Target target) throws MacroNamespaceViolationException {
-    Preconditions.checkNotNull(
-        macroNamespaceViolatingTargets,
-        "This method is only available after the package has been loaded.");
     Preconditions.checkArgument(
         this.equals(target.getPackage()), "Target must belong to this package");
-    @Nullable String macroNamespaceViolated = macroNamespaceViolatingTargets.get(target.getName());
+    @Nullable
+    String macroNamespaceViolated = getMacroNamespaceViolatingTargets().get(target.getName());
     if (macroNamespaceViolated != null) {
       throw new MacroNamespaceViolationException(
           String.format(
@@ -1144,7 +1153,8 @@ public class Package {
      * <p>This field is null if name conflict checking is disabled. The content of the map is
      * manipulated only in {@link #checkRuleAndOutputs}.
      */
-    @Nullable private Map<String, String> macroNamespaceViolatingTargets = new HashMap<>();
+    @Nullable
+    private LinkedHashMap<String, String> macroNamespaceViolatingTargets = new LinkedHashMap<>();
 
     /**
      * A map from target name to the (innermost) macro instance that declared it. See {@link
@@ -2533,6 +2543,20 @@ public class Package {
         macroNamespaceViolatingTargets.put(
             target.getName(), currentMacroFrame.macroInstance.getName());
       }
+    }
+
+    /**
+     * Add all given map entries to the builder's map from names of targets declared in a symbolic
+     * macro which violate macro naming rules to the name of the macro instance where they were
+     * declared.
+     *
+     * <p>Intended to be used for package deserialization.
+     */
+    void putAllMacroNamespaceViolatingTargets(Map<String, String> macroNamespaceViolatingTargets) {
+      if (this.macroNamespaceViolatingTargets == null) {
+        this.macroNamespaceViolatingTargets = new LinkedHashMap<>();
+      }
+      this.macroNamespaceViolatingTargets.putAll(macroNamespaceViolatingTargets);
     }
 
     /**
