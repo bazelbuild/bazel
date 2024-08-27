@@ -58,11 +58,11 @@ public final class StringUnsafeTest {
   }
 
   @Test
-  public void testHasNonAsciiChars() {
+  public void testIsAscii() {
     StringUnsafe stringUnsafe = StringUnsafe.getInstance();
-    assertThat(stringUnsafe.hasNonAsciiChars("")).isFalse();
-    assertThat(stringUnsafe.hasNonAsciiChars("hello")).isFalse();
-    assertThat(stringUnsafe.hasNonAsciiChars("hällo")).isTrue();
-    assertThat(stringUnsafe.hasNonAsciiChars("h👋llo")).isTrue();
+    assertThat(stringUnsafe.isAscii("")).isTrue();
+    assertThat(stringUnsafe.isAscii("hello")).isTrue();
+    assertThat(stringUnsafe.isAscii("hällo")).isFalse();
+    assertThat(stringUnsafe.isAscii("h👋llo")).isFalse();
   }
 }

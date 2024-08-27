@@ -140,7 +140,7 @@ public class StringUtil {
    * terminal.
    */
   public static String reencodeInternalToExternal(String maybeUtf8) {
-    if (!StringUnsafe.getInstance().hasNonAsciiChars(maybeUtf8)) {
+    if (StringUnsafe.getInstance().isAscii(maybeUtf8)) {
       return maybeUtf8;
     }
 
@@ -177,7 +177,7 @@ public class StringUtil {
    * <p>See {@link #reencodeInternalToExternal} for motivation.
    */
   public static String reencodeExternalToInternal(String unicode) {
-    if (!StringUnsafe.getInstance().hasNonAsciiChars(unicode)) {
+    if (StringUnsafe.getInstance().isAscii(unicode)) {
       return unicode;
     }
     final byte[] utf8 = unicode.getBytes(UTF_8);

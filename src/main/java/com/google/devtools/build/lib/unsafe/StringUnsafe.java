@@ -95,8 +95,8 @@ public final class StringUnsafe {
     return (byte[]) unsafe().getObject(obj, valueOffset);
   }
 
-  /** Returns whether the string contains non-ASCII characters. */
-  public boolean hasNonAsciiChars(String obj) {
+  /** Returns whether the string is ASCII-only. */
+  public boolean isAscii(String obj) {
     // This implementation uses java.lang.StringCoding#hasNegatives, which is implemented as a JVM
     // intrinsic. On a machine with 512-bit SIMD registers, this is 5x as fast as a naive loop
     // over getByteArray(obj), which in turn is 5x as fast as obj.chars().anyMatch(c -> c > 0x7F) in
@@ -104,11 +104,11 @@ public final class StringUnsafe {
 
     if (getCoder(obj) != LATIN1) {
       // Latin-1 is a super-set of ASCII, so we must have non-ASCII characters.
-      return true;
+      return false;
     }
     byte[] bytes = getByteArray(obj);
     try {
-      return (boolean) hasNegatives.invokeExact(bytes, 0, bytes.length);
+      return !(boolean) hasNegatives.invokeExact(bytes, 0, bytes.length);
     } catch (Throwable t) {
       // hasNegatives doesn't throw.
       throw new IllegalStateException(t);
