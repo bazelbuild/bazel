@@ -1310,6 +1310,20 @@ EOF
   shutdown_server
 }
 
+function test_integrity_ill_formed_base64() {
+  cat >> $(create_workspace_with_default_repos WORKSPACE) <<EOF
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+http_archive(
+    name = "repo",
+    integrity = "sha256-Yab3Yqr2BlLL8zKHm43MLP2BviEpoGHalX0Dnq538L=",
+    url = "file:///dev/null",
+)
+EOF
+  bazel build @repo//... &> $TEST_log 2>&1 && fail "Expected to fail"
+  expect_log "Invalid base64 'Yab3Yqr2BlLL8zKHm43MLP2BviEpoGHalX0Dnq538L='"
+  shutdown_server
+}
+
 function test_same_name() {
   mkdir ext
   echo foo> ext/foo
