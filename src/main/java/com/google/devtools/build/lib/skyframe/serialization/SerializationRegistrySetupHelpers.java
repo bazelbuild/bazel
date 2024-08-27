@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.packages.BazelStarlarkEnvironment;
 import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.RemoteConfiguredTargetValue;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.function.Supplier;
@@ -128,6 +129,7 @@ public final class SerializationRegistrySetupHelpers {
           .add(PackageIdentifier.valueSharingCodec())
           .add(ConfiguredTargetKey.valueSharingCodec())
           .add(TransitiveInfoProviderMapImpl.valueSharingCodec())
+          .add(RemoteConfiguredTargetValue.codec())
           .addAll(ArtifactCodecs.VALUE_SHARING_CODECS)
           .build();
 
