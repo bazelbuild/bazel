@@ -56,4 +56,13 @@ public final class StringUnsafeTest {
     assertThat(stringUnsafe.newInstance(stringUnsafe.getByteArray(s), stringUnsafe.getCoder(s)))
         .isEqualTo("hello");
   }
+
+  @Test
+  public void testHasNonAsciiChars() {
+    StringUnsafe stringUnsafe = StringUnsafe.getInstance();
+    assertThat(stringUnsafe.hasNonAsciiChars("")).isFalse();
+    assertThat(stringUnsafe.hasNonAsciiChars("hello")).isFalse();
+    assertThat(stringUnsafe.hasNonAsciiChars("hällo")).isTrue();
+    assertThat(stringUnsafe.hasNonAsciiChars("h👋llo")).isTrue();
+  }
 }

@@ -314,7 +314,10 @@ java_library(
         "StringUtil.java",
         "StringUtilities.java",
     ],
-    deps = ["//third_party:guava"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
+        "//third_party:guava",
+    ],
 )
 
 java_library(

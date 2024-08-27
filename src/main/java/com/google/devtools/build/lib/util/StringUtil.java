@@ -19,6 +19,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import java.util.Collection;
 import java.util.Iterator;
 
@@ -139,7 +140,7 @@ public class StringUtil {
    * terminal.
    */
   public static String reencodeInternalToExternal(String maybeUtf8) {
-    if (maybeUtf8.chars().allMatch(c -> c < 128)) {
+    if (!StringUnsafe.getInstance().hasNonAsciiChars(maybeUtf8)) {
       return maybeUtf8;
     }
 
@@ -176,7 +177,7 @@ public class StringUtil {
    * <p>See {@link #reencodeInternalToExternal} for motivation.
    */
   public static String reencodeExternalToInternal(String unicode) {
-    if (unicode.chars().allMatch(c -> c < 128)) {
+    if (!StringUnsafe.getInstance().hasNonAsciiChars(unicode)) {
       return unicode;
     }
     final byte[] utf8 = unicode.getBytes(UTF_8);

@@ -25,6 +25,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -86,7 +87,8 @@ public abstract class AbstractFileSystem extends FileSystem {
     String pathString = path.getPathString();
     // Every reasonable charset is compatible with ASCII and most paths are ASCII, so avoid any
     // conversion if possible.
-    if (JAVA_PATH_CHARSET != ISO_8859_1 && pathString.chars().anyMatch(c -> c >= 128)) {
+    if (JAVA_PATH_CHARSET != ISO_8859_1
+        && StringUnsafe.getInstance().hasNonAsciiChars(pathString)) {
       pathString = new String(pathString.getBytes(ISO_8859_1), JAVA_PATH_CHARSET);
     }
     return pathString;
