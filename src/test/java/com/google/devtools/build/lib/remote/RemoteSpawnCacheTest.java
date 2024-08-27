@@ -95,7 +95,9 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Set;
 import java.util.SortedMap;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
@@ -792,9 +794,13 @@ public class RemoteSpawnCacheTest {
     RemoteExecutionService remoteExecutionService = cache.getRemoteExecutionService();
     CountDownLatch enteredWaitForAndReuseOutputs = new CountDownLatch(1);
     CountDownLatch completeWaitForAndReuseOutputs = new CountDownLatch(1);
+    CountDownLatch enteredUploadOutputs = new CountDownLatch(1);
+    Set<Spawn> spawnsThatWaitedForOutputReuse = ConcurrentHashMap.newKeySet();
     Mockito.doAnswer(
             (Answer<SpawnResult>)
                 invocation -> {
+                  spawnsThatWaitedForOutputReuse.add(
+                      ((RemoteAction) invocation.getArgument(0)).getSpawn());
                   enteredWaitForAndReuseOutputs.countDown();
                   completeWaitForAndReuseOutputs.await();
                   return (SpawnResult) invocation.callRealMethod();
@@ -804,7 +810,14 @@ public class RemoteSpawnCacheTest {
     // Simulate a very slow upload to the remote cache to ensure that the second spawn is
     // deduplicated rather than a cache hit. This is a slight hack, but also avoids introducing
     // more concurrency to this test.
-    Mockito.doNothing().when(remoteExecutionService).uploadOutputs(any(), any(), any());
+    Mockito.doAnswer(
+            (Answer<Void>)
+                invocation -> {
+                  enteredUploadOutputs.countDown();
+                  return null;
+                })
+        .when(remoteExecutionService)
+        .uploadOutputs(any(), any(), any());
 
     // act
     // Simulate the first spawn writing to the output, but delay its completion.
@@ -847,12 +860,9 @@ public class RemoteSpawnCacheTest {
               }
             });
     completeFirstSpawn.start();
-    // Make it more likely to detect races by waiting for this thread to make as much progress as
-    // possible before letting the second spawn continue.
-    while (completeFirstSpawn.getState().compareTo(Thread.State.WAITING) < 0) {
-      Thread.sleep(10);
-    }
-    assertThat(completeFirstSpawn.getState()).isEqualTo(Thread.State.WAITING);
+    // Make it more likely to detect races by waiting for the first spawn to (fake) upload its
+    // outputs.
+    enteredUploadOutputs.await();
 
     // Let the second spawn complete its output reuse.
     completeWaitForAndReuseOutputs.countDown();
@@ -862,6 +872,7 @@ public class RemoteSpawnCacheTest {
     completeFirstSpawn.join();
 
     // assert
+    assertThat(spawnsThatWaitedForOutputReuse).containsExactly(secondSpawn);
     assertThat(secondCacheHandle.hasResult()).isTrue();
     assertThat(secondCacheHandle.getResult().getRunnerName()).isEqualTo("deduplicated");
     assertThat(
