@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.Map;
+import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -33,7 +34,15 @@ import org.junit.runners.JUnit4;
 /** Unit tests for {@link SymlinkTreeHelper}. */
 @RunWith(JUnit4.class)
 public final class SymlinkTreeHelperTest {
-  private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+  private final FileSystem fs =
+      new InMemoryFileSystem(DigestHashFunction.SHA256) {
+        @Override
+        @Nullable
+        protected String getJavaPathString(PathFragment path) {
+          // Needed for SymlinkTreeHelper#createCommand.
+          return path.getPathString();
+        }
+      };
 
   @Test
   public void checkCreatedSpawn() {

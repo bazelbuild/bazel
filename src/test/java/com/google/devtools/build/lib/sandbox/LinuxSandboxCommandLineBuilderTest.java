@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.List;
 import org.junit.Before;
@@ -180,7 +181,7 @@ public final class LinuxSandboxCommandLineBuilderTest {
             .setUseFakeUsername(useFakeUsername)
             .setSandboxDebugPath(sandboxDebugPath.getPathString())
             .setPersistentProcess(true)
-            .setCgroupsDirs(ImmutableSet.of(cgroupsDir.getPathFile().toPath()))
+            .setCgroupsDirs(ImmutableSet.of(Paths.get(cgroupsDir.getPathString())))
             .buildForCommand(commandArguments);
 
     assertThat(commandLine).containsExactlyElementsIn(expectedCommandLine).inOrder();

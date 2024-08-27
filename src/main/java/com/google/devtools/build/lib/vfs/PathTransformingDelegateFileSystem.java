@@ -21,6 +21,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.SeekableByteChannel;
 import java.util.Collection;
+import javax.annotation.Nullable;
 
 /**
  * FileSystem implementation which delegates all operations to a provided instance with a
@@ -282,6 +283,12 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
   @Override
   protected void prefetchPackageAsync(PathFragment path, int maxDirs) {
     delegateFs.prefetchPackageAsync(toDelegatePath(path), maxDirs);
+  }
+
+  @Nullable
+  @Override
+  protected String getJavaPathString(PathFragment path) {
+    return delegateFs.getJavaPathString(toDelegatePath(path));
   }
 
   /** Transform original path to a different one to be used with the {@code delegateFs}. */
