@@ -1620,6 +1620,7 @@ def _impl(ctx):
             default_link_libs_feature,
             external_include_paths_feature,
             fdo_optimize_feature,
+            supports_dynamic_linker_feature,
             dbg_feature,
             opt_feature,
             user_compile_flags_feature,
