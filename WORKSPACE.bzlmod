@@ -46,9 +46,3 @@ bind(
 #   3. Uncomment the line below
 #
 # android_sdk_repository(name = "androidsdk")
-
-# Introduce the "kythe_release" repo for Kythe build.
-local_repository(
-    name = "kythe_release",
-    path = "/usr/local/kythe",
-)

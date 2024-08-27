@@ -358,6 +358,7 @@ use_repo(
     bazel_test_deps,
     "local_bazel_source_list",
     "local_config_winsdk",
+    "kythe_release",
 )
 
 bazel_rbe_deps = use_extension("//:rbe_extension.bzl", "bazel_rbe_deps")
