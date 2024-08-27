@@ -103,7 +103,7 @@ public final class StringUnsafe {
     // a JMH benchmark.
 
     if (getCoder(obj) != LATIN1) {
-      // Latin-1 is a super-set of ASCII, so we must have non-ASCII characters.
+      // Latin-1 is a superset of ASCII, so we must have non-ASCII characters.
       return false;
     }
     byte[] bytes = getByteArray(obj);

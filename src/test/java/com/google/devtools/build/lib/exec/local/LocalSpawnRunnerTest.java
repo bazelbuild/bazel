@@ -243,7 +243,7 @@ public class LocalSpawnRunnerTest {
     return new InMemoryFileSystem(DigestHashFunction.SHA256) {
       @Override
       @Nullable
-      protected String getJavaPathString(PathFragment path) {
+      public String getJavaPathString(PathFragment path) {
         // InMemoryFileSystem usually returns null from this method as it isn't backed by an on-disk
         // filesystem, but that tickles some tests.
         return path.getPathString();
