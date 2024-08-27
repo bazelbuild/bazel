@@ -747,7 +747,7 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   @Nullable
-  protected String getJavaPathString(PathFragment path) {
+  public String getJavaPathString(PathFragment path) {
     return null;
   }
 

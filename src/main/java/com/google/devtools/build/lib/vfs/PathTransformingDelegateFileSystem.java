@@ -287,7 +287,7 @@ public abstract class PathTransformingDelegateFileSystem extends FileSystem {
 
   @Nullable
   @Override
-  protected String getJavaPathString(PathFragment path) {
+  public String getJavaPathString(PathFragment path) {
     return delegateFs.getJavaPathString(toDelegatePath(path));
   }
 

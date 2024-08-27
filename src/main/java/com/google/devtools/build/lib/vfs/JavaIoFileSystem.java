@@ -107,7 +107,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_DIR, file.getPath());
     }
-    return Lists.transform(Arrays.asList(entries), AbstractFileSystem::fromJavaIoString);
+    return Lists.transform(Arrays.asList(entries), this::fromJavaIoString);
   }
 
   @Override

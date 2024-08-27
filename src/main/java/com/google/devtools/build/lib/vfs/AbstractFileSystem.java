@@ -83,7 +83,7 @@ public abstract class AbstractFileSystem extends FileSystem {
   }
 
   @Override
-  protected String getJavaPathString(PathFragment path) {
+  public String getJavaPathString(PathFragment path) {
     return toJavaIoString(path.getPathString());
   }
 
@@ -91,7 +91,7 @@ public abstract class AbstractFileSystem extends FileSystem {
    * Reencodes a Bazel internal path string into the equivalent representation for Java (N)IO
    * methods, if necessary.
    */
-  protected static String toJavaIoString(String s) {
+  protected String toJavaIoString(String s) {
     // Every reasonable charset is compatible with ASCII and most paths are ASCII, so avoid any
     // conversion if possible.
     if (JAVA_PATH_CHARSET == ISO_8859_1 || StringUnsafe.getInstance().isAscii(s)) {
@@ -104,7 +104,7 @@ public abstract class AbstractFileSystem extends FileSystem {
    * Reencodes a path string obtained from Java (N)IO methods into Bazel's internal string
    * representation, if necessary.
    */
-  protected static String fromJavaIoString(String s) {
+  protected String fromJavaIoString(String s) {
     // Every reasonable charset is compatible with ASCII and most paths are ASCII, so avoid any
     // conversion if possible.
     if (JAVA_PATH_CHARSET == ISO_8859_1 || StringUnsafe.getInstance().isAscii(s)) {

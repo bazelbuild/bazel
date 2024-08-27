@@ -829,7 +829,7 @@ public abstract class FileSystem {
    * if this file system doesn't support access through Java APIs.
    */
   @Nullable
-  protected String getJavaPathString(PathFragment path) {
+  public String getJavaPathString(PathFragment path) {
     return null;
   }
 }

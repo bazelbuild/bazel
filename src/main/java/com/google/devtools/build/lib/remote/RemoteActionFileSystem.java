@@ -908,6 +908,11 @@ public class RemoteActionFileSystem extends AbstractFileSystemWithCustomStat
     localFs.getPath(linkPath).createHardLink(getPath(originalPath));
   }
 
+  @Override
+  public String getJavaPathString(PathFragment path) {
+    return localFs.getJavaPathString(path);
+  }
+
   static class RemoteInMemoryFileSystem extends InMemoryFileSystem {
 
     public RemoteInMemoryFileSystem(DigestHashFunction hashFunction) {
