@@ -106,7 +106,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         platform(name = "execution_platform_2")
         """);
 
-    rewriteWorkspace("register_execution_platforms('//extra:execution_platform_2')");
+    rewriteModuleDotBazel("register_execution_platforms('//extra:execution_platform_2')");
     useConfiguration("--extra_execution_platforms=//extra:execution_platform_1");
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
@@ -164,7 +164,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         platform(name = "execution_platform_2")
         """);
 
-    rewriteWorkspace("register_execution_platforms('//extra/...')");
+    rewriteModuleDotBazel("register_execution_platforms('//extra/...')");
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
@@ -198,7 +198,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         alias(name = "alias_platform_2", actual = "//extra:execution_platform_2");
         """);
 
-    rewriteWorkspace("register_execution_platforms('//alias/...')");
+    rewriteModuleDotBazel("register_execution_platforms('//alias/...')");
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
@@ -215,6 +215,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
   @Test
   public void testRegisteredExecutionPlatforms_targetPattern_otherRepo() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     scratch.file("myrepo/WORKSPACE", "workspace(name='myrepo')");
     scratch.file("myrepo/BUILD");
     scratch.file(
@@ -258,7 +259,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         filegroup(name = "not_an_execution_platform")
         """);
 
-    rewriteWorkspace("register_execution_platforms('//extra:all')");
+    rewriteModuleDotBazel("register_execution_platforms('//extra:all')");
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
@@ -306,7 +307,8 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
   @Test
   public void testRegisteredExecutionPlatforms_notExecutionPlatform() throws Exception {
-    rewriteWorkspace("register_execution_platforms(", "    '//error:not_an_execution_platform')");
+    rewriteModuleDotBazel(
+        "register_execution_platforms(", "    '//error:not_an_execution_platform')");
     // Have to use a rule that doesn't require a target platform, or else there will be a cycle.
     scratch.file("error/BUILD", "toolchain_type(name = 'not_an_execution_platform')");
 
@@ -336,7 +338,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         platform(name = "execution_platform_2")
         """);
 
-    rewriteWorkspace("register_execution_platforms('//platform:execution_platform_1')");
+    rewriteModuleDotBazel("register_execution_platforms('//platform:execution_platform_1')");
 
     SkyKey executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     EvaluationResult<RegisteredExecutionPlatformsValue> result =
@@ -346,7 +348,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
         .contains(Label.parseCanonicalUnchecked("//platform:execution_platform_1"));
 
     // Re-write the WORKSPACE.
-    rewriteWorkspace("register_execution_platforms('//platform:execution_platform_2')");
+    rewriteModuleDotBazel("register_execution_platforms('//platform:execution_platform_2')");
 
     executionPlatformsKey = RegisteredExecutionPlatformsValue.key(targetConfigKey);
     result = requestExecutionPlatformsFromSkyframe(executionPlatformsKey);
@@ -357,6 +359,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
 
   @Test
   public void testRegisteredExecutionPlatforms_bzlmod() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     scratch.overwriteFile(
         "MODULE.bazel",
         "register_execution_platforms('//:plat')",
@@ -467,7 +470,7 @@ public class RegisteredExecutionPlatformsFunctionTest extends ToolchainTestCase 
    */
   @Test
   public void testInvalidExecutionPlatformLabelDoesntCrash() throws Exception {
-    rewriteWorkspace("register_execution_platforms('//test:bad_exec_platform_label')");
+    rewriteModuleDotBazel("register_execution_platforms('//test:bad_exec_platform_label')");
     scratch.file(
         "test/BUILD", "genrule(name = 'g', srcs = [], outs = ['g.out'], cmd = 'echo hi > $@')");
     reporter.removeHandler(failFastHandler);

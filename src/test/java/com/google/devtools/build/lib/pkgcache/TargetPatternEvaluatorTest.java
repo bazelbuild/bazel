@@ -670,6 +670,7 @@ public class TargetPatternEvaluatorTest extends AbstractTargetPatternEvaluatorTe
 
   @Test
   public void testExternalPackage() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     parseList("external:all");
   }
 

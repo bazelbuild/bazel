@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -225,6 +226,8 @@ public abstract class AnalysisMock extends LoadingMock {
 
   public abstract void setupPrelude(MockToolsConfig mockToolsConfig) throws IOException;
 
+  public abstract BlazeModule getBazelRepositoryModule(BlazeDirectories directories);
+
   /**
    * Stub class for tests to extend in order to update a small amount of {@link AnalysisMock}
    * functionality.
@@ -320,6 +323,11 @@ public abstract class AnalysisMock extends LoadingMock {
     public void addExtraRepositoryFunctions(
         ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers) {
       delegate.addExtraRepositoryFunctions(repositoryHandlers);
+    }
+
+    @Override
+    public BlazeModule getBazelRepositoryModule(BlazeDirectories directories) {
+      return delegate.getBazelRepositoryModule(directories);
     }
   }
 }

@@ -4425,7 +4425,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   @Test
   @SuppressWarnings("unchecked")
   public void initializer_nativeModule() throws Exception {
-    scratch.appendFile("MODULE.bazel", "module(name = 'my_mod', version = '1.2.3')");
+    scratch.overwriteFile("MODULE.bazel", "module(name = 'my_mod', version = '1.2.3')");
     scratch.file("initializer_testing/rules/BUILD");
     scratch.file(
         "initializer_testing/rules/b.bzl",

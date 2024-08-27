@@ -143,7 +143,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    //java/android/platforms:armv7",
         "  --cpu=x86",
         "    //java/android/platforms:x86");
-    setBuildLanguageOptions("--experimental_google_legacy_api");
+    setBuildLanguageOptions("--experimental_google_legacy_api", "--enable_workspace");
   }
 
   @Test

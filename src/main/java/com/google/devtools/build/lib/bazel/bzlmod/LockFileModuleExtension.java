@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableTable;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
 import java.util.Optional;
 
@@ -93,6 +94,7 @@ public abstract class LockFileModuleExtension implements Postable {
    * A {@link LockFileModuleExtension} together with its {@link ModuleExtensionEvalFactors},
    * comprising a single lockfile entry for a certain extension.
    */
+  @AutoCodec
   public record WithFactors(
       ModuleExtensionEvalFactors extensionFactors, LockFileModuleExtension moduleExtension) {}
 }

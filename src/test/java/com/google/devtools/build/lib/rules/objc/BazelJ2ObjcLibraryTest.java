@@ -62,7 +62,6 @@ import com.google.devtools.build.lib.rules.cpp.CppModuleMapAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.rules.cpp.UmbrellaHeaderAction;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import java.io.ByteArrayOutputStream;
@@ -354,7 +353,7 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
 
   @Test
   public void testJavaProtoLibraryWithProtoLibrary_external() throws Exception {
-    scratch.file("/bla/WORKSPACE");
+    scratch.file("/bla/MODULE.bazel", "module(name='bla')");
     // Create the rule '@bla//foo:test_proto'.
     scratch.file(
         "/bla/foo/BUILD",
@@ -369,10 +368,10 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         "    deps = [':test_proto'])",
         "");
 
-    String existingWorkspace =
-        new String(FileSystemUtils.readContentAsLatin1(rootDirectory.getRelative("WORKSPACE")));
-    scratch.overwriteFile(
-        "WORKSPACE", "local_repository(name = 'bla', path = '/bla/')", existingWorkspace);
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name='bla')",
+        "local_path_override(module_name = 'bla', path = '/bla/')");
     invalidatePackages(); // A dash of magic to re-evaluate the WORKSPACE file.
 
     scratch.file(
@@ -397,21 +396,21 @@ public class BazelJ2ObjcLibraryTest extends J2ObjcLibraryTest {
         getArtifacts(j2ObjcMappingFileInfo, "class_mapping_files");
 
     assertThat(classMappingFilesList.get(0).getExecPathString())
-        .containsMatch("/darwin_x86_64-fastbuild/bin/external/bla/foo/test.clsmap.properties");
+        .containsMatch("/darwin_x86_64-fastbuild/bin/external/bla\\+/foo/test.clsmap.properties");
 
     StarlarkInfo objcProvider = getObjcInfo(target);
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
 
     assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList().toString())
-        .containsMatch("/darwin_x86_64-fastbuild/bin]external/bla/foo/test.j2objc.pb.h");
+        .containsMatch("/darwin_x86_64-fastbuild/bin]external/bla\\+/foo/test.j2objc.pb.h");
     assertThat(getSource(objcProvider).toString())
-        .containsMatch("/darwin_x86_64-fastbuild/bin]external/bla/foo/test.j2objc.pb.m");
+        .containsMatch("/darwin_x86_64-fastbuild/bin]external/bla\\+/foo/test.j2objc.pb.m");
     assertThat(ccCompilationContext.getIncludeDirs())
         .contains(
             getConfiguration(target)
-                .getGenfilesFragment(RepositoryName.create("bla"))
-                .getRelative("external/bla"));
+                .getGenfilesFragment(RepositoryName.create("bla+"))
+                .getRelative("external/bla+"));
   }
 
   @Test

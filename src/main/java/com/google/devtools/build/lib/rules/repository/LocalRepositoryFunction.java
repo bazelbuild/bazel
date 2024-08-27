@@ -38,6 +38,11 @@ public class LocalRepositoryFunction extends RepositoryFunction {
   }
 
   @Override
+  protected void setupRepoRootBeforeFetching(Path repoRoot) throws RepositoryFunctionException {
+    // Repo setup is already handled in RepositoryDelegatorFunction.symlinkRepoRoot
+  }
+
+  @Override
   public RepositoryDirectoryValue.Builder fetch(
       Rule rule,
       Path outputDirectory,

@@ -145,12 +145,11 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
     }
 
     // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
-    rewriteWorkspace("workspace(name='aaa_ws')");
+    invalidatePackages();
 
     assertThat(getRepoMappingManifestForTarget("//:aaa"))
         .containsExactly(
             ",aaa," + getRuleClassProvider().getRunfilesPrefix(),
-            ",aaa_ws," + getRuleClassProvider().getRunfilesPrefix(),
             ",bbb,bbb+",
             "bbb+,bbb,bbb+",
             "bbb+,ddd,ddd+",
@@ -215,11 +214,10 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
         "tooled_binary(name='tooled')");
 
     // Called last as it triggers package invalidation, which requires a valid MODULE.bazel setup.
-    rewriteWorkspace("workspace(name='main')");
+    invalidatePackages();
 
     assertThat(getRepoMappingManifestForTarget("//:tooled"))
         .containsExactly(
-            ",main," + getRuleClassProvider().getRunfilesPrefix(),
             "bare_rule+,bare_rule,bare_rule+",
             "tooled_rule+,bare_rule,bare_rule+")
         .inOrder();
@@ -227,6 +225,7 @@ public class RunfilesRepoMappingManifestTest extends BuildViewTestCase {
 
   @Test
   public void actionRerunsOnRepoMappingChange_workspaceName() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     overwriteWorkspaceFile("workspace(name='aaa_ws')");
     scratch.overwriteFile(
         "MODULE.bazel",

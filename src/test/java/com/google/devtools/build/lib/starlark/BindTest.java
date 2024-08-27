@@ -91,6 +91,7 @@ public class BindTest extends BuildViewTestCase {
 
   @Test
   public void testFilesToBuild() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     invalidatePackages();
     ConfiguredTarget giraffeTarget = getConfiguredTarget("//test:giraffe");
     Artifact giraffeArtifact =

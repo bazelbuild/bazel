@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import java.io.IOException;
 import java.util.List;
 import net.starlark.java.eval.NoneType;
@@ -152,17 +151,13 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   @Test
   public void testExternalRepoLabelWorkspaceRoot_subdirRepoLayout() throws Exception {
     scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name='r', path='/r')")
-            .build());
+        "MODULE.bazel", "bazel_dep(name='r')", "local_path_override(module_name='r', path='/r')");
 
-    scratch.file("/r/WORKSPACE");
+    scratch.file("/r/MODULE.bazel", "module(name='r')");
     scratch.file(
         "/r/test/starlark/extension.bzl",
         """
-        load('@//myinfo:myinfo.bzl', 'MyInfo')
+        load('@@//myinfo:myinfo.bzl', 'MyInfo')
         def _impl(ctx):
           return [MyInfo(result = ctx.label.workspace_root)]
         my_rule = rule(implementation = _impl, attrs = { })
@@ -177,25 +172,21 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     // Required since we have a new WORKSPACE file.
     invalidatePackages(true);
 
-    ConfiguredTarget myTarget = getConfiguredTarget("@r//:t");
+    ConfiguredTarget myTarget = getConfiguredTarget("@@r+//:t");
     String result = (String) getMyInfoFromTarget(myTarget).getValue("result");
-    assertThat(result).isEqualTo("external/r");
+    assertThat(result).isEqualTo("external/r+");
   }
 
   @Test
   public void testExternalRepoLabelWorkspaceRoot_siblingRepoLayout() throws Exception {
     scratch.overwriteFile(
-        "WORKSPACE",
-        new ImmutableList.Builder<String>()
-            .addAll(analysisMock.getWorkspaceContents(mockToolsConfig))
-            .add("local_repository(name='r', path='/r')")
-            .build());
+        "MODULE.bazel", "bazel_dep(name='r')", "local_path_override(module_name='r', path='/r')");
 
-    scratch.file("/r/WORKSPACE");
+    scratch.file("/r/MODULE.bazel", "module(name='r')");
     scratch.file(
         "/r/test/starlark/extension.bzl",
         """
-        load('@//myinfo:myinfo.bzl', 'MyInfo')
+        load('@@//myinfo:myinfo.bzl', 'MyInfo')
         def _impl(ctx):
           return [MyInfo(result = ctx.label.workspace_root)]
         my_rule = rule(implementation = _impl, attrs = { })
@@ -212,9 +203,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
 
     setBuildLanguageOptions("--experimental_sibling_repository_layout");
 
-    ConfiguredTarget myTarget = getConfiguredTarget("@r//:t");
+    ConfiguredTarget myTarget = getConfiguredTarget("@@r+//:t");
     String result = (String) getMyInfoFromTarget(myTarget).getValue("result");
-    assertThat(result).isEqualTo("../r");
+    assertThat(result).isEqualTo("../r+");
   }
 
   @Test
@@ -1425,10 +1416,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   @Test
   public void testSpecialMandatoryProviderMissing() throws Exception {
     // Test that rules satisfy `providers = [...]` condition if a special provider that always
-    // exists for all rules is requested. Also check external rules.
-
-    FileSystemUtils.appendIsoLatin1(scratch.resolve("WORKSPACE"),
-        "bind(name = 'bar', actual = '//test/ext:bar')");
+    // exists for all rules is requested.
     scratch.file(
         "test/ext/BUILD",
         """
@@ -1456,7 +1444,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         load(':extension.bzl', 'foobar', 'main_rule')
 
         foobar(name = 'foo')
-        main_rule(name = 'main', deps = [':foo', '//external:bar'])
+        main_rule(name = 'main', deps = [':foo', '//test/ext:bar'])
         """);
 
     invalidatePackages();

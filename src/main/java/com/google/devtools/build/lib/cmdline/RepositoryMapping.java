@@ -113,7 +113,8 @@ public class RepositoryMapping {
    * repo of the given additional mappings is ignored.
    */
   public RepositoryMapping withAdditionalMappings(RepositoryMapping additionalMappings) {
-    return withAdditionalMappings(additionalMappings.entries());
+    return withAdditionalMappings(
+        (additionalMappings == null) ? ImmutableMap.of() : additionalMappings.entries());
   }
 
   /**

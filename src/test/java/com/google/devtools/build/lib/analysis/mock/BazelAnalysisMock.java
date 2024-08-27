@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ShellConfiguration;
 import com.google.devtools.build.lib.analysis.util.AbstractMockJavaSupport;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
+import com.google.devtools.build.lib.bazel.BazelRepositoryModule;
 import com.google.devtools.build.lib.bazel.bzlmod.LocalPathOverride;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformFunction;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -113,11 +115,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
   public ImmutableList<String> getWorkspaceRepos() {
     return ImmutableList.of(
         "android_gmaven_r8",
-        "bazel_tools",
         "com_google_protobuf",
         "local_config_platform",
         "local_config_xcode",
-        "platforms",
         "internal_platforms_do_not_use",
         "rules_java",
         "rules_java_builtin",
@@ -150,7 +150,17 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("protobuf_workspace/WORKSPACE");
     config.create("protobuf_workspace/MODULE.bazel", "module(name='com_google_protobuf')");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[0]));
-    config.overwrite("MODULE.bazel");
+    config.overwrite(
+        "MODULE.bazel",
+        "register_toolchains('@rules_java//java/toolchains/runtime:all')",
+        "register_toolchains('@rules_java//java/toolchains/javac:all')",
+        "register_toolchains('@bazel_tools//tools/cpp:all')",
+        "register_toolchains('@bazel_tools//tools/jdk:all')",
+        "register_toolchains('@bazel_tools//tools/android:all')",
+        // Note this path is created inside the test infrastructure in
+        // createAndroidBuildContents() below. It may not reflect a real depot path.
+        "register_toolchains('@bazel_tools//tools/android/dummy_sdk:all')",
+        "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')");
     /* The rest of platforms is initialized in {@link MockPlatformSupport}. */
     config.create("platforms_workspace/WORKSPACE", "workspace(name = 'platforms')");
     config.create("platforms_workspace/MODULE.bazel", "module(name = 'platforms')");
@@ -162,6 +172,20 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "build_bazel_apple_support/MODULE.bazel", "module(name = 'build_bazel_apple_support')");
     config.create("embedded_tools/WORKSPACE", "workspace(name = 'bazel_tools')");
+
+    // TODO: remove after figuring out https://github.com/bazelbuild/bazel/issues/22208
+    config.create(
+        ".bazelignore",
+        "embedded_tools",
+        "platforms_workspace",
+        "local_config_platform_workspace",
+        "rules_java_workspace",
+        "protobuf_workspace",
+        "third_party/bazel_rules/rules_proto",
+        "build_bazel_apple_support",
+        "local_config_xcode_workspace",
+        "third_party/bazel_rules/rules_cc");
+
     Runfiles runfiles = Runfiles.create();
     for (String filename :
         Arrays.asList("tools/jdk/java_toolchain_alias.bzl", "tools/jdk/java_stub_template.txt")) {
@@ -1001,5 +1025,10 @@ public final class BazelAnalysisMock extends AnalysisMock {
   public void addExtraRepositoryFunctions(
       ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers) {
     repositoryHandlers.put(LocalConfigPlatformRule.NAME, new LocalConfigPlatformFunction());
+  }
+
+  @Override
+  public BlazeModule getBazelRepositoryModule(BlazeDirectories directories) {
+    return new BazelRepositoryModule(getBuiltinModules(directories));
   }
 }
