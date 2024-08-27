@@ -109,89 +109,110 @@ final class RemoteSpawnCache implements SpawnCache {
       // results haven't been uploaded to the cache yet and deduplicate all of them against the
       // first one.
       LocalExecution previousExecution = null;
-      thisExecution = LocalExecution.createIfDeduplicatable(action);
-      if (shouldUploadLocalResults && thisExecution != null) {
-        previousExecution = inFlightExecutions.putIfAbsent(action.getActionKey(), thisExecution);
-      }
-      // Metadata will be available in context.current() until we detach.
-      // This is done via a thread-local variable.
       try {
-        RemoteActionResult result;
-        try (SilentCloseable c = prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
-          result = remoteExecutionService.lookupCache(action);
-        }
-        // In case the remote cache returned a failed action (exit code != 0) we treat it as a
-        // cache miss
-        if (result != null && result.getExitCode() == 0) {
-          Stopwatch fetchTime = Stopwatch.createStarted();
-          InMemoryOutput inMemoryOutput;
-          try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download outputs")) {
-            inMemoryOutput = remoteExecutionService.downloadOutputs(action, result);
-          }
-          fetchTime.stop();
-          totalTime.stop();
-          spawnMetrics
-              .setFetchTimeInMs((int) fetchTime.elapsed().toMillis())
-              .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
-              .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
-          SpawnResult spawnResult =
-              createSpawnResult(
-                  digestUtil,
+        thisExecution = LocalExecution.createIfDeduplicatable(action);
+        if (shouldUploadLocalResults && thisExecution != null) {
+          LocalExecution previousOrThisExecution =
+              inFlightExecutions.merge(
                   action.getActionKey(),
-                  result.getExitCode(),
-                  /* cacheHit= */ true,
-                  result.cacheName(),
-                  inMemoryOutput,
-                  result.getExecutionMetadata().getExecutionStartTimestamp(),
-                  result.getExecutionMetadata().getExecutionCompletedTimestamp(),
-                  spawnMetrics.build(),
-                  spawn.getMnemonic());
-          return SpawnCache.success(spawnResult);
+                  thisExecution,
+                  (existingExecution, thisExecutionArg) -> {
+                    if (existingExecution.registerForOutputReuse()) {
+                      return existingExecution;
+                    } else {
+                      // The existing execution has completed and its results may have already
+                      // been modified by its action, so we can't deduplicate against it. Instead,
+                      // start a new in-flight execution.
+                      return thisExecutionArg;
+                    }
+                  });
+          previousExecution =
+              previousOrThisExecution == thisExecution ? null : previousOrThisExecution;
         }
-      } catch (CacheNotFoundException e) {
-        // Intentionally left blank
-      } catch (IOException e) {
-        if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
-          // Intentionally left blank
-        } else {
-          String errorMessage = Utils.grpcAwareErrorMessage(e, verboseFailures);
-          if (isNullOrEmpty(errorMessage)) {
-            errorMessage = e.getClass().getSimpleName();
+        try {
+          RemoteActionResult result;
+          try (SilentCloseable c =
+              prof.profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
+            result = remoteExecutionService.lookupCache(action);
           }
-          errorMessage = "Remote Cache: " + errorMessage;
-          remoteExecutionService.report(Event.warn(errorMessage));
+          // In case the remote cache returned a failed action (exit code != 0) we treat it as a
+          // cache miss
+          if (result != null && result.getExitCode() == 0) {
+            Stopwatch fetchTime = Stopwatch.createStarted();
+            InMemoryOutput inMemoryOutput;
+            try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "download outputs")) {
+              inMemoryOutput = remoteExecutionService.downloadOutputs(action, result);
+            }
+            fetchTime.stop();
+            totalTime.stop();
+            spawnMetrics
+                .setFetchTimeInMs((int) fetchTime.elapsed().toMillis())
+                .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
+                .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
+            SpawnResult spawnResult =
+                createSpawnResult(
+                    digestUtil,
+                    action.getActionKey(),
+                    result.getExitCode(),
+                    /* cacheHit= */ true,
+                    result.cacheName(),
+                    inMemoryOutput,
+                    result.getExecutionMetadata().getExecutionStartTimestamp(),
+                    result.getExecutionMetadata().getExecutionCompletedTimestamp(),
+                    spawnMetrics.build(),
+                    spawn.getMnemonic());
+            return SpawnCache.success(spawnResult);
+          }
+        } catch (CacheNotFoundException e) {
+          // Intentionally left blank
+        } catch (IOException e) {
+          if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
+            // Intentionally left blank
+          } else {
+            String errorMessage = Utils.grpcAwareErrorMessage(e, verboseFailures);
+            if (isNullOrEmpty(errorMessage)) {
+              errorMessage = e.getClass().getSimpleName();
+            }
+            errorMessage = "Remote Cache: " + errorMessage;
+            remoteExecutionService.report(Event.warn(errorMessage));
+          }
         }
-      }
-      if (previousExecution != null) {
-        Stopwatch fetchTime = Stopwatch.createStarted();
-        SpawnResult previousResult;
-        try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "reuse outputs")) {
-          previousResult = remoteExecutionService.waitForAndReuseOutputs(action, previousExecution);
-        }
-        if (previousResult != null) {
-          spawnMetrics
-              .setFetchTimeInMs((int) fetchTime.elapsed().toMillis())
-              .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
-              .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
-          SpawnMetrics buildMetrics = spawnMetrics.build();
-          return SpawnCache.success(
-              new SpawnResult.DelegateSpawnResult(previousResult) {
-                @Override
-                public String getRunnerName() {
-                  return "deduplicated";
-                }
+        if (previousExecution != null) {
+          Stopwatch fetchTime = Stopwatch.createStarted();
+          SpawnResult previousResult;
+          try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "reuse outputs")) {
+            previousResult =
+                remoteExecutionService.waitForAndReuseOutputs(action, previousExecution);
+          }
+          if (previousResult != null) {
+            spawnMetrics
+                .setFetchTimeInMs((int) fetchTime.elapsed().toMillis())
+                .setTotalTimeInMs((int) totalTime.elapsed().toMillis())
+                .setNetworkTimeInMs((int) action.getNetworkTime().getDuration().toMillis());
+            SpawnMetrics buildMetrics = spawnMetrics.build();
+            return SpawnCache.success(
+                new SpawnResult.DelegateSpawnResult(previousResult) {
+                  @Override
+                  public String getRunnerName() {
+                    return "deduplicated";
+                  }
 
-                @Override
-                public SpawnMetrics getMetrics() {
-                  return buildMetrics;
-                }
-              });
+                  @Override
+                  public SpawnMetrics getMetrics() {
+                    return buildMetrics;
+                  }
+                });
+          }
+          // If we reach here, the previous execution was not successful (it encountered an
+          // exception or the spawn had an exit code != 0). Since it isn't possible to accurately
+          // recreate the failure without rerunning the action, we fall back to running the action
+          // locally. This means that we have introduced an unnecessary wait, but that can only
+          // happen in the case of a failing build with --keep_going.
         }
-        // If we reach here, the previous execution was not successful (it encountered an exception
-        // or the spawn had an exit code != 0). Since it isn't possible to accurately recreate the
-        // failure without rerunning the action, we fall back to running the action locally. This
-        // means that we have introduced an unnecessary wait, but that can only happen in the case
-        // of a failing build with --keep_going.
+      } finally {
+        if (previousExecution != null) {
+          previousExecution.unregister();
+        }
       }
     }
 
@@ -239,6 +260,17 @@ final class RemoteSpawnCache implements SpawnCache {
           // large.
           remoteExecutionService.uploadOutputs(
               action, result, () -> inFlightExecutions.remove(action.getActionKey()));
+          if (thisExecutionFinal != null
+              && action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
+            // In this case outputs have been uploaded synchronously and the callback above has run,
+            // so no new executions will be deduplicated against this one. We can safely await all
+            // existing executions finish the reuse.
+            // Note that while this call itself isn't interruptible, all operations it awaits are
+            // interruptible.
+            try (SilentCloseable c = prof.profile(REMOTE_DOWNLOAD, "await output reuse")) {
+              thisExecutionFinal.awaitAllOutputReuse();
+            }
+          }
         }
 
         private void checkForConcurrentModifications()

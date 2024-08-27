@@ -44,10 +44,12 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
+import com.google.devtools.build.lib.actions.ActionExecutionMetadata;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -93,7 +95,11 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Set;
 import java.util.SortedMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
@@ -243,10 +249,16 @@ public class RemoteSpawnCacheTest {
   }
 
   private static SimpleSpawn simplePathMappedSpawn(String configSegment) {
+    return simplePathMappedSpawn(
+        configSegment, new FakeOwner("Mnemonic", "Progress Message", "//dummy:label"));
+  }
+
+  private static SimpleSpawn simplePathMappedSpawn(
+      String configSegment, ActionExecutionMetadata owner) {
     String inputPath = "bazel-bin/%s/bin/input";
     String outputPath = "bazel-bin/%s/bin/output";
     return new SimpleSpawn(
-        new FakeOwner("Mnemonic", "Progress Message", "//dummy:label"),
+        owner,
         ImmutableList.of("cp", inputPath.formatted("cfg"), outputPath.formatted("cfg")),
         ImmutableMap.of("VARIABLE", "value"),
         ImmutableMap.of(ExecutionRequirements.SUPPORTS_PATH_MAPPING, ""),
@@ -746,6 +758,121 @@ public class RemoteSpawnCacheTest {
     CacheHandle secondCacheHandle = cache.lookup(secondSpawn, secondPolicy);
 
     // assert
+    assertThat(secondCacheHandle.hasResult()).isTrue();
+    assertThat(secondCacheHandle.getResult().getRunnerName()).isEqualTo("deduplicated");
+    assertThat(
+            FileSystemUtils.readContent(
+                fs.getPath("/exec/root/bazel-bin/k8-opt/bin/output"), UTF_8))
+        .isEqualTo("hello");
+    assertThat(secondCacheHandle.willStore()).isFalse();
+  }
+
+  @Test
+  public void pathMappedActionIsDeduplicatedWithSpawnOutputModification() throws Exception {
+    // arrange
+    RemoteSpawnCache cache = createRemoteSpawnCache();
+
+    ActionExecutionMetadata firstExecutionOwner =
+        new FakeOwner("Mnemonic", "Progress Message", "//dummy:label") {
+          @Override
+          public boolean mayModifySpawnOutputsAfterExecution() {
+            return true;
+          }
+        };
+    SimpleSpawn firstSpawn = simplePathMappedSpawn("k8-fastbuild", firstExecutionOwner);
+    FakeActionInputFileCache firstFakeFileCache = new FakeActionInputFileCache(execRoot);
+    firstFakeFileCache.createScratchInput(firstSpawn.getInputFiles().getSingleton(), "xyz");
+    SpawnExecutionContext firstPolicy =
+        createSpawnExecutionContext(firstSpawn, execRoot, firstFakeFileCache, outErr);
+
+    SimpleSpawn secondSpawn = simplePathMappedSpawn("k8-opt");
+    FakeActionInputFileCache secondFakeFileCache = new FakeActionInputFileCache(execRoot);
+    secondFakeFileCache.createScratchInput(secondSpawn.getInputFiles().getSingleton(), "xyz");
+    SpawnExecutionContext secondPolicy =
+        createSpawnExecutionContext(secondSpawn, execRoot, secondFakeFileCache, outErr);
+
+    RemoteExecutionService remoteExecutionService = cache.getRemoteExecutionService();
+    CountDownLatch enteredWaitForAndReuseOutputs = new CountDownLatch(1);
+    CountDownLatch completeWaitForAndReuseOutputs = new CountDownLatch(1);
+    CountDownLatch enteredUploadOutputs = new CountDownLatch(1);
+    Set<Spawn> spawnsThatWaitedForOutputReuse = ConcurrentHashMap.newKeySet();
+    Mockito.doAnswer(
+            (Answer<SpawnResult>)
+                invocation -> {
+                  spawnsThatWaitedForOutputReuse.add(
+                      ((RemoteAction) invocation.getArgument(0)).getSpawn());
+                  enteredWaitForAndReuseOutputs.countDown();
+                  completeWaitForAndReuseOutputs.await();
+                  return (SpawnResult) invocation.callRealMethod();
+                })
+        .when(remoteExecutionService)
+        .waitForAndReuseOutputs(any(), any());
+    // Simulate a very slow upload to the remote cache to ensure that the second spawn is
+    // deduplicated rather than a cache hit. This is a slight hack, but also avoids introducing
+    // more concurrency to this test.
+    Mockito.doAnswer(
+            (Answer<Void>)
+                invocation -> {
+                  enteredUploadOutputs.countDown();
+                  return null;
+                })
+        .when(remoteExecutionService)
+        .uploadOutputs(any(), any(), any());
+
+    // act
+    // Simulate the first spawn writing to the output, but delay its completion.
+    CacheHandle firstCacheHandle = cache.lookup(firstSpawn, firstPolicy);
+    FileSystemUtils.writeContent(
+        fs.getPath("/exec/root/bazel-bin/k8-fastbuild/bin/output"), UTF_8, "hello");
+
+    // Start the second spawn and wait for it to deduplicate against the first one.
+    AtomicReference<CacheHandle> secondCacheHandleRef = new AtomicReference<>();
+    Thread lookupSecondSpawn =
+        new Thread(
+            () -> {
+              try {
+                secondCacheHandleRef.set(cache.lookup(secondSpawn, secondPolicy));
+              } catch (InterruptedException
+                  | IOException
+                  | ExecException
+                  | ForbiddenActionInputException e) {
+                throw new IllegalStateException(e);
+              }
+            });
+    lookupSecondSpawn.start();
+    enteredWaitForAndReuseOutputs.await();
+
+    // Complete the first spawn and immediately corrupt its outputs.
+    Thread completeFirstSpawn =
+        new Thread(
+            () -> {
+              try {
+                firstCacheHandle.store(
+                    new SpawnResult.Builder()
+                        .setExitCode(0)
+                        .setStatus(Status.SUCCESS)
+                        .setRunnerName("test")
+                        .build());
+                FileSystemUtils.writeContent(
+                    fs.getPath("/exec/root/bazel-bin/k8-fastbuild/bin/output"), UTF_8, "corrupted");
+              } catch (IOException | ExecException | InterruptedException e) {
+                throw new IllegalStateException(e);
+              }
+            });
+    completeFirstSpawn.start();
+    // Make it more likely to detect races by waiting for the first spawn to (fake) upload its
+    // outputs.
+    enteredUploadOutputs.await();
+
+    // Let the second spawn complete its output reuse.
+    completeWaitForAndReuseOutputs.countDown();
+    lookupSecondSpawn.join();
+    CacheHandle secondCacheHandle = secondCacheHandleRef.get();
+
+    completeFirstSpawn.join();
+
+    // assert
+    assertThat(spawnsThatWaitedForOutputReuse).containsExactly(secondSpawn);
     assertThat(secondCacheHandle.hasResult()).isTrue();
     assertThat(secondCacheHandle.getResult().getRunnerName()).isEqualTo("deduplicated");
     assertThat(

@@ -114,4 +114,14 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
   default boolean mayInsensitivelyPropagateInputs() {
     return false;
   }
+
+  /**
+   * Returns true if the action may modify spawn outputs after the spawn has executed.
+   *
+   * <p>If this returns true, any kind of spawn output caching or reuse needs to happen
+   * synchronously directly after the spawn execution.
+   */
+  default boolean mayModifySpawnOutputsAfterExecution() {
+    return false;
+  }
 }
