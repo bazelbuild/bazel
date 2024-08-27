@@ -380,6 +380,7 @@ def _exports_test_macro(name, target, targets_that_should_be_claimed_to_be_expor
                 ":is_bazel": True,
                 "//conditions:default": False,
             }),
+            "tags": ["bazel_only"] if bazel_only else [],
         },
     )
 

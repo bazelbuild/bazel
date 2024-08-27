@@ -489,6 +489,7 @@ cc_shared_library(
     deps = [
         ":external_export",
     ],
+    tags = ["bazel_only"],
 )
 
 build_failure_test(

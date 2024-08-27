@@ -989,11 +989,9 @@ EOF
 
   bazel build "//${pkg}/demo:use" &> $TEST_log && fail "Build failure expected"
 
-  if [[ $PRODUCT_NAME == "bazel" ]]; then
-    expect_log "Expected absolute target patterns (must begin with '//' or '@') for 'register_toolchains' argument, but got '/:invalid:label:syntax'"
-  else
-    expect_log "error parsing target pattern \"/:invalid:label:syntax\": invalid package name '/': package names may not start with '/'"
-  fi
+  expect_log "Expected absolute target patterns (must begin with '//'"
+  # Bazel's error message has an extra "or '@'" here
+  expect_log ") for 'register_toolchains' argument, but got '/:invalid:label:syntax'"
 }
 
 function test_register_toolchain_error_invalid_target() {
