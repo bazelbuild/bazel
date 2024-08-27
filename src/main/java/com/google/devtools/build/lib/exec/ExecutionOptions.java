@@ -511,24 +511,28 @@ public class ExecutionOptions extends OptionsBase {
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
       help =
-          "If set to true, Bazel will use new exit code 39 instead of 34 if remote cache evicts"
-              + " blobs during the build.")
+          "If set to true, Bazel will use new exit code 39 instead of 34 if remote cache"
+              + "errors, including cache evictions, cause the build to fail.")
   public boolean useNewExitCodeForLostInputs;
 
   @Option(
+      // TODO: when this flag is moved to non-experimental, rename it to a more general name
+      // to reflect the new logic - it's not only about cache evictions.
       name = "experimental_remote_cache_eviction_retries",
       defaultValue = "0",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.EXECUTION},
       help =
-          "The maximum number of attempts to retry if the build encountered remote cache eviction"
-              + " error. A non-zero value will implicitly set"
+          "The maximum number of attempts to retry if the build encountered a transient remote"
+              + " cache error that would otherwise fail the build. Applies for example when"
+              + " artifacts are evicted from the remote cache, or in certain cache failure"
+              + " conditions. A non-zero value will implicitly set"
               + " --incompatible_remote_use_new_exit_code_for_lost_inputs to true. A new invocation"
               + " id will be generated for each attempt. If you generate invocation id and provide"
               + " it to Bazel with --invocation_id, you should not use this flag. Instead, set flag"
               + " --incompatible_remote_use_new_exit_code_for_lost_inputs and check for the exit"
               + " code 39.")
-  public int remoteRetryOnCacheEviction;
+  public int remoteRetryOnTransientCacheError;
 
   /** An enum for specifying different formats of test output. */
   public enum TestOutputFormat {
