@@ -85,6 +85,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Filter;
 import java.util.logging.LogRecord;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -234,12 +235,20 @@ public class LocalSpawnRunnerTest {
         });
   }
 
-  private FileSystem setupEnvironmentForFakeExecution() throws InterruptedException, IOException {
+  private FileSystem setupEnvironmentForFakeExecution() {
     // Prevent any subprocess execution at all.
     SubprocessBuilder.setDefaultSubprocessFactory(new SubprocessInterceptor());
     resourceManager.setAvailableResources(
         ResourceSet.create(/*memoryMb=*/ 1, /*cpuUsage=*/ 1, /*localTestCount=*/ 1));
-    return new InMemoryFileSystem(DigestHashFunction.SHA256);
+    return new InMemoryFileSystem(DigestHashFunction.SHA256) {
+      @Override
+      @Nullable
+      protected String getJavaPathString(PathFragment path) {
+        // InMemoryFileSystem usually returns null from this method as it isn't backed by an on-disk
+        // filesystem, but that tickles some tests.
+        return path.getPathString();
+      }
+    };
   }
 
   private static ProcessWrapper makeProcessWrapper(FileSystem fs, LocalExecutionOptions options) {
