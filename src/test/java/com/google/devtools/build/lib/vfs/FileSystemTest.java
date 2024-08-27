@@ -1958,21 +1958,35 @@ public abstract class FileSystemTest {
     assertThat(java.nio.file.Files.isRegularFile(javaPath)).isTrue();
   }
 
+  /**
+   * Verifies that a file that is created by Bazel's filesystem API with its special string encoding
+   * can be accessed through the Java API via the path string returned by {@link
+   * FileSystem#getJavaPathString}, even if its name contains non-ASCII characters.
+   */
   @Test
   public void testGetJavaPathString_internalUtf8() throws IOException {
-    // Simulates a Starlark string constant, which is read from a (presumably UTF-8 encoded) source
-    // file as Latin-1.
-    var utf8File = absolutize(new String("入力_A_🌱.txt".getBytes(UTF_8), ISO_8859_1));
+    // Simulates a Starlark string constant, which is read from a presumably UTF-8 encoded source
+    // file into Bazel's internal representation.
+    var utf8File = absolutize(toInternalString("some_dir/入力_A_🌱.txt"));
     String javaPathString = testFS.getJavaPathString(utf8File.asFragment());
     assume().that(javaPathString).isNotNull();
 
+    utf8File.getParentDirectory().createDirectoryAndParents();
     FileSystemUtils.writeContent(utf8File, UTF_8, "hello 入力_A_🌱");
 
     var javaPath = java.nio.file.Path.of(javaPathString);
     assertThat(java.nio.file.Files.isRegularFile(javaPath)).isTrue();
     assertThat(java.nio.file.Files.readString(javaPath)).isEqualTo("hello 入力_A_🌱");
+
+    // Ensure that the view of the file as a directory entry is consistent with how it was created.
+    assertThat(utf8File.getParentDirectory().getDirectoryEntries()).containsExactly(utf8File);
   }
 
+  /**
+   * Verifies that a file that is listed by Bazel's filesystem API can be accessed through the Java
+   * API via the path string returned by {@link FileSystem#getJavaPathString}, even if its name
+   * contains non-ASCII characters.
+   */
   @Test
   public void testGetJavaPathString_externalUtf8() throws IOException {
     var dirPath = absolutize("some_dir");
@@ -1988,12 +2002,20 @@ public abstract class FileSystemTest {
     var entries = dirPath.getDirectoryEntries();
     assertThat(entries).hasSize(1);
     var filePath = Iterables.getOnlyElement(entries);
-    assertThat(filePath.exists());
+    assertThat(filePath.exists()).isTrue();
+    assertThat(filePath.getBaseName()).isEqualTo(toInternalString("入力_A_🌱.txt"));
     var javaFilePathString = testFS.getJavaPathString(filePath.asFragment());
 
     // Verify the file content through the Java APIs.
     var javaFilePath = java.nio.file.Path.of(javaFilePathString);
     assertThat(java.nio.file.Files.isRegularFile(javaFilePath)).isTrue();
     assertThat(java.nio.file.Files.readString(javaFilePath)).isEqualTo("hello 入力_A_🌱");
+  }
+
+  /**
+   * Converts a String to Bazel's internal representation (raw bytes by using ISO-8859-1 encoding).
+   */
+  private String toInternalString(String externalString) {
+    return new String(externalString.getBytes(UTF_8), ISO_8859_1);
   }
 }

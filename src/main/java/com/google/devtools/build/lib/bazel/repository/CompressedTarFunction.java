@@ -19,14 +19,12 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.auto.service.AutoService;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
@@ -34,6 +32,8 @@ import java.nio.charset.CharsetDecoder;
 import java.nio.charset.CharsetEncoder;
 import java.nio.charset.CoderResult;
 import java.nio.charset.spi.CharsetProvider;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
@@ -129,9 +129,8 @@ public abstract class CompressedTarFunction implements Decompressor {
               }
             }
           } else {
-            try (OutputStream out = filePath.getOutputStream()) {
-              ByteStreams.copy(tarStream, out);
-            }
+            Files.copy(
+                tarStream, filePath.getPathFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
             filePath.chmod(entry.getMode());
 
             // This can only be done on real files, not links, or it will skip the reader to

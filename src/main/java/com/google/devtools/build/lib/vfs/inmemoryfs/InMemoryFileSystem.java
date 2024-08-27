@@ -745,6 +745,12 @@ public class InMemoryFileSystem extends AbstractFileSystemWithCustomStat {
     }
   }
 
+  @Override
+  @Nullable
+  protected String getJavaPathString(PathFragment path) {
+    return null;
+  }
+
   /**
    * On Unix the root directory is "/". On Windows there isn't one, so we reach null from
    * getParentDirectory.

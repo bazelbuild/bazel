@@ -772,12 +772,15 @@ public class Path implements Comparable<Path>, FileType.HasFileType {
   }
 
   /**
-   * Returns a java.io.File representation of this path.
-   *
-   * <p>Caveat: the result may be useless if this path's getFileSystem() is not the UNIX filesystem.
+   * Returns a java.io.File representation of this path if there is one, or null if there is not.
    */
+  @Nullable
   public File getPathFile() {
-    return new File(getPathString());
+    String javaPathString = fileSystem.getJavaPathString(asFragment());
+    if (javaPathString == null) {
+      return null;
+    }
+    return new File(javaPathString);
   }
 
   /**

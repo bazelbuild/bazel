@@ -826,7 +826,7 @@ public abstract class FileSystem {
 
   /**
    * Returns a string representation of the path suitable for consumption by Java (N)IO APIs or null
-   * if this file system can't be accessed via Java APIs.
+   * if this file system doesn't support access through Java APIs.
    */
   @Nullable
   protected String getJavaPathString(PathFragment path) {

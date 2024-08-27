@@ -14,6 +14,7 @@
 //
 package com.google.devtools.build.lib.vfs;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
@@ -32,6 +33,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.SeekableByteChannel;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
@@ -42,6 +44,14 @@ public abstract class AbstractFileSystem extends FileSystem {
 
   protected static final String ERR_PERMISSION_DENIED = " (Permission denied)";
   protected static final Profiler profiler = Profiler.instance();
+  /**
+   * Even though Bazel attempts to force the default charset to be ISO-8859-1, which makes String
+   * identical to the "bag of raw bytes" that a UNIX path is, the JVM may still use a different
+   * encoding for file paths, e.g. on macOS (always UTF-8). When interoperating with the filesystem
+   * through Java APIs, we thus need to reencode paths to the JVM's native filesystem encoding.
+   */
+  private static final Charset JAVA_PATH_CHARSET =
+      Charset.forName(System.getProperty("sun.jnu.encoding"), ISO_8859_1);
 
   public AbstractFileSystem(DigestHashFunction digestFunction) {
     super(digestFunction);
@@ -71,9 +81,20 @@ public abstract class AbstractFileSystem extends FileSystem {
     }
   }
 
+  @Override
+  protected String getJavaPathString(PathFragment path) {
+    String pathString = path.getPathString();
+    // Every reasonable charset is compatible with ASCII and most paths are ASCII, so avoid any
+    // conversion if possible.
+    if (JAVA_PATH_CHARSET != ISO_8859_1 && pathString.chars().anyMatch(c -> c >= 128)) {
+      pathString = new String(pathString.getBytes(ISO_8859_1), JAVA_PATH_CHARSET);
+    }
+    return pathString;
+  }
+
   /** Allows the mapping of PathFragment to InputStream to be overridden in subclasses. */
   protected InputStream createFileInputStream(PathFragment path) throws IOException {
-    return new FileInputStream(path.toString());
+    return new FileInputStream(getJavaPathString(path));
   }
 
   /** Returns either normal or profiled FileInputStream. */
@@ -108,7 +129,8 @@ public abstract class AbstractFileSystem extends FileSystem {
 
     try {
       // Currently, we do not proxy SeekableByteChannel for profiling reads and writes.
-      return Files.newByteChannel(Paths.get(name), READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS);
+      return Files.newByteChannel(
+          Paths.get(getJavaPathString(path)), READ_WRITE_BYTE_CHANNEL_OPEN_OPTIONS);
     } finally {
       if (shouldProfile) {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
@@ -129,12 +151,12 @@ public abstract class AbstractFileSystem extends FileSystem {
             || profiler.isProfiling(ProfilerTask.VFS_OPEN))) {
       long startTime = Profiler.nanoTimeMaybe();
       try {
-        return new ProfiledFileOutputStream(name, append);
+        return new ProfiledFileOutputStream(getJavaPathString(path), append);
       } finally {
         profiler.logSimpleTask(startTime, ProfilerTask.VFS_OPEN, name);
       }
     } else {
-      return new FileOutputStream(name, append);
+      return new FileOutputStream(getJavaPathString(path), append);
     }
   }
 

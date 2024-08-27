@@ -19,7 +19,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -28,7 +27,8 @@ import com.google.devtools.build.zip.ZipFileEntry;
 import com.google.devtools.build.zip.ZipReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -161,9 +161,8 @@ public class ZipDecompressor implements Decompressor {
 
       symlinks.put(outputPath, maybeDeprefixSymlink(buffer, prefix, destinationDirectory));
     } else {
-      try (InputStream input = reader.getInputStream(entry);
-          OutputStream output = outputPath.getOutputStream()) {
-        ByteStreams.copy(input, output);
+      try (InputStream input = reader.getInputStream(entry)) {
+        Files.copy(input, outputPath.getPathFile().toPath(), StandardCopyOption.REPLACE_EXISTING);
         if (Thread.interrupted()) {
           throw new InterruptedException();
         }
