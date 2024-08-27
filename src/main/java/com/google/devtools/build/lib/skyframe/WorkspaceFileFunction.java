@@ -100,6 +100,15 @@ public class WorkspaceFileFunction implements SkyFunction {
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws WorkspaceFileFunctionException, InterruptedException {
     WorkspaceFileKey key = (WorkspaceFileKey) skyKey.argument();
+
+    if (key.getIndex() == 0 && directories.getProductName().equals("bazel")) {
+      env.getListener()
+          .handle(
+              Event.warn(
+                  "WORKSPACE support will be removed in Bazel 9, please migrate to Bzlmod, see"
+                      + " https://github.com/bazelbuild/bazel/issues/23023."));
+    }
+
     RootedPath workspaceFile = key.getPath();
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
     if (starlarkSemantics == null) {
