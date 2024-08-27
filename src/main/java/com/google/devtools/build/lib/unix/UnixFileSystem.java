@@ -332,6 +332,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public boolean createDirectory(PathFragment path) throws IOException {
+    // Use 0777 so that the permissions can be overridden by umask(2).
     // Note: UNIX mkdir(2), FilesystemUtils.mkdir() and createDirectory all
     // have different ways of representing failure!
     if (NativePosixFiles.mkdir(path.toString(), 0755)) {
@@ -353,6 +354,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   public void createDirectoryAndParents(PathFragment path) throws IOException {
+    // Use 0777 so that the permissions can be overridden by umask(2).
     NativePosixFiles.mkdirs(path.toString(), 0755);
   }
 
