@@ -1,3 +1,29 @@
+## Release 8.0.0-pre.20240821.2 (2024-08-27)
+
+```
+Baseline: 04f0ef76938057f143562e9faeb2f47defa30939
+
+Cherry picks:
+
+   + 0000000000000000000000000000000000000000:
+     
+```
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim.
+
+## Release 8.0.0-pre.20240819.2 (2024-08-22)
+
+```
+Baseline: ffdf41acfd4d82bdfd3f855b8f4aa3840d918eba
+
+Cherry picks:
+
+   + 0000000000000000000000000000000000000000:
+     
+```
+
+This release contains contributions from many people at Google, as well as dependabot[bot], Fabian Meumertzheim, Jordan Mele, Jordan Mele.
+
 ## Release 8.0.0-pre.20240814.2 (2024-08-20)
 
 ```
