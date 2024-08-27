@@ -9,15 +9,14 @@ In looking through the previous pages, one theme repeats over and over: managing
 your own code is fairly straightforward, but managing its dependencies is much
 more difficult. There are all sorts of dependencies: sometimes there’s a
 dependency on a task (such as “push the documentation before I mark a release as
-complete”), and sometimes there’s a dependency on an artifact (such as “I need to
-have the latest version of the computer vision library to build my code”).
+complete”), and sometimes there’s a dependency on an artifact (such as “I need
+to have the latest version of the computer vision library to build my code”).
 Sometimes, you have internal dependencies on another part of your codebase, and
 sometimes you have external dependencies on code or data owned by another team
 (either in your organization or a third party). But in any case, the idea of “I
 need that before I can have this” is something that recurs repeatedly in the
 design of build systems, and managing dependencies is perhaps the most
 fundamental job of a build system.
-
 
 ## Dealing with Modules and Dependencies
 
@@ -69,9 +68,8 @@ targets, we’ve made some strides in mitigating the downside by investing in
 tooling to automatically manage `BUILD` files to avoid burdening developers.
 
 Some of these tools, such as `buildifier` and `buildozer`, are available with
-Bazel in the
-[`buildtools` directory](https://github.com/bazelbuild/buildtools){: .external}.
-
+Bazel in the [`buildtools`
+directory](https://github.com/bazelbuild/buildtools){: .external}.
 
 ## Minimizing Module Visibility
 
@@ -111,7 +109,8 @@ transitive dependencies (Figure 1). Suppose target A depends on target B, which
 depends on a common library target C. Should target A be able to use classes
 defined in target C?
 
-[![Transitive dependencies](/images/transitive-dependencies.png)](/images/transitive-dependencies.png)
+[![Transitive
+dependencies](/images/transitive-dependencies.png)](/images/transitive-dependencies.png)
 
 **Figure 1**. Transitive dependencies
 
@@ -145,8 +144,9 @@ dependencies and adding them to a `BUILD` files without any developer
 intervention. But even without such tools, we’ve found the trade-off to be well
 worth it as the codebase scales: explicitly adding a dependency to `BUILD` file
 is a one-time cost, but dealing with implicit transitive dependencies can cause
-ongoing problems as long as the build target exists. Bazel
-[enforces strict transitive dependencies](https://blog.bazel.build/2017/06/28/sjd-unused_deps.html){: .external}
+ongoing problems as long as the build target exists. Bazel [enforces strict
+transitive
+dependencies](https://blog.bazel.build/2017/06/28/sjd-unused_deps.html){: .external}
 on Java code by default.
 
 ### External dependencies
@@ -195,8 +195,9 @@ so in theory there’s no reason that different versions of the same external
 dependency couldn’t both be declared in the build system under different names.
 That way, each target could choose which version of the dependency it wanted to
 use. This causes a lot of problems in practice, so Google enforces a strict
-[One-Version Rule](https://opensource.google/docs/thirdparty/oneversion/){: .external}
-for all third-party dependencies in our codebase.
+[One-Version
+Rule](https://opensource.google/docs/thirdparty/oneversion/){: .external} for
+all third-party dependencies in our codebase.
 
 The biggest problem with allowing multiple versions is the diamond dependency
 issue. Suppose that target A depends on target B and on v1 of an external
@@ -230,15 +231,12 @@ get. This also means that updating an external dependency could cause seemingly
 unrelated failures throughout the codebase if the new version begins pulling in
 conflicting versions of some of its dependencies.
 
-For this reason, Bazel does not automatically download transitive dependencies.
-And, unfortunately, there’s no silver bullet—Bazel’s alternative is to require a
-global file that lists every single one of the repository’s external
-dependencies and an explicit version used for that dependency throughout the
-repository. Fortunately, Bazel provides tools that are able to automatically
-generate such a file containing the transitive dependencies of a set of Maven
-artifacts. This tool can be run once to generate the initial `WORKSPACE` file
-for a project, and that file can then be manually updated to adjust the versions
-of each dependency.
+Bazel did not use to automatically download transitive dependencies. It used to
+employ a `WORKSPACE` file that required all transitive dependencies to be
+listed, which led to a lot of pain when managing external dependencies. Bazel
+has since added support for automatic transitive external dependency management
+in the form of the `MODULE.bazel` file. See [external dependency
+overview](/external/overview) for more details.
 
 Yet again, the choice here is one between convenience and scalability. Small
 projects might prefer not having to worry about managing transitive dependencies
@@ -267,10 +265,10 @@ repository, and there is no longer a consistent view of the source tree.
 
 A better way to solve the problem of artifacts taking a long time to build is to
 use a build system that supports remote caching, as described earlier. Such a
-build system saves the resulting artifacts from every build to a location
-that is shared across engineers, so if a developer depends on an artifact that
-was recently built by someone else, the build system automatically downloads
-it instead of building it. This provides all of the performance benefits of
+build system saves the resulting artifacts from every build to a location that
+is shared across engineers, so if a developer depends on an artifact that was
+recently built by someone else, the build system automatically downloads it
+instead of building it. This provides all of the performance benefits of
 depending directly on artifacts while still ensuring that builds are as
 consistent as if they were always built from the same source. This is the
 strategy used internally by Google, and Bazel can be configured to use a remote
@@ -279,25 +277,26 @@ cache.
 ### Security and reliability of external dependencies
 
 Depending on artifacts from third-party sources is inherently risky. There’s an
-availability risk if the third-party source (such as an artifact repository) goes
-down, because your entire build might grind to a halt if it’s unable to download
-an external dependency. There’s also a security risk: if the third-party system
-is compromised by an attacker, the attacker could replace the referenced
-artifact with one of their own design, allowing them to inject arbitrary code
-into your build. Both problems can be mitigated by mirroring any artifacts you
-depend on onto servers you control and blocking your build system from accessing
-third-party artifact repositories like Maven Central. The trade-off is that
-these mirrors take effort and resources to maintain, so the choice of whether to
-use them often depends on the scale of the project. The security issue can also
-be completely prevented with little overhead by requiring the hash of each
-third-party artifact to be specified in the source repository, causing the build
-to fail if the artifact is tampered with. Another alternative that completely
-sidesteps the issue is to vendor your project’s dependencies. When a project
-vendors its dependencies, it checks them into source control alongside the
-project’s source code, either as source or as binaries. This effectively means
-that all of the project’s external dependencies are converted to internal
-dependencies. Google uses this approach internally, checking every third-party
-library referenced throughout Google into a `third_party` directory at the root
-of Google’s source tree. However, this works at Google only because Google’s
-source control system is custom built to handle an extremely large monorepo, so
-vendoring might not be an option for all organizations.
+availability risk if the third-party source (such as an artifact repository)
+goes down, because your entire build might grind to a halt if it’s unable to
+download an external dependency. There’s also a security risk: if the
+third-party system is compromised by an attacker, the attacker could replace the
+referenced artifact with one of their own design, allowing them to inject
+arbitrary code into your build. Both problems can be mitigated by mirroring any
+artifacts you depend on onto servers you control and blocking your build system
+from accessing third-party artifact repositories like Maven Central. The
+trade-off is that these mirrors take effort and resources to maintain, so the
+choice of whether to use them often depends on the scale of the project. The
+security issue can also be completely prevented with little overhead by
+requiring the hash of each third-party artifact to be specified in the source
+repository, causing the build to fail if the artifact is tampered with. Another
+alternative that completely sidesteps the issue is to vendor your project’s
+dependencies. When a project vendors its dependencies, it checks them into
+source control alongside the project’s source code, either as source or as
+binaries. This effectively means that all of the project’s external dependencies
+are converted to internal dependencies. Google uses this approach internally,
+checking every third-party library referenced throughout Google into a
+`third_party` directory at the root of Google’s source tree. However, this works
+at Google only because Google’s source control system is custom built to handle
+an extremely large monorepo, so vendoring might not be an option for all
+organizations.
