@@ -84,6 +84,7 @@ public abstract class AbstractFileSystem extends FileSystem {
 
   @Override
   public String getJavaPathString(PathFragment path) {
+    System.err.println("JAVA_PATH_CHARSET: " + JAVA_PATH_CHARSET);
     return toJavaIoString(path.getPathString());
   }
 
