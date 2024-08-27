@@ -529,7 +529,7 @@ public class BazelProtoCommonTest extends BuildViewTestCase {
         .inOrder();
   }
 
-  // LINT.ThenChange(@protobuf/github/bazel/tests/proto_common_compile_tests.bzl)
+  // LINT.ThenChange(@protobuf/bazel/tests/proto_common_compile_tests.bzl)
 
   /**
    * Verifies <code>proto_common.compile</code> correctly handles external <code>proto_library
