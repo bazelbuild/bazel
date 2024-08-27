@@ -284,6 +284,7 @@ java_library(
 
 java_test(
     name = "LoadingPhaseRunnerTest",
+    timeout = "long",
     test_class = "com.google.devtools.build.lib.pkgcache.LoadingPhaseRunnerTest",
     runtime_deps = [
         ":LoadingPhaseRunnerTest_lib",
