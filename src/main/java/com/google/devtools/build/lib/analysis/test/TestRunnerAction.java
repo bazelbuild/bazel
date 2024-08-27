@@ -309,6 +309,16 @@ public class TestRunnerAction extends AbstractAction
     this.isExecutedOnWindows = isExecutedOnWindows;
   }
 
+  @Override
+  public boolean mayModifySpawnOutputsAfterExecution() {
+    // Test actions modify test spawn outputs after execution:
+    // - if there are multiple attempts (unavoidable);
+    // - in all cases due to appending any stray stderr output to the test log in
+    //   StandaloneTestStrategy.
+    // TODO: Get rid of the second case and only return true if there are multiple attempts.
+    return true;
+  }
+
   public boolean isExecutedOnWindows() {
     return isExecutedOnWindows;
   }
