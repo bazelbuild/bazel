@@ -854,6 +854,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
   @Test
   public void testResolveTools() throws Exception {
+    setBuildLanguageOptions("--incompatible_disallow_ctx_resolve_tools=false");
     StarlarkRuleContext ruleContext = createRuleContext("//foo:resolve_me");
     setRuleContext(ruleContext);
     ev.exec(

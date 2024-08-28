@@ -763,7 +763,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_disallow_ctx_resolve_tools",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -980,7 +980,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH =
       "-incompatible_stop_exporting_build_file_path";
   public static final String INCOMPATIBLE_DISALLOW_CTX_RESOLVE_TOOLS =
-      "-incompatible_disallow_ctx_resolve_tools";
+      "+incompatible_disallow_ctx_resolve_tools";
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");
