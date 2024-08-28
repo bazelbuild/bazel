@@ -128,6 +128,7 @@ sh_test(
     ],
     tags = [
         "no_windows",  # darwin-specific test
+        "requires-network",  # For Bzlmod
     ],
 )
 
