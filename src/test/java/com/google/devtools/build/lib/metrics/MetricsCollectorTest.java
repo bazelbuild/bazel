@@ -383,14 +383,14 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
       newGraphSize -= 1;
     }
 
-    // Stale action execution nodes have been GC'ed.
+    // Stale action execution and package lookup nodes have been GC'ed.
     assertThat(
             buildMetricsEventListener
                 .event
                 .getBuildMetrics()
                 .getBuildGraphMetrics()
                 .getPostInvocationSkyframeNodeCount())
-        .isEqualTo(newGraphSize - 1);
+        .isEqualTo(newGraphSize - 3);
 
     // Do a null full build. Back to baseline.
     addOptions("--build");

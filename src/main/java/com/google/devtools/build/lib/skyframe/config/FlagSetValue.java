@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.config;
 
+import static com.google.common.base.Strings.nullToEmpty;
+
 import com.google.common.base.Verify;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -23,6 +25,7 @@ import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /** A return value of {@link FlagSetFunction} */
 public class FlagSetValue implements SkyValue {
@@ -41,9 +44,12 @@ public class FlagSetValue implements SkyValue {
     private final boolean enforceCanonical;
 
     public Key(
-        Label projectFile, String sclConfig, BuildOptions targetOptions, boolean enforceCanonical) {
+        Label projectFile,
+        @Nullable String sclConfig,
+        BuildOptions targetOptions,
+        boolean enforceCanonical) {
       this.projectFile = Verify.verifyNotNull(projectFile);
-      this.sclConfig = Verify.verifyNotNull(sclConfig);
+      this.sclConfig = nullToEmpty(sclConfig);
       this.targetOptions = Verify.verifyNotNull(targetOptions);
       this.enforceCanonical = enforceCanonical;
     }

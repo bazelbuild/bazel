@@ -357,7 +357,8 @@ public class BuildTool {
 
     BuildOptions postFlagSetsBuildOptions;
     String sclConfig = buildOptionsBeforeFlagSets.get(CoreOptions.class).sclConfig;
-    if (sclConfig != null && !sclConfig.isEmpty()) {
+    if ((sclConfig != null && !sclConfig.isEmpty())
+        || request.getBuildOptions().enforceProjectConfigs) {
       Label projectFile =
           getProjectFile(loadingResult.getTargetLabels(), env.getSkyframeExecutor(), getReporter());
       if (projectFile != null) {
