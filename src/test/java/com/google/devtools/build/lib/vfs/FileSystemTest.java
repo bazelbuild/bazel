@@ -46,11 +46,14 @@ import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
+import java.nio.file.NotDirectoryException;
 import java.nio.file.attribute.PosixFilePermission;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -153,56 +156,57 @@ public abstract class FileSystemTest {
   protected void cleanUpWorkingDirectory(Path workingPath)
       throws IOException {
     if (workingPath.exists()) {
-      removeEntireDirectory(workingPath.getPathFile()); // uses java.io.File!
+      removeEntireDirectory(workingPath.getPathFile().toPath()); // uses java.nio.file.Path!
     }
     workingPath.createDirectoryAndParents();
   }
 
   /**
-   * This function removes an entire directory and all of its contents.
-   * Much like rm -rf directoryToRemove
+   * This function removes an entire directory and all of its contents. Much like rm -rf
+   * directoryToRemove
    *
    * <p>This method explicitly only uses Java APIs to interact with files to prevent any issues with
    * Bazel's own file systems from leaking from one test to another.
    */
-  protected void removeEntireDirectory(File directoryToRemove)
-      throws IOException {
+  protected void removeEntireDirectory(java.nio.file.Path directoryToRemove) throws IOException {
     // make sure that we do not remove anything outside the test directory
     Path testDirPath = testFS.getPath(getTestTmpDir());
-    if (!testFS.getPath(directoryToRemove.getAbsolutePath()).startsWith(testDirPath)) {
+    if (!testFS.getPath(directoryToRemove.toAbsolutePath().toString()).startsWith(testDirPath)) {
       throw new IOException("trying to remove files outside of the testdata directory");
     }
     // Some tests set the directories read-only and/or non-executable, so
     // override that:
     Files.setPosixFilePermissions(
-        directoryToRemove.toPath(),
+        directoryToRemove,
         Sets.union(
-            Files.getPosixFilePermissions(directoryToRemove.toPath()),
+            Files.getPosixFilePermissions(directoryToRemove),
             ImmutableSet.of(PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE)));
 
-    File[] files = directoryToRemove.listFiles();
-    if (files != null) {
-      for (File currentFile : files) {
-        boolean isSymbolicLink = Files.isSymbolicLink(currentFile.toPath());
-        if (!isSymbolicLink && currentFile.isDirectory()) {
-          removeEntireDirectory(currentFile);
+    java.nio.file.Path[] entries = null;
+    try {
+      try (var entriesStream = Files.list(directoryToRemove)) {
+        entries = entriesStream.toArray(java.nio.file.Path[]::new);
+      }
+    } catch (NotDirectoryException ignored) {
+    }
+    if (entries != null) {
+      for (var entry : entries) {
+        boolean isSymbolicLink = Files.isSymbolicLink(entry);
+        if (!isSymbolicLink && Files.isDirectory(entry)) {
+          removeEntireDirectory(entry);
         } else {
           if (!isSymbolicLink) {
             Files.setPosixFilePermissions(
-                directoryToRemove.toPath(),
+                entry,
                 Sets.union(
-                    Files.getPosixFilePermissions(directoryToRemove.toPath()),
+                    Files.getPosixFilePermissions(entry),
                     ImmutableSet.of(PosixFilePermission.OWNER_WRITE)));
           }
-          if (!currentFile.delete()) {
-            throw new IOException("Failed to delete '" + currentFile + "'");
-          }
+          Files.delete(entry);
         }
       }
     }
-    if (!directoryToRemove.delete()) {
-      throw new IOException("Failed to delete '" + directoryToRemove + "'");
-    }
+    Files.delete(directoryToRemove);
   }
 
   /** Recursively make directories readable/executable and files readable. */

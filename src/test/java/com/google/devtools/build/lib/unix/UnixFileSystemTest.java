@@ -14,8 +14,13 @@
 package com.google.devtools.build.lib.unix;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.TruthJUnit.assume;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -24,6 +29,10 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SymlinkAwareFileSystemTest;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
 import org.junit.Test;
 
 /** Tests for the {@link com.google.devtools.build.lib.unix.UnixFileSystem} class. */
@@ -91,5 +100,20 @@ public class UnixFileSystemTest extends SymlinkAwareFileSystemTest {
     assertThat(dir.readdir(Symlinks.FOLLOW))
         .containsExactly(
             new Dirent("symlink", Dirent.Type.UNKNOWN), new Dirent("fifo", Dirent.Type.UNKNOWN));
+  }
+
+  @Test
+  public void nonUnicodePaths() throws Exception {
+    // macOS does not support non-UTF-8 paths.
+    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
+
+    // Invalid UTF-{8,16,32}.
+    String nonUnicodeName = new String(new byte[] {(byte) 0xC3}, ISO_8859_1);
+    Path path = absolutize(nonUnicodeName);
+    String javaPathString = testFS.getJavaPathString(path.asFragment());
+    assertThat(javaPathString).isNotNull();
+
+    testFS.renameTo(xFile.asFragment(), path.asFragment());
+    assertThat(Files.exists(Paths.get(javaPathString))).isTrue();
   }
 }
