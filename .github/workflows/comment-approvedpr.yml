@@ -20,7 +20,7 @@ jobs:
             if (approvedReview) {
               const daysSinceApproval = Math.floor((new Date() - new Date(approvedReview.submitted_at)) / (1000 * 60 * 60 * 24));
 
-              if (daysSinceApproval > 1 && pullRequest.labels.some(label => label.name === 'awaiting-review')) {
+              if (daysSinceApproval > 0 && pullRequest.labels.some(label => label.name === 'awaiting-review')) {
                 // Check if the comment has already been posted
                 const comments = await github.issues.listComments({
                   owner: context.repo.owner,
