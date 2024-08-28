@@ -31,7 +31,7 @@ import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import javax.annotation.Nullable;
 
@@ -92,7 +92,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   @Override
   protected Collection<String> getDirectoryEntries(PathFragment path) throws IOException {
     File file = getIoFile(path);
-    String[] entries = null;
+    String[] entries;
     long startTime = Profiler.nanoTimeMaybe();
     try {
       entries = file.list();
@@ -106,13 +106,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_DIR, file.getPath());
     }
-    Collection<String> result = new ArrayList<>(entries.length);
-    for (String entry : entries) {
-      if (!entry.equals(".") && !entry.equals("..")) {
-        result.add(entry);
-      }
-    }
-    return result;
+    return Arrays.asList(entries);
   }
 
   @Override
