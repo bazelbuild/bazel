@@ -38,8 +38,11 @@ import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifac
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
+import com.google.devtools.build.lib.analysis.AspectCompleteEvent;
 import com.google.devtools.build.lib.analysis.ConfiguredObjectValue;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.TargetCompleteEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
@@ -69,6 +72,7 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -326,13 +330,12 @@ public final class CompletionFunction<
       return null;
     }
 
-    ensureToplevelArtifacts(env, allArtifacts, inputMap);
-
     ExtendedEventHandler.Postable postable =
         completor.createSucceeded(key, value, ctx, artifactsToBuild, env);
     if (postable == null) {
       return null;
     }
+    ensureToplevelArtifacts(env, postable, inputMap);
     env.getListener().post(postable);
     topLevelArtifactsMetric.mergeIn(currentConsumer);
 
@@ -340,7 +343,7 @@ public final class CompletionFunction<
   }
 
   private void ensureToplevelArtifacts(
-      Environment env, ImmutableCollection<Artifact> artifacts, ActionInputMap inputMap)
+      Environment env, ExtendedEventHandler.Postable postable, ActionInputMap inputMap)
       throws CompletionFunctionException, InterruptedException {
     // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
     // is the last chance to download the missing toplevel outputs in this case before sending out
@@ -364,86 +367,33 @@ public final class CompletionFunction<
       return;
     }
 
+    ImmutableMap<String, ArtifactsInOutputGroup> allOutputGroups;
+    Runfiles runfiles = null;
+    if (postable instanceof TargetCompleteEvent targetCompleteEvent) {
+      allOutputGroups = targetCompleteEvent.getOutputs();
+      runfiles = targetCompleteEvent.getExecutableTargetData().getRunfiles();
+    } else if (postable instanceof AspectCompleteEvent aspectCompleteEvent) {
+      allOutputGroups = aspectCompleteEvent.getOutputs();
+    } else {
+      return;
+    }
+
     var futures = new ArrayList<ListenableFuture<Void>>();
-    for (var artifact : artifacts) {
-      if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
+    for (var outputGroup : allOutputGroups.values()) {
+      if (!outputGroup.areImportant()) {
         continue;
       }
 
-      // Metadata can be null during error bubbling, only download outputs that are already
-      // generated. b/342188273
-      if (artifact.isTreeArtifact()) {
-        var treeMetadata = inputMap.getTreeMetadata(artifact.getExecPath());
-        if (treeMetadata == null) {
-          continue;
-        }
+      for (var artifact : outputGroup.getArtifacts().toList()) {
+        downloadArtifact(
+            env, remoteArtifactChecker, actionInputPrefetcher, inputMap, artifact, futures);
+      }
+    }
 
-        var filesToDownload = new ArrayList<ActionInput>(treeMetadata.getChildValues().size());
-        for (var child : treeMetadata.getChildValues().entrySet()) {
-          var treeFile = child.getKey();
-          var metadata = child.getValue();
-          if (metadata.isRemote()
-              && !remoteArtifactChecker.shouldTrustRemoteArtifact(
-                  treeFile, (RemoteFileArtifactValue) metadata)) {
-            filesToDownload.add(treeFile);
-          }
-        }
-        if (!filesToDownload.isEmpty()) {
-          var action =
-              ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
-          var future =
-              actionInputPrefetcher.prefetchFiles(
-                  action, filesToDownload, inputMap::getInputMetadata, Priority.LOW);
-          futures.add(
-              Futures.catchingAsync(
-                  future,
-                  Throwable.class,
-                  e ->
-                      Futures.immediateFailedFuture(
-                          new ActionExecutionException(
-                              e,
-                              action,
-                              true,
-                              DetailedExitCode.of(
-                                  FailureDetail.newBuilder().setMessage(e.getMessage()).build()))),
-                  directExecutor()));
-        }
-      } else {
-        var metadata = inputMap.getInputMetadata(artifact);
-        if (metadata == null) {
-          continue;
-        }
-
-        if (metadata.isRemote()
-            && !remoteArtifactChecker.shouldTrustRemoteArtifact(
-                artifact, (RemoteFileArtifactValue) metadata)) {
-          var action =
-              ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
-          var future =
-              actionInputPrefetcher.prefetchFiles(
-                  action, ImmutableList.of(artifact), inputMap::getInputMetadata, Priority.LOW);
-          futures.add(
-              Futures.catchingAsync(
-                  future,
-                  Throwable.class,
-                  e ->
-                      Futures.immediateFailedFuture(
-                          new ActionExecutionException(
-                              e,
-                              action,
-                              true,
-                              DetailedExitCode.of(
-                                  FailureDetail.newBuilder()
-                                      .setMessage(e.getMessage())
-                                      .setRemoteExecution(
-                                          RemoteExecution.newBuilder()
-                                              .setCode(
-                                                  RemoteExecution.Code
-                                                      .TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
-                                              .build())
-                                      .build()))),
-                  directExecutor()));
-        }
+    if (runfiles != null) {
+      for (var artifact : runfiles.getAllArtifacts().toList()) {
+        downloadArtifact(
+            env, remoteArtifactChecker, actionInputPrefetcher, inputMap, artifact, futures);
       }
     }
 
@@ -455,6 +405,95 @@ public final class CompletionFunction<
         throw new CompletionFunctionException(aee);
       }
       throw new RuntimeException(cause);
+    }
+  }
+
+  private void downloadArtifact(
+      Environment env,
+      RemoteArtifactChecker remoteArtifactChecker,
+      ActionInputPrefetcher actionInputPrefetcher,
+      ActionInputMap inputMap,
+      Artifact artifact,
+      List<ListenableFuture<Void>> futures
+  ) throws InterruptedException {
+    if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
+      return;
+    }
+
+    // Metadata can be null during error bubbling, only download outputs that are already
+    // generated. b/342188273
+    if (artifact.isTreeArtifact()) {
+      var treeMetadata = inputMap.getTreeMetadata(artifact.getExecPath());
+      if (treeMetadata == null) {
+        return;
+      }
+
+      var filesToDownload = new ArrayList<ActionInput>(treeMetadata.getChildValues().size());
+      for (var child : treeMetadata.getChildValues().entrySet()) {
+        var treeFile = child.getKey();
+        var metadata = child.getValue();
+        if (metadata.isRemote()
+            && !remoteArtifactChecker.shouldTrustRemoteArtifact(
+            treeFile, (RemoteFileArtifactValue) metadata)) {
+          filesToDownload.add(treeFile);
+        }
+      }
+      if (!filesToDownload.isEmpty()) {
+        var action =
+            ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
+        var future =
+            actionInputPrefetcher.prefetchFiles(
+                action, filesToDownload, inputMap::getInputMetadata, Priority.LOW);
+        futures.add(
+            Futures.catchingAsync(
+                future,
+                Throwable.class,
+                e ->
+                    Futures.immediateFailedFuture(
+                        new ActionExecutionException(
+                            e,
+                            action,
+                            true,
+                            DetailedExitCode.of(
+                                FailureDetail.newBuilder().setMessage(e.getMessage()).build()))),
+                directExecutor()));
+      }
+    } else {
+      var metadata = inputMap.getInputMetadata(artifact);
+      if (metadata == null) {
+        return;
+      }
+
+      if (metadata.isRemote()
+          && !remoteArtifactChecker.shouldTrustRemoteArtifact(
+          artifact, (RemoteFileArtifactValue) metadata)) {
+        var action =
+            ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
+        var future =
+            actionInputPrefetcher.prefetchFiles(
+                action, ImmutableList.of(artifact), inputMap::getInputMetadata, Priority.LOW);
+        futures.add(
+            Futures.catchingAsync(
+                future,
+                Throwable.class,
+                e ->
+                    Futures.immediateFailedFuture(
+                        new ActionExecutionException(
+                            e,
+                            action,
+                            true,
+                            DetailedExitCode.of(
+                                FailureDetail.newBuilder()
+                                    .setMessage(e.getMessage())
+                                    .setRemoteExecution(
+                                        RemoteExecution.newBuilder()
+                                            .setCode(
+                                                RemoteExecution.Code
+                                                    .TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
+                                            .build())
+                                    .build()))),
+                directExecutor()));
+      }
     }
   }
 

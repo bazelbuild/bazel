@@ -103,6 +103,14 @@ public final class TargetCompleteEvent
     }
 
     @Nullable
+    public Runfiles getRunfiles() {
+      if (runfilesSupport != null) {
+        return runfilesSupport.getRunfiles();
+      }
+      return null;
+    }
+
+    @Nullable
     public Artifact getExecutable() {
       return executable;
     }
@@ -296,6 +304,10 @@ public final class TargetCompleteEvent
   @Nullable
   public ArtifactsInOutputGroup getOutputGroup(String outputGroup) {
     return outputs.get(outputGroup);
+  }
+
+  public ImmutableMap<String, ArtifactsInOutputGroup> getOutputs() {
+    return outputs;
   }
 
   // TODO(aehlig): remove as soon as we managed to get rid of the deprecated "important_output"
