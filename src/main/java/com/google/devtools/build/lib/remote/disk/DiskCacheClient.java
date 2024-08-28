@@ -264,7 +264,7 @@ public class DiskCacheClient implements RemoteCacheClient {
       RemoteActionExecutionContext context,
       ActionKey actionKey,
       boolean inlineOutErr,
-      @Nullable Set<String> inlineOutputFiles) {
+      Set<String> inlineOutputFiles) {
     if (context.getSpawnExecutionContext() != null) {
       context.getSpawnExecutionContext().report(SPAWN_CHECKING_CACHE_EVENT);
     }
