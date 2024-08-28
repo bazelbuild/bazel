@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetAddress;
@@ -553,7 +552,7 @@ public class HttpDownloaderTest {
               });
 
       assertThrows(
-          FileNotFoundException.class,
+          IOException.class,
           () ->
               httpDownloader.downloadAndReadOneUrl(
                   new URL(String.format("http://localhost:%d/foo", server.getLocalPort())),
