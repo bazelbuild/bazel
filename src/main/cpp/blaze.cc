@@ -502,6 +502,13 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
 
   result.push_back("--product_name=" + startup_options.product_name);
 
+#ifdef __linux__
+  if (!startup_options.cgroup_parent.empty()) {
+    result.push_back("--experimental_cgroup_parent=" +
+                     startup_options.cgroup_parent);
+  }
+#endif
+
   startup_options.AddExtraOptions(&result);
 
   // The option sources are transmitted in the following format:
@@ -1518,8 +1525,8 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
     startup_options->batch = true;
     BAZEL_LOG(WARNING) << "Invoking " << startup_options->product_name
                        << " in batch mode since it is not invoked from within"
-                       << " a workspace (below a directory having a WORKSPACE"
-                       << " file).";
+                       << " a workspace (below a directory having a"
+                       << " MODULE.bazel file).";
   }
 
   vector<string> archive_contents;

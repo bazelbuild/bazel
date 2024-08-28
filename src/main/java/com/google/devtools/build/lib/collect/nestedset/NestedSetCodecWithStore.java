@@ -97,15 +97,18 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
     Order order = context.deserialize(codedIn);
     NestedSetSize nestedSetSize = NestedSetSize.values()[codedIn.readEnum()];
     switch (nestedSetSize) {
-      case EMPTY:
+      case EMPTY -> {
         return NestedSetBuilder.emptySet(order);
-      case LEAF:
+      }
+      case LEAF -> {
         Object contents = context.deserialize(codedIn);
-        return intern(order, /*depth=*/ 1, contents);
-      case NONLEAF:
+        return intern(order, /* depth= */ 1, contents);
+      }
+      case NONLEAF -> {
         int depth = codedIn.readInt32();
         ByteString fingerprint = ByteString.copyFrom(codedIn.readByteArray());
         return intern(order, depth, nestedSetStore.getContentsAndDeserialize(fingerprint, context));
+      }
     }
     throw new IllegalStateException("NestedSet size " + nestedSetSize + " not known");
   }

@@ -56,6 +56,7 @@ java_test(
 java_test(
     name = "ConfiguredTargetQuerySemanticsTest",
     size = "medium",
+    timeout = "long",
     srcs = ["ConfiguredTargetQuerySemanticsTest.java"],
     shard_count = 2,
     deps = [

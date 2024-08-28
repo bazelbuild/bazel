@@ -163,7 +163,7 @@ tasks:
       - build
       - test
   macos:
-    shards: 20
+    shards: 10
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
@@ -194,75 +194,23 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      # https://github.com/bazelbuild/bazel/issues/16526
-      - "-//src/test/shell/bazel:starlark_repository_test"
-      # https://github.com/bazelbuild/bazel/issues/17407
-      - "-//src/test/shell/bazel/apple:bazel_apple_test"
-      # https://github.com/bazelbuild/bazel/issues/17408
-      - "-//src/test/shell/bazel/apple:bazel_objc_test"
+      # Disable python and shell integration tests on Intel Macs
+      - "-//src/test/shell/..."
+      - "-//src/test/py/..."
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
-      # https://github.com/bazelbuild/bazel/issues/17411
-      - "-//src/test/shell/bazel:bazel_determinism_test"
-      # https://github.com/bazelbuild/bazel/issues/17457
-      - "-//src/test/shell/bazel:jdeps_test"
-      # https://github.com/bazelbuild/bazel/issues/21495
-      - "-//src/test/shell/bazel:srcs_test"
       # Disable android tests since we are moving Android rules them out of Bazel repo.
-      - "-//src/test/shell/bazel/android/..."
       - "-//src/tools/android/java/com/google/devtools/build/android/..."
       - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
-      # Disable the top 50 most time-consuming tests on macOS Intel platform in presubmit.
-      # Those tests are still covered in postsubmit and by macOS arm64 platform in presubmit.
-      # To run any of the following test in presubmit, just comment out the corresponding line.
-      - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
-      - "-//src/test/shell/bazel:bazel_proto_library_test"
-      - "-//src/test/py/bazel:runfiles_test"
-      - "-//src/test/shell/integration:loading_phase_tests"
-      - "-//src/test/py/bazel:bazel_module_test"
-      - "-//src/test/shell/integration:target_compatible_with_test"
-      - "-//src/test/shell/integration:bazel_json_worker_test"
-      - "-//src/test/shell/bazel:bazel_coverage_java_jdk21_toolchain_head_test"
-      - "-//src/test/shell/bazel:bazel_coverage_java_test"
-      - "-//src/test/shell/bazel:bazel_java_test_jdk21_toolchain_head"
-      - "-//src/test/shell/bazel:starlark_git_repository_test"
-      - "-//src/test/shell/integration:build_event_stream_test"
-      - "-//third_party/ijar/test:zip_test"
-      - "-//src/test/java/com/google/devtools/build/lib/rules/java:JavaStarlarkApiTest"
-      - "-//src/test/shell/bazel:bazel_java_tools_test"
-      - "-//src/test/shell/bazel/remote:build_without_the_bytes_test"
-      - "-//src/test/shell/integration:bazel_sandboxed_worker_test"
-      - "-//src/test/shell/integration:client_test"
-      - "-//src/test/shell/bazel/remote:remote_execution_test"
-      - "-//src/test/shell/bazel:bazel_coverage_java_jdk21_toolchain_released_test"
-      - "-//src/test/py/bazel:bazel_vendor_test"
-      - "-//src/test/shell/integration:sandboxing_test"
-      - "-//src/test/shell/bazel:bazel_java_test"
-      - "-//src/test/py/bazel:bzlmod_query_test"
-      - "-//src/test/py/bazel:bazel_external_repository_test"
-      - "-//src/tools/singlejar:zip64_test"
-      - "-//src/test/py/bazel:launcher_test"
-      - "-//src/test/shell/integration:bazel_worker_test"
-      - "-//src/test/py/bazel:py_test"
-      - "-//src/test/shell/bazel:bazel_test_test"
-      - "-//src/test/py/bazel:bazel_overrides_test"
-      - "-//src/test/shell/bazel:path_mapping_test"
-      - "-//src/test/shell/integration:toolchain_test"
-      - "-//src/test/shell/integration:execution_phase_tests"
-      - "-//src/test/shell/integration:aquery_test"
-      - "-//src/test/py/bazel:mod_command_test"
       # ServerTests frequently runs into deadlocks on Intel Macs
       - "-//src/test/java/com/google/devtools/build/lib/server:ServerTests"
-      # bazel_proto_library_test is timeout flaky on Intel Macs, which usually means a runtime of 2 hours or more
-      - "-//src/test/shell/bazel:bazel_proto_library_test"
-      # Takes too long on Intel VMs
-      - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
-      - "-//src/test/shell/bazel:bazel_bootstrap_distfile_tar_test"
+      # Add back a few Apple specific tests
+      - "+//src/test/shell/bazel/apple/..."
     include_json_profile:
       - build
       - test
   macos_arm64:
-    shards: 5
+    shards: 10
     shell_commands:
       - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' -e 's/^#
         android_ndk_repository/android_ndk_repository/' WORKSPACE.bzlmod
@@ -387,6 +335,7 @@ tasks:
       - "--experimental_remote_cache_async"
       - "--experimental_remote_merkle_tree_cache"
       - "--remote_download_minimal"
+      - "--experimental_output_paths=strip"
     build_targets:
       - "//src:bazel"
       - "//src:bazel_jdk_minimal"
@@ -398,6 +347,7 @@ tasks:
       - "--experimental_remote_cache_async"
       - "--experimental_remote_merkle_tree_cache"
       - "--remote_download_minimal"
+      - "--experimental_output_paths=strip"
     test_targets:
       - "//scripts/..."
       - "//src/java_tools/..."

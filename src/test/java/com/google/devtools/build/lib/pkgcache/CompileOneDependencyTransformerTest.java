@@ -409,18 +409,15 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
   /** Tests that when multiple rule match a target, language-specific rules take precedence. */
   @Test
   public void testRuleChoiceLanguagePreferences() throws Exception {
-    String srcs = "srcs = [ 'a.cc', 'a.c', 'a.h', 'a.java', 'a.py', 'a.txt' ])";
+    String srcs = "srcs = [ 'a.cc', 'a.c', 'a.h', 'a.py', 'a.txt' ])";
     scratch.file(
         "a/BUILD",
         "genrule(name = 'gen_rule', cmd = '', outs = [ 'out' ], " + srcs,
-        "cc_library(name = 'cc_rule', " + srcs,
-        "java_library(name = 'java_rule', " + srcs);
+        "cc_binary(name = 'cc_rule', " + srcs);
 
     assertThat(parseListCompileOneDep("a/a.cc")).containsExactlyElementsIn(labels("//a:cc_rule"));
     assertThat(parseListCompileOneDep("a/a.c")).containsExactlyElementsIn(labels("//a:cc_rule"));
     assertThat(parseListCompileOneDep("a/a.h")).containsExactlyElementsIn(labels("//a:cc_rule"));
-    assertThat(parseListCompileOneDep("a/a.java"))
-        .containsExactlyElementsIn(labels("//a:java_rule"));
     assertThat(parseListCompileOneDep("a/a.txt")).containsExactlyElementsIn(labels("//a:gen_rule"));
   }
 
@@ -544,6 +541,46 @@ public class CompileOneDependencyTransformerTest extends PackageLoadingTestCase 
         """);
     assertThat(parseListCompileOneDep("a/a.cc"))
         .containsExactlyElementsIn(labels("//a:foo_select"));
+  }
+
+  @Test
+  public void testHeaderOnlyLibrary() throws Exception {
+    // By default, we assume parse_headers is enabled (via --features + toolchain).
+    scratch.file(
+        "a/BUILD",
+        "cc_library(name = 'h', hdrs = ['h.h'])",
+        "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
+    assertThat(parseListCompileOneDep("a/h.h")).containsExactlyElementsIn(labels("//a:h"));
+
+    // parse_headers explicitly disabled on the header-only target, use its reverse dep.
+    scratch.file(
+        "b/BUILD",
+        "cc_library(name = 'h', hdrs = ['h.h'], features = ['-parse_headers'])",
+        "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
+    assertThat(parseListCompileOneDep("b/h.h")).containsExactlyElementsIn(labels("//b:l"));
+
+    // ... but if it has sources, the target itself is ok.
+    scratch.file(
+        "c/BUILD",
+        "cc_library(name = 'h', hdrs = ['h.h'], srcs = ['h.cc'], features = ['-parse_headers'])",
+        "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
+    assertThat(parseListCompileOneDep("c/h.h")).containsExactlyElementsIn(labels("//c:h"));
+
+    // parse_headers disabled in the package
+    scratch.file(
+        "d/BUILD",
+        "package(features = ['-parse_headers'])",
+        "cc_library(name = 'h', hdrs = ['h.h'])",
+        "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
+    assertThat(parseListCompileOneDep("d/h.h")).containsExactlyElementsIn(labels("//d:l"));
+
+    // parse_headers disabled in the package and enabled on the target, so enabled
+    scratch.file(
+        "e/BUILD",
+        "package(features = ['-parse_headers'])",
+        "cc_library(name = 'h', hdrs = ['h.h'], features = ['parse_headers'])",
+        "cc_library(name = 'l', srcs = ['l.cc'], deps = [':h'])");
+    assertThat(parseListCompileOneDep("e/h.h")).containsExactlyElementsIn(labels("//e:h"));
   }
 
   @Test

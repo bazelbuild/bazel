@@ -131,6 +131,7 @@ public class WorkerParser {
       WorkerOptions options,
       boolean dynamic,
       WorkerProtocolFormat protocolFormat) {
+    String workerKeyMnemonic = Spawns.getWorkerKeyMnemonic(spawn);
     boolean multiplex = options.workerMultiplex && Spawns.supportsMultiplexWorkers(spawn);
     if (dynamic && !(Spawns.supportsMultiplexSandboxing(spawn) && options.multiplexSandboxing)) {
       multiplex = false;
@@ -142,14 +143,20 @@ public class WorkerParser {
     } else {
       sandboxed = options.workerSandboxing || dynamic;
     }
+    boolean useInMemoryTracking = false;
+    if (sandboxed) {
+      List<String> mnemonics = options.workerSandboxInMemoryTracking;
+      useInMemoryTracking = mnemonics != null && mnemonics.contains(workerKeyMnemonic);
+    }
     return new WorkerKey(
         workerArgs,
         env,
         execRoot,
-        Spawns.getWorkerKeyMnemonic(spawn),
+        workerKeyMnemonic,
         workerFilesCombinedHash,
         workerFiles,
         sandboxed,
+        useInMemoryTracking,
         multiplex,
         Spawns.supportsWorkerCancellation(spawn),
         protocolFormat);

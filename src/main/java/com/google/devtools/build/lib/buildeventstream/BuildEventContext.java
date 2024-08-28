@@ -36,4 +36,16 @@ public interface BuildEventContext {
    * Returns the options for the build event stream.
    */
   BuildEventProtocolOptions getOptions();
+
+  /** Mode in which files are reported in an output group: recursive filesets, inline, or both. */
+  enum OutputGroupFileMode {
+    NAMED_SET_OF_FILES_ONLY,
+    INLINE_ONLY,
+    BOTH;
+  }
+
+  /** Return the {@link OutputGroupFileMode} to use for a given output group. */
+  default OutputGroupFileMode getFileModeForOutputGroup(String outputGroup) {
+    return OutputGroupFileMode.NAMED_SET_OF_FILES_ONLY;
+  }
 }

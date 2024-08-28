@@ -44,6 +44,11 @@ public final class GlobFunctionTest extends GlobTestBase {
   }
 
   @Override
+  protected boolean alwaysUsesDirListing() {
+    return !recursionInSingleFunction;
+  }
+
+  @Override
   protected void assertSingleGlobMatches(
       String pattern, Globber.Operation globberOperation, String... expecteds) throws Exception {
     Iterable<String> matches =

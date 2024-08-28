@@ -124,6 +124,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
@@ -205,6 +206,15 @@ public final class SkyframeBuildView {
   public TotalAndConfiguredTargetOnlyMetric getEvaluatedActionCounts() {
     return TotalAndConfiguredTargetOnlyMetric.create(
         progressReceiver.actionCount.get(), progressReceiver.configuredTargetActionCount.get());
+  }
+
+  public ImmutableMap<String, Integer> getEvaluatedActionCountsByMnemonic() {
+    ImmutableMap.Builder<String, Integer> builder = ImmutableMap.builder();
+    for (Map.Entry<String, AtomicInteger> entry :
+        progressReceiver.actionCountByMnemonic.entrySet()) {
+      builder.put(entry.getKey(), entry.getValue().get());
+    }
+    return builder.buildOrThrow();
   }
 
   /**
@@ -922,6 +932,7 @@ public final class SkyframeBuildView {
             buildResultListener.getAnalyzedTargets(),
             getEvaluatedCounts(),
             getEvaluatedActionCounts(),
+            getEvaluatedActionCountsByMnemonic(),
             measuredAnalysisTime,
             skyframeExecutor.getPackageManager().getAndClearStatistics(),
             skyframeExecutor.wasAnalysisCacheInvalidatedAndResetBit()));
@@ -1398,6 +1409,7 @@ public final class SkyframeBuildView {
   /** Clear the invalidated action lookup nodes detected during loading and analysis phases. */
   public void clearInvalidatedActionLookupKeys() {
     dirtiedActionLookupKeys = Sets.newConcurrentHashSet();
+    starlarkTransitionCache.clear();
     buildConfigurationKeyCache.clear();
   }
 
@@ -1424,6 +1436,8 @@ public final class SkyframeBuildView {
     private final AtomicInteger actionCount = new AtomicInteger();
     private final AtomicInteger configuredTargetCount = new AtomicInteger();
     private final AtomicInteger configuredTargetActionCount = new AtomicInteger();
+    private final ConcurrentHashMap<String, AtomicInteger> actionCountByMnemonic =
+        new ConcurrentHashMap<>();
 
     @Override
     public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
@@ -1466,10 +1480,17 @@ public final class SkyframeBuildView {
           configuredTargetCount.incrementAndGet();
         }
         configuredObjectCount.incrementAndGet();
-        if (newValue instanceof ActionLookupValue) {
+        if (newValue instanceof ActionLookupValue alv) {
           // During multithreaded operation, this is only set to true, so no concurrency issues.
           someActionLookupValueEvaluated = true;
-          int numActions = ((ActionLookupValue) newValue).getNumActions();
+          ImmutableList<ActionAnalysisMetadata> actions = alv.getActions();
+          for (ActionAnalysisMetadata action : actions) {
+            actionCountByMnemonic
+                .computeIfAbsent(action.getMnemonic(), (m) -> new AtomicInteger(0))
+                .incrementAndGet();
+          }
+
+          int numActions = actions.size();
           actionCount.addAndGet(numActions);
           if (isConfiguredTarget) {
             configuredTargetActionCount.addAndGet(numActions);

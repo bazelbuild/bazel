@@ -71,8 +71,6 @@ fi
 
 set -e
 
-disable_bzlmod
-
 function create_pkg() {
   local -r pkg=$1
   mkdir -p $pkg
@@ -149,6 +147,8 @@ EOF
 }
 
 function test_foo_runfiles() {
+  add_rules_python "MODULE.bazel"
+  local WORKSPACE_NAME=$TEST_WORKSPACE
   local -r pkg=$FUNCNAME
   create_pkg $pkg
 cat > BUILD << EOF
@@ -379,8 +379,7 @@ function test_workspace_name_change() {
   # TODO(b/174761497): Re-enable the test outside of Bazel.
   [[ "${PRODUCT_NAME}" != bazel ]] && return 0
 
-  # Rewrite the workspace name but leave the rest of WORKSPACE alone.
-  sed -ie 's,workspace(.*,workspace(name = "foo"),' WORKSPACE
+  echo 'workspace(name = "foo")' > WORKSPACE
 
   cat > BUILD <<EOF
 cc_binary(
@@ -392,12 +391,12 @@ EOF
   cat > thing.cc <<EOF
 int main() { return 0; }
 EOF
-  bazel build //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
+  bazel build --noenable_bzlmod --enable_workspace //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
   [[ -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/foo ]] || fail "foo not found"
 
   # Change workspace name to bar.
   sed -ie 's,workspace(.*,workspace(name = "bar"),' WORKSPACE
-  bazel build //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
+  bazel build --noenable_bzlmod --enable_workspace //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
   [[ -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/bar ]] || fail "bar not found"
   [[ ! -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/foo ]] \
     || fail "Old foo still found"

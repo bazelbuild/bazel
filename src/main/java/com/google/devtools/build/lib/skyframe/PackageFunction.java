@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
+import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.BuildFileNotFoundException;
 import com.google.devtools.build.lib.packages.CachingPackageLocator;
@@ -320,7 +321,10 @@ public abstract class PackageFunction implements SkyFunction {
           .setType(PackageFunctionException.Type.NO_SUCH_PACKAGE)
           .setTransience(Transience.PERSISTENT)
           .setPackageIdentifier(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
-          .setMessage("the WORKSPACE file is disabled via --noenable_workspace")
+          .setMessage(
+              "//external package is not available since the WORKSPACE file is disabled, please"
+                  + " migrate to Bzlmod or temporarily enable WORKSPACE via --enable_workspace. See"
+                  + " https://github.com/bazelbuild/bazel/issues/23023.")
           .setPackageLoadingCode(PackageLoading.Code.WORKSPACE_FILE_ERROR)
           .build();
     }
@@ -457,14 +461,21 @@ public abstract class PackageFunction implements SkyFunction {
 
     StarlarkBuiltinsValue starlarkBuiltinsValue;
     try {
+      // Bazel: we do autoloads for all BUILD files if enabled
+      AutoloadSymbols autoloadSymbols = PrecomputedValue.AUTOLOAD_SYMBOLS.get(env);
+      if (autoloadSymbols == null) {
+        return null;
+      }
       if (bzlLoadFunctionForInlining == null) {
         starlarkBuiltinsValue =
             (StarlarkBuiltinsValue)
-                env.getValueOrThrow(StarlarkBuiltinsValue.key(), BuiltinsFailedException.class);
+                env.getValueOrThrow(
+                    StarlarkBuiltinsValue.key(/* withAutoloads= */ autoloadSymbols.isEnabled()),
+                    BuiltinsFailedException.class);
       } else {
         starlarkBuiltinsValue =
             StarlarkBuiltinsFunction.computeInline(
-                StarlarkBuiltinsValue.key(),
+                StarlarkBuiltinsValue.key(/* withAutoloads= */ autoloadSymbols.isEnabled()),
                 BzlLoadFunction.InliningState.create(env),
                 packageFactory.getRuleClassProvider().getBazelStarlarkEnvironment(),
                 bzlLoadFunctionForInlining);
@@ -1131,6 +1142,7 @@ public abstract class PackageFunction implements SkyFunction {
             compiled.predeclared,
             loadedModules,
             starlarkBuiltinsValue.starlarkSemantics);
+        pkgBuilder.expandAllRemainingMacros(starlarkBuiltinsValue.starlarkSemantics);
       } else {
         // Execution not attempted due to static errors.
         for (SyntaxError err : compiled.errors) {

@@ -100,7 +100,9 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
       if (key.isMultiplex()) {
         WorkerMultiplexer workerMultiplexer = WorkerMultiplexerManager.getInstance(key, logFile);
         Path workDir = getSandboxedWorkerPath(key);
-        worker = new SandboxedWorkerProxy(key, workerId, logFile, workerMultiplexer, workDir);
+        worker =
+            new SandboxedWorkerProxy(
+                key, workerId, logFile, workerMultiplexer, workDir, treeDeleter);
       } else {
         Path workDir = getSandboxedWorkerPath(key, workerId);
         worker =
@@ -112,6 +114,7 @@ public class WorkerFactory extends BaseKeyedPooledObjectFactory<WorkerKey, Worke
                 workerOptions,
                 hardenedSandboxOptions,
                 treeDeleter,
+                key.useInMemoryTracking(),
                 cgroupFactory);
       }
     } else if (key.isMultiplex()) {

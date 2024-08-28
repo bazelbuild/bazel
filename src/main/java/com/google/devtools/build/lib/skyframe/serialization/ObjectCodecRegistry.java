@@ -15,13 +15,16 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Streams.stream;
+import static java.util.Comparator.comparing;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Streams;
 import com.google.common.io.ByteStreams;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.CodedOutputStream;
@@ -32,7 +35,6 @@ import java.security.DigestOutputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
@@ -214,7 +216,7 @@ public class ObjectCodecRegistry {
     Builder builder = newBuilder();
     builder.setAllowDefaultCodec(allowDefaultCodec);
     for (Map.Entry<Class<?>, CodecDescriptor> entry : classMappedCodecs.entrySet()) {
-      builder.add(entry.getValue().getCodec());
+      builder.add(entry.getValue().codec());
     }
 
     for (Object constant : referenceConstants) {
@@ -231,39 +233,18 @@ public class ObjectCodecRegistry {
     return classNames;
   }
 
-  /** Describes encoding logic. */
-  static final class CodecDescriptor {
-    private final int tag;
-    private final ObjectCodec<?> codec;
-
-    @VisibleForTesting
-    CodecDescriptor(int tag, ObjectCodec<?> codec) {
-      this.tag = tag;
-      this.codec = codec;
-    }
-
-    /**
-     * Unique identifier for the associated codec.
-     *
-     * <p>Intended to be used as a compact on-the-wire representation of an encoded object's type.
-     *
-     * <p>Returns a value ≥ 1.
-     *
-     * <p>0 is a special tag representing null while negative numbers are reserved for
-     * backreferences.
-     */
-    public int getTag() {
-      return tag;
-    }
-
-    /** Returns the underlying codec. */
-    public ObjectCodec<?> getCodec() {
-      return codec;
-    }
-
-    @Override
-    public String toString() {
-      return MoreObjects.toStringHelper(this).add("codec", codec).add("tag", tag).toString();
+  /**
+   * Describes encoding logic.
+   *
+   * @param tag Unique identifier for the associated codec. Intended to be used as a compact
+   *     on-the-wire representation of an encoded object's type. Returns a value ≥ 1. 0 is a special
+   *     tag representing null while negative numbers are reserved for backreferences.
+   * @param codec The underlying codec.
+   */
+  record CodecDescriptor(int tag, ObjectCodec<?> codec) {
+    CodecDescriptor {
+      // Check that the tag is not a reserved value.
+      Preconditions.checkArgument(tag >= 1);
     }
   }
 
@@ -369,19 +350,46 @@ public class ObjectCodecRegistry {
       ConcurrentMap<Class<?>, CodecDescriptor> codecsBuilder,
       @Nullable CodedOutputStream checksum)
       throws IOException {
-    for (ObjectCodec<?> codec :
-        ImmutableList.sortedCopyOf(
-            Comparator.comparing(o -> o.getEncodedClass().getName()), memoizingCodecs)) {
-      CodecDescriptor codecDescriptor = new CodecDescriptor(nextTag, codec);
-      addToChecksum(checksum, nextTag, codec.getClass().getName());
-      tagMappedCodecsBuilder.add(codecDescriptor);
-      codecsBuilder.put(codec.getEncodedClass(), codecDescriptor);
-      nextTag++;
-      for (Class<?> otherClass : codec.additionalEncodedClasses()) {
+    // First, register all codecs and their monotonically increasing tag numbers in a stable
+    // alphabetic sort order, using their primary encoded class as the key.
+    var sortedCodecDescriptors =
+        Streams.mapWithIndex(
+                // Sort the codecs by their primary encoded class name.
+                stream(memoizingCodecs).sorted(comparing(o -> o.getEncodedClass().getName())),
+                // Then create a codec descriptor for each codec.
+                (codec, idx) ->
+                    // idx is small enough to be casted from long to int without loss of
+                    // information.
+                    new CodecDescriptor((int) idx + nextTag, codec))
+            .collect(toImmutableList());
+
+    // Then, perform checksumming and check that there's a unique codec descriptor for each encoded
+    // class.
+    for (CodecDescriptor codecDescriptor : sortedCodecDescriptors) {
+      addToChecksum(checksum, codecDescriptor.tag(), codecDescriptor.codec().getClass().getName());
+
+      CodecDescriptor previousCodecDescriptor =
+          codecsBuilder.put(codecDescriptor.codec().getEncodedClass(), codecDescriptor);
+      Preconditions.checkState(
+          previousCodecDescriptor == null,
+          "found duplicate codec descriptor for %s, was: %s, new: %s",
+          codecDescriptor.codec().getEncodedClass(),
+          previousCodecDescriptor,
+          codecDescriptor);
+    }
+
+    // Finally, for all codec descriptors, map their additional encoded classes, and overwrite
+    // any existing descriptor mappings.
+    for (CodecDescriptor codecDescriptor : sortedCodecDescriptors) {
+      for (Class<?> otherClass : codecDescriptor.codec().additionalEncodedClasses()) {
         codecsBuilder.put(otherClass, codecDescriptor);
       }
     }
-    return nextTag;
+
+    // Append all new descriptors into the builder.
+    tagMappedCodecsBuilder.addAll(sortedCodecDescriptors);
+
+    return nextTag + sortedCodecDescriptors.size();
   }
 
   private static IdentityHashMap<String, Supplier<CodecDescriptor>> createDynamicCodecs(

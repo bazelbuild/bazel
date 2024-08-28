@@ -347,6 +347,7 @@ java_test(
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//src/test/java/com/google/devtools/build/lib/testutil:JunitUtils",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//third_party:guava",
         "//third_party:guava-testlib",
         "//third_party:junit4",
@@ -486,6 +487,7 @@ java_test(
         "//src/main/protobuf:failure_details_java_proto",
         "//src/main/protobuf:invocation_policy_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestUtils",
         "//src/test/java/com/google/devtools/build/skyframe:testutil",
         "//third_party:guava",
@@ -560,6 +562,30 @@ java_test(
 )
 
 java_test(
+    name = "TargetSummaryEventTest",
+    srcs = ["TargetSummaryEventTest.java"],
+    data = ["//src/test/java/com/google/devtools/build/lib:embedded_scripts"],
+    tags = [
+        "no_windows",
+    ],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",
+        "//src/main/java/com/google/devtools/build/lib/buildeventservice",
+        "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/test/java/com/google/devtools/build/lib/analysis/util",
+        "//src/test/java/com/google/devtools/build/lib/buildtool/util",
+        "//src/test/java/com/google/devtools/build/lib/testutil",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "BuildResultTestCase",
     srcs = ["BuildResultTestCase.java"],
     shard_count = 4,
@@ -586,14 +612,17 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/query2",
         "//src/main/java/com/google/devtools/build/lib/query2/engine",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",
+        "//src/main/protobuf:analysis_v2_java_proto",
         "//src/main/protobuf:failure_details_java_proto",
         "//src/test/java/com/google/devtools/build/lib/buildtool/util",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "//third_party/protobuf:protobuf_java",
     ],
 )
 
@@ -749,6 +778,7 @@ java_test(
 java_test(
     name = "SkyfocusIntegrationTest",
     srcs = ["SkyfocusIntegrationTest.java"],
+    shard_count = 2,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/runtime/commands",

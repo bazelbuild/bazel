@@ -151,20 +151,7 @@ Genrule=+requires-a,CppCompile=+requires-b,CppCompile=+requires-c \
 
 function test_modify_execution_info_various_types() {
   if [[ "$PRODUCT_NAME" = "bazel" ]]; then
-    cat "$(rlocation "io_bazel/src/test/shell/integration/rules_proto_stanza.txt")" >>WORKSPACE
-    cat >> WORKSPACE << EOF
-load("@rules_proto//proto:repositories.bzl", "rules_proto_dependencies", "rules_proto_toolchains")
-rules_proto_dependencies()
-rules_proto_toolchains()
-
-# @com_google_protobuf//:protoc depends on @io_bazel//third_party/zlib.
-new_local_repository(
-    name = "io_bazel",
-    path = "$(dirname $(dirname $(dirname $(rlocation io_bazel/third_party/zlib/BUILD))))",
-    build_file_content = "# Intentionally left empty.",
-    workspace_file_content = "workspace(name = 'io_bazel')",
-)
-EOF
+    add_rules_python "MODULE.bazel"
   fi
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"

@@ -125,6 +125,8 @@ class SingleplexWorker extends Worker {
     if (process == null) {
       addShutdownHook();
       process = createProcess();
+      logger.atInfo().log(
+          "Created worker process %s for worker id %d", process.getProcessId(), workerId);
       status.maybeUpdateStatus(WorkerProcessStatus.Status.ALIVE);
       recordingInputStream = new RecordingInputStream(process.getInputStream());
     }

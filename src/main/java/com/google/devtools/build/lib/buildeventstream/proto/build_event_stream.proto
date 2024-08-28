@@ -291,10 +291,16 @@ message BuildEventId {
 message Progress {
   // The next chunk of stdout that bazel produced since the last progress event
   // or the beginning of the build.
+  // Consumers that need to reason about the relative order of stdout and stderr
+  // can assume that stderr has been emitted before stdout if both are present,
+  // on a best-effort basis.
   string stdout = 1;
 
   // The next chunk of stderr that bazel produced since the last progress event
   // or the beginning of the build.
+  // Consumers that need to reason about the relative order of stdout and stderr
+  // can assume that stderr has been emitted before stdout if both are present,
+  // on a best-effort basis.
   string stderr = 2;
 }
 
@@ -605,6 +611,10 @@ message OutputGroup {
   // Indicates that one or more of the output group's files were not built
   // successfully (the generating action failed).
   bool incomplete = 4;
+
+  // Inlined files that belong to this output group, requested via
+  // --build_event_inline_output_groups.
+  repeated File inline_files = 5;
 }
 
 // Payload of the event indicating the completion of a target. The target is
@@ -927,6 +937,9 @@ message BuildMetrics {
       // This is only set if all the actions reported a time
       google.protobuf.Duration system_time = 5;
       google.protobuf.Duration user_time = 6;
+
+      // The total number of actions of this type registered during the build.
+      int64 actions_created = 7;
     }
     // Contains the top N actions by number of actions executed.
     repeated ActionData action_data = 4;

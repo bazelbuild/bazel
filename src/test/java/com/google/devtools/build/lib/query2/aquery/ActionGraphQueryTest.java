@@ -142,7 +142,7 @@ public class ActionGraphQueryTest extends PostAnalysisQueryTest<ConfiguredTarget
             toolchains = ["//q:type"],
         )
         """);
-    appendToWorkspace("register_toolchains('//q:tc.toolchain')");
+    overwriteFile("MODULE.bazel", "register_toolchains('//q:tc.toolchain')");
 
     Set<ConfiguredTargetValue> result = eval("deps('//q:r')");
 

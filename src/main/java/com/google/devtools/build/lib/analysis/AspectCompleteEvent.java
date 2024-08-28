@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
 import com.google.devtools.build.lib.buildeventstream.BuildEventContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
+import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions.OutputGroupFileModes;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId;
 import com.google.devtools.build.lib.buildeventstream.BuildEventWithOrderConstraint;
@@ -53,9 +54,9 @@ public final class AspectCompleteEvent
       ImmutableMap<String, ArtifactsInOutputGroup> artifactOutputGroups) {
     this.aspectKey = aspectKey;
     this.rootCauses =
-        (rootCauses == null) ? NestedSetBuilder.<Cause>emptySet(Order.STABLE_ORDER) : rootCauses;
+        (rootCauses == null) ? NestedSetBuilder.emptySet(Order.STABLE_ORDER) : rootCauses;
     ImmutableList.Builder<BuildEventId> postedAfterBuilder = ImmutableList.builder();
-    for (Cause cause : getRootCauses().toList()) {
+    for (Cause cause : this.rootCauses.toList()) {
       postedAfterBuilder.add(cause.getIdProto());
     }
     this.postedAfter = postedAfterBuilder.build();
@@ -136,9 +137,12 @@ public final class AspectCompleteEvent
   }
 
   @Override
-  public ReportedArtifacts reportedArtifacts() {
+  public ReportedArtifacts reportedArtifacts(OutputGroupFileModes outputGroupFileModes) {
     return TargetCompleteEvent.toReportedArtifacts(
-        artifactOutputGroups, completionContext, /*baselineCoverageArtifacts=*/ null);
+        artifactOutputGroups,
+        completionContext,
+        /* baselineCoverage= */ null,
+        outputGroupFileModes);
   }
 
   @Override
@@ -148,9 +152,7 @@ public final class AspectCompleteEvent
     builder.setSuccess(!failed());
     builder.addAllOutputGroup(
         TargetCompleteEvent.toOutputGroupProtos(
-            artifactOutputGroups,
-            converters.artifactGroupNamer(),
-            /*baselineCoverageArtifacts=*/ null));
+            artifactOutputGroups, /* baselineCoverage= */ null, completionContext, converters));
     return GenericBuildEvent.protoChaining(this).setCompleted(builder.build()).build();
   }
 

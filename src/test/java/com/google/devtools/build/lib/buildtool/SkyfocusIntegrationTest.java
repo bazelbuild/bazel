@@ -142,11 +142,7 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
     write(
         "hello/PROJECT.scl",
         """
-        owned_code_paths = [
-          "hello",
-          "somewhere/else",
-          "not/used",
-        ]
+        active_directories = { "default": [ "hello", "somewhere/else", "not/used" ] }
         """);
 
     write("somewhere/else/file.txt", "some content");
@@ -173,6 +169,91 @@ public final class SkyfocusIntegrationTest extends BuildIntegrationTestCase {
             "somewhere/else",
             "somewhere/else/BUILD",
             "somewhere/else/file.txt");
+  }
+
+  @Test
+  public void workingSet_ignoresTopLevelPackageDirectoriesWhenUsingProjectFile() throws Exception {
+    addOptions("--experimental_enable_scl_dialect");
+
+    write("hello/x.txt", "x");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "//somewhere/else:files"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    write(
+        "hello/PROJECT.scl",
+        """
+        active_directories = {"default": ["somewhere/else"] }
+        """);
+
+    write("somewhere/else/file.txt", "some content");
+    write(
+        "somewhere/else/BUILD",
+        """
+        filegroup(name = "files", srcs = ["file.txt"])
+        """);
+
+    buildTarget("//hello:target");
+    assertContainsEvent("automatically deriving working set");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly("somewhere/else", "somewhere/else/BUILD", "somewhere/else/file.txt");
+  }
+
+  @Test
+  public void workingSet_projectFileCanHandleExcludedDirectories() throws Exception {
+    addOptions("--experimental_enable_scl_dialect");
+
+    write("hello/x.txt", "x");
+    write("hello/world/y.txt", "y");
+    write("hello/world/again/z.txt", "z");
+    write(
+        "hello/BUILD",
+        """
+        genrule(
+            name = "target",
+            srcs = ["x.txt", "world/y.txt", "world/again/z.txt", "//somewhere/else:files"],
+            outs = ["out"],
+            cmd = "cat $(SRCS) > $@",
+        )
+        """);
+
+    write(
+        "hello/PROJECT.scl",
+        """
+        active_directories = {
+          "default": [
+            "hello", # included
+            "-hello/world", # excluded
+            "hello/world/again", # included
+            "-somewhere/else", # excluded
+          ],
+        }
+        """);
+
+    write("somewhere/else/file.txt", "some content");
+    write(
+        "somewhere/else/BUILD",
+        """
+        filegroup(name = "files", srcs = ["file.txt"])
+        """);
+
+    buildTarget("//hello:target");
+    assertContainsEvent("automatically deriving working set");
+    assertThat(getSkyframeExecutor().getSkyfocusState().workingSetStrings())
+        .containsExactly(
+            "hello",
+            "hello/PROJECT.scl",
+            "hello/BUILD",
+            "hello/x.txt",
+            "hello/world/again",
+            "hello/world/again/z.txt");
   }
 
   @Test

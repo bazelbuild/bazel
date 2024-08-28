@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.AutoRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueCache;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
@@ -201,7 +202,8 @@ public class SerializationTester {
       return codecs.serializeMemoized(subject);
     }
     SerializationResult<ByteString> result =
-        codecs.serializeMemoizedAndBlocking(getFingerprintValueService(), subject);
+        codecs.serializeMemoizedAndBlocking(
+            getFingerprintValueService(), subject, /* profileCollector= */ null);
     ListenableFuture<Void> writeFuture = result.getFutureToBlockWritesOn();
     if (writeFuture != null) {
       var unused = waitForSerializationFuture(writeFuture);
@@ -222,7 +224,10 @@ public class SerializationTester {
   private FingerprintValueService getFingerprintValueService() {
     if (fingerprintValueService == null) {
       fingerprintValueService =
-          FingerprintValueService.createForTesting(exerciseDeserializationInKeyValueStore);
+          FingerprintValueService.createForTesting(
+              exerciseDeserializationInKeyValueStore
+                  ? FingerprintValueCache.SyncMode.NOT_LINKED
+                  : FingerprintValueCache.SyncMode.LINKED);
     }
     return fingerprintValueService;
   }

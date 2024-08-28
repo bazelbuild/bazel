@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.actions.ArtifactResolver;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -32,6 +31,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -178,16 +178,25 @@ final class HeaderDiscovery {
       }
       Artifact artifact = regularDerivedArtifacts.get(execPathFragment);
       if (artifact == null) {
-        RepositoryName repository =
-            PackageIdentifier.discoverFromExecPath(execPathFragment, false, siblingRepositoryLayout)
-                .getRepository();
-        artifact = artifactResolver.resolveSourceArtifact(execPathFragment, repository);
+        Optional<PackageIdentifier> pkgId =
+            PackageIdentifier.discoverFromExecPath(
+                execPathFragment, false, siblingRepositoryLayout);
+        if (pkgId.isPresent()) {
+          artifact =
+              artifactResolver.resolveSourceArtifact(execPathFragment, pkgId.get().getRepository());
+        }
       }
       if (artifact != null) {
         // We don't need to add the sourceFile itself as it is a mandatory input.
         if (!artifact.equals(sourceFile)) {
           inputs.add(artifact);
         }
+        continue;
+      } else if (artifact == null && execPathFragment.getFileExtension().equals("cppmap")) {
+        // Transitive cppmap files are added to the dotd files of compiles even
+        // though they are not required for compilation. Since they're not
+        // explicit inputs to the action this only happens when sandboxing is
+        // disabled.
         continue;
       }
 

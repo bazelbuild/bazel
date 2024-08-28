@@ -354,16 +354,6 @@ public final class BazelRulesModule extends BlazeModule {
 
     @Deprecated
     @Option(
-        name = "direct_run",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help = "Deprecated no-op.")
-    public boolean directRun;
-
-    @Deprecated
-    @Option(
         name = "glibc",
         defaultValue = "null",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -577,6 +567,30 @@ public final class BazelRulesModule extends BlazeModule {
         metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
         help = "No-op.")
     public boolean incompatibleDepsetForJavaOutputSourceJars;
+
+    @Option(
+        name = "incompatible_use_plus_in_repo_names",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+        effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+        help = "No-op.")
+    public boolean incompatibleUsePlusInRepoNames;
+
+    @Option(
+        name = "experimental_announce_profile_path",
+        defaultValue = "false",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean announceProfilePath;
+
+    @Option(
+        name = "incompatible_existing_rules_immutable_view",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op.")
+    public boolean incompatibleExistingRulesImmutableView;
   }
 
   @Override

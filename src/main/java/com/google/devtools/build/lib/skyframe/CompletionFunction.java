@@ -26,7 +26,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.ActionInputDepOwners;
 import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher;
 import com.google.devtools.build.lib.actions.ActionInputPrefetcher.Priority;
@@ -35,10 +34,12 @@ import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFactory;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
+import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
+import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
 import com.google.devtools.build.lib.actions.InputFileErrorException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
@@ -77,6 +78,7 @@ import com.google.devtools.build.skyframe.SkyframeLookupResult;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -187,16 +189,17 @@ public final class CompletionFunction<
     ImmutableList<Artifact> allArtifacts = artifactsToBuild.getAllArtifacts().toList();
     InstrumentedFilesInfo instrumentedFilesInfo =
         value.getConfiguredObject().get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
-    Iterable<SkyKey> keysToRequest;
+    Iterable<Artifact> artifactsToRequest = allArtifacts;
+    Artifact baselineCoverage = null;
+    FileArtifactValue baselineCoverageValue = null;
     if (value.getConfiguredObject() instanceof ConfiguredTarget && instrumentedFilesInfo != null) {
-      keysToRequest =
-          Iterables.concat(
-              Artifact.keys(allArtifacts),
-              Artifact.keys(instrumentedFilesInfo.getBaselineCoverageArtifacts().toList()));
-    } else {
-      keysToRequest = Artifact.keys(allArtifacts);
+      baselineCoverage = instrumentedFilesInfo.getBaselineCoverageArtifact();
+      if (baselineCoverage != null) {
+        artifactsToRequest =
+            Iterables.concat(artifactsToRequest, ImmutableList.of(baselineCoverage));
+      }
     }
-    SkyframeLookupResult inputDeps = env.getValuesAndExceptions(keysToRequest);
+    SkyframeLookupResult inputDeps = env.getValuesAndExceptions(Artifact.keys(artifactsToRequest));
 
     boolean allArtifactsAreImportant = artifactsToBuild.areAllOutputGroupsImportant();
 
@@ -227,45 +230,48 @@ public final class CompletionFunction<
     Set<Artifact> builtArtifacts = new HashSet<>();
     // Don't double-count files due to Skyframe restarts.
     FilesMetricConsumer currentConsumer = new FilesMetricConsumer();
-    for (Artifact input : allArtifacts) {
+    for (Artifact input : artifactsToRequest) {
       try {
         SkyValue artifactValue =
             inputDeps.getOrThrow(
                 Artifact.key(input), ActionExecutionException.class, SourceArtifactException.class);
-        if (artifactValue != null) {
-          if (artifactValue instanceof MissingArtifactValue) {
-            handleSourceFileError(
-                input,
-                ((MissingArtifactValue) artifactValue).getDetailedExitCode(),
-                rootCausesBuilder,
-                env,
-                value,
-                key);
-          } else {
-            builtArtifacts.add(input);
+        if (artifactValue == null) {
+          continue;
+        }
+        if (artifactValue instanceof MissingArtifactValue) {
+          handleSourceFileError(
+              input,
+              ((MissingArtifactValue) artifactValue).getDetailedExitCode(),
+              rootCausesBuilder,
+              env,
+              value,
+              key);
+        } else if (input.equals(baselineCoverage)) {
+          baselineCoverageValue =
+              ((ActionExecutionValue) artifactValue).getExistingFileArtifactValue(baselineCoverage);
+        } else {
+          builtArtifacts.add(input);
+          ActionInputMapHelper.addToMap(
+              inputMap,
+              treeArtifacts::put,
+              expandedFilesets,
+              topLevelFilesets,
+              input,
+              artifactValue,
+              env,
+              currentConsumer);
+          if (!allArtifactsAreImportant && importantArtifacts.contains(input)) {
+            // Calling #addToMap a second time with `input` and `artifactValue` will perform no-op
+            // updates to the secondary collections passed in (eg. treeArtifacts, expandedFilesets).
+            // MetadataConsumerForMetrics.NO_OP is used to avoid double-counting.
             ActionInputMapHelper.addToMap(
-                inputMap,
+                importantInputMap,
                 treeArtifacts::put,
                 expandedFilesets,
                 topLevelFilesets,
                 input,
                 artifactValue,
-                env,
-                currentConsumer);
-            if (!allArtifactsAreImportant && importantArtifacts.contains(input)) {
-              // Calling #addToMap a second time with `input` and `artifactValue` will perform no-op
-              // updates to the secondary collections passed in (eg. expandedArtifacts,
-              // topLevelFilesets). MetadataConsumerForMetrics.NO_OP is used to avoid
-              // double-counting.
-              ActionInputMapHelper.addToMap(
-                  importantInputMap,
-                  treeArtifacts::put,
-                  expandedFilesets,
-                  topLevelFilesets,
-                  input,
-                  artifactValue,
-                  env);
-            }
+                env);
           }
         }
       } catch (ActionExecutionException e) {
@@ -289,6 +295,7 @@ public final class CompletionFunction<
         CompletionContext.create(
             treeArtifacts,
             expandedFilesets,
+            baselineCoverageValue,
             key.topLevelArtifactContext().expandFilesets(),
             key.topLevelArtifactContext().fullyResolveFilesetSymlinks(),
             inputMap,
@@ -376,7 +383,7 @@ public final class CompletionFunction<
   }
 
   private void ensureToplevelArtifacts(
-      Environment env, ImmutableCollection<Artifact> artifacts, ActionInputMap inputMap)
+      Environment env, ImmutableCollection<Artifact> importantArtifacts, ActionInputMap inputMap)
       throws CompletionFunctionException, InterruptedException {
     // For skymeld, a non-toplevel target might become a toplevel after it has been executed. This
     // is the last chance to download the missing toplevel outputs in this case before sending out
@@ -397,53 +404,16 @@ public final class CompletionFunction<
     }
 
     var futures = new ArrayList<ListenableFuture<Void>>();
-    for (var artifact : artifacts) {
-      if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
-        continue;
-      }
 
-      // Metadata can be null during error bubbling, only download outputs that are already
-      // generated. b/342188273
-      if (artifact.isTreeArtifact()) {
-        var treeMetadata = inputMap.getTreeMetadata(artifact.getExecPath());
-        if (treeMetadata == null) {
-          continue;
-        }
+    for (var artifact : importantArtifacts) {
+      downloadArtifact(
+          env, remoteArtifactChecker, actionInputPrefetcher, inputMap, artifact, futures);
+    }
 
-        var filesToDownload = new ArrayList<ActionInput>(treeMetadata.getChildValues().size());
-        for (var child : treeMetadata.getChildValues().entrySet()) {
-          var treeFile = child.getKey();
-          var metadata = child.getValue();
-          if (metadata.isRemote()
-              && !remoteArtifactChecker.shouldTrustRemoteArtifact(
-                  treeFile, (RemoteFileArtifactValue) metadata)) {
-            filesToDownload.add(treeFile);
-          }
-        }
-        if (!filesToDownload.isEmpty()) {
-          var action =
-              ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
-          var future =
-              actionInputPrefetcher.prefetchFiles(
-                  action, filesToDownload, inputMap::getInputMetadata, Priority.LOW);
-          futures.add(future);
-        }
-      } else {
-        var metadata = inputMap.getInputMetadata(artifact);
-        if (metadata == null) {
-          continue;
-        }
-
-        if (metadata.isRemote()
-            && !remoteArtifactChecker.shouldTrustRemoteArtifact(
-                artifact, (RemoteFileArtifactValue) metadata)) {
-          var action =
-              ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
-          var future =
-              actionInputPrefetcher.prefetchFiles(
-                  action, ImmutableList.of(artifact), inputMap::getInputMetadata, Priority.LOW);
-          futures.add(future);
-        }
+    for (var runfileTree : inputMap.getRunfilesTrees()) {
+      for (var artifact : runfileTree.getArtifacts().toList()) {
+        downloadArtifact(
+            env, remoteArtifactChecker, actionInputPrefetcher, inputMap, artifact, futures);
       }
     }
 
@@ -461,6 +431,63 @@ public final class CompletionFunction<
                               .setCode(RemoteExecution.Code.TOPLEVEL_OUTPUTS_DOWNLOAD_FAILURE)
                               .build())
                       .build())));
+    }
+  }
+
+  private void downloadArtifact(
+      Environment env,
+      RemoteArtifactChecker remoteArtifactChecker,
+      ActionInputPrefetcher actionInputPrefetcher,
+      ActionInputMap inputMap,
+      Artifact artifact,
+      List<ListenableFuture<Void>> futures)
+      throws InterruptedException {
+    if (!(artifact instanceof DerivedArtifact derivedArtifact)) {
+      return;
+    }
+
+    // Metadata can be null during error bubbling, only download outputs that are already
+    // generated. b/342188273
+    if (artifact.isTreeArtifact()) {
+      var treeMetadata = inputMap.getTreeMetadata(artifact.getExecPath());
+      if (treeMetadata == null) {
+        return;
+      }
+
+      var filesToDownload = new ArrayList<ActionInput>(treeMetadata.getChildValues().size());
+      for (var child : treeMetadata.getChildValues().entrySet()) {
+        var treeFile = child.getKey();
+        var metadata = child.getValue();
+        if (metadata.isRemote()
+            && !remoteArtifactChecker.shouldTrustRemoteArtifact(
+                treeFile, (RemoteFileArtifactValue) metadata)) {
+          filesToDownload.add(treeFile);
+        }
+      }
+      if (!filesToDownload.isEmpty()) {
+        var action =
+            ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
+        var future =
+            actionInputPrefetcher.prefetchFiles(
+                action, filesToDownload, inputMap::getInputMetadata, Priority.LOW);
+        futures.add(future);
+      }
+    } else {
+      var metadata = inputMap.getInputMetadata(artifact);
+      if (metadata == null) {
+        return;
+      }
+
+      if (metadata.isRemote()
+          && !remoteArtifactChecker.shouldTrustRemoteArtifact(
+              artifact, (RemoteFileArtifactValue) metadata)) {
+        var action =
+            ActionUtils.getActionForLookupData(env, derivedArtifact.getGeneratingActionKey());
+        var future =
+            actionInputPrefetcher.prefetchFiles(
+                action, ImmutableList.of(artifact), inputMap::getInputMetadata, Priority.LOW);
+        futures.add(future);
+      }
     }
   }
 
@@ -543,7 +570,7 @@ public final class CompletionFunction<
             ctx.getImportantInputMap(),
             ctx.getExpandedFilesets());
     try {
-      ImmutableMap<String, ActionInput> lostOutputs;
+      LostArtifacts lostOutputs;
       try (var ignored =
           GoogleAutoProfilerUtils.logged(
               "Informing important output handler of top-level outputs for " + label,
@@ -560,17 +587,19 @@ public final class CompletionFunction<
         return null;
       }
 
-      ActionInputDepOwners owners = ctx.getDepOwners(lostOutputs.values());
-
       // Filter out lost outputs from the set of built artifacts so that they are not reported. If
       // rewinding is successful, we'll report them later on.
-      for (ActionInput lostOutput : lostOutputs.values()) {
+      for (ActionInput lostOutput : lostOutputs.byDigest().values()) {
         builtArtifacts.remove(lostOutput);
-        builtArtifacts.removeAll(owners.getDepOwners(lostOutput));
+        builtArtifacts.removeAll(lostOutputs.owners().getDepOwners(lostOutput));
       }
 
       return actionRewindStrategy.prepareRewindPlanForLostTopLevelOutputs(
-          key, ImmutableSet.copyOf(Artifact.keys(importantArtifacts)), lostOutputs, owners, env);
+          key,
+          ImmutableSet.copyOf(Artifact.keys(importantArtifacts)),
+          lostOutputs.byDigest(),
+          lostOutputs.owners(),
+          env);
     } catch (ActionRewindException | ImportantOutputException e) {
       LabelCause cause = new LabelCause(label, e.getDetailedExitCode());
       rootCauses = NestedSetBuilder.fromNestedSet(rootCauses).add(cause).build();

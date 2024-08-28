@@ -58,9 +58,10 @@ import javax.annotation.Nullable;
  */
 public class DownloadManager {
   private final RepositoryCache repositoryCache;
-  private List<Path> distdir = ImmutableList.of();
+  private ImmutableList<Path> distdir = ImmutableList.of();
   private UrlRewriter rewriter;
   private final Downloader downloader;
+  private final HttpDownloader bzlmodHttpDownloader;
   private boolean disableDownload = false;
   private int retries = 0;
   @Nullable private Credentials netrcCreds;
@@ -71,9 +72,19 @@ public class DownloadManager {
     Credentials create(Map<URI, Map<String, List<String>>> authHeaders);
   }
 
-  public DownloadManager(RepositoryCache repositoryCache, Downloader downloader) {
+  /**
+   * Creates a new {@link DownloadManager}.
+   *
+   * @param downloader The (delegating) downloader to use to download files. Is either a
+   *     HttpDownloader, or a GrpcRemoteDownloader.
+   * @param bzlmodHttpDownloader The downloader to use for downloading files from the bzlmod
+   *     registry.
+   */
+  public DownloadManager(
+      RepositoryCache repositoryCache, Downloader downloader, HttpDownloader bzlmodHttpDownloader) {
     this.repositoryCache = repositoryCache;
     this.downloader = downloader;
+    this.bzlmodHttpDownloader = bzlmodHttpDownloader;
   }
 
   public void setDistdir(List<Path> distdir) {
@@ -425,12 +436,11 @@ public class DownloadManager {
       throw new IOException(getRewriterBlockedAllUrlsMessage(ImmutableList.of(originalUrl)));
     }
 
-    HttpDownloader httpDownloader = new HttpDownloader();
     byte[] content;
     for (int attempt = 0; ; ++attempt) {
       try {
         content =
-            httpDownloader.downloadAndReadOneUrl(
+            bzlmodHttpDownloader.downloadAndReadOneUrl(
                 rewrittenUrls.get(0),
                 credentialFactory.create(authHeaders),
                 checksum,

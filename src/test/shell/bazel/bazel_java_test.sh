@@ -1726,7 +1726,8 @@ EOF
 }
 
 function test_auto_bazel_repository() {
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
@@ -1814,7 +1815,7 @@ public class Test {
 EOF
 
   mkdir -p other_repo
-  touch other_repo/WORKSPACE
+  touch other_repo/REPO.bazel
 
   mkdir -p other_repo/pkg
   cat > other_repo/pkg/BUILD.bazel <<'EOF'
@@ -1900,14 +1901,14 @@ EOF
   expect_log "in pkg/Library.java: ''"
 
   bazel run @other_repo//pkg:binary &>"$TEST_log" || fail "Run should succeed"
-  expect_log "in external/other_repo/pkg/Binary.java: 'other_repo'"
-  expect_log "in external/other_repo/pkg/Library2.java: 'other_repo'"
+  expect_log "in external/other_repo/pkg/Binary.java: '+_repo_rules+other_repo'"
+  expect_log "in external/other_repo/pkg/Library2.java: '+_repo_rules+other_repo'"
   expect_log "in pkg/Library.java: ''"
 
   bazel test --test_output=streamed \
     @other_repo//pkg:test &>"$TEST_log" || fail "Test should succeed"
-  expect_log "in external/other_repo/pkg/Test.java: 'other_repo'"
-  expect_log "in external/other_repo/pkg/Library2.java: 'other_repo'"
+  expect_log "in external/other_repo/pkg/Test.java: '+_repo_rules+other_repo'"
+  expect_log "in external/other_repo/pkg/Library2.java: '+_repo_rules+other_repo'"
   expect_log "in pkg/Library.java: ''"
 }
 
@@ -1952,6 +1953,41 @@ EOF
     --java_language_version=17 \
     --extra_toolchains=//pkg:java_toolchain_definition \
     >& $TEST_log || fail "build failed"
+}
+
+function test_sandboxed_multiplexing_hermetic_paths_in_diagnostics() {
+  if [[ "${JAVA_TOOLS_ZIP}" == released ]]; then
+    # TODO: Enable test after the next java_tools release.
+    return 0
+  fi
+
+  mkdir -p pkg
+  cat << 'EOF' > pkg/BUILD
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    javac_supports_worker_multiplex_sandboxing = True,
+)
+java_library(name = "lib", srcs = ["Lib.java"])
+EOF
+  cat << 'EOF' > pkg/Lib.java
+public class Lib {
+  public static void foo() {
+    String a = 5; // __sandbox/1/_main/pkg/Lib.java:3: error: incompatible types: int cannot be converted to String
+  }
+}
+EOF
+
+  bazel build //pkg:lib \
+    --experimental_worker_multiplex_sandboxing \
+    --java_language_version=17 \
+    --extra_toolchains=//pkg:java_toolchain_definition \
+    >& $TEST_log && fail "build succeeded"
+  # Verify that the working directory is only stripped from source file paths.
+  expect_log "^pkg[\\/]Lib.java:3: error:"
+  expect_log "^    String a = 5; // __sandbox/1/_main/pkg/Lib.java:3: error: incompatible types: int cannot be converted to String"
 }
 
 function test_strict_deps_error_external_repo_starlark_action() {

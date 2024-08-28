@@ -926,7 +926,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
             if (objectFile.isTreeArtifact() && expander != null) {
               expandedObjectFiles.addAll(
                   Collections2.transform(
-                      expander.expandTreeArtifact(objectFile), Artifact::getExecPathString));
+                      expander.tryExpandTreeArtifact(objectFile), Artifact::getExecPathString));
             } else {
               expandedObjectFiles.add(objectFile.getExecPathString());
             }
@@ -1399,6 +1399,13 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
     @CanIgnoreReturnValue
     public Builder addArtifactVariable(String name, Artifact value) {
       checkVariableNotPresentAlready(name);
+      Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
+      variablesMap.put(name, value);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder overrideArtifactVariable(String name, Artifact value) {
       Preconditions.checkNotNull(value, "Cannot set null as a value for variable '%s'", name);
       variablesMap.put(name, value);
       return this;

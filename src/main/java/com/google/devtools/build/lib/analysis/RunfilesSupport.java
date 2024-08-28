@@ -231,7 +231,7 @@ public final class RunfilesSupport {
     if (runUnder != null
         && runUnder.getLabel() != null
         && TargetUtils.isTestRule(ruleContext.getRule())) {
-      TransitiveInfoCollection runUnderTarget = ruleContext.getPrerequisite(":run_under");
+      TransitiveInfoCollection runUnderTarget = ruleContext.getRunUnderPrerequisite();
       runfiles =
           new Runfiles.Builder(
                   ruleContext.getWorkspaceName(),

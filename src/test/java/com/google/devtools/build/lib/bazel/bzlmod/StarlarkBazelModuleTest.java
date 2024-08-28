@@ -46,8 +46,7 @@ public class StarlarkBazelModuleTest {
     return ModuleExtensionUsage.builder()
         .setExtensionBzlFile("//:rje.bzl")
         .setExtensionName("maven")
-        .setIsolationKey(Optional.empty())
-        .setUsingModule(ModuleKey.ROOT);
+        .setIsolationKey(Optional.empty());
   }
 
   /** A builder for ModuleExtension that sets all the mandatory but irrelevant fields. */
@@ -123,8 +122,8 @@ public class StarlarkBazelModuleTest {
     assertThat(pomTags.get(0).getValue("pom_xmls"))
         .isEqualTo(
             StarlarkList.immutableOf(
-                Label.parseCanonical("@@foo~//:pom.xml"),
-                Label.parseCanonical("@@bar~//:pom.xml")));
+                Label.parseCanonical("@@foo+//:pom.xml"),
+                Label.parseCanonical("@@bar+//:pom.xml")));
   }
 
   @Test

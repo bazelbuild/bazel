@@ -1006,6 +1006,12 @@ public abstract class CcModule
   }
 
   @Override
+  public boolean checkExperimentalCcStaticLibrary(StarlarkThread thread) throws EvalException {
+    isCalledFromStarlarkCcCommon(thread);
+    return thread.getSemantics().getBool(BuildLanguageOptions.EXPERIMENTAL_CC_STATIC_LIBRARY);
+  }
+
+  @Override
   public boolean getIncompatibleDisableObjcLibraryTransition(StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
@@ -1021,6 +1027,7 @@ public abstract class CcModule
       Object userLinkFlagsObject,
       Object nonCodeInputsObject,
       Object extraLinkTimeLibraryObject,
+      Object ownerObject,
       StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
@@ -1067,6 +1074,10 @@ public abstract class CcModule
       if (extraLinkTimeLibrary != null) {
         ccLinkingContextBuilder.setExtraLinkTimeLibraries(
             ExtraLinkTimeLibraries.builder().add(extraLinkTimeLibrary).build());
+      }
+      Label owner = convertFromNoneable(ownerObject, /* defaultValue= */ null);
+      if (owner != null) {
+        ccLinkingContextBuilder.setOwner(owner);
       }
 
       @SuppressWarnings("unchecked")
@@ -1741,7 +1752,7 @@ public abstract class CcModule
           "Unrecognized file extension '%s', allowed extensions are %s,"
               + " please check artifact_name_pattern configuration for %s in your rule.",
           extension,
-          StringUtil.joinEnglishList(foundCategory.getAllowedExtensions(), "or", "'"),
+          StringUtil.joinEnglishListSingleQuoted(foundCategory.getAllowedExtensions()),
           foundCategory.getCategoryName());
     }
 
@@ -2641,10 +2652,7 @@ public abstract class CcModule
       StarlarkCallable buildLibraryFunc, Dict<String, Object> dataSetsMap, StarlarkThread thread)
       throws EvalException {
     isCalledFromStarlarkCcCommon(thread);
-    if (!isStarlarkCcCommonCalledFromBuiltins(thread)) {
-      throw Starlark.errorf(
-          "Cannot use experimental ExtraLinkTimeLibrary creation API outside of builtins");
-    }
+    checkPrivateStarlarkificationAllowlist(thread);
     boolean nonGlobalFunc = false;
     if (buildLibraryFunc instanceof StarlarkFunction fn) {
       if (fn.getModule().getGlobal(fn.getName()) != fn) {

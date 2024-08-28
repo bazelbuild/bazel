@@ -139,6 +139,8 @@ EOF
   return 0
 }
 
+# TODO: This test passes vacuously as the default Unix toolchain doesn't use
+# the set_install_name feature yet.
 function test_cc_test_with_explicit_install_name() {
   mkdir -p cpp
   cat > cpp/BUILD <<EOF

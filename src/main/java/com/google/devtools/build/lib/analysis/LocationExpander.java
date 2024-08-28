@@ -348,22 +348,21 @@ public final class LocationExpander {
     }
 
     private PathFragment getPath(Artifact artifact, String workspaceRunfilesDirectory) {
-      switch (pathType) {
-        case LOCATION:
-          return legacyExternalRunfiles
-              ? artifact.getPathForLocationExpansion()
-              : artifact.getRunfilesPath();
-        case EXEC:
-          return artifact.getExecPath();
-        case RLOCATION:
+      return switch (pathType) {
+        case LOCATION ->
+            legacyExternalRunfiles
+                ? artifact.getPathForLocationExpansion()
+                : artifact.getRunfilesPath();
+        case EXEC -> artifact.getExecPath();
+        case RLOCATION -> {
           PathFragment runfilesPath = artifact.getRunfilesPath();
           if (runfilesPath.startsWith(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX)) {
-            return runfilesPath.relativeTo(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX);
+            yield runfilesPath.relativeTo(LabelConstants.EXTERNAL_RUNFILES_PATH_PREFIX);
           } else {
-            return PathFragment.create(workspaceRunfilesDirectory).getRelative(runfilesPath);
+            yield PathFragment.create(workspaceRunfilesDirectory).getRelative(runfilesPath);
           }
-      }
-      throw new IllegalStateException("Unexpected PathType: " + pathType);
+        }
+      };
     }
 
     private String joinPaths(Collection<String> paths) {

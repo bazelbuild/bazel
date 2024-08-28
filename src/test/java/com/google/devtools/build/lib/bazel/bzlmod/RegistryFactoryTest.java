@@ -21,9 +21,6 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
-import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
-import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
 import java.net.URISyntaxException;
 import java.util.Optional;
 import org.junit.Test;
@@ -37,9 +34,7 @@ public class RegistryFactoryTest {
   @Test
   public void badSchemes() {
     RegistryFactory registryFactory =
-        new RegistryFactoryImpl(
-            new DownloadManager(new RepositoryCache(), new HttpDownloader()),
-            Suppliers.ofInstance(ImmutableMap.of()));
+        new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
     Throwable exception =
         assertThrows(
             URISyntaxException.class,
@@ -67,9 +62,7 @@ public class RegistryFactoryTest {
   @Test
   public void badPath() {
     RegistryFactory registryFactory =
-        new RegistryFactoryImpl(
-            new DownloadManager(new RepositoryCache(), new HttpDownloader()),
-            Suppliers.ofInstance(ImmutableMap.of()));
+        new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
     Throwable exception =
         assertThrows(
             URISyntaxException.class,

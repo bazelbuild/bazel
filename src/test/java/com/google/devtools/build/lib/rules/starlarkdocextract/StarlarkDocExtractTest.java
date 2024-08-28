@@ -398,7 +398,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
     registry.addModule(
         BzlmodTestUtil.createModuleKey("origin_repo", "0.1"),
         "module(name='origin_repo', version='0.1')");
-    Path originRepoPath = moduleRoot.getRelative("origin_repo~v0.1");
+    Path originRepoPath = moduleRoot.getRelative("origin_repo+0.1");
     scratch.file(originRepoPath.getRelative("WORKSPACE").getPathString());
     scratch.file(
         originRepoPath.getRelative("BUILD").getPathString(), //
@@ -453,12 +453,12 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
     invalidatePackages();
 
     // verify that ModuleInfo.name for a .bzl file in another bzlmod module is in display form, i.e.
-    // "@origin_repo//:origin.bzl" as opposed to "@@origin_repo~0.1//:origin.bzl"
+    // "@origin_repo//:origin.bzl" as opposed to "@@origin_repo+0.1//:origin.bzl"
     ModuleInfo originModuleInfo = protoFromConfiguredTarget("//:extract_origin");
     assertThat(originModuleInfo.getFile()).isEqualTo("@origin_repo//:origin.bzl");
 
     // verify that OriginKey.name for entities defined in a .bzl file in another bzlmod module is in
-    // display form, i.e. "@origin_repo//:origin.bzl" as opposed to "@@origin_repo~0.1//:origin.bzl"
+    // display form, i.e. "@origin_repo//:origin.bzl" as opposed to "@@origin_repo+0.1//:origin.bzl"
     ModuleInfo renamedModuleInfo = protoFromConfiguredTarget("//:extract_renamed");
     assertThat(renamedModuleInfo.getFile()).isEqualTo("//:renamer.bzl");
     assertThat(renamedModuleInfo.getFuncInfo(0).getOriginKey().getFile())
@@ -1146,7 +1146,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void repoName_inMainWorkspaceRepo() throws Exception {
-    setBuildLanguageOptions("--noenable_bzlmod");
+    setBuildLanguageOptions("--noenable_bzlmod", "--enable_workspace");
     rewriteWorkspace("workspace(name = 'my_repo')");
     scratch.file(
         "foo.bzl",
@@ -1199,7 +1199,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         "MODULE.bazel", "module(name = 'my_module')", "bazel_dep(name='dep_mod', version='0.1')");
     registry.addModule(
         BzlmodTestUtil.createModuleKey("dep_mod", "0.1"), "module(name='dep_mod', version='0.1')");
-    Path depModRepoPath = moduleRoot.getRelative("dep_mod~v0.1");
+    Path depModRepoPath = moduleRoot.getRelative("dep_mod+0.1");
     scratch.file(depModRepoPath.getRelative("WORKSPACE").getPathString());
     scratch.file(
         depModRepoPath.getRelative("foo.bzl").getPathString(),
@@ -1222,7 +1222,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
         """);
     invalidatePackages();
 
-    ModuleInfo moduleInfo = protoFromConfiguredTarget("@dep_mod~//:extract");
+    ModuleInfo moduleInfo = protoFromConfiguredTarget("@dep_mod+//:extract");
     assertThat(moduleInfo.getFile()).isEqualTo("@dep_mod//:foo.bzl");
     assertThat(moduleInfo.getFuncInfo(0).getParameter(0).getDefaultValue())
         .isEqualTo("Label(\"@dep_mod//target:target\")");
@@ -1233,6 +1233,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
   @Test
   public void repoName_inWorkspaceDep() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     rewriteWorkspace("local_repository(name = 'dep', path = 'dep_path')");
     scratch.file("dep_path/WORKSPACE", "workspace(name = 'dep')");
     scratch.file(

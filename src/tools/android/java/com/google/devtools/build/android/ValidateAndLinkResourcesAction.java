@@ -19,171 +19,117 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.android.aapt.Resources.Reference;
 import com.android.aapt.Resources.XmlNode;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.android.Converters.PathListConverter;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
 import com.google.devtools.build.android.aapt2.CompiledResources;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
 import com.google.devtools.build.android.aapt2.StaticLibrary;
 import com.google.devtools.build.android.resources.Visibility;
 import com.google.devtools.build.android.xml.ProtoXmlUtils;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 /** Performs resource validation and static linking for compiled android resources. */
+@Parameters(separators = "= ")
 public final class ValidateAndLinkResourcesAction {
 
   /** Action configuration options. */
-  public static class Options extends OptionsBase {
+  public static class Options {
     /**
      * TODO(b/64570523): Still used by blaze. Will be removed as part of the command line cleanup.
      *
      * @deprecated Use --resources.
      */
-    @Option(
-        name = "compiled",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "null",
-        converter = Converters.ExistingPathConverter.class,
-        category = "input",
-        help = "Compiled resources to link.",
-        deprecationWarning = "Use --resources.")
+    @Parameter(
+        names = "--compiled",
+        converter = Converters.CompatExistingPathConverter.class,
+        description = "Compiled resources to link.")
     @Deprecated
     public Path compiled;
 
-    @Option(
-        name = "compiledDep",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "null",
-        converter = Converters.PathListConverter.class,
-        category = "input",
-        allowMultiple = true,
-        help = "Compiled resource dependencies to link.")
-    public List<Path> compiledDeps;
+    @Parameter(
+        names = "--compiledDep",
+        listConverter = Converters.CompatPathListConverter.class,
+        description = "Compiled resource dependencies to link.")
+    public List<Path> compiledDeps = ImmutableList.of();
 
     /**
      * TODO(b/64570523): Still used by blaze. Will be removed as part of the command line cleanup.
      *
      * @deprecated Use --resources.
      */
-    @Option(
-        name = "manifest",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "null",
-        converter = Converters.ExistingPathConverter.class,
-        category = "input",
-        help = "Manifest for the library.",
-        deprecationWarning = "Use --resources.")
+    @Parameter(
+        names = "--manifest",
+        converter = Converters.CompatExistingPathConverter.class,
+        description = "Manifest for the library.")
     @Deprecated
     public Path manifest;
 
-    @Option(
-        name = "resources",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "null",
-        converter = Converters.CompiledResourcesConverter.class,
-        category = "input",
-        help = "Compiled resources to link.")
+    @Parameter(
+        names = "--resources",
+        converter = Converters.CompatCompiledResourcesConverter.class,
+        description = "Compiled resources to link.")
     public CompiledResources resources;
 
     // TODO(b/64570523): remove this flag when it is no longer used.
-    @Option(
-        name = "libraries",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "null",
-        converter = Converters.StaticLibraryListConverter.class,
-        category = "input",
-        help = "Static libraries to link against. Deprecated, use --library")
+    @Parameter(
+        names = "--libraries",
+        listConverter = Converters.CompatStaticLibraryListConverter.class,
+        description = "Static libraries to link against. Deprecated, use --library")
     public List<StaticLibrary> deprecatedLibraries;
 
-    @Option(
-        name = "library",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "null",
-        converter = Converters.StaticLibraryConverter.class,
-        category = "input",
-        allowMultiple = true,
-        help = "Static libraries to link against.")
-    public List<StaticLibrary> libraries;
+    @Parameter(
+        names = "--library",
+        converter = Converters.CompatStaticLibraryConverter.class,
+        description = "Static libraries to link against.")
+    public List<StaticLibrary> libraries = ImmutableList.of();
 
-    @Option(
-        name = "packageForR",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "null",
-        category = "input",
-        help = "Package for the resources.")
+    @Parameter(names = "--packageForR", description = "Package for the resources.")
     public String packageForR;
 
-    @Option(
-        name = "staticLibraryOut",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "null",
-        converter = Converters.PathConverter.class,
-        category = "output",
-        help = "Static library produced.")
+    @Parameter(
+        names = "--staticLibraryOut",
+        converter = Converters.CompatPathConverter.class,
+        description = "Static library produced.")
     public Path staticLibraryOut;
 
-    @Option(
-        name = "rTxtOut",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        defaultValue = "null",
-        converter = Converters.PathConverter.class,
-        category = "output",
-        help = "R.txt out.")
+    @Parameter(
+        names = "--rTxtOut",
+        converter = Converters.CompatPathConverter.class,
+        description = "R.txt out.")
     public Path rTxtOut;
 
-    @Option(
-        name = "sourceJarOut",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = Converters.PathConverter.class,
-        defaultValue = "null",
-        category = "output",
-        help = "Generated java classes from the resources.")
+    @Parameter(
+        names = "--sourceJarOut",
+        converter = Converters.CompatPathConverter.class,
+        description = "Generated java classes from the resources.")
     public Path sourceJarOut;
 
-    @Option(
-        name = "resourceApks",
-        defaultValue = "null",
-        category = "input",
-        converter = PathListConverter.class,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "List of reource only APK files to link against.")
-    public List<Path> resourceApks;
+    @Parameter(
+        names = "--resourceApks",
+        listConverter = Converters.CompatPathListConverter.class,
+        description = "List of reource only APK files to link against.")
+    public List<Path> resourceApks = ImmutableList.of();
   }
 
   public static void main(String[] args) throws Exception {
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(
-                Options.class, Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parse(args);
+    Options options = new Options();
+    Aapt2ConfigOptions aapt2Options = new Aapt2ConfigOptions();
+    Object[] allOptions =
+        new Object[] {options, aapt2Options, new ResourceProcessorCommonOptions()};
+    JCommander jc = new JCommander(allOptions);
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(allOptions, preprocessedArgs);
+    jc.parse(normalizedArgs);
 
-    Options options = optionsParser.getOptions(Options.class);
-    final Aapt2ConfigOptions aapt2Options = optionsParser.getOptions(Aapt2ConfigOptions.class);
     final Profiler profiler = LoggingProfiler.createAndStart("manifest");
 
     try (ScopedTemporaryDirectory scopedTmp =

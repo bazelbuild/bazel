@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
 import com.google.devtools.build.lib.analysis.Util;
 import com.google.devtools.build.lib.analysis.config.ConfigMatchingProvider;
-import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkApiProvider;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -93,6 +92,7 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   private RuleConfiguredTarget(
       ActionLookupKey actionLookupKey,
       NestedSet<PackageGroupContents> visibility,
+      boolean isCreatedInSymbolicMacro,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       ImmutableSet<ConfiguredTargetKey> implicitDeps,
@@ -104,6 +104,12 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     // providers by passing them in.
     TransitiveInfoProviderMapBuilder providerBuilder =
         new TransitiveInfoProviderMapBuilder().addAll(providers);
+    if (isCreatedInSymbolicMacro) {
+      // Rather than add a boolean field to all RuleConfiguredTargets, we add a marker provider to
+      // just the ones that are created in symbolic macros. (This tradeoff may make less sense if
+      // many targets are created in macros.)
+      providerBuilder.add(CreatedInSymbolicMacroMarker.INSTANCE);
+    }
     checkState(providerBuilder.contains(RunfilesProvider.class), actionLookupKey);
     checkState(providerBuilder.contains(FileProvider.class), actionLookupKey);
     checkState(providerBuilder.contains(FilesToRunProvider.class), actionLookupKey);
@@ -130,22 +136,12 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
     this(
         ruleContext.getOwner(),
         ruleContext.getVisibility(),
+        /* isCreatedInSymbolicMacro= */ ruleContext.getRule().getDeclaringMacro() != null,
         providers,
         ruleContext.getConfigConditions(),
         Util.findImplicitDeps(ruleContext),
         ruleContext.getRule().getRuleClassObject().getRuleClassId(),
         actions);
-
-    // If this rule is the run_under target, then check that we have an executable; note that
-    // run_under is only set in the target configuration, and the target must also be analyzed for
-    // the target configuration.
-    RunUnder runUnder = ruleContext.getConfiguration().getRunUnder();
-    if (runUnder != null && getLabel().equals(runUnder.getLabel())) {
-      if (getProvider(FilesToRunProvider.class).getExecutable() == null) {
-        ruleContext.ruleError("run_under target " + runUnder.getLabel() + " is not executable");
-      }
-    }
-
     // Make sure that all declared output files are also created as artifacts. The
     // CachingAnalysisEnvironment makes sure that they all have generating actions.
     if (!ruleContext.hasErrors()) {
@@ -159,18 +155,35 @@ public final class RuleConfiguredTarget extends AbstractConfiguredTarget {
   public RuleConfiguredTarget(
       ActionLookupKey actionLookupKey,
       NestedSet<PackageGroupContents> visibility,
+      boolean isCreatedInSymbolicMacro,
       TransitiveInfoProviderMap providers,
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       RuleClassId ruleClassId) {
     this(
         actionLookupKey,
         visibility,
+        isCreatedInSymbolicMacro,
         providers,
         configConditions,
         ImmutableSet.of(),
         ruleClassId,
         ImmutableList.of());
     checkState(providers.get(IncompatiblePlatformProvider.PROVIDER) != null, actionLookupKey);
+  }
+
+  /**
+   * Marker provider that indicates this target was instantiated within one or more symbolic macros.
+   */
+  private static class CreatedInSymbolicMacroMarker implements TransitiveInfoProvider {
+    public static final CreatedInSymbolicMacroMarker INSTANCE = new CreatedInSymbolicMacroMarker();
+
+    // Singleton.
+    private CreatedInSymbolicMacroMarker() {}
+  }
+
+  @Override
+  public boolean isCreatedInSymbolicMacro() {
+    return getProvider(CreatedInSymbolicMacroMarker.class) != null;
   }
 
   /** The configuration conditions that trigger this rule's configurable attributes. */

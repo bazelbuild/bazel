@@ -326,6 +326,10 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
     return true;
   }
 
+  protected boolean enableWorkspace() {
+    return false;
+  }
+
   private void initTargetPatternEvaluator(ConfiguredRuleClassProvider ruleClassProvider) {
     this.toolsRepository = ruleClassProvider.getToolsRepository();
     if (skyframeExecutor != null) {
@@ -341,6 +345,8 @@ public abstract class SkyframeQueryHelper extends AbstractQueryHelper<Target> {
 
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
     buildLanguageOptions.enableBzlmod = enableBzlmod();
+    buildLanguageOptions.enableWorkspace = enableWorkspace();
+    buildLanguageOptions.experimentalGoogleLegacyApi = !analysisMock.isThisBazel();
     // TODO(b/256127926): Delete once flipped.
     buildLanguageOptions.experimentalEnableSclDialect = true;
 

@@ -18,6 +18,7 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.exec.TreeDeleter;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxInputs;
 import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
@@ -42,12 +43,15 @@ public class SandboxedWorkerProxy extends WorkerProxy {
 
   private final PathFragment sandboxName;
 
+  private final TreeDeleter treeDeleter;
+
   SandboxedWorkerProxy(
       WorkerKey workerKey,
       int workerId,
       Path logFile,
       WorkerMultiplexer workerMultiplexer,
-      Path workDir) {
+      Path workDir,
+      TreeDeleter treeDeleter) {
     super(workerKey, workerId, logFile, workerMultiplexer, workDir);
     sandboxName =
         PathFragment.create(
@@ -57,6 +61,7 @@ public class SandboxedWorkerProxy extends WorkerProxy {
                     Integer.toString(workerId),
                     workerKey.getExecRoot().getBaseName()));
     sandboxDir = this.workDir.getRelative(sandboxName);
+    this.treeDeleter = treeDeleter;
   }
 
   @Override
@@ -68,7 +73,7 @@ public class SandboxedWorkerProxy extends WorkerProxy {
   public void prepareExecution(
       SandboxInputs inputFiles, SandboxOutputs outputs, Set<PathFragment> workerFiles)
       throws IOException, InterruptedException {
-    workerMultiplexer.createSandboxedProcess(workDir, workerFiles, inputFiles);
+    workerMultiplexer.createSandboxedProcess(workDir, workerFiles, inputFiles, treeDeleter);
 
     sandboxDir.createDirectoryAndParents();
     LinkedHashSet<PathFragment> dirsToCreate = new LinkedHashSet<>();
@@ -81,7 +86,12 @@ public class SandboxedWorkerProxy extends WorkerProxy {
         Iterables.concat(inputFiles.getFiles().keySet(), inputFiles.getSymlinks().keySet()),
         outputs);
     SandboxHelpers.cleanExisting(
-        sandboxDir.getParentDirectory(), inputFiles, inputsToCreate, dirsToCreate, sandboxDir);
+        sandboxDir.getParentDirectory(),
+        inputFiles,
+        inputsToCreate,
+        dirsToCreate,
+        sandboxDir,
+        treeDeleter);
     // Finally, create anything that is still missing. This is non-strict only for historical
     // reasons, we haven't seen what would break if we make it strict.
     SandboxHelpers.createDirectories(dirsToCreate, sandboxDir, /* strict=*/ false);

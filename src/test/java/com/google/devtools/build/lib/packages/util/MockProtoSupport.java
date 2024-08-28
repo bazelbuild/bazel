@@ -41,7 +41,8 @@ public final class MockProtoSupport {
   }
 
   private static void registerProtoToolchain(MockToolsConfig config) throws IOException {
-    config.append("WORKSPACE", "register_toolchains('tools/proto/toolchains:all')");
+    config.append("WORKSPACE", "register_toolchains('//tools/proto/toolchains:all')");
+    config.append("MODULE.bazel", "register_toolchains('//tools/proto/toolchains:all')");
     config.create(
         "tools/proto/toolchains/BUILD",
         TestConstants.LOAD_PROTO_TOOLCHAIN,
@@ -52,7 +53,10 @@ public final class MockProtoSupport {
             + "')");
   }
 
-  /** Create a dummy "net/proto2 compiler and proto APIs for all languages and versions. */
+  /**
+   * Create a dummy net/proto2 compiler, a dummy protoc_minimal and proto APIs for all languages and
+   * versions.
+   */
   private static void createNetProto2(MockToolsConfig config) throws IOException {
     config.create(
         "net/proto2/compiler/public/BUILD",
@@ -62,6 +66,18 @@ public final class MockProtoSupport {
         sh_binary(
             name = "protocol_compiler",
             srcs = ["protocol_compiler.sh"],
+        )
+        """);
+
+    // TODO: b/305068148 - Remove this after blaze is released with protoc_minimal.
+    config.create(
+        "third_party/protobuf/compiler/BUILD",
+        """
+        package(default_visibility = ["//visibility:public"])
+
+        sh_binary(
+            name = "protoc_minimal",
+            srcs = ["protoc_minimal.sh"],
         )
         """);
 
@@ -340,15 +356,6 @@ public final class MockProtoSupport {
   }
 
   public static void setupWorkspace(MockToolsConfig config) throws IOException {
-    if (TestConstants.PRODUCT_NAME.equals("bazel")) {
-      config.append(
-          "WORKSPACE",
-          "local_repository(",
-          "    name = 'rules_proto',",
-          "    path = 'third_party/bazel_rules/rules_proto',",
-          ")");
-    }
-
     config.create(
         "third_party/bazel_rules/rules_proto/proto/BUILD",
         """

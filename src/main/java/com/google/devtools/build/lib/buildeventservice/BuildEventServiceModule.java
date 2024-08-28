@@ -417,6 +417,7 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
         new BuildEventStreamer.Builder()
             .buildEventTransports(bepTransports)
             .besStreamOptions(besStreamOptions)
+            .outputGroupFileModes(bepOptions.getOutputGroupFileModesMapping())
             .publishTargetSummaries(bepOptions.publishTargetSummary)
             .artifactGroupNamer(artifactGroupNamer)
             .oomMessage(parsingResult.getOptions(CommonCommandOptions.class).oomMessage)
@@ -434,8 +435,10 @@ public abstract class BuildEventServiceModule<OptionsT extends BuildEventService
   private void registerOutAndErrOutputStreams() {
     int bufferSize = besOptions.besOuterrBufferSize;
     int chunkSize = besOptions.besOuterrChunkSize;
-    SynchronizedOutputStream out = new SynchronizedOutputStream(bufferSize, chunkSize);
-    SynchronizedOutputStream err = new SynchronizedOutputStream(bufferSize, chunkSize);
+    SynchronizedOutputStream out =
+        new SynchronizedOutputStream(bufferSize, chunkSize, /* isStderr= */ false);
+    SynchronizedOutputStream err =
+        new SynchronizedOutputStream(bufferSize, chunkSize, /* isStderr= */ true);
 
     this.outErr = OutErr.create(out, err);
     streamer.registerOutErrProvider(

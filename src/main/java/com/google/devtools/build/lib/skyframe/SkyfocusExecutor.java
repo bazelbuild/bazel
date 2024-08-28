@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.cache.ActionCache;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
@@ -65,7 +66,7 @@ public class SkyfocusExecutor {
    */
   public static Optional<SkyfocusState> prepareWorkingSet(
       Collection<Label> topLevelTargetLabels,
-      ImmutableSet<PathFragment> projectDirectories,
+      @Nullable PathFragmentPrefixTrie workingSetMatcher,
       InMemoryMemoizingEvaluator evaluator,
       SkyfocusState skyfocusState,
       PackageManager packageManager,
@@ -111,21 +112,17 @@ public class SkyfocusExecutor {
                       return;
                     }
 
-                    // Check if the file belongs to a project directory (defined in PROJECT.scl)
-                    //
-                    // If this end up being costly, we could represent projectDirectories as a trie
-                    // and iterate with PathFragment#segments.
-                    for (PathFragment projectDirectory : projectDirectories) {
-                      if (fileStateKey
-                          .argument()
-                          .getRootRelativePath()
-                          .startsWith(projectDirectory)) {
+                    if (workingSetMatcher != null) {
+                      // Check if the file belongs to the given working set prefixes.
+                      if (workingSetMatcher.includes(
+                          fileStateKey.argument().getRootRelativePath())) {
                         newWorkingSet.add(fileStateKey.argument());
-                        return;
                       }
+                      return;
                     }
 
-                    // Check if the file belongs to the package of a top level target being built.
+                    // If project directories are not defined, check if the file belongs to the
+                    // package of a top level target being built.
                     PathFragment currPath = fileStateKey.argument().getRootRelativePath();
                     while (currPath != null) {
                       try {

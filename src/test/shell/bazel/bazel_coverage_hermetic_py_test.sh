@@ -21,11 +21,9 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${CURRENT_DIR}/../integration_test_setup.sh" \
   || { echo "integration_test_setup.sh not found!" >&2; exit 1; }
 
-disable_bzlmod
-
 # Fetch hermetic python and register toolchain.
 function set_up() {
-    cat >>WORKSPACE <<EOF
+    cat >>MODULE.bazel <<EOF
 register_toolchains(
     "//:python_toolchain",
 )
@@ -40,7 +38,7 @@ function get_coverage_file_path_from_test_log() {
   ending_part="$(sed -n -e '/PASSED/,$p' "$TEST_log")"
 
   local coverage_file_path
-  coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9\.\_\-]+\.dat$" <<< "$ending_part")
+  coverage_file_path=$(grep -Eo "/[/a-zA-Z0-9+\.\_\-]+\.dat$" <<< "$ending_part")
   [[ -e "$coverage_file_path" ]] || fail "Coverage output file does not exist!"
   echo "$coverage_file_path"
 }

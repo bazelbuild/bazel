@@ -43,10 +43,12 @@ import net.starlark.java.eval.Printer;
 public final class InputFileConfiguredTarget extends FileConfiguredTarget {
 
   private final NestedSet<TargetLicense> licenses;
+  private final boolean isCreatedInSymbolicMacro;
 
   public InputFileConfiguredTarget(TargetContext targetContext, SourceArtifact artifact) {
     super(targetContext, artifact);
     this.licenses = makeLicenses(targetContext.getTarget());
+    this.isCreatedInSymbolicMacro = targetContext.getTarget().getDeclaringMacro() != null;
     checkArgument(targetContext.getTarget() instanceof InputFile, targetContext.getTarget());
     checkArgument(getConfigurationKey() == null, getLabel());
   }
@@ -57,6 +59,11 @@ public final class InputFileConfiguredTarget extends FileConfiguredTarget {
         ? NestedSetBuilder.emptySet(Order.LINK_ORDER)
         : NestedSetBuilder.create(
             Order.LINK_ORDER, new TargetLicense(inputFile.getLabel(), license));
+  }
+
+  @Override
+  public boolean isCreatedInSymbolicMacro() {
+    return isCreatedInSymbolicMacro;
   }
 
   @Override

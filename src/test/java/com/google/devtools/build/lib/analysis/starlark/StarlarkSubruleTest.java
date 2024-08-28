@@ -890,7 +890,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
-  public void testSubruleAttrs_implicitLabelDepsAreResolvedToTargets() throws Exception {
+  public void testSubruleAttrs_implicitLabelDepsAreResolvedToTargets_inRule() throws Exception {
     scratch.file(
         "some/pkg/BUILD",
         //
@@ -920,6 +920,53 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
         load("myrule.bzl", "my_rule")
 
         my_rule(name = "foo")
+        """);
+
+    StructImpl provider =
+        getProvider("//subrule_testing:foo", "//subrule_testing:myrule.bzl", "MyInfo");
+
+    assertThat(provider).isNotNull();
+    Object value = provider.getValue("result");
+    assertThat(value).isInstanceOf(ConfiguredTarget.class);
+    assertThat(((ConfiguredTarget) value).getLabel().toString()).isEqualTo("//some/pkg:tool");
+  }
+
+  @Test
+  public void testSubruleAttrs_implicitLabelDepsAreResolvedToTargets_inAspect() throws Exception {
+    scratch.file(
+        "some/pkg/BUILD",
+        //
+        "genrule(name = 'tool', cmd = '', outs = ['tool.exe'])");
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        """
+        def _subrule_impl(ctx, _tool):
+            return _tool
+
+        _my_subrule = subrule(
+            implementation = _subrule_impl,
+            attrs = {"_tool": attr.label(default = "//some/pkg:tool")},
+        )
+
+        MyInfo = provider()
+
+        def _aspect_impl(ctx, target):
+            res = _my_subrule()
+            return [MyInfo(result = res)]
+
+        _my_aspect = aspect(implementation = _aspect_impl, subrules = [_my_subrule])
+
+        my_rule = rule(
+            implementation = lambda ctx: [ctx.attr.dep[MyInfo]],
+            attrs = {"dep": attr.label(mandatory = True, aspects = [_my_aspect])},
+        )
+        """);
+    scratch.file(
+        "subrule_testing/BUILD",
+        """
+        load("myrule.bzl", "my_rule")
+        filegroup(name = 'bar')
+        my_rule(name = "foo", dep = ":bar")
         """);
 
     StructImpl provider =

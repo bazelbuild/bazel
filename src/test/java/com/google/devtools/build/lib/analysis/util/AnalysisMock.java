@@ -36,10 +36,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.YankedVersionsUtil;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCompatibilityMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
-import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidNdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
 import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
@@ -50,6 +47,7 @@ import com.google.devtools.build.lib.rules.repository.LocalRepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.LocalRepositoryRule;
 import com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
+import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -65,7 +63,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import org.mockito.Mockito;
 
 /** Create a mock client for the analysis phase, as well as a configuration factory. */
 public abstract class AnalysisMock extends LoadingMock {
@@ -152,19 +149,16 @@ public abstract class AnalysisMock extends LoadingMock {
     ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers =
         new ImmutableMap.Builder<String, RepositoryFunction>()
             .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
-            .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction())
-            .put(AndroidNdkRepositoryRule.NAME, new AndroidNdkRepositoryFunction());
+            .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction());
 
     addExtraRepositoryFunctions(repositoryHandlers);
-
-    DownloadManager downloadManager = Mockito.mock(DownloadManager.class);
 
     return ImmutableMap.<SkyFunctionName, SkyFunction>builder()
         .put(
             SkyFunctions.REPOSITORY_DIRECTORY,
             new RepositoryDelegatorFunction(
                 repositoryHandlers.buildKeepingLast(),
-                new StarlarkRepositoryFunction(downloadManager),
+                new StarlarkRepositoryFunction(),
                 new AtomicBoolean(true),
                 ImmutableMap::of,
                 directories,
@@ -181,7 +175,7 @@ public abstract class AnalysisMock extends LoadingMock {
         .put(SkyFunctions.SINGLE_EXTENSION, new SingleExtensionFunction())
         .put(
             SkyFunctions.SINGLE_EXTENSION_EVAL,
-            new SingleExtensionEvalFunction(directories, ImmutableMap::of, downloadManager))
+            new SingleExtensionEvalFunction(directories, ImmutableMap::of))
         .put(SkyFunctions.SINGLE_EXTENSION_USAGES, new SingleExtensionUsagesFunction())
         .put(
             SkyFunctions.REGISTRY,
@@ -231,6 +225,8 @@ public abstract class AnalysisMock extends LoadingMock {
       BlazeDirectories directories);
 
   public abstract void setupPrelude(MockToolsConfig mockToolsConfig) throws IOException;
+
+  public abstract BlazeModule getBazelRepositoryModule(BlazeDirectories directories);
 
   /**
    * Stub class for tests to extend in order to update a small amount of {@link AnalysisMock}
@@ -327,6 +323,11 @@ public abstract class AnalysisMock extends LoadingMock {
     public void addExtraRepositoryFunctions(
         ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers) {
       delegate.addExtraRepositoryFunctions(repositoryHandlers);
+    }
+
+    @Override
+    public BlazeModule getBazelRepositoryModule(BlazeDirectories directories) {
+      return delegate.getBazelRepositoryModule(directories);
     }
   }
 }

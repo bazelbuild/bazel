@@ -34,6 +34,9 @@ common --check_direct_dependencies=error
 # Add mirrors for certain download URLs
 common --experimental_downloader_config=bazel_downloader.cfg
 
+# Enable WORKSPACE functionality for android dependencies in WORKSPACE.bzlmod
+common --enable_workspace
+
 # Enable modern C++ features
 build:linux --cxxopt=-std=c++17
 build:linux --host_cxxopt=-std=c++17

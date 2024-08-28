@@ -146,18 +146,16 @@ final class DirectoryDirentProducer implements StateMachine, Consumer<SkyValue> 
 
   /** Returns {@code true} if {@code path} can be added as a glob matching result. */
   private boolean shouldAddResult(boolean isSubpackage) {
-    switch (globDetail.globOperation()) {
-      case FILES:
-        // The dirent is always a directory, so it can never match FILE operation.
-        return false;
-      case SUBPACKAGES:
-        return isSubpackage
-            && allRemainPatternFragmentsDoubleStar(globDetail.patternFragments(), fragmentIndex);
-      case FILES_AND_DIRS:
-        return fragmentIndex == globDetail.patternFragments().size() - 1 && !isSubpackage;
-    }
-    throw new IllegalStateException(
-        "Unexpected globber globberOperation = [" + globDetail.globOperation() + "]");
+    return switch (globDetail.globOperation()) {
+      case FILES ->
+          // The dirent is always a directory, so it can never match FILE operation.
+          false;
+      case SUBPACKAGES ->
+          isSubpackage
+              && allRemainPatternFragmentsDoubleStar(globDetail.patternFragments(), fragmentIndex);
+      case FILES_AND_DIRS ->
+          fragmentIndex == globDetail.patternFragments().size() - 1 && !isSubpackage;
+    };
   }
 
   private static boolean allRemainPatternFragmentsDoubleStar(

@@ -838,13 +838,6 @@ sh_test(
 )
 
 sh_test(
-    name = "starlark_prefetching_test",
-    srcs = ["starlark_prefetching_test.sh"],
-    data = [":test-deps"],
-    tags = ["no_windows"],
-)
-
-sh_test(
     name = "external_starlark_load_test",
     size = "large",
     srcs = ["external_starlark_load_test.sh"],
@@ -1360,7 +1353,10 @@ sh_test(
         ":test-deps",
         "//src/tools/remote:worker",
     ],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",  # for Bzlmod
+    ],
     deps = [
         "//src/test/shell/bazel/remote:remote_utils",
         "@bazel_tools//tools/bash/runfiles",

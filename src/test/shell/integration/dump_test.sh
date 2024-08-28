@@ -111,8 +111,8 @@ EOF
   expect_log '"PACKAGE:b":'
 
   bazel dump --memory=full,count >& $TEST_log || fail "dump failed"
-  # //a, //b, //external and EXTERNAL_PACKAGE
-  expect_log_n '"com.google.devtools.build.lib.skyframe.PackageValue": 1' 4
+  # //a, //b
+  expect_log_n '"com.google.devtools.build.lib.skyframe.PackageValue": 1' 2
 }
 
 function test_memory_needle() {

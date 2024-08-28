@@ -17,6 +17,7 @@
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/objc/apple_env.bzl", "apple_host_system_env", "target_apple_env")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
@@ -149,6 +150,14 @@ def _compile(
     if pch_hdr != None:
         textual_hdrs.append(pch_hdr)
 
+    compilation_contexts = (
+        objc_compilation_context.cc_compilation_contexts +
+        cc_helper.get_compilation_contexts_from_deps(
+            cc_semantics.get_cc_runtimes(common_variables.ctx, True),
+        )
+    )
+    runtimes_copts = cc_semantics.get_cc_runtimes_copts(common_variables.ctx)
+
     return cc_common.compile(
         actions = common_variables.ctx.actions,
         feature_configuration = feature_configuration,
@@ -162,9 +171,9 @@ def _compile(
         includes = objc_compilation_context.includes,
         system_includes = objc_compilation_context.system_includes,
         quote_includes = objc_compilation_context.quote_includes,
-        compilation_contexts = objc_compilation_context.cc_compilation_contexts,
+        compilation_contexts = compilation_contexts,
         implementation_compilation_contexts = objc_compilation_context.implementation_cc_compilation_contexts,
-        user_compile_flags = user_compile_flags,
+        user_compile_flags = runtimes_copts + user_compile_flags,
         module_map = module_map,
         propagate_module_map_to_compile_action = True,
         variables_extension = extension,
@@ -529,17 +538,28 @@ def _build_fully_linked_variable_extensions(archive, libs):
     extensions["imported_library_exec_paths"] = []
     return extensions
 
+def _get_static_library_for_linking(library_to_link):
+    if library_to_link.static_library:
+        return library_to_link.static_library
+    elif library_to_link.pic_static_library:
+        return library_to_link.pic_static_library
+    else:
+        return None
+
+def _get_library_for_linking(library_to_link):
+    if library_to_link.static_library:
+        return library_to_link.static_library
+    elif library_to_link.pic_static_library:
+        return library_to_link.pic_static_library
+    elif library_to_link.interface_library:
+        return library_to_link.interface_library
+    else:
+        return library_to_link.dynamic_library
+
 def _get_libraries_for_linking(libraries_to_link):
     libraries = []
     for library_to_link in libraries_to_link:
-        if library_to_link.static_library:
-            libraries.append(library_to_link.static_library)
-        elif library_to_link.pic_static_library:
-            libraries.append(library_to_link.pic_static_library)
-        elif library_to_link.interface_library:
-            libraries.append(library_to_link.interface_library)
-        else:
-            libraries.append(library_to_link.dynamic_library)
+        libraries.append(_get_library_for_linking(library_to_link))
     return libraries
 
 def _register_fully_link_action(name, common_variables, cc_linking_context):
@@ -903,6 +923,8 @@ compilation_support = struct(
     register_compile_and_archive_actions_for_j2objc = _register_compile_and_archive_actions_for_j2objc,
     build_common_variables = _build_common_variables,
     build_feature_configuration = _build_feature_configuration,
+    get_library_for_linking = _get_library_for_linking,
+    get_static_library_for_linking = _get_static_library_for_linking,
     validate_attributes = _validate_attributes,
     register_fully_link_action = _register_fully_link_action,
     register_configuration_specific_link_actions = _register_configuration_specific_link_actions,

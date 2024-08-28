@@ -37,6 +37,31 @@ public abstract class DeferredObjectCodec<T> implements ObjectCodec<T> {
     T call();
   }
 
+  /**
+   * A no-frills implementation of {@link DeferredValue} that provides a static function to set the
+   * deserialized value. This is for use with {@code
+   * SharedValueDeserializationContext#getSharedValue}.
+   */
+  public static final class SimpleDeferredValue<T> implements DeferredValue<T> {
+    private SimpleDeferredValue() {}
+
+    public static <T> SimpleDeferredValue<T> create() {
+      return new SimpleDeferredValue<>();
+    }
+
+    private T t;
+
+    @Override
+    public T call() {
+      return t;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> void set(SimpleDeferredValue<T> dv, Object obj) {
+      dv.t = (T) obj;
+    }
+  }
+
   @Override
   public final MemoizationStrategy getStrategy() {
     return MemoizationStrategy.MEMOIZE_AFTER;

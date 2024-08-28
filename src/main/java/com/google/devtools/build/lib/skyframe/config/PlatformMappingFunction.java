@@ -111,7 +111,8 @@ public final class PlatformMappingFunction implements SkyFunction {
 
       List<String> lines;
       try {
-        lines = FileSystemUtils.readLines(fileValue.realRootedPath().asPath(), UTF_8);
+        lines =
+            FileSystemUtils.readLines(fileValue.realRootedPath(rootedMappingPath).asPath(), UTF_8);
       } catch (IOException e) {
         throw new PlatformMappingFunctionException(e);
       }

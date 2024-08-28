@@ -77,7 +77,7 @@ public class IndexRegistryTest extends FoundationTestCase {
   @Rule public final TestHttpServer server = new TestHttpServer(authToken);
   @Rule public final TemporaryFolder tempFolder = new TemporaryFolder();
 
-  private RegistryFactory registryFactory;
+  private RegistryFactoryImpl registryFactory;
   private RepositoryCache repositoryCache;
 
   @Before
@@ -85,9 +85,10 @@ public class IndexRegistryTest extends FoundationTestCase {
     eventRecorder = new EventRecorder();
     eventBus.register(eventRecorder);
     repositoryCache = new RepositoryCache();
-    downloadManager = new DownloadManager(repositoryCache, new HttpDownloader());
-    registryFactory =
-        new RegistryFactoryImpl(downloadManager, Suppliers.ofInstance(ImmutableMap.of()));
+    HttpDownloader httpDownloader = new HttpDownloader();
+    downloadManager = new DownloadManager(repositoryCache, httpDownloader, httpDownloader);
+    registryFactory = new RegistryFactoryImpl(Suppliers.ofInstance(ImmutableMap.of()));
+    registryFactory.setDownloadManager(downloadManager);
   }
 
   @Test

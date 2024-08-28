@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.eventbus.EventBus;
 import com.google.common.truth.Truth;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -51,6 +52,9 @@ import com.google.devtools.build.lib.analysis.util.DummyTestFragment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.events.EventCollector;
+import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.FileTarget;
 import com.google.devtools.build.lib.packages.Rule;
@@ -98,6 +102,16 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "--android_platforms=%sandroid:armeabi-v7a", TestConstants.CONSTRAINTS_PACKAGE_ROOT);
   }
 
+  @Override
+  public final void initializeLogging() throws Exception {
+    // Override initializeLogging to only collect errors.
+    // TODO: make FoundationTestCase.initializeLogging() final when this is no longer needed.
+    eventCollector = new EventCollector(EventKind.ERRORS);
+    eventBus = new EventBus();
+    reporter = new Reporter(eventBus, eventCollector);
+    reporter.addHandler(failFastHandler);
+  }
+
   @Before
   public void setupCcToolchain() throws Exception {
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
@@ -143,7 +157,7 @@ public class AndroidBinaryTest extends AndroidBuildViewTestCase {
         "    //java/android/platforms:armv7",
         "  --cpu=x86",
         "    //java/android/platforms:x86");
-    setBuildLanguageOptions("--experimental_google_legacy_api");
+    setBuildLanguageOptions("--experimental_google_legacy_api", "--enable_workspace");
   }
 
   @Test

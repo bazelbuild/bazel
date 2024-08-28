@@ -257,8 +257,16 @@ public class FileFunctionTest {
 
   private static FileValue valueForPathHelper(Root root, Path path, MemoizingEvaluator evaluator)
       throws InterruptedException {
-    PathFragment pathFragment = root.relativize(path);
-    RootedPath rootedPath = RootedPath.toRootedPath(root, pathFragment);
+    return valueForRootedPathHelper(
+        RootedPath.toRootedPath(root, root.relativize(path)), evaluator);
+  }
+
+  private FileValue valueForRootedPath(RootedPath rootedPath) throws InterruptedException {
+    return valueForRootedPathHelper(rootedPath, makeEvaluator());
+  }
+
+  private static FileValue valueForRootedPathHelper(
+      RootedPath rootedPath, MemoizingEvaluator evaluator) throws InterruptedException {
     SkyKey key = FileValue.key(rootedPath);
     EvaluationResult<FileValue> result =
         evaluator.evaluate(ImmutableList.of(key), EVALUATION_OPTIONS);
@@ -448,9 +456,6 @@ public class FileFunctionTest {
         getFilesSeenAndAssertValueChangesIfContentsOfFileChanges(externalPath, true, "a"));
     assertThat(seenFiles)
         .containsExactly(
-            rootedPath("WORKSPACE"),
-            rootedPath("WORKSPACE.bazel"),
-            rootedPath("WORKSPACE.bzlmod"),
             rootedPath("a"),
             rootedPath(""),
             rootedPath("/output_base"),
@@ -852,7 +857,8 @@ public class FileFunctionTest {
     FileValue value = (FileValue) result.get(key);
     assertThat(value).isNotNull();
     assertThat(value.exists()).isTrue();
-    assertThat(value.realRootedPath().getRootRelativePath().getPathString())
+    assertThat(
+            value.realRootedPath((RootedPath) key.argument()).getRootRelativePath().getPathString())
         .isEqualTo("insideroot");
   }
 
@@ -1404,7 +1410,7 @@ public class FileFunctionTest {
       fail(String.format("Evaluation error for %s: %s", key, result.getError()));
     }
     FileValue fileValue = (FileValue) result.get(key);
-    assertThat(fileValue.realRootedPath().asPath().toString())
+    assertThat(fileValue.realRootedPath((RootedPath) key.argument()).asPath().toString())
         .isEqualTo(pkgRoot.getRelative(expectedRealPathString).toString());
   }
 
@@ -1413,10 +1419,11 @@ public class FileFunctionTest {
     symlink("a", "b");
     symlink("b", "c");
     directory("c");
-    FileValue fileValue = valueForPath(path("a"));
+    RootedPath rootedPath = rootedPath("a");
+    FileValue fileValue = valueForRootedPath(rootedPath);
     assertThat(fileValue).isInstanceOf(SymlinkFileValueWithStoredChain.class);
     assertThat(fileValue.getUnresolvedLinkTarget()).isEqualTo(PathFragment.create("b"));
-    assertThat(fileValue.logicalChainDuringResolution())
+    assertThat(fileValue.logicalChainDuringResolution(rootedPath))
         .containsExactly(rootedPath("a"), rootedPath("b"), rootedPath("c"))
         .inOrder();
   }
@@ -1426,10 +1433,11 @@ public class FileFunctionTest {
     symlink("a", "b");
     symlink("b", "c");
     directory("c/d");
-    FileValue fileValue = valueForPath(path("a/d"));
+    RootedPath rootedPath = rootedPath("a/d");
+    FileValue fileValue = valueForRootedPath(rootedPath);
     assertThat(fileValue).isInstanceOf(DifferentRealPathFileValueWithStoredChain.class);
-    assertThat(fileValue.realRootedPath()).isEqualTo(rootedPath("c/d"));
-    assertThat(fileValue.logicalChainDuringResolution())
+    assertThat(fileValue.realRootedPath(rootedPath)).isEqualTo(rootedPath("c/d"));
+    assertThat(fileValue.logicalChainDuringResolution(rootedPath))
         .containsExactly(rootedPath("a/d"), rootedPath("b/d"), rootedPath("c/d"))
         .inOrder();
   }
@@ -1439,10 +1447,12 @@ public class FileFunctionTest {
     symlink("a", "b");
     symlink("b", "c");
     file("c");
-    FileValue fileValue = valueForPath(path("a"));
+    RootedPath rootedPath = rootedPath("a");
+    FileValue fileValue = valueForRootedPath(rootedPath);
     assertThat(fileValue).isInstanceOf(SymlinkFileValueWithoutStoredChain.class);
     assertThat(fileValue.getUnresolvedLinkTarget()).isEqualTo(PathFragment.create("b"));
-    assertThrows(IllegalStateException.class, fileValue::logicalChainDuringResolution);
+    assertThrows(
+        IllegalStateException.class, () -> fileValue.logicalChainDuringResolution(rootedPath));
   }
 
   @Test
@@ -1450,10 +1460,12 @@ public class FileFunctionTest {
     symlink("a", "b");
     symlink("b", "c");
     file("c/d");
-    FileValue fileValue = valueForPath(path("a/d"));
+    RootedPath rootedPath = rootedPath("a/d");
+    FileValue fileValue = valueForRootedPath(rootedPath);
     assertThat(fileValue).isInstanceOf(DifferentRealPathFileValueWithoutStoredChain.class);
-    assertThat(fileValue.realRootedPath()).isEqualTo(rootedPath("c/d"));
-    assertThrows(IllegalStateException.class, fileValue::logicalChainDuringResolution);
+    assertThat(fileValue.realRootedPath(rootedPath)).isEqualTo(rootedPath("c/d"));
+    assertThrows(
+        IllegalStateException.class, () -> fileValue.logicalChainDuringResolution(rootedPath));
   }
 
   @Test
@@ -1466,10 +1478,11 @@ public class FileFunctionTest {
     directory("g");
     symlink("g/f", "../h");
     directory("h");
-    FileValue fileValue = valueForPath(path("a/d"));
+    RootedPath rootedPath = rootedPath("a/d");
+    FileValue fileValue = valueForRootedPath(rootedPath);
     assertThat(fileValue).isInstanceOf(DifferentRealPathFileValueWithStoredChain.class);
-    assertThat(fileValue.realRootedPath()).isEqualTo(rootedPath("h"));
-    assertThat(fileValue.logicalChainDuringResolution())
+    assertThat(fileValue.realRootedPath(rootedPath)).isEqualTo(rootedPath("h"));
+    assertThat(fileValue.logicalChainDuringResolution(rootedPath))
         .containsExactly(
             rootedPath("a/d"),
             rootedPath("b/d"),

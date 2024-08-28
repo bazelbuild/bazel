@@ -128,12 +128,12 @@ public class WorkerPoolImpl implements WorkerPool {
 
   @Override
   public Worker borrowObject(WorkerKey key) throws IOException, InterruptedException {
-    return getPool(key).borrowWorker();
+    return getPool(key).borrowWorker(key);
   }
 
   @Override
   public void returnObject(WorkerKey key, Worker obj) {
-    getPool(key).returnWorker(/* worker= */ obj);
+    getPool(key).returnWorker(key, /* worker= */ obj);
   }
 
   @Override
@@ -172,11 +172,22 @@ public class WorkerPoolImpl implements WorkerPool {
     if (key.isMultiplex()) {
       return new WorkerKeyPool(
           key,
-          multiplexMaxInstances.getOrDefault(key.getMnemonic(), DEFAULT_MAX_MULTIPLEX_WORKERS));
+          getMaxWorkerInstances(
+              multiplexMaxInstances, key.getMnemonic(), DEFAULT_MAX_MULTIPLEX_WORKERS));
     }
     return new WorkerKeyPool(
         key,
-        singleplexMaxInstances.getOrDefault(key.getMnemonic(), DEFAULT_MAX_SINGLEPLEX_WORKERS));
+        getMaxWorkerInstances(
+            singleplexMaxInstances, key.getMnemonic(), DEFAULT_MAX_SINGLEPLEX_WORKERS));
+  }
+
+  private Integer getMaxWorkerInstances(
+      ImmutableMap<String, Integer> maxInstances, String mnemonic, int defaultMaxInstances) {
+    if (maxInstances.containsKey(mnemonic)) {
+      return maxInstances.get(mnemonic);
+    }
+    // Empty-string contains the user-specified worker maximum instances.
+    return maxInstances.getOrDefault("", defaultMaxInstances);
   }
 
   /**
@@ -271,7 +282,7 @@ public class WorkerPoolImpl implements WorkerPool {
 
     // Callers should atomically check to confirm that workers are available before calling this
     // method or risk being blocked waiting for a worker to be available.
-    private Worker borrowWorker() throws IOException, InterruptedException {
+    private Worker borrowWorker(WorkerKey key) throws IOException, InterruptedException {
       Worker worker = null;
       PendingWorkerRequest pendingReq = null;
       // We don't want to hold the lock on the pool while creating or waiting for a worker or quota
@@ -281,7 +292,9 @@ public class WorkerPoolImpl implements WorkerPool {
           // LIFO: It's better to re-use a worker as often as possible and keep it hot, in order to
           // profit from JIT optimizations as much as possible.
           worker = idleWorkers.takeLast();
-          if (factory.validateWorker(worker.getWorkerKey(), worker)) {
+          // We need to validate with the passed in `key` rather than `worker.getWorkerKey()`
+          // because the former can contain a different combined files hash if the files changed.
+          if (factory.validateWorker(key, worker)) {
             acquired.incrementAndGet();
             break;
           }
@@ -316,8 +329,8 @@ public class WorkerPoolImpl implements WorkerPool {
       return worker;
     }
 
-    private synchronized void returnWorker(Worker worker) {
-      if (!factory.validateWorker(worker.getWorkerKey(), worker)) {
+    private synchronized void returnWorker(WorkerKey key, Worker worker) {
+      if (!factory.validateWorker(key, worker)) {
         invalidateWorker(worker, true);
         return;
       }

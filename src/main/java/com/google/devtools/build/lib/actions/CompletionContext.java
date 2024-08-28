@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import java.util.Collection;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -48,6 +47,7 @@ public final class CompletionContext implements ArtifactExpander {
           null,
           ImmutableMap.of(),
           ImmutableMap.of(),
+          null,
           ArtifactPathResolver.IDENTITY,
           new ActionInputMap(BugReporter.defaultInstance(), 0),
           false,
@@ -57,6 +57,7 @@ public final class CompletionContext implements ArtifactExpander {
   private final ArtifactPathResolver pathResolver;
   private final Map<Artifact, TreeArtifactValue> treeArtifacts;
   private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets;
+  @Nullable private final FileArtifactValue baselineCoverageValue;
   // Only contains the metadata for 'important' artifacts of the Target/Aspect that completed. Any
   // 'unimportant' artifacts produced by internal output groups (most importantly, _validation) will
   // not be included to avoid retaining many GB on the heap. This ActionInputMap must only be
@@ -70,6 +71,7 @@ public final class CompletionContext implements ArtifactExpander {
       Path execRoot,
       Map<Artifact, TreeArtifactValue> treeArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets,
+      @Nullable FileArtifactValue baselineCoverageValue,
       ArtifactPathResolver pathResolver,
       ActionInputMap importantInputMap,
       boolean expandFilesets,
@@ -77,6 +79,7 @@ public final class CompletionContext implements ArtifactExpander {
     this.execRoot = execRoot;
     this.treeArtifacts = treeArtifacts;
     this.filesets = filesets;
+    this.baselineCoverageValue = baselineCoverageValue;
     this.pathResolver = pathResolver;
     this.importantInputMap = importantInputMap;
     this.expandFilesets = expandFilesets;
@@ -86,6 +89,7 @@ public final class CompletionContext implements ArtifactExpander {
   public static CompletionContext create(
       Map<Artifact, TreeArtifactValue> treeArtifacts,
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets,
+      @Nullable FileArtifactValue baselineCoverageValue,
       boolean expandFilesets,
       boolean fullyResolveFilesetSymlinks,
       ActionInputMap inputMap,
@@ -105,6 +109,7 @@ public final class CompletionContext implements ArtifactExpander {
         execRoot,
         treeArtifacts,
         filesets,
+        baselineCoverageValue,
         pathResolver,
         importantInputMap,
         expandFilesets,
@@ -128,34 +133,9 @@ public final class CompletionContext implements ArtifactExpander {
     return importantInputMap.getInputMetadata(artifact);
   }
 
-  /** Returns owner mappings for artifact expansions contained in {@code inputsOfInterest}. */
-  public ActionInputDepOwners getDepOwners(Collection<ActionInput> inputsOfInterest) {
-    ActionInputDepOwnerMap depOwners = new ActionInputDepOwnerMap(inputsOfInterest);
-    treeArtifacts.forEach(
-        (tree, treeValue) -> {
-          for (Artifact child : treeValue.getChildren()) {
-            depOwners.addOwner(child, tree);
-          }
-        });
-    if (expandFilesets) {
-      for (Artifact fileset : filesets.keySet()) {
-        visitFileset(
-            fileset,
-            new ArtifactReceiver() {
-              @Override
-              public void accept(Artifact artifact) {
-                throw new AssertionError(artifact);
-              }
-
-              @Override
-              public void acceptFilesetMapping(
-                  Artifact fileset, PathFragment relName, Path targetFile) {
-                depOwners.addOwner(ActionInputHelper.fromPath(targetFile.asFragment()), fileset);
-              }
-            });
-      }
-    }
-    return depOwners;
+  @Nullable
+  public FileArtifactValue getBaselineCoverageValue() {
+    return baselineCoverageValue;
   }
 
   /** Visits the expansion of the given artifacts. */

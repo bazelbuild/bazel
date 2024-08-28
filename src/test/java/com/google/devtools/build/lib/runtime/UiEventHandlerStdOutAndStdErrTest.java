@@ -241,6 +241,15 @@ public final class UiEventHandlerStdOutAndStdErrTest {
     assertThat(output.flushed.get(4)).doesNotContain("\033[1A\033[K");
   }
 
+  @Test
+  public void handleOutputEvent_flushesRemainingLines() {
+    Assume.assumeTrue(testedOutput == TestedOutput.STDOUT);
+    uiEventHandler.handle(output("hello\nto\neveryone"));
+    output.assertFlushed("hello\nto\n");
+    uiEventHandler.afterCommand(new AfterCommandEvent());
+    output.assertFlushed("hello\nto\n", "everyone");
+  }
+
   private Event output(String message) {
     return Event.of(eventKind, message);
   }

@@ -103,12 +103,12 @@ import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
-import com.google.devtools.build.lib.remote.util.TempPathGenerator;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -1333,6 +1333,14 @@ public class RemoteExecutionService {
   public static final class LocalExecution {
     private final RemoteAction action;
     private final SettableFuture<SpawnResult> spawnResultFuture;
+    private final Phaser spawnResultConsumers =
+        new Phaser(1) {
+          @Override
+          protected boolean onAdvance(int phase, int registeredParties) {
+            // We only use a single phase.
+            return true;
+          }
+        };
 
     private LocalExecution(RemoteAction action) {
       this.action = action;
@@ -1354,6 +1362,37 @@ public class RemoteExecutionService {
         return null;
       }
       return new LocalExecution(action);
+    }
+
+    /**
+     * Attempts to register a thread waiting for the {@link #spawnResultFuture} to become available
+     * and returns true if successful.
+     *
+     * <p>Every call to this method must be matched by a call to {@link #unregister()} via
+     * try-finally.
+     *
+     * <p>This always returns true for actions that do not modify their spawns' outputs after
+     * execution.
+     */
+    public boolean registerForOutputReuse() {
+      // We only use a single phase.
+      return spawnResultConsumers.register() == 0;
+    }
+
+    /**
+     * Unregisters a thread waiting for the {@link #spawnResultFuture}, either after successful
+     * reuse of the outputs or upon failure.
+     */
+    public void unregister() {
+      spawnResultConsumers.arriveAndDeregister();
+    }
+
+    /**
+     * Waits for all potential consumers of the {@link #spawnResultFuture} to be done with their
+     * output reuse.
+     */
+    public void awaitAllOutputReuse() {
+      spawnResultConsumers.arriveAndAwaitAdvance();
     }
 
     /**
@@ -1422,55 +1461,67 @@ public class RemoteExecutionService {
         previousExecution.action.getSpawn().getOutputFiles().stream()
             .collect(toImmutableMap(output -> execRoot.getRelative(output.getExecPath()), o -> o));
     Map<Path, Path> realToTmpPath = new HashMap<>();
-    for (String output : action.getCommand().getOutputPathsList()) {
-      Path sourcePath =
-          previousExecution
-              .action
-              .getRemotePathResolver()
-              .outputPathToLocalPath(encodeBytestringUtf8(output));
-      ActionInput outputArtifact = previousOutputs.get(sourcePath);
-      Path tmpPath = tempPathGenerator.generateTempPath();
-      tmpPath.getParentDirectory().createDirectoryAndParents();
-      try {
-        if (outputArtifact.isDirectory()) {
-          tmpPath.createDirectory();
-          FileSystemUtils.copyTreesBelow(sourcePath, tmpPath, Symlinks.NOFOLLOW);
-        } else if (outputArtifact.isSymlink()) {
-          FileSystemUtils.ensureSymbolicLink(tmpPath, sourcePath.readSymbolicLink());
-        } else {
-          FileSystemUtils.copyFile(sourcePath, tmpPath);
-        }
-      } catch (FileNotFoundException e) {
-        // The spawn this action was deduplicated against failed to create an output file. If the
-        // output is mandatory, we cannot reuse the previous execution.
-        if (action.getSpawn().isMandatoryOutput(outputArtifact)) {
-          return null;
+    try {
+      for (String output : action.getCommand().getOutputPathsList()) {
+        Path sourcePath =
+            previousExecution
+                .action
+                .getRemotePathResolver()
+                .outputPathToLocalPath(encodeBytestringUtf8(output));
+        ActionInput outputArtifact = previousOutputs.get(sourcePath);
+        Path tmpPath = tempPathGenerator.generateTempPath();
+        tmpPath.getParentDirectory().createDirectoryAndParents();
+        try {
+          if (outputArtifact.isDirectory()) {
+            tmpPath.createDirectory();
+            FileSystemUtils.copyTreesBelow(sourcePath, tmpPath, Symlinks.NOFOLLOW);
+          } else if (outputArtifact.isSymlink()) {
+            FileSystemUtils.ensureSymbolicLink(tmpPath, sourcePath.readSymbolicLink());
+          } else {
+            FileSystemUtils.copyFile(sourcePath, tmpPath);
+          }
+
+          Path targetPath =
+              action.getRemotePathResolver().outputPathToLocalPath(encodeBytestringUtf8(output));
+          realToTmpPath.put(targetPath, tmpPath);
+        } catch (FileNotFoundException e) {
+          // The spawn this action was deduplicated against failed to create an output file. If the
+          // output is mandatory, we cannot reuse the previous execution.
+          if (action.getSpawn().isMandatoryOutput(outputArtifact)) {
+            return null;
+          }
         }
       }
 
-      Path targetPath =
-          action.getRemotePathResolver().outputPathToLocalPath(encodeBytestringUtf8(output));
-      realToTmpPath.put(targetPath, tmpPath);
+      // TODO: FileOutErr is action-scoped, not spawn-scoped, but this is not a problem for the
+      //  current use case of supporting deduplication of path mapped spawns:
+      //  1. Starlark and C++ compilation actions always create a single spawn.
+      //  2. Java compilation actions may run a fallback spawn, but reset the FileOutErr before
+      //     running it.
+      //  If this changes, we will need to introduce a spawn-scoped OutErr.
+      FileOutErr.dump(
+          previousExecution.action.getSpawnExecutionContext().getFileOutErr(),
+          action.getSpawnExecutionContext().getFileOutErr());
+
+      action
+          .getSpawnExecutionContext()
+          .lockOutputFiles(
+              previousSpawnResult.exitCode(),
+              previousSpawnResult.getFailureMessage(),
+              action.getSpawnExecutionContext().getFileOutErr());
+      // All outputs are created locally.
+      moveOutputsToFinalLocation(realToTmpPath.keySet(), realToTmpPath);
+    } catch (InterruptedException | IOException e) {
+      // Delete any copied output files.
+      try {
+        for (Path tmpPath : realToTmpPath.values()) {
+          tmpPath.delete();
+        }
+      } catch (IOException ignored) {
+        // Best effort, will be cleaned up at server restart.
+      }
+      throw e;
     }
-
-    // TODO: FileOutErr is action-scoped, not spawn-scoped, but this is not a problem for the
-    //  current use case of supporting deduplication of path mapped spawns:
-    //  1. Starlark and C++ compilation actions always create a single spawn.
-    //  2. Java compilation actions may run a fallback spawn, but reset the FileOutErr before
-    //     running it.
-    //  If this changes, we will need to introduce a spawn-scoped OutErr.
-    FileOutErr.dump(
-        previousExecution.action.getSpawnExecutionContext().getFileOutErr(),
-        action.getSpawnExecutionContext().getFileOutErr());
-
-    action
-        .getSpawnExecutionContext()
-        .lockOutputFiles(
-            previousSpawnResult.exitCode(),
-            previousSpawnResult.getFailureMessage(),
-            action.getSpawnExecutionContext().getFileOutErr());
-    // All outputs are created locally.
-    moveOutputsToFinalLocation(realToTmpPath.keySet(), realToTmpPath);
 
     return previousSpawnResult;
   }
@@ -1559,7 +1610,8 @@ public class RemoteExecutionService {
         SpawnResult.Status.SUCCESS.equals(spawnResult.status()) && spawnResult.exitCode() == 0,
         "shouldn't upload outputs of failed local action");
 
-    if (remoteOptions.remoteCacheAsync) {
+    if (remoteOptions.remoteCacheAsync
+        && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
       Single.using(
               remoteCache::retain,
               remoteCache ->

@@ -13,12 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameters;
+import com.beust.jcommander.ParametersDelegate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.aapt2.Aapt2ConfigOptions;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.nio.file.FileSystems;
 import java.util.List;
 import java.util.logging.Logger;
 
@@ -33,19 +32,38 @@ class Aapt2OptimizeAction {
     logger.fine(CommandHelper.execute("Optimizing resources", buildCommand(args)));
   }
 
-  private static List<String> buildCommand(String... args) {
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(Aapt2ConfigOptions.class, ResourceProcessorCommonOptions.class)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .allowResidue(true)
-            .build();
-    optionsParser.parseAndExitUponError(args);
+  @Parameters(separators = "= ")
+  static class Options extends OptionsBaseWithResidue {
+    // NOTE: This options class needs the ParametersDelegate feature from JCommander for several
+    // reasons:
+    // * There are no Aapt2OptimizeAction-specific options, just fake "inheritance" from
+    //   Aapt2ConfigOptions and ResourceProcessorCommonOptions.
+    // * The action itself reads the residue from the command line
+    // In JCommander, residue collection is done at a per-option-class basis, not per OptionsParser,
+    // as was the case with the Bazel OptionsParser. Simultaneously, only _one_ object in a list of
+    // Objects passed to JCommander can have residue collection.
+    // Therefore, the most straightforward option here is to "inherit" the sub-option classes into a
+    // super Options class, with residue collection enabled for Options.
+
+    @ParametersDelegate public Aapt2ConfigOptions aapt2ConfigOptions = new Aapt2ConfigOptions();
+
+    @ParametersDelegate
+    public ResourceProcessorCommonOptions resourceProcessorCommonOptions =
+        new ResourceProcessorCommonOptions();
+  }
+
+  private static List<String> buildCommand(String... args) throws CompatOptionsParsingException {
+    Options options = new Options();
+    JCommander jc = new JCommander(options);
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(options, preprocessedArgs);
+    jc.parse(normalizedArgs);
 
     return ImmutableList.<String>builder()
-        .add(optionsParser.getOptions(Aapt2ConfigOptions.class).aapt2.toString())
+        .add(options.aapt2ConfigOptions.aapt2.toString())
         .add("optimize")
-        .addAll(optionsParser.getResidue())
+        .addAll(options.getResidue())
         .build();
   }
 

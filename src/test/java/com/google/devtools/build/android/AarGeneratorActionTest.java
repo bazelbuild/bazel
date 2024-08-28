@@ -19,12 +19,12 @@ import static org.hamcrest.CoreMatchers.containsString;
 import static org.junit.Assert.assertNotNull;
 
 import com.android.builder.core.VariantTypeImpl;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.ParameterException;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AarGeneratorAction.AarGeneratorOptions;
 import com.google.devtools.build.zip.ZipReader;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParsingException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -309,7 +309,20 @@ public class AarGeneratorActionTest {
 
   }
 
-  @Test public void testCheckFlags() throws IOException, OptionsParsingException {
+  private AarGeneratorOptions parseFlags(String[] args)
+      throws CompatOptionsParsingException, ParameterException {
+    AarGeneratorOptions options = new AarGeneratorOptions();
+    JCommander jc = new JCommander(options);
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(options, preprocessedArgs);
+    jc.parse(normalizedArgs);
+    return options;
+  }
+
+  @Test
+  public void testCheckFlags()
+      throws CompatOptionsParsingException, IOException, ParameterException {
     Path manifest = tempDir.resolve("AndroidManifest.xml");
     Files.createFile(manifest);
     Path rtxt = tempDir.resolve("R.txt");
@@ -319,38 +332,33 @@ public class AarGeneratorActionTest {
 
     String[] args = new String[] {"--manifest", manifest.toString(), "--rtxt", rtxt.toString(),
         "--classes", classes.toString()};
-    OptionsParser optionsParser =
-        OptionsParser.builder().optionsClasses(AarGeneratorOptions.class).build();
-    optionsParser.parse(args);
-    AarGeneratorOptions options = optionsParser.getOptions(AarGeneratorOptions.class);
+    AarGeneratorOptions options = parseFlags(args);
     AarGeneratorAction.checkFlags(options);
   }
 
-  @Test public void testCheckFlags_MissingClasses() throws IOException, OptionsParsingException {
+  @Test
+  public void testCheckFlags_MissingClasses()
+      throws CompatOptionsParsingException, IOException, ParameterException {
     Path manifest = tempDir.resolve("AndroidManifest.xml");
     Files.createFile(manifest);
     Path rtxt = tempDir.resolve("R.txt");
     Files.createFile(rtxt);
 
     String[] args = new String[] {"--manifest", manifest.toString(), "--rtxt", rtxt.toString()};
-    OptionsParser optionsParser =
-        OptionsParser.builder().optionsClasses(AarGeneratorOptions.class).build();
-    optionsParser.parse(args);
-    AarGeneratorOptions options = optionsParser.getOptions(AarGeneratorOptions.class);
+    AarGeneratorOptions options = parseFlags(args);
     thrown.expect(IllegalArgumentException.class);
     thrown.expectMessage("classes must be specified. Building an .aar without"
           + " classes is unsupported.");
     AarGeneratorAction.checkFlags(options);
   }
 
-  @Test public void testCheckFlags_MissingMultiple() throws IOException, OptionsParsingException {
+  @Test
+  public void testCheckFlags_MissingMultiple()
+      throws CompatOptionsParsingException, IOException, ParameterException {
     Path manifest = tempDir.resolve("AndroidManifest.xml");
     Files.createFile(manifest);
     String[] args = new String[] {"--manifest", manifest.toString()};
-    OptionsParser optionsParser =
-        OptionsParser.builder().optionsClasses(AarGeneratorOptions.class).build();
-    optionsParser.parse(args);
-    AarGeneratorOptions options = optionsParser.getOptions(AarGeneratorOptions.class);
+    AarGeneratorOptions options = parseFlags(args);
     thrown.expect(IllegalArgumentException.class);
     thrown.expectMessage("rtxt, classes must be specified. Building an .aar without"
           + " rtxt, classes is unsupported.");

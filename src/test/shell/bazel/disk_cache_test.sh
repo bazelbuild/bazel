@@ -32,7 +32,6 @@ function test_local_action_cache() {
   rm -rf $cache
   mkdir $cache
 
-  create_workspace_with_default_repos WORKSPACE
   # No sandboxing, side effect is needed to detect action execution
   cat > BUILD <<EOF
 genrule(
@@ -70,13 +69,14 @@ function test_input_directories_in_external_repo_with_sibling_repository_layout(
   create_new_workspace
   l=$TEST_TMPDIR/l
   mkdir -p "$l/dir"
-  touch "$l/WORKSPACE"
+  touch "$l/REPO.bazel"
   touch "$l/dir/f"
   cat > "$l/BUILD" <<'EOF'
 exports_files(["dir"])
 EOF
 
-  cat >> WORKSPACE <<EOF
+  cat > MODULE.bazel <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name="l", path="$l")
 EOF
 
@@ -91,4 +91,40 @@ EOF
 
 }
 
-run_suite "local action cache test"
+function test_cache_hit_on_source_edit_after_test_failure() {
+  # Regression test for https://github.com/bazelbuild/bazel/issues/11057.
+
+  local -r CACHE_DIR="${TEST_TMPDIR}/cache"
+  rm -rf "$CACHE_DIR"
+
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+sh_test(
+    name = "test",
+    srcs = ["test.sh"],
+)
+EOF
+  echo "exit 0" > a/test.sh
+  chmod +x a/test.sh
+
+  # Populate the cache with a passing test.
+  bazel test --disk_cache="$CACHE_DIR" //a:test >& $TEST_log \
+    || fail "Expected test to pass"
+
+  # Turn the test into a failing one.
+  echo "exit 1" > a/test.sh
+
+  # Check that the test fails.
+  bazel test --disk_cache="$CACHE_DIR" //a:test >& $TEST_log \
+    && fail "Expected test to fail"
+
+  # Turn the test into a passing one again.
+  echo "exit 0" > a/test.sh
+
+  # Check that we hit the previously populated cache.
+  bazel test --disk_cache="$CACHE_DIR" //a:test >& $TEST_log \
+    || fail "Expected test to pass"
+  expect_log "(cached) PASSED"
+}
+
+run_suite "disk cache test"

@@ -27,11 +27,6 @@ bind(
 )
 
 bind(
-    name = "android_ndk_for_testing",
-    actual = "@bazel_tools//tools/android:empty",
-)
-
-bind(
     name = "databinding_annotation_processor",
     actual = "@bazel_tools//tools/android:empty",
 )
@@ -46,15 +41,8 @@ bind(
 # To run the Android integration tests in //src/test/shell/bazel/android:all or
 # build the Android sample app in //examples/android/java/bazel:hello_world
 #
-#   1. Install an Android SDK and NDK from https://developer.android.com
-#   2. Set the $ANDROID_HOME and $ANDROID_NDK_HOME environment variables
-#   3. Uncomment the two lines below
+#   1. Install an Android SDK from https://developer.android.com
+#   2. Set the $ANDROID_HOME environment variables
+#   3. Uncomment the line below
 #
 # android_sdk_repository(name = "androidsdk")
-# android_ndk_repository(name = "androidndk")
-
-# Introduce the "kythe_release" repo for Kythe build.
-local_repository(
-    name = "kythe_release",
-    path = "/usr/local/kythe",
-)

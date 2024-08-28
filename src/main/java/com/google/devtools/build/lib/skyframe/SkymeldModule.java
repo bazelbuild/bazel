@@ -80,6 +80,15 @@ public class SkymeldModule extends BlazeModule {
       effectiveValue = false;
     }
 
+    if (effectiveValue
+        && (buildRequestOptions.aqueryDumpAfterBuildFormat != null
+            || buildRequestOptions.aqueryDumpAfterBuildOutputFile != null)) {
+      logger.atInfo().log(
+          "--experimental_merged_skyframe_analysis_execution is incompatible with"
+              + " generating an aquery dump after builds and its value will be ignored.");
+      effectiveValue = false;
+    }
+
     // TODO(b/245873370) --check_licenses is going away.
     if (effectiveValue
         && env.getOptions().getOptions(CoreOptions.class) != null

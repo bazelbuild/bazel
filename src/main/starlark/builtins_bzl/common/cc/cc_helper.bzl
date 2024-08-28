@@ -178,7 +178,7 @@ def _get_dynamic_library_for_runtime_or_none(library, linking_statically):
 
     return library.dynamic_library
 
-_CPP_TOOLCHAIN_TYPE = "@" + objc_semantics.get_repo() + "//tools/cpp:toolchain_type"
+_CPP_TOOLCHAIN_TYPE = "@@" + objc_semantics.get_repo() + "//tools/cpp:toolchain_type"
 
 def _find_cpp_toolchain(ctx, *, mandatory = True):
     """

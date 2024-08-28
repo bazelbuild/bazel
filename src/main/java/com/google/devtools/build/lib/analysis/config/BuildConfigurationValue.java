@@ -718,8 +718,14 @@ public class BuildConfigurationValue
     return options.collectCodeCoverage;
   }
 
+  @Nullable
   public RunUnder getRunUnder() {
     return options.runUnder;
+  }
+
+  /** Should the {@code --run_under} be configured in the exec configuration? */
+  public boolean runUnderExecConfigForTests() {
+    return options.bazelTestExecRunUnder;
   }
 
   /** Returns true if this is an execution configuration. */

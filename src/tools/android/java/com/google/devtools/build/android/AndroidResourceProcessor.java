@@ -23,23 +23,21 @@ import com.android.builder.internal.aapt.AaptOptions;
 import com.android.repository.Revision;
 import com.android.utils.ILogger;
 import com.android.utils.StdLogger;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.RevisionConverter;
+import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
+import com.google.devtools.build.android.Converters.CompatRevisionConverter;
 import com.google.devtools.build.android.junctions.JunctionCreator;
 import com.google.devtools.build.android.junctions.NoopJunctionCreator;
 import com.google.devtools.build.android.junctions.WindowsJunctionCreator;
 import com.google.devtools.build.android.resources.ResourceSymbols;
-import com.google.devtools.common.options.Converters.CommaSeparatedOptionListConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.TriState;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.Closeable;
@@ -60,87 +58,53 @@ public class AndroidResourceProcessor {
   static final Logger logger = Logger.getLogger(AndroidResourceProcessor.class.getName());
 
   /** Options class containing flags for Aapt setup. */
-  public static final class AaptConfigOptions extends OptionsBase {
-    @Option(
-        name = "buildToolsVersion",
-        defaultValue = "null",
-        converter = RevisionConverter.class,
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Version of the build tools (e.g. aapt) being used, e.g. 23.0.2")
+  @Parameters(separators = "= ")
+  public static final class AaptConfigOptions {
+    @Parameter(
+        names = "--buildToolsVersion",
+        converter = CompatRevisionConverter.class,
+        description = "Version of the build tools (e.g. aapt) being used, e.g. 23.0.2")
     public Revision buildToolsVersion;
 
-    @Option(
-        name = "aapt",
-        defaultValue = "null",
-        converter = ExistingPathConverter.class,
-        category = "tool",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Aapt tool location for resource packaging.")
+    @Parameter(
+        names = "--aapt",
+        converter = CompatExistingPathConverter.class,
+        description = "Aapt tool location for resource packaging.")
     public Path aapt;
 
-    @Option(
-        name = "androidJar",
-        defaultValue = "null",
-        converter = ExistingPathConverter.class,
-        category = "tool",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to the android jar for resource packaging and building apks.")
+    @Parameter(
+        names = "--androidJar",
+        converter = CompatExistingPathConverter.class,
+        description = "Path to the android jar for resource packaging and building apks.")
     public Path androidJar;
 
-    @Option(
-        name = "useAaptCruncher",
-        defaultValue = "auto",
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--useAaptCruncher",
+        description =
             "Use the legacy aapt cruncher, defaults to true for non-LIBRARY packageTypes.  LIBRARY"
                 + " packages do not benefit from the additional processing as the resources will"
                 + " need to be reprocessed during the generation of the final apk. See"
                 + " https://code.google.com/p/android/issues/detail?id=67525 for a discussion of"
                 + " the different png crunching methods.")
-    public TriState useAaptCruncher;
+    public TriState useAaptCruncher = TriState.AUTO;
 
-    @Option(
-        name = "uncompressedExtensions",
-        defaultValue = "",
-        converter = CommaSeparatedOptionListConverter.class,
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "A list of file extensions not to compress.")
-    public List<String> uncompressedExtensions;
+    @Parameter(
+        names = "--uncompressedExtensions",
+        description = "A list of file extensions not to compress.")
+    public List<String> uncompressedExtensions = ImmutableList.of();
 
-    @Option(
-        name = "debug",
-        defaultValue = "false",
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Indicates if it is a debug build.")
+    @Parameter(names = "--debug", arity = 1, description = "Indicates if it is a debug build.")
     public boolean debug;
 
-    @Option(
-        name = "resourceConfigs",
-        defaultValue = "",
-        converter = CommaSeparatedOptionListConverter.class,
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "A list of resource config filters to pass to aapt.")
-    public List<String> resourceConfigs;
+    @Parameter(
+        names = "--resourceConfigs",
+        description = "A list of resource config filters to pass to aapt.")
+    public List<String> resourceConfigs = ImmutableList.of();
 
-    @Option(
-        name = "useDataBindingAndroidX",
-        defaultValue = "false",
-        category = "config",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Indicates whether databinding generated files should depend on AndroidX.")
+    @Parameter(
+        names = "--useDataBindingAndroidX",
+        arity = 1,
+        description = "Indicates whether databinding generated files should depend on AndroidX.")
     public boolean useDataBindingAndroidX;
   }
 

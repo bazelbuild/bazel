@@ -19,14 +19,17 @@ import static java.util.stream.Collectors.joining;
 
 import com.android.tools.r8.ArchiveClassFileProvider;
 import com.android.tools.r8.ArchiveProgramResourceProvider;
+import com.android.tools.r8.ByteDataView;
 import com.android.tools.r8.ClassFileResourceProvider;
 import com.android.tools.r8.CompilationFailedException;
 import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.Diagnostic;
 import com.android.tools.r8.DiagnosticsHandler;
+import com.android.tools.r8.GlobalSyntheticsConsumer;
 import com.android.tools.r8.errors.DexFileOverflowDiagnostic;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
+import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.utils.StringDiagnostic;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.r8.OptionsConverters.ExistingPathConverter;
@@ -466,6 +469,11 @@ public class Desugar {
     }
   }
 
+  private static class NoOpGlobalSyntheticsConsumer implements GlobalSyntheticsConsumer {
+    @Override
+    public void accept(ByteDataView data, ClassReference context, DiagnosticsHandler handler) {}
+  }
+
   private void desugar(
       List<ClassFileResourceProvider> bootclasspathProviders,
       ClassFileResourceProvider classpath,
@@ -509,6 +517,7 @@ public class Desugar {
           D8Command.builder(new DesugarDiagnosticsHandler(consumer, diagnosticsHandlerPrintStream))
               .addClasspathResourceProvider(orderedClassFileResourceProvider)
               .addProgramResourceProvider(programProvider)
+              .setGlobalSyntheticsConsumer(new NoOpGlobalSyntheticsConsumer())
               .setIntermediate(true)
               .setMinApiLevel(options.minSdkVersion)
               .setProgramConsumer(consumer);

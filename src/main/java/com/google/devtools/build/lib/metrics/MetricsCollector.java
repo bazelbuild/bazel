@@ -173,6 +173,13 @@ class MetricsCollector {
         metrics.forEach(packageMetrics::addPackageLoadMetrics);
       }
     }
+
+    ImmutableMap<String, Integer> actionsConstructedByMnemonic =
+        event.getActionsConstructedByMnemonic();
+    for (var entry : actionsConstructedByMnemonic.entrySet()) {
+      ActionStats actionStats = actionStatsMap.computeIfAbsent(entry.getKey(), ActionStats::new);
+      actionStats.numActionsRegistered.addAndGet(entry.getValue());
+    }
   }
 
   @SuppressWarnings("unused")
@@ -229,7 +236,7 @@ class MetricsCollector {
   public void onActionComplete(ActionCompletionEvent event) {
     ActionStats actionStats =
         actionStatsMap.computeIfAbsent(event.getAction().getMnemonic(), ActionStats::new);
-    actionStats.numActions.incrementAndGet();
+    actionStats.numActionsExecuted.incrementAndGet();
     actionStats.firstStarted.accumulate(event.getRelativeActionStartTimeNanos());
     actionStats.lastEnded.accumulate(BlazeClock.nanoTime());
     spawnStats.incrementActionCount();
@@ -355,7 +362,8 @@ class MetricsCollector {
                     actionStats.firstStarted.longValue()))
             .setLastEndedMs(
                 nanosToMillisSinceEpochConverter.toEpochMillis(actionStats.lastEnded.longValue()))
-            .setActionsExecuted(actionStats.numActions.get());
+            .setActionsExecuted(actionStats.numActionsExecuted.get())
+            .setActionsCreated(actionStats.numActionsRegistered.get());
     long systemTime = actionStats.systemTime.get();
     if (systemTime > 0) {
       builder.setSystemTime(Durations.fromMillis(systemTime));
@@ -375,7 +383,7 @@ class MetricsCollector {
     if (!recordMetricsForAllMnemonics) {
       actionStatsStream =
           actionStatsStream
-              .sorted(Comparator.comparingLong(a -> -a.numActions.get()))
+              .sorted(Comparator.comparingLong(a -> -a.numActionsExecuted.get()))
               .limit(MAX_ACTION_DATA);
     }
 
@@ -536,25 +544,16 @@ class MetricsCollector {
       WorkerProcessStatus status = wpm.getStatus();
       if (status.isKilled()) {
         switch (status.get()) {
-            // If the process is killed due to a specific reason, we attribute the cause to all
-            // workers of that process (plural in the case of multiplex workers).
-          case KILLED_UNKNOWN:
-            unknownDestroyedCount += numWorkers;
-            break;
-          case KILLED_DUE_TO_INTERRUPTED_EXCEPTION:
-            interruptedExceptionDestroyedCount += numWorkers;
-            break;
-          case KILLED_DUE_TO_IO_EXCEPTION:
-            ioExceptionDestroyedCount += numWorkers;
-            break;
-          case KILLED_DUE_TO_MEMORY_PRESSURE:
-            evictedCount += numWorkers;
-            break;
-          case KILLED_DUE_TO_USER_EXEC_EXCEPTION:
-            userExecExceptionDestroyedCount += numWorkers;
-            break;
-          default:
-            break;
+          // If the process is killed due to a specific reason, we attribute the cause to all
+          // workers of that process (plural in the case of multiplex workers).
+
+          case KILLED_UNKNOWN -> unknownDestroyedCount += numWorkers;
+          case KILLED_DUE_TO_INTERRUPTED_EXCEPTION ->
+              interruptedExceptionDestroyedCount += numWorkers;
+          case KILLED_DUE_TO_IO_EXCEPTION -> ioExceptionDestroyedCount += numWorkers;
+          case KILLED_DUE_TO_MEMORY_PRESSURE -> evictedCount += numWorkers;
+          case KILLED_DUE_TO_USER_EXEC_EXCEPTION -> userExecExceptionDestroyedCount += numWorkers;
+          default -> {}
         }
         destroyedCount += numWorkers;
       } else {
@@ -582,7 +581,8 @@ class MetricsCollector {
 
     final LongAccumulator firstStarted;
     final LongAccumulator lastEnded;
-    final AtomicLong numActions;
+    final AtomicLong numActionsExecuted;
+    final AtomicLong numActionsRegistered;
     final String mnemonic;
     final AtomicLong systemTime;
     final AtomicLong userTime;
@@ -591,7 +591,8 @@ class MetricsCollector {
       this.mnemonic = mnemonic;
       firstStarted = new LongAccumulator(Math::min, Long.MAX_VALUE);
       lastEnded = new LongAccumulator(Math::max, 0);
-      numActions = new AtomicLong();
+      numActionsExecuted = new AtomicLong();
+      numActionsRegistered = new AtomicLong();
       systemTime = new AtomicLong();
       userTime = new AtomicLong();
     }
@@ -619,12 +620,8 @@ class MetricsCollector {
             }
 
             switch (winner) {
-              case LOCAL:
-                newValue.incrementLocalWins();
-                break;
-              case REMOTE:
-                newValue.incrementRemoteWins();
-                break;
+              case LOCAL -> newValue.incrementLocalWins();
+              case REMOTE -> newValue.incrementRemoteWins();
             }
 
             return newValue;

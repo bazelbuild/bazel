@@ -140,24 +140,22 @@ public class NetrcParser {
       if (token instanceof ItemToken itemToken) {
         String item = itemToken.item();
         switch (item) {
-          case MACHINE:
+          case MACHINE -> {
             String machine = nextItem(tokenStream);
             Credential credential = parseCredentialForMachine(tokenStream, machine);
             credentialMap.put(machine, credential);
-            break;
-          case MACDEF:
-            skipMacdef(tokenStream);
-            break;
-          case DEFAULT:
+          }
+          case MACDEF -> skipMacdef(tokenStream);
+          case DEFAULT -> {
             defaultCredential = parseCredentialForMachine(tokenStream, DEFAULT);
             // There can be only one default token, and it must be after all machine tokens.
             done = true;
-            break;
-          default:
-            throw new IOException(
-                String.format(
-                    "Unexpected token: %s (expecting %s, %s or %s)",
-                    item, MACHINE, MACDEF, DEFAULT));
+          }
+          default ->
+              throw new IOException(
+                  String.format(
+                      "Unexpected token: %s (expecting %s, %s or %s)",
+                      item, MACHINE, MACDEF, DEFAULT));
         }
       }
     }
@@ -188,28 +186,24 @@ public class NetrcParser {
       if (token instanceof ItemToken itemToken) {
         String item = itemToken.item();
         switch (item) {
-          case LOGIN:
+          case LOGIN -> {
             tokenStream.next();
             builder.setLogin(nextItem(tokenStream));
-            break;
-          case PASSWORD:
+          }
+          case PASSWORD -> {
             tokenStream.next();
             builder.setPassword(nextItem(tokenStream));
-            break;
-          case ACCOUNT:
+          }
+          case ACCOUNT -> {
             tokenStream.next();
             builder.setAccount(nextItem(tokenStream));
-            break;
-          case MACHINE:
-          case MACDEF:
-          case DEFAULT:
-            done = true;
-            break;
-          default:
-            throw new IOException(
-                String.format(
-                    "Unexpected item: %s (expecting %s, %s, %s, %s, %s or %s)",
-                    item, LOGIN, PASSWORD, ACCOUNT, MACHINE, MACDEF, DEFAULT));
+          }
+          case MACHINE, MACDEF, DEFAULT -> done = true;
+          default ->
+              throw new IOException(
+                  String.format(
+                      "Unexpected item: %s (expecting %s, %s, %s, %s, %s or %s)",
+                      item, LOGIN, PASSWORD, ACCOUNT, MACHINE, MACDEF, DEFAULT));
         }
       } else {
         tokenStream.next();

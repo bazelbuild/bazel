@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.starlarkbuildapi.android;
 
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FilesToRunProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkRuleContextApi;
@@ -27,6 +26,7 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkValue;
@@ -67,19 +67,9 @@ public interface AndroidStarlarkCommonApi<
   String getSourceDirectoryRelativePathFromResource(FileT resource);
 
   @StarlarkMethod(
-      name = "multi_cpu_configuration",
-      doc =
-          "A configuration for rule attributes that compiles native code according to "
-              + "the --android_platforms flag.",
-      documented = false,
-      structField = true)
-  AndroidSplitTransitionApi getAndroidSplitTransition();
-
-  @StarlarkMethod(
       name = "enable_implicit_sourceless_deps_exports_compatibility",
       doc = "Takes a JavaInfo and converts it to an implicit exportable JavaInfo.",
       documented = false,
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
       parameters = {
         @Param(
             name = "dep",
@@ -104,7 +94,6 @@ public interface AndroidStarlarkCommonApi<
               + " from the input directory, merging all the dex archives inside the shard to a"
               + " single dexarchive under the output directory.",
       documented = false,
-      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_ENABLE_ANDROID_MIGRATION_APIS,
       parameters = {
         @Param(name = "ctx", doc = "The rule context.", positional = true, named = false),
         @Param(
@@ -140,7 +129,17 @@ public interface AndroidStarlarkCommonApi<
             defaultValue = "0",
             allowedTypes = {
               @ParamType(type = StarlarkInt.class),
-            })
+            }),
+        @Param(
+            name = "desugar_globals",
+            doc = "The D8 desugar globals file.",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            }),
       })
   void createDexMergerActions(
       StarlarkRuleContextT starlarkRuleContext,
@@ -148,6 +147,7 @@ public interface AndroidStarlarkCommonApi<
       FileT input,
       Sequence<?> dexopts, // <String> expected.
       FilesToRunProviderT dexmerger,
-      StarlarkInt minSdkVersion)
+      StarlarkInt minSdkVersion,
+      Object desugarGlobals)
       throws EvalException, RuleErrorException;
 }

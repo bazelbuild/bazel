@@ -273,6 +273,10 @@ class StartupOptions {
   // Whether to raise the soft coredump limit to the hard one or not.
   bool unlimit_coredumps;
 
+#ifdef __linux__
+  std::string cgroup_parent;
+#endif
+
   // Whether to create symbolic links on Windows for files. Requires
   // developer mode to be enabled.
   bool windows_enable_symlinks;

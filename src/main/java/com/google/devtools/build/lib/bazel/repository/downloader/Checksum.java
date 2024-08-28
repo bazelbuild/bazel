@@ -31,6 +31,10 @@ public class Checksum {
     private InvalidChecksumException(String msg) {
       super(msg);
     }
+
+    private InvalidChecksumException(String msg, Throwable cause) {
+      super(msg, cause);
+    }
   }
 
   /** Exception thrown to indicate that a checksum is missing. */
@@ -64,41 +68,42 @@ public class Checksum {
         keyType, HashCode.fromString(Ascii.toLowerCase(hash)), useSubresourceIntegrity);
   }
 
+  private static byte[] base64Decode(String data) throws InvalidChecksumException {
+    try {
+      return Base64.getDecoder().decode(data);
+    } catch (IllegalArgumentException e) {
+      throw new InvalidChecksumException("Invalid base64 '" + data + "'", e);
+    }
+  }
+
   /** Constructs a new Checksum from a hash in Subresource Integrity format. */
   public static Checksum fromSubresourceIntegrity(String integrity)
       throws InvalidChecksumException {
-    Base64.Decoder decoder = Base64.getDecoder();
-    KeyType keyType = null;
-    byte[] hash = null;
-    int expectedLength = 0;
+    KeyType keyType;
+    byte[] hash;
+    int expectedLength;
 
     if (integrity.startsWith("sha1-")) {
       keyType = KeyType.SHA1;
       expectedLength = 20;
-      hash = decoder.decode(integrity.substring(5));
-    }
-    if (integrity.startsWith("sha256-")) {
+      hash = base64Decode(integrity.substring(5));
+    } else if (integrity.startsWith("sha256-")) {
       keyType = KeyType.SHA256;
       expectedLength = 32;
-      hash = decoder.decode(integrity.substring(7));
-    }
-    if (integrity.startsWith("sha384-")) {
+      hash = base64Decode(integrity.substring(7));
+    } else if (integrity.startsWith("sha384-")) {
       keyType = KeyType.SHA384;
       expectedLength = 48;
-      hash = decoder.decode(integrity.substring(7));
-    }
-    if (integrity.startsWith("sha512-")) {
+      hash = base64Decode(integrity.substring(7));
+    } else if (integrity.startsWith("sha512-")) {
       keyType = KeyType.SHA512;
       expectedLength = 64;
-      hash = decoder.decode(integrity.substring(7));
-    }
-    if (integrity.startsWith("blake3-")) {
+      hash = base64Decode(integrity.substring(7));
+    } else if (integrity.startsWith("blake3-")) {
       keyType = KeyType.BLAKE3;
       expectedLength = 32;
-      hash = decoder.decode(integrity.substring(7));
-    }
-
-    if (keyType == null) {
+      hash = base64Decode(integrity.substring(7));
+    } else {
       throw new InvalidChecksumException(
           "Unsupported checksum algorithm: '"
               + integrity

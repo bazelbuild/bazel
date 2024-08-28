@@ -4519,10 +4519,13 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         "  toolchains = ['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
         "  fragments = ['java']",
         ")");
-    scratch.file("my_other_repo/WORKSPACE");
+    scratch.file("my_other_repo/MODULE.bazel", "module(name='other_repo')");
     scratch.file("my_other_repo/external-file.txt");
     scratch.file("my_other_repo/BUILD", "exports_files(['external-file.txt'])");
-    rewriteWorkspace("local_repository(name = 'other_repo', path = './my_other_repo')");
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'other_repo')",
+        "local_path_override(module_name = 'other_repo', path = 'my_other_repo')");
     scratch.file(
         "foo/BUILD",
         """
@@ -4536,6 +4539,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             ],
         )
         """);
+    invalidatePackages();
 
     List<String> arguments =
         ((SpawnAction) getGeneratingAction(getConfiguredTarget("//foo:custom"), "foo/output.jar"))
@@ -4545,7 +4549,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
         .containsAtLeast(
             "--resources",
             "foo/internal-file.txt:foo/internal-file.txt",
-            "external/other_repo/external-file.txt:external-file.txt")
+            "external/other_repo+/external-file.txt:external-file.txt")
         .inOrder();
   }
 

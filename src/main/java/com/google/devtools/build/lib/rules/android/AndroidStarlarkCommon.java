@@ -13,9 +13,17 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
+import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
+import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
+import com.google.devtools.build.lib.analysis.RuleContext;
+import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
+import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate;
+import com.google.devtools.build.lib.analysis.actions.SpawnActionTemplate.OutputPathMapper;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.Info;
@@ -24,8 +32,9 @@ import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidIdeInfoProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSdkProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSplitTransitionApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidStarlarkCommonApi;
+import java.io.Serializable;
+import java.util.List;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
@@ -39,11 +48,6 @@ public class AndroidStarlarkCommon
   @Override
   public String getSourceDirectoryRelativePathFromResource(Artifact resource) {
     return AndroidCommon.getSourceDirectoryRelativePathFromResource(resource).toString();
-  }
-
-  @Override
-  public AndroidSplitTransitionApi getAndroidSplitTransition() {
-    return AndroidSplitTransition.FACTORY;
   }
 
   /**
@@ -79,15 +83,58 @@ public class AndroidStarlarkCommon
       Artifact input,
       Sequence<?> dexopts, // <String> expected.
       FilesToRunProvider dexmerger,
-      StarlarkInt minSdkVersion)
+      StarlarkInt minSdkVersion,
+      Object desugarGlobals)
       throws EvalException, RuleErrorException {
-    AndroidBinary.createTemplatedMergerActions(
+    createTemplatedMergerActions(
         starlarkRuleContext.getRuleContext(),
         (SpecialArtifact) output,
         (SpecialArtifact) input,
         Sequence.cast(dexopts, String.class, "dexopts"),
         dexmerger,
-        minSdkVersion.toInt("min_sdk_version"));
+        minSdkVersion.toInt("min_sdk_version"),
+        desugarGlobals);
+  }
+
+  /**
+   * Sets up a monodex {@code $dexmerger} actions for each dex archive in the given tree artifact
+   * and puts the outputs in a tree artifact.
+   */
+  private static void createTemplatedMergerActions(
+      RuleContext ruleContext,
+      SpecialArtifact outputTree,
+      SpecialArtifact inputTree,
+      List<String> dexopts,
+      FilesToRunProvider executable,
+      int minSdkVersion,
+      Object desugarGlobals) {
+    SpawnActionTemplate.Builder dexmerger =
+        new SpawnActionTemplate.Builder(inputTree, outputTree)
+            .setExecutable(executable)
+            .setMnemonics("DexShardsToMerge", "DexMerger")
+            .setOutputPathMapper(
+                (OutputPathMapper & Serializable) TreeFileArtifact::getParentRelativePath);
+    CustomCommandLine.Builder commandLine =
+        CustomCommandLine.builder()
+            .addPlaceholderTreeArtifactExecPath("--input", inputTree)
+            .addPlaceholderTreeArtifactExecPath("--output", outputTree)
+            .add("--multidex=given_shard")
+            .addAll(
+                AndroidCommon.mergerDexopts(
+                    ruleContext,
+                    Iterables.filter(
+                        dexopts, Predicates.not(Predicates.equalTo("--minimal-main-dex")))));
+    if (minSdkVersion > 0) {
+      commandLine.add("--min_sdk_version", Integer.toString(minSdkVersion));
+    }
+    Artifact desugarGlobalsArtifact =
+        AndroidStarlarkData.fromNoneable(desugarGlobals, Artifact.class);
+    if (desugarGlobalsArtifact != null) {
+      dexmerger.addCommonInputs(ImmutableList.of(desugarGlobalsArtifact));
+      commandLine.addPath("--global_synthetics_path", desugarGlobalsArtifact.getExecPath());
+    }
+    dexmerger.setCommandLineTemplate(commandLine.build());
+    ruleContext.registerAction(dexmerger.build(ruleContext.getActionOwner()));
   }
 
   @StarlarkMethod(name = AndroidIdeInfoProviderApi.NAME, structField = true, documented = false)

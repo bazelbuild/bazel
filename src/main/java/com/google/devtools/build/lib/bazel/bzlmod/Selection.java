@@ -130,8 +130,12 @@ final class Selection {
           moduleName, compatibilityLevel);
     }
 
+    @SuppressWarnings("unused")
+    // Used in equals.
     abstract String getModuleName();
 
+    @SuppressWarnings("unused")
+    // Used in equals.
     abstract int getCompatibilityLevel();
   }
 

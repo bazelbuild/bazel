@@ -346,15 +346,18 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       }
       String attributeName = (String) key;
       switch (attributeName) {
-        case "name":
+        case "name" -> {
           return rule.getName();
-        case "kind":
+        }
+        case "kind" -> {
           return rule.getRuleClass();
-        default:
+        }
+        default -> {
           Object value = starlarkifyAttribute(attributeName);
           if (value != null) {
             return value;
           }
+        }
       }
       return defaultValue;
     }
@@ -371,14 +374,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
             @Nullable private String nextRelevantAttributeName;
 
             private boolean isRelevant(String attributeName) {
-              switch (attributeName) {
-                case "name":
-                case "kind":
-                  // pseudo-names handled specially
-                  return false;
-                default:
-                  return starlarkifyAttribute(attributeName) != null;
-              }
+              return switch (attributeName) {
+                // pseudo-names handled specially
+                case "name", "kind" -> false;
+                default -> starlarkifyAttribute(attributeName) != null;
+              };
             }
 
             private void findNextRelevantName() {
@@ -433,17 +433,10 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       return Starlark.NONE;
     }
     Package.Builder pkgBuilder =
-        Package.Builder.fromOrFailDisallowSymbolicMacros(thread, "existing_rule()");
+        Package.Builder.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rule()");
     Target target = pkgBuilder.getTarget(name);
-    if (target instanceof Rule /* `instanceof` also verifies that target != null */) {
-      Rule rule = (Rule) target;
-      if (thread
-          .getSemantics()
-          .getBool(BuildLanguageOptions.INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW)) {
-        return new ExistingRuleView(rule);
-      } else {
-        return getRuleDict(rule, thread.mutability());
-      }
+    if (target instanceof Rule rule) {
+      return new ExistingRuleView(rule);
     } else {
       return Starlark.NONE;
     }
@@ -506,22 +499,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       return Dict.empty();
     }
     Package.Builder pkgBuilder =
-        Package.Builder.fromOrFailDisallowSymbolicMacros(thread, "existing_rules()");
-    if (thread
-        .getSemantics()
-        .getBool(BuildLanguageOptions.INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW)) {
-      return new ExistingRulesView(pkgBuilder.getRulesSnapshotView());
-    } else {
-      Collection<Target> targets = pkgBuilder.getTargets();
-      Mutability mu = thread.mutability();
-      Dict.Builder<String, Dict<String, Object>> rules = Dict.builder();
-      for (Target t : targets) {
-        if (t instanceof Rule) {
-          rules.put(t.getName(), getRuleDict((Rule) t, mu));
-        }
-      }
-      return rules.build(mu);
-    }
+        Package.Builder.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rules()");
+    return new ExistingRulesView(pkgBuilder.getRulesSnapshotView());
   }
 
   @Override
@@ -574,6 +553,7 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
             : RuleVisibility.parse(
                 BuildType.LABEL_LIST.convert(
                     visibilityO, "'exports_files' operand", pkgBuilder.getLabelConverter()));
+    visibility = pkgBuilder.copyAppendingCurrentMacroLocation(visibility);
 
     // TODO(bazel-team): is licenses plural or singular?
     License license = BuildType.LICENSE.convertOptional(licensesO, "'exports_files' operand");
@@ -586,6 +566,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
       }
       try {
         InputFile inputFile = pkgBuilder.createInputFile(file, loc);
+        // TODO: #19922 - The use of identity inequality in this visibility check seems suspect,
+        // since the same logical visibility may have multiple RuleVisibility instances. But it's
+        // unclear why we want to support idempotent exports_files() with the same logical
+        // visibility at all. With Macro-Aware Visibility, it becomes possible for two identical
+        // visibility lines to declare different actual visibility values depending on context.
         if (inputFile.isVisibilitySpecified() && inputFile.getVisibility() != visibility) {
           throw Starlark.errorf(
               "visibility for exported file '%s' declared twice", inputFile.getName());
@@ -656,26 +641,6 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     Package.Builder pkgBuilder =
         Package.Builder.fromOrFailDisallowWorkspace(thread, "module_version()");
     return pkgBuilder.getAssociatedModuleVersion().orElse(null);
-  }
-
-  private static Dict<String, Object> getRuleDict(Rule rule, Mutability mu) throws EvalException {
-    Dict.Builder<String, Object> values = Dict.builder();
-
-    for (Attribute attr : rule.getAttributes()) {
-      if (!isPotentiallyExportableAttribute(rule.getRuleClassObject(), attr.getName())) {
-        continue;
-      }
-
-      Object val = starlarkifyValue(mu, rule.getAttr(attr.getName()), rule.getPackage());
-      if (val == null) {
-        continue;
-      }
-      values.put(attr.getName(), val);
-    }
-
-    values.put("name", rule.getName());
-    values.put("kind", rule.getRuleClass());
-    return values.build(mu);
   }
 
   /**
@@ -754,14 +719,11 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
 
     if (val instanceof TriState) {
-      switch ((TriState) val) {
-        case AUTO:
-          return StarlarkInt.of(-1);
-        case YES:
-          return StarlarkInt.of(1);
-        case NO:
-          return StarlarkInt.of(0);
-      }
+      return switch ((TriState) val) {
+        case AUTO -> StarlarkInt.of(-1);
+        case YES -> StarlarkInt.of(1);
+        case NO -> StarlarkInt.of(0);
+      };
     }
 
     if (val instanceof Label) {
@@ -809,17 +771,30 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
         selector.forEach(
             (rawKey, rawValue) -> {
               Object key = starlarkifyValue(mu, rawKey, pkg);
-              Object mapVal = starlarkifyValue(mu, rawValue, pkg);
+              // BuildType.Selector constructor transforms `None` values of selector branches into
+              // Java nulls if the selector original type's default value is null. We need to
+              // reverse this transformation.
+              Object mapVal =
+                  rawValue == null && selector.getOriginalType().getDefaultValue() == null
+                      ? Starlark.NONE
+                      : starlarkifyValue(mu, rawValue, pkg);
               if (key != null && mapVal != null) {
                 m.put(key, mapVal);
               }
             });
-        selectors.add(new SelectorValue(((Map<?, ?>) m.build(mu)), selector.getNoMatchError()));
+        Dict<?, ?> selectorDict = m.build(mu);
+        if (!selectorDict.isEmpty()) {
+          selectors.add(new SelectorValue(selectorDict, selector.getNoMatchError()));
+        }
       }
-      try {
-        return SelectorList.of(selectors);
-      } catch (EvalException e) {
+      if (selectors.isEmpty()) {
         return null;
+      } else {
+        try {
+          return SelectorList.of(selectors);
+        } catch (EvalException e) {
+          return null;
+        }
       }
     }
 

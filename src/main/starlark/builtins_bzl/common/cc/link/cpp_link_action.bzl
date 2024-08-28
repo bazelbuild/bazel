@@ -200,7 +200,7 @@ def link_action(
         cc_internal.dynamic_library_soname(
             actions,
             output.short_path,
-            False,
+            link_type != NODEPS_DYNAMIC_LIBRARY,
         ),
         interface_output.path if interface_output else None,
         thinlto_param_file.path if thinlto_param_file else None,

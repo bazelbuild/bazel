@@ -341,14 +341,17 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
         String.format(
             "--experimental_override_name_platform_in_output_dir=%s=k8",
             TestConstants.PLATFORM_LABEL));
-    scratch.appendFile("WORKSPACE", "local_repository(", "    name = 'pkg',", "    path = '/foo')");
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'pkg')",
+        "local_path_override(module_name = 'pkg', path = '/foo')");
     getSkyframeExecutor()
         .invalidateFilesUnderPathForTesting(
             reporter,
-            new ModifiedFileSet.Builder().modify(PathFragment.create("WORKSPACE")).build(),
+            new ModifiedFileSet.Builder().modify(PathFragment.create("MODULE.bazel")).build(),
             Root.fromPath(rootDirectory));
 
-    scratch.file("/foo/WORKSPACE", "workspace(name = 'pkg')");
+    scratch.file("/foo/MODULE.bazel", "module(name = 'pkg')");
     scratch.file(
         "/foo/BUILD",
         """
@@ -387,9 +390,9 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
     ImmutableList.Builder<String> entries =
         ImmutableList.<String>builder()
             .add(
-                "/k8-fastbuild/bin/external/pkg/_virtual_includes/foo2",
-                "external/pkg",
-                "/k8-fastbuild/bin/external/pkg");
+                "/k8-fastbuild/bin/external/pkg+/_virtual_includes/foo2",
+                "external/pkg+",
+                "/k8-fastbuild/bin/external/pkg+");
     if (analysisMock.isThisBazel()) {
       entries.add("external/bazel_tools", "/k8-fastbuild/bin/external/bazel_tools");
     }

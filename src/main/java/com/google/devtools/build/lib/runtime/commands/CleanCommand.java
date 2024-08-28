@@ -171,7 +171,7 @@ public final class CleanCommand implements BlazeCommand {
         (async || asyncSupportMissing)
             ? "Starting clean."
             : "Starting clean (this may take a while). "
-                + "Consider using --async if the clean takes more than several minutes.";
+                + "Use --async if the clean takes more than several minutes.";
     reporter.handle(Event.info(/* location= */ null, cleanBanner));
 
     return async;

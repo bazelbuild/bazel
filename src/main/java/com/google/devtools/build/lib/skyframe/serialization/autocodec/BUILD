@@ -116,11 +116,11 @@ java_library(
         "CodecGenerator.java",
         "DeferredObjectCodecConstants.java",
         "DeferredObjectCodecFieldGenerators.java",
+        "DeferredObjectCodecGenerator.java",
         "FieldGenerator.java",
         "Initializers.java",
         "InterningObjectCodecFieldGenerators.java",
         "InterningObjectCodecGenerator.java",
-        "Marshallers.java",
         "SerializationCodeGenerator.java",
     ],
     deps = [

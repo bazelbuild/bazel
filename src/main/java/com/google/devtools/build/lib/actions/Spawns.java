@@ -120,16 +120,14 @@ public final class Spawns {
         spawn.getExecutionInfo().get(ExecutionRequirements.REQUIRES_WORKER_PROTOCOL);
 
     if (protocolFormat != null) {
-      switch (protocolFormat) {
-        case "json":
-          return ExecutionRequirements.WorkerProtocolFormat.JSON;
-        case "proto":
-          return ExecutionRequirements.WorkerProtocolFormat.PROTO;
-        default:
-          throw new IOException(
-              "requires-worker-protocol must be set to a valid worker protocol format: json or"
-                  + " proto");
-      }
+      return switch (protocolFormat) {
+        case "json" -> ExecutionRequirements.WorkerProtocolFormat.JSON;
+        case "proto" -> ExecutionRequirements.WorkerProtocolFormat.PROTO;
+        default ->
+            throw new IOException(
+                "requires-worker-protocol must be set to a valid worker protocol format: json or"
+                    + " proto");
+      };
     } else {
       return ExecutionRequirements.WorkerProtocolFormat.PROTO;
     }
@@ -185,7 +183,7 @@ public final class Spawns {
    * {@code toString()} of Spawns.
    */
   public static String prettyPrint(Spawn spawn) {
-    if (spawn.getResourceOwner() != null && spawn.getResourceOwner().getPrimaryOutput() != null) {
+    if (spawn.getResourceOwner().getPrimaryOutput() != null) {
       return spawn.getClass().getSimpleName()
           + " for "
           + spawn.getResourceOwner().getPrimaryOutput().prettyPrint();

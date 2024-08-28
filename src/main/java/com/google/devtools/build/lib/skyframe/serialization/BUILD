@@ -20,13 +20,50 @@ java_library(
 )
 
 java_library(
+    name = "serialization_registry_setup_helpers",
+    srcs = ["SerializationRegistrySetupHelpers.java"],
+    deps = [
+        ":serialization",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:test/test_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider_map_impl",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:rule_configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/net/starlark/java/eval",
+        "//src/main/java/net/starlark/java/syntax",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "serialization_module",
+    srcs = ["SerializationModule.java"],
+    deps = [
+        ":serialization_registry_setup_helpers",
+        "//src/main/java/com/google/devtools/build/lib:runtime",
+        "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+    ],
+)
+
+java_library(
     name = "serialization",
     srcs = glob(
         ["**/*.java"],
         exclude = [
             "AbstractExportedStarlarkSymbolCodec.java",
             "CodecScanningConstants.java",
+            "SerializationRegistrySetupHelpers.java",
             "SerializationConstants.java",
+            "SerializationModule.java",
             "VisibleForSerialization.java",
         ],
     ),
@@ -50,6 +87,7 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/pprof:profile_java_proto",
         "//third_party/protobuf:protobuf_java",
     ],
 )

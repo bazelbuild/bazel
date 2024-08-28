@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
@@ -29,7 +30,7 @@ import javax.annotation.Nullable;
 public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTarget {
 
   public EnvironmentGroupConfiguredTarget(ActionLookupKey actionLookupKey) {
-    super(actionLookupKey);
+    super(actionLookupKey, VisibilityProvider.PRIVATE_VISIBILITY);
     Preconditions.checkState(actionLookupKey.getConfigurationKey() == null, actionLookupKey);
   }
 
@@ -43,5 +44,12 @@ public final class EnvironmentGroupConfiguredTarget extends AbstractConfiguredTa
   @Nullable
   protected Object rawGetStarlarkProvider(String providerKey) {
     return null;
+  }
+
+  @Override
+  public boolean isCreatedInSymbolicMacro() {
+    // Correct, since environment_group isn't allowed in symbolic macros. But that doesn't matter,
+    // since we don't expect this to be called.
+    return false;
   }
 }

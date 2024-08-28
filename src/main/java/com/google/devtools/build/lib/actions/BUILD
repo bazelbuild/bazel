@@ -85,7 +85,6 @@ java_library(
         "CommandLineLimits.java",
         "CommandLines.java",
         "CompletionContext.java",
-        "DelegateSpawn.java",
         "DelegatingPairInputMetadataProvider.java",
         "DigestOfDirectoryException.java",
         "DiscoveredInputsEvent.java",
@@ -115,7 +114,6 @@ java_library(
         "NotifyOnActionCacheHit.java",
         "ParamFileInfo.java",
         "ParameterFile.java",
-        "PathStrippable.java",
         "RemoteArtifactChecker.java",
         "ResourceEstimator.java",
         "RunningActionEvent.java",
@@ -147,7 +145,6 @@ java_library(
         "cache/VirtualActionInput.java",
     ],
     deps = [
-        ":action_input_helper",
         ":action_lookup_data",
         ":action_lookup_key",
         ":arg_chunk",
@@ -165,6 +162,7 @@ java_library(
         ":runfiles_tree",
         ":thread_state_receiver",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/buildeventstream",
@@ -327,7 +325,6 @@ java_library(
         ":artifact_owner",
         ":commandline_item",
         ":package_roots",
-        ":path_strippable",
         "//src/main/java/com/google/devtools/build/docgen/annot",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
@@ -348,6 +345,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
+        "//third_party:caffeine",
+        "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
@@ -520,15 +519,6 @@ java_library(
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "path_strippable",
-    srcs = ["PathStrippable.java"],
-    deps = [
-        ":commandline_item",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
     ],
 )
 

@@ -32,8 +32,11 @@ import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.actions.ArtifactOwner;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.BaseSpawn;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.ImportantOutputHandler;
+import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.NotifyOnActionCacheHit;
 import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -55,7 +58,9 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.exec.SpawnStrategyResolver;
+import com.google.devtools.build.lib.profiler.GoogleAutoProfilerUtils;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -118,21 +123,37 @@ public final class CoverageReportActionBuilder {
     }
 
     @Override
-    public ActionResult execute(ActionExecutionContext actionExecutionContext)
+    public ActionResult execute(ActionExecutionContext ctx)
         throws ActionExecutionException, InterruptedException {
+      ImmutableMap<String, String> executionInfo =
+          remotable ? ImmutableMap.of() : ImmutableMap.of(ExecutionRequirements.NO_REMOTE, "");
+      Spawn spawn = new BaseSpawn(command, ImmutableMap.of(), executionInfo, this, LOCAL_RESOURCES);
       try {
-        ImmutableMap<String, String> executionInfo =
-            remotable ? ImmutableMap.of() : ImmutableMap.of(ExecutionRequirements.NO_REMOTE, "");
-        Spawn spawn =
-            new BaseSpawn(command, ImmutableMap.of(), executionInfo, this, LOCAL_RESOURCES);
         ImmutableList<SpawnResult> spawnResults =
-            actionExecutionContext
-                .getContext(SpawnStrategyResolver.class)
-                .exec(spawn, actionExecutionContext);
-        actionExecutionContext.getEventHandler().handle(Event.info(locationMessage));
+            ctx.getContext(SpawnStrategyResolver.class).exec(spawn, ctx);
+        informImportantOutputHandler(ctx);
+        ctx.getEventHandler().handle(Event.info(locationMessage));
         return ActionResult.create(spawnResults);
       } catch (ExecException e) {
         throw ActionExecutionException.fromExecException(e, this);
+      }
+    }
+
+    private void informImportantOutputHandler(ActionExecutionContext ctx)
+        throws EnvironmentalExecException, InterruptedException {
+      var importantOutputHandler = ctx.getContext(ImportantOutputHandler.class);
+      if (importantOutputHandler == null) {
+        return;
+      }
+
+      Path coverageReportOutput = ctx.getPathResolver().toPath(getPrimaryOutput());
+      try (var ignored =
+          GoogleAutoProfilerUtils.logged(
+              "Informing important output handler of coverage report",
+              ImportantOutputHandler.LOG_THRESHOLD)) {
+        importantOutputHandler.processTestOutputs(ImmutableList.of(coverageReportOutput));
+      } catch (ImportantOutputException e) {
+        throw new EnvironmentalExecException(e, e.getFailureDetail());
       }
     }
 
@@ -170,7 +191,7 @@ public final class CoverageReportActionBuilder {
       EventHandler reporter,
       BlazeDirectories directories,
       Collection<ConfiguredTarget> targetsToTest,
-      NestedSet<Artifact> baselineCoverageArtifacts,
+      ImmutableList<Artifact> baselineCoverageArtifacts,
       ArtifactFactory factory,
       ActionKeyContext actionKeyContext,
       ArtifactOwner artifactOwner,
@@ -179,7 +200,6 @@ public final class CoverageReportActionBuilder {
       LocationFunc locationFunc,
       boolean htmlReport)
       throws InterruptedException {
-
     if (targetsToTest == null || targetsToTest.isEmpty()) {
       return null;
     }
@@ -200,9 +220,7 @@ public final class CoverageReportActionBuilder {
     if (reportGenerator == null) {
       return null;
     }
-    builder.addAll(baselineCoverageArtifacts.toList());
-
-    ImmutableList<Artifact> coverageArtifacts = builder.build();
+    ImmutableList<Artifact> coverageArtifacts = builder.addAll(baselineCoverageArtifacts).build();
     if (!coverageArtifacts.isEmpty()) {
       PathFragment coverageDir = TestRunnerAction.COVERAGE_TMP_ROOT;
       Artifact lcovArtifact = factory.getDerivedArtifact(

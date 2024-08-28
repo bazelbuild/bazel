@@ -318,27 +318,24 @@ public class IndexRegistry implements Registry {
     }
     SourceJson sourceJson = parseJson(jsonString.get(), jsonUrl, SourceJson.class);
     switch (sourceJson.type) {
-      case "archive":
-        {
-          ArchiveSourceJson typedSourceJson =
-              parseJson(jsonString.get(), jsonUrl, ArchiveSourceJson.class);
-          return createArchiveRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key);
-        }
-      case "local_path":
-        {
-          LocalPathSourceJson typedSourceJson =
-              parseJson(jsonString.get(), jsonUrl, LocalPathSourceJson.class);
-          return createLocalPathRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key);
-        }
-      case "git_repository":
-        {
-          GitRepoSourceJson typedSourceJson =
-              parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
-          return createGitRepoSpec(typedSourceJson);
-        }
-      default:
-        throw new IOException(
-            String.format("Invalid source type \"%s\" for module %s", sourceJson.type, key));
+      case "archive" -> {
+        ArchiveSourceJson typedSourceJson =
+            parseJson(jsonString.get(), jsonUrl, ArchiveSourceJson.class);
+        return createArchiveRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key);
+      }
+      case "local_path" -> {
+        LocalPathSourceJson typedSourceJson =
+            parseJson(jsonString.get(), jsonUrl, LocalPathSourceJson.class);
+        return createLocalPathRepoSpec(typedSourceJson, getBazelRegistryJson(eventHandler), key);
+      }
+      case "git_repository" -> {
+        GitRepoSourceJson typedSourceJson =
+            parseJson(jsonString.get(), jsonUrl, GitRepoSourceJson.class);
+        return createGitRepoSpec(typedSourceJson);
+      }
+      default ->
+          throw new IOException(
+              String.format("Invalid source type \"%s\" for module %s", sourceJson.type, key));
     }
   }
 

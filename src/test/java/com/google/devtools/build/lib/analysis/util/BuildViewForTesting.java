@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.ToolchainCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
+import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.ConfigConditions;
@@ -58,8 +59,6 @@ import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition;
 import com.google.devtools.build.lib.analysis.test.CoverageReportActionFactory;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
@@ -67,8 +66,6 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
-import com.google.devtools.build.lib.packages.PackageSpecification;
-import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.runtime.QuiescingExecutorsImpl;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
@@ -417,10 +414,7 @@ public class BuildViewForTesting {
             target.getAssociatedRule().getRuleClassObject().getConfigurationFragmentPolicy())
         .setActionOwnerSymbol(ConfiguredTargetKey.fromConfiguredTarget(configuredTarget))
         .setMutability(Mutability.create("configured target"))
-        .setVisibility(
-            NestedSetBuilder.create(
-                Order.STABLE_ORDER,
-                PackageGroupContents.create(ImmutableList.of(PackageSpecification.everything()))))
+        .setVisibility(VisibilityProvider.PUBLIC_VISIBILITY)
         .setPrerequisites(ConfiguredTargetFactory.removeToolchainDeps(prerequisiteMap))
         .setConfigConditions(ConfigConditions.EMPTY)
         .setToolchainContexts(resolvedToolchainContext.build())

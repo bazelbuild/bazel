@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.NONE;
 
 import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper;
@@ -296,6 +297,14 @@ public class DumpCommand implements BlazeCommand {
         effectTags = {OptionEffectTag.BAZEL_MONITORING},
         help = "Dump the memory use of the given Skyframe node.")
     public MemoryMode memory;
+
+    @Option(
+        name = "serialized_frontier_profile",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
+        effectTags = {OptionEffectTag.BAZEL_MONITORING},
+        help = "Dump a profile of serialized frontier bytes. Specifies the output path.")
+    public String serializedFrontierProfile;
   }
 
   /** Different ways to dump information about Skyframe. */
@@ -334,7 +343,8 @@ public class DumpCommand implements BlazeCommand {
             || dumpOptions.dumpRules
             || dumpOptions.starlarkMemory != null
             || dumpOptions.dumpSkyframe != SkyframeDumpOption.OFF
-            || dumpOptions.memory != null;
+            || dumpOptions.memory != null
+            || !Strings.isNullOrEmpty(dumpOptions.serializedFrontierProfile);
     if (!anyOutput) {
       Collection<Class<? extends OptionsBase>> optionList = new ArrayList<>();
       optionList.add(DumpOptions.class);
@@ -408,6 +418,12 @@ public class DumpCommand implements BlazeCommand {
         case WORKING_SET_FRONTIER_DEPS ->
             env.getSkyframeExecutor().getSkyfocusState().dumpFrontierSet(out);
         case OFF -> {}
+      }
+
+      if (!Strings.isNullOrEmpty(dumpOptions.serializedFrontierProfile) && failure.isEmpty()) {
+        failure =
+            FrontierSerializer.dumpFrontierSerializationProfile(
+                out, env, dumpOptions.serializedFrontierProfile);
       }
 
       return failure.orElse(BlazeCommandResult.success());
@@ -686,7 +702,7 @@ public class DumpCommand implements BlazeCommand {
     allocationTracker.dumpStarlarkAllocations(path);
   }
 
-  private static BlazeCommandResult createFailureResult(String message, Code detailedCode) {
+  static BlazeCommandResult createFailureResult(String message, Code detailedCode) {
     return BlazeCommandResult.failureDetail(
         FailureDetail.newBuilder()
             .setMessage(message)

@@ -22,10 +22,10 @@ In this tutorial you learn how to:
 
 *   Set up your environment by installing Bazel and Android Studio, and
     downloading the sample project.
-*   Set up a Bazel [workspace](/reference/be/workspace) that contains the source code
-    for the app and a `WORKSPACE` file that identifies the top level of the
+*   Set up a Bazel workspace that contains the source code
+    for the app and a `MODULE.bazel` file that identifies the top level of the
     workspace directory.
-*   Update the `WORKSPACE` file to contain references to the required
+*   Update the `MODULE.bazel` file to contain references to the required
     external dependencies, like the Android SDK.
 *   Create a `BUILD` file.
 *   Build the app with Bazel.
@@ -103,19 +103,19 @@ The key files and directories are:
 ### Set up the workspace
 
 A [workspace](/concepts/build-ref#workspace) is a directory that contains the
-source files for one or more software projects, and has a `WORKSPACE` file at
+source files for one or more software projects, and has a `MODULE.bazel` file at
 its root.
 
-The `WORKSPACE` file may be empty or may contain references to [external
-dependencies](/docs/external) required to build your project.
+The `MODULE.bazel` file may be empty or may contain references to [external
+dependencies](/external/overview) required to build your project.
 
-First, run the following command to create an empty `WORKSPACE` file:
+First, run the following command to create an empty `MODULE.bazel` file:
 
 |          OS              |              Command                |
 | ------------------------ | ----------------------------------- |
-| Linux, macOS             | `touch WORKSPACE`                   |
-| Windows (Command Prompt) | `type nul > WORKSPACE`              |
-| Windows (PowerShell)     | `New-Item WORKSPACE -ItemType file` |
+| Linux, macOS             | `touch MODULE.bazel`                   |
+| Windows (Command Prompt) | `type nul > MODULE.bazel`              |
+| Windows (PowerShell)     | `New-Item MODULE.bazel -ItemType file` |
 
 ### Running Bazel
 
@@ -126,7 +126,7 @@ bazel info workspace
 ```
 
 If Bazel prints the path of the current directory, you're good to go! If the
-`WORKSPACE` file does not exist, you may see an error message like:
+`MODULE.bazel` file does not exist, you may see an error message like:
 
 ```
 ERROR: The 'info' command is only supported from within a workspace.
@@ -137,12 +137,12 @@ ERROR: The 'info' command is only supported from within a workspace.
 Bazel needs to run the Android SDK
 [build tools](https://developer.android.com/tools/revisions/build-tools.html){: .external}
 to build the app. This means that you need to add some information to your
-`WORKSPACE` file so that Bazel knows where to find them.
+`MODULE.bazel` file so that Bazel knows where to find them.
 
-Add the following line to your `WORKSPACE` file:
+Add the following line to your `MODULE.bazel` file:
 
 ```python
-android_sdk_repository(name = "androidsdk")
+bazel_dep(name = "rules_android", version = "0.5.1")
 ```
 
 This will use the Android SDK at the path referenced by the `ANDROID_HOME`
@@ -172,53 +172,19 @@ them permanent, run the following commands:
 | Windows (Command Prompt) | `setx ANDROID_HOME "%LOCALAPPDATA%\Android\Sdk"`                                                                                          |
 | Windows (PowerShell)     | `[System.Environment]::SetEnvironmentVariable('ANDROID_HOME', "$env:LOCALAPPDATA\Android\Sdk", [System.EnvironmentVariableTarget]::User)` |
 
-You can also explicitly specify the absolute path of the Android SDK,
-the API level, and the version of build tools to use by including the `path`,
-`api_level`, and `build_tools_version` attributes. If `api_level` and
-`build_tools_version` are not specified, the `android_sdk_repository` rule will
-use the respective latest version available in the SDK. You can specify any
-combination of these attributes, as long as they are present in the SDK, for
-example:
-
-```python
-android_sdk_repository(
-    name = "androidsdk",
-    path = "/path/to/Android/sdk",
-    api_level = 25,
-    build_tools_version = "30.0.3"
-)
-```
-
-On Windows, note that the `path` attribute must use the mixed-style path, that
-is, a Windows path with forward slashes:
-
-```python
-android_sdk_repository(
-    name = "androidsdk",
-    path = "c:/path/to/Android/sdk",
-)
-```
 
 **Optional:** If you want to compile native code into your Android app, you
 also need to download the [Android
 NDK](https://developer.android.com/ndk/downloads/index.html){: .external}
-and tell Bazel where to find it by adding the following line to your `WORKSPACE` file:
+and use `rules_android_ndk` by adding the following line to your `MODULE.bazel` file:
 
 ```python
-android_ndk_repository(name = "androidndk")
+bazel_dep(name = "rules_android_ndk", version = "0.1.2")
 ```
 
-Similar to `android_sdk_repository`, the path to the Android NDK is inferred
-from the `ANDROID_NDK_HOME` environment variable by default. The path can also
-be explicitly specified with a `path` attribute on `android_ndk_repository`.
 
 For more information, read [Using the Android Native Development Kit with
 Bazel](/docs/android-ndk).
-
-`api_level` is the version of the Android API that the SDK and NDK
-target - for example, 23 for Android 6.0 and 25 for Android 7.1. If not
-explicitly set, `api_level` defaults to the highest available API level for
-`android_sdk_repository` and `android_ndk_repository`.
 
 It's not necessary to set the API levels to the same value for the SDK and NDK.
 [This page](https://developer.android.com/ndk/guides/stable_apis.html){: .external}
@@ -238,7 +204,7 @@ structure in your workspace. Each [package](/concepts/build-ref#packages) is a
 directory (and its subdirectories) that contains a related set of source files
 and a `BUILD` file. The package also includes any subdirectories, excluding
 those that contain their own `BUILD` file. The *package name* is the path to the
-`BUILD` file relative to the `WORKSPACE`.
+`BUILD` file relative to the `MODULE.bazel` file.
 
 Note that Bazel's package hierarchy is conceptually different from the Java
 package hierarchy of your Android App directory where the `BUILD` file is
@@ -353,7 +319,7 @@ Target //src/main:app up-to-date:
 Bazel puts the outputs of both intermediate and final build operations in a set
 of per-user, per-workspace output directories. These directories are symlinked
 from the following locations at the top-level of the project directory, where
-the `WORKSPACE` is:
+the `MODULE.bazel` file is:
 
 * `bazel-bin` stores binary executables and other runnable build outputs
 * `bazel-genfiles` stores intermediary source files that are generated by

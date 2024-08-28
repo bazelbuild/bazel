@@ -439,7 +439,7 @@ class BazelLockfileTest(test_base.TestBase):
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
       self.assertIn(
-          '//:extension.bzl%lockfile_ext%<root>~lockfile_ext_1',
+          '//:extension.bzl%lockfile_ext%<root>+lockfile_ext_1',
           lockfile['moduleExtensions'],
       )
       self.assertIn(
@@ -485,7 +485,7 @@ class BazelLockfileTest(test_base.TestBase):
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
       self.assertIn(
-          '//:extension.bzl%lockfile_ext%<root>~lockfile_ext',
+          '//:extension.bzl%lockfile_ext%<root>+lockfile_ext',
           lockfile['moduleExtensions'],
       )
       self.assertNotIn(
@@ -509,7 +509,7 @@ class BazelLockfileTest(test_base.TestBase):
     with open(self.Path('MODULE.bazel.lock'), 'r') as f:
       lockfile = json.loads(f.read().strip())
       self.assertNotIn(
-          '//:extension.bzl%lockfile_ext%<root>~lockfile_ext',
+          '//:extension.bzl%lockfile_ext%<root>+lockfile_ext',
           lockfile['moduleExtensions'],
       )
       self.assertIn(
@@ -1755,7 +1755,7 @@ class BazelLockfileTest(test_base.TestBase):
     )
 
     _, _, stderr = self.RunBazel(['build', ':lol'])
-    self.assertIn('STR=@@foo~//:lib_foo', '\n'.join(stderr))
+    self.assertIn('STR=@@foo+//:lib_foo', '\n'.join(stderr))
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
@@ -1779,7 +1779,7 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', ':lol'])
     stderr = '\n'.join(stderr)
     self.assertIn('ran the extension!', stderr)
-    self.assertIn('STR=@@bar~//:lib_foo', stderr)
+    self.assertIn('STR=@@bar+//:lib_foo', stderr)
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
@@ -1798,7 +1798,7 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', ':lol'])
     stderr = '\n'.join(stderr)
     self.assertNotIn('ran the extension!', stderr)
-    self.assertIn('STR=@@bar~//:lib_foo', stderr)
+    self.assertIn('STR=@@bar+//:lib_foo', stderr)
 
   def testExtensionRepoMappingChange_BzlInit(self):
     # Regression test for #20721; same test as above, except that the call to
@@ -1838,7 +1838,7 @@ class BazelLockfileTest(test_base.TestBase):
     )
 
     _, _, stderr = self.RunBazel(['build', ':lol'])
-    self.assertIn('STR=@@foo~//:lib_foo', '\n'.join(stderr))
+    self.assertIn('STR=@@foo+//:lib_foo', '\n'.join(stderr))
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
@@ -1862,7 +1862,7 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', ':lol'])
     stderr = '\n'.join(stderr)
     self.assertIn('ran the extension!', stderr)
-    self.assertIn('STR=@@bar~//:lib_foo', stderr)
+    self.assertIn('STR=@@bar+//:lib_foo', stderr)
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
@@ -1881,7 +1881,7 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', ':lol'])
     stderr = '\n'.join(stderr)
     self.assertNotIn('ran the extension!', stderr)
-    self.assertIn('STR=@@bar~//:lib_foo', stderr)
+    self.assertIn('STR=@@bar+//:lib_foo', stderr)
 
   def testExtensionRepoMappingChange_loadsAndRepoRelativeLabels(self):
     # Regression test for #20721; same test as above, except that the call to
@@ -1936,7 +1936,7 @@ class BazelLockfileTest(test_base.TestBase):
     )
 
     _, _, stderr = self.RunBazel(['build', ':lol'])
-    self.assertIn('STR=@@foo~//:BUILD', '\n'.join(stderr))
+    self.assertIn('STR=@@foo+//:BUILD', '\n'.join(stderr))
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
@@ -1957,7 +1957,7 @@ class BazelLockfileTest(test_base.TestBase):
         ],
     )
     _, _, stderr = self.RunBazel(['build', ':lol'])
-    self.assertIn('STR=@@bar~//:BUILD', '\n'.join(stderr))
+    self.assertIn('STR=@@bar+//:BUILD', '\n'.join(stderr))
 
   def testExtensionRepoMappingChange_sourceRepoNoLongerExistent(self):
     # Regression test for #20721; verify that an old recorded repo mapping entry
@@ -1994,7 +1994,7 @@ class BazelLockfileTest(test_base.TestBase):
     )
 
     _, _, stderr = self.RunBazel(['build', ':lol'])
-    self.assertIn('STR=@@foo~//:lib_foo', '\n'.join(stderr))
+    self.assertIn('STR=@@foo+//:lib_foo', '\n'.join(stderr))
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])
@@ -2012,7 +2012,7 @@ class BazelLockfileTest(test_base.TestBase):
       extension = lockfile['moduleExtensions']['//:ext.bzl%ext']['general']
       self.assertIn('recordedRepoMappingEntries', extension)
       extension['recordedRepoMappingEntries'].append(
-          ['_unknown_source_repo', 'other_name', 'bar~']
+          ['_unknown_source_repo', 'other_name', 'bar+']
       )
 
     with open(self.Path('MODULE.bazel.lock'), 'w') as f:
@@ -2022,7 +2022,7 @@ class BazelLockfileTest(test_base.TestBase):
     _, _, stderr = self.RunBazel(['build', ':lol'])
     stderr = '\n'.join(stderr)
     self.assertIn('ran the extension!', stderr)
-    self.assertIn('STR=@@foo~//:lib_foo', stderr)
+    self.assertIn('STR=@@foo+//:lib_foo', stderr)
 
   def testExtensionRepoMappingChange_mainRepoEvalCycleWithWorkspace(self):
     # Regression test for #20942
@@ -2060,7 +2060,7 @@ class BazelLockfileTest(test_base.TestBase):
     self.ScratchFile('WORKSPACE.bzlmod', ['load("@repo//:defs.bzl","STR")'])
 
     _, _, stderr = self.RunBazel(['build', '--enable_workspace', ':lol'])
-    self.assertIn('STR=@@foo~//:lib_foo', '\n'.join(stderr))
+    self.assertIn('STR=@@foo+//:lib_foo', '\n'.join(stderr))
 
     # Shutdown bazel to make sure we rely on the lockfile and not skyframe
     self.RunBazel(['shutdown'])

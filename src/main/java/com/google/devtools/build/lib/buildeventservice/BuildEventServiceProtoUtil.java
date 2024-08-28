@@ -173,13 +173,9 @@ public final class BuildEventServiceProtoUtil {
       builder.setProjectId(projectId);
     }
     switch (lifecycleEvent.getEventCase()) {
-      case BUILD_ENQUEUED:
-      case INVOCATION_ATTEMPT_STARTED:
-      case BUILD_FINISHED:
-        builder.addAllNotificationKeywords(getKeywords());
-        break;
-      default:
-        break;
+      case BUILD_ENQUEUED, INVOCATION_ATTEMPT_STARTED, BUILD_FINISHED ->
+          builder.addAllNotificationKeywords(getKeywords());
+      default -> {}
     }
     return builder;
   }
@@ -188,22 +184,16 @@ public final class BuildEventServiceProtoUtil {
   public StreamId streamId(EventCase eventCase) {
     StreamId.Builder streamId = StreamId.newBuilder().setBuildId(buildRequestId);
     switch (eventCase) {
-      case BUILD_ENQUEUED:
-      case BUILD_FINISHED:
-        streamId.setComponent(BuildComponent.CONTROLLER);
-        break;
-      case INVOCATION_ATTEMPT_STARTED:
-      case INVOCATION_ATTEMPT_FINISHED:
+      case BUILD_ENQUEUED, BUILD_FINISHED -> streamId.setComponent(BuildComponent.CONTROLLER);
+      case INVOCATION_ATTEMPT_STARTED, INVOCATION_ATTEMPT_FINISHED -> {
         streamId.setInvocationId(buildInvocationId);
         streamId.setComponent(BuildComponent.CONTROLLER);
-        break;
-      case BAZEL_EVENT:
-      case COMPONENT_STREAM_FINISHED:
+      }
+      case BAZEL_EVENT, COMPONENT_STREAM_FINISHED -> {
         streamId.setInvocationId(buildInvocationId);
         streamId.setComponent(BuildComponent.TOOL);
-        break;
-      default:
-        throw new IllegalArgumentException("Illegal EventCase " + eventCase);
+      }
+      default -> throw new IllegalArgumentException("Illegal EventCase " + eventCase);
     }
     return streamId.build();
   }

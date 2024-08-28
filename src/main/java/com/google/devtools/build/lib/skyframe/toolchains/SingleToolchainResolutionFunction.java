@@ -213,6 +213,24 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
         }
 
         PlatformInfo executionPlatform = platforms.get(executionPlatformKey);
+
+        // Check if the platform allows this toolchain type.
+        if (executionPlatform.checkToolchainTypes()
+            && !executionPlatform.allowedToolchainTypes().contains(toolchainType.toolchainType())) {
+          debugMessage(
+              resolutionTrace,
+              IndentLevel.EXECUTION_PLATFORM_LEVEL,
+              "Skipping execution platform %s; its allowed toolchain types does not contain the"
+                  + " current toolchain type %s",
+              executionPlatformKey.getLabel(),
+              toolchainType.toolchainType());
+
+          // Keep looking for a valid toolchain for this exec platform
+          done = false;
+          continue;
+        }
+
+        // Check if the execution constraints match.
         if (!checkConstraints(
             resolutionTrace,
             toolchain.execConstraints(),

@@ -131,8 +131,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     CPU_K8,
     // Flags from TestConstants.PRODUCT_SPECIFIC_FLAGS.
     PRODUCT_SPECIFIC_FLAGS,
-    // The --enable_bzlmod flags.
-    ENABLE_BZLMOD,
     // The --nolegacy_external_runfiles flag.
     NO_LEGACY_EXTERNAL_RUNFILES
   }
@@ -246,6 +244,11 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                     PrecomputedValue.injected(
                         ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
                     PrecomputedValue.injected(
+                        RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
+                    PrecomputedValue.injected(
+                        RepositoryDelegatorFunction.FORCE_FETCH,
+                        RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
+                    PrecomputedValue.injected(
                         BazelModuleResolutionFunction.CHECK_DIRECT_DEPENDENCIES,
                         CheckDirectDepsMode.WARNING),
                     PrecomputedValue.injected(
@@ -272,7 +275,6 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 3;
     BuildLanguageOptions buildLanguageOptions = Options.getDefaults(BuildLanguageOptions.class);
-    buildLanguageOptions.enableBzlmod = true;
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,
@@ -352,14 +354,10 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
     if (defaultFlags().contains(Flag.PRODUCT_SPECIFIC_FLAGS)) {
       optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_FLAGS);
     }
-    if (defaultFlags().contains(Flag.ENABLE_BZLMOD)) {
-      optionsParser.parse("--enable_bzlmod");
-    } else {
-      optionsParser.parse("--noenable_bzlmod");
-    }
     if (defaultFlags().contains(Flag.NO_LEGACY_EXTERNAL_RUNFILES)) {
       optionsParser.parse("--nolegacy_external_runfiles");
     }
+    optionsParser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
     optionsParser.parse(args);
 
     buildOptions =
@@ -709,6 +707,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             TestAspects.EXTRA_ATTRIBUTE_ASPECT,
             TestAspects.PACKAGE_GROUP_ATTRIBUTE_ASPECT,
             TestAspects.COMPUTED_ATTRIBUTE_ASPECT,
+            TestAspects.FILE_PROVIDER_ASPECT,
             TestAspects.FOO_PROVIDER_ASPECT,
             TestAspects.ASPECT_REQUIRING_PROVIDER_SETS,
             TestAspects.WARNING_ASPECT,

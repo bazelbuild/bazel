@@ -45,6 +45,7 @@ import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionCreationException;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyCache;
@@ -733,6 +734,10 @@ public final class DependencyResolver {
             InvalidPlatformException invalidPlatformException = error.invalidPlatform();
             throw new ConfiguredValueCreationException(
                 ctgValue.getTarget(), invalidPlatformException.getMessage());
+          case TRANSITION_CREATION:
+            TransitionCreationException transitionCreationException = error.transitionCreation();
+            throw new ConfiguredValueCreationException(
+                ctgValue.getTarget(), transitionCreationException.getMessage());
         }
       }
       if (!state.transitiveState.hasRootCause() && state.dependencyMap == null) {

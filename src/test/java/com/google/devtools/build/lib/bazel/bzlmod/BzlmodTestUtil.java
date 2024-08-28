@@ -311,7 +311,7 @@ public final class BzlmodTestUtil {
   }
 
   public static TagClass createTagClass(Attribute... attrs) {
-    return TagClass.create(ImmutableList.copyOf(attrs), Optional.of("doc"), Location.BUILTIN);
+    return TagClass.create(ImmutableList.copyOf(attrs), Optional.of("doc"));
   }
 
   /** A builder for {@link Tag} for testing purposes. */

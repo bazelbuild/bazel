@@ -89,7 +89,6 @@ java_library(
         ":constraints/supported_environments_provider",
         ":constraints/top_level_constraint_semantics",
         ":dependency_kind",
-        ":duplicate_exception",
         ":extra/extra_action_info_file_write_action",
         ":extra_action_artifacts_provider",
         ":file_provider",
@@ -209,11 +208,9 @@ java_library(
         "WindowsPowershellCommandConstructor.java",
         "actions/ActionConstructionContext.java",
         "actions/FileWriteAction.java",
-        "actions/PathMappers.java",
         "actions/ShellCommand.java",
         "actions/SpawnAction.java",
         "actions/StarlarkAction.java",
-        "actions/StrippingPathMapper.java",
         "actions/SymlinkTreeAction.java",
         "actions/SymlinkTreeActionContext.java",
         "config/DependencyEvaluationException.java",
@@ -267,6 +264,7 @@ java_library(
         ":actions/deterministic_writer",
         ":actions/lazy_write_nested_set_of_tuple_action",
         ":actions/parameter_file_write_action",
+        ":actions/path_mappers",
         ":actions/substitution",
         ":actions/symlink_action",
         ":actions/template_expansion_action",
@@ -294,6 +292,7 @@ java_library(
         ":config/toolchain_type_requirement",
         ":config/transitions/composing_transition_factory",
         ":config/transitions/configuration_transition",
+        ":config/transitions/no_config_transition",
         ":config/transitions/no_transition",
         ":config/transitions/patch_transition",
         ":config/transitions/split_transition",
@@ -306,7 +305,6 @@ java_library(
         ":constraints/supported_environments",
         ":constraints/supported_environments_provider",
         ":dependency_kind",
-        ":duplicate_exception",
         ":exec_group_collection",
         ":extra/extra_action_info_file_write_action",
         ":extra_action_artifacts_provider",
@@ -367,7 +365,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
-        "//src/main/java/com/google/devtools/build/lib/actions:arg_chunk",
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
@@ -653,7 +650,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:resource_manager",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
@@ -751,11 +747,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
-)
-
-java_library(
-    name = "duplicate_exception",
-    srcs = ["DuplicateException.java"],
 )
 
 java_library(
@@ -1301,6 +1292,7 @@ java_library(
         ":transitive_info_provider",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/packages:package_specification",
+        "//third_party:guava",
     ],
 )
 
@@ -1320,6 +1312,7 @@ java_library(
     srcs = ["WorkspaceStatusAction.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/shell",
@@ -1421,6 +1414,7 @@ java_library(
     name = "actions/custom_command_line",
     srcs = ["actions/CustomCommandLine.java"],
     deps = [
+        ":config/core_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -1513,6 +1507,7 @@ java_library(
     deps = [
         ":actions/abstract_file_write_action",
         ":actions/deterministic_writer",
+        ":config/core_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
@@ -1522,6 +1517,31 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:failure_details_java_proto",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "actions/path_mappers",
+    srcs = [
+        "actions/PathMappers.java",
+        "actions/StrippingPathMapper.java",
+    ],
+    deps = [
+        ":config/build_configuration",
+        ":config/core_options",
+        "//src/main/java/com/google/devtools/build/lib/actions",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_input_helper",
+        "//src/main/java/com/google/devtools/build/lib/actions:arg_chunk",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/actions:commandline_item",
+        "//src/main/java/com/google/devtools/build/lib/actions:execution_requirements",
+        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
+        "//src/main/java/com/google/devtools/build/lib/util",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -1581,6 +1601,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
+        "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_context",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -1906,6 +1927,7 @@ java_library(
         ":config/core_options",
         ":config/fragment_options",
         ":config/transitions/configuration_transition",
+        ":config/transitions/no_config_transition",
         ":config/transitions/patch_transition",
         ":config/transitions/transition_factory",
         ":platform_options",
@@ -2424,6 +2446,7 @@ java_library(
         ":test/test_configuration",
         ":transitive_dependency_state",
         ":transitive_info_provider_map_builder",
+        ":visibility_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
@@ -2527,6 +2550,8 @@ java_library(
     name = "starlark/starlark_custom_command_line",
     srcs = ["starlark/StarlarkCustomCommandLine.java"],
     deps = [
+        ":actions/path_mappers",
+        ":config/core_options",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:arg_chunk",
         "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
@@ -2719,7 +2744,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:coverage_report_value",
         "//third_party:guava",
@@ -2760,6 +2784,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/test",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

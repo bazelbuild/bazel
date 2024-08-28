@@ -16,21 +16,26 @@ package com.google.devtools.build.lib.analysis.configuredtargets;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
-import com.google.devtools.build.lib.analysis.DuplicateException;
+import com.google.devtools.build.lib.analysis.DefaultInfo;
 import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
+import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMap;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapBuilder;
+import com.google.devtools.build.lib.analysis.VisibilityProvider;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesInfo;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.Provider;
@@ -52,8 +57,23 @@ import net.starlark.java.eval.Printer;
  */
 @Immutable
 public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
+  /**
+   * This exception is thrown when the providers of a configured target and the aspects applied to
+   * it cannot be merged.
+   */
+  public static final class MergingException extends Exception {
+    public MergingException(String message) {
+      super(message);
+    }
+
+    public MergingException(String message, Throwable cause) {
+      super(message, cause);
+    }
+  }
+
   private final ConfiguredTarget base;
   private final ImmutableList<ConfiguredAspect> aspects;
+
   /**
    * Providers that come from any source that isn't a pure pointer to the base rule's providers.
    *
@@ -66,12 +86,22 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
       ConfiguredTarget base,
       Iterable<ConfiguredAspect> aspects,
       TransitiveInfoProviderMap nonBaseProviders) {
-    // TODO(b/281522692): it's unsound to pass a null key here, but the type system doesn't
-    // currently provide a better way to do this.
-    super(/* actionLookupKey= */ null);
+    super(
+        // TODO(b/281522692): it's unsound to pass a null key here, but the type system doesn't
+        // currently provide a better way to do this.
+        /* actionLookupKey= */ null,
+        // Placeholder visibility because this target isn't consumed.
+        VisibilityProvider.PRIVATE_VISIBILITY);
     this.base = base;
     this.aspects = ImmutableList.copyOf(aspects);
     this.nonBaseProviders = nonBaseProviders;
+  }
+
+  @Override
+  public boolean isCreatedInSymbolicMacro() {
+    // Technically, like visibility, we can return anything here because this target isn't consumed.
+    // If we wanted the correct answer we could obtain it from the base CT's visibility provider.
+    return false;
   }
 
   @Override
@@ -160,12 +190,49 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
 
   /** Creates an instance based on a configured target and a set of aspects. */
   public static ConfiguredTarget of(ConfiguredTarget base, Collection<ConfiguredAspect> aspects)
-      throws DuplicateException {
+      throws MergingException {
     if (aspects.isEmpty()) {
       return base; // If there are no aspects, don't bother with creating a proxy object.
     }
 
     TransitiveInfoProviderMapBuilder nonBaseProviders = new TransitiveInfoProviderMapBuilder();
+
+    // filesToBuild is special: for native aspects, it is returned in a FileProvider, for Starlark
+    // ones, in a DefaultInfo. Furthermore, DefaultInfo is not a "normal" provider on configured
+    // targets but is created on demand from FileProvider, etc. So we need to jump through some
+    // hoops here.
+    List<NestedSet<Artifact>> filesToBuild = new ArrayList<>();
+    filesToBuild.add(base.getProvider(FileProvider.class).getFilesToBuild());
+    for (ConfiguredAspect aspect : aspects) {
+      if (aspect.getProvider(FileProvider.class) != null) {
+        filesToBuild.add(aspect.getProvider(FileProvider.class).getFilesToBuild());
+      } else if (aspect.get(DefaultInfo.PROVIDER.getKey()) != null) {
+        DefaultInfo defaultInfo = (DefaultInfo) aspect.get(DefaultInfo.PROVIDER.getKey());
+        if (defaultInfo.getDataRunfiles() != null
+            || defaultInfo.getDefaultRunfiles() != null
+            || defaultInfo.getExecutable() != null
+            || defaultInfo.getFilesToRun() != null) {
+          throw new MergingException(
+              "Provider 'DefaultInfo' returned by an aspect not at top level must only have the "
+                  + "'files' field set");
+        }
+
+        if (defaultInfo.getFiles() != null) {
+          try {
+            filesToBuild.add(defaultInfo.getFiles().getSet(Artifact.class));
+          } catch (TypeException e) {
+            throw new MergingException(
+                "'files' field of 'DefaultInfo' should contain a depset of files", e);
+          }
+        }
+      }
+    }
+
+    if (filesToBuild.size() > 1) {
+      nonBaseProviders.put(
+          FileProvider.class,
+          FileProvider.of(NestedSetBuilder.fromNestedSets(filesToBuild).build()));
+    }
 
     // Merge output group providers.
     OutputGroupInfo mergedOutputGroupInfo = mergeOutputGroupProviders(base, aspects);
@@ -199,23 +266,27 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
         Object providerKey = providers.getProviderKeyAt(i);
         if (OutputGroupInfo.STARLARK_CONSTRUCTOR.getKey().equals(providerKey)
             || AnalysisFailureInfo.STARLARK_CONSTRUCTOR.getKey().equals(providerKey)
+            || FileProvider.class.equals(providerKey)
             || ExtraActionArtifactsProvider.class.equals(providerKey)
             || RequiredConfigFragmentsProvider.class.equals(providerKey)) {
           continue;
         }
 
-        if (providerKey instanceof Class<?>) {
+        if (providerKey.equals(DefaultInfo.PROVIDER.getKey())) {
+          // This was handled when creating FileProvider above.
+          continue;
+        } else if (providerKey instanceof Class<?>) {
           @SuppressWarnings("unchecked")
           Class<? extends TransitiveInfoProvider> providerClass =
               (Class<? extends TransitiveInfoProvider>) providerKey;
           if (base.getProvider(providerClass) != null || nonBaseProviders.contains(providerClass)) {
-            throw new DuplicateException("Provider " + providerKey + " provided twice");
+            throw new MergingException("Provider " + providerKey + " provided twice");
           }
           nonBaseProviders.put(
               providerClass, (TransitiveInfoProvider) providers.getProviderInstanceAt(i));
         } else if (providerKey instanceof String legacyId) {
           if (base.get(legacyId) != null || nonBaseProviders.contains(legacyId)) {
-            throw new DuplicateException("Provider " + legacyId + " provided twice");
+            throw new MergingException("Provider " + legacyId + " provided twice");
           }
           nonBaseProviders.put(legacyId, providers.getProviderInstanceAt(i));
         } else if (providerKey instanceof Provider.Key key) {
@@ -227,7 +298,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
           if ((!InstrumentedFilesInfo.STARLARK_CONSTRUCTOR.getKey().equals(key)
                   && base.get(key) != null)
               || nonBaseProviders.contains(key)) {
-            throw new DuplicateException("Provider " + key + " provided twice");
+            throw new MergingException("Provider " + key + " provided twice");
           }
           nonBaseProviders.put((Info) providers.getProviderInstanceAt(i));
         }
@@ -237,8 +308,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   private static OutputGroupInfo mergeOutputGroupProviders(
-      @Nullable ConfiguredTarget base, Iterable<ConfiguredAspect> aspects)
-      throws DuplicateException {
+      @Nullable ConfiguredTarget base, Iterable<ConfiguredAspect> aspects) throws MergingException {
     ImmutableList.Builder<OutputGroupInfo> providers = ImmutableList.builder();
 
     if (base != null) {
@@ -321,7 +391,7 @@ public final class MergedConfiguredTarget extends AbstractConfiguredTarget {
   }
 
   /** Returns only the providers from the aspects. */
-  public TransitiveInfoProviderMap getAspectsProviders() throws DuplicateException {
+  public TransitiveInfoProviderMap getAspectsProviders() throws MergingException {
     TransitiveInfoProviderMapBuilder aspectsProviders = new TransitiveInfoProviderMapBuilder();
 
     // Merge output group providers of aspects only. Filtering the base target output

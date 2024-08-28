@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.producers;
 import com.google.auto.value.AutoOneOf;
 import com.google.devtools.build.lib.analysis.InvalidVisibilityDependencyException;
 import com.google.devtools.build.lib.analysis.config.DependencyEvaluationException;
+import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionCreationException;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.skyframe.AspectCreationException;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
@@ -43,6 +44,8 @@ public abstract class DependencyError {
     PLATFORM_MAPPING,
     /** An error occurred while looking up the target platform. */
     INVALID_PLATFORM,
+    /** An error occurred while creating a transition. */
+    TRANSITION_CREATION,
   }
 
   public abstract Kind kind();
@@ -61,29 +64,24 @@ public abstract class DependencyError {
 
   public abstract InvalidPlatformException invalidPlatform();
 
+  public abstract TransitionCreationException transitionCreation();
+
   public static boolean isSecondErrorMoreImportant(DependencyError first, DependencyError second) {
     // There isn't a good way to prioritize when the type matches, so we just keep the first.
     return first.kind().compareTo(second.kind()) > 0;
   }
 
   public Exception getException() {
-    switch (kind()) {
-      case DEPENDENCY_OPTIONS_PARSING:
-        return dependencyOptionsParsing();
-      case DEPENDENCY_TRANSITION:
-        return dependencyTransition();
-      case INVALID_VISIBILITY:
-        return invalidVisibility();
-      case ASPECT_EVALUATION:
-        return aspectEvaluation();
-      case ASPECT_CREATION:
-        return aspectCreation();
-      case PLATFORM_MAPPING:
-        return platformMapping();
-      case INVALID_PLATFORM:
-        return invalidPlatform();
-    }
-    throw new IllegalStateException("unreachable");
+    return switch (kind()) {
+      case DEPENDENCY_OPTIONS_PARSING -> dependencyOptionsParsing();
+      case DEPENDENCY_TRANSITION -> dependencyTransition();
+      case INVALID_VISIBILITY -> invalidVisibility();
+      case ASPECT_EVALUATION -> aspectEvaluation();
+      case ASPECT_CREATION -> aspectCreation();
+      case PLATFORM_MAPPING -> platformMapping();
+      case INVALID_PLATFORM -> invalidPlatform();
+      case TRANSITION_CREATION -> transitionCreation();
+    };
   }
 
   static DependencyError of(TransitionException e) {
@@ -112,5 +110,9 @@ public abstract class DependencyError {
 
   static DependencyError of(InvalidPlatformException e) {
     return AutoOneOf_DependencyError.invalidPlatform(e);
+  }
+
+  static DependencyError of(TransitionCreationException e) {
+    return AutoOneOf_DependencyError.transitionCreation(e);
   }
 }

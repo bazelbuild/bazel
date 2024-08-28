@@ -165,13 +165,10 @@ public final class StarlarkRuleTransitionProvider implements TransitionFactory<R
     // in the rule analysis.
     ConfiguredAttributeMapper.AttributeResolutionResult<?> result =
         configuredAttributeMapper.getResolvedAttribute(attribute);
-    switch (result.getType()) {
-      case FAILURE:
-        return Result.failure();
-      case SUCCESS:
-        return Result.success(result.getSuccess().orElse(null));
-    }
-    return Result.failure();
+    return switch (result.getType()) {
+      case FAILURE -> Result.failure();
+      case SUCCESS -> Result.success(result.getSuccess().orElse(null));
+    };
   }
 
   private boolean selectBranchesReferenceOutputs(

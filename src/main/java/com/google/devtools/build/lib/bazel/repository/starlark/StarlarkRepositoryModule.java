@@ -222,7 +222,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       if (!isExported()) {
         throw new EvalException("attempting to instantiate a non-exported repository rule");
       }
-      extensionEvalContext.createRepo(thread, kwargs, getRuleClass());
+      extensionEvalContext.lazilyCreateRepo(thread, kwargs, getRuleClass());
       return Starlark.NONE;
     }
 
@@ -325,9 +325,8 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
   @Override
   public TagClass tagClass(
       Dict<?, ?> attrs, // Dict<String, StarlarkAttrModule.Descriptor>
-      Object doc, // <String> or Starlark.NONE
-      StarlarkThread thread)
-      throws EvalException {
+      Object doc // <String> or Starlark.NONE
+      ) throws EvalException {
     ImmutableList.Builder<Attribute> attrBuilder = ImmutableList.builder();
     for (Map.Entry<String, Descriptor> attr :
         Dict.cast(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
@@ -340,7 +339,6 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     }
     return TagClass.create(
         attrBuilder.build(),
-        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
-        thread.getCallerLocation());
+        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString));
   }
 }

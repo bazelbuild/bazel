@@ -30,7 +30,6 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
@@ -155,7 +154,7 @@ public class ResourceProcessorBusyBox {
   private static final Properties properties = loadSiteCustomizations();
 
   /** Flag specifications for this action. */
-  public static final class Options {
+  public static final class Options extends OptionsBaseWithResidue {
     @Parameter(
         names = "--tool",
         description =
@@ -164,17 +163,6 @@ public class ResourceProcessorBusyBox {
                 + "GENERATE_AAR, MERGE_MANIFEST, COMPILE_LIBRARY_RESOURCES, "
                 + "LINK_STATIC_LIBRARY, AAPT2_PACKAGE, SHRINK_AAPT2, MERGE_COMPILED.")
     public Tool tool;
-
-    // See https://jcommander.org/#_main_parameter
-    @Parameter() private List<String> residue;
-
-    public Options() {
-      this.residue = new ArrayList<>();
-    }
-
-    public List<String> getResidue() {
-      return residue;
-    }
   }
 
   public static void main(String[] args) throws Exception {
@@ -245,7 +233,7 @@ public class ResourceProcessorBusyBox {
         args = paramsFilePreProcessor.preProcess(ImmutableList.of("@" + argFile));
       }
       jc.parse(args.toArray(new String[0]));
-      ArrayList<String> residue = new ArrayList<>(options.getResidue());
+      List<String> residue = options.getResidue();
 
       options.tool.call(residue.toArray(new String[0]));
     } catch (UserException e) {
@@ -253,7 +241,11 @@ public class ResourceProcessorBusyBox {
       // AndroidDataMerger.MergeConflictException.
       logger.log(Level.SEVERE, e.getMessage());
       return 1;
-    } catch (ParameterException | IOException | Aapt2Exception | InvalidJavaIdentifier e) {
+    } catch (CompatOptionsParsingException // thrown by CompatShellQuotedParamsFilePreProcessor
+        | ParameterException // thrown by JCommander
+        | IOException
+        | Aapt2Exception
+        | InvalidJavaIdentifier e) {
       logSuppressed(e);
       throw e;
     } catch (Exception e) {

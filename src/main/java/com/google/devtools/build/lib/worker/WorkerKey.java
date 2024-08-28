@@ -35,10 +35,13 @@ import java.util.SortedMap;
 public final class WorkerKey {
   /** Build options. */
   private final ImmutableList<String> args;
+
   /** Environment variables. */
   private final ImmutableMap<String, String> env;
+
   /** Execution root of Bazel process. */
   private final Path execRoot;
+
   /** Mnemonic of the worker. */
   private final String mnemonic;
 
@@ -48,19 +51,28 @@ public final class WorkerKey {
    * methods.
    */
   private final HashCode workerFilesCombinedHash;
+
   /** Worker files with the corresponding digest. */
   private final SortedMap<PathFragment, byte[]> workerFilesWithDigests;
+
   /** If true, the workers run inside a sandbox. */
   private final boolean sandboxed;
+
+  /** If true, the sandbox contents are tracked in memory to speed up cleanup. */
+  private final boolean useInMemoryTracking;
+
   /** A WorkerProxy will be instantiated if true, instantiate a regular Worker if false. */
   private final boolean multiplex;
+
   /** If true, the workers for this key are able to cancel work requests. */
   private final boolean cancellable;
+
   /**
    * Cached value for the hash of this key, because the value is expensive to calculate
    * (ImmutableMap and ImmutableList do not cache their hashcodes.
    */
   private final int hash;
+
   /** The format of the worker protocol sent to and read from the worker. */
   private final WorkerProtocolFormat protocolFormat;
 
@@ -72,6 +84,7 @@ public final class WorkerKey {
       HashCode workerFilesCombinedHash,
       SortedMap<PathFragment, byte[]> workerFilesWithDigests,
       boolean sandboxed,
+      boolean useInMemoryTracking,
       boolean multiplex,
       boolean cancellable,
       WorkerProtocolFormat protocolFormat) {
@@ -82,6 +95,7 @@ public final class WorkerKey {
     this.workerFilesCombinedHash = Preconditions.checkNotNull(workerFilesCombinedHash);
     this.workerFilesWithDigests = Preconditions.checkNotNull(workerFilesWithDigests);
     this.sandboxed = sandboxed;
+    this.useInMemoryTracking = useInMemoryTracking;
     this.multiplex = multiplex;
     this.cancellable = cancellable;
     this.protocolFormat = protocolFormat;
@@ -115,6 +129,10 @@ public final class WorkerKey {
   /** Returns true if workers are sandboxed. */
   public boolean isSandboxed() {
     return sandboxed;
+  }
+
+  public boolean useInMemoryTracking() {
+    return useInMemoryTracking;
   }
 
   public boolean isMultiplex() {
@@ -158,13 +176,16 @@ public final class WorkerKey {
     if (!args.equals(workerKey.args)) {
       return false;
     }
-    if (!multiplex == workerKey.multiplex) {
+    if (multiplex != workerKey.multiplex) {
       return false;
     }
-    if (!cancellable == workerKey.cancellable) {
+    if (cancellable != workerKey.cancellable) {
       return false;
     }
-    if (!sandboxed == workerKey.sandboxed) {
+    if (sandboxed != workerKey.sandboxed) {
+      return false;
+    }
+    if (useInMemoryTracking != workerKey.useInMemoryTracking) {
       return false;
     }
     if (!env.equals(workerKey.env)) {
@@ -197,6 +218,7 @@ public final class WorkerKey {
         multiplex,
         cancellable,
         sandboxed,
+        useInMemoryTracking,
         protocolFormat.toString());
   }
 

@@ -489,6 +489,7 @@ cc_shared_library(
     deps = [
         ":external_export",
     ],
+    tags = ["bazel_only"],
 )
 
 build_failure_test(
@@ -559,7 +560,7 @@ exports_test(
     target = "external_export_so",
     bazel_only = True,
     targets_that_should_be_claimed_to_be_exported = [
-        "@@test_repo~//:bar",
+        "@@test_repo+//:bar",
         "//src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library:external_export",
     ],
 )

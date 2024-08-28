@@ -64,6 +64,7 @@ if "$is_windows"; then
 fi
 
 function set_up() {
+  add_platforms "MODULE.bazel"
   mkdir -p target_skipping || fail "couldn't create directory"
   cat > target_skipping/pass.sh <<'EOF'
 #!/bin/bash
@@ -890,7 +891,7 @@ EOF
 # Validates that we can express targets being compatible with everything _but_
 # A and B.
 function test_inverse_logic() {
-  setup_skylib_support
+  add_bazel_skylib "MODULE.bazel"
 
   # Not using 'EOF' because injecting skylib_package
   cat >> target_skipping/BUILD <<EOF
@@ -1076,11 +1077,12 @@ EOF
 # for https://github.com/bazelbuild/bazel/issues/12897.
 function test_incompatible_with_missing_toolchain() {
   set_up_custom_toolchain
-  cat >> WORKSPACE <<'EOF'
+  cat >> MODULE.bazel <<'EOF'
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(name = 'build_bazel_apple_support', path = 'build_bazel_apple_support')
 EOF
   mkdir -p build_bazel_apple_support/platforms
-  touch build_bazel_apple_support/WORKSPACE
+  touch build_bazel_apple_support/REPO.bazel
   cat > build_bazel_apple_support/platforms/BUILD <<'EOF'
 package(default_visibility=["//visibility:public"])
 platform(
@@ -1237,7 +1239,7 @@ EOF
 # Validates that we successfully skip analysistest rule targets when they
 # depend on incompatible targets.
 function test_analysistest() {
-  setup_skylib_support
+  add_bazel_skylib "MODULE.bazel"
 
   # Not using 'EOF' because injecting skylib_package
   cat > target_skipping/analysistest.bzl <<EOF

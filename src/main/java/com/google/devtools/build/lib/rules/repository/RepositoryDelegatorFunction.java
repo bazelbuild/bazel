@@ -51,6 +51,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -486,7 +487,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       PathFragment sourcePath, Environment env, Path repoRoot, RepositoryName repoName)
       throws RepositoryFunctionException, InterruptedException {
     DigestWriter.clearMarkerFile(directories, repoName);
-    RepositoryFunction.setupRepoRoot(repoRoot);
     RepositoryDirectoryValue.Builder directoryValue =
         symlinkRepoRoot(
             directories,
@@ -509,8 +509,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       String userDefinedPath,
       Environment env)
       throws RepositoryFunctionException, InterruptedException {
+    if (source.isDirectory(Symlinks.NOFOLLOW)) {
+      try {
+        source.deleteTree();
+      } catch (IOException e) {
+        throw new RepositoryFunctionException(e, Transience.TRANSIENT);
+      }
+    }
     try {
-      source.createSymbolicLink(destination);
+      FileSystemUtils.ensureSymbolicLink(source, destination);
     } catch (IOException e) {
       throw new RepositoryFunctionException(
           new IOException(
@@ -703,6 +710,9 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
 
       boolean firstLine = true;
       for (String line : lines) {
+        if (line.isEmpty()) {
+          continue;
+        }
         if (firstLine) {
           markerRuleKey = line;
           firstLine = false;
@@ -710,12 +720,15 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           int sChar = line.indexOf(' ');
           if (sChar > 0) {
             RepoRecordedInput input = RepoRecordedInput.parse(unescape(line.substring(0, sChar)));
-            if (input == null) {
-              // ignore invalid entries.
+            if (!input.equals(RepoRecordedInput.NEVER_UP_TO_DATE)) {
+              recordedInputValues.put(input, unescape(line.substring(sChar + 1)));
               continue;
             }
-            recordedInputValues.put(input, unescape(line.substring(sChar + 1)));
           }
+          // On parse failure, just forget everything else and mark the whole input out of date.
+          recordedInputValues.clear();
+          recordedInputValues.put(RepoRecordedInput.NEVER_UP_TO_DATE, "");
+          break;
         }
       }
       return markerRuleKey;

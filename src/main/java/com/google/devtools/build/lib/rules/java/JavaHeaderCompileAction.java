@@ -157,6 +157,14 @@ public final class JavaHeaderCompileAction extends SpawnAction {
     }
   }
 
+  @Override
+  public boolean mayModifySpawnOutputsAfterExecution() {
+    // Causes of spawn output modification after execution:
+    // - In-place rewriting of .jdeps files with --experimental_output_paths=strip.
+    // TODO: Use separate files as action and spawn output to avoid in-place modification.
+    return true;
+  }
+
   public static Builder newBuilder(RuleContext ruleContext) {
     return new Builder(ruleContext);
   }

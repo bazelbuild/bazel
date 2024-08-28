@@ -13,20 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 
 /** Common options shared between tools of ResourceProcessorBusyBox */
-public class ResourceProcessorCommonOptions extends OptionsBase {
+@Parameters(separators = "= ")
+public class ResourceProcessorCommonOptions {
 
-  @Option(
-      name = "logWarnings",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = com.google.devtools.common.options.Converters.BooleanConverter.class,
-      help = "")
-  public boolean logWarnings;
+  @Parameter(names = "--logWarnings", arity = 1, description = "")
+  public boolean logWarnings = true;
 }

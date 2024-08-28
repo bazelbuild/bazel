@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import org.junit.Before;
@@ -498,14 +497,15 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
       return;
     }
 
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "local_repository(name = 'foo', path = '/foo')");
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'foo')",
+        "local_path_override(module_name = 'foo', path = '/foo')");
     if (siblingRepoLayout) {
       setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
-    invalidatePackages();
 
-    scratch.file("/foo/WORKSPACE");
+    scratch.file("/foo/MODULE.bazel", "module(name = 'foo')");
     scratch.file(
         "/foo/x/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
@@ -515,19 +515,20 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "a/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
         "proto_library(name='a', srcs=['a.proto'], deps=['@foo//x:x'])");
+    invalidatePackages();
 
     String genfiles =
         getTargetConfiguration()
             .getGenfilesFragment(
-                siblingRepoLayout ? RepositoryName.create("foo") : RepositoryName.MAIN)
+                siblingRepoLayout ? RepositoryName.create("foo+") : RepositoryName.MAIN)
             .toString();
     String fooProtoRoot;
-    fooProtoRoot = (siblingRepoLayout ? genfiles : genfiles + "/external/foo");
+    fooProtoRoot = (siblingRepoLayout ? genfiles : genfiles + "/external/foo+");
     ConfiguredTarget a = getConfiguredTarget("//a:a");
     ProtoInfo aInfo = a.get(ProtoInfo.PROVIDER);
     assertThat(aInfo.getTransitiveProtoSourceRoots().toList()).containsExactly(".", fooProtoRoot);
 
-    ConfiguredTarget x = getConfiguredTarget("@foo//x:x");
+    ConfiguredTarget x = getConfiguredTarget("@@foo+//x:x");
     ProtoInfo xInfo = x.get(ProtoInfo.PROVIDER);
     assertThat(xInfo.getTransitiveProtoSourceRoots().toList()).containsExactly(fooProtoRoot);
   }
@@ -608,15 +609,16 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
       return;
     }
 
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
-    invalidatePackages();
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'yolo_repo')",
+        "local_path_override(module_name = 'yolo_repo', path = '/yolo_repo')");
 
     if (siblingRepoLayout) {
       setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
 
-    scratch.file("/yolo_repo/WORKSPACE");
+    scratch.file("/yolo_repo/MODULE.bazel", "module(name = 'yolo_repo')");
     scratch.file("/yolo_repo/yolo_pkg/yolo.proto");
     scratch.file(
         "/yolo_repo/yolo_pkg/BUILD",
@@ -627,8 +629,9 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "  import_prefix = 'bazel.build/yolo',",
         "  visibility = ['//visibility:public'],",
         ")");
+    invalidatePackages();
 
-    ConfiguredTarget target = getConfiguredTarget("@yolo_repo//yolo_pkg:yolo_proto");
+    ConfiguredTarget target = getConfiguredTarget("@@yolo_repo+//yolo_pkg:yolo_proto");
     assertThat(
             Iterables.getOnlyElement(target.get(ProtoInfo.PROVIDER).getExportedSources().toList())
                 .getExecPathString())
@@ -650,15 +653,16 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
       return;
     }
 
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
-    invalidatePackages();
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'yolo_repo')",
+        "local_path_override(module_name = 'yolo_repo', path = '/yolo_repo')");
 
     if (siblingRepoLayout) {
       setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
 
-    scratch.file("/yolo_repo/WORKSPACE");
+    scratch.file("/yolo_repo/MODULE.bazel", "module(name = 'yolo_repo')");
     scratch.file("/yolo_repo/yolo_pkg_to_be_stripped/yolo_pkg/yolo.proto");
     scratch.file(
         "/yolo_repo/yolo_pkg_to_be_stripped/yolo_pkg/BUILD",
@@ -670,9 +674,10 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "  strip_import_prefix = '/yolo_pkg_to_be_stripped',",
         "  visibility = ['//visibility:public'],",
         ")");
+    invalidatePackages();
 
     ConfiguredTarget target =
-        getConfiguredTarget("@yolo_repo//yolo_pkg_to_be_stripped/yolo_pkg:yolo_proto");
+        getConfiguredTarget("@@yolo_repo+//yolo_pkg_to_be_stripped/yolo_pkg:yolo_proto");
     assertThat(
             Iterables.getOnlyElement(target.get(ProtoInfo.PROVIDER).getExportedSources().toList())
                 .getExecPathString())
@@ -694,15 +699,16 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
       return;
     }
 
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
-    invalidatePackages();
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'yolo_repo')",
+        "local_path_override(module_name = 'yolo_repo', path = '/yolo_repo')");
 
     if (siblingRepoLayout) {
       setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
 
-    scratch.file("/yolo_repo/WORKSPACE");
+    scratch.file("/yolo_repo/MODULE.bazel", "module(name = 'yolo_repo')");
     scratch.file("/yolo_repo/yolo_pkg_to_be_stripped/yolo_pkg/yolo.proto");
     scratch.file(
         "/yolo_repo/yolo_pkg_to_be_stripped/yolo_pkg/BUILD",
@@ -713,9 +719,10 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "  strip_import_prefix = '/yolo_pkg_to_be_stripped',",
         "  visibility = ['//visibility:public'],",
         ")");
+    invalidatePackages();
 
     ConfiguredTarget target =
-        getConfiguredTarget("@yolo_repo//yolo_pkg_to_be_stripped/yolo_pkg:yolo_proto");
+        getConfiguredTarget("@@yolo_repo+//yolo_pkg_to_be_stripped/yolo_pkg:yolo_proto");
     assertThat(
             Iterables.getOnlyElement(target.get(ProtoInfo.PROVIDER).getExportedSources().toList())
                 .getExecPathString())
@@ -738,15 +745,16 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
       return;
     }
 
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
-    invalidatePackages();
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'yolo_repo')",
+        "local_path_override(module_name = 'yolo_repo', path = '/yolo_repo')");
 
     if (siblingRepoLayout) {
       setBuildLanguageOptions("--experimental_sibling_repository_layout");
     }
 
-    scratch.file("/yolo_repo/WORKSPACE");
+    scratch.file("/yolo_repo/MODULE.bazel", "module(name = 'yolo_repo')");
     scratch.file("/yolo_repo/yolo_pkg_to_be_stripped/yolo_pkg/yolo.proto");
     scratch.file(
         "/yolo_repo/BUILD",
@@ -757,8 +765,9 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "  strip_import_prefix = 'yolo_pkg_to_be_stripped',",
         "  visibility = ['//visibility:public'],",
         ")");
+    invalidatePackages();
 
-    ConfiguredTarget target = getConfiguredTarget("@yolo_repo//:yolo_proto");
+    ConfiguredTarget target = getConfiguredTarget("@@yolo_repo+//:yolo_proto");
     assertThat(
             Iterables.getOnlyElement(target.get(ProtoInfo.PROVIDER).getExportedSources().toList())
                 .getExecPathString())
@@ -1049,11 +1058,12 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
       return;
     }
 
-    FileSystemUtils.appendIsoLatin1(
-        scratch.resolve("WORKSPACE"), "local_repository(name = 'foo', path = '/foo')");
-    invalidatePackages();
+    scratch.appendFile(
+        "MODULE.bazel",
+        "bazel_dep(name = 'foo')",
+        "local_path_override(module_name = 'foo', path = '/foo')");
 
-    scratch.file("/foo/WORKSPACE");
+    scratch.file("/foo/MODULE.bazel", "module(name = 'foo')");
     scratch.file(
         "/foo/x/y/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
@@ -1066,11 +1076,12 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
         "a/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
         "proto_library(name='a', srcs=['a.proto'], deps=['@foo//x/y:q'])");
+    invalidatePackages();
 
     ImmutableList<String> commandLine =
         allArgsForAction((SpawnAction) getDescriptorWriteAction("//a:a"));
     String genfiles = getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN).toString();
-    assertThat(commandLine).contains("-I" + genfiles + "/external/foo/x/y/_virtual_imports/q");
+    assertThat(commandLine).contains("-I" + genfiles + "/external/foo+/x/y/_virtual_imports/q");
   }
 
   @CanIgnoreReturnValue
@@ -1141,18 +1152,16 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
       return;
     }
 
-    scratch.file("third_party/foo/WORKSPACE");
+    scratch.file("third_party/foo/MODULE.bazel", "module(name = 'foo')");
     scratch.file(
         "third_party/foo/BUILD.bazel",
         TestConstants.LOAD_PROTO_LIBRARY,
         "proto_library(name='a', srcs=['a.proto'])",
         "proto_library(name='c', srcs=['a/b/c.proto'])");
     scratch.appendFile(
-        "WORKSPACE",
-        "local_repository(",
-        "    name = 'foo',",
-        "    path = 'third_party/foo',",
-        ")");
+        "MODULE.bazel",
+        "bazel_dep(name = 'foo')",
+        "local_path_override(module_name = 'foo', path = 'third_party/foo')");
     invalidatePackages();
 
     scratch.file(
@@ -1164,13 +1173,13 @@ public class BazelProtoLibraryTest extends BuildViewTestCase {
     {
       ImmutableList<String> commandLine =
           allArgsForAction((SpawnAction) getDescriptorWriteAction("//x:a"));
-      assertThat(commandLine).containsAtLeast("-Iexternal/foo", "-I.");
+      assertThat(commandLine).containsAtLeast("-Iexternal/foo+", "-I.");
     }
 
     {
       ImmutableList<String> commandLine =
           allArgsForAction((SpawnAction) getDescriptorWriteAction("//x:c"));
-      assertThat(commandLine).containsAtLeast("-Iexternal/foo", "-I.");
+      assertThat(commandLine).containsAtLeast("-Iexternal/foo+", "-I.");
     }
   }
 

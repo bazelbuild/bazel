@@ -447,6 +447,89 @@ EOF
   expect_log "value=command_line_val"
 }
 
+function write_label_flag_invalidation_transition() {
+  local pkg="$1"
+  local value="$2"
+
+  cat > $pkg/transition.bzl <<EOF
+def _impl(settings, attr):
+    # buildifier: disable=unused-variable
+    _ignore = settings, attr
+    return {
+        "//$pkg:my_label_build_setting": "//$pkg:$value",
+    }
+
+label_flag_transition = transition(
+    implementation = _impl,
+    inputs = [],
+    outputs = ["//$pkg:my_label_build_setting"],
+)
+EOF
+}
+
+# Regression test for https://github.com/bazelbuild/bazel/issues/23097
+function test_label_flag_invalidation() {
+  local -r pkg=$FUNCNAME
+  mkdir -p $pkg
+
+  cat > $pkg/BUILD <<EOF
+load("//$pkg:rules.bzl", "my_rule", "simple_rule")
+
+my_rule(name = "my_rule")
+
+simple_rule(name = "default", value = "default_val")
+
+simple_rule(name = "first", value = "first_val")
+
+simple_rule(name = "second", value = "second_val")
+
+label_flag(
+    name = "my_label_build_setting",
+    build_setting_default = ":default"
+)
+EOF
+
+  cat > $pkg/rules.bzl <<EOF
+load("//$pkg:transition.bzl", "label_flag_transition")
+
+def _impl(ctx):
+    _setting = ctx.attr._label_flag[SimpleRuleInfo].value
+    print("value=" + _setting)
+
+my_rule = rule(
+    implementation = _impl,
+    cfg = label_flag_transition,
+    attrs = {
+        "_label_flag": attr.label(default = Label("//$pkg:my_label_build_setting")),
+    },
+)
+
+SimpleRuleInfo = provider(fields = ['value'])
+
+def _simple_rule_impl(ctx):
+    return [SimpleRuleInfo(value = ctx.attr.value)]
+
+simple_rule = rule(
+    implementation = _simple_rule_impl,
+    attrs = {
+        "value":attr.string(),
+    },
+)
+EOF
+
+  # Write the transition to set the flag value to `first`.
+  write_label_flag_invalidation_transition "$pkg" "first"
+  bazel build //$pkg:my_rule > output 2>"$TEST_log" || fail "Expected success"
+  expect_log "value=first_val"
+
+  # Now rewrite the transition to change the value to second, and ensure the
+  # target is re-run.
+  write_label_flag_invalidation_transition "$pkg" "second"
+  bazel build //$pkg:my_rule > output 2>"$TEST_log" || fail "Expected success"
+  expect_log "value=second_val"
+  expect_not_log "value=first_val"
+}
+
 function test_output_same_config_as_generating_target() {
   local -r pkg=$FUNCNAME
   mkdir -p $pkg
@@ -732,7 +815,7 @@ EOF
 
   bazel build //$pkg:demo >& "$TEST_log" && fail "Expected failure"
   expect_not_log "crashed due to an internal error"
-  expect_log "`cfg` must be set to a transition object initialized by the transition() function"
+  expect_log '`cfg` must be set to a transition object initialized by the transition() function'
 }
 
 function write_attr_list_transition() {

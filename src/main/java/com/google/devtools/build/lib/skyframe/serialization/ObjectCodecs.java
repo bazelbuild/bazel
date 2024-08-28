@@ -22,6 +22,7 @@ import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /**
@@ -90,7 +91,7 @@ public class ObjectCodecs {
   }
 
   @VisibleForTesting // private
-  public ObjectCodecs withCodecOverridesForTesting(ObjectCodec<?>... codecs) {
+  public ObjectCodecs withCodecOverridesForTesting(List<ObjectCodec<?>> codecs) {
     ObjectCodecRegistry.Builder registryBuilder = getCodecRegistry().getBuilder();
     for (ObjectCodec<?> codec : codecs) {
       registryBuilder.add(codec);
@@ -158,17 +159,28 @@ public class ObjectCodecs {
    * @param bufferSize size passed to {@link CodedOutputStream#newInstance}
    */
   public byte[] serializeMemoizedToBytes(
-      @Nullable Object subject, int outputCapacity, int bufferSize) throws SerializationException {
+      @Nullable Object subject,
+      int outputCapacity,
+      int bufferSize,
+      @Nullable ProfileCollector profileCollector)
+      throws SerializationException {
     return MemoizingSerializationContext.serializeToBytes(
-        getCodecRegistry(), getDependencies(), subject, outputCapacity, bufferSize);
+        getCodecRegistry(),
+        getDependencies(),
+        subject,
+        outputCapacity,
+        bufferSize,
+        profileCollector);
   }
 
   /** Serializes {@code subject} using a {@link SharedValueSerializationContext}. */
   public SerializationResult<ByteString> serializeMemoizedAndBlocking(
-      FingerprintValueService fingerprintValueService, Object subject)
+      FingerprintValueService fingerprintValueService,
+      Object subject,
+      @Nullable ProfileCollector profileCollector)
       throws SerializationException {
     return SharedValueSerializationContext.serializeToResult(
-        getCodecRegistry(), getDependencies(), fingerprintValueService, subject);
+        getCodecRegistry(), getDependencies(), fingerprintValueService, subject, profileCollector);
   }
 
   /**
@@ -178,14 +190,15 @@ public class ObjectCodecs {
    */
   public SerializationResult<ByteString> serializeMemoizedAndBlocking(
       FingerprintValueService fingerprintValueService,
-      Object subject,
-      ImmutableClassToInstanceMap<?> dependencyOverrides)
+      ImmutableClassToInstanceMap<?> dependencyOverrides,
+      Object subject)
       throws SerializationException {
     return SharedValueSerializationContext.serializeToResult(
         getCodecRegistry(),
         overrideDependencies(getDependencies(), dependencyOverrides),
         fingerprintValueService,
-        subject);
+        subject,
+        /* profileCollector= */ null);
   }
 
   public Object deserialize(byte[] data) throws SerializationException {

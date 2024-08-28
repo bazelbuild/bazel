@@ -82,6 +82,7 @@ fi
 # * https://github.com/bazelbuild/bazel/issues/2394
 # * https://bugs.python.org/issue28425
 function test_python_binary_empty_files_in_runfiles_are_regular_files() {
+  add_rules_python "MODULE.bazel"
   mkdir -p test/mypackage
   cat > test/BUILD <<'EOF'
 load("@rules_python//python:py_test.bzl", "py_test")

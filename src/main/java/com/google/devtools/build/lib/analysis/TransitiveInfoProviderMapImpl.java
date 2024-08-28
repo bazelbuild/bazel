@@ -35,7 +35,7 @@ import javax.annotation.Nullable;
  * Implementation of {@link TransitiveInfoProvider} that uses {@link ImmutableSharedKeyMap}. For
  * memory efficiency, inheritance is used instead of aggregation as an implementation detail.
  */
-class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object, Object>
+public class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object, Object>
     implements TransitiveInfoProviderMap {
 
   @SerializationConstant @VisibleForSerialization
@@ -97,6 +97,100 @@ class TransitiveInfoProviderMapImpl extends ImmutableSharedKeyMap<Object, Object
   @Override
   public Object getProviderInstanceAt(int i) {
     return valueAt(i);
+  }
+
+  public static ValueSharingCodec valueSharingCodec() {
+    return ValueSharingCodec.INSTANCE;
+  }
+
+  // TODO: b/359437873 - generate with @AutoCodec.
+  private static class ValueSharingCodec
+      extends DeferredObjectCodec<TransitiveInfoProviderMapImpl> {
+    private static final ValueSharingCodec INSTANCE = new ValueSharingCodec();
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<TransitiveInfoProviderMapImpl> getEncodedClass() {
+      return TransitiveInfoProviderMapImpl.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, TransitiveInfoProviderMapImpl obj, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(
+          obj.getKeys(), /* distinguisher= */ null, DeferredKeysCodec.INSTANCE, codedOut);
+      context.serialize(obj.values, codedOut);
+    }
+
+    @Override
+    public DeferredValue<TransitiveInfoProviderMapImpl> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      var builder = new DeserializationBuilder();
+      context.getSharedValue(
+          codedIn,
+          /* distinguisher= */ null,
+          DeferredKeysCodec.INSTANCE,
+          builder,
+          DeserializationBuilder::setKeys);
+      context.deserialize(codedIn, builder, DeserializationBuilder::setValues);
+      return builder;
+    }
+
+    private static class DeferredKeysCodec extends DeferredObjectCodec<Object[]> {
+      private static final DeferredKeysCodec INSTANCE = new DeferredKeysCodec();
+
+      @Override
+      public Class<Object[]> getEncodedClass() {
+        return Object[].class;
+      }
+
+      @Override
+      public boolean autoRegister() {
+        return false;
+      }
+
+      @Override
+      public void serialize(SerializationContext context, Object[] obj, CodedOutputStream codedOut)
+          throws SerializationException, IOException {
+        int length = obj.length;
+        codedOut.writeInt32NoTag(length);
+        for (int i = 0; i < length; i++) {
+          context.serialize(obj[i], codedOut);
+        }
+      }
+
+      @Override
+      public DeferredValue<Object[]> deserializeDeferred(
+          AsyncDeserializationContext context, CodedInputStream codedIn)
+          throws SerializationException, IOException {
+        int length = codedIn.readInt32();
+        Object[] values = new Object[length];
+        for (int i = 0; i < length; i++) {
+          context.deserialize(codedIn, values, new ArrayFieldSetter(i));
+        }
+        return () -> values;
+      }
+
+      private static final class ArrayFieldSetter
+          implements AsyncDeserializationContext.FieldSetter<Object[]> {
+        private final int index;
+
+        private ArrayFieldSetter(int index) {
+          this.index = index;
+        }
+
+        @Override
+        public void set(Object[] array, Object value) {
+          array[index] = value;
+        }
+      }
+    }
   }
 
   @Keep // used reflectively

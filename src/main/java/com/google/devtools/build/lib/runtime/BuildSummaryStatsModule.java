@@ -39,7 +39,6 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.skyframe.ExecutionFinishedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetPendingExecutionEvent;
-import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -64,8 +63,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
   private long executionStartMillis;
   private long executionEndMillis;
   private SpawnStats spawnStats;
-  private Path profilePath;
-  private Profiler.Format profileFormat;
+  private ProfilerStartedEvent profileEvent;
   private AtomicBoolean executionStarted;
 
   @Override
@@ -123,8 +121,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
 
   @Subscribe
   public void profileStarting(ProfilerStartedEvent event) {
-    this.profilePath = event.getProfilePath();
-    this.profileFormat = event.getFormat();
+    this.profileEvent = event;
   }
 
   @Subscribe
@@ -182,21 +179,13 @@ public class BuildSummaryStatsModule extends BlazeModule {
           }
         }
       }
-      if (profilePath != null) {
+      if (profileEvent != null && profileEvent.getProfile() != null) {
         // This leads to missing the afterCommand profiles of the other modules in the profile.
         // Since the BEP currently shuts down at the BuildCompleteEvent, we cannot just move posting
         // the BuildToolLogs to afterCommand of this module.
         try {
           Profiler.instance().stop();
-          event
-              .getResult()
-              .getBuildToolLogCollection()
-              .addLocalFile(
-                  switch (profileFormat) {
-                    case JSON_TRACE_FILE_FORMAT -> "command.profile.json";
-                    case JSON_TRACE_FILE_COMPRESSED_FORMAT -> "command.profile.gz";
-                  },
-                  profilePath);
+          profileEvent.getProfile().publish(event.getResult().getBuildToolLogCollection());
         } catch (IOException e) {
           reporter.handle(Event.error("Error while writing profile file: " + e.getMessage()));
         }
@@ -237,7 +226,6 @@ public class BuildSummaryStatsModule extends BlazeModule {
         eventBus.unregister(criticalPathComputer);
         criticalPathComputer = null;
       }
-      profilePath = null;
     }
   }
 }

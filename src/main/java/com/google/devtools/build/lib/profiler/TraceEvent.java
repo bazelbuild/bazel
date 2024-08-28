@@ -106,40 +106,24 @@ public abstract class TraceEvent {
     reader.beginObject();
     while (reader.hasNext()) {
       switch (reader.nextName()) {
-        case "cat":
-          category = reader.nextString();
-          break;
-        case "name":
-          name = reader.nextString();
-          break;
-        case "ph":
-          type = reader.nextString();
-          break;
-        case "ts":
-          // Duration has no microseconds :-/.
-          timestamp = Duration.ofNanos(reader.nextLong() * 1000);
-          break;
-        case "dur":
-          duration = Duration.ofNanos(reader.nextLong() * 1000);
-          break;
-        case "pid":
-          processId = reader.nextLong();
-          break;
-        case "tid":
-          threadId = reader.nextLong();
-          break;
-        case "out":
-          primaryOutputPath = reader.nextString();
-          break;
-        case "args":
+        case "cat" -> category = reader.nextString();
+        case "name" -> name = reader.nextString();
+        case "ph" -> type = reader.nextString();
+        case "ts" ->
+            // Duration has no microseconds :-/.
+            timestamp = Duration.ofNanos(reader.nextLong() * 1000);
+        case "dur" -> duration = Duration.ofNanos(reader.nextLong() * 1000);
+        case "pid" -> processId = reader.nextLong();
+        case "tid" -> threadId = reader.nextLong();
+        case "out" -> primaryOutputPath = reader.nextString();
+        case "args" -> {
           args = parseMap(reader);
           Object target = args.get("target");
           targetLabel = target instanceof String ? (String) target : null;
           Object mnemonicValue = args.get("mnemonic");
           mnemonic = mnemonicValue instanceof String ? (String) mnemonicValue : null;
-          break;
-        default:
-          reader.skipValue();
+        }
+        default -> reader.skipValue();
       }
     }
     reader.endObject();
@@ -187,24 +171,20 @@ public abstract class TraceEvent {
   @Nullable
   private static Object parseSingleValueRecursively(JsonReader reader) throws IOException {
     JsonToken nextToken = reader.peek();
-    switch (nextToken) {
-      case BOOLEAN:
-        return reader.nextBoolean();
-      case NULL:
+    return switch (nextToken) {
+      case BOOLEAN -> reader.nextBoolean();
+      case NULL -> {
         reader.nextNull();
-        return null;
-      case NUMBER:
-        // Json's only numeric type is number, using Double to accommodate all types
-        return reader.nextDouble();
-      case STRING:
-        return reader.nextString();
-      case BEGIN_OBJECT:
-        return parseMap(reader);
-      case BEGIN_ARRAY:
-        return parseArray(reader);
-      default:
-        throw new IOException("Unexpected token " + nextToken.name());
-    }
+        yield null;
+      }
+      case NUMBER ->
+          // Json's only numeric type is number, using Double to accommodate all types
+          reader.nextDouble();
+      case STRING -> reader.nextString();
+      case BEGIN_OBJECT -> parseMap(reader);
+      case BEGIN_ARRAY -> parseArray(reader);
+      default -> throw new IOException("Unexpected token " + nextToken.name());
+    };
   }
 
   public static List<TraceEvent> parseTraceEvents(JsonReader reader) throws IOException {

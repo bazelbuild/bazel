@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.ENABLE_WORKSPACE;
 import static com.google.devtools.build.skyframe.EvaluationResultSubjectFactory.assertThatEvaluationResult;
 
 import com.google.common.base.Suppliers;
@@ -145,7 +146,10 @@ public class LocalRepositoryLookupFunctionTest extends FoundationTestCase {
     RecordingDifferencer differencer = new SequencedRecordingDifferencer();
     evaluator = new InMemoryMemoizingEvaluator(skyFunctions, differencer);
     PrecomputedValue.PATH_PACKAGE_LOCATOR.set(differencer, pkgLocator.get());
-    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, StarlarkSemantics.DEFAULT);
+    // Local repository lookup doesn't work with Bzlmod
+    // https://github.com/bazelbuild/bazel/issues/22208
+    PrecomputedValue.STARLARK_SEMANTICS.set(
+        differencer, StarlarkSemantics.DEFAULT.toBuilder().setBool(ENABLE_WORKSPACE, true).build());
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
   }

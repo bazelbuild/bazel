@@ -54,8 +54,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.collect.nestedset.NestedSet;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
@@ -184,6 +182,10 @@ public class BuildView {
 
   public TotalAndConfiguredTargetOnlyMetric getEvaluatedActionsCounts() {
     return skyframeBuildView.getEvaluatedActionCounts();
+  }
+
+  public ImmutableMap<String, Integer> getEvaluatedActionsCountsByMnemonic() {
+    return skyframeBuildView.getEvaluatedActionCountsByMnemonic();
   }
 
   public PackageManagerStatistics getAndClearPkgManagerStatistics() {
@@ -728,13 +730,16 @@ public class BuildView {
         .build();
   }
 
-  private static NestedSet<Artifact> getBaselineCoverageArtifacts(
+  private static ImmutableList<Artifact> getBaselineCoverageArtifacts(
       Collection<ConfiguredTarget> configuredTargets) {
-    NestedSetBuilder<Artifact> baselineCoverageArtifacts = NestedSetBuilder.stableOrder();
+    var baselineCoverageArtifacts = ImmutableList.<Artifact>builder();
     for (ConfiguredTarget target : configuredTargets) {
       InstrumentedFilesInfo provider = target.get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
       if (provider != null) {
-        baselineCoverageArtifacts.addTransitive(provider.getBaselineCoverageArtifacts());
+        Artifact baselineCoverage = provider.getBaselineCoverageArtifact();
+        if (baselineCoverage != null) {
+          baselineCoverageArtifacts.add(baselineCoverage);
+        }
       }
     }
     return baselineCoverageArtifacts.build();

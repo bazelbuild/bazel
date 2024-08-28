@@ -324,26 +324,26 @@ function test_no_package_loading_on_benign_workspace_file_changes() {
 
   echo 'workspace(name="wsname1")' > WORKSPACE
   echo 'sh_library(name="shname1")' > $pkg/foo/BUILD
-  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
+  bazel query --enable_workspace --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
   expect_log "Loading package: $pkg/foo"
   expect_log "//$pkg/foo:shname1"
 
   echo 'sh_library(name="shname2")' > $pkg/foo/BUILD
-  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
+  bazel query --enable_workspace --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
   expect_log "Loading package: $pkg/foo"
   expect_log "//$pkg/foo:shname2"
 
   # Test that comment changes do not cause package reloading
   echo '#benign comment' >> WORKSPACE
-  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
+  bazel query --enable_workspace --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
   expect_not_log "Loading package: $pkg/foo"
   expect_log "//$pkg/foo:shname2"
 
   echo 'workspace(name="wsname2")' > WORKSPACE
-  bazel query --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
+  bazel query --enable_workspace --experimental_ui_debug_all_events //$pkg/foo:all >& "$TEST_log" \
       || fail "Expected success"
   expect_log "Loading package: $pkg/foo"
   expect_log "//$pkg/foo:shname2"
@@ -467,10 +467,14 @@ function test_bazel_bin_is_not_a_package() {
   local -r pkg="${FUNCNAME[0]}"
   mkdir "$pkg" || fail "Could not mkdir $pkg"
   echo "filegroup(name = '$pkg')" > "$pkg/BUILD"
-  setup_skylib_support
   # Ensure bazel-<pkg> is created.
   bazel build --symlink_prefix="foo_prefix-" "//$pkg" || fail "build failed"
   [[ -d "foo_prefix-bin" ]] || fail "bazel-bin was not created"
+
+  if [[ $PRODUCT_NAME == "bazel" ]]; then
+    # Remove tools dir set up by copy_tools_directory from testenv.sh
+    rm -rf tools
+  fi
 
   # Assert that "//..." does not expand to //foo_prefix-*
   bazel query //... >& "$TEST_log"

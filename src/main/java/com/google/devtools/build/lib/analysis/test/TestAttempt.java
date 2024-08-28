@@ -110,6 +110,10 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
         lastAttempt);
   }
 
+  /**
+   * Creates a test attempt result from cached test data, providing a result while indicating to
+   * consumers that the test did not actually execute.
+   */
   public static TestAttempt fromCachedTestResult(
       TestRunnerAction testAction,
       TestResultData attemptData,
@@ -129,6 +133,29 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
         files,
         attemptData.getWarningList(),
         lastAttempt);
+  }
+
+  /**
+   * Creates a test result for rare cases where the test itself was built, but the {@link
+   * TestRunnerAction} could not be started by a test strategy.
+   *
+   * <p>This overload should be very rarely used, and in particular must not be used by an
+   * implementation of a {@link TestStrategy}.
+   */
+  public static TestAttempt forUnstartableTestResult(
+      TestRunnerAction testAction, TestResultData attemptData) {
+    return new TestAttempt(
+        false,
+        testAction,
+        /* executionInfo= */ BuildEventStreamProtos.TestResult.ExecutionInfo.getDefaultInstance(),
+        /* attempt= */ 1,
+        attemptData.getStatus(),
+        attemptData.getStatusDetails(),
+        attemptData.getStartTimeMillisEpoch(),
+        attemptData.getRunDurationMillis(),
+        /* files= */ ImmutableList.of(),
+        attemptData.getWarningList(),
+        /* lastAttempt= */ true);
   }
 
   @VisibleForTesting
@@ -205,7 +232,10 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
         // TODO(b/199940216): Can we populate metadata for these files?
         localFiles.add(
             new LocalFile(
-                file.getSecond(), localFileType, /*artifact=*/ null, /*artifactMetadata=*/ null));
+                file.getSecond(),
+                localFileType,
+                /* artifact= */ null,
+                /* artifactMetadata= */ null));
       }
     }
     return localFiles.build();
@@ -225,9 +255,13 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     builder.setStatusDetails(statusDetails);
     builder.setExecutionInfo(executionInfo);
     builder.setCachedLocally(cachedLocally);
-    builder.setTestAttemptStart(Timestamps.fromMillis(startTimeMillis));
+    if (startTimeMillis != 0) {
+      builder.setTestAttemptStart(Timestamps.fromMillis(startTimeMillis));
+    }
     builder.setTestAttemptStartMillisEpoch(startTimeMillis);
-    builder.setTestAttemptDuration(Durations.fromMillis(durationMillis));
+    if (durationMillis != 0) {
+      builder.setTestAttemptDuration(Durations.fromMillis(durationMillis));
+    }
     builder.setTestAttemptDurationMillis(durationMillis);
     builder.addAllWarning(testWarnings);
     for (Pair<String, Path> file : files) {

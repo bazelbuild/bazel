@@ -37,6 +37,9 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
   /**
    * A local file that is referenced by the build event. These can be uploaded to a separate backend
    * storage.
+   *
+   * <p>Despite the name, it is possible that a {@code LocalFile} is already stored remotely. If
+   * {@link #artifactMetadata} {@link FileArtifactValue#isRemote}, the upload may be skipped.
    */
   final class LocalFile {
 
@@ -73,14 +76,11 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
       public static LocalFileType forArtifact(
           Artifact artifact, @Nullable FileArtifactValue metadata) {
         if (metadata != null) {
-          switch (metadata.getType()) {
-            case DIRECTORY:
-              return LocalFileType.OUTPUT_DIRECTORY;
-            case SYMLINK:
-              return LocalFileType.OUTPUT_SYMLINK;
-            default:
-              return LocalFileType.OUTPUT_FILE;
-          }
+          return switch (metadata.getType()) {
+            case DIRECTORY -> LocalFileType.OUTPUT_DIRECTORY;
+            case SYMLINK -> LocalFileType.OUTPUT_SYMLINK;
+            default -> LocalFileType.OUTPUT_FILE;
+          };
         }
         if (artifact.isDirectory()) {
           return LocalFileType.OUTPUT_DIRECTORY;

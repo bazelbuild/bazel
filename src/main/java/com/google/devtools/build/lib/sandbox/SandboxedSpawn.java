@@ -54,7 +54,10 @@ interface SandboxedSpawn extends DescribableExecutionUnit {
   void createFileSystem() throws IOException, InterruptedException;
 
   /**
-   * Moves all {@code outputs} to {@code execRoot} while keeping the directory structure.
+   * Copies all {@code outputs} to {@code execRoot} while keeping the directory structure.
+   *
+   * <p>An efficient implementation may move the files instead of copying them, if possible. It is
+   * unspecified whether the original files still exist after this method returns.
    *
    * @throws IOException
    */

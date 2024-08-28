@@ -161,7 +161,7 @@ public abstract class DeserializationContext implements AsyncDeserializationCont
       return constant;
     }
     // Performs deserialization using the specified codec.
-    return deserializeAndMaybeMemoize(registry.getCodecDescriptorByTag(tag).getCodec(), codedIn);
+    return deserializeAndMaybeMemoize(registry.getCodecDescriptorByTag(tag).codec(), codedIn);
   }
 
   @Nullable
@@ -174,8 +174,9 @@ public abstract class DeserializationContext implements AsyncDeserializationCont
   /**
    * Returns the result value.
    *
-   * <p>In the {@link SharedValueDeserializationContext}, the {@link deserializeAndMaybeMemoize} may
-   * produce futures. This method is overridden to unwrap them.
+   * <p>In the {@link SharedValueDeserializationContext}, {@link
+   * DeserializationContext#deserializeAndMaybeMemoize} may produce futures. This method is
+   * overridden to unwrap them.
    */
   @SuppressWarnings("CanIgnoreReturnValueSuggester")
   @ForOverride

@@ -113,6 +113,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.IntFunction;
@@ -728,11 +729,13 @@ public final class ActionExecutionFunction implements SkyFunction {
         PathFragment parent =
             checkNotNull(path.getParentDirectory(), "Must pass in files, not root directory");
         checkArgument(!parent.isAbsolute(), path);
-        ContainingPackageLookupValue.Key depKey =
-            ContainingPackageLookupValue.key(
-                PackageIdentifier.discoverFromExecPath(path, true, siblingRepositoryLayout));
-        depKeys.put(path, depKey);
-        packageLookupsRequested.add(depKey);
+        Optional<PackageIdentifier> pkgId =
+            PackageIdentifier.discoverFromExecPath(path, true, siblingRepositoryLayout);
+        if (pkgId.isPresent()) {
+          ContainingPackageLookupValue.Key depKey = ContainingPackageLookupValue.key(pkgId.get());
+          depKeys.put(path, depKey);
+          packageLookupsRequested.add(depKey);
+        }
       }
 
       SkyframeLookupResult values = env.getValuesAndExceptions(depKeys.values());
@@ -967,10 +970,14 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     @Override
-    public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact) {
+    public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact)
+        throws MissingExpansionException {
       checkArgument(treeArtifact.isTreeArtifact(), treeArtifact);
       TreeArtifactValue tree = inputArtifactData.getTreeMetadata(treeArtifact.getExecPath());
-      return tree == null ? ImmutableSortedSet.of() : tree.getChildren();
+      if (tree == null) {
+        throw new MissingExpansionException("Missing expansion for tree artifact: " + treeArtifact);
+      }
+      return tree.getChildren();
     }
 
     @Override
@@ -1306,7 +1313,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
 
     if (!undoneInputs.isEmpty()) {
-      throw new UndoneInputsException(ImmutableList.copyOf(undoneInputs), inputDepKeys);
+      throw new UndoneInputsException(ImmutableSet.copyOf(undoneInputs), inputDepKeys);
     }
 
     // If there were no errors, we don't go through the scheduling dependencies because the only
@@ -1546,10 +1553,10 @@ public final class ActionExecutionFunction implements SkyFunction {
    * completed with an error.
    */
   private static final class UndoneInputsException extends Exception {
-    private final ImmutableList<Artifact> undoneInputs;
+    private final ImmutableSet<Artifact> undoneInputs;
     private final ImmutableSet<SkyKey> inputDepKeys;
 
-    UndoneInputsException(ImmutableList<Artifact> undoneInputs, ImmutableSet<SkyKey> inputDepKeys) {
+    UndoneInputsException(ImmutableSet<Artifact> undoneInputs, ImmutableSet<SkyKey> inputDepKeys) {
       this.undoneInputs = undoneInputs;
       this.inputDepKeys = inputDepKeys;
     }

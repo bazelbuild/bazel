@@ -73,7 +73,7 @@ public abstract class RepositoryMappingValue implements SkyValue {
     return new AutoValue_RepositoryMappingValue(
         repositoryMapping,
         Optional.of(associatedModuleName),
-        Optional.of(associatedModuleVersion.getOriginal()));
+        Optional.of(associatedModuleVersion.getNormalized()));
   }
 
   /**
@@ -144,9 +144,9 @@ public abstract class RepositoryMappingValue implements SkyValue {
      * Whether the root module should see repos defined in WORKSPACE. This only takes effect when
      * {@link #repoName} is the main repo.
      */
-    abstract boolean rootModuleShouldSeeWorkspaceRepos();
+    public abstract boolean rootModuleShouldSeeWorkspaceRepos();
 
-    static Key create(RepositoryName repoName, boolean rootModuleShouldSeeWorkspaceRepos) {
+    public static Key create(RepositoryName repoName, boolean rootModuleShouldSeeWorkspaceRepos) {
       return interner.intern(
           new AutoValue_RepositoryMappingValue_Key(repoName, rootModuleShouldSeeWorkspaceRepos));
     }

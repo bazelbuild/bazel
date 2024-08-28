@@ -179,8 +179,6 @@ bazel_fragments["BazelConfigurarion$Options"] = fragment(
 
 bazel_fragments["BazelPythonConfiguration$Options"] = fragment(
     propagate = [
-        "//command_line_option:python2_path",
-        "//command_line_option:python3_path",
         "//command_line_option:python_top",
         "//command_line_option:python_path",
         "//command_line_option:experimental_python_import_all_repositories",
@@ -231,6 +229,7 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:experimental_debug_selects_always_succeed",
         "//command_line_option:incompatible_check_testonly_for_output_files",
         "//command_line_option:incompatible_auto_exec_groups",
+        "//command_line_option:incompatible_bazel_test_exec_run_under",
         "//command_line_option:experimental_writable_outputs",
         "//command_line_option:build_runfile_manifests",
         "//command_line_option:build_runfile_links",
@@ -249,6 +248,7 @@ bazel_fragments["CoreOptions"] = fragment(
         "//command_line_option:experimental_exclude_defines_from_exec_config",
         "//command_line_option:experimental_exclude_starlark_flags_from_exec_config",
         "//command_line_option:experimental_propagate_custom_flag",
+        "//command_line_option:experimental_inprocess_symlink_creation",
     ],
     inputs = ["//command_line_option:features"],
     outputs = [

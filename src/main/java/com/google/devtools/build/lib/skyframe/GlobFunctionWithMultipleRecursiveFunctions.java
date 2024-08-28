@@ -126,223 +126,194 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
     NestedSetBuilder<PathFragment> matches = NestedSetBuilder.stableOrder();
 
     RootedPath dirRootedPath = RootedPath.toRootedPath(glob.getPackageRoot(), dirPathFragment);
-    if (containsGlobs(patternHead)) {
-      // Pattern contains globs, so a directory listing is required.
-      //
-      // Note that we have good reason to believe the directory exists: if this is the
-      // top-level directory of the package, the package's existence implies the directory's
-      // existence; if this is a lower-level directory in the package, then we got here from
-      // previous directory listings. Filesystem operations concurrent with build could mean the
-      // directory no longer exists, but DirectoryListingFunction handles that gracefully.
-      SkyKey directoryListingKey = DirectoryListingValue.key(dirRootedPath);
-      DirectoryListingValue listingValue = null;
+    // Note that we have good reason to believe the directory exists: if this is the
+    // top-level directory of the package, the package's existence implies the directory's
+    // existence; if this is a lower-level directory in the package, then we got here from
+    // previous directory listings. Filesystem operations concurrent with build could mean the
+    // directory no longer exists, but DirectoryListingFunction handles that gracefully.
+    SkyKey directoryListingKey = DirectoryListingValue.key(dirRootedPath);
+    DirectoryListingValue listingValue = null;
 
-      boolean patternHeadIsStarStar = patternHead.equals("**");
-      if (patternHeadIsStarStar) {
-        // "**" also matches an empty segment, so try the case where it is not present.
-        if (globMatchesBareFile) {
-          // Recursive globs aren't supposed to match the package's directory.
-          if (globberOperation == Globber.Operation.FILES_AND_DIRS
-              && !globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
-            matches.add(globSubdir);
-          }
-        } else {
-          // Optimize away a Skyframe restart by requesting the DirectoryListingValue dep and
-          // recursive GlobValue dep in a single batch.
+    boolean patternHeadContainsGlobs = containsGlobs(patternHead);
+    boolean patternHeadIsStarStar = patternHead.equals("**");
+    if (patternHeadIsStarStar) {
+      // "**" also matches an empty segment, so try the case where it is not present.
+      if (globMatchesBareFile) {
+        // Recursive globs aren't supposed to match the package's directory.
+        if (globberOperation == Globber.Operation.FILES_AND_DIRS
+            && !globSubdir.equals(PathFragment.EMPTY_FRAGMENT)) {
+          matches.add(globSubdir);
+        }
+      } else {
+        // Optimize away a Skyframe restart by requesting the DirectoryListingValue dep and
+        // recursive GlobValue dep in a single batch.
 
-          SkyKey keyForRecursiveGlobInCurrentDirectory =
-              GlobValue.internalKey(
-                  glob.getPackageId(),
-                  glob.getPackageRoot(),
-                  globSubdir,
-                  patternTail,
-                  globberOperation);
-          SkyframeLookupResult listingAndRecursiveGlobResult =
-              env.getValuesAndExceptions(
-                  ImmutableList.of(keyForRecursiveGlobInCurrentDirectory, directoryListingKey));
+        SkyKey keyForRecursiveGlobInCurrentDirectory =
+            GlobValue.internalKey(
+                glob.getPackageId(),
+                glob.getPackageRoot(),
+                globSubdir,
+                patternTail,
+                globberOperation);
+        SkyframeLookupResult listingAndRecursiveGlobResult =
+            env.getValuesAndExceptions(
+                ImmutableList.of(keyForRecursiveGlobInCurrentDirectory, directoryListingKey));
+        if (env.valuesMissing()) {
+          return null;
+        }
+        GlobValue globValue =
+            (GlobValue) listingAndRecursiveGlobResult.get(keyForRecursiveGlobInCurrentDirectory);
+        if (globValue == null) {
+          // has exception, will be handled later.
+          return null;
+        }
+        Preconditions.checkState(globValue instanceof GlobValueWithNestedSet);
+        matches.addTransitive(((GlobValueWithNestedSet) globValue).getMatchesInNestedSet());
+        listingValue =
+            (DirectoryListingValue) listingAndRecursiveGlobResult.get(directoryListingKey);
+      }
+    }
+
+    if (listingValue == null) {
+      listingValue = (DirectoryListingValue) env.getValue(directoryListingKey);
+      if (listingValue == null) {
+        return null;
+      }
+    }
+
+    // Now that we have the directory listing, we do three passes over it so as to maximize
+    // skyframe batching:
+    // (1) Process every dirent, keeping track of values we need to request if the dirent cannot
+    //     be processed with current information (symlink targets and subdirectory globs/package
+    //     lookups for some subdirectories).
+    // (2) Get those values and process the symlinks, keeping track of subdirectory globs/package
+    //     lookups we may need to request in case the symlink's target is a directory.
+    // (3) Process the necessary subdirectories.
+    int direntsSize = listingValue.getDirents().size();
+    Map<SkyKey, Dirent> symlinkFileMap = Maps.newHashMapWithExpectedSize(direntsSize);
+    Map<SkyKey, Dirent> subdirMap = Maps.newHashMapWithExpectedSize(direntsSize);
+    Map<Dirent, Object> sortedResultMap = Maps.newTreeMap();
+    String subdirPattern = patternHeadIsStarStar ? glob.getPattern() : patternTail;
+    // First pass: do normal files and collect SkyKeys to request for subdirectories and symlinks.
+    for (Dirent dirent : listingValue.getDirents()) {
+      Dirent.Type direntType = dirent.getType();
+      String fileName = dirent.getName();
+      boolean patternHeadMatchesDirent =
+          patternHeadContainsGlobs
+              ? UnixGlob.matches(patternHead, fileName, regexPatternCache)
+              : patternHead.equals(fileName);
+      if (!patternHeadMatchesDirent) {
+        continue;
+      }
+
+      if (direntType == Dirent.Type.SYMLINK) {
+        // TODO(bazel-team): Consider extracting the symlink resolution logic.
+        // For symlinks, look up the corresponding FileValue. This ensures that if the symlink
+        // changes and "switches types" (say, from a file to a directory), this value will be
+        // invalidated. We also need the target's type to properly process the symlink.
+        symlinkFileMap.put(
+            FileValue.key(
+                RootedPath.toRootedPath(
+                    glob.getPackageRoot(), dirPathFragment.getRelative(fileName))),
+            dirent);
+        continue;
+      }
+
+      if (direntType == Dirent.Type.DIRECTORY) {
+        SkyKey keyToRequest = getSkyKeyForSubdir(fileName, glob, subdirPattern);
+        if (keyToRequest != null) {
+          subdirMap.put(keyToRequest, dirent);
+        }
+      } else if (globMatchesBareFile && globberOperation != Globber.Operation.SUBPACKAGES) {
+        sortedResultMap.put(dirent, glob.getSubdir().getRelative(fileName));
+      }
+    }
+
+    Set<SkyKey> subdirAndSymlinksKeys = Sets.union(subdirMap.keySet(), symlinkFileMap.keySet());
+    SkyframeLookupResult subdirAndSymlinksResult =
+        env.getValuesAndExceptions(subdirAndSymlinksKeys);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    Map<SkyKey, Dirent> symlinkSubdirMap = Maps.newHashMapWithExpectedSize(symlinkFileMap.size());
+    // Second pass: process the symlinks and subdirectories from the first pass, and maybe
+    // collect further SkyKeys if fully resolved symlink targets are themselves directories.
+    // Also process any known directories.
+    for (SkyKey subdirAndSymlinksKey : subdirAndSymlinksKeys) {
+      if (symlinkFileMap.containsKey(subdirAndSymlinksKey)) {
+        FileValue symlinkFileValue = (FileValue) subdirAndSymlinksResult.get(subdirAndSymlinksKey);
+        if (symlinkFileValue == null) {
+          return null;
+        }
+        if (!symlinkFileValue.isSymlink()) {
+          throw new GlobException(
+              new InconsistentFilesystemException(
+                  "readdir and stat disagree about whether "
+                      + ((RootedPath) subdirAndSymlinksKey.argument()).asPath()
+                      + " is a symlink."),
+              Transience.TRANSIENT);
+        }
+        if (!symlinkFileValue.exists()) {
+          continue;
+        }
+
+        // This check is more strict than necessary: we raise an error if globbing traverses into
+        // a directory for any reason, even though it's only necessary if that reason was the
+        // resolution of a recursive glob ("**"). Fixing this would require plumbing the ancestor
+        // symlink information through DirectoryListingValue.
+        if (symlinkFileValue.isDirectory()
+            && symlinkFileValue.unboundedAncestorSymlinkExpansionChain() != null) {
+          SkyKey uniquenessKey =
+              FileSymlinkInfiniteExpansionUniquenessFunction.key(
+                  symlinkFileValue.unboundedAncestorSymlinkExpansionChain());
+          env.getValue(uniquenessKey);
           if (env.valuesMissing()) {
             return null;
           }
-          GlobValue globValue =
-              (GlobValue) listingAndRecursiveGlobResult.get(keyForRecursiveGlobInCurrentDirectory);
-          if (globValue == null) {
-            // has exception, will be handled later.
-            return null;
-          }
-          Preconditions.checkState(globValue instanceof GlobValueWithNestedSet);
-          matches.addTransitive(((GlobValueWithNestedSet) globValue).getMatchesInNestedSet());
-          listingValue =
-              (DirectoryListingValue) listingAndRecursiveGlobResult.get(directoryListingKey);
-        }
-      }
 
-      if (listingValue == null) {
-        listingValue = (DirectoryListingValue) env.getValue(directoryListingKey);
-        if (listingValue == null) {
-          return null;
+          FileSymlinkInfiniteExpansionException symlinkException =
+              new FileSymlinkInfiniteExpansionException(
+                  symlinkFileValue.pathToUnboundedAncestorSymlinkExpansionChain(),
+                  symlinkFileValue.unboundedAncestorSymlinkExpansionChain());
+          throw new GlobException(symlinkException, Transience.PERSISTENT);
         }
-      }
 
-      // Now that we have the directory listing, we do three passes over it so as to maximize
-      // skyframe batching:
-      // (1) Process every dirent, keeping track of values we need to request if the dirent cannot
-      //     be processed with current information (symlink targets and subdirectory globs/package
-      //     lookups for some subdirectories).
-      // (2) Get those values and process the symlinks, keeping track of subdirectory globs/package
-      //     lookups we may need to request in case the symlink's target is a directory.
-      // (3) Process the necessary subdirectories.
-      int direntsSize = listingValue.getDirents().size();
-      Map<SkyKey, Dirent> symlinkFileMap = Maps.newHashMapWithExpectedSize(direntsSize);
-      Map<SkyKey, Dirent> subdirMap = Maps.newHashMapWithExpectedSize(direntsSize);
-      Map<Dirent, Object> sortedResultMap = Maps.newTreeMap();
-      String subdirPattern = patternHeadIsStarStar ? glob.getPattern() : patternTail;
-      // First pass: do normal files and collect SkyKeys to request for subdirectories and symlinks.
-      for (Dirent dirent : listingValue.getDirents()) {
-        Dirent.Type direntType = dirent.getType();
+        Dirent dirent = symlinkFileMap.get(subdirAndSymlinksKey);
         String fileName = dirent.getName();
-        if (!UnixGlob.matches(patternHead, fileName, regexPatternCache)) {
-          continue;
-        }
-
-        if (direntType == Dirent.Type.SYMLINK) {
-          // TODO(bazel-team): Consider extracting the symlink resolution logic.
-          // For symlinks, look up the corresponding FileValue. This ensures that if the symlink
-          // changes and "switches types" (say, from a file to a directory), this value will be
-          // invalidated. We also need the target's type to properly process the symlink.
-          symlinkFileMap.put(
-              FileValue.key(
-                  RootedPath.toRootedPath(
-                      glob.getPackageRoot(), dirPathFragment.getRelative(fileName))),
-              dirent);
-          continue;
-        }
-
-        if (direntType == Dirent.Type.DIRECTORY) {
+        if (symlinkFileValue.isDirectory()) {
           SkyKey keyToRequest = getSkyKeyForSubdir(fileName, glob, subdirPattern);
           if (keyToRequest != null) {
-            subdirMap.put(keyToRequest, dirent);
+            symlinkSubdirMap.put(keyToRequest, dirent);
           }
         } else if (globMatchesBareFile && globberOperation != Globber.Operation.SUBPACKAGES) {
           sortedResultMap.put(dirent, glob.getSubdir().getRelative(fileName));
         }
-      }
-
-      Set<SkyKey> subdirAndSymlinksKeys = Sets.union(subdirMap.keySet(), symlinkFileMap.keySet());
-      SkyframeLookupResult subdirAndSymlinksResult =
-          env.getValuesAndExceptions(subdirAndSymlinksKeys);
-      if (env.valuesMissing()) {
-        return null;
-      }
-      Map<SkyKey, Dirent> symlinkSubdirMap = Maps.newHashMapWithExpectedSize(symlinkFileMap.size());
-      // Second pass: process the symlinks and subdirectories from the first pass, and maybe
-      // collect further SkyKeys if fully resolved symlink targets are themselves directories.
-      // Also process any known directories.
-      for (SkyKey subdirAndSymlinksKey : subdirAndSymlinksKeys) {
-        if (symlinkFileMap.containsKey(subdirAndSymlinksKey)) {
-          FileValue symlinkFileValue =
-              (FileValue) subdirAndSymlinksResult.get(subdirAndSymlinksKey);
-          if (symlinkFileValue == null) {
-            return null;
-          }
-          if (!symlinkFileValue.isSymlink()) {
-            throw new GlobException(
-                new InconsistentFilesystemException(
-                    "readdir and stat disagree about whether "
-                        + ((RootedPath) subdirAndSymlinksKey.argument()).asPath()
-                        + " is a symlink."),
-                Transience.TRANSIENT);
-          }
-          if (!symlinkFileValue.exists()) {
-            continue;
-          }
-
-          // This check is more strict than necessary: we raise an error if globbing traverses into
-          // a directory for any reason, even though it's only necessary if that reason was the
-          // resolution of a recursive glob ("**"). Fixing this would require plumbing the ancestor
-          // symlink information through DirectoryListingValue.
-          if (symlinkFileValue.isDirectory()
-              && symlinkFileValue.unboundedAncestorSymlinkExpansionChain() != null) {
-            SkyKey uniquenessKey =
-                FileSymlinkInfiniteExpansionUniquenessFunction.key(
-                    symlinkFileValue.unboundedAncestorSymlinkExpansionChain());
-            env.getValue(uniquenessKey);
-            if (env.valuesMissing()) {
-              return null;
-            }
-
-            FileSymlinkInfiniteExpansionException symlinkException =
-                new FileSymlinkInfiniteExpansionException(
-                    symlinkFileValue.pathToUnboundedAncestorSymlinkExpansionChain(),
-                    symlinkFileValue.unboundedAncestorSymlinkExpansionChain());
-            throw new GlobException(symlinkException, Transience.PERSISTENT);
-          }
-
-          Dirent dirent = symlinkFileMap.get(subdirAndSymlinksKey);
-          String fileName = dirent.getName();
-          if (symlinkFileValue.isDirectory()) {
-            SkyKey keyToRequest = getSkyKeyForSubdir(fileName, glob, subdirPattern);
-            if (keyToRequest != null) {
-              symlinkSubdirMap.put(keyToRequest, dirent);
-            }
-          } else if (globMatchesBareFile && globberOperation != Globber.Operation.SUBPACKAGES) {
-            sortedResultMap.put(dirent, glob.getSubdir().getRelative(fileName));
-          }
-        } else {
-          SkyValue value = subdirAndSymlinksResult.get(subdirAndSymlinksKey);
-          if (value == null) {
-            return null;
-          }
-          processSubdir(Map.entry(subdirAndSymlinksKey, value), subdirMap, glob, sortedResultMap);
-        }
-      }
-
-      Set<SkyKey> symlinkSubdirKeys = symlinkSubdirMap.keySet();
-      SkyframeLookupResult symlinkSubdirResult = env.getValuesAndExceptions(symlinkSubdirKeys);
-      if (env.valuesMissing()) {
-        return null;
-      }
-      // Third pass: do needed subdirectories of symlinked directories discovered during the second
-      // pass.
-      for (SkyKey symlinkSubdirKey : symlinkSubdirKeys) {
-        SkyValue symlinkSubdirValue = symlinkSubdirResult.get(symlinkSubdirKey);
-        if (symlinkSubdirValue == null) {
+      } else {
+        SkyValue value = subdirAndSymlinksResult.get(subdirAndSymlinksKey);
+        if (value == null) {
           return null;
         }
-        processSubdir(
-            Map.entry(symlinkSubdirKey, symlinkSubdirValue),
-            symlinkSubdirMap,
-            glob,
-            sortedResultMap);
+        processSubdir(Map.entry(subdirAndSymlinksKey, value), subdirMap, glob, sortedResultMap);
       }
-      for (Map.Entry<Dirent, Object> fileMatches : sortedResultMap.entrySet()) {
-        addToMatches(fileMatches.getValue(), matches);
-      }
-    } else {
-      // Pattern does not contain globs, so a direct stat is enough.
-      String fileName = patternHead;
-      RootedPath fileRootedPath =
-          RootedPath.toRootedPath(glob.getPackageRoot(), dirPathFragment.getRelative(fileName));
-      FileValue fileValue = (FileValue) env.getValue(FileValue.key(fileRootedPath));
-      if (fileValue == null) {
+    }
+
+    Set<SkyKey> symlinkSubdirKeys = symlinkSubdirMap.keySet();
+    SkyframeLookupResult symlinkSubdirResult = env.getValuesAndExceptions(symlinkSubdirKeys);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    // Third pass: do needed subdirectories of symlinked directories discovered during the second
+    // pass.
+    for (SkyKey symlinkSubdirKey : symlinkSubdirKeys) {
+      SkyValue symlinkSubdirValue = symlinkSubdirResult.get(symlinkSubdirKey);
+      if (symlinkSubdirValue == null) {
         return null;
       }
-      if (fileValue.exists()) {
-        if (fileValue.isDirectory()) {
-          SkyKey keyToRequest = getSkyKeyForSubdir(fileName, glob, patternTail);
-          if (keyToRequest != null) {
-            SkyValue valueRequested = env.getValue(keyToRequest);
-            if (env.valuesMissing()) {
-              return null;
-            }
-            Object fileMatches = getSubdirMatchesFromSkyValue(fileName, glob, valueRequested);
-            if (fileMatches != null) {
-              addToMatches(fileMatches, matches);
-            }
-          }
-        } else if (globMatchesBareFile && globberOperation != Globber.Operation.SUBPACKAGES) {
-          matches.add(glob.getSubdir().getRelative(fileName));
-        }
-      }
+      processSubdir(
+          Map.entry(symlinkSubdirKey, symlinkSubdirValue), symlinkSubdirMap, glob, sortedResultMap);
+    }
+    for (Map.Entry<Dirent, Object> fileMatches : sortedResultMap.entrySet()) {
+      addToMatches(fileMatches.getValue(), matches);
     }
 
     Preconditions.checkState(!env.valuesMissing(), skyKey);

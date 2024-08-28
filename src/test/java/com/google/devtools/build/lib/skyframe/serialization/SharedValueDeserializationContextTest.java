@@ -90,7 +90,8 @@ public final class SharedValueDeserializationContextTest {
             });
 
     SerializationResult<ByteString> serialized =
-        codecs.serializeMemoizedAndBlocking(fingerprintValueService, subject);
+        codecs.serializeMemoizedAndBlocking(
+            fingerprintValueService, subject, /* profileCollector= */ null);
     ListenableFuture<Void> writeStatus = serialized.getFutureToBlockWritesOn();
     if (writeStatus != null) {
       // If it is asynchronous, writing should complete without throwing any exceptions.

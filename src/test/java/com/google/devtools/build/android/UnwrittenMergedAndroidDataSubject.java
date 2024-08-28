@@ -23,9 +23,6 @@ import javax.annotation.Nullable;
 
 class UnwrittenMergedAndroidDataSubject extends Subject {
 
-  static final Subject.Factory<UnwrittenMergedAndroidDataSubject, UnwrittenMergedAndroidData>
-      FACTORY = UnwrittenMergedAndroidDataSubject::new;
-
   private final UnwrittenMergedAndroidData actual;
 
   public UnwrittenMergedAndroidDataSubject(

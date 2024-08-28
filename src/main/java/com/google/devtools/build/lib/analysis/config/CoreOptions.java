@@ -638,14 +638,10 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public OutputDirectoryNamingScheme outputDirectoryNamingScheme;
 
   public boolean useBaselineForOutputDirectoryNamingScheme() {
-    switch (outputDirectoryNamingScheme) {
-      case DIFF_AGAINST_BASELINE:
-      case DIFF_AGAINST_DYNAMIC_BASELINE:
-        return true;
-      case LEGACY:
-        return false;
-    }
-    throw new IllegalStateException("unreachable");
+    return switch (outputDirectoryNamingScheme) {
+      case DIFF_AGAINST_BASELINE, DIFF_AGAINST_DYNAMIC_BASELINE -> true;
+      case LEGACY -> false;
+    };
   }
 
   @Option(
@@ -847,6 +843,22 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "When enabled, passing multiple --modify_execution_info flags is additive."
               + " When disabled, only the last flag is taken into account.")
   public boolean additiveModifyExecutionInfo;
+
+  @Option(
+      name = "incompatible_bazel_test_exec_run_under",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
+      effectTags = {
+        OptionEffectTag.AFFECTS_OUTPUTS,
+      },
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If enabled, \"bazel test --run_under=//:runner\" builds \"//:runner\" in the exec"
+              + " configuration. If disabled, it builds \"//:runner\" in the target configuration."
+              + " Bazel executes tests on exec machines, so the former is more correct. This"
+              + " doesn't affect \"bazel run\", which always builds \"`--run_under=//foo\" in the"
+              + " target configuration.")
+  public boolean bazelTestExecRunUnder;
 
   @Option(
       name = "include_config_fragments_provider",

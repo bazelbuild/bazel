@@ -62,13 +62,12 @@ public class SystemNetworkStats {
   public static Map<String, NetIoCounter> getNetIoCounters() throws IOException {
     Map<String, NetIoCounter> counters = new HashMap<>();
     switch (OS.getCurrent()) {
-      case LINUX:
-        getNetIoCountersLinux(counters);
-        break;
-      default:
+      case LINUX -> getNetIoCountersLinux(counters);
+      default -> {
         if (JniLoader.isJniAvailable()) {
           getNetIoCountersNative(counters);
         }
+      }
     }
     return counters;
   }

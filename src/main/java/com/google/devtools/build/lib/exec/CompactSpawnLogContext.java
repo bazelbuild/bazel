@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
@@ -28,6 +29,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
@@ -259,6 +261,32 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
       try (SilentCloseable c1 = Profiler.instance().profile("logEntry")) {
         logEntry(null, () -> ExecLogEntry.newBuilder().setSpawn(builder));
+      }
+    }
+  }
+
+  @Override
+  public void logSymlinkAction(AbstractAction action) throws IOException, InterruptedException {
+    try (SilentCloseable c = Profiler.instance().profile("logSymlinkAction")) {
+      ExecLogEntry.SymlinkAction.Builder builder = ExecLogEntry.SymlinkAction.newBuilder();
+
+      Artifact input = action.getPrimaryInput();
+      if (input == null) {
+        // Symlinks to absolute paths are only used by FDO and not worth logging as they can be
+        // treated just like source files.
+        return;
+      }
+      builder.setInputPath(input.getExecPathString());
+      builder.setOutputPath(action.getPrimaryOutput().getExecPathString());
+
+      Label label = action.getOwner().getLabel();
+      if (label != null) {
+        builder.setTargetLabel(label.getCanonicalForm());
+      }
+      builder.setMnemonic(action.getMnemonic());
+
+      try (SilentCloseable c1 = Profiler.instance().profile("logEntry")) {
+        logEntry(null, () -> ExecLogEntry.newBuilder().setSymlinkAction(builder));
       }
     }
   }

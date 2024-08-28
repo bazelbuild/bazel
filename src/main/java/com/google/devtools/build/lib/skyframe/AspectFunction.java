@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspectFactory;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.DependencyKind;
-import com.google.devtools.build.lib.analysis.DuplicateException;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection;
 import com.google.devtools.build.lib.analysis.ExecGroupCollection.InvalidExecGroupException;
 import com.google.devtools.build.lib.analysis.IncompatiblePlatformProvider;
@@ -50,6 +49,7 @@ import com.google.devtools.build.lib.analysis.config.DependencyEvaluationExcepti
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget;
+import com.google.devtools.build.lib.analysis.configuredtargets.MergedConfiguredTarget.MergingException;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
@@ -338,7 +338,7 @@ final class AspectFunction implements SkyFunction {
           Lists.transform(key.getBaseKeys(), k -> ((AspectValue) aspectValues.get(k)));
       try {
         associatedTarget = MergedConfiguredTarget.of(associatedTarget, directlyRequiredAspects);
-      } catch (DuplicateException e) {
+      } catch (MergingException e) {
         env.getListener().handle(Event.error(target.getLocation(), e.getMessage()));
         throw new AspectFunctionException(
             new AspectCreationException(e.getMessage(), target.getLabel(), configuration));
@@ -426,7 +426,7 @@ final class AspectFunction implements SkyFunction {
         baseTargetToolchainContexts =
             getBaseTargetToolchainContexts(
                 baseTargetUnloadedToolchainContexts, aspect, target, depValueMap);
-      } catch (DuplicateException e) {
+      } catch (MergingException e) {
         env.getListener().handle(Event.error(target.getLocation(), e.getMessage()));
         throw new AspectFunctionException(
             new AspectCreationException(e.getMessage(), target.getLabel(), configuration));
@@ -487,7 +487,7 @@ final class AspectFunction implements SkyFunction {
           Aspect aspect,
           Target target,
           OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap)
-          throws DuplicateException {
+          throws MergingException {
     if (baseTargetUnloadedToolchainContexts == null) {
       return null;
     }

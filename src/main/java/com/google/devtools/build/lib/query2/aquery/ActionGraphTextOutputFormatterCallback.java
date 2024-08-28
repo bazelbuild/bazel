@@ -205,7 +205,8 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
               action.getInputs().toList().stream()
                   .map(input -> escapeBytestringUtf8(input.getExecPathString()))
                   .sorted()
-                  .collect(Collectors.joining(", ")));
+                  .collect(Collectors.joining(", ")))
+          .append("]\n");
 
       if (options.includeSchedulingDependencies && !action.getSchedulingDependencies().isEmpty()) {
         stringBuilder
@@ -214,11 +215,11 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
                 action.getSchedulingDependencies().toList().stream()
                     .map(input -> escapeBytestringUtf8(input.getExecPathString()))
                     .sorted()
-                    .collect(Collectors.joining(", ")));
+                    .collect(Collectors.joining(", ")))
+            .append("]\n");
       }
 
       stringBuilder
-          .append("]\n")
           .append("  Outputs: [")
           .append(
               action.getOutputs().stream()

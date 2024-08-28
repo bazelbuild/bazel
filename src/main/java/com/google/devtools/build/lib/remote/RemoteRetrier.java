@@ -51,19 +51,12 @@ public class RemoteRetrier extends Retrier {
           // It's not a gRPC error.
           return false;
         }
-        switch (s.getCode()) {
-          case CANCELLED:
-            return !Thread.currentThread().isInterrupted();
-          case UNKNOWN:
-          case DEADLINE_EXCEEDED:
-          case ABORTED:
-          case INTERNAL:
-          case UNAVAILABLE:
-          case RESOURCE_EXHAUSTED:
-            return true;
-          default:
-            return false;
-        }
+        return switch (s.getCode()) {
+          case CANCELLED -> !Thread.currentThread().isInterrupted();
+          case UNKNOWN, DEADLINE_EXCEEDED, ABORTED, INTERNAL, UNAVAILABLE, RESOURCE_EXHAUSTED ->
+              true;
+          default -> false;
+        };
       };
 
   public static final Predicate<? super Exception> RETRIABLE_GRPC_EXEC_ERRORS =

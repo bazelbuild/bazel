@@ -26,6 +26,7 @@ import com.google.common.io.BaseEncoding;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
@@ -76,25 +77,32 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
 
     /**
      * Parses a recorded input from the post-colon substring that identifies the specific input: for
-     * example, the {@code MY_ENV_VAR} part of {@code ENV:MY_ENV_VAR}.
+     * example, the {@code MY_ENV_VAR} part of {@code ENV:MY_ENV_VAR}. Returns null if the parsed
+     * part is invalid.
      */
     public abstract RepoRecordedInput parse(String s);
   }
 
   private static final Comparator<RepoRecordedInput> COMPARATOR =
-      Comparator.comparing((RepoRecordedInput rri) -> rri.getParser().getPrefix())
-          .thenComparing(RepoRecordedInput::toStringInternal);
+      (o1, o2) ->
+          o1 == o2
+              ? 0
+              : Comparator.comparing((RepoRecordedInput rri) -> rri.getParser().getPrefix())
+                  .thenComparing(RepoRecordedInput::toStringInternal)
+                  .compare(o1, o2);
 
   /**
    * Parses a recorded input from its string representation.
    *
    * @param s the string representation
-   * @return The parsed recorded input object, or {@code null} if the string representation is
-   *     invalid
+   * @return The parsed recorded input object, or {@link #NEVER_UP_TO_DATE} if the string
+   *     representation is invalid
    */
-  @Nullable
   public static RepoRecordedInput parse(String s) {
     List<String> parts = Splitter.on(':').limit(2).splitToList(s);
+    if (parts.size() < 2) {
+      return NEVER_UP_TO_DATE;
+    }
     for (Parser parser :
         new Parser[] {
           File.PARSER, Dirents.PARSER, DirTree.PARSER, EnvVar.PARSER, RecordedRepoMapping.PARSER
@@ -103,7 +111,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
         return parser.parse(parts.get(1));
       }
     }
-    return null;
+    return NEVER_UP_TO_DATE;
   }
 
   /**
@@ -172,6 +180,42 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       Environment env, BlazeDirectories directories, @Nullable String oldValue)
       throws InterruptedException;
 
+  /** A sentinel "input" that's always out-of-date to signify parse failure. */
+  public static final RepoRecordedInput NEVER_UP_TO_DATE =
+      new RepoRecordedInput() {
+        @Override
+        public boolean equals(Object obj) {
+          return this == obj;
+        }
+
+        @Override
+        public int hashCode() {
+          return 12345678;
+        }
+
+        @Override
+        public String toStringInternal() {
+          throw new UnsupportedOperationException("this sentinel input should never be serialized");
+        }
+
+        @Override
+        public Parser getParser() {
+          throw new UnsupportedOperationException("this sentinel input should never be parsed");
+        }
+
+        @Override
+        public SkyKey getSkyKey(BlazeDirectories directories) {
+          // Return a random SkyKey to satisfy the contract.
+          return PrecomputedValue.STARLARK_SEMANTICS.getKey();
+        }
+
+        @Override
+        public boolean isUpToDate(
+            Environment env, BlazeDirectories directories, @Nullable String oldValue) {
+          return false;
+        }
+      };
+
   /**
    * Represents a filesystem path stored in a way that is repo-cache-friendly. That is, if the path
    * happens to point inside the current Bazel workspace (in either the main repo or an external
@@ -213,12 +257,12 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       return repoName().map(repoName -> repoName + "//" + path()).orElse(path().toString());
     }
 
-    public static RepoCacheFriendlyPath parse(String s) {
+    public static RepoCacheFriendlyPath parse(String s) throws LabelSyntaxException {
       if (LabelValidator.isAbsolute(s)) {
         int doubleSlash = s.indexOf("//");
         int skipAts = s.startsWith("@@") ? 2 : s.startsWith("@") ? 1 : 0;
         return createInsideWorkspace(
-            RepositoryName.createUnvalidated(s.substring(skipAts, doubleSlash)),
+            RepositoryName.create(s.substring(skipAts, doubleSlash)),
             PathFragment.create(s.substring(doubleSlash + 2)));
       }
       return createOutsideWorkspace(PathFragment.create(s));
@@ -264,7 +308,12 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
 
           @Override
           public RepoRecordedInput parse(String s) {
-            return new File(RepoCacheFriendlyPath.parse(s));
+            try {
+              return new File(RepoCacheFriendlyPath.parse(s));
+            } catch (LabelSyntaxException e) {
+              // malformed inputs cause refetch
+              return NEVER_UP_TO_DATE;
+            }
           }
         };
 
@@ -305,7 +354,8 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
      * for placing in a repository marker file. The file need not exist, and can be a file or a
      * directory.
      */
-    public static String fileValueToMarkerValue(FileValue fileValue) throws IOException {
+    public static String fileValueToMarkerValue(RootedPath rootedPath, FileValue fileValue)
+        throws IOException {
       if (fileValue.isDirectory()) {
         return "DIR";
       }
@@ -316,11 +366,12 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       byte[] digest = fileValue.realFileStateValue().getDigest();
       if (digest == null) {
         // Fast digest not available, or it would have been in the FileValue.
-        digest = fileValue.realRootedPath().asPath().getDigest();
+        digest = fileValue.realRootedPath(rootedPath).asPath().getDigest();
       }
       return BaseEncoding.base16().lowerCase().encode(digest);
     }
 
+    @Override
     @Nullable
     public SkyKey getSkyKey(BlazeDirectories directories) {
       return FileValue.key(path.getRootedPath(directories));
@@ -330,13 +381,13 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
     public boolean isUpToDate(
         Environment env, BlazeDirectories directories, @Nullable String oldValue)
         throws InterruptedException {
+      var skyKey = getSkyKey(directories);
       try {
-        FileValue fileValue =
-            (FileValue) env.getValueOrThrow(getSkyKey(directories), IOException.class);
+        FileValue fileValue = (FileValue) env.getValueOrThrow(skyKey, IOException.class);
         if (fileValue == null) {
           return false;
         }
-        return oldValue.equals(fileValueToMarkerValue(fileValue));
+        return oldValue.equals(fileValueToMarkerValue((RootedPath) skyKey.argument(), fileValue));
       } catch (IOException e) {
         return false;
       }
@@ -354,7 +405,12 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
 
           @Override
           public RepoRecordedInput parse(String s) {
-            return new Dirents(RepoCacheFriendlyPath.parse(s));
+            try {
+              return new Dirents(RepoCacheFriendlyPath.parse(s));
+            } catch (LabelSyntaxException e) {
+              // malformed inputs cause refetch
+              return NEVER_UP_TO_DATE;
+            }
           }
         };
 
@@ -437,7 +493,12 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
 
           @Override
           public RepoRecordedInput parse(String s) {
-            return new DirTree(RepoCacheFriendlyPath.parse(s));
+            try {
+              return new DirTree(RepoCacheFriendlyPath.parse(s));
+            } catch (LabelSyntaxException e) {
+              // malformed inputs cause refetch
+              return NEVER_UP_TO_DATE;
+            }
           }
         };
 
@@ -574,8 +635,12 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
           @Override
           public RepoRecordedInput parse(String s) {
             List<String> parts = Splitter.on(',').limit(2).splitToList(s);
-            return new RecordedRepoMapping(
-                RepositoryName.createUnvalidated(parts.get(0)), parts.get(1));
+            try {
+              return new RecordedRepoMapping(RepositoryName.create(parts.get(0)), parts.get(1));
+            } catch (LabelSyntaxException | IndexOutOfBoundsException e) {
+              // malformed inputs cause refetch
+              return NEVER_UP_TO_DATE;
+            }
           }
         };
 
@@ -630,9 +695,14 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
         throws InterruptedException {
       RepositoryMappingValue repoMappingValue =
           (RepositoryMappingValue) env.getValue(getSkyKey(directories));
-      return repoMappingValue != RepositoryMappingValue.NOT_FOUND_VALUE
-          && RepositoryName.createUnvalidated(oldValue)
-              .equals(repoMappingValue.getRepositoryMapping().get(apparentName));
+      try {
+        return repoMappingValue != RepositoryMappingValue.NOT_FOUND_VALUE
+            && RepositoryName.create(oldValue)
+                .equals(repoMappingValue.getRepositoryMapping().get(apparentName));
+      } catch (LabelSyntaxException e) {
+        // malformed old value causes refetch
+        return false;
+      }
     }
   }
 }

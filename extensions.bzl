@@ -16,6 +16,7 @@
 
 """
 
+load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 load("//:distdir.bzl", "distdir_tar", "repo_cache_tar")
 load("//:repositories.bzl", "DIST_ARCHIVE_REPOS", "android_deps_repos", "embedded_jdk_repositories")
 load("//:workspace_deps.bzl", "WORKSPACE_REPOS")
@@ -51,6 +52,12 @@ bazel_build_deps = module_extension(implementation = _bazel_build_deps)
 def _bazel_test_deps(ctx):
     list_source_repository(name = "local_bazel_source_list")
     winsdk_configure(name = "local_config_winsdk")
+
+    # /usr/local/kythe is setup on Bazel CI machines
+    local_repository(
+        name = "kythe_release",
+        path = "/usr/local/kythe",
+    )
     return ctx.extension_metadata(reproducible = True)
 
 bazel_test_deps = module_extension(implementation = _bazel_test_deps)

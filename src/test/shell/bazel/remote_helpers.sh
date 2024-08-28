@@ -292,7 +292,7 @@ function kill_nc() {
 function setup_credential_helper() {
   # Each call atomically writes one byte to this file.
   # The file can be read later determine how many calls were made.
-  cat > "${TEST_TMPDIR}/credhelper.callcount"
+  cat > "${TEST_TMPDIR}/credhelper.callcount_${TEST_SHARD_INDEX}"
 
   cat > "${TEST_TMPDIR}/credhelper" <<'EOF'
 #!/usr/bin/env python3
@@ -306,7 +306,7 @@ if uri.startswith("https://bcr.bazel.build/"):
   print("{}")
   sys.exit(0)
 
-path = os.path.join(os.environ["TEST_TMPDIR"], "credhelper.callcount")
+path = os.path.join(os.environ["TEST_TMPDIR"], "credhelper.callcount_" + os.environ["TEST_SHARD_INDEX"])
 fd = os.open(path, os.O_WRONLY|os.O_CREAT|os.O_APPEND)
 os.write(fd, b"1")
 os.close(fd)
@@ -320,7 +320,7 @@ EOF
 # Asserts how many times the credential helper was called.
 function expect_credential_helper_calls() {
   local -r expected=$1
-  local -r actual=$(wc -c "${TEST_TMPDIR}/credhelper.callcount" | awk '{print $1}')
+  local -r actual=$(wc -c "${TEST_TMPDIR}/credhelper.callcount_${TEST_SHARD_INDEX}" | awk '{print $1}')
   if [[ "$expected" != "$actual" ]]; then
     fail "expected $expected instead of $actual credential helper calls"
   fi

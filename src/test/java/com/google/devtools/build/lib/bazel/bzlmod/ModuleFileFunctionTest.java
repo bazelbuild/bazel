@@ -267,8 +267,8 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                     0));
     assertThat(rootModuleFileValue.getNonRegistryOverrideCanonicalRepoNameLookup())
         .containsExactly(
-            RepositoryName.create("eee~"), "eee",
-            RepositoryName.create("ggg~"), "ggg");
+            RepositoryName.create("eee+"), "eee",
+            RepositoryName.create("ggg+"), "ggg");
   }
 
   @Test
@@ -757,7 +757,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext1")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(myMod)
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -788,7 +787,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext2")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(myMod)
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -833,7 +831,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@rules_jvm_external//:defs.bzl")
                         .setExtensionName("maven")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(myMod)
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -911,7 +908,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@//:defs.bzl")
                         .setExtensionName("myext")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(ModuleKey.ROOT)
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -1043,7 +1039,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(myMod)
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -1163,7 +1158,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("//:MODULE.bazel")
                         .setExtensionName("_repo_rules")
                         .setIsolationKey(Optional.empty())
-                        .setUsingModule(ModuleKey.ROOT)
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -1271,6 +1265,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("_foo"));
     assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("foo#bar"));
     assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("foo~bar"));
+    assertThrows(EvalException.class, () -> ModuleFileGlobals.validateModuleName("foo+bar"));
   }
 
   @Test
@@ -1689,6 +1684,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
     assertContainsEvent(
         "Error in use_extension: invalid label \"@foo/bar:extensions.bzl\": invalid repository"
             + " name 'foo/bar:extensions.bzl': repo names may contain only A-Z, a-z, 0-9, '-',"
-            + " '_', '.' and '~' and must not start with '~'");
+            + " '_', '.' and '+'");
   }
 }

@@ -38,7 +38,7 @@ before the command (`build`, `test`, etc).
 2.  **The workspace RC file**, unless `--noworkspace_rc` is present.
 
     Path: `.bazelrc` in your workspace directory (next to the main
-    `WORKSPACE` file).
+    `MODULE.bazel` file).
 
     It is not an error if this file does not exist.
 

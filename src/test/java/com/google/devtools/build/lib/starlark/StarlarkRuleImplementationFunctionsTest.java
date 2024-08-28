@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.analysis.actions.ParameterFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.actions.Substitution;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.starlark.Args;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -67,7 +68,6 @@ import com.google.devtools.build.lib.testutil.MoreAsserts;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.OsUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -176,6 +176,12 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
           tools = [':mytool', 't.exe'],
           srcs = ['file3.dat', 'file4.dat'],
           outs = ['r1.txt', 'r2.txt'],
+        )
+        genrule(name = 'mixed_cfgs',
+          cmd = 'some_cmd',
+          srcs = ['a.txt', ':baz'],
+          tools = ['r1.txt'],
+          outs = ['out.txt'],
         )
         """);
   }
@@ -2754,12 +2760,12 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ev.exec(
         "actions = ruleContext.actions",
         "a = []",
-        "a.append(actions.args().add(Label('@@repo~//:foo')))",
-        "a.append(actions.args().add('-flag', Label('@@repo~//:foo')))",
-        "a.append(actions.args().add('-flag', Label('@@repo~//:foo'), format = '_%s_'))",
-        "a.append(actions.args().add_all(['foo', Label('@@repo~//:foo')]))",
-        "a.append(actions.args().add_all(depset([Label('@@other_repo~//:foo'),"
-            + " Label('@@repo~//:foo')])))",
+        "a.append(actions.args().add(Label('@@repo+//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@repo+//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@repo+//:foo'), format = '_%s_'))",
+        "a.append(actions.args().add_all(['foo', Label('@@repo+//:foo')]))",
+        "a.append(actions.args().add_all(depset([Label('@@other_repo+//:foo'),"
+            + " Label('@@repo+//:foo')])))",
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
@@ -2774,15 +2780,15 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     assertThat(action.getArguments())
         .containsExactly(
             "foo/t.exe",
-            "@@repo~//:foo",
+            "@@repo+//:foo",
             "-flag",
-            "@@repo~//:foo",
+            "@@repo+//:foo",
             "-flag",
-            "_@@repo~//:foo_",
+            "_@@repo+//:foo_",
             "foo",
-            "@@repo~//:foo",
-            "@@other_repo~//:foo",
-            "@@repo~//:foo")
+            "@@repo+//:foo",
+            "@@other_repo+//:foo",
+            "@@repo+//:foo")
         .inOrder();
   }
 
@@ -2797,11 +2803,11 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ev.exec(
         "actions = ruleContext.actions",
         "a = []",
-        "a.append(actions.args().add(Label('@@foo~//:foo')))",
-        "a.append(actions.args().add('-flag', Label('@@foo~//:foo')))",
-        "a.append(actions.args().add('-flag', Label('@@foo~//:foo'), format = '_%s_'))",
-        "a.append(actions.args().add_all(['foo', Label('@@foo~//:foo')]))",
-        "a.append(actions.args().add_all(depset([Label('@@repo~//:foo'), Label('@@foo~//:foo')])))",
+        "a.append(actions.args().add(Label('@@foo+//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@foo+//:foo')))",
+        "a.append(actions.args().add('-flag', Label('@@foo+//:foo'), format = '_%s_'))",
+        "a.append(actions.args().add_all(['foo', Label('@@foo+//:foo')]))",
+        "a.append(actions.args().add_all(depset([Label('@@repo+//:foo'), Label('@@foo+//:foo')])))",
         "ruleContext.actions.run(",
         "  inputs = depset(ruleContext.files.srcs),",
         "  outputs = ruleContext.files.srcs,",
@@ -2823,7 +2829,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             "_@foo//:foo_",
             "foo",
             "@foo//:foo",
-            "@@repo~//:foo",
+            "@@repo+//:foo",
             "@foo//:foo")
         .inOrder();
   }
@@ -2889,63 +2895,6 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
                 cfg = foo_transition,
                 default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})
         """);
-
-    scratch.file(
-        "test/BUILD",
-        """
-        load('//test:rule.bzl', 'foo')
-        foo(name='foo')
-        """);
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:foo");
-    assertContainsEvent("late-bound attributes must not have a split configuration transition");
-  }
-
-  @Test
-  public void testConfigurationField_nativeSplitTransitionProviderProhibited() throws Exception {
-    scratch.file(
-        "test/rule.bzl",
-        """
-        def _foo_impl(ctx):
-          return []
-
-        foo = rule(
-          implementation = _foo_impl,
-          attrs = {
-            '_attr': attr.label(
-                cfg = android_common.multi_cpu_configuration,
-                default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})
-        """);
-
-    scratch.file(
-        "test/BUILD",
-        """
-        load('//test:rule.bzl', 'foo')
-        foo(name='foo')
-        """);
-
-    reporter.removeHandler(failFastHandler);
-    getConfiguredTarget("//test:foo");
-    assertContainsEvent("late-bound attributes must not have a split configuration transition");
-  }
-
-  @Test
-  public void testConfigurationField_nativeSplitTransitionProhibited() throws Exception {
-    scratch.file(
-        "test/rule.bzl",
-        """
-        def _foo_impl(ctx):
-          return []
-
-        foo = rule(
-          implementation = _foo_impl,
-          attrs = {
-            '_attr': attr.label(
-                cfg = android_common.multi_cpu_configuration,
-                default = configuration_field(fragment='cpp', name = 'cc_toolchain'))})
-        """);
-    setBuildLanguageOptions("--experimental_google_legacy_api");
 
     scratch.file(
         "test/BUILD",
@@ -3271,7 +3220,10 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         CommandLineExpansionException.class,
         () ->
             commandLine.addToFingerprint(
-                actionKeyContext, /* artifactExpander= */ null, new Fingerprint()));
+                actionKeyContext,
+                /* artifactExpander= */ null,
+                OutputPathsMode.OFF,
+                new Fingerprint()));
   }
 
   @Test
@@ -3507,23 +3459,23 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
 
     RepositoryMapping mainRepoMapping =
         RepositoryMapping.create(
-            ImmutableMap.of("apparent", RepositoryName.createUnvalidated("canonical~")),
+            ImmutableMap.of("apparent", RepositoryName.createUnvalidated("canonical+")),
             RepositoryName.MAIN);
     CommandLine commandLine1 =
         getCommandLine(
             mainRepoMapping,
             """
             args = ruleContext.actions.args()
-            args.add(Label("@@canonical~//foo:bar"))
-            args.add(str(Label("@@canonical~//foo:bar")))
+            args.add(Label("@@canonical+//foo:bar"))
+            args.add(str(Label("@@canonical+//foo:bar")))
             """);
     CommandLine commandLine2 =
         getCommandLine(
             mainRepoMapping,
             """
             args = ruleContext.actions.args()
-            args.add(Label("@@canonical~//foo:bar"))
-            args.add(Label("@@canonical~//foo:bar"))
+            args.add(Label("@@canonical+//foo:bar"))
+            args.add(Label("@@canonical+//foo:bar"))
             """);
 
     assertThat(getArguments(commandLine1, PathMapper.NOOP))
@@ -3541,23 +3493,23 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         RepositoryMapping.create(
             ImmutableMap.of(
                 "apparent1",
-                RepositoryName.createUnvalidated("canonical1~"),
+                RepositoryName.createUnvalidated("canonical1+"),
                 "apparent2",
-                RepositoryName.createUnvalidated("canonical2~")),
+                RepositoryName.createUnvalidated("canonical2+")),
             RepositoryName.MAIN);
     CommandLine commandLine1 =
         getCommandLine(
             mainRepoMapping,
             """
 args = ruleContext.actions.args()
-args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:bar")]))
+args.add_all(depset([Label("@@canonical1+//foo:bar"), Label("@@canonical2+//foo:bar")]))
 """);
     CommandLine commandLine2 =
         getCommandLine(
             mainRepoMapping,
             """
             args = ruleContext.actions.args()
-            args.add_all([Label("@@canonical1~//foo:bar"), str(Label("@@canonical2~//foo:bar"))])
+            args.add_all([Label("@@canonical1+//foo:bar"), str(Label("@@canonical2+//foo:bar"))])
             """);
 
     assertThat(getArguments(commandLine1, PathMapper.NOOP))
@@ -3588,7 +3540,8 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
         .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
     assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
         .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
-    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+    assertThat(getDigest(commandLine1, OutputPathsMode.STRIP))
+        .isNotEqualTo(getDigest(commandLine2, OutputPathsMode.STRIP));
   }
 
   @Test
@@ -3615,7 +3568,8 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
         .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
     assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
         .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
-    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+    assertThat(getDigest(commandLine1, OutputPathsMode.STRIP))
+        .isNotEqualTo(getDigest(commandLine2, OutputPathsMode.STRIP));
   }
 
   @Test
@@ -3642,7 +3596,8 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
         .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
     assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
         .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
-    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+    assertThat(getDigest(commandLine1, OutputPathsMode.STRIP))
+        .isNotEqualTo(getDigest(commandLine2, OutputPathsMode.STRIP));
   }
 
   @Test
@@ -3669,7 +3624,120 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
         .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
     assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
         .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
-    assertThat(getDigest(commandLine1)).isNotEqualTo(getDigest(commandLine2));
+    assertThat(getDigest(commandLine1, OutputPathsMode.STRIP))
+        .isNotEqualTo(getDigest(commandLine2, OutputPathsMode.STRIP));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringInAddAllDepsetMapEach()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+            def _map_each(x):
+              if type(x.obj) == "File":
+                return x.obj.path
+              return str(x.obj)
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add_all(depset([struct(obj = file.path)]), map_each=_map_each)
+            """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+            def _map_each(x):
+              if type(x.obj) == "File":
+                return x.obj.path
+              return str(x.obj)
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add_all(depset([struct(obj = file)]), map_each=_map_each)
+            """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getDigest(commandLine1)).isEqualTo(getDigest(commandLine2));
+
+    assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
+    assertThat(getDigest(commandLine1, OutputPathsMode.STRIP))
+        .isNotEqualTo(getDigest(commandLine2, OutputPathsMode.STRIP));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringInAddAllListMapEach()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:foo"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+            def _map_each(x):
+              if type(x.obj) == "File":
+                return x.obj.path
+              return str(x.obj)
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add_all(depset([struct(obj = file.path)]), map_each=_map_each)
+            """);
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+            def _map_each(x):
+              if type(x.obj) == "File":
+                return x.obj.path
+              return str(x.obj)
+            file = ruleContext.actions.declare_file('file')
+            args = ruleContext.actions.args()
+            args.add_all(depset([struct(obj = file)]), map_each=_map_each)
+            """);
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getDigest(commandLine1)).isEqualTo(getDigest(commandLine2));
+
+    assertThat(getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER))
+        .isNotEqualTo(getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER));
+    assertThat(getDigest(commandLine1, OutputPathsMode.STRIP))
+        .isNotEqualTo(getDigest(commandLine2, OutputPathsMode.STRIP));
+  }
+
+  @Test
+  public void starlarkCustomCommandLineKeyComputation_artifactVsPathStringMapEachWithUniquify()
+      throws Exception {
+    setRuleContext(createRuleContext("//foo:mixed_cfgs"));
+
+    CommandLine commandLine1 =
+        getCommandLine(
+            """
+def _map_each(x):
+  return x.field.root.path
+args = ruleContext.actions.args()
+d = depset([struct(field = f) for f in ruleContext.files.srcs + ruleContext.files.tools])
+args.add_all(d, map_each = _map_each, uniquify = True)
+""");
+    CommandLine commandLine2 =
+        getCommandLine(
+            """
+def _map_each(x):
+  return x.field
+args = ruleContext.actions.args()
+d = depset([struct(field = f.root.path) for f in ruleContext.files.srcs + ruleContext.files.tools])
+args.add_all(d, map_each = _map_each, uniquify = True)
+""");
+
+    assertThat(getArguments(commandLine1, PathMapper.NOOP))
+        .isEqualTo(getArguments(commandLine2, PathMapper.NOOP));
+    assertThat(getDigest(commandLine1)).isEqualTo(getDigest(commandLine2));
+
+    List<String> arguments1 = getArguments(commandLine1, NON_TRIVIAL_PATH_MAPPER);
+    List<String> arguments2 = getArguments(commandLine2, NON_TRIVIAL_PATH_MAPPER);
+    assertThat(arguments1).isNotEqualTo(arguments2);
+    assertThat(arguments1.size()).isNotEqualTo(arguments2.size());
+    assertThat(getDigest(commandLine1, OutputPathsMode.STRIP))
+        .isNotEqualTo(getDigest(commandLine2, OutputPathsMode.STRIP));
   }
 
   private static ArtifactExpander createArtifactExpander(String dirRelativePath, String... files) {
@@ -3689,13 +3757,24 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
 
   private String getDigest(CommandLine commandLine)
       throws CommandLineExpansionException, InterruptedException {
-    return getDigest(commandLine, /* artifactExpander= */ null);
+    return getDigest(commandLine, /* artifactExpander= */ null, OutputPathsMode.OFF);
   }
 
   private String getDigest(CommandLine commandLine, ArtifactExpander artifactExpander)
       throws CommandLineExpansionException, InterruptedException {
+    return getDigest(commandLine, artifactExpander, OutputPathsMode.OFF);
+  }
+
+  private String getDigest(CommandLine commandLine, OutputPathsMode outputPathsMode)
+      throws CommandLineExpansionException, InterruptedException {
+    return getDigest(commandLine, /* artifactExpander= */ null, outputPathsMode);
+  }
+
+  private String getDigest(
+      CommandLine commandLine, ArtifactExpander artifactExpander, OutputPathsMode outputPathsMode)
+      throws CommandLineExpansionException, InterruptedException {
     Fingerprint fingerprint = new Fingerprint();
-    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+    commandLine.addToFingerprint(actionKeyContext, artifactExpander, outputPathsMode, fingerprint);
     return fingerprint.hexDigestAndReset();
   }
 
@@ -3710,12 +3789,7 @@ args.add_all(depset([Label("@@canonical1~//foo:bar"), Label("@@canonical2~//foo:
   }
 
   private static final PathMapper NON_TRIVIAL_PATH_MAPPER =
-      new PathMapper() {
-        @Override
-        public PathFragment map(PathFragment path) {
-          return path.subFragment(0, 1).getChild("cfg").getRelative(path.subFragment(2));
-        }
-      };
+      path -> path.subFragment(0, 1).getChild("cfg").getRelative(path.subFragment(2));
 
   private List<String> getArguments(CommandLine commandLine, PathMapper pathMapper)
       throws CommandLineExpansionException, InterruptedException {

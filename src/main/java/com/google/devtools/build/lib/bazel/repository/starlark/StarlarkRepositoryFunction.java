@@ -73,19 +73,21 @@ import net.starlark.java.eval.SymbolGenerator;
 
 /** A repository function to delegate work done by Starlark remote repositories. */
 public final class StarlarkRepositoryFunction extends RepositoryFunction {
-  private final DownloadManager downloadManager;
   private double timeoutScaling = 1.0;
   private boolean useWorkers;
+  @Nullable private DownloadManager downloadManager;
   @Nullable private ProcessWrapper processWrapper = null;
   @Nullable private RepositoryRemoteExecutor repositoryRemoteExecutor;
   @Nullable private SyscallCache syscallCache;
 
-  public StarlarkRepositoryFunction(DownloadManager downloadManager) {
-    this.downloadManager = downloadManager;
-  }
+  public StarlarkRepositoryFunction() {}
 
   public void setTimeoutScaling(double timeoutScaling) {
     this.timeoutScaling = timeoutScaling;
+  }
+
+  public void setDownloadManager(DownloadManager downloadManager) {
+    this.downloadManager = downloadManager;
   }
 
   public void setProcessWrapper(@Nullable ProcessWrapper processWrapper) {
@@ -299,15 +301,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
         PrecomputedValue.REMOTE_EXECUTION_ENABLED.get(env);
       }
 
-      // Since restarting a repository function can be really expensive, we first ensure that
-      // all label-arguments can be resolved to paths.
-      try {
-        starlarkRepositoryContext.enforceLabelAttributes();
-      } catch (NeedsSkyframeRestartException e) {
-        // Missing values are expected; just restart before we actually start the rule
-        return null;
-      }
-
       // This rule is mainly executed for its side effect. Nevertheless, the return value is
       // of importance, as it provides information on how the call has to be modified to be a
       // reproducible rule.
@@ -360,6 +353,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
       env.getListener()
           .handle(
               Event.error(
+                  e.getInnermostLocation(),
                   "An error occurred during the fetch of repository '"
                       + rule.getName()
                       + "':\n   "

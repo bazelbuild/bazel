@@ -154,6 +154,7 @@ public final class ResourceManagerTest {
         /* workerFilesCombinedHash= */ HashCode.fromInt(0),
         /* workerFilesWithDigests= */ ImmutableSortedMap.of(),
         /* sandboxed= */ false,
+        /* useInMemoryTracking= */ false,
         /* multiplex= */ false,
         /* cancellable= */ false,
         WorkerProtocolFormat.PROTO);

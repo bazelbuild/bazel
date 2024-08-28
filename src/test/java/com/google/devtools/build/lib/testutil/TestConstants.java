@@ -151,13 +151,16 @@ public class TestConstants {
           // TODO(#7849): Remove after flag flip.
           "--incompatible_use_toolchain_resolution_for_java_rules");
 
+  public static final ImmutableList<String> PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS =
+      ImmutableList.of();
+
   /** Partial query to filter out implicit dependencies of C/C++ rules. */
   public static final String CC_DEPENDENCY_CORRECTION =
       " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:current_cc_toolchain)"
       + " - deps(" + TOOLS_REPOSITORY + "//tools/cpp:grep-includes)";
 
   public static final String APPLE_PLATFORM_PATH = "build_bazel_apple_support/platforms";
-  public static final String APPLE_PLATFORM_PACKAGE_ROOT = "@build_bazel_apple_support//platforms";
+  public static final String APPLE_PLATFORM_PACKAGE_ROOT = "@@build_bazel_apple_support+//platforms";
   public static final String CONSTRAINTS_PACKAGE_ROOT = "@platforms//";
 
   public static final String PLATFORMS_PATH = "embedded_tools/platforms";

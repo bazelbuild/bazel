@@ -37,8 +37,21 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
    * and one output file being a prefix of another. See {@link Package.Builder#checkForExistingName}
    * and {@link Package.Builder#checkRuleAndOutputs} for more details.
    */
-  public static final class NameConflictException extends Exception {
+  public static sealed class NameConflictException extends Exception
+      permits MacroNamespaceViolationException {
     public NameConflictException(String message) {
+      super(message);
+    }
+  }
+
+  /**
+   * An exception used when the name of a target or submacro declared within a symbolic macro
+   * violates symbolic macro naming rules.
+   *
+   * <p>An example might be a target named "libfoo" declared within a macro named "foo".
+   */
+  public static final class MacroNamespaceViolationException extends NameConflictException {
+    public MacroNamespaceViolationException(String message) {
       super(message);
     }
   }

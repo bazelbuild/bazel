@@ -13,10 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.ParameterException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.nio.file.Path;
 import java.util.logging.Level;
@@ -24,19 +24,19 @@ import java.util.logging.Logger;
 
 /** Abstract base class containing helper methods and error handling for BusyBox actions. */
 public abstract class AbstractBusyBoxAction {
-  private final OptionsParser optionsParser;
+  private final JCommander jc;
   private final String description;
   private final Stopwatch timer = Stopwatch.createUnstarted();
 
-  AbstractBusyBoxAction(OptionsParser optionsParser, String description) {
-    this.optionsParser = optionsParser;
+  AbstractBusyBoxAction(JCommander jc, String description) {
+    this.jc = jc;
     this.description = description;
   }
 
   public void invoke(String[] args) throws Exception {
     try {
       invokeWithoutExit(args);
-    } catch (UserException | OptionsParsingException e) {
+    } catch (UserException | OptionsParsingException | ParameterException e) {
       getLogger().severe(e.getMessage());
       // In Bazel, users tend to assume that a stack trace indicates a bug in underlying Bazel code
       // and ignore the content of the exception. If we know that the exception was actually their
@@ -52,7 +52,10 @@ public abstract class AbstractBusyBoxAction {
   @VisibleForTesting
   void invokeWithoutExit(String[] args) throws Exception {
     timer.start();
-    optionsParser.parse(args);
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(this.jc, args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(jc.getObjects(), preprocessedArgs);
+    this.jc.parse(normalizedArgs);
 
     try (ScopedTemporaryDirectory scopedTmp = new ScopedTemporaryDirectory(description + "_tmp");
         ExecutorServiceCloser executorService = ExecutorServiceCloser.createWithFixedPoolOf(15)) {
@@ -66,8 +69,14 @@ public abstract class AbstractBusyBoxAction {
 
   abstract Logger getLogger();
 
-  <T extends OptionsBase> T getOptions(Class<T> clazz) {
-    return optionsParser.getOptions(clazz);
+  <T> T getOptions(Class<T> clazz) {
+    for (Object o : jc.getObjects()) {
+      if (o.getClass().equals(clazz)) {
+        return clazz.cast(o);
+      }
+    }
+
+    return null;
   }
 
   /**

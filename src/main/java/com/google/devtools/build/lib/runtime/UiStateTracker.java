@@ -378,6 +378,7 @@ class UiStateTracker {
   protected int failedTests;
   protected boolean ok;
   private boolean buildComplete;
+  protected volatile boolean executionPhaseStarted;
 
   @Nullable protected ExecutionProgressReceiver executionProgressReceiver;
   @Nullable protected PackageProgressReceiver packageProgressReceiver;
@@ -399,6 +400,7 @@ class UiStateTracker {
     this.ok = true;
     this.clock = clock;
     this.targetWidth = targetWidth;
+    this.executionPhaseStarted = false;
   }
 
   UiStateTracker(Clock clock) {
@@ -438,6 +440,10 @@ class UiStateTracker {
       additionalMessage = count + " targets";
     }
     mainRepositoryMapping = event.getMainRepositoryMapping();
+  }
+
+  void executionPhaseStarted() {
+    executionPhaseStarted = true;
   }
 
   /**
@@ -1278,7 +1284,11 @@ class UiStateTracker {
     ActionState oldestAction = getOldestAction();
     if (actionsCount == 0 || oldestAction == null) {
       // TODO(b/239693084): Improve the message here.
-      terminalWriter.normal().append(" checking cached actions");
+      if (executionProgressReceiver != null && executionProgressReceiver.hasActionsInFlight()) {
+        terminalWriter.normal().append(" checking cached actions");
+      } else {
+        terminalWriter.normal().append(" no actions running");
+      }
       maybeShowRecentTest(terminalWriter, shortVersion, targetWidth - terminalWriter.getPosition());
     } else if (actionsCount == 1) {
       if (maybeShowRecentTest(null, shortVersion, targetWidth - terminalWriter.getPosition())) {

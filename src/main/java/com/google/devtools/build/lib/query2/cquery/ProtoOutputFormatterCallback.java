@@ -211,9 +211,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
     //   4.--output=streamed_proto --noproto:include_configurations =>
     //        Writes multiple length delimited QueryResult protos, each containing a single Target.
     switch (outputType) {
-      case BINARY:
-      case TEXT:
-      case JSON:
+      case BINARY, TEXT, JSON -> {
         // Only at the end, we write the entire CqueryResult / QueryResult is written all together.
         if (options.protoIncludeConfigurations) {
           cqueryResultBuilder.addAllConfigurations(configurationCache.getConfigurations());
@@ -222,8 +220,8 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
             options.protoIncludeConfigurations
                 ? cqueryResultBuilder.build()
                 : queryResultFromCqueryResult(cqueryResultBuilder));
-        break;
-      case DELIMITED_BINARY:
+      }
+      case DELIMITED_BINARY -> {
         if (options.protoIncludeConfigurations) {
           // The wrapped CqueryResult + ConfiguredTarget are already written in
           // {@link #processOutput}, so we just need to write the Configuration(s) each wrapped in
@@ -235,7 +233,7 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
                     .build());
           }
         }
-        break;
+      }
     }
 
     outputStream.flush();
@@ -244,19 +242,13 @@ class ProtoOutputFormatterCallback extends CqueryThreadsafeCallback {
 
   private void writeData(Message message) throws IOException {
     switch (outputType) {
-      case BINARY:
-        message.writeTo(outputStream);
-        break;
-      case DELIMITED_BINARY:
-        message.writeDelimitedTo(outputStream);
-        break;
-      case TEXT:
-        TextFormat.printer().print(message, printStream);
-        break;
-      case JSON:
+      case BINARY -> message.writeTo(outputStream);
+      case DELIMITED_BINARY -> message.writeDelimitedTo(outputStream);
+      case TEXT -> TextFormat.printer().print(message, printStream);
+      case JSON -> {
         jsonPrinter.appendTo(message, printStream);
         printStream.append('\n');
-        break;
+      }
     }
   }
 

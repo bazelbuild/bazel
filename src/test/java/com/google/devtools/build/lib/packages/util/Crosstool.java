@@ -590,6 +590,11 @@ public final class Crosstool {
     config.overwrite(crosstoolTop + "/cc_toolchain_config.bzl", ccToolchainConfigFileContents);
     config.create(crosstoolTop + "/crosstool.cppmap", "module crosstool {}");
     config.append(
+        "MODULE.bazel",
+        String.format(
+            "register_toolchains('%s:all')",
+            crosstoolTopLabel.getPackageIdentifier().getCanonicalForm()));
+    config.append(
         "WORKSPACE",
         String.format(
             "register_toolchains('%s:all')",
@@ -701,6 +706,9 @@ public final class Crosstool {
     config.overwrite(
         MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + "/BUILD",
         Joiner.on("\n").join(crosstoolBuild.build()));
+    config.append(
+        "MODULE.bazel",
+        "register_toolchains('//" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + ":all')");
     config.append(
         "WORKSPACE",
         "register_toolchains('//" + MockObjcSupport.DEFAULT_OSX_CROSSTOOL_DIR + ":all')");

@@ -19,9 +19,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.PathStrippable;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
@@ -176,13 +178,15 @@ public abstract class CommandLines {
   public void addToFingerprint(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
+      CoreOptions.OutputPathsMode outputPathsMode,
       Fingerprint fingerprint)
       throws CommandLineExpansionException, InterruptedException {
     ImmutableList<CommandLineAndParamFileInfo> commandLines = unpack();
     for (CommandLineAndParamFileInfo pair : commandLines) {
       CommandLine commandLine = pair.commandLine;
       ParamFileInfo paramFileInfo = pair.paramFileInfo;
-      commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+      commandLine.addToFingerprint(
+          actionKeyContext, artifactExpander, outputPathsMode, fingerprint);
       if (paramFileInfo != null) {
         addParamFileInfoToFingerprint(paramFileInfo, fingerprint);
       }
@@ -526,12 +530,15 @@ public abstract class CommandLines {
 
     @Override
     public Iterable<String> arguments(
-        @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper)
-        throws CommandLineExpansionException, InterruptedException {
-      if (arg instanceof PathStrippable pathStrippable) {
-        return ImmutableList.of(pathStrippable.expand(pathMapper::map));
-      }
-      return ImmutableList.of(CommandLineItem.expandToCommandLine(arg));
+        @Nullable ArtifactExpander artifactExpander, PathMapper pathMapper) {
+      return ImmutableList.of(
+          switch (arg) {
+            case PathStrippable ps -> ps.expand(pathMapper::map);
+            // StarlarkAction stores the executable path as a string to save memory, but it should
+            // still be mapped just like a PathFragment.
+            case String s -> pathMapper.map(PathFragment.create(s)).getPathString();
+            default -> CommandLineItem.expandToCommandLine(arg);
+          });
     }
   }
 }

@@ -665,14 +665,11 @@ public class RuleContext extends TargetContext
         getLabel());
     ArtifactRoot root = getBinOrGenfilesDirectory();
 
-    switch (outputFileKind) {
-      case FILE:
-        return getDerivedArtifact(rootRelativePath, root);
-      case FILESET:
-        return getAnalysisEnvironment().getFilesetArtifact(rootRelativePath, root);
-      default:
-        throw new IllegalStateException();
-    }
+    return switch (outputFileKind) {
+      case FILE -> getDerivedArtifact(rootRelativePath, root);
+      case FILESET -> getAnalysisEnvironment().getFilesetArtifact(rootRelativePath, root);
+      default -> throw new IllegalStateException();
+    };
   }
 
   /**
@@ -879,6 +876,18 @@ public class RuleContext extends TargetContext
   public <T> T getPrerequisite(String attributeName, StarlarkProviderWrapper<T> key)
       throws RuleErrorException {
     return getOwningPrerequisitesCollection(attributeName).getPrerequisite(attributeName, key);
+  }
+
+  /**
+   * Returns the {@code --run_under} prerequisite based on the value of {@code
+   * --incompatible_bazel_test_exec_run_under}.
+   */
+  @Nullable
+  public TransitiveInfoCollection getRunUnderPrerequisite() {
+    return getPrerequisite(
+        getConfiguration().runUnderExecConfigForTests()
+            ? ":run_under_exec_config"
+            : ":run_under_target_config");
   }
 
   /**

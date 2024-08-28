@@ -27,7 +27,7 @@ Here are some examples of significant changes:
 
 When you write a design document, you can coordinate with other Bazel developers
 and seek guidance from Bazel's core team. For example, when a proposal adds,
-removes, or modifies any function or object available in BUILD, WORKSPACE, or
+removes, or modifies any function or object available in BUILD, MODULE.bazel, or
 bzl files, add the [Starlark team](maintainers-guide.md) as reviewers.
 Design documents are reviewed before submission because:
 

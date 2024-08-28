@@ -7,9 +7,7 @@ package(
 
 filegroup(
     name = "srcs",
-    srcs = glob(["*"]) + [
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools:srcs",
-    ],
+    srcs = glob(["*"]),
     visibility = ["//src:__subpackages__"],
 )
 
@@ -33,8 +31,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/composing_transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_collection",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/android/ndkcrosstools:android_ndk_crosstools",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:bazel_cpp_semantics",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java",

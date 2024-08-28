@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.exec;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ExecException;
@@ -124,14 +125,10 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
   }
 
   private MessageOutputStream<SpawnExec> getConvertedOutputStream(Path path) throws IOException {
-    switch (encoding) {
-      case BINARY:
-        return new BinaryOutputStreamWrapper<>(path.getOutputStream());
-      case JSON:
-        return new JsonOutputStreamWrapper<>(path.getOutputStream());
-    }
-    throw new IllegalArgumentException(
-        String.format("invalid execution log encoding: %s", encoding));
+    return switch (encoding) {
+      case BINARY -> new BinaryOutputStreamWrapper<>(path.getOutputStream());
+      case JSON -> new JsonOutputStreamWrapper<>(path.getOutputStream());
+    };
   }
 
   @Override
@@ -284,6 +281,11 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
         rawOutputStream.write(builder.build());
       }
     }
+  }
+
+  @Override
+  public void logSymlinkAction(AbstractAction action) {
+    // The expanded log does not report symlink actions.
   }
 
   @Override

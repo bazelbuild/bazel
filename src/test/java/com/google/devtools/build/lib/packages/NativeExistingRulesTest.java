@@ -30,33 +30,14 @@ import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Tuple;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for {@code native.existing_rule} and {@code native.existing_rules} functions.
- *
- * <p>This class covers the legacy behavior where the {@code
- * --incompatible_existing_rules_immutable_view} flag is disabled. The enabled case is covered by
- * the subclass, {@link WithImmutableView}.
- */
+/** Tests for {@code native.existing_rule} and {@code native.existing_rules} functions. */
 @RunWith(JUnit4.class)
 public class NativeExistingRulesTest extends BuildViewTestCase {
   private TestStarlarkBuiltin testStarlarkBuiltin; // initialized by createRuleClassProvider()
-
-  // Intended to be overridden by this test case's subclasses. Note that overriding of JUnit's
-  // @Before methods is not recommended.
-  protected void setupOptions() throws Exception {
-    // --noincompatible_existing_rules_immutable_view is the default; set it explicitly for clarity.
-    setBuildLanguageOptions("--noincompatible_existing_rules_immutable_view");
-  }
-
-  @Before
-  public final void setUp() throws Exception {
-    setupOptions();
-  }
 
   @StarlarkBuiltin(name = "test")
   private static final class TestStarlarkBuiltin implements StarlarkValue {
@@ -113,6 +94,48 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
 
     // Parse the BUILD file, to make sure select() makes it out of native.existing_rule().
     assertThat(getConfiguredTarget("//test/getrule:x")).isNotNull();
+  }
+
+  // Regression test for b/355432322
+  @Test
+  public void existingRule_handlesSelectWithNoneValues_forLabelValuedAttributes() throws Exception {
+    scratch.file("test/starlark/BUILD");
+    scratch.file(
+        "test/starlark/rulestr.bzl",
+        """
+        def save_dep(rule_name):
+            r = native.existing_rule(rule_name)
+            test.save("dep", r["dep"])
+
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(),
+            },
+        )
+        """);
+
+    scratch.file(
+        "test/getrule/BUILD",
+        """
+        load("//test/starlark:rulestr.bzl", "my_rule", "save_dep")
+
+        my_rule(
+            name = "x",
+            dep = select({"//conditions:default": None}),
+        )
+
+        save_dep("x")
+        """);
+
+    // Parse the BUILD file, to make sure select() makes it out of native.existing_rule().
+    assertThat(getConfiguredTarget("//test/getrule:x")).isNotNull();
+
+    // We have to compare by stringification because SelectorValue has reference equality semantics.
+    assertThat(getSaved("dep").toString()).isEqualTo("select({\"//conditions:default\": None})");
   }
 
   @Test
@@ -366,7 +389,7 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void existingRule_returnsObjectWithCorrectMutability() throws Exception {
+  public void existingRule_returnsImmutableObject() throws Exception {
     scratch.file(
         "test/BUILD",
         """
@@ -380,11 +403,12 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
         def f():
             native.config_setting(name = "x", define_values = {"key": "value"})
             r = native.existing_rule("x")
-            r["no_such_attribute"] = "foo"
-            r["define_values"]["key"] = 123
-        """); // mutate the dict
+            r["no_such_attribute"] = 123
+        """); // mutate the view
 
-    assertThat(getConfiguredTarget("//test:BUILD")).isNotNull(); // no error on mutation
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:BUILD")).isNull(); // mutation fails
+    assertContainsEvent("can only assign an element in a dictionary or a list");
   }
 
   @Test
@@ -622,7 +646,7 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void existingRules_returnsObjectWithCorrectMutability() throws Exception {
+  public void existingRules_returnsImmutableObject() throws Exception {
     scratch.file(
         "test/BUILD",
         """
@@ -639,7 +663,32 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
             rs["no_such_rule"] = {"name": "no_such_rule", "kind": "config_setting"}
         """); // mutate
 
-    assertThat(getConfiguredTarget("//test:BUILD")).isNotNull(); // no error on mutation
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:BUILD")).isNull(); // mutation fails
+    assertContainsEvent("can only assign an element in a dictionary or a list");
+  }
+
+  @Test
+  public void existingRules_returnsDeeplyImmutableView() throws Exception {
+    scratch.file(
+        "test/BUILD",
+        """
+        load("inc.bzl", "f")
+
+        f()
+        """);
+    scratch.file(
+        "test/inc.bzl",
+        """
+        def f():
+            native.config_setting(name = "x", define_values = {"key": "value"})
+            rs = native.existing_rules()
+            rs["x"]["define_values"]["key"] = 123
+        """); // mutate an attribute value within the view
+
+    reporter.removeHandler(failFastHandler);
+    assertThat(getConfiguredTarget("//test:BUILD")).isNull();
+    assertContainsEvent("trying to mutate a frozen dict value");
   }
 
   @Test
@@ -792,89 +841,5 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     assertThat(jsonRoundTripBarValue)
         .containsAtLeast(
             "name", "bar", "kind", "test_library", "srcs", StarlarkList.immutableOf(":bar.cc"));
-  }
-
-  /**
-   * Tests for {@code native.existing_rule} and {@code native.existing_rules} Starlark functions
-   * with the {@code --incompatible_existing_rules_immutable_view} flag set.
-   */
-  @RunWith(JUnit4.class)
-  public static final class WithImmutableView extends NativeExistingRulesTest {
-
-    @Override
-    protected void setupOptions() throws Exception {
-      setBuildLanguageOptions("--incompatible_existing_rules_immutable_view");
-    }
-
-    @Test
-    @Override
-    public void existingRule_returnsObjectWithCorrectMutability() throws Exception {
-      scratch.file(
-          "test/BUILD",
-          """
-          load("inc.bzl", "f")
-
-          f()
-          """);
-      scratch.file(
-          "test/inc.bzl",
-          """
-          def f():
-              native.config_setting(name = "x", define_values = {"key": "value"})
-              r = native.existing_rule("x")
-              r["no_such_attribute"] = 123
-          """); // mutate the view
-
-      reporter.removeHandler(failFastHandler);
-      assertThat(getConfiguredTarget("//test:BUILD")).isNull(); // mutation fails
-      assertContainsEvent("can only assign an element in a dictionary or a list");
-    }
-
-    @Test
-    @Override
-    public void existingRules_returnsObjectWithCorrectMutability() throws Exception {
-      scratch.file(
-          "test/BUILD",
-          """
-          load("inc.bzl", "f")
-
-          f()
-          """);
-      scratch.file(
-          "test/inc.bzl",
-          """
-          def f():
-              native.config_setting(name = "x", define_values = {"key": "value"})
-              rs = native.existing_rules()
-              rs["no_such_rule"] = {"name": "no_such_rule", "kind": "config_setting"}
-          """); // mutate
-
-      reporter.removeHandler(failFastHandler);
-      assertThat(getConfiguredTarget("//test:BUILD")).isNull(); // mutation fails
-      assertContainsEvent("can only assign an element in a dictionary or a list");
-    }
-
-    @Test
-    public void existingRules_returnsDeeplyImmutableView() throws Exception {
-      scratch.file(
-          "test/BUILD",
-          """
-          load("inc.bzl", "f")
-
-          f()
-          """);
-      scratch.file(
-          "test/inc.bzl",
-          """
-          def f():
-              native.config_setting(name = "x", define_values = {"key": "value"})
-              rs = native.existing_rules()
-              rs["x"]["define_values"]["key"] = 123
-          """); // mutate an attribute value within the view
-
-      reporter.removeHandler(failFastHandler);
-      assertThat(getConfiguredTarget("//test:BUILD")).isNull();
-      assertContainsEvent("trying to mutate a frozen dict value");
-    }
   }
 }

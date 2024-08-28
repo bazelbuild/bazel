@@ -18,6 +18,7 @@ import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.lib.analysis.config.FeatureSet;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.ResolvedTargets;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -31,6 +32,7 @@ import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.server.FailureDetails.TargetPatterns;
 import com.google.devtools.build.lib.util.FileType;
 import java.util.Collection;
@@ -40,19 +42,26 @@ import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
-/**
- * Implementation of --compile_one_dependency.
- */
+/** Implementation of --compile_one_dependency. */
 public final class CompileOneDependencyTransformer {
   private final TargetProvider targetProvider;
-  private static final ImmutableMap<String, Predicate<String>> preferredRules =
+
+  private static final FileType CC_FILE_TYPE = FileType.of(".cc", ".h", ".c");
+  private static final FileType JAVA_FILE_TYPE = FileType.of(".java");
+  private static final FileType PYTHON_FILE_TYPE = FileType.of(".py");
+
+  private static final ImmutableMap<String, Predicate<String>> PREFERRED_RULES =
       ImmutableMap.of(
           "cc_library",
-          FileType.of(".cc", ".h", ".c"),
+          CC_FILE_TYPE,
+          "cc_binary",
+          CC_FILE_TYPE,
+          "cc_test",
+          CC_FILE_TYPE,
           "java_library",
-          FileType.of(".java"),
+          JAVA_FILE_TYPE,
           "py_library",
-          FileType.of(".py"));
+          PYTHON_FILE_TYPE);
 
   public CompileOneDependencyTransformer(TargetProvider targetProvider) {
     this.targetProvider = targetProvider;
@@ -88,7 +97,7 @@ public final class CompileOneDependencyTransformer {
     for (Rule rule : orderedRuleList) {
       Set<Label> labels = getInputLabels(rule);
       if (listContainsFile(eventHandler, labels, target.getLabel(), Sets.<Label>newHashSet())) {
-        if (preferredRules
+        if (PREFERRED_RULES
             .getOrDefault(rule.getRuleClass(), Predicates.alwaysFalse())
             .apply(target.getName())) {
           result = rule;
@@ -106,14 +115,20 @@ public final class CompileOneDependencyTransformer {
           TargetPatterns.Code.DEPENDENCY_NOT_FOUND);
     }
 
-    // TODO(djasper): Check whether parse_headers is disabled and just return if not.
-    // If the rule has source targets, return it.
+    // We want a rule where some action processes the input.
+    // We should avoid cc_library rules that describe a set of headers but don't compile them.
+
+    // If parse_headers is (probably) enabled, then this rule has a CppCompileHeader action.
+    if (hasParseHeadersHeuristic(result)) {
+      return result;
+    }
+    // If the rule has source targets, return it: one of those sources will parse the header.
     if (result.getRuleClassObject().hasAttr("srcs", BuildType.LABEL_LIST)
         && !RawAttributeMapper.of(result).getMergedValues("srcs", BuildType.LABEL_LIST).isEmpty()) {
       return result;
     }
 
-    // Try to find a rule in the same package that has 'result' as a dependency.
+    // Else, find a rule in the same package that has 'result' as a dependency.
     for (Rule rule : orderedRuleList) {
       RawAttributeMapper attributes = RawAttributeMapper.of(rule);
       // We don't know which path to follow for configurable attributes, so skip them.
@@ -136,10 +151,33 @@ public final class CompileOneDependencyTransformer {
     return result;
   }
 
+  boolean hasParseHeadersHeuristic(Rule rule) {
+    // We want to know whether the "parse_headers" toolchain feature is enabled or disabled.
+    // At load time we can't really know, so check for the common static configuration sources.
+    // (We ignore parse_headers being disabled through the toolchain & by rule implementations).
+
+    FeatureSet mergedFeatures = rule.getPackage().getPackageArgs().features();
+    RawAttributeMapper ruleAttrs = RawAttributeMapper.of(rule);
+    if (ruleAttrs.has("features", Types.STRING_LIST) && !ruleAttrs.isConfigurable("features")) {
+      FeatureSet ruleFeatures = FeatureSet.parse(ruleAttrs.get("features", Types.STRING_LIST));
+      mergedFeatures = FeatureSet.merge(mergedFeatures, ruleFeatures);
+    }
+
+    if (mergedFeatures.on().contains("parse_headers")) {
+      return true;
+    }
+    if (mergedFeatures.off().contains("parse_headers")) {
+      return false;
+    }
+
+    // We assume parse_headers is on globally, unless disabled locally.
+    return true;
+  }
+
   /**
-   * Returns a list of rules in the given package sorted by BUILD file order. When
-   * multiple rules depend on a target, we choose the first match in this list (after
-   * filtering for preferred dependencies - see below).
+   * Returns a list of rules in the given package sorted by BUILD file order. When multiple rules
+   * depend on a target, we choose the first match in this list (after filtering for preferred
+   * dependencies - see below).
    */
   private Iterable<Rule> getOrderedRuleList(Package pkg) {
     List<Rule> orderedList = Lists.newArrayList();

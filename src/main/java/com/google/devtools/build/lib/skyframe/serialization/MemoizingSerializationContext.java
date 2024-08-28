@@ -162,10 +162,12 @@ abstract class MemoizingSerializationContext extends SerializationContext {
       ImmutableClassToInstanceMap<Object> dependencies,
       @Nullable Object subject,
       int outputCapacity,
-      int bufferCapacity)
+      int bufferCapacity,
+      @Nullable ProfileCollector profileCollector)
       throws SerializationException {
     ByteArrayOutputStream bytesOut = new ByteArrayOutputStream(outputCapacity);
-    serializeToStream(codecRegistry, dependencies, subject, bytesOut, bufferCapacity);
+    serializeToStream(
+        codecRegistry, dependencies, subject, bytesOut, bufferCapacity, profileCollector);
     return bytesOut.toByteArray();
   }
 
@@ -177,12 +179,32 @@ abstract class MemoizingSerializationContext extends SerializationContext {
       int bufferCapacity)
       throws SerializationException {
     ByteString.Output bytesOut = ByteString.newOutput(outputCapacity);
-    serializeToStream(codecRegistry, dependencies, subject, bytesOut, bufferCapacity);
+    serializeToStream(
+        codecRegistry,
+        dependencies,
+        subject,
+        bytesOut,
+        bufferCapacity,
+        /* profileCollector= */ null);
     return bytesOut.toByteString();
   }
 
   @Override
   public final <T> void serializeLeaf(
+      @Nullable T obj, LeafObjectCodec<T> codec, CodedOutputStream codedOut)
+      throws IOException, SerializationException {
+    ProfileRecorder recorder = getProfileRecorder();
+    if (recorder == null) {
+      serializeLeafImpl(obj, codec, codedOut);
+      return;
+    }
+    int startBytes = codedOut.getTotalBytesWritten();
+    recorder.pushLocation(codec);
+    serializeLeafImpl(obj, codec, codedOut);
+    recorder.recordBytesAndPopLocation(startBytes, codedOut);
+  }
+
+  private <T> void serializeLeafImpl(
       @Nullable T obj, LeafObjectCodec<T> codec, CodedOutputStream codedOut)
       throws IOException, SerializationException {
     if (writeIfNullOrConstant(obj, codedOut)) {
@@ -291,15 +313,23 @@ abstract class MemoizingSerializationContext extends SerializationContext {
       ImmutableClassToInstanceMap<Object> dependencies,
       @Nullable Object subject,
       OutputStream output,
-      int bufferCapacity)
+      int bufferCapacity,
+      @Nullable ProfileCollector profileCollector)
       throws SerializationException {
     CodedOutputStream codedOut = CodedOutputStream.newInstance(output, bufferCapacity);
+    MemoizingSerializationContext context =
+        profileCollector == null
+            ? new MemoizingSerializationContextImpl(codecRegistry, dependencies)
+            : new MemoizingSerializationProfilingContext(
+                codecRegistry, dependencies, profileCollector);
     try {
-      new MemoizingSerializationContextImpl(codecRegistry, dependencies)
-          .serialize(subject, codedOut);
+      context.serialize(subject, codedOut);
       codedOut.flush();
     } catch (IOException e) {
       throw new SerializationException("Failed to serialize " + subject, e);
+    }
+    if (profileCollector != null) {
+      context.getProfileRecorder().checkStackEmpty(subject);
     }
   }
 
@@ -319,6 +349,36 @@ abstract class MemoizingSerializationContext extends SerializationContext {
     @Override
     public MemoizingSerializationContext getFreshContext() {
       return new MemoizingSerializationContextImpl(getCodecRegistry(), getDependencies());
+    }
+
+    @Override
+    @Nullable
+    public ProfileRecorder getProfileRecorder() {
+      return null;
+    }
+  }
+
+  private static final class MemoizingSerializationProfilingContext
+      extends MemoizingSerializationContext {
+    private final ProfileRecorder profileRecorder;
+
+    private MemoizingSerializationProfilingContext(
+        ObjectCodecRegistry codecRegistry,
+        ImmutableClassToInstanceMap<Object> dependencies,
+        ProfileCollector profileCollector) {
+      super(codecRegistry, dependencies);
+      this.profileRecorder = new ProfileRecorder(profileCollector);
+    }
+
+    @Override
+    public MemoizingSerializationContext getFreshContext() {
+      return new MemoizingSerializationProfilingContext(
+          getCodecRegistry(), getDependencies(), profileRecorder.getProfileCollector());
+    }
+
+    @Override
+    public ProfileRecorder getProfileRecorder() {
+      return profileRecorder;
     }
   }
 }

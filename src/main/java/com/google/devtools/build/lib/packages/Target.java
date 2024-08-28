@@ -33,10 +33,22 @@ public interface Target extends TargetApi, TargetData {
   Package getPackage();
 
   /**
+   * Returns the innermost symbolic macro that declared this target, or null if it was declared
+   * outside any symbolic macro (i.e. directly in a BUILD file or only in one or more legacy
+   * macros).
+   */
+  default MacroInstance getDeclaringMacro() {
+    // TODO: #19922 - We might replace Package#getDeclaringMacroForTarget by storing a reference to
+    // the declaring macro in implementations of this interface (sharing memory with the field for
+    // the package).
+    return getPackage().getDeclaringMacroForTarget(getName());
+  }
+
+  /**
    * Returns the rule associated with this target, if any.
    *
-   * If this is a Rule, returns itself; it this is an OutputFile, returns its
-   * generating rule; if this is an input file, returns null.
+   * <p>If this is a Rule, returns itself; it this is an OutputFile, returns its generating rule; if
+   * this is an input file, returns null.
    */
   @Nullable
   Rule getAssociatedRule();

@@ -246,6 +246,7 @@ public abstract class MockCcSupport {
         "    ],",
         ")");
     config.append("WORKSPACE", "register_toolchains('//toolchains:all')");
+    config.append("MODULE.bazel", "register_toolchains('//toolchains:all')");
   }
 
   protected void setupRulesCc(MockToolsConfig config) throws IOException {
