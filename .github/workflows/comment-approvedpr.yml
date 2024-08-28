@@ -14,16 +14,29 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-                env:
-                github.rest.issues.createComment({
+            const pullRequest = context.payload.pull_request;
+            const approvedReview = pullRequest.reviews.find(review => review.state === 'APPROVED' && review.user.login === github.actor);
+
+            if (approvedReview) {
+              const daysSinceApproval = Math.floor((new Date() - new Date(approvedReview.submitted_at)) / (1000 * 60 * 60 * 24));
+
+              if (daysSinceApproval > 1 && pullRequest.labels.some(label => label.name === 'awaiting-review')) {
+                // Check if the comment has already been posted
+                const comments = await github.issues.listComments({
                   owner: context.repo.owner,
                   repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  body: `Since the PR is approved. Please confirm if you want us to import it, or if you'll import directly, please remove the 'awaiting-PR-merge' label`
-                })
-                github.rest.issues.addLabels({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: context.issue.number,
-                  labels: ['awaiting-PR-merge']
-                })
+                  issue_number: pullRequest.number
+                });
+
+                const hasComment = comments.data.some(comment => comment.body.includes('This PR has been approved for more than 5 days and still has the \'awaiting-review\' label applied'));
+
+                if (!hasComment) {
+                  await github.issues.createComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    issue_number: pullRequest.number,
+                    body: `This PR has been approved for more than 5 days and still has the 'awaiting-review' label applied. If this has been reviewed and you’d like the PR to be imported, please apply the 'awaiting-pr-merge' label, or remove 'awaiting-PR-merge' label to import directly.`
+                  });
+                }
+              }
+            }
