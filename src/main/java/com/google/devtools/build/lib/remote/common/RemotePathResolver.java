@@ -14,8 +14,6 @@
 package com.google.devtools.build.lib.remote.common;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.devtools.build.lib.util.StringUtil.reencodeExternalToInternal;
-import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToExternal;
 
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -34,9 +32,6 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * A {@link RemotePathResolver} is used to resolve input/output paths for remote execution from
  * Bazel's internal path, or vice versa.
- *
- * <p>Instances are expected to convert between Bazel's internal string representation, which stores
- * strings as raw bytes (Latin-1), and the Protobuf representation, which is UTF-8.
  */
 public interface RemotePathResolver {
 
@@ -125,17 +120,17 @@ public interface RemotePathResolver {
 
     @Override
     public String localPathToOutputPath(Path path) {
-      return reencodeInternalToExternal(path.relativeTo(execRoot).getPathString());
+      return path.relativeTo(execRoot).getPathString();
     }
 
     @Override
     public String localPathToOutputPath(PathFragment execPath) {
-      return reencodeInternalToExternal(execPath.getPathString());
+      return execPath.getPathString();
     }
 
     @Override
     public Path outputPathToLocalPath(String outputPath) {
-      return execRoot.getRelative(reencodeExternalToInternal(outputPath));
+      return execRoot.getRelative(outputPath);
     }
   }
 
@@ -166,7 +161,7 @@ public interface RemotePathResolver {
 
     @Override
     public String getWorkingDirectory() {
-      return reencodeInternalToExternal(execRoot.getBaseName());
+      return execRoot.getBaseName();
     }
 
     @Override
@@ -204,17 +199,17 @@ public interface RemotePathResolver {
 
     @Override
     public String localPathToOutputPath(Path path) {
-      return reencodeInternalToExternal(path.relativeTo(getBase()).getPathString());
+      return path.relativeTo(getBase()).getPathString();
     }
 
     @Override
     public String localPathToOutputPath(PathFragment execPath) {
-      return reencodeInternalToExternal(localPathToOutputPath(execRoot.getRelative(execPath)));
+      return localPathToOutputPath(execRoot.getRelative(execPath));
     }
 
     @Override
     public Path outputPathToLocalPath(String outputPath) {
-      return getBase().getRelative(reencodeExternalToInternal(outputPath));
+      return getBase().getRelative(outputPath);
     }
 
   }

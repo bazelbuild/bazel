@@ -798,12 +798,12 @@ public class RemoteExecutionService {
       ListenableFuture<Void> future =
           remoteCache.downloadFile(
               context,
-              remotePathResolver.localPathToOutputPath(file.path()),
+              reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(file.path())),
               tmpPath,
               file.digest(),
               new RemoteCache.DownloadProgressReporter(
                   progressStatusListener,
-                  remotePathResolver.localPathToOutputPath(file.path()),
+                  reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(file.path())),
                   file.digest().getSizeBytes()));
       return transform(future, (d) -> file, directExecutor());
     } catch (IOException e) {
@@ -1032,7 +1032,7 @@ public class RemoteExecutionService {
     for (OutputDirectory dir : result.getOutputDirectories()) {
       var outputPath = dir.getPath();
       dirMetadataDownloads.put(
-          remotePathResolver.outputPathToLocalPath(outputPath),
+          remotePathResolver.outputPathToLocalPath(reencodeExternalToInternal(outputPath)),
           Futures.transformAsync(
               remoteCache.downloadBlob(context, outputPath, dir.getTreeDigest()),
               (treeBytes) ->
@@ -1057,7 +1057,9 @@ public class RemoteExecutionService {
 
     ImmutableMap.Builder<Path, FileMetadata> files = ImmutableMap.builder();
     for (OutputFile outputFile : result.getOutputFiles()) {
-      Path localPath = remotePathResolver.outputPathToLocalPath(outputFile.getPath());
+      Path localPath =
+          remotePathResolver.outputPathToLocalPath(
+              reencodeExternalToInternal(outputFile.getPath()));
       files.put(
           localPath,
           new FileMetadata(localPath, outputFile.getDigest(), outputFile.getIsExecutable()));
@@ -1070,7 +1072,8 @@ public class RemoteExecutionService {
             result.getOutputDirectorySymlinks(),
             result.getOutputSymlinks());
     for (var symlink : outputSymlinks) {
-      var localPath = remotePathResolver.outputPathToLocalPath(symlink.getPath());
+      var localPath =
+          remotePathResolver.outputPathToLocalPath(reencodeExternalToInternal(symlink.getPath()));
       var target = PathFragment.create(reencodeExternalToInternal(symlink.getTarget()));
       var existingMetadata = symlinkMap.get(localPath);
       if (existingMetadata != null) {
@@ -1418,8 +1421,9 @@ public class RemoteExecutionService {
     Map<Path, Path> realToTmpPath = new HashMap<>();
     try {
       for (String output : action.getCommand().getOutputPathsList()) {
+        String reencodedOutput = reencodeExternalToInternal(output);
         Path sourcePath =
-            previousExecution.action.getRemotePathResolver().outputPathToLocalPath(output);
+            previousExecution.action.getRemotePathResolver().outputPathToLocalPath(reencodedOutput);
         ActionInput outputArtifact = previousOutputs.get(sourcePath);
         Path tmpPath = tempPathGenerator.generateTempPath();
         tmpPath.getParentDirectory().createDirectoryAndParents();
@@ -1433,7 +1437,7 @@ public class RemoteExecutionService {
             FileSystemUtils.copyFile(sourcePath, tmpPath);
           }
 
-          Path targetPath = action.getRemotePathResolver().outputPathToLocalPath(output);
+          Path targetPath = action.getRemotePathResolver().outputPathToLocalPath(reencodedOutput);
           realToTmpPath.put(targetPath, tmpPath);
         } catch (FileNotFoundException e) {
           // The spawn this action was deduplicated against failed to create an output file. If the

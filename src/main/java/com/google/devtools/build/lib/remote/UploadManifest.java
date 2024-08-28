@@ -338,7 +338,7 @@ public class UploadManifest {
   private void addFileSymbolicLink(Path file, PathFragment target) {
     OutputSymlink outputSymlink =
         OutputSymlink.newBuilder()
-            .setPath(remotePathResolver.localPathToOutputPath(file))
+            .setPath(reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(file)))
             .setTarget(reencodeInternalToExternal(target.toString()))
             .build();
     result.addOutputFileSymlinks(outputSymlink);
@@ -348,17 +348,17 @@ public class UploadManifest {
   private void addDirectorySymbolicLink(Path file, PathFragment target) {
     OutputSymlink outputSymlink =
         OutputSymlink.newBuilder()
-            .setPath(remotePathResolver.localPathToOutputPath(file))
+            .setPath(reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(file)))
             .setTarget(reencodeInternalToExternal(target.toString()))
             .build();
     result.addOutputDirectorySymlinks(outputSymlink);
     result.addOutputSymlinks(outputSymlink);
   }
 
-  private void addFile(Digest digest, Path file) throws IOException {
+  private void addFile(Digest digest, Path file) {
     result
         .addOutputFilesBuilder()
-        .setPath(remotePathResolver.localPathToOutputPath(file))
+        .setPath(reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(file)))
         .setDigest(digest)
         .setIsExecutable(true);
 
@@ -564,7 +564,7 @@ public class UploadManifest {
 
     result
         .addOutputDirectoriesBuilder()
-        .setPath(remotePathResolver.localPathToOutputPath(dir))
+        .setPath(reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(dir)))
         .setTreeDigest(treeDigest)
         .setIsTopologicallySorted(true);
 
