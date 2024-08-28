@@ -249,7 +249,8 @@ public class RemoteExecutionService {
     ArrayList<String> outputDirectories = new ArrayList<>();
     ArrayList<String> outputPaths = new ArrayList<>();
     for (ActionInput output : outputs) {
-      String pathString = remotePathResolver.localPathToOutputPath(output);
+      String pathString =
+          reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(output));
       if (output.isDirectory()) {
         outputDirectories.add(pathString);
       } else {
