@@ -966,13 +966,13 @@ public class RemoteExecutionService {
       private final Path path;
       private final Digest digest;
       private final boolean isExecutable;
-      private final ByteString content;
+      private final ByteString contents;
 
-      private FileMetadata(Path path, Digest digest, boolean isExecutable, ByteString content) {
+      private FileMetadata(Path path, Digest digest, boolean isExecutable, ByteString contents) {
         this.path = path;
         this.digest = digest;
         this.isExecutable = isExecutable;
-        this.content = content;
+        this.contents = contents;
       }
 
       public Path path() {
@@ -988,7 +988,7 @@ public class RemoteExecutionService {
       }
 
       public ByteString content() {
-        return content;
+        return contents;
       }
     }
 
@@ -1248,20 +1248,24 @@ public class RemoteExecutionService {
         }
 
         if (isInMemoryOutputFile) {
-          // There is no way to distinguish between an empty file and a file that has not been
-          // inlined.
-          if (file.content.isEmpty()) {
-            downloadsBuilder.add(
-                transform(
-                    remoteCache.downloadBlob(
-                        context, inMemoryOutputPath.getPathString(), file.digest()),
-                    data -> {
-                      inMemoryOutputData.set(ByteString.copyFrom(data));
-                      return null;
-                    },
-                    directExecutor()));
+          if (file.contents.isEmpty()) {
+            // As the contents field doesn't have presence information, we use the digest size to
+            // distinguish between an empty file and one that wasn't inlined.
+            if (file.digest.getSizeBytes() == 0) {
+              inMemoryOutputData.set(ByteString.EMPTY);
+            } else {
+              downloadsBuilder.add(
+                  transform(
+                      remoteCache.downloadBlob(
+                          context, inMemoryOutputPath.getPathString(), file.digest()),
+                      data -> {
+                        inMemoryOutputData.set(ByteString.copyFrom(data));
+                        return null;
+                      },
+                      directExecutor()));
+            }
           } else {
-            inMemoryOutputData.set(file.content);
+            inMemoryOutputData.set(file.contents);
           }
         }
       }
@@ -1841,7 +1845,8 @@ public class RemoteExecutionService {
     PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
     if (inMemoryOutputPath != null) {
       requestBuilder.addInlineOutputFiles(
-          action.getRemotePathResolver().localPathToOutputPath(inMemoryOutputPath));
+          reencodeInternalToExternal(
+              action.getRemotePathResolver().localPathToOutputPath(inMemoryOutputPath)));
     }
 
     ExecuteRequest request = requestBuilder.build();
