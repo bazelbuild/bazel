@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.runtime.InstrumentationOutput;
 import javax.annotation.Nullable;
 
 /** This event is fired when the profiler is started. */
-public class ProfilerStartedEvent implements ExtendedEventHandler.Postable {
+public final class ProfilerStartedEvent implements ExtendedEventHandler.Postable {
   @Nullable private final InstrumentationOutput profile;
 
   public ProfilerStartedEvent(@Nullable InstrumentationOutput profile) {

@@ -103,6 +103,7 @@ import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.worker.WorkerProcessMetricsCollector;
 import com.google.devtools.common.options.CommandNameCache;
 import com.google.devtools.common.options.InvocationPolicyParser;
@@ -124,6 +125,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -313,6 +315,38 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return buildEventArtifactUploaderFactoryMap.select(buildEventUploadStrategy).create(env);
   }
 
+  /**
+   * Implements automatic profile management.
+   *
+   * <ul>
+   *   <li>computes the path to write the profile for the current command to
+   *   <li>does garbage collection for profiles from previous commands based on the <code>
+   * --profiles_to_retain</code> flag
+   * </ul>
+   *
+   * @return the path this command's profile should be written to
+   */
+  @VisibleForTesting
+  static Path manageProfiles(Path dir, String commandId, int retentionWindow) throws IOException {
+    var prefix = "command-";
+    var suffix = ".profile.gz";
+    record PathAndMtime(Path path, long mtime) {}
+    var old = new ArrayList<PathAndMtime>();
+    for (var dirent : dir.readdir(Symlinks.FOLLOW)) {
+      if (dirent.getName().startsWith(prefix) && dirent.getName().endsWith(suffix)) {
+        var path = dir.getChild(dirent.getName());
+        old.add(new PathAndMtime(path, path.stat().getLastModifiedTime()));
+      }
+    }
+    old.sort(Comparator.comparingLong(PathAndMtime::mtime));
+    var toRemove = Math.max(old.size() - retentionWindow + 1, 0);
+    for (var i = 0; i < toRemove; i++) {
+      old.get(i).path().delete();
+    }
+    var profileName = prefix + commandId + suffix;
+    return dir.getChild(profileName);
+  }
+
   /** Configure profiling based on the provided options. */
   ProfilerStartedEvent initProfiler(
       boolean tracerEnabled,
@@ -328,7 +362,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     boolean recordFullProfilerData = commandOptions.recordFullProfilerData;
     ImmutableSet.Builder<ProfilerTask> profiledTasksBuilder = ImmutableSet.builder();
     Profiler.Format format = Format.JSON_TRACE_FILE_FORMAT;
-    Path profilePath = null;
     InstrumentationOutput profile = null;
     try {
       if (tracerEnabled) {
@@ -342,23 +375,27 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                     .setName(profileName)
                     .setUploader(newUploader(env, bepOptions.buildEventUploadStrategy))
                     .build();
-            out = profile.createOutputStream();
           } else {
-            profilePath = workspace.getOutputBase().getRelative(profileName);
+            var profilePath =
+                manageProfiles(
+                    workspace.getOutputBase(),
+                    env.getCommandId().toString(),
+                    commandOptions.profilesToRetain);
             profile =
                 instrumentationOutputFactory
                     .createLocalInstrumentationOutputBuilder()
                     .setName(profileName)
                     .setPath(profilePath)
+                    .setConvenienceName(profileName)
                     .build();
-            out = profile.createOutputStream();
           }
+          out = profile.createOutputStream();
         } else {
           format =
               commandOptions.profilePath.toString().endsWith(".gz")
                   ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
                   : Format.JSON_TRACE_FILE_FORMAT;
-          profilePath = workspace.getWorkspace().getRelative(commandOptions.profilePath);
+          var profilePath = workspace.getWorkspace().getRelative(commandOptions.profilePath);
           profile =
               instrumentationOutputFactory
                   .createLocalInstrumentationOutputBuilder()
