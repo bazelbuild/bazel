@@ -1467,7 +1467,7 @@ public class RemoteExecutionService {
             previousExecution.action.getRemotePathResolver().outputPathToLocalPath(reencodedOutput);
         ActionInput outputArtifact = previousOutputs.get(sourcePath);
         Path targetPath = action.getRemotePathResolver().outputPathToLocalPath(reencodedOutput);
-        inMemoryOutputContent = previousSpawnResult.getInMemoryOutputBytes(outputArtifact);
+        inMemoryOutputContent = previousSpawnResult.getInMemoryOutput(outputArtifact);
         if (inMemoryOutputContent != null) {
           inMemoryOutputPath = targetPath.relativeTo(execRoot).getPathString();
           continue;
@@ -1530,7 +1530,7 @@ public class RemoteExecutionService {
       return new SpawnResult.DelegateSpawnResult(previousSpawnResult) {
         @Override
         @Nullable
-        public ByteString getInMemoryOutputBytes(ActionInput output) {
+        public ByteString getInMemoryOutput(ActionInput output) {
           if (output.getExecPathString().equals(finalInMemoryOutputPath)) {
             return finalInMemoryOutputContent;
           }

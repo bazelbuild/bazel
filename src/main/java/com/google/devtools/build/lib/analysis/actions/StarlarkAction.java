@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.StarlarkAction.Code;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.protobuf.ByteString;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -312,9 +313,9 @@ public class StarlarkAction extends SpawnAction {
       // Note: SpawnActionContext guarantees that the first list entry exists and corresponds to the
       // executed spawn.
       Artifact unusedInputsListArtifact = unusedInputsList.get();
-      InputStream inputStream = spawnResults.get(0).getInMemoryOutput(unusedInputsListArtifact);
-      if (inputStream != null) {
-        return inputStream;
+      ByteString content = spawnResults.get(0).getInMemoryOutput(unusedInputsListArtifact);
+      if (content != null) {
+        return content.newInput();
       }
       // Fallback to reading from disk.
       try {

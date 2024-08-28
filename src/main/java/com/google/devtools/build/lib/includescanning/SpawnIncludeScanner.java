@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collection;
@@ -402,7 +403,11 @@ public class SpawnIncludeScanner {
     }
 
     SpawnResult result = results.getFirst();
-    return result.getInMemoryOutput(output);
+    ByteString includesContent = result.getInMemoryOutput(output);
+    if (includesContent != null) {
+      return includesContent.newInput();
+    }
+    return null;
   }
 
   private static void dump(ActionExecutionContext fromContext, ActionExecutionContext toContext) {

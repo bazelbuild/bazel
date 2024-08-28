@@ -915,7 +915,7 @@ public class RemoteSpawnCacheTest {
               .setStatus(Status.SUCCESS)
               .setRunnerName("test")
               .setInMemoryOutput(
-                  firstSpawn.getOutputFiles().getFirst(), ByteString.copyFrom("in-memory", UTF_8))
+                  firstSpawn.getOutputFiles().getFirst(), ByteString.copyFromUtf8("in-memory"))
               .build());
     }
     CacheHandle secondCacheHandle = cache.lookup(secondSpawn, secondPolicy);
@@ -924,7 +924,7 @@ public class RemoteSpawnCacheTest {
     ActionInput inMemoryOutput = secondSpawn.getOutputFiles().getFirst();
     assertThat(secondCacheHandle.hasResult()).isTrue();
     assertThat(secondCacheHandle.getResult().getRunnerName()).isEqualTo("deduplicated");
-    assertThat(secondCacheHandle.getResult().getInMemoryOutputBytes(inMemoryOutput).toStringUtf8())
+    assertThat(secondCacheHandle.getResult().getInMemoryOutput(inMemoryOutput).toStringUtf8())
         .isEqualTo("in-memory");
     assertThat(execRoot.getRelative(inMemoryOutput.getExecPath()).exists()).isFalse();
     assertThat(secondCacheHandle.willStore()).isFalse();

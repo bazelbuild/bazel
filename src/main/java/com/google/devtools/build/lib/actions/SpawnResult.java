@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.io.InputStream;
 import java.time.Instant;
 import java.util.Locale;
 import javax.annotation.Nullable;
@@ -260,26 +259,9 @@ public interface SpawnResult {
    *
    * <p>This behavior may be triggered with {@link
    * ExecutionRequirements#REMOTE_EXECUTION_INLINE_OUTPUTS}.
-   *
-   * <p>Implementing classes should override {@link #getInMemoryOutputBytes(ActionInput)} instead.
    */
   @Nullable
-  default InputStream getInMemoryOutput(ActionInput output) {
-    ByteString bytes = getInMemoryOutputBytes(output);
-    if (bytes == null) {
-      return null;
-    }
-    return bytes.newInput();
-  }
-
-  /**
-   * Returns a {@link Spawn}'s output in-memory, if supported and available.
-   *
-   * <p>This behavior may be triggered with {@link
-   * ExecutionRequirements#REMOTE_EXECUTION_INLINE_OUTPUTS}.
-   */
-  @Nullable
-  default ByteString getInMemoryOutputBytes(ActionInput output) {
+  default ByteString getInMemoryOutput(ActionInput output) {
     return null;
   }
 
@@ -477,7 +459,7 @@ public interface SpawnResult {
 
     @Nullable
     @Override
-    public ByteString getInMemoryOutputBytes(ActionInput output) {
+    public ByteString getInMemoryOutput(ActionInput output) {
       if (inMemoryOutputFile != null && inMemoryOutputFile.equals(output)) {
         return inMemoryContents;
       }
@@ -615,8 +597,8 @@ public interface SpawnResult {
 
     @Override
     @Nullable
-    public ByteString getInMemoryOutputBytes(ActionInput output) {
-      return delegate.getInMemoryOutputBytes(output);
+    public ByteString getInMemoryOutput(ActionInput output) {
+      return delegate.getInMemoryOutput(output);
     }
 
     @Override
