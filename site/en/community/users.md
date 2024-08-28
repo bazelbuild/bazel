@@ -287,6 +287,22 @@ Peloton Technology is an automated vehicle technology company that tackles truck
 accidents and fuel use. They use Bazel to _enable reliable builds for automotive
 safety systems_.
 
+### [Pigweed](https://pigweed.dev){: .external}
+
+<img src="https://pigweed.dev/_static/pw_logo.svg" width="100" align="right">
+
+Pigweed is an open-source solution for sustained, robust, and rapid embedded
+product development for large teams. Pigweed has shipped in millions of
+devices, including Google's suite of Pixel devices, Nest thermostats,
+[satellites](https://www.spinlaunch.com/), and [autonomous aerial
+drones](https://www.flyzipline.com/).
+
+Pigweed [uses Bazel as its primary build
+system](https://pigweed.dev/seed/0111-build-systems.html). The [Bazel for
+Embedded][pw-bazel-great] blog post discusses why we think it's a great build
+system for embedded projects!
+
+[pw-bazel-great]: https://blog.bazel.build/2024/08/08/bazel-for-embedded.html#why-bazel-for-embedded
 
 ### [Pinterest](https://www.pinterest.com/){: .external}
 
