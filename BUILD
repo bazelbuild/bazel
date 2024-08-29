@@ -214,10 +214,8 @@ pkg_tar(
     srcs = ["@maven//:srcs"] + ["MAVEN_CANONICAL_REPO_NAME"],
     package_dir = "derived/maven",
     remap_paths = {
-        # We need the repo names according to "builder bazel" (instead of "bazel being built") here.
-        # Remove the `replace` parts after building with 7.3.0.
-        "external/" + get_canonical_repo_name("@maven").replace("+", "~") + "/": "",
-        "../" + get_canonical_repo_name("@maven").replace("+", "~") + "/": "",
+        "external/" + get_canonical_repo_name("@maven") + "/": "",
+        "../" + get_canonical_repo_name("@maven") + "/": "",
     },
     strip_prefix = ".",
     visibility = ["//:__subpackages__"],

@@ -1,4 +1,5 @@
 common --enable_platform_specific_config
+common --incompatible_use_plus_in_repo_names
 
 # Shared configuration flags to build and test Bazel on RBE.
 build:remote_shared --remote_instance_name=projects/bazel-untrusted/instances/default_instance
