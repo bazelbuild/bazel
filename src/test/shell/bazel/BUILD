@@ -1275,6 +1275,7 @@ sh_test(
     tags = [
         "requires-network",
     ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
 sh_test(
