@@ -171,7 +171,7 @@ public class ParameterFile {
       byte[] bytes = stringUnsafe.getByteArray(line);
       if (stringUnsafe.isAscii(line)) {
         outputStream.write(bytes);
-      } else if (!StringUtil.reencodeInternalToExternal(line).equals(line)) {
+      } else if (!StringUtil.reencodeInternalToUtf8(line).equals(line)) {
         // We successfully decoded line from utf8 - meaning it was already encoded as utf8.
         // We do not want to double-encode.
         outputStream.write(bytes);

@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.query2.aquery;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToExternal;
+import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToUtf8;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
@@ -373,7 +373,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       return maybeUtf8;
     }
 
-    final String decoded = reencodeInternalToExternal(maybeUtf8);
+    final String decoded = reencodeInternalToUtf8(maybeUtf8);
     final StringBuilder sb = new StringBuilder(decoded.length() * 8);
     decoded
         .codePoints()

@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.util;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
+import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Iterator;
 
@@ -123,6 +125,47 @@ public class StringUtil {
   }
 
   /**
+   * Even though Bazel attempts to force the default charset to be ISO-8859-1, which makes String
+   * identical to the "bag of raw bytes" that a UNIX path is, the JVM may still use a different
+   * encoding for file paths, e.g. on macOS (always UTF-8). When interoperating with the filesystem
+   * through Java APIs, we thus need to reencode paths to the JVM's native filesystem encoding.
+   */
+  private static final Charset JAVA_PATH_CHARSET =
+      Charset.forName(System.getProperty("sun.jnu.encoding"), ISO_8859_1);
+
+  // TODO: Use StandardCharsets for this after updating to JDK 22.
+  private static final Charset UTF_32 = Charset.forName("UTF-32");
+  private static final Charset UTF_32BE = Charset.forName("UTF-32BE");
+  private static final Charset UTF_32LE = Charset.forName("UTF-32LE");
+
+  /**
+   * Reencodes a Bazel internal path string into the equivalent representation for Java (N)IO
+   * methods, if necessary.
+   */
+  public static String reencodeInternalToJavaIo(String s) {
+    return canSkipJavaIoReencode(s) ? s : new String(s.getBytes(ISO_8859_1), JAVA_PATH_CHARSET);
+  }
+
+  /**
+   * Reencodes a path string obtained from Java (N)IO methods into Bazel's internal string
+   * representation, if necessary.
+   */
+  public static String reencodeJavaIoToInternal(String s) {
+    return canSkipJavaIoReencode(s) ? s : new String(s.getBytes(JAVA_PATH_CHARSET), ISO_8859_1);
+  }
+
+  private static boolean canSkipJavaIoReencode(String s) {
+    // Most common charsets other than UTF-16 and UTF-32 are compatible with ASCII and most paths
+    // are ASCII, so avoid any conversion if possible.
+    return JAVA_PATH_CHARSET == ISO_8859_1
+        || JAVA_PATH_CHARSET == US_ASCII
+        || (JAVA_PATH_CHARSET != UTF_32
+            && JAVA_PATH_CHARSET != UTF_32BE
+            && JAVA_PATH_CHARSET != UTF_32LE
+            && StringUnsafe.getInstance().isAscii(s));
+  }
+
+  /**
    * Decode a String that might actually be UTF-8, in which case each input character will be
    * treated as a byte.
    *
@@ -139,7 +182,7 @@ public class StringUtil {
    * <p>The return value is suitable for passing to Protobuf string fields or printing to the
    * terminal.
    */
-  public static String reencodeInternalToExternal(String maybeUtf8) {
+  public static String reencodeInternalToUtf8(String maybeUtf8) {
     if (StringUnsafe.getInstance().isAscii(maybeUtf8)) {
       return maybeUtf8;
     }
@@ -174,9 +217,9 @@ public class StringUtil {
    *
    * <p>encodeBytestringUtf8("\u2049") == "\u00E2\u0081\u0089"
    *
-   * <p>See {@link #reencodeInternalToExternal} for motivation.
+   * <p>See {@link #reencodeInternalToUtf8} for motivation.
    */
-  public static String reencodeExternalToInternal(String unicode) {
+  public static String reencodeUtf8ToInternal(String unicode) {
     if (StringUnsafe.getInstance().isAscii(unicode)) {
       return unicode;
     }

@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.shell;
 
+import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToJavaIo;
+
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -155,7 +157,7 @@ public class JavaSubprocessFactory implements SubprocessFactory {
             && Objects.equals(System.getProperty("sun.jnu.encoding"), "UTF-8");
     List<String> argv = params.getArgv();
     if (reencodeToUtf8) {
-      argv = Lists.transform(argv, StringUtil::reencodeInternalToExternal);
+      argv = Lists.transform(argv, StringUtil::reencodeInternalToJavaIo);
     }
     builder.command(argv);
     if (params.getEnv() != null) {
@@ -167,9 +169,7 @@ public class JavaSubprocessFactory implements SubprocessFactory {
                 (key, value) ->
                     builder
                         .environment()
-                        .put(
-                            StringUtil.reencodeInternalToExternal(key),
-                            StringUtil.reencodeInternalToExternal(value)));
+                        .put(reencodeInternalToJavaIo(key), reencodeInternalToJavaIo(value)));
       } else {
         builder.environment().putAll(params.getEnv());
       }
@@ -193,24 +193,18 @@ public class JavaSubprocessFactory implements SubprocessFactory {
    * redirected to exists, deletes the file before redirecting to it.
    */
   private Redirect getRedirect(StreamAction action, File file) {
-    switch (action) {
-      case DISCARD:
-        return Redirect.to(new File("/dev/null"));
-
-      case REDIRECT:
+    return switch (action) {
+      case DISCARD -> Redirect.to(new File("/dev/null"));
+      case REDIRECT -> {
         // We need to use Redirect.appendTo() here, because on older Linux kernels writes are
         // otherwise not atomic and might result in lost log messages:
         // https://lkml.org/lkml/2014/3/3/308
         if (file.exists()) {
           file.delete();
         }
-        return Redirect.appendTo(file);
-
-      case STREAM:
-        return Redirect.PIPE;
-
-      default:
-        throw new IllegalStateException();
-    }
+        yield Redirect.appendTo(file);
+      }
+      case STREAM -> Redirect.PIPE;
+    };
   }
 }

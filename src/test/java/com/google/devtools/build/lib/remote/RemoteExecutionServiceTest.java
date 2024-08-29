@@ -21,7 +21,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.actions.ExecutionRequirements.REMOTE_EXECUTION_INLINE_OUTPUTS;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.toBinaryDigest;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
-import static com.google.devtools.build.lib.util.StringUtil.reencodeExternalToInternal;
+import static com.google.devtools.build.lib.util.StringUtil.reencodeUtf8ToInternal;
 import static com.google.devtools.build.lib.vfs.FileSystemUtils.readContent;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
@@ -1547,7 +1547,7 @@ public class RemoteExecutionServiceTest {
     ImmutableSet.Builder<Artifact> outputs = ImmutableSet.builder();
     ImmutableList<String> expectedOutputFiles = ImmutableList.of("outputs/foo", "outputs/bar");
     for (String outputFile : expectedOutputFiles) {
-      Path path = remotePathResolver.outputPathToLocalPath(reencodeExternalToInternal(outputFile));
+      Path path = remotePathResolver.outputPathToLocalPath(reencodeUtf8ToInternal(outputFile));
       Artifact output = ActionsTestUtil.createArtifact(artifactRoot, path);
       outputs.add(output);
     }
@@ -2408,14 +2408,14 @@ public class RemoteExecutionServiceTest {
     ImmutableSet.Builder<Artifact> outputs = ImmutableSet.builder();
     for (OutputFile file : result.getOutputFiles()) {
       Path path =
-          remotePathResolver.outputPathToLocalPath(reencodeExternalToInternal(file.getPath()));
+          remotePathResolver.outputPathToLocalPath(reencodeUtf8ToInternal(file.getPath()));
       Artifact output = ActionsTestUtil.createArtifact(artifactRoot, path);
       outputs.add(output);
     }
 
     for (OutputDirectory directory : result.getOutputDirectories()) {
       Path path =
-          remotePathResolver.outputPathToLocalPath(reencodeExternalToInternal(directory.getPath()));
+          remotePathResolver.outputPathToLocalPath(reencodeUtf8ToInternal(directory.getPath()));
       Artifact output =
           ActionsTestUtil.createTreeArtifactWithGeneratingAction(
               artifactRoot, path.relativeTo(execRoot));
@@ -2425,7 +2425,7 @@ public class RemoteExecutionServiceTest {
     for (OutputSymlink fileSymlink : result.getOutputFileSymlinks()) {
       Path path =
           remotePathResolver.outputPathToLocalPath(
-              reencodeExternalToInternal(fileSymlink.getPath()));
+              reencodeUtf8ToInternal(fileSymlink.getPath()));
       Artifact output = ActionsTestUtil.createArtifact(artifactRoot, path);
       outputs.add(output);
     }
@@ -2433,7 +2433,7 @@ public class RemoteExecutionServiceTest {
     for (OutputSymlink directorySymlink : result.getOutputDirectorySymlinks()) {
       Path path =
           remotePathResolver.outputPathToLocalPath(
-              reencodeExternalToInternal(directorySymlink.getPath()));
+              reencodeUtf8ToInternal(directorySymlink.getPath()));
       Artifact output =
           ActionsTestUtil.createTreeArtifactWithGeneratingAction(
               artifactRoot, path.relativeTo(execRoot));
@@ -2442,7 +2442,7 @@ public class RemoteExecutionServiceTest {
 
     for (OutputSymlink symlink : result.getOutputSymlinks()) {
       Path path =
-          remotePathResolver.outputPathToLocalPath(reencodeExternalToInternal(symlink.getPath()));
+          remotePathResolver.outputPathToLocalPath(reencodeUtf8ToInternal(symlink.getPath()));
       Artifact output = ActionsTestUtil.createArtifact(artifactRoot, path);
       outputs.add(output);
     }

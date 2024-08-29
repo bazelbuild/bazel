@@ -14,9 +14,6 @@
 //
 package com.google.devtools.build.lib.vfs;
 
-import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.nio.charset.StandardCharsets.US_ASCII;
-import static java.nio.charset.StandardCharsets.UTF_16;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
@@ -27,7 +24,7 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.unsafe.StringUnsafe;
+import com.google.devtools.build.lib.util.StringUtil;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
@@ -36,12 +33,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.SeekableByteChannel;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.Set;
 
 /** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
 @ThreadSafe
@@ -49,23 +43,6 @@ public abstract class AbstractFileSystem extends FileSystem {
 
   protected static final String ERR_PERMISSION_DENIED = " (Permission denied)";
   protected static final Profiler profiler = Profiler.instance();
-  /**
-   * Even though Bazel attempts to force the default charset to be ISO-8859-1, which makes String
-   * identical to the "bag of raw bytes" that a UNIX path is, the JVM may still use a different
-   * encoding for file paths, e.g. on macOS (always UTF-8). When interoperating with the filesystem
-   * through Java APIs, we thus need to reencode paths to the JVM's native filesystem encoding.
-   */
-  private static final Charset JAVA_PATH_CHARSET =
-      Charset.forName(System.getProperty("sun.jnu.encoding"), ISO_8859_1);
-
-  private static final Set<Charset> ASCII_INCOMPATIBLE_CHARSETS =
-      ImmutableSet.of(
-          UTF_16,
-          StandardCharsets.UTF_16BE,
-          StandardCharsets.UTF_16LE,
-          Charset.forName("UTF-32"),
-          Charset.forName("UTF-32BE"),
-          Charset.forName("UTF-32LE"));
 
   public AbstractFileSystem(DigestHashFunction digestFunction) {
     super(digestFunction);
@@ -97,32 +74,7 @@ public abstract class AbstractFileSystem extends FileSystem {
 
   @Override
   public String getJavaPathString(PathFragment path) {
-    return toJavaIoString(path.getPathString());
-  }
-
-  /**
-   * Reencodes a Bazel internal path string into the equivalent representation for Java (N)IO
-   * methods, if necessary.
-   */
-  protected String toJavaIoString(String s) {
-    return canSkipReencoding(s) ? s : new String(s.getBytes(ISO_8859_1), JAVA_PATH_CHARSET);
-  }
-
-  /**
-   * Reencodes a path string obtained from Java (N)IO methods into Bazel's internal string
-   * representation, if necessary.
-   */
-  protected String fromJavaIoString(String s) {
-    return canSkipReencoding(s) ? s : new String(s.getBytes(JAVA_PATH_CHARSET), ISO_8859_1);
-  }
-
-  private boolean canSkipReencoding(String s) {
-    // Most common charsets other than UTF-16 and UTF-32 are compatible with ASCII and most paths
-    // are ASCII, so avoid any conversion if possible.
-    return JAVA_PATH_CHARSET == ISO_8859_1
-        || JAVA_PATH_CHARSET == US_ASCII
-        || (!ASCII_INCOMPATIBLE_CHARSETS.contains(JAVA_PATH_CHARSET)
-            && StringUnsafe.getInstance().isAscii(s));
+    return StringUtil.reencodeInternalToJavaIo(path.getPathString());
   }
 
   /** Allows the mapping of PathFragment to InputStream to be overridden in subclasses. */
