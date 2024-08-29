@@ -33,6 +33,8 @@ PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("rules_rust", "rust/private"),
     ("", "third_party/gpus/cuda"),
     ("", "tools/build_defs/go"),
+    ("", "third_party/bazel_rules/rules_java"),
+    ("rules_java", ""),
 ] + CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
 
 artifact_category = struct(
