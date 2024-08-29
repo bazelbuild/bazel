@@ -26,7 +26,8 @@ public final class SkyframeGraphStatsEvent implements ExtendedEventHandler.Posta
       ImmutableMap<SkyFunctionName, Integer> dirtied,
       ImmutableMap<SkyFunctionName, Integer> changed,
       ImmutableMap<SkyFunctionName, Integer> built,
-      ImmutableMap<SkyFunctionName, Integer> cleaned) {}
+      ImmutableMap<SkyFunctionName, Integer> cleaned,
+      ImmutableMap<SkyFunctionName, Integer> evaluated) {}
 
   private final int graphSize;
   private final EvaluationStats evaluationStats;

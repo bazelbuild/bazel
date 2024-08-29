@@ -298,6 +298,7 @@ class MetricsCollector {
     buildGraphMetrics.addAllChangedValues(toEvaluationStats(evaluationStats.changed()));
     buildGraphMetrics.addAllBuiltValues(toEvaluationStats(evaluationStats.built()));
     buildGraphMetrics.addAllCleanedValues(toEvaluationStats(evaluationStats.cleaned()));
+    buildGraphMetrics.addAllEvaluatedValues(toEvaluationStats(evaluationStats.evaluated()));
     buildGraphMetrics.setPostInvocationSkyframeNodeCount(event.getGraphSize());
   }
 

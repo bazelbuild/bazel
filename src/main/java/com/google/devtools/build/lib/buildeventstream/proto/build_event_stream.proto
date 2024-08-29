@@ -1151,6 +1151,11 @@ message BuildMetrics {
     // Number of SkyValues that were evaluated and found clean, i.e. equal to
     // their previous version.
     repeated EvaluationStat cleaned_values = 13;
+    // Number of evaluations to build SkyValues. This includes restarted
+    // evaluations, which means there can be multiple evaluations per built
+    // SkyValue. Subtract built_values from this number to get the number of
+    // restarted evaluations.
+    repeated EvaluationStat evaluated_values = 17;
 
     // For SkyKeys in 'done values' where the SkyValue is of type
     // RuleConfiguredTargetValue, we pull those out separately and report the

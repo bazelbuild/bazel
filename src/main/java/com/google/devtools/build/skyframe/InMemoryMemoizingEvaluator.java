@@ -55,6 +55,9 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
     // Nodes that were built and found to be same as the previous version
     private final ConcurrentHashMultiset<SkyFunctionName> cleaned;
 
+    // Nodes that were computed during the build
+    private final ConcurrentHashMultiset<SkyFunctionName> evaluated;
+
     private static ConcurrentHashMultiset<SkyFunctionName> createMultiset() {
       return ConcurrentHashMultiset.create(
           new ConcurrentHashMap<>(Runtime.getRuntime().availableProcessors(), 0.75f));
@@ -67,6 +70,7 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
       changed = createMultiset();
       built = createMultiset();
       cleaned = createMultiset();
+      evaluated = createMultiset();
     }
 
     private static ImmutableMap<SkyFunctionName, Integer> fromMultiset(
@@ -81,11 +85,13 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
               fromMultiset(dirtied),
               fromMultiset(changed),
               fromMultiset(built),
-              fromMultiset(cleaned));
+              fromMultiset(cleaned),
+              fromMultiset(evaluated));
       dirtied.clear();
       changed.clear();
       built.clear();
       cleaned.clear();
+      evaluated.clear();
       return result;
     }
 
@@ -115,6 +121,14 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
         built.add(skyKey.functionName(), 1);
       } else {
         cleaned.add(skyKey.functionName(), 1);
+      }
+    }
+
+    @Override
+    public void stateEnding(SkyKey skyKey, NodeState nodeState) {
+      super.stateEnding(skyKey, nodeState);
+      if (nodeState == NodeState.COMPUTE) {
+        evaluated.add(skyKey.functionName());
       }
     }
   }
