@@ -15,20 +15,11 @@ package com.google.devtools.build.lib.bazel.rules.android;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.android.AndroidBinary;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
-import com.google.devtools.build.lib.rules.android.AndroidDataContext;
 import com.google.devtools.build.lib.rules.android.AndroidSemantics;
-import com.google.devtools.build.lib.rules.android.ProguardHelper.ProguardOutput;
-import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 
 /**
  * Implementation of Bazel-specific behavior in Android rules.
@@ -42,8 +33,6 @@ public class BazelAndroidSemantics implements AndroidSemantics {
       ImmutableSet.<PackageIdentifier>builder()
           .add(PackageIdentifier.createUnchecked("bazel_tools", "tools/android"))
           .build();
-  private static final String BAZEL_TEST_RUNNER_MAIN_CLASS =
-      "com.google.testing.junit.runner.BazelTestRunner";
 
   private BazelAndroidSemantics() {}
 
@@ -62,54 +51,6 @@ public class BazelAndroidSemantics implements AndroidSemantics {
   }
 
   @Override
-  public void addMainDexListActionArguments(
-      RuleContext ruleContext,
-      SpawnAction.Builder builder,
-      CustomCommandLine.Builder commandLine,
-      Artifact proguardMap) {}
-
-  @Override
-  public ImmutableList<Artifact> getProguardSpecsForManifest(
-      AndroidDataContext context, Artifact manifest) {
-    return ImmutableList.of();
-  }
-
-  @Override
-  public void addCoverageSupport(
-      RuleContext ruleContext, boolean forAndroidTest, JavaTargetAttributes.Builder attributes) {}
-
-  @Override
-  public ImmutableList<String> getAttributesWithJavaRuntimeDeps(RuleContext ruleContext) {
-    return switch (ruleContext.getRule().getRuleClass()) {
-      case "android_binary" -> ImmutableList.of("application_resources", "deps");
-      default -> throw new UnsupportedOperationException("Only supported for top-level binaries");
-    };
-  }
-
-  @Override
-  public Artifact getProguardOutputMap(RuleContext ruleContext) throws InterruptedException {
-    return ruleContext.getImplicitOutputArtifact(AndroidSemantics.ANDROID_BINARY_PROGUARD_MAP);
-  }
-
-  /** Bazel does not currently support any dex postprocessing. */
-  @Override
-  public boolean postprocessClassesRewritesMap(RuleContext ruleContext) {
-    return false;
-  }
-
-  @Override
-  public AndroidBinary.DexPostprocessingOutput postprocessClassesDexZip(
-      RuleContext ruleContext,
-      NestedSetBuilder<Artifact> filesBuilder,
-      Artifact classesDexZip,
-      ProguardOutput proguardOutput,
-      Artifact proguardMapOutput,
-      Artifact mainDexList)
-      throws InterruptedException {
-    return AndroidBinary.DexPostprocessingOutput.create(classesDexZip, proguardOutput.getMapping());
-  }
-
-  @Override
   public void registerMigrationRuleError(RuleContext ruleContext) throws RuleErrorException {
     if (STARLARK_MIGRATION_NATIVE_USAGE_ALLOW_LIST.contains(
         ruleContext.getLabel().getPackageIdentifier())) {
@@ -123,68 +64,5 @@ public class BazelAndroidSemantics implements AndroidSemantics {
             + "load(\"@build_bazel_rules_android//android:rules.bzl\", \""
             + ruleContext.getRule().getRuleClass()
             + "\"). See http://github.com/bazelbuild/rules_android.");
-  }
-
-  /* Bazel does not currently support baseline profiles in the final apk.  */
-  @Override
-  public Artifact getArtProfileForApk(
-      RuleContext ruleContext,
-      Artifact finalClassesDex,
-      Artifact proguardOutputMap,
-      String baselineProfileDir) {
-    return null;
-  }
-
-  /* Bazel does not currently support baseline profiles in the final apk.  */
-  @Override
-  public Artifact compileBaselineProfile(
-      RuleContext ruleContext,
-      Artifact finalClassesDex,
-      Artifact proguardOutputMap,
-      Artifact mergedStaticProfile,
-      String baselineProfileDir) {
-    return null;
-  }
-
-  /* Bazel does not currently support baseline profiles in the final apk.  */
-  @Override
-  public Artifact mergeBaselineProfiles(
-      RuleContext ruleContext, String baselineProfileDir, boolean includeStartupProfiles) {
-    return null;
-  }
-
-  /* Bazel does not currently support baseline profiles in the final apk.  */
-  @Override
-  public Artifact mergeStartupProfiles(RuleContext ruleContext, String baselineProfileDir) {
-    return null;
-  }
-
-  /* Bazel does not currently support baseline profiles in the final apk.  */
-  @Override
-  public Artifact expandBaselineProfileWildcards(
-      RuleContext ruleContext,
-      Artifact deployJar,
-      Artifact mergedStaticProfile,
-      String baselineProfileDir) {
-    return null;
-  }
-
-  @Override
-  public Artifact getProtoMapping(RuleContext ruleContext) throws InterruptedException {
-    return null;
-  }
-
-  @Override
-  public Artifact getObfuscatedConstantStringMap(RuleContext ruleContext)
-      throws InterruptedException {
-    return null;
-  }
-
-  @Override
-  public void checkRule(RuleContext ruleContext, JavaCommon javaCommon) {}
-
-  @Override
-  public String getTestRunnerMainClass() {
-    return BAZEL_TEST_RUNNER_MAIN_CLASS;
   }
 }

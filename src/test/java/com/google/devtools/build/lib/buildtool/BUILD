@@ -645,7 +645,6 @@ build_test(
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/sh:ShTests",
         # Disabled in Google.
         "//src/test/java/com/google/devtools/build/lib/packages:BazelDocumentationTests",
-        "//src/test/java/com/google/devtools/build/lib/rules/android:AndroidDataBindingV2Test",
     ],
 )
 

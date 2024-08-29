@@ -26,11 +26,9 @@ import com.google.devtools.build.lib.analysis.RuleErrorConsumer;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidDataContextApi;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import javax.annotation.Nullable;
@@ -56,10 +54,6 @@ public class AndroidDataContext implements AndroidDataContextApi {
   // If specified, omit resources from transitive dependencies when generating Android R classes.
   private static final String OMIT_TRANSITIVE_RESOURCES_FROM_ANDROID_R_CLASSES =
       "android_resources_strict_deps";
-
-  // Feature which would enable AAPT2's resource name obfuscation optimization for android_binary
-  // rules with resource shrinking and ProGuard/AppReduce enabled.
-  private static final String FEATURE_RESOURCE_NAME_OBFUSCATION = "resource_name_obfuscation";
 
   private final RuleContext ruleContext;
   private final FilesToRunProvider busybox;
@@ -249,66 +243,5 @@ public class AndroidDataContext implements AndroidDataContextApi {
 
   boolean omitTransitiveResourcesFromAndroidRClasses() {
     return ruleContext.getFeatures().contains(OMIT_TRANSITIVE_RESOURCES_FROM_ANDROID_R_CLASSES);
-  }
-
-  /** Returns true if the context dictates that resource shrinking should be performed. */
-  boolean useResourceShrinking(boolean hasProguardSpecs) {
-    return isResourceShrinkingEnabled() && hasProguardSpecs;
-  }
-
-  /**
-   * Returns true if the context dictates that resource shrinking is enabled. This doesn't
-   * necessarily mean that shrinking should be performed - for that, use {@link
-   * #useResourceShrinking(boolean)}, which calls this.
-   */
-  boolean isResourceShrinkingEnabled() {
-    if (!ruleContext.attributes().has("shrink_resources")) {
-      return false;
-    }
-
-    TriState state = ruleContext.attributes().get("shrink_resources", BuildType.TRISTATE);
-    if (state == TriState.AUTO) {
-      state = getAndroidConfig().useAndroidResourceShrinking() ? TriState.YES : TriState.NO;
-    }
-
-    return state == TriState.YES;
-  }
-
-  /**
-   * Returns {@code true} if resource shrinking should be performed. This should be true when the
-   * resource cycle shrinking flag is enabled, resource shrinking itself is enabled, and the build
-   * is ProGuarded/optimized. The last condition is important because resource cycle shrinking
-   * generates non-final fields that are not inlined by javac. In non-optimized builds, these can
-   * noticeably increase Apk size.
-   */
-  boolean shouldShrinkResourceCycles(RuleErrorConsumer errorConsumer, boolean shrinkResources) {
-    boolean isProguarded =
-        ruleContext.attributes().has(ProguardHelper.PROGUARD_SPECS, BuildType.LABEL_LIST)
-            && !ruleContext
-                .getPrerequisiteArtifacts(ProguardHelper.PROGUARD_SPECS)
-                .list()
-                .isEmpty();
-    return isProguarded && getAndroidConfig().useAndroidResourceCycleShrinking() && shrinkResources;
-  }
-
-  boolean useResourcePathShortening() {
-    // Use resource path shortening iff:
-    //   1) --experimental_android_resource_path_shortening
-    //   2) -c opt
-    //   3) Not opting out by being on allowlist named allow_raw_access_to_resource_paths
-    return getAndroidConfig().useAndroidResourcePathShortening()
-        && getActionConstructionContext().getConfiguration().getCompilationMode() == OPT
-        && !optOutOfResourcePathShortening;
-  }
-
-  boolean useResourceNameObfuscation(boolean hasProguardSpecs) {
-    // Use resource name obfuscation iff:
-    //   1) --experimental_android_resource_name_obfuscation or feature enabled for rule's package
-    //   2) resource shrinking is on (implying proguard specs are present)
-    //   3) Not opting out by being on allowlist named allow_resource_name_obfuscation_opt_out
-    return (getAndroidConfig().useAndroidResourceNameObfuscation()
-            || ruleContext.getFeatures().contains(FEATURE_RESOURCE_NAME_OBFUSCATION))
-        && useResourceShrinking(hasProguardSpecs)
-        && !optOutOfResourceNameObfuscation;
   }
 }

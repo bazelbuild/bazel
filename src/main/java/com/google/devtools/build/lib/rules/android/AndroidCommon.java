@@ -22,17 +22,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Streams;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ResourceSet;
 import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.OutputGroupInfo;
-import com.google.devtools.build.lib.analysis.RuleConfiguredTargetBuilder;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -46,28 +39,15 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.android.ZipFilterBuilder.CheckHashMismatchMode;
 import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
-import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
-import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
-import com.google.devtools.build.lib.rules.java.ClasspathConfiguredFragment;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
-import com.google.devtools.build.lib.rules.java.JavaCompilationHelper;
-import com.google.devtools.build.lib.rules.java.JavaCompileOutputs;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider.JavaOutput;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
-import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
-import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
@@ -97,10 +77,6 @@ public class AndroidCommon {
   private static final ImmutableSet<String> TRANSITIVE_ATTRIBUTES =
       ImmutableSet.of("application_resources", "deps", "exports");
 
-  private static final int DEX_THREADS = 5;
-  private static final ResourceSet DEX_RESOURCE_SET =
-      ResourceSet.createWithRamCpu(/* memoryMb= */ 4096.0, /* cpu= */ DEX_THREADS);
-
   static <T extends Info> Iterable<T> getTransitivePrerequisites(
       RuleContext ruleContext, BuiltinProvider<T> key) {
     ImmutableList.Builder<List<T>> builder = ImmutableList.builder();
@@ -120,22 +96,9 @@ public class AndroidCommon {
   private final JavaCommon javaCommon;
   private final boolean asNeverLink;
 
-  private NestedSet<Artifact> filesToBuild;
   private NestedSet<Artifact> transitiveNeverlinkLibraries =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  private JavaCompilationArgsProvider javaCompilationArgs = JavaCompilationArgsProvider.EMPTY;
-  private NestedSet<Artifact> jarsProducedForRuntime;
   private Artifact classJar;
-  private JavaCompileOutputs<Artifact> outputs;
-  private Artifact iJar;
-  private Artifact srcJar;
-  private Artifact resourceSourceJar;
-  private GeneratedExtensionRegistryProvider generatedExtensionRegistryProvider;
-  private final JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder =
-      JavaSourceJarsProvider.builder();
-  private final JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder =
-      JavaRuleOutputJarsProvider.builder();
-  private AndroidIdlHelper idlHelper;
 
   public AndroidCommon(JavaCommon javaCommon) {
     this(javaCommon, JavaCommon.isNeverLink(javaCommon.getRuleContext()));
@@ -180,88 +143,6 @@ public class AndroidCommon {
       }
     }
     return neverlinkedRuntimeJars.build();
-  }
-
-  /**
-   * Creates an action that converts {@code jarToDex} to a dex file. The output will be stored in
-   * the {@link com.google.devtools.build.lib.actions.Artifact} {@code dxJar}.
-   */
-  public static void createDexAction(
-      RuleContext ruleContext,
-      Artifact jarToDex,
-      Artifact classesDex,
-      List<String> dexOptions,
-      int minSdkVersion,
-      Artifact mainDexList)
-      throws RuleErrorException {
-    CustomCommandLine.Builder commandLine = CustomCommandLine.builder();
-    commandLine.add("--dex");
-
-    commandLine.addAll(dexOptions);
-    if (minSdkVersion > 0) {
-      commandLine.add("--min_sdk_version", Integer.toString(minSdkVersion));
-    }
-    commandLine.add("--multi-dex");
-    if (mainDexList != null) {
-      commandLine.addPrefixedExecPath("--main-dex-list=", mainDexList);
-    }
-    commandLine.addPrefixedExecPath("--output=", classesDex);
-    commandLine.addExecPath(jarToDex);
-
-    SpawnAction.Builder builder =
-        new SpawnAction.Builder()
-            .useDefaultShellEnvironment()
-            .setExecutable(AndroidSdkProvider.fromRuleContext(ruleContext).getDx())
-            .addInput(jarToDex)
-            .addOutput(classesDex)
-            .setProgressMessage("Converting %s to dex format", jarToDex.getExecPathString())
-            .setMnemonic("AndroidDexer")
-            .addCommandLine(commandLine.build())
-            // TODO(ulfjack): Use 1 CPU if multidex is true?
-            .setResources(DEX_RESOURCE_SET);
-    if (mainDexList != null) {
-      builder.addInput(mainDexList);
-    }
-    ruleContext.registerAction(builder.build(ruleContext));
-  }
-
-  public static AndroidIdeInfoProvider createAndroidIdeInfoProvider(
-      RuleContext ruleContext,
-      AndroidIdlHelper idlHelper,
-      JavaOutput resourceJarJavaOutput,
-      Artifact aar,
-      ResourceApk resourceApk,
-      Artifact zipAlignedApk,
-      Iterable<Artifact> apksUnderTest,
-      NativeLibs nativeLibs) {
-    AndroidIdeInfoProvider.Builder ideInfoProviderBuilder =
-        new AndroidIdeInfoProvider.Builder()
-            .setIdlClassJar(idlHelper.getIdlClassJar())
-            .setIdlSourceJar(idlHelper.getIdlSourceJar())
-            .setResourceJarJavaOutput(resourceJarJavaOutput)
-            .setAar(aar)
-            .setNativeLibs(nativeLibs.getMap())
-            .addIdlImportRoot(idlHelper.getIdlImportRoot())
-            .addIdlSrcs(idlHelper.getIdlSources())
-            .addIdlGeneratedJavaFiles(idlHelper.getIdlGeneratedJavaSources())
-            .addAllApksUnderTest(apksUnderTest);
-
-    if (zipAlignedApk != null) {
-      ideInfoProviderBuilder.setApk(zipAlignedApk);
-    }
-
-    // If the rule defines resources, put those in the IDE info.
-    if (AndroidResources.definesAndroidResources(ruleContext.attributes())) {
-      ideInfoProviderBuilder
-          .setDefinesAndroidResources(true)
-          // Sets the possibly merged manifest and the raw manifest.
-          .setGeneratedManifest(resourceApk.getManifest())
-          .setManifest(ruleContext.getPrerequisiteArtifact("manifest"))
-          .setJavaPackage(getJavaPackage(ruleContext))
-          .setResourceApk(resourceApk.getArtifact());
-    }
-
-    return ideInfoProviderBuilder.build();
   }
 
   /**
@@ -393,442 +274,12 @@ public class AndroidCommon {
     return ImmutableList.of(ruleContext.getPrerequisiteArtifact("debug_key"));
   }
 
-  private void compileResources(
-      JavaSemantics javaSemantics,
-      Artifact resourceJavaClassJar,
-      Artifact resourceJavaSrcJar,
-      JavaCompilationArtifacts.Builder artifactsBuilder,
-      JavaTargetAttributes.Builder attributes,
-      NestedSetBuilder<Artifact> filesBuilder)
-      throws InterruptedException, RuleErrorException {
-
-    packResourceSourceJar(javaSemantics, resourceJavaSrcJar);
-
-    // Add the compiled resource jar to the classpath of the main compilation.
-    attributes.addDirectJars(NestedSetBuilder.create(Order.STABLE_ORDER, resourceJavaClassJar));
-    // Add the compiled resource jar to the classpath of consuming targets.
-    // We don't actually use the ijar. That is almost the same as the resource class jar
-    // except for <clinit>, but it takes time to build and waiting for that to build would
-    // just delay building the rest of the library.
-    artifactsBuilder.addCompileTimeJarAsFullJar(resourceJavaClassJar);
-
-    // Add the compiled resource jar as a declared output of the rule.
-    filesBuilder.add(resourceSourceJar);
-    filesBuilder.add(resourceJavaClassJar);
-  }
-
-  private void packResourceSourceJar(JavaSemantics javaSemantics, Artifact resourcesJavaSrcJar)
-      throws InterruptedException, RuleErrorException {
-
-    resourceSourceJar =
-        ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_RESOURCES_SOURCE_JAR);
-
-    JavaTargetAttributes.Builder javacAttributes =
-        new JavaTargetAttributes.Builder(javaSemantics).addSourceJar(resourcesJavaSrcJar);
-    JavaCompilationHelper javacHelper =
-        new JavaCompilationHelper(ruleContext, javaSemantics, getJavacOpts(), javacAttributes);
-    javacHelper.createSourceJarAction(resourceSourceJar, null);
-  }
-
-  @Nullable
-  public JavaTargetAttributes init(
-      JavaSemantics javaSemantics,
-      AndroidSemantics androidSemantics,
-      ResourceApk resourceApk,
-      boolean addCoverageSupport,
-      boolean collectJavaCompilationArgs,
-      boolean isBinary,
-      boolean shouldCompileJavaSrcs,
-      NestedSet<Artifact> excludedRuntimeArtifacts,
-      boolean generateExtensionRegistry)
-      throws InterruptedException, RuleErrorException {
-
-    if (shouldCompileJavaSrcs) {
-      classJar =
-          ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_CLASS_JAR);
-    } else {
-      // When java compilation happens in application_resources, grab the class jar from its
-      // JavaInfo.
-      classJar =
-          Iterables.getOnlyElement(
-                  JavaInfo.getJavaInfo(ruleContext.getPrerequisite("application_resources"))
-                      .getOutputJars()
-                      .getJavaOutputs())
-              .getClassJar();
-    }
-    idlHelper = new AndroidIdlHelper(ruleContext, classJar);
-
-    BootClassPathInfo bootClassPathInfo = androidSemantics.getBootClassPathInfo(ruleContext);
-
-    ImmutableList.Builder<String> javacopts = ImmutableList.builder();
-    javacopts.addAll(androidSemantics.getCompatibleJavacOptions(ruleContext));
-
-    if (shouldCompileJavaSrcs) {
-      resourceApk
-          .asDataBindingContext()
-          .supplyJavaCoptsUsing(ruleContext, isBinary, javacopts::addAll);
-    }
-    JavaTargetAttributes.Builder attributesBuilder =
-        javaCommon
-            .initCommon(idlHelper.getIdlGeneratedJavaSources(), javacopts.build())
-            .setBootClassPath(bootClassPathInfo);
-
-    if (shouldCompileJavaSrcs) {
-      resourceApk
-          .asDataBindingContext()
-          .supplyAnnotationProcessor(
-              ruleContext,
-              (plugin, additionalOutputs) -> {
-                attributesBuilder.addPlugin(plugin);
-                attributesBuilder.addAdditionalOutputs(additionalOutputs);
-              });
-    }
-
-    if (excludedRuntimeArtifacts != null) {
-      attributesBuilder.addExcludedArtifacts(excludedRuntimeArtifacts);
-    }
-
-    JavaCompilationArtifacts.Builder artifactsBuilder = new JavaCompilationArtifacts.Builder();
-    NestedSetBuilder<Artifact> jarsProducedForRuntime = NestedSetBuilder.<Artifact>stableOrder();
-    NestedSetBuilder<Artifact> filesBuilder = NestedSetBuilder.<Artifact>stableOrder();
-
-    Artifact resourceJavaSrcJar = resourceApk.getResourceJavaSrcJar();
-    if (resourceJavaSrcJar != null) {
-      filesBuilder.add(resourceJavaSrcJar);
-
-      compileResources(
-          javaSemantics,
-          resourceApk.getResourceJavaClassJar(),
-          resourceJavaSrcJar,
-          artifactsBuilder,
-          attributesBuilder,
-          filesBuilder);
-
-      // Combined resource constants needs to come even before our own classes that may contain
-      // local resource constants.
-      artifactsBuilder.addRuntimeJar(resourceApk.getResourceJavaClassJar());
-      jarsProducedForRuntime.add(resourceApk.getResourceJavaClassJar());
-    }
-
-    ImmutableList<Artifact> additionalJavaInputsFromDatabinding = null;
-    if (shouldCompileJavaSrcs) {
-      // Databinding metadata that the databinding annotation processor reads.
-      additionalJavaInputsFromDatabinding =
-          resourceApk.asDataBindingContext().processDeps(ruleContext, isBinary);
-    } else {
-      ImmutableList.Builder<Artifact> outputs = ImmutableList.<Artifact>builder();
-      DataBindingV2Provider p =
-          ruleContext.getPrerequisite("application_resources", DataBindingV2Provider.PROVIDER);
-      outputs.addAll(p.getSetterStores().toList());
-      outputs.addAll(p.getTransitiveBRFiles().toList());
-      additionalJavaInputsFromDatabinding = outputs.build();
-    }
-
-    JavaCompilationHelper helper =
-        initAttributes(attributesBuilder, javaSemantics, additionalJavaInputsFromDatabinding);
-    if (ruleContext.hasErrors()) {
-      return null;
-    }
-
-    if (addCoverageSupport) {
-      androidSemantics.addCoverageSupport(ruleContext, true, attributesBuilder);
-      if (ruleContext.hasErrors()) {
-        return null;
-      }
-    }
-
-    JavaTargetAttributes attributes = attributesBuilder.build();
-    if (shouldCompileJavaSrcs) {
-      initJava(
-          javaSemantics,
-          helper,
-          attributes,
-          artifactsBuilder,
-          collectJavaCompilationArgs,
-          filesBuilder,
-          generateExtensionRegistry);
-      if (ruleContext.hasErrors()) {
-        return null;
-      }
-      if (generatedExtensionRegistryProvider != null) {
-        jarsProducedForRuntime.add(generatedExtensionRegistryProvider.getClassJar());
-      }
-      this.jarsProducedForRuntime = jarsProducedForRuntime.add(classJar).build();
-    } else {
-      // Getting java artifacts from application_resources
-      JavaInfo javaInfo =
-          JavaInfo.getJavaInfo(ruleContext.getPrerequisite("application_resources"));
-      JavaOutput javaOutput = Iterables.getOnlyElement(javaInfo.getOutputJars().getJavaOutputs());
-      outputs = helper.createOutputs(javaOutput);
-
-      // The macro creating both the Starlark android_binary_internal and android_binary ensures
-      // that they share the same attributes, which is why we can still check the android_binary
-      // attributes when Javac happens in android_binary_internal.
-      if (attributes.hasSources() || attributes.hasResources()) {
-        // We only want to add a jar to the classpath of a dependent rule if it has content.
-        artifactsBuilder.addRuntimeJar(classJar);
-      }
-
-      artifactsBuilder.addCompileTimeJarAsFullJar(classJar);
-      javaSourceJarsProviderBuilder
-          .addAllSourceJars(javaInfo.getSourceJars())
-          .addAllTransitiveSourceJars(
-              javaCommon.collectTransitiveSourceJars(javaInfo.getSourceJars()));
-
-      if (generateExtensionRegistry) {
-        generatedExtensionRegistryProvider =
-            javaSemantics.createGeneratedExtensionRegistry(
-                ruleContext,
-                javaCommon,
-                filesBuilder,
-                artifactsBuilder,
-                javaRuleOutputJarsProviderBuilder,
-                javaSourceJarsProviderBuilder);
-      }
-
-      JavaCompilationArtifacts javaArtifacts = artifactsBuilder.build();
-      javaCommon.setJavaCompilationArtifacts(javaArtifacts);
-      filesToBuild = filesBuilder.build();
-      NestedSetBuilder<Artifact> runtimeJars =
-          NestedSetBuilder.<Artifact>naiveLinkOrder().addAll(javaInfo.getDirectRuntimeJars());
-      if (generatedExtensionRegistryProvider != null) {
-        jarsProducedForRuntime.add(generatedExtensionRegistryProvider.getClassJar());
-        runtimeJars.add(generatedExtensionRegistryProvider.getClassJar());
-      }
-      transitiveNeverlinkLibraries =
-          collectTransitiveNeverlinkLibraries(
-              ruleContext, javaCommon.getDependencies(), runtimeJars.build());
-      this.jarsProducedForRuntime = jarsProducedForRuntime.add(classJar).build();
-      if (collectJavaCompilationArgs) {
-        this.javaCompilationArgs = javaCommon.collectJavaCompilationArgs(asNeverLink);
-      }
-    }
-    return attributes;
-  }
-
-  private JavaCompilationHelper initAttributes(
-      JavaTargetAttributes.Builder attributes,
-      JavaSemantics semantics,
-      ImmutableList<Artifact> additionalArtifacts)
-      throws RuleErrorException {
-    JavaCompilationHelper helper =
-        new JavaCompilationHelper(
-            ruleContext, semantics, javaCommon.getJavacOpts(), attributes, additionalArtifacts);
-
-    helper.addLibrariesToAttributes(javaCommon.targetsTreatedAsDeps(ClasspathType.COMPILE_ONLY));
-    attributes.setTargetLabel(ruleContext.getLabel());
-
-    ruleContext.checkSrcsSamePackage(true);
-    return helper;
-  }
-
-  private void initJava(
-      JavaSemantics javaSemantics,
-      JavaCompilationHelper helper,
-      JavaTargetAttributes attributes,
-      JavaCompilationArtifacts.Builder javaArtifactsBuilder,
-      boolean collectJavaCompilationArgs,
-      NestedSetBuilder<Artifact> filesBuilder,
-      boolean generateExtensionRegistry)
-      throws InterruptedException, RuleErrorException {
-    if (ruleContext.hasErrors()) {
-      // Avoid leaving filesToBuild set to null, otherwise we'll get a NullPointerException masking
-      // the real error.
-      filesToBuild = filesBuilder.build();
-      return;
-    }
-
-    Artifact jar = null;
-    if (attributes.hasSources() || attributes.hasResources()) {
-      // We only want to add a jar to the classpath of a dependent rule if it has content.
-      javaArtifactsBuilder.addRuntimeJar(classJar);
-      jar = classJar;
-    }
-
-    filesBuilder.add(classJar);
-
-    outputs = helper.createOutputs(classJar);
-    javaArtifactsBuilder.setCompileTimeDependencies(outputs.depsProto());
-
-    srcJar = ruleContext.getImplicitOutputArtifact(AndroidRuleClasses.ANDROID_LIBRARY_SOURCE_JAR);
-    javaSourceJarsProviderBuilder
-        .addSourceJar(srcJar)
-        .addAllTransitiveSourceJars(javaCommon.collectTransitiveSourceJars(srcJar));
-    helper.createSourceJarAction(srcJar, outputs.genSource());
-
-    helper.createCompileAction(outputs);
-
-    if (generateExtensionRegistry) {
-      generatedExtensionRegistryProvider =
-          javaSemantics.createGeneratedExtensionRegistry(
-              ruleContext,
-              javaCommon,
-              filesBuilder,
-              javaArtifactsBuilder,
-              javaRuleOutputJarsProviderBuilder,
-              javaSourceJarsProviderBuilder);
-    }
-
-    filesToBuild = filesBuilder.build();
-
-    if (attributes.hasSources() && jar != null) {
-      iJar = helper.createCompileTimeJarAction(jar, javaArtifactsBuilder);
-    }
-
-    JavaCompilationArtifacts javaArtifacts = javaArtifactsBuilder.build();
-    javaCommon.setJavaCompilationArtifacts(javaArtifacts);
-
-    javaCommon.setClassPathFragment(
-        new ClasspathConfiguredFragment(
-            javaCommon.getJavaCompilationArtifacts(),
-            attributes,
-            asNeverLink,
-            helper.getBootclasspathOrDefault().bootclasspath()));
-
-    transitiveNeverlinkLibraries =
-        collectTransitiveNeverlinkLibraries(
-            ruleContext,
-            javaCommon.getDependencies(),
-            NestedSetBuilder.<Artifact>naiveLinkOrder()
-                .addAll(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
-                .build());
-    if (collectJavaCompilationArgs) {
-      this.javaCompilationArgs = javaCommon.collectJavaCompilationArgs(asNeverLink);
-    }
-  }
-
-  public RuleConfiguredTargetBuilder addTransitiveInfoProviders(
-      RuleConfiguredTargetBuilder builder,
-      Artifact aar,
-      ResourceApk resourceApk,
-      Artifact zipAlignedApk,
-      Iterable<Artifact> apksUnderTest,
-      NativeLibs nativeLibs,
-      boolean isNeverlink,
-      boolean isLibrary)
-      throws RuleErrorException {
-
-    idlHelper.addTransitiveInfoProviders(builder, classJar, outputs.manifestProto());
-
-    if (generatedExtensionRegistryProvider != null) {
-      builder.addNativeDeclaredProvider(generatedExtensionRegistryProvider);
-    }
-    JavaOutput resourceJarJavaOutput = null;
-    if (resourceApk.getResourceJavaClassJar() != null && resourceSourceJar != null) {
-      resourceJarJavaOutput =
-          JavaOutput.builder()
-              .setClassJar(resourceApk.getResourceJavaClassJar())
-              .addSourceJar(resourceSourceJar)
-              .build();
-      javaRuleOutputJarsProviderBuilder.addJavaOutput(resourceJarJavaOutput);
-    }
-
-    JavaRuleOutputJarsProvider ruleOutputJarsProvider =
-        javaRuleOutputJarsProviderBuilder
-            .addJavaOutput(
-                JavaOutput.builder()
-                    .fromJavaCompileOutputs(outputs)
-                    .setCompileJar(iJar)
-                    .setCompileJdeps(
-                        javaCommon.getJavaCompilationArtifacts().getCompileTimeDependencyArtifact())
-                    .addSourceJar(srcJar)
-                    .build())
-            .build();
-    JavaSourceJarsProvider sourceJarsProvider = javaSourceJarsProviderBuilder.build();
-    JavaCompilationArgsProvider compilationArgsProvider = javaCompilationArgs;
-
-    JavaInfo.Builder javaInfoBuilder = JavaInfo.Builder.create();
-
-    javaCommon.addTransitiveInfoProviders(
-        builder, javaInfoBuilder, filesToBuild, classJar, ANDROID_COLLECTION_SPEC);
-
-    javaCommon.addGenJarsProvider(
-        builder, javaInfoBuilder, outputs.genClass(), outputs.genSource());
-
-    resourceApk.asDataBindingContext().addProvider(builder, ruleContext);
-
-    JavaInfo javaInfo =
-        javaInfoBuilder
-            .javaCompilationArgs(compilationArgsProvider)
-            .javaRuleOutputs(ruleOutputJarsProvider)
-            .javaSourceJars(sourceJarsProvider)
-            .javaPluginInfo(JavaCommon.getTransitivePlugins(ruleContext))
-            .setRuntimeJars(javaCommon.getJavaCompilationArtifacts().getRuntimeJars())
-            .setJavaConstraints(ImmutableList.of("android"))
-            .setNeverlink(isNeverlink)
-            .build();
-
-    // Do not convert the ResourceApk into builtin providers when it is created from
-    // Starlark via AndroidApplicationResourceInfo, because native dependency providers are not
-    // created in the Starlark pipeline.
-    if (resourceApk.isFromAndroidApplicationResourceInfo()
-        || (ruleContext
-                .getFragment(AndroidConfiguration.class)
-                .omitResourcesInfoProviderFromAndroidBinary()
-            && !isLibrary)) {
-      // Binary rule; allow extracting merged manifest from Starlark via
-      // ctx.attr.android_binary.android.merged_manifest, but not much more.
-      builder.addStarlarkTransitiveInfo(
-          AndroidStarlarkApiProvider.NAME, new AndroidStarlarkApiProvider(/*resourceInfo=*/ null));
-    } else {
-      resourceApk.addToConfiguredTargetBuilder(
-          builder, ruleContext.getLabel(), /* includeStarlarkApiProvider = */ true, isLibrary);
-    }
-
-    return builder
-        .setFilesToBuild(filesToBuild)
-        .addStarlarkDeclaredProvider(javaInfo)
-        .addProvider(RunfilesProvider.class, RunfilesProvider.simple(getRunfiles()))
-        .addNativeDeclaredProvider(
-            createAndroidIdeInfoProvider(
-                ruleContext,
-                idlHelper,
-                resourceJarJavaOutput,
-                aar,
-                resourceApk,
-                zipAlignedApk,
-                apksUnderTest,
-                nativeLibs))
-        .addOutputGroup(
-            OutputGroupInfo.HIDDEN_TOP_LEVEL, collectHiddenTopLevelArtifacts(ruleContext))
-        .addOutputGroup(
-            JavaSemantics.SOURCE_JARS_OUTPUT_GROUP, sourceJarsProvider.getTransitiveSourceJars())
-        .addOutputGroup(
-            JavaSemantics.DIRECT_SOURCE_JARS_OUTPUT_GROUP,
-            NestedSetBuilder.wrap(Order.STABLE_ORDER, sourceJarsProvider.getSourceJars()));
-  }
-
-  private Runfiles getRunfiles() {
-    // TODO(bazel-team): why return any Runfiles in the neverlink case?
-    if (asNeverLink) {
-      return new Runfiles.Builder(
-              ruleContext.getWorkspaceName(),
-              ruleContext.getConfiguration().legacyExternalRunfiles())
-          .addRunfiles(ruleContext, RunfilesProvider.DEFAULT_RUNFILES)
-          .build();
-    }
-    return JavaCommon.getRunfiles(
-        ruleContext,
-        javaCommon.getJavaSemantics(),
-        javaCommon.getJavaCompilationArtifacts(),
-        asNeverLink);
-  }
-
   public ImmutableList<String> getJavacOpts() {
     return javaCommon.getJavacOpts();
   }
 
   public ImmutableList<Artifact> getRuntimeJars() {
     return javaCommon.getJavaCompilationArtifacts().getRuntimeJars();
-  }
-
-  /**
-   * Returns Jars produced by this rule that may go into the runtime classpath. By contrast {@link
-   * #getRuntimeJars()} returns the complete runtime classpath needed by this rule, including
-   * dependencies.
-   */
-  public NestedSet<Artifact> getJarsProducedForRuntime() {
-    return jarsProducedForRuntime;
   }
 
   public Artifact getClassJar() {
@@ -882,15 +333,6 @@ public class AndroidCommon {
   /** Returns {@link AndroidConfiguration} in given context. */
   public static AndroidConfiguration getAndroidConfig(RuleContext context) {
     return context.getConfiguration().getFragment(AndroidConfiguration.class);
-  }
-
-  private NestedSet<Artifact> collectHiddenTopLevelArtifacts(RuleContext ruleContext) {
-    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
-    for (OutputGroupInfo provider :
-        getTransitivePrerequisites(ruleContext, OutputGroupInfo.STARLARK_CONSTRUCTOR)) {
-      builder.addTransitive(provider.getOutputGroup(OutputGroupInfo.HIDDEN_TOP_LEVEL));
-    }
-    return builder.build();
   }
 
   /**
@@ -977,40 +419,6 @@ public class AndroidCommon {
       }
     }
     return supportApks.build();
-  }
-
-  /**
-   * Used for instrumentation tests. Filter out classes from the instrumentation JAR that are also
-   * present in the target JAR. During an instrumentation test, ART will load jars from both APKs
-   * into the same classloader. If the same class exists in both jars, there will be runtime
-   * crashes.
-   *
-   * <p>R.class files that share the same package are also filtered out to prevent
-   * surprising/incorrect references to resource IDs.
-   */
-  public static void createZipFilterAction(
-      RuleContext ruleContext,
-      Artifact in,
-      Artifact filter,
-      Artifact out,
-      CheckHashMismatchMode checkHashMismatch,
-      boolean removeAllRClasses) {
-    ZipFilterBuilder builder =
-        new ZipFilterBuilder(ruleContext)
-            .setInputZip(in)
-            .addFilterZips(ImmutableList.of(filter))
-            .setOutputZip(out)
-            .addFileTypeToFilter(".class")
-            .setCheckHashMismatchMode(checkHashMismatch)
-            // These files are generated by databinding in both the target and the instrumentation
-            // app with different contents. We want to keep the one from the target app.
-            .addExplicitFilter("/BR\\.class$")
-            .addExplicitFilter("/databinding/[^/]+Binding\\.class$");
-    if (removeAllRClasses) {
-      builder.addExplicitFilter("(^|/)R\\.class").addExplicitFilter("(^|/)R\\$.*\\.class");
-    }
-
-    builder.build();
   }
 
   private static class FlagMatcher implements Predicate<String> {

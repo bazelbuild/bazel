@@ -132,12 +132,18 @@ public class StampedAndroidManifest extends AndroidManifest {
     return ImmutableMap.copyOf(manifestValues);
   }
 
+  /** Returns an intermediate artifact used to support dex generation. */
+  private static Artifact getDxArtifact(RuleContext ruleContext, String baseName) {
+    return ruleContext.getUniqueDirectoryArtifact(
+        "_dx", baseName, ruleContext.getBinOrGenfilesDirectory());
+  }
+
   public StampedAndroidManifest createSplitManifest(
       RuleContext ruleContext, String splitName, boolean hasCode) throws InterruptedException {
     // aapt insists that manifests be called AndroidManifest.xml, even though they have to be
     // explicitly designated as manifests on the command line
     Artifact splitManifest =
-        AndroidBinary.getDxArtifact(ruleContext, "split_" + splitName + "/AndroidManifest.xml");
+        getDxArtifact(ruleContext, "split_" + splitName + "/AndroidManifest.xml");
     SpawnAction.Builder builder =
         new SpawnAction.Builder()
             .setExecutable(ruleContext.getExecutablePrerequisite("$build_split_manifest"))

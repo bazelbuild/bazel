@@ -13,26 +13,15 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.packages.BuildType.LABEL_LIST;
-import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.RuleContext;
-import com.google.devtools.build.lib.analysis.actions.CustomCommandLine;
-import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
-import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.Types;
-import com.google.devtools.build.lib.rules.android.ProguardHelper.ProguardOutput;
-import com.google.devtools.build.lib.rules.java.BootClassPathInfo;
-import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
-import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.Map;
 import java.util.Optional;
@@ -44,20 +33,6 @@ import java.util.Optional;
  * to keep state.
  */
 public interface AndroidSemantics {
-
-  SafeImplicitOutputsFunction ANDROID_BINARY_CLASS_JAR = fromTemplates("%{name}.jar");
-  SafeImplicitOutputsFunction ANDROID_BINARY_SOURCE_JAR = fromTemplates("%{name}-src.jar");
-  SafeImplicitOutputsFunction ANDROID_BINARY_DEPLOY_JAR = fromTemplates("%{name}_deploy.jar");
-  SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_MAP = fromTemplates("%{name}_proguard.map");
-  SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_PROTO_MAP =
-      fromTemplates("%{name}_proguard.pbmap");
-  SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_SEEDS =
-      fromTemplates("%{name}_proguard.seeds");
-  SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_USAGE =
-      fromTemplates("%{name}_proguard.usage");
-  SafeImplicitOutputsFunction ANDROID_BINARY_PROGUARD_CONFIG =
-      fromTemplates("%{name}_proguard.config");
-
   /** Implementation for the :proguard attribute. */
   @SerializationConstant
   LabelLateBoundDefault<JavaConfiguration> PROGUARD =
@@ -65,24 +40,6 @@ public interface AndroidSemantics {
           JavaConfiguration.class,
           null,
           (rule, attributes, javaConfig) -> javaConfig.getProguardBinary());
-
-  @SerializationConstant
-  LabelLateBoundDefault<JavaConfiguration> BYTECODE_OPTIMIZER =
-      LabelLateBoundDefault.fromTargetConfiguration(
-          JavaConfiguration.class,
-          null,
-          (rule, attributes, javaConfig) -> {
-            // Use a modicum of smarts to avoid implicit dependencies where we don't need them.
-            boolean hasProguardSpecs =
-                attributes.has("proguard_specs")
-                    && !attributes.get("proguard_specs", LABEL_LIST).isEmpty();
-            JavaConfiguration.NamedLabel optimizer = javaConfig.getBytecodeOptimizer();
-            if ((!hasProguardSpecs && !javaConfig.runLocalJavaOptimizations())
-                || !optimizer.label().isPresent()) {
-              return null;
-            }
-            return optimizer.label().get();
-          });
 
   default AndroidManifest renameManifest(
       AndroidDataContext dataContext, AndroidManifest rawManifest) throws InterruptedException {
@@ -113,86 +70,6 @@ public interface AndroidSemantics {
   ImmutableList<String> getCompatibleJavacOptions(RuleContext ruleContext)
       throws RuleErrorException;
 
-  /**
-   * Configures the builder for generating the output jar used to configure the main dex file.
-   *
-   * @throws InterruptedException
-   */
-  void addMainDexListActionArguments(
-      RuleContext ruleContext,
-      SpawnAction.Builder builder,
-      CustomCommandLine.Builder commandLine,
-      Artifact proguardMap)
-      throws InterruptedException;
-
-  /** Given an Android {@code manifest}, returns a list of relevant Proguard specs. */
-  ImmutableList<Artifact> getProguardSpecsForManifest(
-      AndroidDataContext dataContext, Artifact manifest);
-
-  /**
-   * Add coverage instrumentation to the Java compilation of an Android binary.
-   *
-   * @throws InterruptedException
-   */
-  void addCoverageSupport(
-      RuleContext ruleContext, boolean forAndroidTest, JavaTargetAttributes.Builder attributes)
-      throws InterruptedException;
-
-  /** Returns the list of attributes that may contribute Java runtime dependencies. */
-  ImmutableList<String> getAttributesWithJavaRuntimeDeps(RuleContext ruleContext);
-
-  /** A hook for checks of internal-only or external-only attributes of {@code android_binary}. */
-  default void validateAndroidBinaryRuleContext(RuleContext ruleContext)
-      throws RuleErrorException {}
-
-  /** A hook for checks of internal-only or external-only attributes of {@code android_library}. */
-  default void validateAndroidLibraryRuleContext(RuleContext ruleContext)
-      throws RuleErrorException {}
-
-  /** The artifact for the map that proguard will output. */
-  Artifact getProguardOutputMap(RuleContext ruleContext) throws InterruptedException;
-
-  /** The artifact for ART profile information. */
-  Artifact getArtProfileForApk(
-      RuleContext ruleContext,
-      Artifact finalClassesDex,
-      Artifact proguardOutputMap,
-      String baselineProfileDir);
-
-  /** The merged baseline profiles from the {@code baseline_profiles} attribute. */
-  Artifact mergeBaselineProfiles(
-      RuleContext ruleContext, String baselineProfileDir, boolean includeStartupProfiles);
-
-  /** The merged startup profiles from the {@code startup_profiles} attribute. */
-  Artifact mergeStartupProfiles(RuleContext ruleContext, String baselineProfileDir);
-
-  /** Expands any wildcards present in a baseline profile, and returns the new expanded artifact. */
-  public Artifact expandBaselineProfileWildcards(
-      RuleContext ruleContext,
-      Artifact deployJar,
-      Artifact mergedStaticProfile,
-      String baselineProfileDir);
-
-  /** The artifact for ART profile information, given a particular merged profile. */
-  Artifact compileBaselineProfile(
-      RuleContext ruleContext,
-      Artifact finalClassesDex,
-      Artifact proguardOutputMap,
-      Artifact mergedStaticProfile,
-      String baselineProfileDir);
-
-  boolean postprocessClassesRewritesMap(RuleContext ruleContext);
-
-  /** Maybe post process the dex files and proguard output map. */
-  AndroidBinary.DexPostprocessingOutput postprocessClassesDexZip(
-      RuleContext ruleContext,
-      NestedSetBuilder<Artifact> filesBuilder,
-      Artifact classesDexZip,
-      ProguardOutput proguardOutput,
-      Artifact proguardMapOutput,
-      Artifact mainDexList)
-      throws InterruptedException;
-
   default AndroidDataContext makeContextForNative(RuleContext ruleContext)
       throws RuleErrorException {
     return AndroidDataContext.forNative(ruleContext);
@@ -219,49 +96,4 @@ public interface AndroidSemantics {
 
   /** Executes a ruleContext.attributeError when the check for the migration tag fails. */
   void registerMigrationRuleError(RuleContext ruleContext) throws RuleErrorException;
-
-  /**
-   * Whether invoking apksigner, whether or not to pass it flags to make DSA signing be
-   * deterministic.
-   */
-  default boolean deterministicSigning() {
-    return false;
-  }
-
-  default BootClassPathInfo getBootClassPathInfo(RuleContext ruleContext)
-      throws RuleErrorException, InterruptedException {
-    BootClassPathInfo bootClassPathInfo;
-    AndroidSdkProvider androidSdkProvider = AndroidSdkProvider.fromRuleContext(ruleContext);
-    if (androidSdkProvider.getSystem() != null) {
-      bootClassPathInfo = androidSdkProvider.getSystem();
-    } else {
-      NestedSetBuilder<Artifact> bootclasspath = NestedSetBuilder.<Artifact>stableOrder();
-      if (ruleContext.getConfiguration().getFragment(AndroidConfiguration.class).desugarJava8()) {
-        bootclasspath.addTransitive(
-            PrerequisiteArtifacts.nestedSet(
-                ruleContext.getRulePrerequisitesCollection(),
-                "$desugar_java8_extra_bootclasspath"));
-      }
-      bootclasspath.add(androidSdkProvider.getAndroidJar());
-      bootClassPathInfo = BootClassPathInfo.create(ruleContext, bootclasspath.build());
-    }
-    return bootClassPathInfo;
-  }
-
-  /**
-   * Returns an artifact representing the protobuf-format version of the proguard mapping, or null
-   * if the proguard version doesn't support this.
-   */
-  Artifact getProtoMapping(RuleContext ruleContext) throws InterruptedException;
-
-  Artifact getObfuscatedConstantStringMap(RuleContext ruleContext) throws InterruptedException;
-
-  /**
-   * Verifies if the rule contains any errors.
-   *
-   * <p>Errors should be signaled through {@link RuleContext}.
-   */
-  void checkRule(RuleContext ruleContext, JavaCommon javaCommon) throws RuleErrorException;
-
-  String getTestRunnerMainClass();
 }
