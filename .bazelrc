@@ -53,11 +53,11 @@ build --tool_java_language_version=21
 build --tool_java_runtime_version=21
 
 # Match Bazel's default JVM flags in tests
+# https://github.com/bazelbuild/bazel/blob/c412b27a4fcb7a7736d8e214f2feace6b1274532/src/main/cpp/blaze.cc#L352-L360
 common --jvmopt=-Dfile.encoding=ISO-8859-1
 common --jvmopt=-Duser.country=
 common --jvmopt=-Duser.language=
 common --jvmopt=-Duser.variant=
-common --test_env=LC_ALL=C.ISO-8859-1
 
 # Fail if a glob doesn't match anything (https://github.com/bazelbuild/bazel/issues/8195)
 common --incompatible_disallow_empty_glob

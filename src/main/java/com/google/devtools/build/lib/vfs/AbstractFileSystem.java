@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.vfs;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.nio.charset.StandardCharsets.UTF_16;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.READ;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
@@ -35,9 +37,11 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
+import java.util.Set;
 
 /** This class implements the FileSystem interface using direct calls to the UNIX filesystem. */
 @ThreadSafe
@@ -53,6 +57,15 @@ public abstract class AbstractFileSystem extends FileSystem {
    */
   private static final Charset JAVA_PATH_CHARSET =
       Charset.forName(System.getProperty("sun.jnu.encoding"), ISO_8859_1);
+
+  private static final Set<Charset> ASCII_INCOMPATIBLE_CHARSETS =
+      ImmutableSet.of(
+          UTF_16,
+          StandardCharsets.UTF_16BE,
+          StandardCharsets.UTF_16LE,
+          Charset.forName("UTF-32"),
+          Charset.forName("UTF-32BE"),
+          Charset.forName("UTF-32LE"));
 
   public AbstractFileSystem(DigestHashFunction digestFunction) {
     super(digestFunction);
@@ -93,12 +106,7 @@ public abstract class AbstractFileSystem extends FileSystem {
    * methods, if necessary.
    */
   protected String toJavaIoString(String s) {
-    // Every reasonable charset is compatible with ASCII and most paths are ASCII, so avoid any
-    // conversion if possible.
-    if (JAVA_PATH_CHARSET == ISO_8859_1 || StringUnsafe.getInstance().isAscii(s)) {
-      return s;
-    }
-    return new String(s.getBytes(ISO_8859_1), JAVA_PATH_CHARSET);
+    return canSkipReencoding(s) ? s : new String(s.getBytes(ISO_8859_1), JAVA_PATH_CHARSET);
   }
 
   /**
@@ -106,12 +114,16 @@ public abstract class AbstractFileSystem extends FileSystem {
    * representation, if necessary.
    */
   protected String fromJavaIoString(String s) {
-    // Every reasonable charset is compatible with ASCII and most paths are ASCII, so avoid any
-    // conversion if possible.
-    if (JAVA_PATH_CHARSET == ISO_8859_1 || StringUnsafe.getInstance().isAscii(s)) {
-      return s;
-    }
-    return new String(s.getBytes(JAVA_PATH_CHARSET), ISO_8859_1);
+    return canSkipReencoding(s) ? s : new String(s.getBytes(JAVA_PATH_CHARSET), ISO_8859_1);
+  }
+
+  private boolean canSkipReencoding(String s) {
+    // Most common charsets other than UTF-16 and UTF-32 are compatible with ASCII and most paths
+    // are ASCII, so avoid any conversion if possible.
+    return JAVA_PATH_CHARSET == ISO_8859_1
+        || JAVA_PATH_CHARSET == US_ASCII
+        || (!ASCII_INCOMPATIBLE_CHARSETS.contains(JAVA_PATH_CHARSET)
+            && StringUnsafe.getInstance().isAscii(s));
   }
 
   /** Allows the mapping of PathFragment to InputStream to be overridden in subclasses. */
