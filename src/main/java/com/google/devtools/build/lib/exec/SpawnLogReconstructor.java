@@ -32,7 +32,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
@@ -108,8 +107,8 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
       builder.setPlatform(entry.getPlatform());
     }
 
-    SortedMap<String, File> inputs = reconstructInputs(entry.getInputSetId());
-    SortedMap<String, File> toolInputs = reconstructInputs(entry.getToolSetId());
+    SortedMap<String, File> inputs = reconstructInputs(entry.getInputSetId()).inputs;
+    SortedMap<String, File> toolInputs = reconstructInputs(entry.getToolSetId()).inputs;
 
     for (Map.Entry<String, File> e : inputs.entrySet()) {
       File file = e.getValue();
@@ -156,10 +155,15 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     return builder.build();
   }
 
-  private SortedMap<String, File> reconstructInputs(int setId) throws IOException {
+  private record FlattenedInputSet(
+      SortedMap<String, File> inputs, boolean hasWorkspaceRunfilesDirectory) {}
+
+  private FlattenedInputSet reconstructInputs(int setId) throws IOException {
     TreeMap<String, File> inputs = new TreeMap<>();
     ArrayDeque<Integer> setsToVisit = new ArrayDeque<>();
     HashSet<Integer> visited = new HashSet<>();
+    boolean hasWorkspaceRunfilesDirectory = false;
+    String externalPrefix = LabelConstants.EXTERNAL_PATH_PREFIX.getPathString() + "/";
     if (setId != 0) {
       setsToVisit.addLast(setId);
       visited.add(setId);
@@ -170,6 +174,9 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
         if (visited.add(fileId)) {
           File file = getFromMap(fileMap, fileId);
           inputs.put(file.getPath(), file);
+          if (!hasWorkspaceRunfilesDirectory && !file.getPath().startsWith(externalPrefix)) {
+            hasWorkspaceRunfilesDirectory = true;
+          }
         }
       }
       for (int dirId : Iterables.concat(set.getDirectoryIdsList(), set.getRunfilesTreeIdsList())) {
@@ -178,12 +185,21 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
           for (File dirFile : dir.getSecond()) {
             inputs.put(dirFile.getPath(), dirFile);
           }
+          // This is bug-for-bug compatible with the implementation in Runfiles by considering
+          // an empty non-external directory as a runfiles entry under the workspace runfiles
+          // directory even though it won't be materialized as one.
+          if (!hasWorkspaceRunfilesDirectory && !dir.getFirst().startsWith(externalPrefix)) {
+            hasWorkspaceRunfilesDirectory = true;
+          }
         }
       }
       for (int symlinkId : set.getUnresolvedSymlinkIdsList()) {
         if (visited.add(symlinkId)) {
           File symlink = getFromMap(symlinkMap, symlinkId);
           inputs.put(symlink.getPath(), symlink);
+          if (!hasWorkspaceRunfilesDirectory && !symlink.getPath().startsWith(externalPrefix)) {
+            hasWorkspaceRunfilesDirectory = true;
+          }
         }
       }
       for (int transitiveSetId : set.getTransitiveSetIdsList()) {
@@ -192,7 +208,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
         }
       }
     }
-    return inputs;
+    return new FlattenedInputSet(inputs, hasWorkspaceRunfilesDirectory);
   }
 
   private Pair<String, Collection<File>> reconstructDir(ExecLogEntry.Directory dir) {
@@ -228,16 +244,16 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
 
   private Pair<String, Collection<File>> reconstructRunfilesDir(
       ExecLogEntry.RunfilesTree runfilesTree) throws IOException {
-    var artifacts = reconstructInputs(runfilesTree.getInputSetId());
+    var flattenedInputs = reconstructInputs(runfilesTree.getInputSetId());
     LinkedHashMap<String, File> builder =
-        new LinkedHashMap<>(runfilesTree.getSymlinksCount() + artifacts.size());
+        new LinkedHashMap<>(runfilesTree.getSymlinksCount() + flattenedInputs.inputs.size());
     for (var symlink : runfilesTree.getSymlinksMap().entrySet()) {
       String newPath = runfilesTree.getPath() + "/" + symlink.getKey();
       for (var file : reconstructRunfilesSymlinkTarget(newPath, symlink.getValue())) {
         builder.put(newPath, file);
       }
     }
-    Collection<File> inputs = reconstructInputs(runfilesTree.getInputSetId()).values();
+    Collection<File> inputs = flattenedInputs.inputs.values();
     inputs.stream()
         .flatMap(
             file ->
@@ -248,7 +264,12 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
                                 .setPath(runfilesTree.getPath() + "/" + relativePath)
                                 .build()))
         .forEach(file -> builder.put(file.getPath(), file));
-    getDotRunfileFileIfNeeded(runfilesTree).ifPresent(file -> builder.put(file.getPath(), file));
+    if (!runfilesTree.getLegacyExternalRunfiles()
+        && !flattenedInputs.hasWorkspaceRunfilesDirectory) {
+      String dotRunfilePath =
+          "%s/%s/.runfile".formatted(runfilesTree.getPath(), workspaceRunfilesDirectory);
+      builder.put(dotRunfilePath, File.newBuilder().setPath(dotRunfilePath).build());
+    }
     return Pair.of(runfilesTree.getPath(), ImmutableList.copyOf(builder.values()));
   }
 
@@ -294,64 +315,6 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
           throw new IOException(
               String.format("unknown target type %d", target.getTargetCase().getNumber()));
     };
-  }
-
-  /**
-   * Returns the empty "_main/.runfile" file if the runfiles tree would otherwise not contain a
-   * file under "_main" and thus wouldn't implicitly create that directory.
-   *
-   * <p>TODO: This is bug-for-bug compatible with the implementation in Runfiles and in particular
-   * doesn't create the file if the only runfile under "_main" is an empty directory. If not for
-   * this bug, the flattened list of files could be checked instead.
-   */
-  private Optional<File> getDotRunfileFileIfNeeded(ExecLogEntry.RunfilesTree runfilesTree)
-      throws IOException {
-    if (runfilesTree.getLegacyExternalRunfiles()) {
-      return Optional.empty();
-    }
-    String externalPrefix = LabelConstants.EXTERNAL_PATH_PREFIX.getPathString() + "/";
-    ArrayDeque<Integer> setsToVisit = new ArrayDeque<>();
-    HashSet<Integer> visited = new HashSet<>();
-    if (runfilesTree.getInputSetId() != 0) {
-      setsToVisit.addLast(runfilesTree.getInputSetId());
-      visited.add(runfilesTree.getInputSetId());
-    }
-    while (!setsToVisit.isEmpty()) {
-      ExecLogEntry.InputSet set = getFromMap(setMap, setsToVisit.removeFirst());
-      for (int fileId : set.getFileIdsList()) {
-        if (visited.add(fileId)) {
-          File file = getFromMap(fileMap, fileId);
-          if (!file.getPath().startsWith(externalPrefix)) {
-            return Optional.empty();
-          }
-        }
-      }
-      for (int dirId : Iterables.concat(set.getDirectoryIdsList(), set.getRunfilesTreeIdsList())) {
-        if (visited.add(dirId)) {
-          Pair<String, Collection<File>> dir = getFromMap(dirMap, dirId);
-          if (!dir.getFirst().startsWith(externalPrefix)) {
-            return Optional.empty();
-          }
-        }
-      }
-      for (int symlinkId : set.getUnresolvedSymlinkIdsList()) {
-        if (visited.add(symlinkId)) {
-          File symlink = getFromMap(symlinkMap, symlinkId);
-          if (!symlink.getPath().startsWith(externalPrefix)) {
-            return Optional.empty();
-          }
-        }
-      }
-      for (int transitiveSetId : set.getTransitiveSetIdsList()) {
-        if (visited.add(transitiveSetId)) {
-          setsToVisit.addLast(transitiveSetId);
-        }
-      }
-    }
-    return Optional.of(
-        File.newBuilder()
-            .setPath("%s/%s/.runfile".formatted(runfilesTree.getPath(), workspaceRunfilesDirectory))
-            .build());
   }
 
   private static <T> T getFromMap(Map<Integer, T> map, int id) throws IOException {
