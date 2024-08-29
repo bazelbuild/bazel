@@ -22,6 +22,7 @@ import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
+import com.google.common.collect.Multisets;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
@@ -294,7 +295,7 @@ public abstract class AbstractInMemoryMemoizingEvaluator implements MemoizingEva
     for (InMemoryNodeEntry entry : getInMemoryGraph().getAllNodeEntries()) {
       counter.add(entry.getKey().functionName());
     }
-    for (Multiset.Entry<SkyFunctionName> entry : counter.entrySet()) {
+    for (var entry : Multisets.copyHighestCountFirst(counter).entrySet()) {
       out.println(entry.getElement() + "\t" + entry.getCount()); // \t is spreadsheet-friendly.
     }
   }
