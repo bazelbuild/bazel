@@ -27,25 +27,24 @@ import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
- * A {@link SkyFunction.Environment} implementation designed to be used in a different thread than
- * the corresponding SkyFunction runs in. It relies on a delegate Environment object to do
- * underlying work. Its {@link #getValue} and {@link #getValueOrThrow} methods do not return {@code
- * null} when the {@link SkyValue} in question is not available. Instead, it blocks and waits for
- * the host Skyframe thread to restart, and replaces the delegate Environment with a fresh one from
- * the restarted SkyFunction before continuing. (Note that those methods <em>do</em> return {@code
- * null} if the SkyValue was evaluated but found to be in error.)
+ * A {@link SkyFunction.Environment} implementation designed to be used in a different thread (the
+ * "worker thread") than the corresponding SkyFunction runs in. It relies on a delegate Environment
+ * object to do underlying work. Its {@link #getValue} and {@link #getValueOrThrow} methods do not
+ * return {@code null} when the {@link SkyValue} in question is not available. Instead, it blocks
+ * and waits for the host Skyframe thread to restart, and replaces the delegate Environment with a
+ * fresh one from the restarted SkyFunction before continuing. (Note that those methods <em>do</em>
+ * return {@code null} if the SkyValue was evaluated but found to be in error.)
  *
  * <p>Crucially, the delegate Environment object must not be used by multiple threads at the same
  * time. In effect, this is guaranteed by only one of the worker thread and host thread being active
  * at any given time.
  */
-class RepoFetchingWorkerSkyFunctionEnvironment
+class WorkerSkyFunctionEnvironment
     implements SkyFunction.Environment, ExtendedEventHandler, SkyframeLookupResult {
-  private final RepoFetchingSkyKeyComputeState state;
+  private final WorkerSkyKeyComputeState<?> state;
   private SkyFunction.Environment delegate;
 
-  RepoFetchingWorkerSkyFunctionEnvironment(RepoFetchingSkyKeyComputeState state)
-      throws InterruptedException {
+  WorkerSkyFunctionEnvironment(WorkerSkyKeyComputeState<?> state) throws InterruptedException {
     this.state = state;
     this.delegate = state.delegateEnvQueue.take();
   }

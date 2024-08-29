@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.ResolvedEvent;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
-import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
 import com.google.devtools.build.lib.rules.repository.ResolvedFileValue;
@@ -31,7 +30,6 @@ import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.io.IOException;
-import java.util.Map;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** Create a local repository that describes the auto-detected host platform. */
@@ -48,13 +46,8 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
   }
 
   @Override
-  public RepositoryDirectoryValue.Builder fetch(
-      Rule rule,
-      Path outputDirectory,
-      BlazeDirectories directories,
-      Environment env,
-      Map<RepoRecordedInput, String> recordedInputValues,
-      SkyKey key)
+  public FetchResult fetch(
+      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env, SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
     ensureNativeRepoRuleEnabled(rule, env, "the platform defined at @platforms//host");
     StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
@@ -104,7 +97,8 @@ public class LocalConfigPlatformFunction extends RepositoryFunction {
             });
 
     // Return the needed info.
-    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
+    return new FetchResult(
+        RepositoryDirectoryValue.builder().setPath(outputDirectory), ImmutableMap.of());
   }
 
   private static String workspaceFileContent(String repositoryName) {

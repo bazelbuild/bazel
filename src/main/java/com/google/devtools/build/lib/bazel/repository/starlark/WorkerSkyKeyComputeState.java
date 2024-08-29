@@ -19,12 +19,8 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.rules.repository.RepoRecordedInput;
-import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
-import java.util.Map;
-import java.util.TreeMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
@@ -34,15 +30,20 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
 /**
- * Captures state that persists across different invocations of {@link
- * com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction}, specifically {@link
- * StarlarkRepositoryFunction}.
+ * A {@link SkyKeyComputeState} that manages a non-Skyframe virtual worker thread that persists
+ * across different invocations of a SkyFunction.
  *
- * <p>This class is used to hold on to a worker thread when fetching repos using a worker thread is
- * enabled. The worker thread uses a {@link SkyFunction.Environment} object acquired from the host
- * thread, and can signal the host thread to restart to get a fresh environment object.
+ * <p>The worker thread uses a {@link SkyFunction.Environment} object acquired from the host thread.
+ * When a new Skyframe dependency is needed, the worker thread itself does not need to restart;
+ * instead, it can signal the host thread to restart to get a fresh Environment object.
+ *
+ * <p>Similar to other implementations of {@link SkyKeyComputeState}, this avoids redoing expensive
+ * work when a new Skyframe dependency is needed; but because it holds on to an entire worker
+ * thread, this class is more suited to cases where the intermediate result of expensive work cannot
+ * be easily serialized (in particular, if there's an ongoing Starlark evaluation, as is the case in
+ * repo fetching).
  */
-class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
+class WorkerSkyKeyComputeState<T> implements SkyKeyComputeState {
 
   /**
    * A semaphore with 0 or 1 permit. The worker can release a permit either when it's finished
@@ -69,7 +70,7 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
    */
   @GuardedBy("this")
   @Nullable
-  private ListenableFuture<RepositoryDirectoryValue.Builder> workerFuture = null;
+  private ListenableFuture<T> workerFuture = null;
 
   /** The executor service that manages the worker thread. */
   // We hold on to this alongside `workerFuture` because it offers a convenient mechanism to make
@@ -77,20 +78,6 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
   @GuardedBy("this")
   @Nullable
   private ListeningExecutorService workerExecutorService = null;
-
-  private final String repoName;
-
-  /**
-   * This is where the recorded inputs & values for the whole invocation is collected.
-   *
-   * <p>{@link com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction} creates a
-   * new map on each restart, so we can't simply plumb that in.
-   */
-  final Map<RepoRecordedInput, String> recordedInputValues = new TreeMap<>();
-
-  RepoFetchingSkyKeyComputeState(String repoName) {
-    this.repoName = repoName;
-  }
 
   /**
    * Releases a permit on the {@code signalSemaphore} and immediately expect a fresh Environment
@@ -107,8 +94,7 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
    * when the worker finishes, successfully or otherwise. This may only be called from the host
    * Skyframe thread.
    */
-  synchronized ListenableFuture<RepositoryDirectoryValue.Builder> getOrStartWorker(
-      Callable<RepositoryDirectoryValue.Builder> c) {
+  synchronized ListenableFuture<T> getOrStartWorker(String workerThreadName, Callable<T> c) {
     if (workerFuture != null) {
       return workerFuture;
     }
@@ -119,10 +105,9 @@ class RepoFetchingSkyKeyComputeState implements SkyKeyComputeState {
     workerExecutorService =
         MoreExecutors.listeningDecorator(
             Executors.newThreadPerTaskExecutor(
-                Thread.ofVirtual().name("starlark-repository-" + repoName).factory()));
+                Thread.ofVirtual().name(workerThreadName).factory()));
     signalSemaphore.drainPermits();
     delegateEnvQueue.clear();
-    recordedInputValues.clear();
 
     // Start the worker.
     workerFuture = workerExecutorService.submit(c);
