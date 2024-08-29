@@ -1273,7 +1273,6 @@ sh_test(
     ],
     shard_count = 3,
     tags = [
-        "no_windows",
         "requires-network",
     ],
 )
