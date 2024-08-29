@@ -138,7 +138,7 @@ public class StringUtil {
    * <p>The return value is suitable for passing to Protobuf string fields or printing to the
    * terminal.
    */
-  public static String decodeBytestringUtf8(String maybeUtf8) {
+  public static String reencodeInternalToExternal(String maybeUtf8) {
     if (maybeUtf8.chars().allMatch(c -> c < 128)) {
       return maybeUtf8;
     }
@@ -173,9 +173,9 @@ public class StringUtil {
    *
    * <p>encodeBytestringUtf8("\u2049") == "\u00E2\u0081\u0089"
    *
-   * <p>See {@link #decodeBytestringUtf8} for motivation.
+   * <p>See {@link #reencodeInternalToExternal} for motivation.
    */
-  public static String encodeBytestringUtf8(String unicode) {
+  public static String reencodeExternalToInternal(String unicode) {
     if (unicode.chars().allMatch(c -> c < 128)) {
       return unicode;
     }
