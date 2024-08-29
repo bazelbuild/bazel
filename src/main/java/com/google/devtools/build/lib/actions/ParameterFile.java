@@ -169,7 +169,7 @@ public class ParameterFile {
     StringUnsafe stringUnsafe = StringUnsafe.getInstance();
     for (String line : arguments) {
       byte[] bytes = stringUnsafe.getByteArray(line);
-      if (stringUnsafe.getCoder(line) == StringUnsafe.LATIN1 && isAscii(bytes)) {
+      if (stringUnsafe.isAscii(line)) {
         outputStream.write(bytes);
       } else if (!StringUtil.reencodeInternalToExternal(line).equals(line)) {
         // We successfully decoded line from utf8 - meaning it was already encoded as utf8.
@@ -185,15 +185,6 @@ public class ParameterFile {
       outputStream.write('\n');
     }
     outputStream.flush();
-  }
-
-  private static boolean isAscii(byte[] latin1Bytes) {
-    boolean hiBitSet = false;
-    int n = latin1Bytes.length;
-    for (int i = 0; i < n; ++i) {
-      hiBitSet |= ((latin1Bytes[i] & 0x80) != 0);
-    }
-    return !hiBitSet;
   }
 
   /** Criterion shared by {@link #flagsOnly} and {@link #nonFlags}. */
