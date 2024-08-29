@@ -287,11 +287,11 @@ message ExecLogEntry {
     // In case of path collisions, later artifacts overwrite earlier ones and
     // artifacts override symlinks.
     //
-    // The referenced set must not contain any runfile trees.
+    // The referenced set must not transitively contain any runfile trees.
     // TODO: Document the procedure to obtain the canonical relative path
     // with --experimental_sibling_repository_layout.
-    int32 artifacts_id = 2;
-    // The artifacts in the runfiles tree that are symlinked at custom
+    int32 input_set_id = 2;
+    // The paths relative to the tree path that are symlinked to custom
     // locations.
     map<string, SymlinkTarget> symlinks = 3;
     // Whether the runfiles tree contains external runfiles at their legacy

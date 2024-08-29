@@ -509,7 +509,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           // conflicts and empty files are only added at paths which don't exist yet, this doesn't
           // result in any observable differences for builds without warnings.
 
-          builder.setArtifactsId(
+          builder.setInputSetId(
               logNestedSet(
                   runfilesTree.getArtifactsAtCanonicalLocationsForLogging(),
                   ImmutableList.of(),
@@ -528,13 +528,13 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                 ExecLogEntry.RunfilesTree.SymlinkTarget.newBuilder();
             // Since these files have been consumed by the spawn, we trust their type without
             // filesystem checks.
-            if (!artifact.isDirectory() && !artifact.isSymlink()) {
-              symlinkTarget.setFileId(logFile(artifact, path, inputMetadataProvider));
-            } else if (artifact.isDirectory()) {
+            if (artifact.isSymlink()) {
+              symlinkTarget.setUnresolvedSymlinkId(logUnresolvedSymlink(artifact, path));
+            } else if (isInputDirectory(artifact, path, inputMetadataProvider)) {
               // TODO(tjgq): Tighten once --incompatible_disallow_unsound_directory_outputs is gone.
               symlinkTarget.setDirectoryId(logDirectory(artifact, path, inputMetadataProvider));
             } else {
-              symlinkTarget.setUnresolvedSymlinkId(logUnresolvedSymlink(artifact, path));
+              symlinkTarget.setFileId(logFile(artifact, path, inputMetadataProvider));
             }
             builder.putSymlinks(relativePath.getPathString(), symlinkTarget.build());
           }

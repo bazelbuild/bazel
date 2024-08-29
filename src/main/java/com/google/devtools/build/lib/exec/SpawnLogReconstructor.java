@@ -37,6 +37,7 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -227,7 +228,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
 
   private Pair<String, Collection<File>> reconstructRunfilesDir(
       ExecLogEntry.RunfilesTree runfilesTree) throws IOException {
-    var artifacts = reconstructInputs(runfilesTree.getArtifactsId());
+    var artifacts = reconstructInputs(runfilesTree.getInputSetId());
     LinkedHashMap<String, File> builder =
         new LinkedHashMap<>(runfilesTree.getSymlinksCount() + artifacts.size());
     for (var symlink : runfilesTree.getSymlinksMap().entrySet()) {
@@ -236,7 +237,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
         builder.put(newPath, file);
       }
     }
-    Collection<File> inputs = reconstructInputs(runfilesTree.getArtifactsId()).values();
+    Collection<File> inputs = reconstructInputs(runfilesTree.getInputSetId()).values();
     inputs.stream()
         .flatMap(
             file ->
@@ -251,13 +252,11 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     return Pair.of(runfilesTree.getPath(), ImmutableList.copyOf(builder.values()));
   }
 
+  private static final Pattern BAZEL_OUT_PREFIX_PATTERN =
+      Pattern.compile("^(blaze|bazel)-out/[^/]+/[^/]+/");
+
   private Stream<String> getRunfilesPaths(String originalPath, boolean legacyExternalRunfiles) {
-    String path = originalPath;
-    if (path.startsWith("bazel-out/") || path.startsWith("blaze-out/")) {
-      // Trim the first three segments ("bazel-out/<config>/bin/") from the path.
-      int thirdSlash = path.indexOf('/', path.indexOf('/', "bazel-out/".length()) + 1);
-      path = path.substring(thirdSlash + 1);
-    }
+    String path = BAZEL_OUT_PREFIX_PATTERN.matcher(originalPath).replaceFirst("");
     if (path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX.getPathString())) {
       Stream.Builder<String> paths = Stream.builder();
       paths.add(path.substring(LabelConstants.EXTERNAL_PATH_PREFIX.getPathString().length()));
@@ -313,9 +312,9 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     String externalPrefix = LabelConstants.EXTERNAL_PATH_PREFIX.getPathString() + "/";
     ArrayDeque<Integer> setsToVisit = new ArrayDeque<>();
     HashSet<Integer> visited = new HashSet<>();
-    if (runfilesTree.getArtifactsId() != 0) {
-      setsToVisit.addLast(runfilesTree.getArtifactsId());
-      visited.add(runfilesTree.getArtifactsId());
+    if (runfilesTree.getInputSetId() != 0) {
+      setsToVisit.addLast(runfilesTree.getInputSetId());
+      visited.add(runfilesTree.getInputSetId());
     }
     while (!setsToVisit.isEmpty()) {
       ExecLogEntry.InputSet set = getFromMap(setMap, setsToVisit.removeFirst());
