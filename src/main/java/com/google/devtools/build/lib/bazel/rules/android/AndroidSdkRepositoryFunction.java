@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -53,6 +54,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Properties;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -193,17 +195,15 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
 
   @Override
   @Nullable
-  public RepositoryDirectoryValue.Builder fetch(
+  public FetchResult fetch(
       Rule rule,
       final Path outputDirectory,
       BlazeDirectories directories,
       Environment env,
-      Map<RepoRecordedInput, String> recordedInputValues,
       SkyKey key)
       throws RepositoryFunctionException, InterruptedException {
     ensureNativeRepoRuleEnabled(rule, env, "https://github.com/bazelbuild/rules_android");
-    Map<String, String> environ =
-        declareEnvironmentDependencies(recordedInputValues, env, PATH_ENV_VAR_AS_SET);
+    ImmutableMap<String, Optional<String>> environ = getEnvVarValues(env, PATH_ENV_VAR_AS_SET);
     if (environ == null) {
       return null;
     }
@@ -216,19 +216,22 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     FileSystem fs = directories.getOutputBase().getFileSystem();
     Path androidSdkPath;
-    String userDefinedPath = null;
+    String userDefinedPath;
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
       userDefinedPath = getPathAttr(rule);
       androidSdkPath = fs.getPath(getTargetPath(userDefinedPath, directories.getWorkspace()));
-    } else if (environ.get(PATH_ENV_VAR) != null) {
-      userDefinedPath = environ.get(PATH_ENV_VAR);
+    } else if (environ.getOrDefault(PATH_ENV_VAR, Optional.empty()).isPresent()) {
+      userDefinedPath = environ.get(PATH_ENV_VAR).get();
+      Path workspace = directories.getWorkspace();
       androidSdkPath =
-          fs.getPath(getAndroidHomeEnvironmentVar(directories.getWorkspace(), environ));
+          fs.getPath(workspace.getRelative(PathFragment.create(userDefinedPath)).asFragment());
     } else {
       // Write an empty BUILD file that declares errors when referred to.
       String buildFile = getStringResource("android_sdk_repository_empty_template.txt");
       writeBuildFile(outputDirectory, buildFile);
-      return RepositoryDirectoryValue.builder().setPath(outputDirectory);
+      return new FetchResult(
+          RepositoryDirectoryValue.builder().setPath(outputDirectory),
+          Maps.transformValues(RepoRecordedInput.EnvVar.wrap(environ), v -> v.orElse(null)));
     }
 
     if (!symlinkLocalRepositoryContents(outputDirectory, androidSdkPath, userDefinedPath)) {
@@ -355,17 +358,14 @@ public class AndroidSdkRepositoryFunction extends AndroidRepositoryFunction {
     }
 
     writeBuildFile(outputDirectory, buildFile);
-    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
+    return new FetchResult(
+        RepositoryDirectoryValue.builder().setPath(outputDirectory),
+        Maps.transformValues(RepoRecordedInput.EnvVar.wrap(environ), v -> v.orElse(null)));
   }
 
   @Override
   public Class<? extends RuleDefinition> getRuleDefinition() {
     return AndroidSdkRepositoryRule.class;
-  }
-
-  private static PathFragment getAndroidHomeEnvironmentVar(
-      Path workspace, Map<String, String> env) {
-    return workspace.getRelative(PathFragment.create(env.get(PATH_ENV_VAR))).asFragment();
   }
 
   private static String getStringResource(String name) {
