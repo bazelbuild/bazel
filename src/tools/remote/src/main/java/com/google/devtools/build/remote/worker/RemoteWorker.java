@@ -114,18 +114,7 @@ public final class RemoteWorker {
     } catch (OptionsParsingException e) {
       throw new Error("The specified hash function '" + value + "' is not supported.", e);
     }
-    return new JavaIoFileSystem(hashFunction) {
-      // The remote worker doesn't use Bazel's special internal representation of strings.
-      @Override
-      protected String toJavaIoString(String s) {
-        return s;
-      }
-
-      @Override
-      protected String fromJavaIoString(String s) {
-        return s;
-      }
-    };
+    return new JavaIoFileSystem(hashFunction);
   }
 
   /** A {@link ServerInterceptor} that rejects requests unless an authorization token is present. */

@@ -16,6 +16,10 @@ filegroup(
 
 java_binary(
     name = "worker",
+    jvm_flags = [
+        # Disables functionality in StringUtil that relies on Bazel's own internal string representation.
+        "-Dbazel.internal.UseUtf8ForStrings=true",
+    ],
     main_class = "com.google.devtools.build.remote.worker.RemoteWorker",
     visibility = ["//visibility:public"],
     runtime_deps = ["//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker"],

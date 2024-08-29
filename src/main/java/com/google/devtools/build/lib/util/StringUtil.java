@@ -133,6 +133,11 @@ public class StringUtil {
   private static final Charset JAVA_PATH_CHARSET =
       Charset.forName(System.getProperty("sun.jnu.encoding"), ISO_8859_1);
 
+  // This only exists for RemoteWorker, which directly uses the RE APIs UTF-8-encoded string with
+  // the JavaIoFileSystem and thus shouldn't be subject to the same reencoding.
+  private static final boolean USE_UTF_8_FOR_STRINGS =
+      Boolean.getBoolean("bazel.internal.UseUtf8ForStrings");
+
   // TODO: Use StandardCharsets for this after updating to JDK 22.
   private static final Charset UTF_32 = Charset.forName("UTF-32");
   private static final Charset UTF_32BE = Charset.forName("UTF-32BE");
@@ -156,8 +161,11 @@ public class StringUtil {
 
   private static boolean canSkipJavaIoReencode(String s) {
     // Most common charsets other than UTF-16 and UTF-32 are compatible with ASCII and most paths
-    // are ASCII, so avoid any conversion if possible.
-    return JAVA_PATH_CHARSET == ISO_8859_1
+    // are ASCII, so avoid any conversion if possible. This function is invoked for every spawn
+    // argument and (depending on the FileSystem implementation) every file path, so it should be
+    // fast and return true as often as possible.
+    return USE_UTF_8_FOR_STRINGS
+        || JAVA_PATH_CHARSET == ISO_8859_1
         || JAVA_PATH_CHARSET == US_ASCII
         || (JAVA_PATH_CHARSET != UTF_32
             && JAVA_PATH_CHARSET != UTF_32BE
