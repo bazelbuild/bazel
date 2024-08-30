@@ -311,6 +311,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/util/io:io-proto",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/protobuf:spawn_java_proto",
+        "//third_party:fastutil",
         "//third_party:guava",
         "//third_party:jsr305",
         "@zstd-jni",

@@ -17,18 +17,16 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.exec.Protos.ExecLogEntry;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.MessageInputStream;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayDeque;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -55,10 +53,16 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
 
   private final ZstdInputStream in;
 
-  private final HashMap<Integer, File> fileMap = new HashMap<>();
-  private final HashMap<Integer, Pair<String, Collection<File>>> dirMap = new HashMap<>();
-  private final HashMap<Integer, File> symlinkMap = new HashMap<>();
-  private final HashMap<Integer, ExecLogEntry.InputSet> setMap = new HashMap<>();
+  sealed interface Input {
+    record File(Protos.File file) implements Input {}
+
+    record Directory(String path, Collection<Protos.File> files) implements Input {}
+
+    record Symlink(Protos.File symlink) implements Input {}
+  }
+
+  private final Int2ObjectOpenHashMap<Input> artifactMap = new Int2ObjectOpenHashMap<>();
+  private final Int2ObjectOpenHashMap<ExecLogEntry.InputSet> setMap = new Int2ObjectOpenHashMap<>();
   private String hashFunctionName = "";
   private String workspaceRunfilesDirectory = "";
 
@@ -76,12 +80,12 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
           hashFunctionName = entry.getInvocation().getHashFunctionName();
           workspaceRunfilesDirectory = entry.getInvocation().getWorkspaceRunfilesDirectory();
         }
-        case FILE -> fileMap.put(entry.getId(), reconstructFile(entry.getFile()));
-        case DIRECTORY -> dirMap.put(entry.getId(), reconstructDir(entry.getDirectory()));
+        case FILE -> artifactMap.put(entry.getId(), reconstructFile(entry.getFile()));
+        case DIRECTORY -> artifactMap.put(entry.getId(), reconstructDir(entry.getDirectory()));
         case UNRESOLVED_SYMLINK ->
-            symlinkMap.put(entry.getId(), reconstructSymlink(entry.getUnresolvedSymlink()));
+            artifactMap.put(entry.getId(), reconstructSymlink(entry.getUnresolvedSymlink()));
         case RUNFILES_TREE ->
-            dirMap.put(entry.getId(), reconstructRunfilesDir(entry.getRunfilesTree()));
+            artifactMap.put(entry.getId(), reconstructRunfilesDir(entry.getRunfilesTree()));
         case INPUT_SET -> setMap.put(entry.getId(), entry.getInputSet());
         case SPAWN -> {
           return reconstructSpawnExec(entry.getSpawn());
@@ -134,22 +138,21 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
 
     for (ExecLogEntry.Output output : entry.getOutputsList()) {
       switch (output.getTypeCase()) {
-        case FILE_ID -> {
-          File file = getFromMap(fileMap, output.getFileId());
-          listedOutputs.add(file.getPath());
-          builder.addActualOutputs(file);
-        }
-        case DIRECTORY_ID -> {
-          Pair<String, Collection<File>> dir = getFromMap(dirMap, output.getDirectoryId());
-          listedOutputs.add(dir.getFirst());
-          for (File dirFile : dir.getSecond()) {
-            builder.addActualOutputs(dirFile);
+        case OUTPUT_ID -> {
+          switch (getInput(output.getOutputId())) {
+            case Input.File(File file) -> {
+              listedOutputs.add(file.getPath());
+              builder.addActualOutputs(file);
+            }
+            case Input.Symlink(File symlink) -> {
+              listedOutputs.add(symlink.getPath());
+              builder.addActualOutputs(symlink);
+            }
+            case Input.Directory(String path, Collection<File> files) -> {
+              listedOutputs.add(path);
+              builder.addAllActualOutputs(files);
+            }
           }
-        }
-        case UNRESOLVED_SYMLINK_ID -> {
-          File symlink = getFromMap(symlinkMap, output.getUnresolvedSymlinkId());
-          listedOutputs.add(symlink.getPath());
-          builder.addActualOutputs(symlink);
         }
         case INVALID_OUTPUT_PATH -> listedOutputs.add(output.getInvalidOutputPath());
         default ->
@@ -181,40 +184,33 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
       visited.add(setId);
     }
     while (!setsToVisit.isEmpty()) {
-      ExecLogEntry.InputSet set = getFromMap(setMap, setsToVisit.removeFirst());
-      for (int fileId : set.getFileIdsList()) {
-        if (visited.add(fileId)) {
-          File file = getFromMap(fileMap, fileId);
-          inputs.put(file.getPath(), file);
-          if (!hasWorkspaceRunfilesDirectory
-              && !EXTERNAL_PREFIX_PATTERN.matcher(file.getPath()).matches()) {
-            hasWorkspaceRunfilesDirectory = true;
+      ExecLogEntry.InputSet set = getInputSet(setsToVisit.removeFirst());
+      for (int inputId : set.getInputIdsList()) {
+        if (!visited.add(inputId)) {
+          continue;
+        }
+        String path;
+        switch (getInput(inputId)) {
+          case Input.File(File file) -> {
+            inputs.put(file.getPath(), file);
+            path = file.getPath();
+          }
+          case Input.Directory(String dirPath, Collection<File> files) -> {
+            for (File dirFile : files) {
+              inputs.put(dirFile.getPath(), dirFile);
+            }
+            path = dirPath;
+          }
+          case Input.Symlink(File symlink) -> {
+            inputs.put(symlink.getPath(), symlink);
+            path = symlink.getPath();
           }
         }
-      }
-      for (int dirId : Iterables.concat(set.getDirectoryIdsList(), set.getRunfilesTreeIdsList())) {
-        if (visited.add(dirId)) {
-          Pair<String, Collection<File>> dir = getFromMap(dirMap, dirId);
-          for (File dirFile : dir.getSecond()) {
-            inputs.put(dirFile.getPath(), dirFile);
-          }
-          // This is bug-for-bug compatible with the implementation in Runfiles by considering
-          // an empty non-external directory as a runfiles entry under the workspace runfiles
-          // directory even though it won't be materialized as one.
-          if (!hasWorkspaceRunfilesDirectory
-              && !EXTERNAL_PREFIX_PATTERN.matcher(dir.getFirst()).matches()) {
-            hasWorkspaceRunfilesDirectory = true;
-          }
-        }
-      }
-      for (int symlinkId : set.getUnresolvedSymlinkIdsList()) {
-        if (visited.add(symlinkId)) {
-          File symlink = getFromMap(symlinkMap, symlinkId);
-          inputs.put(symlink.getPath(), symlink);
-          if (!hasWorkspaceRunfilesDirectory
-              && !EXTERNAL_PREFIX_PATTERN.matcher(symlink.getPath()).matches()) {
-            hasWorkspaceRunfilesDirectory = true;
-          }
+        // This is bug-for-bug compatible with the implementation in Runfiles by considering
+        // an empty non-external directory as a runfiles entry under the workspace runfiles
+        // directory even though it won't be materialized as one.
+        if (!hasWorkspaceRunfilesDirectory && !EXTERNAL_PREFIX_PATTERN.matcher(path).matches()) {
+          hasWorkspaceRunfilesDirectory = true;
         }
       }
       for (int transitiveSetId : set.getTransitiveSetIdsList()) {
@@ -226,17 +222,17 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     return new FlattenedInputSet<>(inputs, hasWorkspaceRunfilesDirectory);
   }
 
-  private Pair<String, Collection<File>> reconstructDir(ExecLogEntry.Directory dir) {
+  private Input.Directory reconstructDir(ExecLogEntry.Directory dir) {
     ImmutableList.Builder<File> builder =
         ImmutableList.builderWithExpectedSize(dir.getFilesCount());
-    for (ExecLogEntry.File dirFile : dir.getFilesList()) {
+    for (var dirFile : dir.getFilesList()) {
       builder.add(reconstructFile(dir, dirFile));
     }
-    return Pair.of(dir.getPath(), builder.build());
+    return new Input.Directory(dir.getPath(), builder.build());
   }
 
-  private File reconstructFile(ExecLogEntry.File entry) {
-    return reconstructFile(null, entry);
+  private Input.File reconstructFile(ExecLogEntry.File entry) {
+    return new Input.File(reconstructFile(null, entry));
   }
 
   private File reconstructFile(
@@ -250,22 +246,23 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     return builder.build();
   }
 
-  private static File reconstructSymlink(ExecLogEntry.UnresolvedSymlink entry) {
-    return File.newBuilder()
-        .setPath(entry.getPath())
-        .setSymlinkTargetPath(entry.getTargetPath())
-        .build();
+  private static Input.Symlink reconstructSymlink(ExecLogEntry.UnresolvedSymlink entry) {
+    return new Input.Symlink(
+        File.newBuilder()
+            .setPath(entry.getPath())
+            .setSymlinkTargetPath(entry.getTargetPath())
+            .build());
   }
 
-  private Pair<String, Collection<File>> reconstructRunfilesDir(
-      ExecLogEntry.RunfilesTree runfilesTree) throws IOException {
+  private Input.Directory reconstructRunfilesDir(ExecLogEntry.RunfilesTree runfilesTree)
+      throws IOException {
     // Preserve the order of the inputs to resolve conflicts in the same order as the real Runfiles
     // implementation.
     var flattenedInputs = reconstructInputs(runfilesTree.getInputSetId(), LinkedHashMap::new);
     boolean hasWorkspaceRunfilesDirectory = flattenedInputs.hasWorkspaceRunfilesDirectory;
     LinkedHashMap<String, File> builder =
-        new LinkedHashMap<>(runfilesTree.getSymlinksCount() + flattenedInputs.inputs.size());
-    for (var symlink : runfilesTree.getSymlinksMap().entrySet()) {
+        new LinkedHashMap<>(runfilesTree.getSymlinkTargetIdCount() + flattenedInputs.inputs.size());
+    for (var symlink : runfilesTree.getSymlinkTargetIdMap().entrySet()) {
       hasWorkspaceRunfilesDirectory |=
           symlink.getKey().startsWith(workspaceRunfilesDirectory + "/");
       String newPath = runfilesTree.getPath() + "/" + symlink.getKey();
@@ -289,7 +286,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
           "%s/%s/.runfile".formatted(runfilesTree.getPath(), workspaceRunfilesDirectory);
       builder.put(dotRunfilePath, File.newBuilder().setPath(dotRunfilePath).build());
     }
-    return Pair.of(runfilesTree.getPath(), ImmutableList.copyOf(builder.values()));
+    return new Input.Directory(runfilesTree.getPath(), ImmutableList.copyOf(builder.values()));
   }
 
   private Stream<String> getRunfilesPaths(String originalPath, boolean legacyExternalRunfiles) {
@@ -305,38 +302,38 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     return Stream.of(workspaceRunfilesDirectory + "/" + path);
   }
 
-  private Collection<File> reconstructRunfilesSymlinkTarget(
-      String newPath, ExecLogEntry.RunfilesTree.SymlinkTarget target) throws IOException {
-    return switch (target.getTargetCase()) {
-      case EMPTY_FILE -> ImmutableList.of(File.newBuilder().setPath(newPath).build());
-      case FILE_ID -> {
-        var file = getFromMap(fileMap, target.getFileId());
-        yield ImmutableList.of(file.toBuilder().setPath(newPath).build());
-      }
-      case UNRESOLVED_SYMLINK_ID -> {
-        var symlink = getFromMap(symlinkMap, target.getUnresolvedSymlinkId());
-        yield ImmutableList.of(symlink.toBuilder().setPath(newPath).build());
-      }
-      case DIRECTORY_ID -> {
-        var dir = getFromMap(dirMap, target.getDirectoryId());
-        yield dir.getSecond().stream()
-            .map(
-                file ->
-                    file.toBuilder()
-                        .setPath(newPath + file.getPath().substring(dir.getFirst().length()))
-                        .build())
-            .collect(toImmutableList());
-      }
-      default ->
-          throw new IOException(
-              String.format("unknown target type %d", target.getTargetCase().getNumber()));
+  private Collection<File> reconstructRunfilesSymlinkTarget(String newPath, int targetId)
+      throws IOException {
+    if (targetId == -1) {
+      return ImmutableList.of(File.newBuilder().setPath(newPath).build());
+    }
+    return switch (getInput(targetId)) {
+      case Input.File(File file) -> ImmutableList.of(file.toBuilder().setPath(newPath).build());
+      case Input.Symlink(File symlink) ->
+          ImmutableList.of(symlink.toBuilder().setPath(newPath).build());
+      case Input.Directory(String path, Collection<File> files) ->
+          files.stream()
+              .map(
+                  file ->
+                      file.toBuilder()
+                          .setPath(newPath + file.getPath().substring(path.length()))
+                          .build())
+              .collect(toImmutableList());
     };
   }
 
-  private static <T> T getFromMap(Map<Integer, T> map, int id) throws IOException {
-    T value = map.get(id);
+  private Input getInput(int id) throws IOException {
+    Input value = artifactMap.get(id);
     if (value == null) {
-      throw new IOException(String.format("referenced entry %d is missing or has wrong type", id));
+      throw new IOException(String.format("referenced input %d is missing", id));
+    }
+    return value;
+  }
+
+  private ExecLogEntry.InputSet getInputSet(int id) throws IOException {
+    ExecLogEntry.InputSet value = setMap.get(id);
+    if (value == null) {
+      throw new IOException(String.format("referenced entry %d is missing", id));
     }
     return value;
   }

@@ -260,16 +260,6 @@ message ExecLogEntry {
   }
 
   message RunfilesTree {
-    // The target of a runfile staged at a custom location.
-    message SymlinkTarget {
-      oneof target {
-        int32 file_id = 1;
-        int32 directory_id = 2;
-        int32 unresolved_symlink_id = 3;
-        google.protobuf.Empty empty_file = 4;
-      }
-    }
-
     // The runfiles tree path.
     string path = 1;
     // The entry ID of the set of artifacts in the runfiles tree that are
@@ -292,8 +282,10 @@ message ExecLogEntry {
     // with --experimental_sibling_repository_layout.
     int32 input_set_id = 2;
     // The paths relative to the tree path that are symlinked to custom
-    // locations.
-    map<string, SymlinkTarget> symlinks = 3;
+    // locations. The target of a symlink is either a file, a directory, an
+    // unresolved symlink (all referenced by ID), or an empty file (represented
+    // by an id of -1).
+    map<string, int32> symlink_target_id = 3;
     // Whether the runfiles tree contains external runfiles at their legacy
     // locations (e.g. _main/external/bazel_tools/tools/bash/runfiles.bash).
     bool legacy_external_runfiles = 4;
@@ -305,30 +297,23 @@ message ExecLogEntry {
   // Sets are not canonical: two sets with different structure may yield the
   // same contents.
   message InputSet {
-    // Entry IDs of files belonging to this set.
-    repeated int32 file_ids = 1;
-    // Entry IDs of directories belonging to this set.
-    repeated int32 directory_ids = 2;
-    // Entry IDs of unresolved symlinks belonging to this set.
-    repeated int32 unresolved_symlink_ids = 3;
+    // Entry IDs of files, directories, unresolved symlinks or runfiles trees
+    // belonging to this set.
+    repeated int32 input_ids = 1;
     // Entry IDs of other sets contained in this set.
-    repeated int32 transitive_set_ids = 4;
-    // Entry IDs of runfile trees belonging to this set.
-    repeated int32 runfiles_tree_ids = 5;
+    repeated int32 transitive_set_ids = 2;
   }
 
   // A spawn output.
   message Output {
     oneof type {
-      // An output file, i.e., ctx.actions.declare_file.
-      int32 file_id = 1;
-      // An output directory, i.e., ctx.actions.declare_directory.
-      int32 directory_id = 2;
-      // An output unresolved symlink, i.e., ctx.actions.declare_symlink.
-      int32 unresolved_symlink_id = 3;
+      // The ID of an output file (ctx.actions.declare_file), directory
+      // (ctx.actions.declare_directory) or unresolved symlink
+      // (ctx.actions.declare_symlink).
+      int32 output_id = 1;
       // A declared output that is either missing or has the wrong type
       // (e.g., a file where a directory was expected).
-      string invalid_output_path = 4;
+      string invalid_output_path = 2;
     }
   }
 
@@ -406,7 +391,7 @@ message ExecLogEntry {
     string mnemonic = 4;
   }
 
-  // The entry ID. Must be nonzero.
+  // The entry ID. Must be nonzero and is unique within a log.
   int32 id = 1;
 
   // The entry payload.

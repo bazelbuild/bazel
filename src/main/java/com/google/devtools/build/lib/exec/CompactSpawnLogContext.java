@@ -52,7 +52,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-import com.google.protobuf.Empty;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -77,6 +76,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private static final ForkJoinPool VISITOR_POOL =
       NamedForkJoinPool.newNamedPool(
           "execlog-directory-visitor", Runtime.getRuntime().availableProcessors());
+
+  private static final int EMPTY_FILE_SYMLINK_TARGET_ID = -1;
 
   /** Visitor for use in {@link #visitDirectory}. */
   protected interface DirectoryChildVisitor {
@@ -230,21 +231,16 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       for (ActionInput output : spawn.getOutputFiles()) {
         Path path = fileSystem.getPath(execRoot.getRelative(output.getExecPath()));
         if (!output.isDirectory() && !output.isSymlink() && path.isFile()) {
-          builder.addOutputs(
-              ExecLogEntry.Output.newBuilder()
-                  .setFileId(logFile(output, path, inputMetadataProvider)));
+          builder.addOutputsBuilder().setOutputId(logFile(output, path, inputMetadataProvider));
         } else if (!output.isSymlink() && path.isDirectory()) {
           // TODO(tjgq): Tighten once --incompatible_disallow_unsound_directory_outputs is gone.
-          builder.addOutputs(
-              ExecLogEntry.Output.newBuilder()
-                  .setDirectoryId(logDirectory(output, path, inputMetadataProvider)));
+          builder
+              .addOutputsBuilder()
+              .setOutputId(logDirectory(output, path, inputMetadataProvider));
         } else if (output.isSymlink() && path.isSymbolicLink()) {
-          builder.addOutputs(
-              ExecLogEntry.Output.newBuilder()
-                  .setUnresolvedSymlinkId(logUnresolvedSymlink(output, path)));
+          builder.addOutputsBuilder().setOutputId(logUnresolvedSymlink(output, path));
         } else {
-          builder.addOutputs(
-              ExecLogEntry.Output.newBuilder().setInvalidOutputPath(output.getExecPathString()));
+          builder.addOutputsBuilder().setInvalidOutputPath(output.getExecPathString());
         }
       }
 
@@ -300,8 +296,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   /**
    * Logs the inputs.
    *
-   * @return the entry ID of the {@link ExecLogEntry.Set} describing the inputs, or 0 if there are
-   *     no inputs.
+   * @return the entry ID of the {@link ExecLogEntry.InputSet} describing the inputs, or 0 if there
+   *     are no inputs.
    */
   private int logInputs(
       Spawn spawn, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
@@ -334,8 +330,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   /**
    * Logs the tool inputs.
    *
-   * @return the entry ID of the {@link ExecLogEntry.Set} describing the tool inputs, or 0 if there
-   *     are no tool inputs.
+   * @return the entry ID of the {@link ExecLogEntry.InputSet} describing the tool inputs, or 0 if
+   *     there are no tool inputs.
    */
   private int logTools(
       Spawn spawn, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
@@ -373,7 +369,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         shared ? set.toNode() : null,
         () -> {
           ExecLogEntry.InputSet.Builder builder =
-              ExecLogEntry.InputSet.newBuilder().addAllDirectoryIds(additionalDirectoryIds);
+              ExecLogEntry.InputSet.newBuilder().addAllInputIds(additionalDirectoryIds);
 
           for (NestedSet<? extends ActionInput> transitive : set.getNonLeaves()) {
             checkState(!transitive.isEmpty());
@@ -390,8 +386,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
             if (input instanceof Artifact && ((Artifact) input).isMiddlemanArtifact()) {
               RunfilesTree runfilesTree =
                   inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
-              builder.addRunfilesTreeIds(
-                  logRunfilesTree(runfilesTree, inputMetadataProvider, fileSystem));
+              builder.addInputIds(logRunfilesTree(runfilesTree, inputMetadataProvider, fileSystem));
               continue;
             }
 
@@ -402,11 +397,11 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
             Path path = fileSystem.getPath(execRoot.getRelative(input.getExecPath()));
             if (isInputDirectory(input, path, inputMetadataProvider)) {
-              builder.addDirectoryIds(logDirectory(input, path, inputMetadataProvider));
+              builder.addInputIds(logDirectory(input, path, inputMetadataProvider));
             } else if (input.isSymlink()) {
-              builder.addUnresolvedSymlinkIds(logUnresolvedSymlink(input, path));
+              builder.addInputIds(logUnresolvedSymlink(input, path));
             } else {
-              builder.addFileIds(logFile(input, path, inputMetadataProvider));
+              builder.addInputIds(logFile(input, path, inputMetadataProvider));
             }
           }
 
@@ -453,7 +448,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * Logs a directory.
    *
    * <p>This may be either a source directory, a fileset or an output directory. For runfiles,
-   * {@link #logRunfilesDirectory} must be used instead.
+   * {@link #logRunfilesTree} must be used instead.
    *
    * @param input the input representing the directory.
    * @param root the path to the directory, which must have already been verified to be of the
@@ -506,8 +501,9 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           // 5. symlinks
           //
           // Since the _repo_mapping manifest and root symlinks always emit a warning in case of
-          // conflicts and empty files are only added at paths which don't exist yet, this doesn't
-          // result in any observable differences for builds without warnings.
+          // conflicts (and fail for Starlark actions) and empty files are only added at paths which
+          // don't exist yet, this doesn't result in any observable differences for builds without
+          // warnings.
 
           builder.setInputSetId(
               logNestedSet(
@@ -524,19 +520,18 @@ public class CompactSpawnLogContext extends SpawnLogContext {
             PathFragment relativePath = entry.getKey();
             Artifact artifact = entry.getValue();
             Path path = fileSystem.getPath(execRoot.getRelative(relativePath));
-            ExecLogEntry.RunfilesTree.SymlinkTarget.Builder symlinkTarget =
-                ExecLogEntry.RunfilesTree.SymlinkTarget.newBuilder();
             // Since these files have been consumed by the spawn, we trust their type without
             // filesystem checks.
+            int targetId;
             if (artifact.isSymlink()) {
-              symlinkTarget.setUnresolvedSymlinkId(logUnresolvedSymlink(artifact, path));
+              targetId = logUnresolvedSymlink(artifact, path);
             } else if (isInputDirectory(artifact, path, inputMetadataProvider)) {
               // TODO(tjgq): Tighten once --incompatible_disallow_unsound_directory_outputs is gone.
-              symlinkTarget.setDirectoryId(logDirectory(artifact, path, inputMetadataProvider));
+              targetId = logDirectory(artifact, path, inputMetadataProvider);
             } else {
-              symlinkTarget.setFileId(logFile(artifact, path, inputMetadataProvider));
+              targetId = logFile(artifact, path, inputMetadataProvider);
             }
-            builder.putSymlinks(relativePath.getPathString(), symlinkTarget.build());
+            builder.putSymlinkTargetId(relativePath.getPathString(), targetId);
           }
 
           var emptyFilenames = runfilesTree.getEmptyFilenamesForLogging();
@@ -544,16 +539,14 @@ public class CompactSpawnLogContext extends SpawnLogContext {
             // This case is rare: it only applies to Python runfiles and only with
             // --incompatible_default_to_explicit_init_py. We optimize for the common case and thus
             // have to copy and sort the symlinks map here.
-            var symlinks = new TreeMap<>(builder.getSymlinksMap());
+            var symlinks = new TreeMap<>(builder.getSymlinkTargetIdMap());
             for (String emptyFilename : emptyFilenames.toList()) {
               symlinks.put(
                   PathFragment.create(workspaceName).getRelative(emptyFilename).getPathString(),
-                  ExecLogEntry.RunfilesTree.SymlinkTarget.newBuilder()
-                      .setEmptyFile(Empty.getDefaultInstance())
-                      .build());
+                  EMPTY_FILE_SYMLINK_TARGET_ID);
             }
-            builder.clearSymlinks();
-            builder.putAllSymlinks(symlinks);
+            builder.clearSymlinkTargetId();
+            builder.putAllSymlinkTargetId(symlinks);
           }
 
           return ExecLogEntry.newBuilder().setRunfilesTree(builder);
