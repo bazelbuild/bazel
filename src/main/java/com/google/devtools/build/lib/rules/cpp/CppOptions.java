@@ -723,9 +723,7 @@ public class CppOptions extends FragmentOptions {
    * <p>We want to make sure this stays bound to the top-level configuration (as opposed to a
    * configuration that comes out of a transition). Otherwise we risk multiple exec configurations
    * writing to the same path and creating C++ action conflicts (C++ actions can not be shared
-   * across configurations: see {@link ActionAnalysisMetadata#isShareable}). {@link
-   * com.google.devtools.build.lib.rules.android.AndroidSplitTransition}, for example, changes
-   * {@link #libcTopLabel} to an Android-specific variant.
+   * across configurations: see {@link ActionAnalysisMetadata#isShareable}).
    *
    * <p>To accomplish this, we initialize this to a special value that means "I haven't been set
    * yet" and use {@link #getNormalized} to rewrite it to {@link #libcTopLabel} <b>only</b> from
