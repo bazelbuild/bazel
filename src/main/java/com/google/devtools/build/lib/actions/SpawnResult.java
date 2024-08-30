@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.io.InputStream;
 import java.time.Instant;
 import java.util.Locale;
 import javax.annotation.Nullable;
@@ -38,7 +37,7 @@ import javax.annotation.Nullable;
 @SuppressWarnings("GoodTime") // Use ints instead of Durations to improve build time (cl/505728570)
 public interface SpawnResult {
 
-  int POSIX_TIMEOUT_EXIT_CODE = /*SIGNAL_BASE=*/ 128 + /*SIGALRM=*/ 14;
+  int POSIX_TIMEOUT_EXIT_CODE = /* SIGNAL_BASE= */ 128 + /* SIGALRM= */ 14;
 
   /** The status of the attempted Spawn execution. */
   enum Status {
@@ -262,14 +261,11 @@ public interface SpawnResult {
    * ExecutionRequirements#REMOTE_EXECUTION_INLINE_OUTPUTS}.
    */
   @Nullable
-  default InputStream getInMemoryOutput(ActionInput output) {
+  default ByteString getInMemoryOutput(ActionInput output) {
     return null;
   }
 
-  String getDetailMessage(
-      String message,
-      boolean catastrophe,
-      boolean forciblyRunRemotely);
+  String getDetailMessage(String message, boolean catastrophe, boolean forciblyRunRemotely);
 
   /** Returns a file path to the action metadata log. */
   @Nullable
@@ -434,11 +430,8 @@ public interface SpawnResult {
 
     @Override
     public String getDetailMessage(
-        String message,
-        boolean catastrophe,
-        boolean forciblyRunRemotely) {
-      TerminationStatus status = new TerminationStatus(
-          exitCode(), status() == Status.TIMEOUT);
+        String message, boolean catastrophe, boolean forciblyRunRemotely) {
+      TerminationStatus status = new TerminationStatus(exitCode(), status() == Status.TIMEOUT);
       String reason = "(" + status.toShortString() + ")"; // e.g. "(Exit 1)"
       String explanation = Strings.isNullOrEmpty(message) ? "" : ": " + message;
 
@@ -457,17 +450,18 @@ public interface SpawnResult {
         explanation += " (Remote action was terminated due to Out of Memory.)";
       }
       if (status() != Status.TIMEOUT && forciblyRunRemotely) {
-        explanation += " Action tagged as local was forcibly run remotely and failed - it's "
-            + "possible that the action simply doesn't work remotely";
+        explanation +=
+            " Action tagged as local was forcibly run remotely and failed - it's "
+                + "possible that the action simply doesn't work remotely";
       }
       return reason + explanation;
     }
 
     @Nullable
     @Override
-    public InputStream getInMemoryOutput(ActionInput output) {
+    public ByteString getInMemoryOutput(ActionInput output) {
       if (inMemoryOutputFile != null && inMemoryOutputFile.equals(output)) {
-        return inMemoryContents.newInput();
+        return inMemoryContents;
       }
       return null;
     }
@@ -603,7 +597,7 @@ public interface SpawnResult {
 
     @Override
     @Nullable
-    public InputStream getInMemoryOutput(ActionInput output) {
+    public ByteString getInMemoryOutput(ActionInput output) {
       return delegate.getInMemoryOutput(output);
     }
 

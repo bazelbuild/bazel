@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
@@ -847,11 +848,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       Artifact outputDepsProto,
       ActionExecutionContext actionExecutionContext)
       throws IOException {
-    InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
+    ByteString inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
     try (InputStream inputStream =
         inMemoryOutput == null
             ? actionExecutionContext.getInputPath(outputDepsProto).getInputStream()
-            : inMemoryOutput) {
+            : inMemoryOutput.newInput()) {
       return Deps.Dependencies.parseFrom(inputStream, ExtensionRegistry.getEmptyRegistry());
     }
   }
