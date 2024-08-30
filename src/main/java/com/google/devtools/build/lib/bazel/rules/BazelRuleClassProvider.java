@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.bazel.BazelConfiguration;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSdkRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidToolsDefaultsJarRule;
@@ -421,7 +420,6 @@ public class BazelRuleClassProvider {
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           // TODO(ulfjack): Split this up by conceptual units.
           builder.addRuleDefinition(new NewLocalRepositoryRule());
-          builder.addRuleDefinition(new AndroidSdkRepositoryRule());
           builder.addRuleDefinition(new LocalConfigPlatformRule());
 
           try {

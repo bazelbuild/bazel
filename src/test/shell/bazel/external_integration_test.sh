@@ -1110,22 +1110,6 @@ EOF
   assert_contains "def" bazel-genfiles/external/+_repo_rules+x/catter.out
 }
 
-function test_android_sdk_basic_load() {
-  cat >> WORKSPACE <<'EOF' || fail "Couldn't cat"
-android_sdk_repository(
-    name = "androidsdk",
-    path = "/fake/path",
-    api_level = 23,
-    build_tools_version="23.0.0"
-)
-EOF
-
-  bazel query --enable_workspace "//external:androidsdk" 2> "$TEST_log" > "$TEST_TMPDIR/queryout" \
-      || fail "Expected success"
-  cat "$TEST_TMPDIR/queryout" > "$TEST_log"
-  expect_log "//external:androidsdk"
-}
-
 function test_use_bind_as_repository() {
   cat > WORKSPACE <<'EOF'
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")

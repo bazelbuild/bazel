@@ -37,8 +37,6 @@ import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.BazelCom
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.CheckDirectDepsMode;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryFunction;
-import com.google.devtools.build.lib.bazel.rules.android.AndroidSdkRepositoryRule;
 import com.google.devtools.build.lib.packages.util.LoadingMock;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
@@ -148,8 +146,7 @@ public abstract class AnalysisMock extends LoadingMock {
     // Some tests require the local_repository rule so we need the appropriate SkyFunctions.
     ImmutableMap.Builder<String, RepositoryFunction> repositoryHandlers =
         new ImmutableMap.Builder<String, RepositoryFunction>()
-            .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction())
-            .put(AndroidSdkRepositoryRule.NAME, new AndroidSdkRepositoryFunction());
+            .put(LocalRepositoryRule.NAME, new LocalRepositoryFunction());
 
     addExtraRepositoryFunctions(repositoryHandlers);
 

@@ -638,8 +638,6 @@ build_test(
         ":CompileAfterOptionChangeTest",
         ":IncludeValidationTest",
         # Disabled in Google.
-        "//src/test/java/com/google/devtools/build/lib/bazel/rules/android:AndroidTests",
-        # Disabled in Google.
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/python:PythonTests",
         # Disabled in Google.
         "//src/test/java/com/google/devtools/build/lib/bazel/rules/sh:ShTests",
