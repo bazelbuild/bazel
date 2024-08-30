@@ -21,12 +21,12 @@ import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.ImmutableSortedSet;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
+import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
@@ -40,11 +40,11 @@ import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
-import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
+import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
 import com.google.devtools.build.lib.exec.Protos.File;
@@ -81,12 +81,24 @@ import org.junit.Test;
 public abstract class SpawnLogContextTestBase {
   protected final DigestHashFunction digestHashFunction = DigestHashFunction.SHA256;
   protected final FileSystem fs = new InMemoryFileSystem(digestHashFunction);
-  protected final Path execRoot = fs.getPath("/execroot");
+  protected final Path outputBase = fs.getPath("/output_base");
+  protected final Path execRoot =
+      outputBase.getChild("execroot").getChild(TestConstants.WORKSPACE_NAME);
+  protected final Path externalRoot =
+      outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
   protected final ArtifactRoot rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
   protected final ArtifactRoot outputDir =
-      ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+      ArtifactRoot.asDerivedRoot(
+          execRoot, RootType.Output, TestConstants.PRODUCT_NAME + "-out", "k8-fastbuild", "bin");
   protected final ArtifactRoot middlemanDir =
-      ArtifactRoot.asDerivedRoot(execRoot, RootType.Middleman, "middlemen");
+      ArtifactRoot.asDerivedRoot(
+          execRoot,
+          RootType.Middleman,
+          TestConstants.PRODUCT_NAME + "-out",
+          "k8-fastbuild",
+          "internal");
+  protected final ArtifactRoot externalSourceRoot =
+      ArtifactRoot.asExternalSourceRoot(Root.fromPath(externalRoot.getChild("some_repo")));
 
   // A fake action filesystem that provides a fast digest, but refuses to compute it from the
   // file contents (which won't be available when building without the bytes).
@@ -295,7 +307,7 @@ public abstract class SpawnLogContextTestBase {
                     ? ImmutableList.of()
                     : ImmutableList.of(
                         File.newBuilder()
-                            .setPath("out/tree/child")
+                            .setPath("bazel-out/k8-fastbuild/bin/tree/child")
                             .setDigest(getDigest("abc"))
                             .setIsTool(inputsMode.isTool())
                             .build()))
@@ -329,7 +341,7 @@ public abstract class SpawnLogContextTestBase {
         defaultSpawnExecBuilder()
             .addInputs(
                 File.newBuilder()
-                    .setPath("out/symlink")
+                    .setPath("bazel-out/k8-fastbuild/bin/symlink")
                     .setSymlinkTargetPath("/some/path")
                     .setIsTool(inputsMode.isTool()))
             .build());
@@ -366,7 +378,7 @@ public abstract class SpawnLogContextTestBase {
         defaultSpawnExecBuilder()
             .addInputs(
                 File.newBuilder()
-                    .setPath("out/foo.runfiles/_main/data.txt")
+                    .setPath("bazel-out/k8-fastbuild/bin/foo.runfiles/_main/data.txt")
                     .setDigest(getDigest("abc")))
             .build());
   }
@@ -408,7 +420,7 @@ public abstract class SpawnLogContextTestBase {
                     ? ImmutableList.of()
                     : ImmutableList.of(
                         File.newBuilder()
-                            .setPath("out/foo.runfiles/_main/dir/data.txt")
+                            .setPath("bazel-out/k8-fastbuild/bin/foo.runfiles/_main/dir/data.txt")
                             .setDigest(getDigest("abc"))
                             .build()))
             .build());
@@ -441,12 +453,82 @@ public abstract class SpawnLogContextTestBase {
     closeAndAssertLog(
         context,
         defaultSpawnExecBuilder()
-            .addInputs(File.newBuilder().setPath("out/foo.runfiles/_main/sub/__init__.py"))
-            .addInputs(File.newBuilder().setPath("out/foo.runfiles/_main/sub/dir/__init__.py"))
             .addInputs(
                 File.newBuilder()
-                    .setPath("out/foo.runfiles/_main/sub/dir/script.py")
+                    .setPath("bazel-out/k8-fastbuild/bin/foo.runfiles/_main/sub/__init__.py"))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/foo.runfiles/_main/sub/dir/__init__.py"))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/foo.runfiles/_main/sub/dir/script.py")
                     .setDigest(getDigest("abc")))
+            .build());
+  }
+
+  @Test
+  public void testRunfilesFilesWithMixedRoots() throws Exception {
+    Artifact sourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/source.txt");
+    writeFile(sourceArtifact, "source");
+    Artifact genArtifact = ActionsTestUtil.createArtifact(outputDir, "other/pkg/gen.txt");
+    writeFile(genArtifact, "gen");
+    Artifact externalSourceArtifact =
+        ActionsTestUtil.createArtifact(externalSourceRoot, "external/some_repo/repo_pkg/source.txt");
+    writeFile(externalSourceArtifact, "external_source");
+    Artifact externalGenArtifact =
+        ActionsTestUtil.createArtifact(outputDir, "external/some_repo/other/repo_pkg/gen.txt");
+    writeFile(externalGenArtifact, "external_gen");
+
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
+    RunfilesTree runfilesTree =
+        createRunfilesTree(
+            runfilesRoot, sourceArtifact, genArtifact, externalSourceArtifact, externalGenArtifact);
+
+    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
+    inputMetadataProvider.put(sourceArtifact, FileArtifactValue.createForTesting(sourceArtifact));
+    inputMetadataProvider.put(genArtifact, FileArtifactValue.createForTesting(genArtifact));
+    inputMetadataProvider.put(
+        externalSourceArtifact, FileArtifactValue.createForTesting(externalSourceArtifact));
+    inputMetadataProvider.put(
+        externalGenArtifact, FileArtifactValue.createForTesting(externalGenArtifact));
+
+    context.logSpawn(
+        spawn,
+        inputMetadataProvider,
+        createInputMap(runfilesTree),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/other/pkg/gen.txt")
+                    .setDigest(getDigest("gen")))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/pkg/source.txt")
+                    .setDigest(getDigest("source")))
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/other/repo_pkg/gen.txt")
+                    .setDigest(getDigest("external_gen")))
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/repo_pkg/source.txt")
+                    .setDigest(getDigest("external_source")))
             .build());
   }
 
@@ -493,7 +575,7 @@ public abstract class SpawnLogContextTestBase {
                     ? ImmutableList.of()
                     : ImmutableList.of(
                         File.newBuilder()
-                            .setPath("out/dir/file.txt")
+                            .setPath("bazel-out/k8-fastbuild/bin/dir/file.txt")
                             .setDigest(getDigest("abc"))
                             .build()))
             .build());
@@ -562,8 +644,11 @@ public abstract class SpawnLogContextTestBase {
     closeAndAssertLog(
         context,
         defaultSpawnExecBuilder()
-            .addListedOutputs("out/file")
-            .addActualOutputs(File.newBuilder().setPath("out/file").setDigest(getDigest("abc")))
+            .addListedOutputs("bazel-out/k8-fastbuild/bin/file")
+            .addActualOutputs(
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/file")
+                    .setDigest(getDigest("abc")))
             .build());
   }
 
@@ -590,9 +675,11 @@ public abstract class SpawnLogContextTestBase {
     closeAndAssertLog(
         context,
         defaultSpawnExecBuilder()
-            .addListedOutputs("out/file")
+            .addListedOutputs("bazel-out/k8-fastbuild/bin/file")
             .addActualOutputs(
-                File.newBuilder().setPath("out/file/file").setDigest(getDigest("abc")))
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/file/file")
+                    .setDigest(getDigest("abc")))
             .build());
   }
 
@@ -642,17 +729,17 @@ public abstract class SpawnLogContextTestBase {
     closeAndAssertLog(
         context,
         defaultSpawnExecBuilder()
-            .addListedOutputs("out/tree")
+            .addListedOutputs("bazel-out/k8-fastbuild/bin/tree")
             .addAllActualOutputs(
                 dirContents.isEmpty()
                     ? ImmutableList.of()
                     : ImmutableList.of(
                         File.newBuilder()
-                            .setPath("out/tree/dir1/file1")
+                            .setPath("bazel-out/k8-fastbuild/bin/tree/dir1/file1")
                             .setDigest(getDigest("abc"))
                             .build(),
                         File.newBuilder()
-                            .setPath("out/tree/dir2/file2")
+                            .setPath("bazel-out/k8-fastbuild/bin/tree/dir2/file2")
                             .setDigest(getDigest("def"))
                             .build()))
             .build());
@@ -677,7 +764,9 @@ public abstract class SpawnLogContextTestBase {
         defaultTimeout(),
         defaultSpawnResult());
 
-    closeAndAssertLog(context, defaultSpawnExecBuilder().addListedOutputs("out/tree").build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder().addListedOutputs("bazel-out/k8-fastbuild/bin/tree").build());
   }
 
   @Test
@@ -702,9 +791,11 @@ public abstract class SpawnLogContextTestBase {
     closeAndAssertLog(
         context,
         defaultSpawnExecBuilder()
-            .addListedOutputs("out/symlink")
+            .addListedOutputs("bazel-out/k8-fastbuild/bin/symlink")
             .addActualOutputs(
-                File.newBuilder().setPath("out/symlink").setSymlinkTargetPath("/some/path"))
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/symlink")
+                    .setSymlinkTargetPath("/some/path"))
             .build());
   }
 
@@ -727,7 +818,9 @@ public abstract class SpawnLogContextTestBase {
         defaultTimeout(),
         defaultSpawnResult());
 
-    closeAndAssertLog(context, defaultSpawnExecBuilder().addListedOutputs("out/symlink").build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder().addListedOutputs("bazel-out/k8-fastbuild/bin/symlink").build());
   }
 
   @Test
@@ -746,7 +839,9 @@ public abstract class SpawnLogContextTestBase {
         defaultTimeout(),
         defaultSpawnResult());
 
-    closeAndAssertLog(context, defaultSpawnExecBuilder().addListedOutputs("out/missing").build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder().addListedOutputs("bazel-out/k8-fastbuild/bin/missing").build());
   }
 
   @Test
@@ -1056,16 +1151,15 @@ public abstract class SpawnLogContextTestBase {
           .addSingleRunfilesTreeToInputs(
               runfilesTree,
               builder,
-              treeArtifact -> ImmutableSortedSet.of(),
+              treeArtifact -> {
+                try {
+                  return createTreeArtifactValue(treeArtifact).getChildren();
+                } catch (Exception e) {
+                  throw new ArtifactExpander.MissingExpansionException(e.getMessage());
+                }
+              },
               PathMapper.NOOP,
               PathFragment.EMPTY_FRAGMENT);
-      // Emulate SpawnInputExpander: expand runfiles, replacing nulls with empty inputs.
-      PathFragment root = runfilesTree.getExecPath();
-      for (Map.Entry<PathFragment, Artifact> entry : runfilesTree.getMapping().entrySet()) {
-        PathFragment execPath = root.getRelative(entry.getKey());
-        Artifact artifact = entry.getValue();
-        builder.put(execPath, artifact != null ? artifact : VirtualActionInput.EMPTY_MARKER);
-      }
     }
 
     for (ActionInput actionInput : actionInputs) {

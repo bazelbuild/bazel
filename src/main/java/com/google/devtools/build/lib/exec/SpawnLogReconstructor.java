@@ -275,12 +275,14 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
 
   private static final Pattern BAZEL_OUT_PREFIX_PATTERN =
       Pattern.compile("^(blaze|bazel)-out/[^/]+/[^/]+/");
+  private static final String EXTERNAL_PREFIX =
+      LabelConstants.EXTERNAL_PATH_PREFIX.getPathString() + "/";
 
   private Stream<String> getRunfilesPaths(String originalPath, boolean legacyExternalRunfiles) {
     String path = BAZEL_OUT_PREFIX_PATTERN.matcher(originalPath).replaceFirst("");
-    if (path.startsWith(LabelConstants.EXTERNAL_PATH_PREFIX.getPathString())) {
+    if (path.startsWith(EXTERNAL_PREFIX)) {
       Stream.Builder<String> paths = Stream.builder();
-      paths.add(path.substring(LabelConstants.EXTERNAL_PATH_PREFIX.getPathString().length()));
+      paths.add(path.substring(EXTERNAL_PREFIX.length()));
       if (legacyExternalRunfiles) {
         paths.add(workspaceRunfilesDirectory + "/" + path);
       }
