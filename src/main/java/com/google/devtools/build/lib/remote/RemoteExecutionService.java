@@ -1458,12 +1458,20 @@ public class RemoteExecutionService {
         previousExecution.action.getSpawn().getOutputFiles().stream()
             .collect(toImmutableMap(output -> execRoot.getRelative(output.getExecPath()), o -> o));
     Map<Path, Path> realToTmpPath = new HashMap<>();
+    ByteString inMemoryOutputContent = null;
+    String inMemoryOutputPath = null;
     try {
       for (String output : action.getCommand().getOutputPathsList()) {
         String reencodedOutput = reencodeExternalToInternal(output);
         Path sourcePath =
             previousExecution.action.getRemotePathResolver().outputPathToLocalPath(reencodedOutput);
         ActionInput outputArtifact = previousOutputs.get(sourcePath);
+        Path targetPath = action.getRemotePathResolver().outputPathToLocalPath(reencodedOutput);
+        inMemoryOutputContent = previousSpawnResult.getInMemoryOutput(outputArtifact);
+        if (inMemoryOutputContent != null) {
+          inMemoryOutputPath = targetPath.relativeTo(execRoot).getPathString();
+          continue;
+        }
         Path tmpPath = tempPathGenerator.generateTempPath();
         tmpPath.getParentDirectory().createDirectoryAndParents();
         try {
@@ -1475,8 +1483,6 @@ public class RemoteExecutionService {
           } else {
             FileSystemUtils.copyFile(sourcePath, tmpPath);
           }
-
-          Path targetPath = action.getRemotePathResolver().outputPathToLocalPath(reencodedOutput);
           realToTmpPath.put(targetPath, tmpPath);
         } catch (FileNotFoundException e) {
           // The spawn this action was deduplicated against failed to create an output file. If the
@@ -1515,6 +1521,21 @@ public class RemoteExecutionService {
         // Best effort, will be cleaned up at server restart.
       }
       throw e;
+    }
+
+    if (inMemoryOutputPath != null) {
+      String finalInMemoryOutputPath = inMemoryOutputPath;
+      ByteString finalInMemoryOutputContent = inMemoryOutputContent;
+      return new SpawnResult.DelegateSpawnResult(previousSpawnResult) {
+        @Override
+        @Nullable
+        public ByteString getInMemoryOutput(ActionInput output) {
+          if (output.getExecPathString().equals(finalInMemoryOutputPath)) {
+            return finalInMemoryOutputContent;
+          }
+          return null;
+        }
+      };
     }
 
     return previousSpawnResult;

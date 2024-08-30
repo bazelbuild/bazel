@@ -93,6 +93,7 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
+import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Set;
@@ -879,6 +880,53 @@ public class RemoteSpawnCacheTest {
             FileSystemUtils.readContent(
                 fs.getPath("/exec/root/bazel-bin/k8-opt/bin/output"), UTF_8))
         .isEqualTo("hello");
+    assertThat(secondCacheHandle.willStore()).isFalse();
+  }
+
+  @Test
+  public void pathMappedActionWithInMemoryOutputIsDeduplicated() throws Exception {
+    // arrange
+    RemoteSpawnCache cache = createRemoteSpawnCache();
+
+    SimpleSpawn firstSpawn = simplePathMappedSpawn("k8-fastbuild");
+    FakeActionInputFileCache firstFakeFileCache = new FakeActionInputFileCache(execRoot);
+    firstFakeFileCache.createScratchInput(firstSpawn.getInputFiles().getSingleton(), "xyz");
+    SpawnExecutionContext firstPolicy =
+        createSpawnExecutionContext(firstSpawn, execRoot, firstFakeFileCache, outErr);
+
+    SimpleSpawn secondSpawn = simplePathMappedSpawn("k8-opt");
+    FakeActionInputFileCache secondFakeFileCache = new FakeActionInputFileCache(execRoot);
+    secondFakeFileCache.createScratchInput(secondSpawn.getInputFiles().getSingleton(), "xyz");
+    SpawnExecutionContext secondPolicy =
+        createSpawnExecutionContext(secondSpawn, execRoot, secondFakeFileCache, outErr);
+
+    RemoteExecutionService remoteExecutionService = cache.getRemoteExecutionService();
+    Mockito.doCallRealMethod().when(remoteExecutionService).waitForAndReuseOutputs(any(), any());
+    // Simulate a very slow upload to the remote cache to ensure that the second spawn is
+    // deduplicated rather than a cache hit. This is a slight hack, but also avoid introducing
+    // concurrency to this test.
+    Mockito.doNothing().when(remoteExecutionService).uploadOutputs(any(), any(), any());
+
+    // act
+    try (CacheHandle firstCacheHandle = cache.lookup(firstSpawn, firstPolicy)) {
+      firstCacheHandle.store(
+          new SpawnResult.Builder()
+              .setExitCode(0)
+              .setStatus(Status.SUCCESS)
+              .setRunnerName("test")
+              .setInMemoryOutput(
+                  firstSpawn.getOutputFiles().getFirst(), ByteString.copyFromUtf8("in-memory"))
+              .build());
+    }
+    CacheHandle secondCacheHandle = cache.lookup(secondSpawn, secondPolicy);
+
+    // assert
+    ActionInput inMemoryOutput = secondSpawn.getOutputFiles().getFirst();
+    assertThat(secondCacheHandle.hasResult()).isTrue();
+    assertThat(secondCacheHandle.getResult().getRunnerName()).isEqualTo("deduplicated");
+    assertThat(secondCacheHandle.getResult().getInMemoryOutput(inMemoryOutput).toStringUtf8())
+        .isEqualTo("in-memory");
+    assertThat(execRoot.getRelative(inMemoryOutput.getExecPath()).exists()).isFalse();
     assertThat(secondCacheHandle.willStore()).isFalse();
   }
 
