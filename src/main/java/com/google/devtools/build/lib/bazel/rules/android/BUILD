@@ -15,14 +15,6 @@ java_library(
     name = "android",
     srcs = glob(["*.java"]),
     resources = [
-        # Template files for android_ndk_repository.
-        "android_ndk_build_file_template.txt",
-        "android_ndk_cc_toolchain_config_template.txt",
-        "android_ndk_cc_toolchain_template.txt",
-        "android_ndk_misc_libraries_template.txt",
-        "android_ndk_stl_filegroup_template.txt",
-        "android_ndk_vulkan_validation_layers_template.txt",
-
         # WORKSPACE suffix for android_remote_tools.
         "android_remote_tools.WORKSPACE",
     ],

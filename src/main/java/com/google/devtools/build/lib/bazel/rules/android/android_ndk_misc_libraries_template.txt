@@ -1,6 +1,0 @@
-cc_library(
-    name = "cpufeatures",
-    srcs = glob(["ndk/sources/android/cpufeatures/*.c"], allow_empty = True),
-    hdrs = glob(["ndk/sources/android/cpufeatures/*.h"], allow_empty = True),
-    linkopts = ["-ldl"],
-)
