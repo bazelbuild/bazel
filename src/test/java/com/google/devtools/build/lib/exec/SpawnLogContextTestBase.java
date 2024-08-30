@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.exec.SpawnLogContext.millisToProto;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Comparator.comparing;
@@ -992,6 +993,57 @@ public abstract class SpawnLogContextTestBase {
                     : File.newBuilder()
                         .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/pkg/file.txt")
                         .setSymlinkTargetPath("/some/path/other_file.txt"))
+            .build());
+  }
+
+  @Test
+  public void testRunfilesPostOrderCollision() throws Exception {
+    Artifact sourceFile = ActionsTestUtil.createArtifact(rootDir, "pkg/file.txt");
+    writeFile(sourceFile, "source");
+    Artifact genFile = ActionsTestUtil.createArtifact(outputDir, "pkg/file.txt");
+    writeFile(genFile, "gen");
+
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
+    var artifacts =
+        NestedSetBuilder.<Artifact>compileOrder()
+            .addTransitive(NestedSetBuilder.wrap(Order.COMPILE_ORDER, List.of(sourceFile)))
+            .add(genFile)
+            .build();
+    assertThat(artifacts.toList()).containsExactly(sourceFile, genFile).inOrder();
+    RunfilesTree runfilesTree =
+        createRunfilesTree(
+            runfilesRoot,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            /* legacyExternalRunfiles= */ false,
+            artifacts);
+
+    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
+    inputMetadataProvider.put(sourceFile, FileArtifactValue.createForTesting(sourceFile));
+    inputMetadataProvider.put(genFile, FileArtifactValue.createForTesting(genFile));
+
+    context.logSpawn(
+        spawn,
+        inputMetadataProvider,
+        createInputMap(runfilesTree),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/pkg/file.txt")
+                    .setDigest(getDigest("gen")))
             .build());
   }
 
