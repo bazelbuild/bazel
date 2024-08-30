@@ -307,9 +307,9 @@ message ExecLogEntry {
   // A spawn output.
   message Output {
     oneof type {
-      // The ID of an output file (ctx.actions.declare_file), directory
+      // The ID of a file (ctx.actions.declare_file), directory
       // (ctx.actions.declare_directory) or unresolved symlink
-      // (ctx.actions.declare_symlink).
+      // (ctx.actions.declare_symlink) that is an output of the spawn.
       int32 output_id = 1;
       // A declared output that is either missing or has the wrong type
       // (e.g., a file where a directory was expected).
@@ -391,7 +391,8 @@ message ExecLogEntry {
     string mnemonic = 4;
   }
 
-  // The entry ID. Must be nonzero and is unique within a log.
+  // The entry ID. Must be nonzero and unique within a log if referenced by
+  // other entries. Producers aim to assign IDs in increasing order.
   int32 id = 1;
 
   // The entry payload.

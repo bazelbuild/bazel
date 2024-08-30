@@ -79,6 +79,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
   private static final int EMPTY_FILE_SYMLINK_TARGET_ID = -1;
 
+  private static final Object DONT_KEEP = new Object();
+
   /** Visitor for use in {@link #visitDirectory}. */
   protected interface DirectoryChildVisitor {
     void visit(Path path) throws IOException;
@@ -366,7 +368,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     }
 
     return logEntry(
-        shared ? set.toNode() : null,
+        shared ? set.toNode() : DONT_KEEP,
         () -> {
           ExecLogEntry.InputSet.Builder builder =
               ExecLogEntry.InputSet.newBuilder().addAllInputIds(additionalDirectoryIds);
@@ -423,7 +425,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
     return logEntry(
         // A ParamFileActionInput is never shared between spawns.
-        input instanceof ParamFileActionInput ? null : input.getExecPathString(),
+        input instanceof ParamFileActionInput ? DONT_KEEP : input.getExecPathString(),
         () -> {
           ExecLogEntry.File.Builder builder = ExecLogEntry.File.newBuilder();
 
@@ -625,11 +627,14 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private synchronized int logEntry(@Nullable Object key, ExecLogEntrySupplier supplier)
       throws IOException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile("logEntry/synchronized")) {
-      if (key == null) {
+      if (key == DONT_KEEP) {
         // No need to check for a previously added entry.
         int id = nextEntryId++;
         outputStream.write(supplier.get().setId(id).build());
         return id;
+      } else if (key == null) {
+        outputStream.write(supplier.get().build());
+        return -1;
       }
 
       checkState(key instanceof NestedSet.Node || key instanceof String);

@@ -59,10 +59,11 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     record Directory(String path, Collection<Protos.File> files) implements Input {}
 
     record Symlink(Protos.File symlink) implements Input {}
+
+    record InputSet(ExecLogEntry.InputSet inputSet) implements Input {}
   }
 
-  private final Int2ObjectOpenHashMap<Input> artifactMap = new Int2ObjectOpenHashMap<>();
-  private final Int2ObjectOpenHashMap<ExecLogEntry.InputSet> setMap = new Int2ObjectOpenHashMap<>();
+  private final Int2ObjectOpenHashMap<Input> inputMap = new Int2ObjectOpenHashMap<>();
   private String hashFunctionName = "";
   private String workspaceRunfilesDirectory = "";
 
@@ -80,13 +81,13 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
           hashFunctionName = entry.getInvocation().getHashFunctionName();
           workspaceRunfilesDirectory = entry.getInvocation().getWorkspaceRunfilesDirectory();
         }
-        case FILE -> artifactMap.put(entry.getId(), reconstructFile(entry.getFile()));
-        case DIRECTORY -> artifactMap.put(entry.getId(), reconstructDir(entry.getDirectory()));
+        case FILE -> inputMap.put(entry.getId(), reconstructFile(entry.getFile()));
+        case DIRECTORY -> inputMap.put(entry.getId(), reconstructDir(entry.getDirectory()));
         case UNRESOLVED_SYMLINK ->
-            artifactMap.put(entry.getId(), reconstructSymlink(entry.getUnresolvedSymlink()));
+            inputMap.put(entry.getId(), reconstructSymlink(entry.getUnresolvedSymlink()));
         case RUNFILES_TREE ->
-            artifactMap.put(entry.getId(), reconstructRunfilesDir(entry.getRunfilesTree()));
-        case INPUT_SET -> setMap.put(entry.getId(), entry.getInputSet());
+            inputMap.put(entry.getId(), reconstructRunfilesDir(entry.getRunfilesTree()));
+        case INPUT_SET -> inputMap.put(entry.getId(), new Input.InputSet(entry.getInputSet()));
         case SPAWN -> {
           return reconstructSpawnExec(entry.getSpawn());
         }
@@ -152,12 +153,15 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
               listedOutputs.add(path);
               builder.addAllActualOutputs(files);
             }
+            case Input.InputSet ignored -> {
+              throw new IOException("output %d is an input set".formatted(output.getOutputId()));
+            }
           }
         }
         case INVALID_OUTPUT_PATH -> listedOutputs.add(output.getInvalidOutputPath());
         default ->
             throw new IOException(
-                String.format("unknown output type %d", output.getTypeCase().getNumber()));
+                "unknown output type %d".formatted(output.getTypeCase().getNumber()));
       }
     }
 
@@ -204,6 +208,9 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
           case Input.Symlink(File symlink) -> {
             inputs.put(symlink.getPath(), symlink);
             path = symlink.getPath();
+          }
+          case Input.InputSet ignored -> {
+            throw new IOException("input %d is an input set".formatted(inputId));
           }
         }
         // This is bug-for-bug compatible with the implementation in Runfiles by considering
@@ -319,11 +326,13 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
                           .setPath(newPath + file.getPath().substring(path.length()))
                           .build())
               .collect(toImmutableList());
+      case Input.InputSet ignored ->
+          throw new IOException("symlink target of %s is an input set".formatted(newPath));
     };
   }
 
   private Input getInput(int id) throws IOException {
-    Input value = artifactMap.get(id);
+    Input value = inputMap.get(id);
     if (value == null) {
       throw new IOException(String.format("referenced input %d is missing", id));
     }
@@ -331,11 +340,14 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
   }
 
   private ExecLogEntry.InputSet getInputSet(int id) throws IOException {
-    ExecLogEntry.InputSet value = setMap.get(id);
+    Input value = inputMap.get(id);
     if (value == null) {
       throw new IOException(String.format("referenced entry %d is missing", id));
     }
-    return value;
+    if (!(value instanceof Input.InputSet inputSet)) {
+      throw new IOException(String.format("entry %d is not an input set", id));
+    }
+    return inputSet.inputSet;
   }
 
   @Override

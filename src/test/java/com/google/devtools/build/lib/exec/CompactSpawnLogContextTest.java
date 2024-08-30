@@ -144,14 +144,12 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     assertThat(entries)
         .containsExactly(
             Protos.ExecLogEntry.newBuilder()
-                .setId(1)
                 .setInvocation(
                     Protos.ExecLogEntry.Invocation.newBuilder()
                         .setHashFunctionName("SHA-256")
                         .setWorkspaceRunfilesDirectory(TestConstants.WORKSPACE_NAME))
                 .build(),
             Protos.ExecLogEntry.newBuilder()
-                .setId(2)
                 .setSymlinkAction(
                     Protos.ExecLogEntry.SymlinkAction.newBuilder()
                         .setInputPath("source")
