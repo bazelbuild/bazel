@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Table;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
@@ -58,6 +57,7 @@ import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.skyframe.WorkerSkyKeyComputeState;
 import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -141,23 +141,14 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
     while (true) {
       var state = env.getState(WorkerSkyKeyComputeState<FetchResult>::new);
-      ListenableFuture<FetchResult> workerFuture =
-          state.getOrStartWorker(
-              "starlark-repository-" + rule.getName(),
-              () -> {
-                Environment workerEnv = new WorkerSkyFunctionEnvironment(state);
-                setupRepoRoot(outputDirectory);
-                return fetchInternal(args.toWorkerArgs(workerEnv));
-              });
       try {
-        state.delegateEnvQueue.put(env);
-        state.signalSemaphore.acquire();
-        if (!workerFuture.isDone()) {
-          // This means that the worker is still running, and expecting a fresh Environment. Return
-          // null to trigger a Skyframe restart, but *don't* shut down the worker executor.
-          return null;
-        }
-        return workerFuture.get();
+        return state.startOrContinueWork(
+            env,
+            "starlark-repository-" + rule.getName(),
+            (workerEnv) -> {
+              setupRepoRoot(outputDirectory);
+              return fetchInternal(args.toWorkerArgs(workerEnv));
+            });
       } catch (ExecutionException e) {
         Throwables.throwIfInstanceOf(e.getCause(), RepositoryFunctionException.class);
         Throwables.throwIfUnchecked(e.getCause());
@@ -172,16 +163,6 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                 RepositoryFetchProgress.ongoing(
                     RepositoryName.createUnvalidated(rule.getName()),
                     "fetch interrupted due to memory pressure; restarting."));
-      } finally {
-        if (workerFuture.isDone()) {
-          // Unless we know the worker is waiting on a fresh Environment, we should *always* shut
-          // down the worker executor by the time we finish executing (successfully or otherwise).
-          // This ensures that 1) no background work happens without our knowledge, and 2) if the
-          // SkyFunction is re-entered for any reason (for example b/330892334 and
-          // https://github.com/bazelbuild/bazel/issues/21238), we know we'll need to create a new
-          // worker from scratch.
-          state.close();
-        }
       }
     }
   }
