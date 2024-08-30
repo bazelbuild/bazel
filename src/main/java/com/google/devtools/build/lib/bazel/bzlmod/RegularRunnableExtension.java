@@ -18,6 +18,7 @@ package com.google.devtools.build.lib.bazel.bzlmod;
 import static com.google.common.base.StandardSystemProperty.OS_ARCH;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -47,11 +48,14 @@ import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
+import com.google.devtools.build.skyframe.WorkerSkyKeyComputeState;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -218,6 +222,37 @@ final class RegularRunnableExtension implements RunnableExtension {
       ModuleExtensionId extensionId,
       RepositoryMapping mainRepositoryMapping)
       throws InterruptedException, ExternalDepsException {
+    // See below (the `catch CancellationException` clause) for why there's a `while` loop here.
+    while (true) {
+      var state = env.getState(WorkerSkyKeyComputeState<RunModuleExtensionResult>::new);
+      try {
+        return state.startOrContinueWork(
+            env,
+            "module-extension-" + extensionId.asTargetString(),
+            (workerEnv) ->
+                runInternal(
+                    workerEnv, usagesValue, starlarkSemantics, extensionId, mainRepositoryMapping));
+      } catch (ExecutionException e) {
+        Throwables.throwIfInstanceOf(e.getCause(), ExternalDepsException.class);
+        Throwables.throwIfUnchecked(e.getCause());
+        throw new IllegalStateException(
+            "unexpected exception type: " + e.getCause().getClass(), e.getCause());
+      } catch (CancellationException e) {
+        // This can only happen if the state object was invalidated due to memory pressure, in
+        // which case we can simply reattempt eval.
+      }
+    }
+  }
+
+  @Nullable
+  private RunModuleExtensionResult runInternal(
+      Environment env,
+      SingleExtensionUsagesValue usagesValue,
+      StarlarkSemantics starlarkSemantics,
+      ModuleExtensionId extensionId,
+      RepositoryMapping mainRepositoryMapping)
+      throws InterruptedException, ExternalDepsException {
+    env.getListener().post(ModuleExtensionEvaluationProgress.ongoing(extensionId, "starting"));
     char separator =
         starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_USE_PLUS_IN_REPO_NAMES)
             ? '+'
@@ -275,6 +310,7 @@ final class RegularRunnableExtension implements RunnableExtension {
         return null;
       }
       moduleContext.markSuccessful();
+      env.getListener().post(ModuleExtensionEvaluationProgress.finished(extensionId));
       return new RunModuleExtensionResult(
           moduleContext.getRecordedFileInputs(),
           moduleContext.getRecordedDirentsInputs(),

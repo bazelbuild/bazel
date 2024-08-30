@@ -169,7 +169,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     }
 
     // Run that extension!
-    env.getListener().post(ModuleExtensionEvaluationProgress.ongoing(extensionId, "starting"));
     RunModuleExtensionResult moduleExtensionResult;
     try {
       moduleExtensionResult =
@@ -185,7 +184,6 @@ public class SingleExtensionEvalFunction implements SkyFunction {
     if (moduleExtensionResult == null) {
       return null;
     }
-    env.getListener().post(ModuleExtensionEvaluationProgress.finished(extensionId));
     ImmutableMap<String, RepoSpec> generatedRepoSpecs = moduleExtensionResult.generatedRepoSpecs();
     Optional<ModuleExtensionMetadata> moduleExtensionMetadata =
         moduleExtensionResult.moduleExtensionMetadata();
