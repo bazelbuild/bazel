@@ -467,7 +467,7 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
-  public void testRunfilesFilesWithMixedRoots(@TestParameter boolean legacyExternalRunfiles)
+  public void testRunfilesMixedRoots(@TestParameter boolean legacyExternalRunfiles)
       throws Exception {
     Artifact sourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/source.txt");
     writeFile(sourceArtifact, "source");
@@ -480,14 +480,30 @@ public abstract class SpawnLogContextTestBase {
         ActionsTestUtil.createArtifact(outputDir, "external/some_repo/other/pkg/gen.txt");
     writeFile(externalGenArtifact, "external_gen");
 
+    Artifact symlinkSourceTarget = ActionsTestUtil.createArtifact(rootDir, "pkg/target.txt");
+    writeFile(symlinkSourceTarget, "symlink_source");
+    Artifact symlinkGenTarget = ActionsTestUtil.createArtifact(outputDir, "pkg/target.txt");
+    writeFile(symlinkGenTarget, "symlink_gen");
+
+    Artifact rootSymlinkSourceTarget =
+        ActionsTestUtil.createArtifact(rootDir, "pkg/root_target.txt");
+    writeFile(rootSymlinkSourceTarget, "root_symlink_source");
+    Artifact rootSymlinkGenTarget =
+        ActionsTestUtil.createArtifact(outputDir, "pkg/root_target.txt");
+    writeFile(rootSymlinkGenTarget, "root_symlink_gen");
+
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     RunfilesTree runfilesTree =
         createRunfilesTree(
             runfilesRoot,
-            ImmutableMap.of(),
-            ImmutableMap.of(),
+            ImmutableMap.of(
+                "some/symlink", symlinkSourceTarget,
+                "other/symlink", symlinkGenTarget),
+            ImmutableMap.of(
+                "root/symlink", rootSymlinkSourceTarget,
+                "root/other/symlink", rootSymlinkGenTarget),
             legacyExternalRunfiles,
             sourceArtifact,
             genArtifact,
@@ -506,6 +522,14 @@ public abstract class SpawnLogContextTestBase {
         externalSourceArtifact, FileArtifactValue.createForTesting(externalSourceArtifact));
     inputMetadataProvider.put(
         externalGenArtifact, FileArtifactValue.createForTesting(externalGenArtifact));
+    inputMetadataProvider.put(
+        symlinkSourceTarget, FileArtifactValue.createForTesting(symlinkSourceTarget));
+    inputMetadataProvider.put(
+        symlinkGenTarget, FileArtifactValue.createForTesting(symlinkGenTarget));
+    inputMetadataProvider.put(
+        rootSymlinkSourceTarget, FileArtifactValue.createForTesting(rootSymlinkSourceTarget));
+    inputMetadataProvider.put(
+        rootSymlinkGenTarget, FileArtifactValue.createForTesting(rootSymlinkGenTarget));
 
     context.logSpawn(
         spawn,
@@ -536,8 +560,24 @@ public abstract class SpawnLogContextTestBase {
                 .setDigest(getDigest("gen")))
         .addInputs(
             File.newBuilder()
+                .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/other/symlink")
+                .setDigest(getDigest("symlink_gen")))
+        .addInputs(
+            File.newBuilder()
                 .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/pkg/source.txt")
                 .setDigest(getDigest("source")))
+        .addInputs(
+            File.newBuilder()
+                .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/some/symlink")
+                .setDigest(getDigest("symlink_source")))
+        .addInputs(
+            File.newBuilder()
+                .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/root/other/symlink")
+                .setDigest(getDigest("root_symlink_gen")))
+        .addInputs(
+            File.newBuilder()
+                .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/root/symlink")
+                .setDigest(getDigest("root_symlink_source")))
         .addInputs(
             File.newBuilder()
                 .setPath(
@@ -616,6 +656,116 @@ public abstract class SpawnLogContextTestBase {
             File.newBuilder()
                 .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/pkg/file.txt")
                 .setDigest(getDigest("external_gen")));
+    closeAndAssertLog(context, builder.build());
+  }
+
+  @Test
+  public void testRunfilesFilesAndSymlinksCollide(
+      @TestParameter boolean legacyExternalRunfiles) throws Exception {
+    Artifact sourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/source.txt");
+    writeFile(sourceArtifact, "source");
+    Artifact genArtifact = ActionsTestUtil.createArtifact(outputDir, "other/pkg/gen.txt");
+    writeFile(genArtifact, "gen");
+    Artifact externalSourceArtifact =
+        ActionsTestUtil.createArtifact(externalSourceRoot, "external/some_repo/pkg/source.txt");
+    writeFile(externalSourceArtifact, "external_source");
+    Artifact externalGenArtifact =
+        ActionsTestUtil.createArtifact(outputDir, "external/some_repo/other/pkg/gen.txt");
+    writeFile(externalGenArtifact, "external_gen");
+
+    Artifact symlinkSourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/not_source.txt");
+    writeFile(symlinkSourceArtifact, "symlink_source");
+    Artifact symlinkGenArtifact =
+        ActionsTestUtil.createArtifact(outputDir, "other/pkg/not_gen.txt");
+    writeFile(symlinkGenArtifact, "symlink_gen");
+    Artifact symlinkExternalSourceArtifact =
+        ActionsTestUtil.createArtifact(externalSourceRoot, "external/some_repo/pkg/not_source.txt");
+    writeFile(symlinkExternalSourceArtifact, "symlink_external_source");
+    Artifact symlinkExternalGenArtifact =
+        ActionsTestUtil.createArtifact(outputDir, "external/some_repo/other/pkg/not_gen.txt");
+    writeFile(symlinkExternalGenArtifact, "symlink_external_gen");
+
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
+    RunfilesTree runfilesTree =
+        createRunfilesTree(
+            runfilesRoot,
+            ImmutableMap.of(
+                // Symlinks are always relative to the workspace runfiles directory.
+                "pkg/source.txt", symlinkSourceArtifact,
+                "other/pkg/gen.txt", symlinkGenArtifact,
+                "../some_repo/pkg/source.txt", symlinkExternalSourceArtifact,
+                "../some_repo/other/pkg/gen.txt", symlinkExternalGenArtifact),
+            ImmutableMap.of(),
+            legacyExternalRunfiles,
+            sourceArtifact,
+            genArtifact,
+            externalSourceArtifact,
+            externalGenArtifact);
+
+    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
+    inputMetadataProvider.put(sourceArtifact, FileArtifactValue.createForTesting(sourceArtifact));
+    inputMetadataProvider.put(genArtifact, FileArtifactValue.createForTesting(genArtifact));
+    inputMetadataProvider.put(
+        externalSourceArtifact, FileArtifactValue.createForTesting(externalSourceArtifact));
+    inputMetadataProvider.put(
+        externalGenArtifact, FileArtifactValue.createForTesting(externalGenArtifact));
+    inputMetadataProvider.put(
+        symlinkSourceArtifact, FileArtifactValue.createForTesting(symlinkSourceArtifact));
+    inputMetadataProvider.put(
+        symlinkGenArtifact, FileArtifactValue.createForTesting(symlinkGenArtifact));
+    inputMetadataProvider.put(
+        symlinkExternalSourceArtifact,
+        FileArtifactValue.createForTesting(symlinkExternalSourceArtifact));
+    inputMetadataProvider.put(
+        symlinkExternalGenArtifact, FileArtifactValue.createForTesting(symlinkExternalGenArtifact));
+
+    context.logSpawn(
+        spawn,
+        inputMetadataProvider,
+        createInputMap(runfilesTree),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    var builder = defaultSpawnExecBuilder();
+    if (legacyExternalRunfiles) {
+      builder
+          .addInputs(
+              File.newBuilder()
+                  .setPath(
+                      "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/external/some_repo/other/pkg/gen.txt")
+                  .setDigest(getDigest("external_gen")))
+          .addInputs(
+              File.newBuilder()
+                  .setPath(
+                      "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/external/some_repo/pkg/source.txt")
+                  .setDigest(getDigest("external_source")));
+    }
+    builder
+        .addInputs(
+            File.newBuilder()
+                .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/other/pkg/gen.txt")
+                .setDigest(getDigest("gen")))
+        .addInputs(
+            File.newBuilder()
+                .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/pkg/source.txt")
+                .setDigest(getDigest("source")))
+        .addInputs(
+            File.newBuilder()
+                .setPath(
+                    "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/other/pkg/gen.txt")
+                .setDigest(getDigest("external_gen")))
+        .addInputs(
+            File.newBuilder()
+                .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/pkg/source.txt")
+                .setDigest(getDigest("external_source")));
     closeAndAssertLog(context, builder.build());
   }
 
