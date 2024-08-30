@@ -770,6 +770,61 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
+  public void testRunfilesFileAndRootSymlinkCollide() throws Exception {
+    Artifact sourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/source.txt");
+    writeFile(sourceArtifact, "source");
+
+    Artifact symlinkSourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/not_source.txt");
+    writeFile(symlinkSourceArtifact, "symlink_source");
+
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
+    RunfilesTree runfilesTree =
+        createRunfilesTree(
+            runfilesRoot,
+            ImmutableMap.of(),
+            ImmutableMap.of("_main/pkg/source.txt", symlinkSourceArtifact),
+            /* legacyExternalRunfiles= */ false,
+            sourceArtifact);
+
+    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
+    inputMetadataProvider.put(sourceArtifact, FileArtifactValue.createForTesting(sourceArtifact));
+    inputMetadataProvider.put(
+        symlinkSourceArtifact, FileArtifactValue.createForTesting(symlinkSourceArtifact));
+
+    context.logSpawn(
+        spawn,
+        inputMetadataProvider,
+        createInputMap(runfilesTree),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    // Compact and expanded spawn logs differ in this case, which is deemed acceptable as the build
+    // emits a warning.
+    var expectedContent =
+        switch (context) {
+          case ExpandedSpawnLogContext ignored -> "symlink_source";
+          case CompactSpawnLogContext ignored -> "source";
+          default -> throw new AssertionError("Unexpected context type: " + context);
+        };
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/pkg/source.txt")
+                    .setDigest(getDigest(expectedContent)))
+            .build());
+  }
+
+  @Test
   public void testFilesetInput(@TestParameter DirContents dirContents) throws Exception {
     Artifact filesetInput =
         SpecialArtifact.create(
