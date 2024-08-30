@@ -17,14 +17,13 @@ java_library(
         ["*.java"],
         exclude = [
             "BuildConfigurationKeyMapProducer.java",
-            "PlatformFlagsProducer.java",
-            "PlatformInfoProducer.java",
+            "BuildConfigurationKeyProducer.java",
+            "PlatformProducer.java",
         ],
     ),
     deps = [
         ":build_configuration_key_map_producer",
-        ":platform_flags_producer",
-        ":platform_info_producer",
+        ":platform_producer",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:aspect_collection",
@@ -85,7 +84,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:unloaded_toolchain_context",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
@@ -118,9 +116,10 @@ java_library(
     ],
     deps = [
         ":build_configuration_key_cache",
-        ":platform_flags_producer",
+        ":platform_producer",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config:exceptions",
@@ -135,41 +134,15 @@ java_library(
 )
 
 java_library(
-    name = "platform_flags_producer",
-    srcs = ["PlatformFlagsProducer.java"],
+    name = "platform_producer",
+    srcs = ["PlatformProducer.java"],
     deps = [
-        ":platform_info_producer",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:platform_lookup_util",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
-        "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "platform_info_producer",
-    srcs = ["PlatformInfoProducer.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/common_options",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/analysis/platform:utils",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:platform_lookup_util",
-        "//src/main/java/com/google/devtools/build/skyframe",
-        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:jsr305",
     ],
 )

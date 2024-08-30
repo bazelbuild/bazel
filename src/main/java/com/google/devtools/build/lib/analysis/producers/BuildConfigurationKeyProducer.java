@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.analysis.producers;
 
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.NativeAndStarlarkFlags;
@@ -27,7 +28,6 @@ import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.build.skyframe.state.StateMachine.ValueOrExceptionSink;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -35,18 +35,18 @@ import javax.annotation.Nullable;
  *
  * <p>This includes merging in platform mappings and platform-based flags.
  *
- * @param <C> The type of the context variable that the producer will pass via the {@link #Sink} so
- *     that consumers can identify which options are which.
+ * @param <C> The type of the context variable that the producer will pass via the {@link
+ *     ResultSink} so that consumers can identify which options are which.
  */
 public class BuildConfigurationKeyProducer<C>
     implements StateMachine,
         ValueOrExceptionSink<PlatformMappingException>,
-        PlatformFlagsProducer.ResultSink {
+        PlatformProducer.ResultSink {
 
   /** Interface for clients to accept results of this computation. */
   public interface ResultSink<C> {
 
-    void acceptTransitionError(OptionsParsingException e);
+    void acceptOptionsParsingError(OptionsParsingException e);
 
     void acceptPlatformMappingError(PlatformMappingException e);
 
@@ -66,7 +66,7 @@ public class BuildConfigurationKeyProducer<C>
   private PlatformMappingValue platformMappingValue;
   private NativeAndStarlarkFlags platformFlags;
 
-  public BuildConfigurationKeyProducer(
+  BuildConfigurationKeyProducer(
       ResultSink<C> sink,
       StateMachine runAfter,
       BuildConfigurationKeyCache cache,
@@ -99,9 +99,6 @@ public class BuildConfigurationKeyProducer<C>
   }
 
   private void findPlatformMapping(Tasks tasks) {
-    if (!options.contains(PlatformOptions.class)) {
-      return;
-    }
     PathFragment platformMappingsPath = options.get(PlatformOptions.class).platformMappings;
     PlatformMappingValue.Key platformMappingValueKey =
         PlatformMappingValue.Key.create(platformMappingsPath);
@@ -127,46 +124,27 @@ public class BuildConfigurationKeyProducer<C>
   }
 
   private void findTargetPlatformInfo(Tasks tasks) {
-    Optional<Label> targetPlatform = getTargetPlatform(this.options);
-    if (targetPlatform.isEmpty()) {
-      return;
-    }
-
-    tasks.enqueue(new PlatformFlagsProducer(targetPlatform.get(), this, StateMachine.DONE));
-  }
-
-  private static Optional<Label> getTargetPlatform(BuildOptions options) {
-    if (!options.contains(PlatformOptions.class)) {
-      return Optional.empty();
-    }
-
     List<Label> targetPlatforms = options.get(PlatformOptions.class).platforms;
-    if (targetPlatforms != null && targetPlatforms.size() == 1) {
+    if (targetPlatforms.size() == 1) {
       // TODO: https://github.com/bazelbuild/bazel/issues/19807 - We define this flag to only use
       // the first value and ignore any subsequent ones. Remove this check as part of cleanup.
-      return Optional.of(targetPlatforms.get(0));
+      tasks.enqueue(new PlatformProducer(targetPlatforms.getFirst(), this, StateMachine.DONE));
     }
-
-    return Optional.empty();
-  }
-
-  // Handle results from PlatformFlagsProducer.
-  @Override
-  public void acceptPlatformFlags(Label unused, NativeAndStarlarkFlags flags) {
-    this.platformFlags = flags;
   }
 
   @Override
-  public void acceptPlatformFlagsError(Label unusedPlatform, InvalidPlatformException error) {
-    // The requested platform is in the exception already, so it's fine to drop.
+  public void acceptPlatformValue(PlatformValue value) {
+    this.platformFlags = value.parsedFlags();
+  }
+
+  @Override
+  public void acceptPlatformInfoError(InvalidPlatformException error) {
     sink.acceptPlatformFlagsError(error);
   }
 
   @Override
-  public void acceptPlatformFlagsError(Label unusedPlatform, OptionsParsingException error) {
-    // TODO: blaze-configurability-team - See if this should include the requested platform in the
-    // error message.
-    sink.acceptTransitionError(error);
+  public void acceptOptionsParsingError(OptionsParsingException error) {
+    sink.acceptOptionsParsingError(error);
   }
 
   private StateMachine applyFlags(Tasks tasks) {
@@ -178,7 +156,7 @@ public class BuildConfigurationKeyProducer<C>
       BuildConfigurationKey newConfigurationKey = applyFlagsForOptions(options);
       return finishConfigurationKeyProcessing(newConfigurationKey);
     } catch (OptionsParsingException e) {
-      sink.acceptTransitionError(e);
+      sink.acceptOptionsParsingError(e);
       return runAfter;
     }
   }

@@ -202,7 +202,7 @@ final class DependencyProducer
   }
 
   @Override
-  public void acceptTransitionError(OptionsParsingException e) {
+  public void acceptOptionsParsingError(OptionsParsingException e) {
     sink.acceptDependencyError(
         DependencyError.of(
             new OptionsParsingException(

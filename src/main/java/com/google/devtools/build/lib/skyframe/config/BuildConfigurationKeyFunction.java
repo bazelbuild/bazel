@@ -82,13 +82,13 @@ public class BuildConfigurationKeyFunction implements SkyFunction {
   /** Sink implementation to handle results from {@link BuildConfigurationKeyMapProducer}. */
   private static final class Sink implements ResultSink {
     @Nullable private ImmutableMap<String, BuildConfigurationKey> transitionedOptions;
-    @Nullable private OptionsParsingException transitionError;
+    @Nullable private OptionsParsingException optionsParsingException;
     @Nullable private PlatformMappingException platformMappingException;
     @Nullable private InvalidPlatformException invalidPlatformException;
 
     @Override
-    public void acceptTransitionError(OptionsParsingException e) {
-      this.transitionError = e;
+    public void acceptOptionsParsingError(OptionsParsingException e) {
+      this.optionsParsingException = e;
     }
 
     @Override
@@ -109,8 +109,8 @@ public class BuildConfigurationKeyFunction implements SkyFunction {
 
     void checkErrors()
         throws OptionsParsingException, PlatformMappingException, InvalidPlatformException {
-      if (this.transitionError != null) {
-        throw this.transitionError;
+      if (this.optionsParsingException != null) {
+        throw this.optionsParsingException;
       }
       if (this.platformMappingException != null) {
         throw this.platformMappingException;

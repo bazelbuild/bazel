@@ -352,7 +352,7 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
     return sink.options();
   }
 
-  /** Receiver for platform info from {@link PlatformInfoProducer}. */
+  /** Receiver for platform info from {@link PlatformProducer}. */
   private static class Sink implements BuildConfigurationKeyMapProducer.ResultSink {
     @Nullable private OptionsParsingException optionsParsingException;
     @Nullable private PlatformMappingException platformMappingException;
@@ -360,7 +360,7 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
     @Nullable private ImmutableMap<String, BuildConfigurationKey> keys;
 
     @Override
-    public void acceptTransitionError(OptionsParsingException e) {
+    public void acceptOptionsParsingError(OptionsParsingException e) {
       this.optionsParsingException = e;
     }
 

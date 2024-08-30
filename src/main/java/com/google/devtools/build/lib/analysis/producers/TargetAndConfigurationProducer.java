@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTr
 import com.google.devtools.build.lib.analysis.config.transitions.PatchTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkTransition.TransitionException;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildEventId.ConfigurationId;
 import com.google.devtools.build.lib.causes.AnalysisFailedCause;
@@ -270,13 +271,13 @@ public final class TargetAndConfigurationProducer
       implements StateMachine,
           TransitionApplier.ResultSink,
           ConfigConditionsProducer.ResultSink,
-          PlatformInfoProducer.ResultSink {
+          PlatformProducer.ResultSink {
     // -------------------- Internal State --------------------
     @Nullable private PlatformInfo platformInfo;
     private ConfigConditions configConditions;
     private ConfigurationTransition ruleTransition;
     private BuildConfigurationKey configurationKey;
-        
+
     @Override
     public StateMachine step(Tasks tasks) throws InterruptedException {
 
@@ -288,9 +289,9 @@ public final class TargetAndConfigurationProducer
         PlatformConfiguration platformConfiguration =
             new PlatformConfiguration(preRuleTransitionKey.getConfigurationKey().getOptions());
         tasks.enqueue(
-            new PlatformInfoProducer(
+            new PlatformProducer(
                 platformConfiguration.getTargetPlatform(),
-                (PlatformInfoProducer.ResultSink) this,
+                (PlatformProducer.ResultSink) this,
                 this::computeConfigConditions));
       } else {
         this.platformInfo = null;
@@ -506,7 +507,7 @@ public final class TargetAndConfigurationProducer
     }
 
     @Override
-    public void acceptTransitionError(OptionsParsingException e) {
+    public void acceptOptionsParsingError(OptionsParsingException e) {
       emitErrorMessage(e.getMessage());
     }
 
@@ -521,8 +522,8 @@ public final class TargetAndConfigurationProducer
     }
 
     @Override
-    public void acceptPlatformInfo(PlatformInfo info) {
-      this.platformInfo = info;
+    public void acceptPlatformValue(PlatformValue value) {
+      this.platformInfo = value.platformInfo();
     }
 
     @Override
@@ -610,7 +611,7 @@ public final class TargetAndConfigurationProducer
       }
 
       @Override
-      public void acceptTransitionError(OptionsParsingException e) {
+      public void acceptOptionsParsingError(OptionsParsingException e) {
         emitErrorMessage(e.getMessage());
       }
 

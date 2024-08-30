@@ -116,6 +116,7 @@ public final class SkyFunctions {
   public static final SkyFunctionName BUILD_INFO = SkyFunctionName.createHermetic("BUILD_INFO");
   public static final SkyFunctionName WORKSPACE_NAME =
       SkyFunctionName.createHermetic("WORKSPACE_NAME");
+  public static final SkyFunctionName PLATFORM = SkyFunctionName.createHermetic("PLATFORM");
   public static final SkyFunctionName PLATFORM_MAPPING =
       SkyFunctionName.createHermetic("PLATFORM_MAPPING");
   static final SkyFunctionName COVERAGE_REPORT = SkyFunctionName.createHermetic("COVERAGE_REPORT");

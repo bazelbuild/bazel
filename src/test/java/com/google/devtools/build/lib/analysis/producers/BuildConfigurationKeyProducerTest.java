@@ -450,7 +450,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     return sink.options(CONTEXT);
   }
 
-  /** Receiver for platform info from {@link PlatformInfoProducer}. */
+  /** Receiver for platform info from {@link PlatformProducer}. */
   private static class Sink implements BuildConfigurationKeyProducer.ResultSink<String> {
     @Nullable private OptionsParsingException optionsParsingException;
     @Nullable private PlatformMappingException platformMappingException;
@@ -459,7 +459,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     @Nullable private BuildConfigurationKey key;
 
     @Override
-    public void acceptTransitionError(OptionsParsingException e) {
+    public void acceptOptionsParsingError(OptionsParsingException e) {
       this.optionsParsingException = e;
     }
 

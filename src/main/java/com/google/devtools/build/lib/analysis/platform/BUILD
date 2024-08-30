@@ -11,18 +11,21 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-UTIL_SRCS = ["PlatformProviderUtils.java"]
-
 # Description:
 #   Providers defined for platforms, constraints, and toolchains.
 java_library(
     name = "platform",
-    srcs = glob(
-        [
-            "*.java",
-        ],
-        exclude = UTIL_SRCS + ["PlatformUtils.java"],
-    ),
+    srcs = [
+        "ConstraintCollection.java",
+        "ConstraintSettingInfo.java",
+        "ConstraintValueInfo.java",
+        "DeclaredToolchainInfo.java",
+        "PlatformInfo.java",
+        "PlatformProperties.java",
+        "PlatformValue.java",
+        "ToolchainInfo.java",
+        "ToolchainTypeInfo.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:config/config_matching_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:resolved_toolchain_data",
@@ -30,14 +33,40 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/platform",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:string",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//third_party:auto_value",
         "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "platform_function",
+    srcs = ["PlatformFunction.java"],
+    deps = [
+        ":platform",
+        ":utils",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/common_options",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
+        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target_value",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_value_creation_exception",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:package_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:platform_lookup_util",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:jsr305",
     ],
 )
@@ -58,7 +87,7 @@ java_library(
 
 java_library(
     name = "utils",
-    srcs = UTIL_SRCS,
+    srcs = ["PlatformProviderUtils.java"],
     deps = [
         ":platform",
         "//src/main/java/com/google/devtools/build/lib/analysis:provider_collection",

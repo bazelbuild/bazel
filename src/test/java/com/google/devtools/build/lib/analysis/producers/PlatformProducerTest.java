@@ -16,20 +16,27 @@ package com.google.devtools.build.lib.analysis.producers;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
+import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.state.StateMachine;
+import com.google.devtools.common.options.OptionsParsingException;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests of {@link PlatformInfoProducer}. */
+/**
+ * Tests of {@link PlatformProducer}.
+ *
+ * <p>Implicitly provides test coverage for {@link
+ * com.google.devtools.build.lib.analysis.platform.PlatformFunction}.
+ */
 @RunWith(JUnit4.class)
-public class PlatformInfoProducerTest extends ProducerTestCase {
+public final class PlatformProducerTest extends ProducerTestCase {
+
   @Test
-  public void infoLookup() throws Exception {
+  public void basicLookup() throws Exception {
     scratch.overwriteFile(
         "lookup/BUILD",
         """
@@ -43,18 +50,20 @@ public class PlatformInfoProducerTest extends ProducerTestCase {
         platform(
             name = "basic",
             constraint_values = [":value1"],
+            flags = ["--cpu=fast"],
         )
         """);
 
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:basic");
-    PlatformInfo result = fetch(platformLabel);
+    PlatformValue result = fetch(platformLabel);
 
     assertThat(result).isNotNull();
-    assertThat(result.label()).isEqualTo(platformLabel);
+    assertThat(result.platformInfo().label()).isEqualTo(platformLabel);
+    assertThat(result.parsedFlags().nativeFlags()).containsExactly("--cpu=fast");
   }
 
   @Test
-  public void infoLookup_alias() throws Exception {
+  public void alias() throws Exception {
     scratch.overwriteFile(
         "lookup/BUILD",
         """
@@ -68,6 +77,7 @@ public class PlatformInfoProducerTest extends ProducerTestCase {
         platform(
             name = "basic",
             constraint_values = [":value1"],
+            flags = ["--cpu=fast"],
         )
 
         alias(
@@ -77,14 +87,16 @@ public class PlatformInfoProducerTest extends ProducerTestCase {
         """);
 
     Label platformLabel = Label.parseCanonicalUnchecked("//lookup:alias");
-    PlatformInfo result = fetch(platformLabel);
+    PlatformValue result = fetch(platformLabel);
 
     assertThat(result).isNotNull();
-    assertThat(result.label()).isEqualTo(Label.parseCanonicalUnchecked("//lookup:basic"));
+    assertThat(result.platformInfo().label())
+        .isEqualTo(Label.parseCanonicalUnchecked("//lookup:basic"));
+    assertThat(result.parsedFlags().nativeFlags()).containsExactly("--cpu=fast");
   }
 
   @Test
-  public void infoLookup_error() throws Exception {
+  public void invalidPlatformError() throws Exception {
     scratch.overwriteFile(
         "lookup/BUILD",
         """
@@ -97,23 +109,48 @@ public class PlatformInfoProducerTest extends ProducerTestCase {
     assertThrows(InvalidPlatformException.class, () -> fetch(platformLabel));
   }
 
-  private PlatformInfo fetch(Label platformLabel)
-      throws InvalidPlatformException, InterruptedException {
-    PlatformInfoSink sink = new PlatformInfoSink();
-    PlatformInfoProducer producer =
-        new PlatformInfoProducer(platformLabel, sink, StateMachine.DONE);
-    assertThat(executeProducer(producer)).isTrue();
-    return sink.platformInfo();
+  @Test
+  public void optionsParsingError() throws Exception {
+    scratch.overwriteFile(
+        "lookup/BUILD",
+        """
+        platform(
+            name = "basic",
+            flags = ["--//starlark:flag=does_not_exist"],
+        )
+        """);
+
+    Label platformLabel = Label.parseCanonicalUnchecked("//lookup:basic");
+    assertThrows(OptionsParsingException.class, () -> fetch(platformLabel));
   }
 
-  /** Receiver for platform info from {@link PlatformInfoProducer}. */
-  private static class PlatformInfoSink implements PlatformInfoProducer.ResultSink {
-    @Nullable private PlatformInfo platformInfo = null;
+  private PlatformValue fetch(Label platformLabel)
+      throws InvalidPlatformException, OptionsParsingException, InterruptedException {
+    PlatformInfoSink sink = new PlatformInfoSink();
+    PlatformProducer producer = new PlatformProducer(platformLabel, sink, StateMachine.DONE);
+    boolean success = executeProducer(producer);
+    if (sink.platformValue != null) {
+      assertThat(success).isTrue();
+      return sink.platformValue;
+    } else {
+      assertThat(success).isFalse(); // Error comes from a Skyframe dep.
+      if (sink.platformInfoError != null) {
+        throw sink.platformInfoError;
+      } else {
+        throw sink.optionsParsingError;
+      }
+    }
+  }
+
+  /** Receiver for platform info from {@link PlatformProducer}. */
+  private static class PlatformInfoSink implements PlatformProducer.ResultSink {
+    @Nullable private PlatformValue platformValue = null;
     @Nullable private InvalidPlatformException platformInfoError = null;
+    @Nullable private OptionsParsingException optionsParsingError = null;
 
     @Override
-    public void acceptPlatformInfo(PlatformInfo info) {
-      this.platformInfo = info;
+    public void acceptPlatformValue(PlatformValue value) {
+      this.platformValue = value;
     }
 
     @Override
@@ -121,14 +158,9 @@ public class PlatformInfoProducerTest extends ProducerTestCase {
       this.platformInfoError = error;
     }
 
-    PlatformInfo platformInfo() throws InvalidPlatformException {
-      if (this.platformInfoError != null) {
-        throw this.platformInfoError;
-      }
-      if (this.platformInfo != null) {
-        return platformInfo;
-      }
-      throw new IllegalStateException("Value and exception not set");
+    @Override
+    public void acceptOptionsParsingError(OptionsParsingException error) {
+      this.optionsParsingError = error;
     }
   }
 }

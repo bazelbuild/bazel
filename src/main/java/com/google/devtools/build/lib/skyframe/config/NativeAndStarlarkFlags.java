@@ -38,6 +38,8 @@ import javax.annotation.Nullable;
 @AutoValue
 public abstract class NativeAndStarlarkFlags {
 
+  public static final NativeAndStarlarkFlags EMPTY = builder().build();
+
   /** Builder for new {@link NativeAndStarlarkFlags} instances. */
   @AutoValue.Builder
   public abstract static class Builder {

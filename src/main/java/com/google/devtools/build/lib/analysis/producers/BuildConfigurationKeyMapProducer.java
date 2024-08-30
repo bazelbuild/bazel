@@ -36,7 +36,7 @@ public class BuildConfigurationKeyMapProducer
   /** Interface for clients to accept results of this computation. */
   public interface ResultSink {
 
-    void acceptTransitionError(OptionsParsingException e);
+    void acceptOptionsParsingError(OptionsParsingException e);
 
     void acceptPlatformMappingError(PlatformMappingException e);
 
@@ -105,8 +105,8 @@ public class BuildConfigurationKeyMapProducer
   }
 
   @Override
-  public void acceptTransitionError(OptionsParsingException e) {
-    this.sink.acceptTransitionError(e);
+  public void acceptOptionsParsingError(OptionsParsingException e) {
+    this.sink.acceptOptionsParsingError(e);
   }
 
   @Override

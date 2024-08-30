@@ -287,6 +287,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:view_creation_failed_exception",
         "//src/main/java/com/google/devtools/build/lib/analysis:workspace_status_action",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
+        "//src/main/java/com/google/devtools/build/lib/analysis/platform:platform_function",
         "//src/main/java/com/google/devtools/build/lib/analysis/producers",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",
