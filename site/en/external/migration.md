@@ -8,9 +8,10 @@ keywords: bzlmod
 
 Due to the [shortcomings of
 WORKSPACE](/external/overview#workspace-shortcomings), Bzlmod is going to
-replace the legacy WORKSPACE system in future Bazel releases. This guide helps
-you migrate your project to Bzlmod and drop WORKSPACE for fetching external
-dependencies.
+replace the legacy WORKSPACE system. The WORKSPACE file will be disabled by
+default in Bazel 8 (late 2024) and will be removed in Bazel 9 (late 2025).
+This guide helps you migrate your project to Bzlmod and drop WORKSPACE for
+fetching external dependencies.
 
 ## WORKSPACE vs Bzlmod {:#workspace-vs-bzlmod}
 
@@ -834,7 +835,7 @@ managing your external dependencies.
 
 Check [#12835](https://github.com/bazelbuild/bazel/issues/12835), where dev
 dependencies for tests are forced to be fetched unnecessarily for building
-targets that don't need them. This is not actually not Bzlmod specific, but
+targets that don't need them. This is actually not Bzlmod specific, but
 following this practices makes it easier to specify dev dependencies correctly.
 
 #### Specify dev dependencies
