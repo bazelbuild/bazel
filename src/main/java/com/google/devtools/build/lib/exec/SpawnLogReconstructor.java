@@ -36,6 +36,7 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Supplier;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -107,8 +108,9 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
       builder.setPlatform(entry.getPlatform());
     }
 
-    SortedMap<String, File> inputs = reconstructInputs(entry.getInputSetId()).inputs;
-    SortedMap<String, File> toolInputs = reconstructInputs(entry.getToolSetId()).inputs;
+    SortedMap<String, File> inputs = reconstructInputs(entry.getInputSetId(), TreeMap::new).inputs;
+    SortedMap<String, File> toolInputs =
+        reconstructInputs(entry.getToolSetId(), TreeMap::new).inputs;
 
     for (Map.Entry<String, File> e : inputs.entrySet()) {
       File file = e.getValue();
@@ -155,11 +157,12 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     return builder.build();
   }
 
-  private record FlattenedInputSet(
-      SortedMap<String, File> inputs, boolean hasWorkspaceRunfilesDirectory) {}
+  private record FlattenedInputSet<T extends Map<String, File>>(
+      T inputs, boolean hasWorkspaceRunfilesDirectory) {}
 
-  private FlattenedInputSet reconstructInputs(int setId) throws IOException {
-    TreeMap<String, File> inputs = new TreeMap<>();
+  private <T extends Map<String, File>> FlattenedInputSet<T> reconstructInputs(
+      int setId, Supplier<T> newMap) throws IOException {
+    T inputs = newMap.get();
     ArrayDeque<Integer> setsToVisit = new ArrayDeque<>();
     HashSet<Integer> visited = new HashSet<>();
     boolean hasWorkspaceRunfilesDirectory = false;
@@ -208,7 +211,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
         }
       }
     }
-    return new FlattenedInputSet(inputs, hasWorkspaceRunfilesDirectory);
+    return new FlattenedInputSet<>(inputs, hasWorkspaceRunfilesDirectory);
   }
 
   private Pair<String, Collection<File>> reconstructDir(ExecLogEntry.Directory dir) {
@@ -244,7 +247,9 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
 
   private Pair<String, Collection<File>> reconstructRunfilesDir(
       ExecLogEntry.RunfilesTree runfilesTree) throws IOException {
-    var flattenedInputs = reconstructInputs(runfilesTree.getInputSetId());
+    // Preserve the order of the inputs to resolve conflicts in the same order as the real Runfiles
+    // implementation.
+    var flattenedInputs = reconstructInputs(runfilesTree.getInputSetId(), LinkedHashMap::new);
     LinkedHashMap<String, File> builder =
         new LinkedHashMap<>(runfilesTree.getSymlinksCount() + flattenedInputs.inputs.size());
     for (var symlink : runfilesTree.getSymlinksMap().entrySet()) {

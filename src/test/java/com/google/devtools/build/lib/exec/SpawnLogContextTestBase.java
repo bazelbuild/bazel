@@ -474,10 +474,10 @@ public abstract class SpawnLogContextTestBase {
     Artifact genArtifact = ActionsTestUtil.createArtifact(outputDir, "other/pkg/gen.txt");
     writeFile(genArtifact, "gen");
     Artifact externalSourceArtifact =
-        ActionsTestUtil.createArtifact(externalSourceRoot, "external/some_repo/repo_pkg/source.txt");
+        ActionsTestUtil.createArtifact(externalSourceRoot, "external/some_repo/pkg/source.txt");
     writeFile(externalSourceArtifact, "external_source");
     Artifact externalGenArtifact =
-        ActionsTestUtil.createArtifact(outputDir, "external/some_repo/other/repo_pkg/gen.txt");
+        ActionsTestUtil.createArtifact(outputDir, "external/some_repo/other/pkg/gen.txt");
     writeFile(externalGenArtifact, "external_gen");
 
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
@@ -521,12 +521,12 @@ public abstract class SpawnLogContextTestBase {
           .addInputs(
               File.newBuilder()
                   .setPath(
-                      "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/external/some_repo/other/repo_pkg/gen.txt")
+                      "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/external/some_repo/other/pkg/gen.txt")
                   .setDigest(getDigest("external_gen")))
           .addInputs(
               File.newBuilder()
                   .setPath(
-                      "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/external/some_repo/repo_pkg/source.txt")
+                      "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/external/some_repo/pkg/source.txt")
                   .setDigest(getDigest("external_source")));
     }
     builder
@@ -541,13 +541,81 @@ public abstract class SpawnLogContextTestBase {
         .addInputs(
             File.newBuilder()
                 .setPath(
-                    "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/other/repo_pkg/gen.txt")
+                    "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/other/pkg/gen.txt")
                 .setDigest(getDigest("external_gen")))
         .addInputs(
             File.newBuilder()
-                .setPath(
-                    "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/repo_pkg/source.txt")
+                .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/pkg/source.txt")
                 .setDigest(getDigest("external_source")));
+    closeAndAssertLog(context, builder.build());
+  }
+
+  @Test
+  public void testRunfilesFilesCollide(@TestParameter boolean legacyExternalRunfiles)
+      throws Exception {
+    Artifact sourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/file.txt");
+    writeFile(sourceArtifact, "source");
+    Artifact genArtifact = ActionsTestUtil.createArtifact(outputDir, "pkg/file.txt");
+    writeFile(genArtifact, "gen");
+    Artifact externalSourceArtifact =
+        ActionsTestUtil.createArtifact(externalSourceRoot, "external/some_repo/pkg/file.txt");
+    writeFile(externalSourceArtifact, "external_source");
+    Artifact externalGenArtifact =
+        ActionsTestUtil.createArtifact(outputDir, "external/some_repo/pkg/file.txt");
+    writeFile(externalGenArtifact, "external_gen");
+
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
+    RunfilesTree runfilesTree =
+        createRunfilesTree(
+            runfilesRoot,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            legacyExternalRunfiles,
+            sourceArtifact,
+            genArtifact,
+            externalSourceArtifact,
+            externalGenArtifact);
+
+    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
+    inputMetadataProvider.put(sourceArtifact, FileArtifactValue.createForTesting(sourceArtifact));
+    inputMetadataProvider.put(genArtifact, FileArtifactValue.createForTesting(genArtifact));
+    inputMetadataProvider.put(
+        externalSourceArtifact, FileArtifactValue.createForTesting(externalSourceArtifact));
+    inputMetadataProvider.put(
+        externalGenArtifact, FileArtifactValue.createForTesting(externalGenArtifact));
+
+    context.logSpawn(
+        spawn,
+        inputMetadataProvider,
+        createInputMap(runfilesTree),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    var builder = defaultSpawnExecBuilder();
+    if (legacyExternalRunfiles) {
+      builder.addInputs(
+          File.newBuilder()
+              .setPath(
+                  "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/external/some_repo/pkg/file.txt")
+              .setDigest(getDigest("external_gen")));
+    }
+    builder
+        .addInputs(
+            File.newBuilder()
+                .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/pkg/file.txt")
+                .setDigest(getDigest("gen")))
+        .addInputs(
+            File.newBuilder()
+                .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/pkg/file.txt")
+                .setDigest(getDigest("external_gen")));
     closeAndAssertLog(context, builder.build());
   }
 
