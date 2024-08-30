@@ -46,6 +46,9 @@ import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.Protos.Digest;
 import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
 import com.google.devtools.build.lib.exec.Protos.File;
@@ -942,6 +945,57 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
+  public void testRunfilesCrossTypeCollision(@TestParameter boolean symlinkFirst) throws Exception {
+    Artifact file = ActionsTestUtil.createArtifact(rootDir, "pkg/file.txt");
+    writeFile(file, "file");
+    Artifact symlink = ActionsTestUtil.createUnresolvedSymlinkArtifact(outputDir, "pkg/file.txt");
+    symlink.getPath().getParentDirectory().createDirectoryAndParents();
+    symlink.getPath().createSymbolicLink(PathFragment.create("/some/path/other_file.txt"));
+
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
+    var artifacts = symlinkFirst ? List.of(symlink, file) : List.of(file, symlink);
+    RunfilesTree runfilesTree =
+        createRunfilesTree(
+            runfilesRoot,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            /* legacyExternalRunfiles= */ false,
+            NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
+
+    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
+    inputMetadataProvider.put(file, FileArtifactValue.createForTesting(file));
+    inputMetadataProvider.put(symlink, FileArtifactValue.createForUnresolvedSymlink(symlink));
+
+    context.logSpawn(
+        spawn,
+        inputMetadataProvider,
+        createInputMap(runfilesTree),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                symlinkFirst
+                    ? File.newBuilder()
+                        .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/pkg/file.txt")
+                        .setDigest(getDigest("file"))
+                    : File.newBuilder()
+                        .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/pkg/file.txt")
+                        .setSymlinkTargetPath("/some/path/other_file.txt"))
+            .build());
+  }
+
+  @Test
   public void testFilesetInput(@TestParameter DirContents dirContents) throws Exception {
     Artifact filesetInput =
         SpecialArtifact.create(
@@ -1511,10 +1565,10 @@ public abstract class SpawnLogContextTestBase {
       Map<String, Artifact> symlinks,
       Map<String, Artifact> rootSymlinks,
       boolean legacyExternalRunfiles,
-      Artifact... artifacts) {
+      NestedSet<Artifact> artifacts) {
     Runfiles.Builder runfiles =
         new Runfiles.Builder(TestConstants.WORKSPACE_NAME, legacyExternalRunfiles);
-    runfiles.addArtifacts(Arrays.asList(artifacts));
+    runfiles.addTransitiveArtifacts(artifacts);
     for (Map.Entry<String, Artifact> entry : symlinks.entrySet()) {
       runfiles.addSymlink(PathFragment.create(entry.getKey()), entry.getValue());
     }
@@ -1523,6 +1577,20 @@ public abstract class SpawnLogContextTestBase {
     }
     runfiles.setEmptyFilesSupplier(BazelPyBuiltins.GET_INIT_PY_FILES);
     return new RunfilesSupport.RunfilesTreeImpl(root, runfiles.build());
+  }
+
+  protected static RunfilesTree createRunfilesTree(
+      PathFragment root,
+      Map<String, Artifact> symlinks,
+      Map<String, Artifact> rootSymlinks,
+      boolean legacyExternalRunfiles,
+      Artifact... artifacts) {
+    return createRunfilesTree(
+        root,
+        symlinks,
+        rootSymlinks,
+        legacyExternalRunfiles,
+        NestedSetBuilder.wrap(Order.COMPILE_ORDER, Arrays.asList(artifacts)));
   }
 
   protected static InputMetadataProvider createInputMetadataProvider(Artifact... artifacts)
