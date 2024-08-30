@@ -809,7 +809,7 @@ EOF
   bazel query //... &>"$TEST_log" \
       || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
-  expect_not_log "external"
+  expect_not_log "//external"
 }
 
 function test_mainrepo_name_remapped_properly() {
@@ -838,7 +838,7 @@ EOF
   bazel query @a//... &>"$TEST_log" \
       || fail "Expected query to succeed"
   expect_log "def.bzl loaded"
-  expect_not_log "external"
+  expect_not_log "//external"
 
   cd ..
   cat > mainrepo/WORKSPACE<<EOF

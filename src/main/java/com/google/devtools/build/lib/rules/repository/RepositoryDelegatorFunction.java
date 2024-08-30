@@ -128,20 +128,31 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   @Override
   public SkyValue compute(SkyKey skyKey, Environment env)
       throws InterruptedException, RepositoryFunctionException {
+    StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
+    if (starlarkSemantics == null) {
+      return null;
+    }
+
     RepositoryName repositoryName = (RepositoryName) skyKey.argument();
     if (!repositoryName.isVisible()) {
+      String workspaceDeprecationMsg =
+          externalPackageHelper.getWorkspaceDeprecationErrorMessage(
+              env,
+              starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE),
+              repositoryName.isOwnerRepoMainRepo());
+      if (env.valuesMissing()) {
+        return null;
+      }
       return new NoRepositoryDirectoryValue(
           String.format(
-              "No repository visible as '@%s' from %s",
-              repositoryName.getName(), repositoryName.getOwnerRepoDisplayString()));
+              "No repository visible as '@%s' from %s.%s",
+              repositoryName.getName(),
+              repositoryName.getOwnerRepoDisplayString(),
+              workspaceDeprecationMsg));
     }
 
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.REPOSITORY_FETCH, repositoryName.toString())) {
-      StarlarkSemantics starlarkSemantics = PrecomputedValue.STARLARK_SEMANTICS.get(env);
-      if (starlarkSemantics == null) {
-        return null;
-      }
       Path repoRoot =
           RepositoryFunction.getExternalRepositoryDirectory(directories)
               .getRelative(repositoryName.getName());

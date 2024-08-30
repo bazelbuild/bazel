@@ -324,7 +324,7 @@ public abstract class PackageFunction implements SkyFunction {
           .setMessage(
               "//external package is not available since the WORKSPACE file is disabled, please"
                   + " migrate to Bzlmod or temporarily enable WORKSPACE via --enable_workspace. See"
-                  + " https://github.com/bazelbuild/bazel/issues/23023.")
+                  + " https://bazel.build/external/migration#bind-targets.")
           .setPackageLoadingCode(PackageLoading.Code.WORKSPACE_FILE_ERROR)
           .build();
     }

@@ -105,8 +105,8 @@ public class WorkspaceFileFunction implements SkyFunction {
       env.getListener()
           .handle(
               Event.warn(
-                  "WORKSPACE support will be removed in Bazel 9, please migrate to Bzlmod, see"
-                      + " https://github.com/bazelbuild/bazel/issues/23023."));
+                  "WORKSPACE support will be removed in Bazel 9 (late 2025), please migrate to"
+                      + " Bzlmod, see https://bazel.build/external/migration."));
     }
 
     RootedPath workspaceFile = key.getPath();

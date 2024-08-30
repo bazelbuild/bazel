@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
+import com.google.devtools.build.lib.repository.ExternalPackageHelper;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue.SuccessfulRepositoryDirectoryValue;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction.AlreadyReportedRepositoryAccessException;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
@@ -472,7 +473,6 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
   @Test
   public void loadInvisibleRepository() throws Exception {
-
     StoredEventHandler eventHandler = new StoredEventHandler();
     SkyKey key =
         RepositoryDirectoryValue.key(
@@ -492,11 +492,14 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
     assertThat(repositoryDirectoryValue.getErrorMsg())
         .contains("No repository visible as '@foo' from repository '@@fake_owner_repo'");
+    assertThat(repositoryDirectoryValue.getErrorMsg())
+        .doesNotContain(ExternalPackageHelper.WORKSPACE_DEPRECATION);
   }
 
   @Test
   public void loadInvisibleRepositoryFromMain() throws Exception {
-
+    // Create the WORKSPACE file to trigger error message for WORKSPACE deprecation.
+    scratch.file(rootPath.getRelative("WORKSPACE").getPathString());
     StoredEventHandler eventHandler = new StoredEventHandler();
     SkyKey key =
         RepositoryDirectoryValue.key(
@@ -515,6 +518,8 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     assertThat(repositoryDirectoryValue.repositoryExists()).isFalse();
     assertThat(repositoryDirectoryValue.getErrorMsg())
         .contains("No repository visible as '@foo' from main repository");
+    assertThat(repositoryDirectoryValue.getErrorMsg())
+        .contains(ExternalPackageHelper.WORKSPACE_DEPRECATION);
   }
 
   private void loadRepo(String strippedRepoName) throws InterruptedException {

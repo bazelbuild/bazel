@@ -225,6 +225,10 @@ public final class RepositoryName {
     return ownerRepoIfNotVisible == null;
   }
 
+  public boolean isOwnerRepoMainRepo() {
+    return !isVisible() && ownerRepoIfNotVisible.isMain();
+  }
+
   // Must only be called if isVisible() returns true.
   public String getOwnerRepoDisplayString() {
     Preconditions.checkNotNull(ownerRepoIfNotVisible);

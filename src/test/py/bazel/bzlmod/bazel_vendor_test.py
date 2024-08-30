@@ -261,7 +261,7 @@ class BazelVendorTest(test_base.TestBase):
     self.assertIn(
         "ERROR: Vendoring some repos failed with errors: [Repository '@@nono'"
         " is not defined, No repository visible as '@nana' from main"
-        ' repository]',
+        ' repository.]',
         stderr,
     )
 
