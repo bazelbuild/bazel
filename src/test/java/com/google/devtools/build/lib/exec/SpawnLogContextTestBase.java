@@ -647,7 +647,6 @@ public abstract class SpawnLogContextTestBase {
         defaultTimeout(),
         defaultSpawnResult());
 
-    var builder = defaultSpawnExecBuilder();
     List<File> files =
         new ArrayList<>(
             List.of(
@@ -700,8 +699,11 @@ public abstract class SpawnLogContextTestBase {
               .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/.runfile")
               .build());
     }
-    files.stream().sorted(comparing(File::getPath)).forEach(builder::addInputs);
-    closeAndAssertLog(context, builder.build());
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addAllInputs(files.stream().sorted(comparing(File::getPath)).toList())
+            .build());
   }
 
   @Test
@@ -921,7 +923,8 @@ public abstract class SpawnLogContextTestBase {
         defaultSpawnResult());
 
     // Compact and expanded spawn logs differ in this case, which is deemed acceptable as the build
-    // emits a warning.
+    // at least emits a warning. Starlark rules aren't allowed to register conflicting runfiles with
+    // root symlinks in the first place.
     var expectedContent =
         switch (context) {
           case ExpandedSpawnLogContext ignored -> "symlink_source";

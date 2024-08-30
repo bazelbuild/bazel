@@ -388,9 +388,9 @@ public final class Runfiles implements RunfilesApi {
 
   public Map<PathFragment, Artifact> getAllSymlinksForLogging(
       @Nullable Artifact repoMappingManifest) {
-    // The log consumer can reconstruct the legacy runfiles if needed.
-    ManifestBuilder builder = new ManifestBuilder(suffix, /* legacyExternalRunfiles= */ false);
-    // Avoid creating the empty <workspace>/.runfile file.
+    ManifestBuilder builder = new ManifestBuilder(suffix, legacyExternalRunfiles);
+    // Avoid creating the empty <workspace>/.runfile file as the workspace runfiles directory may
+    // be implicitly created by non-symlink runfiles.
     builder.sawWorkspaceName = true;
     ConflictChecker checker = ConflictChecker.IGNORE_CHECKER;
     builder.addUnderWorkspace(getSymlinksAsMap(checker), checker);

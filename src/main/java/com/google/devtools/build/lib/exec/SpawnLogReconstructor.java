@@ -43,6 +43,16 @@ import javax.annotation.Nullable;
 
 /** Reconstructs an execution log in expanded format from the compact format representation. */
 public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec> {
+  private static final String EXTERNAL_PREFIX =
+      LabelConstants.EXTERNAL_PATH_PREFIX.getPathString() + "/";
+  // Matches paths of source files and generated files under an external repository.
+  private static final Pattern EXTERNAL_PREFIX_PATTERN =
+      Pattern.compile(
+          "(%1$s|(blaze|bazel)-out/[^/]+/[^/]+/%1$s).*".formatted(Pattern.quote(EXTERNAL_PREFIX)));
+  // Matches the prefix of a generated file path.
+  private static final Pattern BAZEL_OUT_PREFIX_PATTERN =
+      Pattern.compile("^(blaze|bazel)-out/[^/]+/[^/]+/");
+
   private final ZstdInputStream in;
 
   private final HashMap<Integer, File> fileMap = new HashMap<>();
@@ -166,7 +176,6 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     ArrayDeque<Integer> setsToVisit = new ArrayDeque<>();
     HashSet<Integer> visited = new HashSet<>();
     boolean hasWorkspaceRunfilesDirectory = false;
-    String externalPrefix = LabelConstants.EXTERNAL_PATH_PREFIX.getPathString() + "/";
     if (setId != 0) {
       setsToVisit.addLast(setId);
       visited.add(setId);
@@ -177,7 +186,8 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
         if (visited.add(fileId)) {
           File file = getFromMap(fileMap, fileId);
           inputs.put(file.getPath(), file);
-          if (!hasWorkspaceRunfilesDirectory && !file.getPath().startsWith(externalPrefix)) {
+          if (!hasWorkspaceRunfilesDirectory
+              && !EXTERNAL_PREFIX_PATTERN.matcher(file.getPath()).matches()) {
             hasWorkspaceRunfilesDirectory = true;
           }
         }
@@ -191,7 +201,8 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
           // This is bug-for-bug compatible with the implementation in Runfiles by considering
           // an empty non-external directory as a runfiles entry under the workspace runfiles
           // directory even though it won't be materialized as one.
-          if (!hasWorkspaceRunfilesDirectory && !dir.getFirst().startsWith(externalPrefix)) {
+          if (!hasWorkspaceRunfilesDirectory
+              && !EXTERNAL_PREFIX_PATTERN.matcher(dir.getFirst()).matches()) {
             hasWorkspaceRunfilesDirectory = true;
           }
         }
@@ -200,7 +211,8 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
         if (visited.add(symlinkId)) {
           File symlink = getFromMap(symlinkMap, symlinkId);
           inputs.put(symlink.getPath(), symlink);
-          if (!hasWorkspaceRunfilesDirectory && !symlink.getPath().startsWith(externalPrefix)) {
+          if (!hasWorkspaceRunfilesDirectory
+              && !EXTERNAL_PREFIX_PATTERN.matcher(symlink.getPath()).matches()) {
             hasWorkspaceRunfilesDirectory = true;
           }
         }
@@ -250,9 +262,12 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     // Preserve the order of the inputs to resolve conflicts in the same order as the real Runfiles
     // implementation.
     var flattenedInputs = reconstructInputs(runfilesTree.getInputSetId(), LinkedHashMap::new);
+    boolean hasWorkspaceRunfilesDirectory = flattenedInputs.hasWorkspaceRunfilesDirectory;
     LinkedHashMap<String, File> builder =
         new LinkedHashMap<>(runfilesTree.getSymlinksCount() + flattenedInputs.inputs.size());
     for (var symlink : runfilesTree.getSymlinksMap().entrySet()) {
+      hasWorkspaceRunfilesDirectory |=
+          symlink.getKey().startsWith(workspaceRunfilesDirectory + "/");
       String newPath = runfilesTree.getPath() + "/" + symlink.getKey();
       for (var file : reconstructRunfilesSymlinkTarget(newPath, symlink.getValue())) {
         builder.put(newPath, file);
@@ -269,19 +284,13 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
                                 .setPath(runfilesTree.getPath() + "/" + relativePath)
                                 .build()))
         .forEach(file -> builder.put(file.getPath(), file));
-    if (!runfilesTree.getLegacyExternalRunfiles()
-        && !flattenedInputs.hasWorkspaceRunfilesDirectory) {
+    if (!runfilesTree.getLegacyExternalRunfiles() && !hasWorkspaceRunfilesDirectory) {
       String dotRunfilePath =
           "%s/%s/.runfile".formatted(runfilesTree.getPath(), workspaceRunfilesDirectory);
       builder.put(dotRunfilePath, File.newBuilder().setPath(dotRunfilePath).build());
     }
     return Pair.of(runfilesTree.getPath(), ImmutableList.copyOf(builder.values()));
   }
-
-  private static final Pattern BAZEL_OUT_PREFIX_PATTERN =
-      Pattern.compile("^(blaze|bazel)-out/[^/]+/[^/]+/");
-  private static final String EXTERNAL_PREFIX =
-      LabelConstants.EXTERNAL_PATH_PREFIX.getPathString() + "/";
 
   private Stream<String> getRunfilesPaths(String originalPath, boolean legacyExternalRunfiles) {
     String path = BAZEL_OUT_PREFIX_PATTERN.matcher(originalPath).replaceFirst("");
