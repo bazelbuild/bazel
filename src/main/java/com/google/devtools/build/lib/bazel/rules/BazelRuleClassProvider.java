@@ -360,8 +360,6 @@ public class BazelRuleClassProvider {
           builder.addStarlarkBootstrap(bootstrap);
 
           try {
-            builder.addWorkspaceFilePrefix(
-                ResourceFileLoader.loadResource(BazelAndroidSemantics.class, "android.WORKSPACE"));
             builder.addWorkspaceFileSuffix(
                 ResourceFileLoader.loadResource(
                     BazelAndroidSemantics.class, "android_remote_tools.WORKSPACE"));

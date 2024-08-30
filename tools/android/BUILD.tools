@@ -260,7 +260,7 @@ java_plugin(
 )
 
 # This is the default value of databinding_annotation_processor if the user does
-# not provide one. Also used by the bind rules in android.WORKSPACE.
+# not provide one.
 filegroup(name = "empty")
 
 alias(

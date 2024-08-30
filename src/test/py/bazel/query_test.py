@@ -45,7 +45,7 @@ class QueryTest(test_base.TestBase):
     self.ScratchFile('MODULE.bazel')
     self._AssertQueryOutputContains(
         "kind('source file', deps(//external:*))",
-        '@bazel_tools//tools/genrule:genrule-setup.sh',
+        '@bazel_tools//tools/build_defs/build_info/templates:volatile_file.h.template',
     )
 
   def testBuildFilesForExternalRepos_Simple(self):
