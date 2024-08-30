@@ -12,17 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository.starlark;
+package com.google.devtools.build.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
-import com.google.devtools.build.skyframe.SkyFunction;
-import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.build.skyframe.SkyframeLookupResult;
-import com.google.devtools.build.skyframe.Version;
+import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
@@ -41,12 +37,14 @@ import javax.annotation.Nullable;
  */
 class WorkerSkyFunctionEnvironment
     implements SkyFunction.Environment, ExtendedEventHandler, SkyframeLookupResult {
-  private final WorkerSkyKeyComputeState<?> state;
   private SkyFunction.Environment delegate;
+  private final InterruptibleSupplier<SkyFunction.Environment> newDelegateSupplier;
 
-  WorkerSkyFunctionEnvironment(WorkerSkyKeyComputeState<?> state) throws InterruptedException {
-    this.state = state;
-    this.delegate = state.delegateEnvQueue.take();
+  WorkerSkyFunctionEnvironment(
+      SkyFunction.Environment initialDelegate,
+      InterruptibleSupplier<SkyFunction.Environment> newDelegateSupplier) {
+    this.delegate = initialDelegate;
+    this.newDelegateSupplier = newDelegateSupplier;
   }
 
   @Override
@@ -60,14 +58,14 @@ class WorkerSkyFunctionEnvironment
     delegate.getValuesAndExceptions(depKeys);
     if (!delegate.valuesMissing()) {
       // Do NOT just return the return value of `delegate.getValuesAndExceptions` here! That would
-      // cause anyone holding onto the returned // result object to potentially use a stale version
+      // cause anyone holding onto the returned result object to potentially use a stale version
       // of it after a skyfunction restart.
       return this;
     }
     // We null out `delegate` before blocking for the fresh env so that the old one becomes
     // eligible for GC.
     delegate = null;
-    delegate = state.signalForFreshEnv();
+    delegate = newDelegateSupplier.get();
     delegate.getValuesAndExceptions(depKeys);
     return this;
   }
@@ -125,7 +123,7 @@ class WorkerSkyFunctionEnvironment
     // We null out `delegate` before blocking for the fresh env so that the old one becomes
     // eligible for GC.
     delegate = null;
-    delegate = state.signalForFreshEnv();
+    delegate = newDelegateSupplier.get();
     return delegate.getValueOrThrow(depKey, e1, e2, e3, e4);
   }
 

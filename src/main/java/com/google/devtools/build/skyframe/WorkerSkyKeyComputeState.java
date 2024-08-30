@@ -12,18 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package com.google.devtools.build.lib.bazel.repository.starlark;
+package com.google.devtools.build.skyframe;
 
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.skyframe.SkyFunction;
+import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
@@ -43,7 +44,7 @@ import javax.annotation.concurrent.GuardedBy;
  * be easily serialized (in particular, if there's an ongoing Starlark evaluation, as is the case in
  * repo fetching).
  */
-class WorkerSkyKeyComputeState<T> implements SkyKeyComputeState {
+public class WorkerSkyKeyComputeState<T> implements SkyKeyComputeState {
 
   /**
    * A semaphore with 0 or 1 permit. The worker can release a permit either when it's finished
@@ -54,7 +55,7 @@ class WorkerSkyKeyComputeState<T> implements SkyKeyComputeState {
    */
   // A Semaphore is useful here because, crucially, releasing a permit never blocks and thus cannot
   // be interrupted.
-  final Semaphore signalSemaphore = new Semaphore(0);
+  private final Semaphore signalSemaphore = new Semaphore(0);
 
   /**
    * The channel for the host Skyframe thread to send fresh {@link SkyFunction.Environment} objects
@@ -62,7 +63,8 @@ class WorkerSkyKeyComputeState<T> implements SkyKeyComputeState {
    */
   // We use an ArrayBlockingQueue of size 1 instead of a SynchronousQueue, so that if the worker
   // gets interrupted before the host thread restarts, the host thread doesn't hang forever.
-  final BlockingQueue<SkyFunction.Environment> delegateEnvQueue = new ArrayBlockingQueue<>(1);
+  private final BlockingQueue<SkyFunction.Environment> delegateEnvQueue =
+      new ArrayBlockingQueue<>(1);
 
   /**
    * This future holds on to the worker thread in order to cancel it when necessary; it also serves
@@ -80,12 +82,61 @@ class WorkerSkyKeyComputeState<T> implements SkyKeyComputeState {
   private ListeningExecutorService workerExecutorService = null;
 
   /**
-   * Releases a permit on the {@code signalSemaphore} and immediately expect a fresh Environment
-   * back. This may only be called from the worker thread.
+   * Represents work that will will be performed on the worker thread, yielding a result of type
+   * {@code T}. The worker thread should exclusively use the provided {@code workerEnv} for Skyframe
+   * access.
    */
-  SkyFunction.Environment signalForFreshEnv() throws InterruptedException {
-    signalSemaphore.release();
-    return delegateEnvQueue.take();
+  @FunctionalInterface
+  public interface WorkerCallable<T> {
+    T call(Environment workerEnv) throws Exception;
+  }
+
+  /**
+   * Starts a worker performing the given {@link WorkerCallable}, or if such a worker already exists
+   * and is waiting for a Skyframe restart, sends over a fresh Environment and asks it to continue
+   * its work. This method blocks until the worker thread finishes (either successfully or
+   * otherwise), <em>or</em> until the worker needs a Skyframe restart, in which case the worker
+   * will suspend itself and wait for the next invocation of this method by a restarted host
+   * SkyFunction with a fresh Environment.
+   *
+   * @param env The Skyframe Environment of the host SkyFunction.
+   * @param workerThreadName The name of the worker thread to be started by this method, if one
+   *     doesn't already exist.
+   * @param workerCallable The work to be performed on the worker thread. Note that code in this
+   *     callable should exclusively use the Environment passed to {@link
+   *     WorkerCallable#call(Environment)}, <em>not</em> the original host Environment.
+   * @return If the worker finishes successfully, this method returns whatever {@code
+   *     workerCallable} returns. If the worker needs a Skyframe restart, returns null.
+   * @throws InterruptedException if the caller (host) thread is interrupted.
+   * @throws CancellationException if the worker thread is interrupted (most likely by {@link
+   *     #close()})
+   * @throws ExecutionException if the worker callable throws an exception.
+   */
+  @Nullable
+  public T startOrContinueWork(
+      Environment env, String workerThreadName, WorkerCallable<T> workerCallable)
+      throws InterruptedException, CancellationException, ExecutionException {
+    ListenableFuture<T> workerFuture = getOrStartWorker(workerThreadName, workerCallable);
+    try {
+      delegateEnvQueue.put(env);
+      signalSemaphore.acquire();
+      if (!workerFuture.isDone()) {
+        // This means that the worker is still running, and expecting a fresh Environment. Return
+        // null to trigger a Skyframe restart, but *don't* shut down the worker executor.
+        return null;
+      }
+      return workerFuture.get();
+    } finally {
+      if (workerFuture.isDone()) {
+        // Unless we know the worker is waiting on a fresh Environment, we should *always* shut
+        // down the worker executor by the time we finish executing (successfully or otherwise).
+        // This ensures that 1) no background work happens without our knowledge, and 2) if the
+        // SkyFunction is re-entered for any reason (for example b/330892334 and
+        // https://github.com/bazelbuild/bazel/issues/21238), we know we'll need to create a new
+        // worker from scratch.
+        close();
+      }
+    }
   }
 
   /**
@@ -94,7 +145,8 @@ class WorkerSkyKeyComputeState<T> implements SkyKeyComputeState {
    * when the worker finishes, successfully or otherwise. This may only be called from the host
    * Skyframe thread.
    */
-  synchronized ListenableFuture<T> getOrStartWorker(String workerThreadName, Callable<T> c) {
+  private synchronized ListenableFuture<T> getOrStartWorker(
+      String workerThreadName, WorkerCallable<T> workerCallable) {
     if (workerFuture != null) {
       return workerFuture;
     }
@@ -110,9 +162,25 @@ class WorkerSkyKeyComputeState<T> implements SkyKeyComputeState {
     delegateEnvQueue.clear();
 
     // Start the worker.
-    workerFuture = workerExecutorService.submit(c);
+    workerFuture =
+        workerExecutorService.submit(
+            () -> {
+              var workerEnv =
+                  new WorkerSkyFunctionEnvironment(
+                      delegateEnvQueue.take(), this::signalForFreshEnv);
+              return workerCallable.call(workerEnv);
+            });
     workerFuture.addListener(signalSemaphore::release, directExecutor());
     return workerFuture;
+  }
+
+  /**
+   * Releases a permit on the {@code signalSemaphore} and immediately expect a fresh Environment
+   * back. This may only be called from the worker thread.
+   */
+  private SkyFunction.Environment signalForFreshEnv() throws InterruptedException {
+    signalSemaphore.release();
+    return delegateEnvQueue.take();
   }
 
   /**
