@@ -59,7 +59,13 @@ filegroup(
 
 filegroup(
     name = "msvc_compiler_files",
-    srcs = [":builtin_include_directory_paths_msvc"]
+    srcs = [
+        ":builtin_include_directory_paths_msvc",
+        "%{msvc_deps_scanner_wrapper_path_x86}",
+        "%{msvc_deps_scanner_wrapper_path_x64}",
+        "%{msvc_deps_scanner_wrapper_path_arm}",
+        "%{msvc_deps_scanner_wrapper_path_arm64}",
+    ]
 )
 
 # Hardcoded toolchain, legacy behaviour.
@@ -315,6 +321,7 @@ cc_toolchain_config(
         "objdump": "wrapper/bin/msvc_nop.bat",
         "strip": "wrapper/bin/msvc_nop.bat",
         "dumpbin": "%{msvc_dumpbin_path_x64}",
+        "cpp-module-deps-scanner": "%{msvc_deps_scanner_wrapper_path_x64}",
     },
     archiver_flags = ["/MACHINE:X64"],
     default_link_flags = ["/MACHINE:X64"],
@@ -383,6 +390,7 @@ cc_toolchain_config(
         "objdump": "wrapper/bin/msvc_nop.bat",
         "strip": "wrapper/bin/msvc_nop.bat",
         "dumpbin": "%{msvc_dumpbin_path_x86}",
+        "cpp-module-deps-scanner": "%{msvc_deps_scanner_wrapper_path_x86}",
     },
     archiver_flags = ["/MACHINE:X86"],
     default_link_flags = ["/MACHINE:X86"],
@@ -451,6 +459,7 @@ cc_toolchain_config(
         "objdump": "wrapper/bin/msvc_nop.bat",
         "strip": "wrapper/bin/msvc_nop.bat",
         "dumpbin": "%{msvc_dumpbin_path_arm}",
+        "cpp-module-deps-scanner": "%{msvc_deps_scanner_wrapper_path_arm}",
     },
     archiver_flags = ["/MACHINE:ARM"],
     default_link_flags = ["/MACHINE:ARM"],
@@ -519,6 +528,7 @@ cc_toolchain_config(
         "objdump": "wrapper/bin/msvc_nop.bat",
         "strip": "wrapper/bin/msvc_nop.bat",
         "dumpbin": "%{msvc_dumpbin_path_arm64}",
+        "cpp-module-deps-scanner": "%{msvc_deps_scanner_wrapper_path_arm64}",
     },
     archiver_flags = ["/MACHINE:ARM64"],
     default_link_flags = ["/MACHINE:ARM64"],

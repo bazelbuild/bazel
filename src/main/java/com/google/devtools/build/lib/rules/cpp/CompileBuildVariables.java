@@ -79,6 +79,10 @@ public enum CompileBuildVariables {
    * @see CcCompilationContext#getFrameworkIncludeDirs().
    */
   FRAMEWORK_PATHS("framework_include_paths"),
+  /** Variable for the c++20 module modmap file name. */
+  CPP_MODULE_MODMAP_FILE("cpp_module_modmap_file"),
+  /** Variable for the c++20 module output file name. */
+  CPP_MODULE_OUTPUT_FILE("cpp_module_output_file"),
   /** Variable for the module map file name. */
   MODULE_MAP_FILE("module_map_file"),
   /** Variable for the dependent module map file name. */
