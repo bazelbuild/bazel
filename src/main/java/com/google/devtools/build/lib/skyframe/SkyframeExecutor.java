@@ -3167,21 +3167,28 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         Profiler.instance().profile("skyframeExecutor.collectActionLookupValuesInBuild")) {
       ActionLookupValuesTraversal alvTraversal = new ActionLookupValuesTraversal();
       if (!tracksStateForIncrementality()) {
-        // If we do not have graph edges, we cannot traverse the graph and find only actions in the
-        // current build. In this case we can simply return all ActionLookupValues in the graph,
-        // since the graph's lifetime is a single build anyway.
-        for (Map.Entry<SkyKey, SkyValue> entry : memoizingEvaluator.getDoneValues().entrySet()) {
-          if ((entry.getKey() instanceof ActionLookupKey) && entry.getValue() != null) {
-            alvTraversal.accumulate((ActionLookupKey) entry.getKey(), entry.getValue());
-          }
-        }
-        return alvTraversal;
+        // For non-incremental builds, do a parallel sweep over the whole graph.
+        memoizingEvaluator
+            .getInMemoryGraph()
+            .parallelForEach(
+                e -> {
+                  if (!(e.getKey() instanceof ActionLookupKey key) || !e.isDone()) {
+                    return;
+                  }
+                  SkyValue value = e.getValue();
+                  if (value == null) {
+                    return; // Error.
+                  }
+                  alvTraversal.accumulate(key, value);
+                });
+      } else {
+        // When incrementality is enabled, traverse the analysis graph top-down. This is slower, but
+        // is necessary to avoid collecting nodes that are in the graph from a previous build, but
+        // unnecessary for this build.
+        // TODO: jhorvitz - We could use the faster parallel sweep on clean builds.
+        new TransitiveActionLookupKeysCollector(SkyframeExecutorWrappingWalkableGraph.of(this))
+            .collect(Iterables.concat(topLevelCtKeys, aspectKeys), alvTraversal);
       }
-
-      Map<ActionLookupKey, SkyValue> foundActions =
-          new TransitiveActionLookupKeysCollector(SkyframeExecutorWrappingWalkableGraph.of(this))
-              .collect(Iterables.concat(topLevelCtKeys, aspectKeys));
-      foundActions.forEach(alvTraversal::accumulate);
       return alvTraversal;
     }
   }
@@ -3663,25 +3670,12 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   /**
-   * A sentinel used in {@link TransitiveActionLookupKeysCollector.VisitActionLookupKey#collected}.
-   *
-   * <p>Since the traversal is concurrent and {@link ActionLookupKey}s can have many reverse
-   * dependencies, it's better to short-circuit before recursively creating a subtask. The presence
-   * of this value indicates that another thread already intends to visit the key.
-   */
-  private static final class ClaimedLookupValueSentinel implements SkyValue {
-    private static final ClaimedLookupValueSentinel INSTANCE = new ClaimedLookupValueSentinel();
-
-    private ClaimedLookupValueSentinel() {}
-  }
-
-  /**
    * Collects the {@link ActionLookupKey} transitive closure of given {@link ActionLookupKey}s.
    *
    * <p>In the non-Skymeld case, this class is constructed and performs one traversal before
    * shutdown at the end of analysis.
    */
-  private static class TransitiveActionLookupKeysCollector {
+  private static final class TransitiveActionLookupKeysCollector {
     private final WalkableGraph walkableGraph;
 
     private TransitiveActionLookupKeysCollector(WalkableGraph walkableGraph) {
@@ -3692,23 +3686,23 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
      * Traverses the transitive closure of {@code visitationRoots} and returns an {@link
      * ActionLookupKey} keyed map to corresponding values for all visited keys.
      */
-    private Map<ActionLookupKey, SkyValue> collect(Iterable<ActionLookupKey> visitationRoots)
+    private void collect(
+        Iterable<ActionLookupKey> visitationRoots, ActionLookupValuesTraversal alvTraversal)
         throws InterruptedException {
       ForkJoinPool executorService =
           NamedForkJoinPool.newNamedPool(
               "find-action-lookup-values-in-build", Runtime.getRuntime().availableProcessors());
-      var collected = new ConcurrentHashMap<ActionLookupKey, SkyValue>();
+      var seen = Sets.<ActionLookupKey>newConcurrentHashSet();
       List<Future<?>> futures = Lists.newArrayListWithCapacity(Iterables.size(visitationRoots));
       for (ActionLookupKey key : visitationRoots) {
-        if (tryClaimVisitation(key, collected)) {
-          futures.add(executorService.submit(new VisitActionLookupKey(key, collected)));
+        if (seen.add(key)) {
+          futures.add(executorService.submit(new VisitActionLookupKey(key, seen, alvTraversal)));
         }
       }
       try {
         for (Future<?> future : futures) {
           future.get();
         }
-        return collected;
       } catch (ExecutionException e) {
         throw new IllegalStateException("Error collecting transitive ActionLookupValues", e);
       } finally {
@@ -3719,25 +3713,18 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       }
     }
 
-    /**
-     * Attempts to claim ownership of {@code key}'s visitation.
-     *
-     * @return false if {@code key} is already included in {@link #globalVisitedSet}, was already
-     *     claimed or has a value.
-     */
-    private boolean tryClaimVisitation(
-        ActionLookupKey key, ConcurrentHashMap<ActionLookupKey, SkyValue> collected) {
-      return collected.putIfAbsent(key, ClaimedLookupValueSentinel.INSTANCE) == null;
-    }
-
-    protected final class VisitActionLookupKey extends RecursiveAction {
+    private final class VisitActionLookupKey extends RecursiveAction {
       private final ActionLookupKey key;
-      private final ConcurrentHashMap<ActionLookupKey, SkyValue> collected;
+      private final Set<ActionLookupKey> seen;
+      private final ActionLookupValuesTraversal alvTraversal;
 
       private VisitActionLookupKey(
-          ActionLookupKey key, ConcurrentHashMap<ActionLookupKey, SkyValue> collected) {
+          ActionLookupKey key,
+          Set<ActionLookupKey> seen,
+          ActionLookupValuesTraversal alvTraversal) {
         this.key = key;
-        this.collected = collected;
+        this.seen = seen;
+        this.alvTraversal = alvTraversal;
       }
 
       @Override
@@ -3749,10 +3736,11 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           Thread.currentThread().interrupt();
         }
         if (value == null) { // The value failed to evaluate.
-          collected.remove(key);
           return;
         }
-        collected.put(key, value);
+
+        alvTraversal.accumulate(key, value);
+
         Iterable<SkyKey> directDeps;
         try {
           directDeps = walkableGraph.getDirectDeps(key);
@@ -3772,8 +3760,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           if (!(dep instanceof ActionLookupKey depKey)) {
             continue;
           }
-          if (tryClaimVisitation(depKey, collected)) {
-            subtasks.add(new VisitActionLookupKey(depKey, collected));
+          if (seen.add(depKey)) {
+            subtasks.add(new VisitActionLookupKey(depKey, seen, alvTraversal));
           }
         }
         invokeAll(subtasks);

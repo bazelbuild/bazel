@@ -17,33 +17,34 @@ import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.NUM_
 
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
-import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.InputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.concurrent.Sharder;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.LongAdder;
 
 /** Represents the traversal of the ActionLookupValues in a build. */
-public class ActionLookupValuesTraversal {
+public final class ActionLookupValuesTraversal {
   // Some metrics indicate this is a rough average # of ALVs in a build.
   private final Sharder<ActionLookupValue> actionLookupValueShards =
       new Sharder<>(NUM_JOBS, /* expectedTotalSize= */ 200_000);
 
   // Metrics.
-  private int configuredObjectCount = 0;
-  private int configuredTargetCount = 0;
-  private int actionCount = 0;
-  private int actionCountNotIncludingAspects = 0;
-  private int inputFileConfiguredTargetCount = 0;
-  private int outputFileConfiguredTargetCount = 0;
-  private int otherConfiguredTargetCount = 0;
+  private final AtomicInteger configuredObjectCount = new AtomicInteger();
+  private final AtomicInteger configuredTargetCount = new AtomicInteger();
+  private final LongAdder actionCount = new LongAdder();
+  private final LongAdder actionCountNotIncludingAspects = new LongAdder();
+  private final AtomicInteger inputFileConfiguredTargetCount = new AtomicInteger();
+  private final AtomicInteger outputFileConfiguredTargetCount = new AtomicInteger();
+  private final AtomicInteger otherConfiguredTargetCount = new AtomicInteger();
 
-  public ActionLookupValuesTraversal() {}
-
+  @ThreadSafe
   void accumulate(ActionLookupKey key, SkyValue value) {
     boolean isConfiguredTarget = value instanceof ConfiguredTargetValue;
     boolean isActionLookupValue = value instanceof ActionLookupValue;
@@ -65,35 +66,33 @@ public class ActionLookupValuesTraversal {
       // will show up again under its own key. Avoids double counting by skipping accumulation.
       return;
     }
-    configuredObjectCount++;
+    configuredObjectCount.incrementAndGet();
     if (isConfiguredTarget) {
-      configuredTargetCount++;
+      configuredTargetCount.incrementAndGet();
     }
     if (isActionLookupValue) {
       ActionLookupValue alv = (ActionLookupValue) value;
       int numActions = alv.getNumActions();
-      actionCount += numActions;
+      actionCount.add(numActions);
       if (isConfiguredTarget) {
-        actionCountNotIncludingAspects += numActions;
+        actionCountNotIncludingAspects.add(numActions);
       }
       actionLookupValueShards.add(alv);
       return;
     }
-    if (!(value instanceof NonRuleConfiguredTargetValue)) {
+    if (!(value instanceof NonRuleConfiguredTargetValue nonRuleVal)) {
       BugReport.sendBugReport(
           new IllegalStateException(
               String.format("Unexpected value type: %s %s %s", value.getClass(), key, value)));
       return;
     }
-    ConfiguredTarget configuredTarget =
-        ((NonRuleConfiguredTargetValue) value).getConfiguredTarget();
-    if (configuredTarget instanceof InputFileConfiguredTarget) {
-      inputFileConfiguredTargetCount++;
-    } else if (configuredTarget instanceof OutputFileConfiguredTarget) {
-      outputFileConfiguredTargetCount++;
-    } else {
-      otherConfiguredTargetCount++;
-    }
+    AtomicInteger counter =
+        switch (nonRuleVal.getConfiguredTarget()) {
+          case InputFileConfiguredTarget input -> inputFileConfiguredTargetCount;
+          case OutputFileConfiguredTarget output -> outputFileConfiguredTargetCount;
+          default -> otherConfiguredTargetCount;
+        };
+    counter.incrementAndGet();
   }
 
   Sharder<ActionLookupValue> getActionLookupValueShards() {
@@ -101,17 +100,17 @@ public class ActionLookupValuesTraversal {
   }
 
   int getActionCount() {
-    return actionCount;
+    return actionCount.intValue();
   }
 
   BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.Builder getMetrics() {
     return BuildEventStreamProtos.BuildMetrics.BuildGraphMetrics.newBuilder()
-        .setActionLookupValueCount(configuredObjectCount)
-        .setActionLookupValueCountNotIncludingAspects(configuredTargetCount)
-        .setActionCount(actionCount)
-        .setActionCountNotIncludingAspects(actionCountNotIncludingAspects)
-        .setInputFileConfiguredTargetCount(inputFileConfiguredTargetCount)
-        .setOutputFileConfiguredTargetCount(outputFileConfiguredTargetCount)
-        .setOtherConfiguredTargetCount(otherConfiguredTargetCount);
+        .setActionLookupValueCount(configuredObjectCount.get())
+        .setActionLookupValueCountNotIncludingAspects(configuredTargetCount.get())
+        .setActionCount(actionCount.intValue())
+        .setActionCountNotIncludingAspects(actionCountNotIncludingAspects.intValue())
+        .setInputFileConfiguredTargetCount(inputFileConfiguredTargetCount.get())
+        .setOutputFileConfiguredTargetCount(outputFileConfiguredTargetCount.get())
+        .setOtherConfiguredTargetCount(otherConfiguredTargetCount.get());
   }
 }
