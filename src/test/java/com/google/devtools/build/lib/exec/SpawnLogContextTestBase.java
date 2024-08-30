@@ -467,7 +467,8 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
-  public void testRunfilesFilesWithMixedRoots() throws Exception {
+  public void testRunfilesFilesWithMixedRoots(@TestParameter boolean legacyExternalRunfiles)
+      throws Exception {
     Artifact sourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/source.txt");
     writeFile(sourceArtifact, "source");
     Artifact genArtifact = ActionsTestUtil.createArtifact(outputDir, "other/pkg/gen.txt");
@@ -484,7 +485,14 @@ public abstract class SpawnLogContextTestBase {
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     RunfilesTree runfilesTree =
         createRunfilesTree(
-            runfilesRoot, sourceArtifact, genArtifact, externalSourceArtifact, externalGenArtifact);
+            runfilesRoot,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            legacyExternalRunfiles,
+            sourceArtifact,
+            genArtifact,
+            externalSourceArtifact,
+            externalGenArtifact);
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
@@ -507,29 +515,40 @@ public abstract class SpawnLogContextTestBase {
         defaultTimeout(),
         defaultSpawnResult());
 
-    closeAndAssertLog(
-        context,
-        defaultSpawnExecBuilder()
-            .addInputs(
-                File.newBuilder()
-                    .setPath(
-                        "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/other/pkg/gen.txt")
-                    .setDigest(getDigest("gen")))
-            .addInputs(
-                File.newBuilder()
-                    .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/pkg/source.txt")
-                    .setDigest(getDigest("source")))
-            .addInputs(
-                File.newBuilder()
-                    .setPath(
-                        "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/other/repo_pkg/gen.txt")
-                    .setDigest(getDigest("external_gen")))
-            .addInputs(
-                File.newBuilder()
-                    .setPath(
-                        "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/repo_pkg/source.txt")
-                    .setDigest(getDigest("external_source")))
-            .build());
+    var builder = defaultSpawnExecBuilder();
+    if (legacyExternalRunfiles) {
+      builder
+          .addInputs(
+              File.newBuilder()
+                  .setPath(
+                      "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/external/some_repo/other/repo_pkg/gen.txt")
+                  .setDigest(getDigest("external_gen")))
+          .addInputs(
+              File.newBuilder()
+                  .setPath(
+                      "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/external/some_repo/repo_pkg/source.txt")
+                  .setDigest(getDigest("external_source")));
+    }
+    builder
+        .addInputs(
+            File.newBuilder()
+                .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/other/pkg/gen.txt")
+                .setDigest(getDigest("gen")))
+        .addInputs(
+            File.newBuilder()
+                .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/pkg/source.txt")
+                .setDigest(getDigest("source")))
+        .addInputs(
+            File.newBuilder()
+                .setPath(
+                    "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/other/repo_pkg/gen.txt")
+                .setDigest(getDigest("external_gen")))
+        .addInputs(
+            File.newBuilder()
+                .setPath(
+                    "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/repo_pkg/source.txt")
+                .setDigest(getDigest("external_source")));
+    closeAndAssertLog(context, builder.build());
   }
 
   @Test
