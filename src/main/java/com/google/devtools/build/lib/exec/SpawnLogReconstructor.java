@@ -30,12 +30,13 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
@@ -139,10 +140,9 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     }
 
     SortedMap<String, File> inputs = new TreeMap<>();
-    visitPostOrder(entry.getInputSetId(), inputs::put, /* hasMainRepoInput= */ true);
+    visitInPostOrder(entry.getInputSetId(), file -> inputs.put(file.getPath(), file), input -> {});
     HashSet<String> toolInputs = new HashSet<>();
-    visitPostOrder(
-        entry.getToolSetId(), (path, file) -> toolInputs.add(path), /* hasMainRepoInput= */ false);
+    visitInPostOrder(entry.getToolSetId(), file -> toolInputs.add(file.getPath()), input -> {});
 
     for (Map.Entry<String, File> e : inputs.entrySet()) {
       File file = e.getValue();
@@ -182,13 +182,10 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     return builder.build();
   }
 
-  private record FlattenedInputSet<T extends Map<String, File>>(
-      T inputs, boolean hasWorkspaceRunfilesDirectory) {}
-
-  private boolean visitPostOrder(
-      int setId, BiConsumer<String, File> consumer, boolean hasMainRepoInput) throws IOException {
+  private void visitInPostOrder(int setId, Consumer<File> visitFile, Consumer<Input> visitInput)
+      throws IOException {
     if (setId == 0) {
-      return hasMainRepoInput;
+      return;
     }
     ArrayDeque<Integer> setsToVisit = new ArrayDeque<>();
     HashMap<Integer, Integer> previousVisitCount = new HashMap<>();
@@ -216,24 +213,17 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
               continue;
             }
             Input input = getInput(inputId);
+            visitInput.accept(input);
             switch (input) {
-              case Input.File(File file) -> consumer.accept(file.getPath(), file);
-              case Input.Directory(String ignored, Collection<File> files) -> {
-                for (File dirFile : files) {
-                  consumer.accept(dirFile.getPath(), dirFile);
-                }
-              }
-              case Input.Symlink(File symlink) -> consumer.accept(symlink.getPath(), symlink);
+              case Input.File(File file) -> visitFile.accept(file);
+              case Input.Symlink(File symlink) -> visitFile.accept(symlink);
+              case Input.Directory(String ignored, Collection<File> files) ->
+                  files.forEach(visitFile);
             }
-            // This is bug-for-bug compatible with the implementation in Runfiles by considering
-            // an empty non-external directory as a runfiles entry under the workspace runfiles
-            // directory even though it won't be materialized as one.
-            hasMainRepoInput |= !EXTERNAL_PREFIX_PATTERN.matcher(input.path()).matches();
           }
         }
       }
     }
-    return hasMainRepoInput;
   }
 
   private Input.Directory reconstructDir(ExecLogEntry.Directory dir) {
@@ -270,24 +260,32 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
 
   private Input.Directory reconstructRunfilesDir(ExecLogEntry.RunfilesTree runfilesTree)
       throws IOException {
-    // Preserve the order of the inputs to resolve conflicts in the same order as the real Runfiles
-    // implementation.
-    LinkedHashMap<String, File> builder = new LinkedHashMap<>();
-    boolean hasWorkspaceRunfilesDirectory = false;
+    // Preserve the order of the symlinks and artifacts to resolve conflicts in the same order as
+    // the real Runfiles implementation. See comment in CompactSpawnLogContext#logRunfilesTree
+    // for more details.
+    LinkedHashMap<String, File> runfiles = new LinkedHashMap<>();
+    final boolean[] hasWorkspaceRunfilesDirectory = {false};
+
     for (var symlink : runfilesTree.getSymlinkTargetIdMap().entrySet()) {
-      hasWorkspaceRunfilesDirectory |=
+      hasWorkspaceRunfilesDirectory[0] |=
           symlink.getKey().startsWith(workspaceRunfilesDirectory + "/");
       String newPath = runfilesTree.getPath() + "/" + symlink.getKey();
       for (var file : reconstructRunfilesSymlinkTarget(newPath, symlink.getValue())) {
-        builder.put(newPath, file);
+        runfiles.put(newPath, file);
       }
     }
-    LinkedHashMap<String, File> flattenedInputs = new LinkedHashMap<>();
-    hasWorkspaceRunfilesDirectory =
-        visitPostOrder(
-            runfilesTree.getInputSetId(), flattenedInputs::put, hasWorkspaceRunfilesDirectory);
-    Collection<File> inputs = flattenedInputs.values();
-    inputs.stream()
+
+    LinkedHashSet<File> flattenedArtifacts = new LinkedHashSet<>();
+    visitInPostOrder(
+        runfilesTree.getInputSetId(),
+        flattenedArtifacts::add,
+        // This is bug-for-bug compatible with the implementation in Runfiles by considering
+        // an empty non-external directory as a runfiles entry under the workspace runfiles
+        // directory even though it won't be materialized as one.
+        input ->
+            hasWorkspaceRunfilesDirectory[0] |=
+                !EXTERNAL_PREFIX_PATTERN.matcher(input.path()).matches());
+    flattenedArtifacts.stream()
         .flatMap(
             file ->
                 getRunfilesPaths(file.getPath(), runfilesTree.getLegacyExternalRunfiles())
@@ -296,13 +294,13 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
                             file.toBuilder()
                                 .setPath(runfilesTree.getPath() + "/" + relativePath)
                                 .build()))
-        .forEach(file -> builder.put(file.getPath(), file));
-    if (!runfilesTree.getLegacyExternalRunfiles() && !hasWorkspaceRunfilesDirectory) {
+        .forEach(file -> runfiles.put(file.getPath(), file));
+    if (!runfilesTree.getLegacyExternalRunfiles() && !hasWorkspaceRunfilesDirectory[0]) {
       String dotRunfilePath =
           "%s/%s/.runfile".formatted(runfilesTree.getPath(), workspaceRunfilesDirectory);
-      builder.put(dotRunfilePath, File.newBuilder().setPath(dotRunfilePath).build());
+      runfiles.put(dotRunfilePath, File.newBuilder().setPath(dotRunfilePath).build());
     }
-    return new Input.Directory(runfilesTree.getPath(), ImmutableList.copyOf(builder.values()));
+    return new Input.Directory(runfilesTree.getPath(), ImmutableList.copyOf(runfiles.values()));
   }
 
   private Stream<String> getRunfilesPaths(String originalPath, boolean legacyExternalRunfiles) {
