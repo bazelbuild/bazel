@@ -653,7 +653,7 @@ public abstract class SpawnLogContextTestBase {
 
     List<File> files =
         new ArrayList<>(
-            List.of(
+            ImmutableList.of(
                 File.newBuilder()
                     .setPath(
                         "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/%s/root_symlink"
@@ -956,7 +956,8 @@ public abstract class SpawnLogContextTestBase {
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
-    var artifacts = symlinkFirst ? List.of(symlink, file) : List.of(file, symlink);
+    var artifacts =
+        symlinkFirst ? ImmutableList.of(symlink, file) : ImmutableList.of(file, symlink);
     RunfilesTree runfilesTree =
         createRunfilesTree(
             runfilesRoot,
@@ -997,21 +998,39 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
-  public void testRunfilesPostOrderCollision() throws Exception {
+  public void testRunfilesPostOrderCollision(@TestParameter boolean nestBoth) throws Exception {
     Artifact sourceFile = ActionsTestUtil.createArtifact(rootDir, "pkg/file.txt");
     writeFile(sourceFile, "source");
     Artifact genFile = ActionsTestUtil.createArtifact(outputDir, "pkg/file.txt");
     writeFile(genFile, "gen");
+    Artifact otherSourceFile = ActionsTestUtil.createArtifact(rootDir, "pkg/other_file.txt");
+    writeFile(otherSourceFile, "other_source");
+    Artifact otherGenFile = ActionsTestUtil.createArtifact(outputDir, "pkg/other_file.txt");
+    writeFile(otherGenFile, "other_gen");
 
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
-    var artifacts =
+    var artifactsBuilder =
         NestedSetBuilder.<Artifact>compileOrder()
-            .addTransitive(NestedSetBuilder.wrap(Order.COMPILE_ORDER, List.of(sourceFile)))
-            .add(genFile)
-            .build();
-    assertThat(artifacts.toList()).containsExactly(sourceFile, genFile).inOrder();
+            .addTransitive(
+                NestedSetBuilder.wrap(
+                    Order.COMPILE_ORDER, ImmutableList.of(sourceFile, otherGenFile)));
+    var remainingArtifacts = ImmutableList.of(genFile, otherSourceFile);
+    if (nestBoth) {
+      artifactsBuilder.addTransitive(
+          NestedSetBuilder.wrap(Order.COMPILE_ORDER, remainingArtifacts));
+    } else {
+      artifactsBuilder.addAll(remainingArtifacts);
+    }
+    var artifacts = artifactsBuilder.build();
+    assertThat(artifacts.toList())
+        .containsExactly(sourceFile, otherGenFile, genFile, otherSourceFile)
+        .inOrder();
+    if (nestBoth) {
+      assertThat(artifacts.getNonLeaves()).hasSize(2);
+    }
+
     RunfilesTree runfilesTree =
         createRunfilesTree(
             runfilesRoot,
@@ -1028,6 +1047,8 @@ public abstract class SpawnLogContextTestBase {
     inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
     inputMetadataProvider.put(sourceFile, FileArtifactValue.createForTesting(sourceFile));
     inputMetadataProvider.put(genFile, FileArtifactValue.createForTesting(genFile));
+    inputMetadataProvider.put(otherSourceFile, FileArtifactValue.createForTesting(otherSourceFile));
+    inputMetadataProvider.put(otherGenFile, FileArtifactValue.createForTesting(otherGenFile));
 
     context.logSpawn(
         spawn,
@@ -1044,6 +1065,11 @@ public abstract class SpawnLogContextTestBase {
                 File.newBuilder()
                     .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/pkg/file.txt")
                     .setDigest(getDigest("gen")))
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/pkg/other_file.txt")
+                    .setDigest(getDigest("other_source")))
             .build());
   }
 
