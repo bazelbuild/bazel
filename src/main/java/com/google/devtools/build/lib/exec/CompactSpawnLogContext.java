@@ -417,6 +417,17 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * Logs a file.
    *
    * @param input the input representing the file.
+   * @return the entry ID of the {@link ExecLogEntry.File} describing the file.
+   */
+  private int logFile(Artifact input, InputMetadataProvider inputMetadataProvider)
+      throws IOException, InterruptedException {
+    return logFile(input, input.getPath(), inputMetadataProvider);
+  }
+
+  /**
+   * Logs a file.
+   *
+   * @param input the input representing the file.
    * @param path the path to the file, which must have already been verified to be of the correct
    *     type.
    * @return the entry ID of the {@link ExecLogEntry.File} describing the file.
@@ -446,6 +457,20 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
           return ExecLogEntry.newBuilder().setFile(builder);
         });
+  }
+
+  /**
+   * Logs a directory.
+   *
+   * <p>This may be either a source directory, a fileset or an output directory. For runfiles,
+   * {@link #logRunfilesTree} must be used instead.
+   *
+   * @param input the input representing the directory.
+   * @return the entry ID of the {@link ExecLogEntry.Directory} describing the directory.
+   */
+  private int logDirectory(Artifact input, InputMetadataProvider inputMetadataProvider)
+      throws IOException, InterruptedException {
+    return logDirectory(input, input.getPath(), inputMetadataProvider);
   }
 
   /**
@@ -515,23 +540,22 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                   ImmutableList.of(),
                   inputMetadataProvider,
                   fileSystem,
-                  // The runfiles tree itself is shared, but the nested set is unique as it contains
-                  // the executable.
+                  // The runfiles tree itself is shared, but the nested set is unique to the tree as
+                  // it contains the executable.
                   /* shared= */ false));
 
           for (Map.Entry<PathFragment, Artifact> entry :
               runfilesTree.getAllSymlinksForLogging().entrySet()) {
             PathFragment relativePath = entry.getKey();
             Artifact artifact = entry.getValue();
-            Path path = fileSystem.getPath(execRoot.getRelative(relativePath));
             int targetId;
             if (artifact.isSymlink()) {
-              targetId = logUnresolvedSymlink(artifact, path);
-            } else if (isInputDirectory(artifact, path, inputMetadataProvider)) {
+              targetId = logUnresolvedSymlink(artifact);
+            } else if (isInputDirectory(artifact, inputMetadataProvider)) {
               // TODO(tjgq): Tighten once --incompatible_disallow_unsound_directory_outputs is gone.
-              targetId = logDirectory(artifact, path, inputMetadataProvider);
+              targetId = logDirectory(artifact, inputMetadataProvider);
             } else {
-              targetId = logFile(artifact, path, inputMetadataProvider);
+              targetId = logFile(artifact, inputMetadataProvider);
             }
             builder.putSymlinkTargetId(relativePath.getPathString(), targetId);
           }
@@ -588,6 +612,17 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     files.sort(EXEC_LOG_ENTRY_FILE_COMPARATOR);
 
     return files;
+  }
+
+  /**
+   * Logs an unresolved symlink.
+   *
+   * @param input the input representing the unresolved symlink.
+   * @return the entry ID of the {@link ExecLogEntry.UnresolvedSymlink} describing the unresolved
+   *     symlink.
+   */
+  private int logUnresolvedSymlink(Artifact input) throws IOException, InterruptedException {
+    return logUnresolvedSymlink(input, input.getPath());
   }
 
   /**

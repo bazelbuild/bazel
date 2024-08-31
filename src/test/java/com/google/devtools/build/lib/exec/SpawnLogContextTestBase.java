@@ -1074,6 +1074,88 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
+  public void testRunfilesSymlinkTargets(@TestParameter boolean rootSymlinks) throws Exception {
+    Artifact sourceFile = ActionsTestUtil.createArtifact(rootDir, "pkg/file.txt");
+    writeFile(sourceFile, "source");
+    Artifact sourceDir = ActionsTestUtil.createArtifact(rootDir, "pkg/source_dir");
+    sourceDir.getPath().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(
+        sourceDir.getPath().getRelative("some_file"), "source_dir_file");
+    Artifact genDir =
+        ActionsTestUtil.createTreeArtifactWithGeneratingAction(outputDir, "pkg/gen_dir");
+    genDir.getPath().createDirectoryAndParents();
+    FileSystemUtils.writeContentAsLatin1(
+        genDir.getPath().getRelative("other_file"), "gen_dir_file");
+    Artifact symlink = ActionsTestUtil.createUnresolvedSymlinkArtifact(outputDir, "pkg/symlink");
+    symlink.getPath().getParentDirectory().createDirectoryAndParents();
+    symlink.getPath().createSymbolicLink(PathFragment.create("/some/path"));
+
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
+    RunfilesTree runfilesTree =
+        createRunfilesTree(
+            runfilesRoot,
+            rootSymlinks
+                ? ImmutableMap.of()
+                : ImmutableMap.of(
+                    "file", sourceFile,
+                    "source_dir", sourceDir,
+                    "gen_dir", genDir,
+                    "symlink", symlink),
+            rootSymlinks
+                ? ImmutableMap.of(
+                    "_main/file", sourceFile,
+                    "_main/source_dir", sourceDir,
+                    "_main/gen_dir", genDir,
+                    "_main/symlink", symlink)
+                : ImmutableMap.of(),
+            /* legacyExternalRunfiles= */ false);
+
+    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
+    inputMetadataProvider.put(sourceFile, FileArtifactValue.createForTesting(sourceFile));
+    inputMetadataProvider.put(sourceDir, FileArtifactValue.createForTesting(sourceDir));
+    inputMetadataProvider.put(genDir, FileArtifactValue.createForTesting(genDir));
+    inputMetadataProvider.put(symlink, FileArtifactValue.createForUnresolvedSymlink(symlink));
+
+    context.logSpawn(
+        spawn,
+        inputMetadataProvider,
+        createInputMap(runfilesTree),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/file")
+                    .setDigest(getDigest("source")))
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/gen_dir/other_file")
+                    .setDigest(getDigest("gen_dir_file")))
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        "bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/source_dir/some_file")
+                    .setDigest(getDigest("source_dir_file")))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/symlink")
+                    .setSymlinkTargetPath("/some/path"))
+            .build());
+  }
+
+  @Test
   public void testFilesetInput(@TestParameter DirContents dirContents) throws Exception {
     Artifact filesetInput =
         SpecialArtifact.create(
