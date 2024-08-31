@@ -77,9 +77,11 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       NamedForkJoinPool.newNamedPool(
           "execlog-directory-visitor", Runtime.getRuntime().availableProcessors());
 
-  private static final int EMPTY_FILE_SYMLINK_TARGET_ID = -1;
-
-  private static final Object DONT_KEEP = new Object();
+  /**
+   * A special key to indicate that an entry should be assigned an ID, but it doesn't have to be
+   * stored since it will likely be referenced only by the immediate caller of {@link #logEntry}.
+   */
+  private static final Object NOT_SHARED = new Object();
 
   /** Visitor for use in {@link #visitDirectory}. */
   protected interface DirectoryChildVisitor {
@@ -368,7 +370,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     }
 
     return logEntry(
-        shared ? set.toNode() : DONT_KEEP,
+        shared ? set.toNode() : NOT_SHARED,
         () -> {
           ExecLogEntry.InputSet.Builder builder =
               ExecLogEntry.InputSet.newBuilder().addAllInputIds(additionalDirectoryIds);
@@ -425,7 +427,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
     return logEntry(
         // A ParamFileActionInput is never shared between spawns.
-        input instanceof ParamFileActionInput ? DONT_KEEP : input.getExecPathString(),
+        input instanceof ParamFileActionInput ? NOT_SHARED : input.getExecPathString(),
         () -> {
           ExecLogEntry.File.Builder builder = ExecLogEntry.File.newBuilder();
 
@@ -522,8 +524,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
             PathFragment relativePath = entry.getKey();
             Artifact artifact = entry.getValue();
             Path path = fileSystem.getPath(execRoot.getRelative(relativePath));
-            // Since these files have been consumed by the spawn, we trust their type without
-            // filesystem checks.
             int targetId;
             if (artifact.isSymlink()) {
               targetId = logUnresolvedSymlink(artifact, path);
@@ -543,9 +543,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
             // have to copy and sort the symlinks map here.
             var symlinks = new TreeMap<>(builder.getSymlinkTargetIdMap());
             for (String emptyFilename : emptyFilenames.toList()) {
-              symlinks.put(
-                  PathFragment.create(workspaceName).getRelative(emptyFilename).getPathString(),
-                  EMPTY_FILE_SYMLINK_TARGET_ID);
+              symlinks.put(workspaceName + "/" + emptyFilename, 0);
             }
             builder.clearSymlinkTargetId();
             builder.putAllSymlinkTargetId(symlinks);
@@ -627,14 +625,17 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private synchronized int logEntry(@Nullable Object key, ExecLogEntrySupplier supplier)
       throws IOException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile("logEntry/synchronized")) {
-      if (key == DONT_KEEP) {
-        // No need to check for a previously added entry.
-        int id = nextEntryId++;
-        outputStream.write(supplier.get().setId(id).build());
-        return id;
-      } else if (key == null) {
+      if (key == null) {
+        // The entry is never referenced, don't assign an ID.
         outputStream.write(supplier.get().build());
         return -1;
+      } else if (key == NOT_SHARED) {
+        // The entry is referenced, but only by the immediate caller, so we don't store it. Call the
+        // supplier before increasing the entry ID to ensure that IDs are assigned in order.
+        ExecLogEntry.Builder entry = supplier.get();
+        int id = nextEntryId++;
+        outputStream.write(entry.setId(id).build());
+        return id;
       }
 
       checkState(key instanceof NestedSet.Node || key instanceof String);

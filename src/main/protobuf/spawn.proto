@@ -284,7 +284,7 @@ message ExecLogEntry {
     // The paths relative to the tree path that are symlinked to custom
     // locations. The target of a symlink is either a file, a directory, an
     // unresolved symlink (all referenced by ID), or an empty file (represented
-    // by an id of -1).
+    // by an id of 0).
     map<string, int32> symlink_target_id = 3;
     // Whether the runfiles tree contains external runfiles at their legacy
     // locations (e.g. _main/external/bazel_tools/tools/bash/runfiles.bash).
@@ -391,8 +391,9 @@ message ExecLogEntry {
     string mnemonic = 4;
   }
 
-  // The entry ID. Must be nonzero and unique within a log if referenced by
-  // other entries. Producers aim to assign IDs in increasing order.
+  // If nonzero, then this entry may be referenced by later entries by this ID.
+  // Nonzero IDs must be strictly monotonically increasing within a log and
+  // should be consecutive to simplify bookkeeping for consumers.
   int32 id = 1;
 
   // The entry payload.

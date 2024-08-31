@@ -22,10 +22,10 @@ import com.google.devtools.build.lib.exec.Protos.ExecLogEntry;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.util.io.MessageInputStream;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -53,22 +53,36 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
 
   private final ZstdInputStream in;
 
-  sealed interface Input {
-    record File(Protos.File file) implements Input {}
+  private sealed interface Input {
+    String path();
+
+    record File(Protos.File file) implements Input {
+      @Override
+      public String path() {
+        return file.getPath();
+      }
+    }
+
+    record Symlink(Protos.File symlink) implements Input {
+      @Override
+      public String path() {
+        return symlink.getPath();
+      }
+    }
 
     record Directory(String path, Collection<Protos.File> files) implements Input {}
-
-    record Symlink(Protos.File symlink) implements Input {}
-
-    record InputSet(ExecLogEntry.InputSet inputSet) implements Input {}
   }
 
-  private final Int2ObjectOpenHashMap<Input> inputMap = new Int2ObjectOpenHashMap<>();
+  // Stores both Inputs and InputSets. Bazel uses consecutive IDs starting from 1, so we can use
+  // an ArrayList to store them together efficiently.
+  private final ArrayList<Object> inputMap = new ArrayList<>();
   private String hashFunctionName = "";
   private String workspaceRunfilesDirectory = "";
 
   public SpawnLogReconstructor(InputStream in) throws IOException {
     this.in = new ZstdInputStream(in);
+    // Add a null entry for the 0th index as IDs are 1-based.
+    inputMap.add(null);
   }
 
   @Override
@@ -81,13 +95,13 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
           hashFunctionName = entry.getInvocation().getHashFunctionName();
           workspaceRunfilesDirectory = entry.getInvocation().getWorkspaceRunfilesDirectory();
         }
-        case FILE -> inputMap.put(entry.getId(), reconstructFile(entry.getFile()));
-        case DIRECTORY -> inputMap.put(entry.getId(), reconstructDir(entry.getDirectory()));
+        case FILE -> putInput(entry.getId(), reconstructFile(entry.getFile()));
+        case DIRECTORY -> putInput(entry.getId(), reconstructDir(entry.getDirectory()));
         case UNRESOLVED_SYMLINK ->
-            inputMap.put(entry.getId(), reconstructSymlink(entry.getUnresolvedSymlink()));
+            putInput(entry.getId(), reconstructSymlink(entry.getUnresolvedSymlink()));
         case RUNFILES_TREE ->
-            inputMap.put(entry.getId(), reconstructRunfilesDir(entry.getRunfilesTree()));
-        case INPUT_SET -> inputMap.put(entry.getId(), new Input.InputSet(entry.getInputSet()));
+            putInput(entry.getId(), reconstructRunfilesDir(entry.getRunfilesTree()));
+        case INPUT_SET -> putInputSet(entry.getId(), entry.getInputSet());
         case SPAWN -> {
           return reconstructSpawnExec(entry.getSpawn());
         }
@@ -140,22 +154,13 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     for (ExecLogEntry.Output output : entry.getOutputsList()) {
       switch (output.getTypeCase()) {
         case OUTPUT_ID -> {
-          switch (getInput(output.getOutputId())) {
-            case Input.File(File file) -> {
-              listedOutputs.add(file.getPath());
-              builder.addActualOutputs(file);
-            }
-            case Input.Symlink(File symlink) -> {
-              listedOutputs.add(symlink.getPath());
-              builder.addActualOutputs(symlink);
-            }
-            case Input.Directory(String path, Collection<File> files) -> {
-              listedOutputs.add(path);
-              builder.addAllActualOutputs(files);
-            }
-            case Input.InputSet ignored -> {
-              throw new IOException("output %d is an input set".formatted(output.getOutputId()));
-            }
+          Input input = getInput(output.getOutputId());
+          listedOutputs.add(input.path());
+          switch (input) {
+            case Input.File(File file) -> builder.addActualOutputs(file);
+            case Input.Symlink(File symlink) -> builder.addActualOutputs(symlink);
+            case Input.Directory(String ignored, Collection<File> files) ->
+                builder.addAllActualOutputs(files);
           }
         }
         case INVALID_OUTPUT_PATH -> listedOutputs.add(output.getInvalidOutputPath());
@@ -193,32 +198,20 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
         if (!visited.add(inputId)) {
           continue;
         }
-        String path;
-        switch (getInput(inputId)) {
-          case Input.File(File file) -> {
-            inputs.put(file.getPath(), file);
-            path = file.getPath();
-          }
-          case Input.Directory(String dirPath, Collection<File> files) -> {
+        Input input = getInput(inputId);
+        switch (input) {
+          case Input.File(File file) -> inputs.put(file.getPath(), file);
+          case Input.Directory(String ignored, Collection<File> files) -> {
             for (File dirFile : files) {
               inputs.put(dirFile.getPath(), dirFile);
             }
-            path = dirPath;
           }
-          case Input.Symlink(File symlink) -> {
-            inputs.put(symlink.getPath(), symlink);
-            path = symlink.getPath();
-          }
-          case Input.InputSet ignored -> {
-            throw new IOException("input %d is an input set".formatted(inputId));
-          }
+          case Input.Symlink(File symlink) -> inputs.put(symlink.getPath(), symlink);
         }
         // This is bug-for-bug compatible with the implementation in Runfiles by considering
         // an empty non-external directory as a runfiles entry under the workspace runfiles
         // directory even though it won't be materialized as one.
-        if (!hasWorkspaceRunfilesDirectory && !EXTERNAL_PREFIX_PATTERN.matcher(path).matches()) {
-          hasWorkspaceRunfilesDirectory = true;
-        }
+        hasWorkspaceRunfilesDirectory |= !EXTERNAL_PREFIX_PATTERN.matcher(input.path()).matches();
       }
       for (int transitiveSetId : set.getTransitiveSetIdsList()) {
         if (visited.add(transitiveSetId)) {
@@ -311,7 +304,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
 
   private Collection<File> reconstructRunfilesSymlinkTarget(String newPath, int targetId)
       throws IOException {
-    if (targetId == -1) {
+    if (targetId == 0) {
       return ImmutableList.of(File.newBuilder().setPath(newPath).build());
     }
     return switch (getInput(targetId)) {
@@ -326,28 +319,59 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
                           .setPath(newPath + file.getPath().substring(path.length()))
                           .build())
               .collect(toImmutableList());
-      case Input.InputSet ignored ->
-          throw new IOException("symlink target of %s is an input set".formatted(newPath));
     };
   }
 
-  private Input getInput(int id) throws IOException {
-    Input value = inputMap.get(id);
-    if (value == null) {
-      throw new IOException(String.format("referenced input %d is missing", id));
+  private void putInput(int id, Input input) throws IOException {
+    putEntry(id, input);
+  }
+
+  private void putInputSet(int id, ExecLogEntry.InputSet inputSet) throws IOException {
+    putEntry(id, inputSet);
+  }
+
+  private void putEntry(int id, Object entry) throws IOException {
+    if (id == 0) {
+      // The entry won't be referenced, so we don't need to store it.
+      return;
     }
-    return value;
+    // Execution logs emitted by Bazel always use consecutive IDs starting from 1, but we don't
+    // want to rely on that.
+    if (inputMap.size() > id) {
+      throw new IOException(
+          "ids must be strictly monotonically increasing, got %d <= %d"
+              .formatted(id, inputMap.size()));
+    }
+    while (inputMap.size() < id) {
+      inputMap.add(null);
+    }
+    inputMap.add(
+        switch (entry) {
+          // Unwrap trivial wrappers to reduce retained memory usage.
+          case Input.File file -> file.file;
+          case Input.Symlink symlink -> symlink.symlink;
+          default -> entry;
+        });
+  }
+
+  private Input getInput(int id) throws IOException {
+    Object value = inputMap.get(id);
+    return switch (value) {
+      case Input input -> input;
+      case Protos.File file ->
+          file.getSymlinkTargetPath().isEmpty() ? new Input.File(file) : new Input.Symlink(file);
+      case null -> throw new IOException("referenced input %d is missing".formatted(id));
+      default -> throw new IOException("entry %d is not an input: %s".formatted(id, value));
+    };
   }
 
   private ExecLogEntry.InputSet getInputSet(int id) throws IOException {
-    Input value = inputMap.get(id);
-    if (value == null) {
-      throw new IOException(String.format("referenced entry %d is missing", id));
-    }
-    if (!(value instanceof Input.InputSet inputSet)) {
-      throw new IOException(String.format("entry %d is not an input set", id));
-    }
-    return inputSet.inputSet;
+    Object value = inputMap.get(id);
+    return switch (value) {
+      case ExecLogEntry.InputSet inputSet -> inputSet;
+      case null -> throw new IOException("referenced input set %d is missing".formatted(id));
+      default -> throw new IOException("entry %d is not an input set: %s".formatted(id, value));
+    };
   }
 
   @Override
