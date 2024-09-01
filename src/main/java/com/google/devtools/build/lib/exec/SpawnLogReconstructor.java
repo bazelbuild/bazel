@@ -349,15 +349,10 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
       // The entry won't be referenced, so we don't need to store it.
       return;
     }
-    // Execution logs emitted by Bazel always use consecutive IDs starting from 1, but we don't
-    // want to rely on that.
-    if (inputMap.size() > id) {
+    // Bazel emits consecutive non-zero IDs.
+    if (id != inputMap.size()) {
       throw new IOException(
-          "ids must be strictly monotonically increasing, got %d <= %d"
-              .formatted(id, inputMap.size()));
-    }
-    while (inputMap.size() < id) {
-      inputMap.add(null);
+          "ids must be consecutive, got %d after %d".formatted(id, inputMap.size()));
     }
     inputMap.add(
         switch (entry) {
