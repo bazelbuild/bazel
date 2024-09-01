@@ -714,6 +714,35 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   }
 
   @Test
+  public void hardcodedDefaultAttrValue_isUsedWhenNotOverriddenAndAttrHasNoUserSpecifiedDefault()
+      throws Exception {
+
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, dep):
+            print("dep is %s" % dep)
+        my_macro = macro(
+            implementation=_impl,
+            attrs = {
+              # Test label type, since LabelType#getDefaultValue returns null.
+              "dep": attr.label(configurable=False)
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    assertContainsEvent("dep is None");
+  }
+
+  @Test
   public void defaultAttrValue_isUsedWhenNotOverridden() throws Exception {
     scratch.file(
         "pkg/foo.bzl",

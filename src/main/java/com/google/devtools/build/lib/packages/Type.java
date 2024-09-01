@@ -179,6 +179,7 @@ public abstract class Type<T> {
    * Returns the default value for this type; may return null iff no default is defined for this
    * type.
    */
+  @Nullable
   public abstract T getDefaultValue();
 
   /**

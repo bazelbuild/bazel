@@ -1774,7 +1774,7 @@ public final class Attribute implements Comparable<Attribute> {
   // 5. defaultValue instanceof LateBoundDefault &&
   //    type.isValid(defaultValue.getDefault(configuration))
   // (We assume a hypothetical Type.isValid(Object) predicate.)
-  private final Object defaultValue;
+  @Nullable private final Object defaultValue;
 
   private final TransitionFactory<AttributeTransitionData> transitionFactory;
 
@@ -2140,6 +2140,7 @@ public final class Attribute implements Comparable<Attribute> {
    * Returns the default value of this attribute, even if it is a computed default, or a late-bound
    * default.
    */
+  @Nullable
   public Object getDefaultValueUnchecked() {
     return defaultValue;
   }
