@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.XattrProvider;
-import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.errorprone.annotations.CheckReturnValue;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -76,12 +76,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private static final ForkJoinPool VISITOR_POOL =
       NamedForkJoinPool.newNamedPool(
           "execlog-directory-visitor", Runtime.getRuntime().availableProcessors());
-
-  /**
-   * A special key to indicate that an entry should be assigned an ID, but it doesn't have to be
-   * stored since it will likely be referenced only by the immediate caller of {@link #logEntry}.
-   */
-  private static final Object NOT_SHARED = new Object();
 
   /** Visitor for use in {@link #visitDirectory}. */
   protected interface DirectoryChildVisitor {
@@ -189,8 +183,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   }
 
   private void logInvocation() throws IOException, InterruptedException {
-    logEntry(
-        null,
+    logEntryWithoutId(
         () ->
             ExecLogEntry.newBuilder()
                 .setInvocation(
@@ -266,7 +259,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       builder.setMetrics(getSpawnMetricsProto(result));
 
       try (SilentCloseable c1 = Profiler.instance().profile("logEntry")) {
-        logEntry(null, () -> ExecLogEntry.newBuilder().setSpawn(builder));
+        logEntryWithoutId(() -> ExecLogEntry.newBuilder().setSpawn(builder));
       }
     }
   }
@@ -292,7 +285,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       builder.setMnemonic(action.getMnemonic());
 
       try (SilentCloseable c1 = Profiler.instance().profile("logEntry")) {
-        logEntry(null, () -> ExecLogEntry.newBuilder().setSymlinkAction(builder));
+        logEntryWithoutId(() -> ExecLogEntry.newBuilder().setSymlinkAction(builder));
       }
     }
   }
@@ -370,7 +363,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     }
 
     return logEntry(
-        shared ? set.toNode() : NOT_SHARED,
+        shared ? set.toNode() : null,
         () -> {
           ExecLogEntry.InputSet.Builder builder =
               ExecLogEntry.InputSet.newBuilder().addAllInputIds(additionalDirectoryIds);
@@ -438,7 +431,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
     return logEntry(
         // A ParamFileActionInput is never shared between spawns.
-        input instanceof ParamFileActionInput ? NOT_SHARED : input.getExecPathString(),
+        input instanceof ParamFileActionInput ? null : input.getExecPathString(),
         () -> {
           ExecLogEntry.File.Builder builder = ExecLogEntry.File.newBuilder();
 
@@ -647,6 +640,16 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   }
 
   /**
+   * Ensures an entry is written to the log without an ID.
+   *
+   * @param supplier called to compute the entry; may cause other entries to be logged
+   */
+  private synchronized void logEntryWithoutId(ExecLogEntrySupplier supplier)
+      throws IOException, InterruptedException {
+    outputStream.write(supplier.get().build());
+  }
+
+  /**
    * Ensures an entry is written to the log and returns its assigned ID.
    *
    * <p>If an entry with the same non-null key was previously added to the log, its recorded ID is
@@ -656,17 +659,12 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * @param supplier called to compute the entry; may cause other entries to be logged
    * @return the entry ID
    */
-  @CanIgnoreReturnValue
+  @CheckReturnValue
   private synchronized int logEntry(@Nullable Object key, ExecLogEntrySupplier supplier)
       throws IOException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile("logEntry/synchronized")) {
       if (key == null) {
-        // The entry is never referenced, don't assign an ID.
-        outputStream.write(supplier.get().build());
-        return -1;
-      } else if (key == NOT_SHARED) {
-        // The entry is referenced, but only by the immediate caller, so we don't store it. Call the
-        // supplier before increasing the entry ID to ensure that IDs are assigned in order.
+        // No need to check for a previously added entry.
         ExecLogEntry.Builder entry = supplier.get();
         int id = nextEntryId++;
         outputStream.write(entry.setId(id).build());
