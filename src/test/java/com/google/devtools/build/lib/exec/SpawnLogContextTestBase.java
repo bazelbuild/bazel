@@ -22,7 +22,9 @@ import static java.util.Comparator.comparing;
 import com.google.common.base.Utf8;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
@@ -30,7 +32,6 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
-import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -43,10 +44,19 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.analysis.RunfilesSupport;
+import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentFactory;
+import com.google.devtools.build.lib.analysis.config.FragmentRegistry;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -70,6 +80,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
+import com.google.devtools.common.options.OptionsParsingException;
 import com.google.protobuf.util.Timestamps;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import java.io.IOException;
@@ -82,30 +93,67 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import org.junit.Before;
 import org.junit.Test;
 
 /** Base class for {@link SpawnLogContext} tests. */
 public abstract class SpawnLogContextTestBase {
   protected final DigestHashFunction digestHashFunction = DigestHashFunction.SHA256;
   protected final FileSystem fs = new InMemoryFileSystem(digestHashFunction);
-  protected final Path outputBase = fs.getPath("/output_base");
-  protected final Path execRoot =
-      outputBase.getChild("execroot").getChild(TestConstants.WORKSPACE_NAME);
+  protected final Path outputBase = fs.getPath("/home/user/bazel/output_base");
   protected final Path externalRoot =
       outputBase.getRelative(LabelConstants.EXTERNAL_REPOSITORY_LOCATION);
-  protected final ArtifactRoot rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
-  protected final ArtifactRoot outputDir =
-      ArtifactRoot.asDerivedRoot(
-          execRoot, RootType.Output, TestConstants.PRODUCT_NAME + "-out", "k8-fastbuild", "bin");
-  protected final ArtifactRoot middlemanDir =
-      ArtifactRoot.asDerivedRoot(
-          execRoot,
-          RootType.Middleman,
-          TestConstants.PRODUCT_NAME + "-out",
-          "k8-fastbuild",
-          "internal");
-  protected final ArtifactRoot externalSourceRoot =
-      ArtifactRoot.asExternalSourceRoot(Root.fromPath(externalRoot.getChild("some_repo")));
+
+  protected ArtifactRoot outputDir;
+  protected Path execRoot;
+  protected ArtifactRoot rootDir;
+  protected ArtifactRoot middlemanDir;
+  protected ArtifactRoot externalSourceRoot;
+  protected ArtifactRoot externalOutputDir;
+  protected BuildConfigurationValue configuration;
+
+  @Before
+  public void setup() throws InvalidConfigurationException, OptionsParsingException {
+    BuildOptions defaultBuildOptions = BuildOptions.of(ImmutableList.of(CoreOptions.class));
+    configuration =
+        BuildConfigurationValue.createForTesting(
+            defaultBuildOptions,
+            "k8-fastbuild",
+            TestConstants.WORKSPACE_NAME,
+            /* siblingRepositoryLayout= */ false,
+            new BlazeDirectories(
+                new ServerDirectories(outputBase, outputBase, outputBase),
+                /* workspace= */ null,
+                /* defaultSystemJavabase= */ null,
+                TestConstants.PRODUCT_NAME),
+            new BuildConfigurationValue.GlobalStateProvider() {
+              @Override
+              public ActionEnvironment getActionEnvironment(BuildOptions buildOptions) {
+                return ActionEnvironment.EMPTY;
+              }
+
+              @Override
+              public FragmentRegistry getFragmentRegistry() {
+                return FragmentRegistry.create(
+                    ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+              }
+
+              @Override
+              public ImmutableSet<String> getReservedActionMnemonics() {
+                return ImmutableSet.of();
+              }
+            },
+            new FragmentFactory());
+    outputDir = configuration.getBinDirectory(RepositoryName.MAIN);
+    middlemanDir = configuration.getMiddlemanDirectory(RepositoryName.MAIN);
+    execRoot = configuration.getDirectories().getExecRoot(TestConstants.WORKSPACE_NAME);
+    rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
+
+    externalSourceRoot =
+        ArtifactRoot.asExternalSourceRoot(Root.fromPath(externalRoot.getChild("some_repo")));
+    externalOutputDir =
+        configuration.getBinDirectory(RepositoryName.createUnvalidated("some_repo"));
+  }
 
   // A fake action filesystem that provides a fast digest, but refuses to compute it from the
   // file contents (which won't be available when building without the bytes).
@@ -484,7 +532,7 @@ public abstract class SpawnLogContextTestBase {
         ActionsTestUtil.createArtifact(externalSourceRoot, "external/some_repo/pkg/source.txt");
     writeFile(externalSourceArtifact, "external_source");
     Artifact externalGenArtifact =
-        ActionsTestUtil.createArtifact(outputDir, "external/some_repo/other/pkg/gen.txt");
+        ActionsTestUtil.createArtifact(externalOutputDir, "external/some_repo/other/pkg/gen.txt");
     writeFile(externalGenArtifact, "external_gen");
 
     Artifact symlinkSourceTarget = ActionsTestUtil.createArtifact(rootDir, "pkg/target.txt");
