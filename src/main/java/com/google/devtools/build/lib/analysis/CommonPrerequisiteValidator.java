@@ -80,7 +80,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     String attrName = attribute.getName();
     Rule rule = context.getRule();
 
-    checkVisibilityAttributeContents(context, prerequisite, attribute, attrName, rule);
+    checkForMisplacedPackageGroups(context, prerequisite, attribute, attrName, rule);
 
     // We don't check the visibility of late-bound attributes, because it would break some
     // features.
@@ -105,18 +105,25 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       }
     }
 
-    if (!attribute.isImplicit()
-        || attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)
-        || !context.isStarlarkRuleOrAspect()) {
-      // Default check: The attribute must be visible from the target.
+    // Normally visibility is validated with respect to the location of the consuming target. But
+    // implicit attributes of Starlark-defined rules and aspects get validated primarily with
+    // respect to the .bzl where the rule or aspect is exported, with the location of the target
+    // serving only as a fallback for backwards compatibility purposes.
+    boolean validateWithRespectToAttributeDefinition =
+        attribute.isImplicit() && context.isStarlarkRuleOrAspect();
+    // Also, the special $config_dependencies attribute is always validated as a normal dependency
+    // even though it's technically implicit.
+    validateWithRespectToAttributeDefinition &=
+        !attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE);
+
+    if (!validateWithRespectToAttributeDefinition) {
+      // Normal case: The attribute must be visible from the target.
       if (!isVisibleToRule(prerequisite, rule)) {
         handleVisibilityConflict(context, prerequisite, rule.getLabel());
       }
     } else {
-      // For implicit attributes of Starlark rules or aspects, check if the prerequisite is visible
-      // from the location of the definition that declares the attribute. Only perform this check
-      // for the current aspect.
-      Label implicitDefinition = null;
+      // Determine the label of the .bzl where the rule or (main) aspect was exported.
+      Label implicitDefinition;
       if (mainAspect != null) {
         StarlarkAspectClass aspectClass = (StarlarkAspectClass) mainAspect.getAspectClass();
         // Never null since we already checked that the aspect is Starlark-defined.
@@ -126,15 +133,15 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
         implicitDefinition =
             checkNotNull(rule.getRuleClassObject().getRuleDefinitionEnvironmentLabel());
       }
-      // Check that the prerequisite is visible from the definition. As a fallback, check if the
-      // prerequisite is visible from the target so that adopting this new style of checking
-      // visibility is not a breaking change.
-      if (implicitDefinition != null
-          && !isVisibleToLocation(prerequisite, implicitDefinition.getPackageIdentifier())
-          && !isVisibleToRule(prerequisite, rule)) {
-        // In the error message, always suggest making the prerequisite visible from the definition,
-        // not the target.
-        handleVisibilityConflict(context, prerequisite, implicitDefinition);
+      // Validate with respect to the defining .bzl.
+      if (!isVisibleToLocation(prerequisite, implicitDefinition.getPackageIdentifier())) {
+        // Failed. Validate with respect to the target anyway, for backwards compatibility.
+        // TODO(bazel-team): When can this fallback be removed?
+        if (!isVisibleToRule(prerequisite, rule)) {
+          // True failure. In the error message, always suggest making the prerequisite visible from
+          // the definition, not the target.
+          handleVisibilityConflict(context, prerequisite, implicitDefinition);
+        }
       }
     }
   }
@@ -207,12 +214,19 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     return false;
   }
 
-  private void checkVisibilityAttributeContents(
+  /**
+   * Registers an attribute error if a {@code package_group} target is detected in a context where
+   * it is not allowed.
+   */
+  private void checkForMisplacedPackageGroups(
       RuleContext.Builder context,
       ConfiguredTargetAndData prerequisite,
       Attribute attribute,
       String attrName,
       Rule rule) {
+    // TODO(bazel-team): The instanceof check seems pretty suspect, and should maybe be phrased in
+    // terms of a provider check that would work with the `alias` rule. Then again, the string
+    // matching on PackageSpecification[Provider|Info] is probably more suspect.
     if (prerequisite.getConfiguredTarget().unwrapIfMerged()
         instanceof PackageGroupConfiguredTarget) {
       Attribute configuredAttribute = RawAttributeMapper.of(rule).getAttributeDefinition(attrName);
