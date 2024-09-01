@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.InputFile;
+import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
@@ -57,6 +58,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
    * Dependencies within the same package do not print deprecation warnings; a package in the
    * javatests directory may also depend on its corresponding java package without a warning.
    */
+  // TODO: #19922 - Rename this method to not imply that it is symmetric across its arguments.
   public abstract boolean isSameLogicalPackage(
       PackageIdentifier thisPackage, PackageIdentifier prerequisitePackage);
 
@@ -107,7 +109,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
         || attribute.getName().equals(RuleClass.CONFIG_SETTING_DEPS_ATTRIBUTE)
         || !context.isStarlarkRuleOrAspect()) {
       // Default check: The attribute must be visible from the target.
-      if (!isVisible(rule.getLabel(), prerequisite)) {
+      if (!isVisibleToRule(prerequisite, rule)) {
         handleVisibilityConflict(context, prerequisite, rule.getLabel());
       }
     } else {
@@ -128,8 +130,8 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       // prerequisite is visible from the target so that adopting this new style of checking
       // visibility is not a breaking change.
       if (implicitDefinition != null
-          && !isVisible(implicitDefinition, prerequisite)
-          && !isVisible(rule.getLabel(), prerequisite)) {
+          && !isVisibleToLocation(prerequisite, implicitDefinition.getPackageIdentifier())
+          && !isVisibleToRule(prerequisite, rule)) {
         // In the error message, always suggest making the prerequisite visible from the definition,
         // not the target.
         handleVisibilityConflict(context, prerequisite, implicitDefinition);
@@ -137,25 +139,71 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     }
   }
 
-  private boolean isVisible(Label target, ConfiguredTargetAndData prerequisite) {
-    if (isSameLogicalPackage(
-        target.getPackageIdentifier(),
-        AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget())
-            .getPackageIdentifier())) {
-      return true;
-    }
-    // Check visibility attribute
-    for (PackageGroupContents specification :
-        prerequisite
-            .getConfiguredTarget()
-            .getProvider(VisibilityProvider.class)
-            .getVisibility()
-            .toList()) {
-      if (specification.containsPackage(target.getPackageIdentifier())) {
+  /**
+   * Returns whether {@code prerequisite} is visible to {@code ruleTarget}.
+   *
+   * <p>This passes if {@code ruleTarget}'s location is allowed by {@code prerequisite}'s visibility
+   * provider or the same-logical-package condition.
+   *
+   * <p>In this context, the "location" of a target means the package containing the defining bzl
+   * (i.e. export label) of the symbolic macro that directly declares the target; or the target's
+   * package if it was not declared within any symbolic macro.
+   */
+  // TODO: #19922 - Implement the behavior of delegating the visibility check to the parent macro of
+  // ruleTarget if applicable, as per the Macro-Aware Visibility design. (At that point the
+  // signature of this method will have to be updated to accept either a rule target or a macro.)
+  private boolean isVisibleToRule(ConfiguredTargetAndData prerequisite, Rule ruleTarget) {
+    MacroInstance declaringMacro = ruleTarget.getDeclaringMacro();
+    PackageIdentifier ruleTargetLocation =
+        declaringMacro != null
+            ? declaringMacro.getMacroClass().getDefiningBzlLabel().getPackageIdentifier()
+            : ruleTarget.getPackage().getPackageIdentifier();
+
+    return isVisibleToLocation(prerequisite, ruleTargetLocation);
+  }
+
+  /**
+   * Returns whether {@code prerequisite} is visible to {@code location}, based on {@code
+   * prerequisite}'s visibility provider and the same-logical-package condition.
+   */
+  private boolean isVisibleToLocation(
+      ConfiguredTargetAndData prerequisite, PackageIdentifier location) {
+    VisibilityProvider visibility =
+        prerequisite.getConfiguredTarget().getProvider(VisibilityProvider.class);
+
+    // For prerequisite targets that are created in symbolic macros, the visibility provider is
+    // authoritative and we can move on to checking its package specifications one by one.
+    //
+    // For prerequisite targets that are *not* created in symbolic macros, the visibility provider
+    // does not necessarily list the target's own declaration location (which is the same as the
+    // package it lives in). In addition, the target should be visible to other packages that are
+    // same-logical-package as this location, a property that doesn't apply to targets created in
+    // symbolic macros. Calling isSameLogicalPackage() takes care of both of these checks. Note that
+    // we don't need to worry about the package's default_visibility at this stage because
+    // it is already accounted for at loading time by the target's getVisibility() accessor (or
+    // earlier).
+    //
+    // TODO: #19922 - The same-logical-package logic should also be applied in the loading phase, to
+    // the propagated visibility attribute inside symbolic macros, so that it applies to targets
+    // exported from symbolic macros (i.e. targets that pass `visibility = visibility`).
+    if (!visibility.isCreatedInSymbolicMacro()) {
+      if (isSameLogicalPackage(
+          location,
+          // In the case of a prerequisite that is an alias rule, we check whether we can see the
+          // alias itself, not the actual target it points to. In other words, alias re-exports
+          // targets under its own visibility.
+          AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget())
+              .getPackageIdentifier())) {
         return true;
       }
     }
 
+    // Not same-package / same-logical-package. Check the actual visibility contents.
+    for (PackageGroupContents specification : visibility.getVisibility().toList()) {
+      if (specification.containsPackage(location)) {
+        return true;
+      }
+    }
     return false;
   }
 
@@ -276,6 +324,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     PackageIdentifier thisPackage = rule.getLabel().getPackageIdentifier();
     Label prerequisiteLabel = prerequisite.getTargetLabel();
     PackageIdentifier thatPackage = prerequisiteLabel.getPackageIdentifier();
+    // TODO: #19922 - What to do about this check, when one or both targets are in a macro?
     if (isSameLogicalPackage(thisPackage, thatPackage)) {
       return; // Doesn't report deprecation edges within a package.
     }

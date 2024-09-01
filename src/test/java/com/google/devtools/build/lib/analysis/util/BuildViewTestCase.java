@@ -134,7 +134,6 @@ import com.google.devtools.build.lib.packages.PackageValidator;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.Target;
@@ -352,7 +351,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
       SkyframeExecutorTestHelper.process(skyframeExecutor);
     }
     skyframeExecutor.injectExtraPrecomputedValues(extraPrecomputedValues);
-    packageOptions.defaultVisibility = RuleVisibility.PUBLIC;
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
     skyframeExecutor.preparePackageLoading(
@@ -535,9 +533,17 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     invalidatePackages(/* alsoConfigs= */ false);
   }
 
-  private static PackageOptions parsePackageOptions(String... options) throws Exception {
+  /**
+   * Override to change the default visibility for a test suite. Visibility can also be controlled
+   * with {@link #setPackageOptions}.
+   */
+  protected String getDefaultVisibility() {
+    return "public";
+  }
+
+  private PackageOptions parsePackageOptions(String... options) throws Exception {
     OptionsParser parser = OptionsParser.builder().optionsClasses(PackageOptions.class).build();
-    parser.parse("--default_visibility=public");
+    parser.parse("--default_visibility=" + getDefaultVisibility());
     parser.parse(options);
     return parser.getOptions(PackageOptions.class);
   }
