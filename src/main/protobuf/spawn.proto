@@ -267,27 +267,23 @@ message ExecLogEntry {
     string path = 1;
     // The entry ID of the set of artifacts in the runfiles tree that are
     // symlinked at their canonical locations relative to the tree path.
-    //
-    // The canonical relative paths of an artifact are obtained as follows:
-    // 1. If the path starts with "bazel-out/", drop the first three components.
-    // 2. If legacy_external_runfiles is true, the path prepended with the
-    //    workspace runfiles directory (see Invocation) is one canonical
-    //    location.
-    // 3. If the path starts with "external/", drop the first component.
-    //    If not, prepend the workspace runfiles directory. This is (another)
-    //    canonical location.
+    // See SpawnLogReconstructor#getRunfilesPaths for how to recover the
+    // tree-relative paths of the artifacts from their exec paths.
     //
     // In case of path collisions, later artifacts overwrite earlier ones and
-    // artifacts override symlinks.
+    // artifacts override custom symlinks.
     //
     // The referenced set must not transitively contain any runfile trees.
-    // TODO: Document the procedure to obtain the canonical relative path
-    // with --experimental_sibling_repository_layout.
     uint32 input_set_id = 2;
     // The paths relative to the tree path that are symlinked to custom
     // locations. The target of a symlink is either a file, a directory, an
     // unresolved symlink (all referenced by ID), or an empty file (represented
     // by an id of 0).
+    // TODO: If explicitly storing empty files turns out to be too costly,
+    //  consider implementing the logic of the empty file supplier in the
+    //  reconstructor.
+    // TODO: If flattening the symlinks and root symlinks turns out to be too
+    //  costly, consider logging them as nested sets.
     map<string, uint32> symlink_target_id = 3;
     // Whether the runfiles tree contains external runfiles at their legacy
     // locations (e.g. _main/external/bazel_tools/tools/bash/runfiles.bash).

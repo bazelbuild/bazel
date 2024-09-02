@@ -46,11 +46,27 @@ public interface RunfilesTree {
   /** Returns the name of the workspace that the build is occurring in. */
   String getWorkspaceName();
 
+  /**
+   * Returns artifacts the runfiles tree contain symlinks to at their canonical locations.
+   *
+   * <p>This does <b>not</b> include artifacts that only the symlinks and root symlinks point to.
+   */
   NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging();
 
+  /**
+   * Returns the mapping from the location in the runfiles tree to the artifact that's there for
+   * symlinks and root symlinks.
+   */
   Map<PathFragment, Artifact> getAllSymlinksForLogging();
 
+  /**
+   * Returns the set of names of implicit empty files to materialize.
+   *
+   * <p>If this runfiles tree does not implicitly add empty files, implementations should have a
+   * dedicated fast path that returns an empty set without traversing the tree.
+   */
   NestedSet<String> getEmptyFilenamesForLogging();
 
+  /** Whether this runfiles tree materializes external runfiles also at their legacy locations. */
   boolean isLegacyExternalRunfiles();
 }
