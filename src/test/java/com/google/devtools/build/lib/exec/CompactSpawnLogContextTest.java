@@ -147,7 +147,8 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
                 .setInvocation(
                     Protos.ExecLogEntry.Invocation.newBuilder()
                         .setHashFunctionName("SHA-256")
-                        .setWorkspaceRunfilesDirectory(TestConstants.WORKSPACE_NAME))
+                        .setWorkspaceRunfilesDirectory(TestConstants.WORKSPACE_NAME)
+                        .setSiblingRepositoryLayout(siblingRepositoryLayout))
                 .build(),
             Protos.ExecLogEntry.newBuilder()
                 .setSymlinkAction(
@@ -169,6 +170,7 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
         logPath,
         execRoot.asFragment(),
         TestConstants.WORKSPACE_NAME,
+        siblingRepositoryLayout,
         remoteOptions,
         DigestHashFunction.SHA256,
         SyscallCache.NO_CACHE);

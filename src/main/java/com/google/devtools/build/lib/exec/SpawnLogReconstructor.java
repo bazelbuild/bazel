@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.exec;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.github.luben.zstd.ZstdInputStream;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.exec.Protos.ExecLogEntry;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
@@ -37,21 +37,18 @@ import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Consumer;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /** Reconstructs an execution log in expanded format from the compact format representation. */
 public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec> {
-  private static final String EXTERNAL_PREFIX =
-      LabelConstants.EXTERNAL_PATH_PREFIX.getPathString() + "/";
-  // Matches paths of source files and generated files under an external repository.
-  private static final Pattern EXTERNAL_PREFIX_PATTERN =
+  private static final Pattern DEFAULT_RUNFILES_PATH_PATTERN =
       Pattern.compile(
-          "(%1$s|(blaze|bazel)-out/[^/]+/[^/]+/%1$s).*".formatted(Pattern.quote(EXTERNAL_PREFIX)));
-  // Matches the prefix of a generated file path.
-  private static final Pattern BAZEL_OUT_PREFIX_PATTERN =
-      Pattern.compile("^(blaze|bazel)-out/[^/]+/[^/]+/");
+          "(?:(?:bazel|blaze)-out/[^/]+/[^/]+/)?(?:external/(?<repo>[^/]+)/)?(?<path>.*)");
+  private static final Pattern SIBLING_LAYOUT_RUNFILES_PATH_PATTERN =
+      Pattern.compile("(external/|tools/|third_party/|bazel-|bazel-[^/]+/|[^/]+/bazel-).*");
 
   private final ZstdInputStream in;
 
@@ -80,6 +77,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
   private final ArrayList<Object> inputMap = new ArrayList<>();
   private String hashFunctionName = "";
   private String workspaceRunfilesDirectory = "";
+  private boolean siblingRepositoryLayout = false;
 
   public SpawnLogReconstructor(InputStream in) throws IOException {
     this.in = new ZstdInputStream(in);
@@ -96,6 +94,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
         case INVOCATION -> {
           hashFunctionName = entry.getInvocation().getHashFunctionName();
           workspaceRunfilesDirectory = entry.getInvocation().getWorkspaceRunfilesDirectory();
+          siblingRepositoryLayout = entry.getInvocation().getSiblingRepositoryLayout();
         }
         case FILE -> putInput(entry.getId(), reconstructFile(entry.getFile()));
         case DIRECTORY -> putInput(entry.getId(), reconstructDir(entry.getDirectory()));
@@ -282,9 +281,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
         // This is bug-for-bug compatible with the implementation in Runfiles by considering
         // an empty non-external directory as a runfiles entry under the workspace runfiles
         // directory even though it won't be materialized as one.
-        input ->
-            hasWorkspaceRunfilesDirectory[0] |=
-                !EXTERNAL_PREFIX_PATTERN.matcher(input.path()).matches());
+        input -> hasWorkspaceRunfilesDirectory[0] |= hasWorkspaceRunfilesDirectory(input.path()));
     flattenedArtifacts.stream()
         .flatMap(
             file ->
@@ -303,17 +300,27 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
     return new Input.Directory(runfilesTree.getPath(), ImmutableList.copyOf(runfiles.values()));
   }
 
+  private boolean hasWorkspaceRunfilesDirectory(String path) {
+    Matcher matcher = DEFAULT_RUNFILES_PATH_PATTERN.matcher(path);
+    Preconditions.checkState(matcher.matches());
+    return matcher.group("repo") == null;
+  }
+
   private Stream<String> getRunfilesPaths(String originalPath, boolean legacyExternalRunfiles) {
-    String path = BAZEL_OUT_PREFIX_PATTERN.matcher(originalPath).replaceFirst("");
-    if (path.startsWith(EXTERNAL_PREFIX)) {
+    Matcher pathMatcher = DEFAULT_RUNFILES_PATH_PATTERN.matcher(originalPath);
+    Preconditions.checkState(pathMatcher.matches());
+    String repo = pathMatcher.group("repo");
+    String path = pathMatcher.group("path");
+    if (repo == null) {
+      return Stream.of(workspaceRunfilesDirectory + "/" + path);
+    } else {
       Stream.Builder<String> paths = Stream.builder();
-      paths.add(path.substring(EXTERNAL_PREFIX.length()));
+      paths.add(repo + "/" + path);
       if (legacyExternalRunfiles) {
-        paths.add(workspaceRunfilesDirectory + "/" + path);
+        paths.add("%s/external/%s/%s".formatted(workspaceRunfilesDirectory, repo, path));
       }
       return paths.build();
     }
-    return Stream.of(workspaceRunfilesDirectory + "/" + path);
   }
 
   private Collection<File> reconstructRunfilesSymlinkTarget(String newPath, int targetId)

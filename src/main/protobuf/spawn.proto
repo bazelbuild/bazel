@@ -230,6 +230,9 @@ message ExecLogEntry {
     // With --enable_bzlmod, this is always "_main", but can vary when using
     // WORKSPACE.
     string workspace_runfiles_directory = 2;
+
+    // Whether --experimental_sibling_repository_layout is enabled.
+    bool sibling_repository_layout = 3;
   }
 
   // An input or output file.
