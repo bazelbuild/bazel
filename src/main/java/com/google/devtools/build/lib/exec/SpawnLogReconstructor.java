@@ -38,6 +38,7 @@ import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Consumer;
+import java.util.regex.MatchResult;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
@@ -45,31 +46,42 @@ import javax.annotation.Nullable;
 
 /** Reconstructs an execution log in expanded format from the compact format representation. */
 public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec> {
-  // pkg/source.txt --> repo: null, path: "pkg/source.txt"
-  // external/repo/pkg/source.txt --> repo: "repo", path: "pkg/source.txt"
-  @VisibleForTesting
-  static final Pattern DEFAULT_SOURCE_FILE_RUNFILES_PATH_PATTERN =
-      Pattern.compile("(?:external/(?<repo>[^/]+)/)?(?<path>.+)");
-
-  // bazel-out/k8-fastbuild/bin/pkg/source.txt --> repo: null, path: "pkg/source.txt"
-  // blaze-out/k8-fastbuild/bin/external/repo/pkg/source.txt --> repo: "repo", path:
-  // "pkg/source.txt"
-  @VisibleForTesting
-  static final Pattern DEFAULT_GENERATED_FILE_RUNFILES_PATH_PATTERN =
+  // Examples:
+  // * bazel-out/k8-fastbuild/bin/pkg/file.txt (repo: null, path: "pkg/file.txt")
+  // * bazel-out/k8-fastbuild/bin/external/some_repo/pkg/file.txt (repo: "some_repo", path:
+  // "pkg/file.txt")
+  private static final Pattern DEFAULT_GENERATED_FILE_RUNFILES_PATH_PATTERN =
       Pattern.compile("(?:bazel|blaze)-out/[^/]+/[^/]+/(?:external/(?<repo>[^/]+)/)?(?<path>.+)");
 
-  // pkg/source.txt --> repo: null, path: "pkg/source.txt"
-  // ../repo/pkg/source.txt --> repo: "repo", path: "pkg/source.txt"
-  @VisibleForTesting
-  static final Pattern SIBLING_LAYOUT_SOURCE_FILE_RUNFILES_PATH_PATTERN =
-      Pattern.compile("(?:\\.\\./(?<repo>[^/]+)/)?(?<path>.+)");
+  // Examples:
+  // * pkg/file.txt (repo: null, path: "pkg/file.txt")
+  // * external/some_repo/pkg/file.txt (repo: "some_repo", path: "pkg/file.txt")
+  private static final Pattern DEFAULT_SOURCE_FILE_RUNFILES_PATH_PATTERN =
+      Pattern.compile("(?:external/(?<repo>[^/]+)/)?(?<path>.+)");
 
-  @VisibleForTesting
-  static final Pattern SIBLING_LAYOUT_GENERATED_FILE_RUNFILES_PATH_PATTERN =
-      Pattern.compile("(?:bazel|blaze)-out/(?:(?<repo>[^/]+(?!/coverage-metadata/)(?=/[^/]+-[^/]+/))/)?[^/]+/[^/]+/(?<path>.+)");
+  // Examples:
+  // * bazel-out/k8-fastbuild/bin/pkg/file.txt (repo: null, path: "pkg/file.txt")
+  // * bazel-out/some_repo/k8-fastbuild/bin/pkg/file.txt (repo: "some_repo", path: "pkg/file.txt")
+  // * bazel-out/k8-fastbuild/k8-fastbuild/bin/pkg/file.txt (repo: "k8-fastbuild", path:
+  // "pkg/file.txt")
+  //
+  // Repo names are distinguished from mnemonics via a positive lookahead on the following segment,
+  // which in the case of a repo name is a mnemonic and thus contains a hyphen, whereas a mnemonic
+  // is followed by an output directory name, which does not contain a hyphen unless it is
+  // "coverage-metadata" (which in turn is not likely to be a mnemonic).
+  private static final Pattern SIBLING_LAYOUT_GENERATED_FILE_RUNFILES_PATH_PATTERN =
+      Pattern.compile(
+          "(?:bazel|blaze)-out/(?:(?<repo>[^/]+(?=/[^/]+-[^/]+/)(?!/coverage-metadata/))/)?[^/]+/[^/]+/(?<path>.+)");
+
+  // Examples:
+  // * pkg/file.txt (repo: null, path: "pkg/file.txt")
+  // * ../some_repo/pkg/file.txt (repo: "some_repo", path: "pkg/file.txt")
+  private static final Pattern SIBLING_LAYOUT_SOURCE_FILE_RUNFILES_PATH_PATTERN =
+      Pattern.compile("(?:\\.\\./(?<repo>[^/]+)/)?(?<path>.+)");
 
   private final ZstdInputStream in;
 
+  /** Represents a reconstructed input file, symlink, or directory. */
   private sealed interface Input {
     String path();
 
@@ -95,8 +107,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
   private final ArrayList<Object> inputMap = new ArrayList<>();
   private String hashFunctionName = "";
   private String workspaceRunfilesDirectory = "";
-  private Pattern generatedFileRunfilesPathPattern;
-  private Pattern sourceFileRunfilesPathPattern;
+  private boolean siblingRepositoryLayout = false;
 
   public SpawnLogReconstructor(InputStream in) throws IOException {
     this.in = new ZstdInputStream(in);
@@ -113,13 +124,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
         case INVOCATION -> {
           hashFunctionName = entry.getInvocation().getHashFunctionName();
           workspaceRunfilesDirectory = entry.getInvocation().getWorkspaceRunfilesDirectory();
-          if (entry.getInvocation().getSiblingRepositoryLayout()) {
-            generatedFileRunfilesPathPattern = SIBLING_LAYOUT_GENERATED_FILE_RUNFILES_PATH_PATTERN;
-            sourceFileRunfilesPathPattern = SIBLING_LAYOUT_SOURCE_FILE_RUNFILES_PATH_PATTERN;
-          } else {
-            generatedFileRunfilesPathPattern = DEFAULT_GENERATED_FILE_RUNFILES_PATH_PATTERN;
-            sourceFileRunfilesPathPattern = DEFAULT_SOURCE_FILE_RUNFILES_PATH_PATTERN;
-          }
+          siblingRepositoryLayout = entry.getInvocation().getSiblingRepositoryLayout();
         }
         case FILE -> putInput(entry.getId(), reconstructFile(entry.getFile()));
         case DIRECTORY -> putInput(entry.getId(), reconstructDir(entry.getDirectory()));
@@ -322,35 +327,44 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
           "%s/%s/.runfile".formatted(runfilesTree.getPath(), workspaceRunfilesDirectory);
       runfiles.put(dotRunfilePath, File.newBuilder().setPath(dotRunfilePath).build());
     }
+    // Copy to avoid retaining the entire runfiles map.
     return new Input.Directory(runfilesTree.getPath(), ImmutableList.copyOf(runfiles.values()));
   }
 
-  private boolean hasWorkspaceRunfilesDirectory(String path) {
-    Matcher matcher = generatedFileRunfilesPathPattern.matcher(path);
+  @VisibleForTesting
+  static MatchResult extractRunfilesPath(String execPath, boolean siblingRepositoryLayout) {
+    Matcher matcher =
+        (siblingRepositoryLayout
+                ? SIBLING_LAYOUT_GENERATED_FILE_RUNFILES_PATH_PATTERN
+                : DEFAULT_GENERATED_FILE_RUNFILES_PATH_PATTERN)
+            .matcher(execPath);
     if (matcher.matches()) {
-      return matcher.group("repo") == null;
-    } else {
-      matcher = sourceFileRunfilesPathPattern.matcher(path);
-      Preconditions.checkState(matcher.matches());
-      return matcher.group("repo") == null;
+      return matcher;
     }
+    matcher =
+        (siblingRepositoryLayout
+                ? SIBLING_LAYOUT_SOURCE_FILE_RUNFILES_PATH_PATTERN
+                : DEFAULT_SOURCE_FILE_RUNFILES_PATH_PATTERN)
+            .matcher(execPath);
+    Preconditions.checkState(matcher.matches());
+    return matcher;
   }
 
-  private Stream<String> getRunfilesPaths(String originalPath, boolean legacyExternalRunfiles) {
-    Matcher matcher = generatedFileRunfilesPathPattern.matcher(originalPath);
-    if (!matcher.matches()) {
-      matcher = sourceFileRunfilesPathPattern.matcher(originalPath);
-    }
-    Preconditions.checkState(matcher.matches());
-    String repo = matcher.group("repo");
-    String path = matcher.group("path");
+  private boolean hasWorkspaceRunfilesDirectory(String path) {
+    return extractRunfilesPath(path, siblingRepositoryLayout).group("repo") == null;
+  }
+
+  private Stream<String> getRunfilesPaths(String execPath, boolean legacyExternalRunfiles) {
+    MatchResult matchResult = extractRunfilesPath(execPath, siblingRepositoryLayout);
+    String repo = matchResult.group("repo");
+    String repoRelativePath = matchResult.group("path");
     if (repo == null) {
-      return Stream.of(workspaceRunfilesDirectory + "/" + path);
+      return Stream.of(workspaceRunfilesDirectory + "/" + repoRelativePath);
     } else {
       Stream.Builder<String> paths = Stream.builder();
-      paths.add(repo + "/" + path);
+      paths.add(repo + "/" + repoRelativePath);
       if (legacyExternalRunfiles) {
-        paths.add("%s/external/%s/%s".formatted(workspaceRunfilesDirectory, repo, path));
+        paths.add("%s/external/%s/%s".formatted(workspaceRunfilesDirectory, repo, repoRelativePath));
       }
       return paths.build();
     }
