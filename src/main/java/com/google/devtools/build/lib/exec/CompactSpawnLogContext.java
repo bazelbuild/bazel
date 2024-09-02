@@ -609,8 +609,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     visitDirectory(
         root,
         (child) -> {
-          String childPath = child.relativeTo(root).getPathString();
-
           Digest digest =
               computeDigest(
                   /* input= */ null,
@@ -621,7 +619,10 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                   /* includeHashFunctionName= */ false);
 
           ExecLogEntry.File file =
-              ExecLogEntry.File.newBuilder().setPath(childPath).setDigest(digest).build();
+              ExecLogEntry.File.newBuilder()
+                  .setPath(child.relativeTo(root).getPathString())
+                  .setDigest(digest)
+                  .build();
 
           synchronized (files) {
             files.add(file);
