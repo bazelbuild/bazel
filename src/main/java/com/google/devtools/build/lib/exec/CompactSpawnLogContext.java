@@ -495,6 +495,15 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                             expandDirectory(root, /* pathPrefix= */ inputMetadataProvider))));
   }
 
+  /**
+   * Logs a runfiles directory by storing the information in its {@link RunfilesTree}.
+   *
+   * <p>Since runfiles trees can be very large and, for tests, are only used by a single spawn, we
+   * store them in the log as a special entry that references the nested set of artifacts instead of
+   * as a flat directory.
+   *
+   * @return the entry ID of the {@link ExecLogEntry.RunfilesTree} describing the directory.
+   */
   private int logRunfilesTree(
       RunfilesTree runfilesTree, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
       throws IOException, InterruptedException {
@@ -534,7 +543,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           builder.setInputSetId(
               logNestedSet(
                   runfilesTree.getArtifactsAtCanonicalLocationsForLogging(),
-                  ImmutableList.of(),
+                  /* additionalDirectoryIds= */ ImmutableList.of(),
                   inputMetadataProvider,
                   fileSystem,
                   // The runfiles tree itself is shared, but the nested set is unique to the tree as

@@ -283,12 +283,12 @@ message ExecLogEntry {
     // The referenced set must not transitively contain any runfile trees.
     // TODO: Document the procedure to obtain the canonical relative path
     // with --experimental_sibling_repository_layout.
-    int32 input_set_id = 2;
+    uint32 input_set_id = 2;
     // The paths relative to the tree path that are symlinked to custom
     // locations. The target of a symlink is either a file, a directory, an
     // unresolved symlink (all referenced by ID), or an empty file (represented
     // by an id of 0).
-    map<string, int32> symlink_target_id = 3;
+    map<string, uint32> symlink_target_id = 3;
     // Whether the runfiles tree contains external runfiles at their legacy
     // locations (e.g. _main/external/bazel_tools/tools/bash/runfiles.bash).
     bool legacy_external_runfiles = 4;
@@ -302,9 +302,9 @@ message ExecLogEntry {
   message InputSet {
     // Entry IDs of files, directories, unresolved symlinks or runfiles trees
     // belonging to this set.
-    repeated int32 input_ids = 1;
+    repeated uint32 input_ids = 1;
     // Entry IDs of other sets contained in this set.
-    repeated int32 transitive_set_ids = 2;
+    repeated uint32 transitive_set_ids = 2;
   }
 
   // A spawn output.
@@ -313,7 +313,7 @@ message ExecLogEntry {
       // The ID of a file (ctx.actions.declare_file), directory
       // (ctx.actions.declare_directory) or unresolved symlink
       // (ctx.actions.declare_symlink) that is an output of the spawn.
-      int32 output_id = 1;
+      uint32 output_id = 1;
       // A declared output that is either missing or has the wrong type
       // (e.g., a file where a directory was expected).
       string invalid_output_path = 2;
@@ -332,10 +332,10 @@ message ExecLogEntry {
     Platform platform = 3;
 
     // Entry ID of the set of inputs. Unset means empty.
-    int32 input_set_id = 4;
+    uint32 input_set_id = 4;
 
     // Entry ID of the set of tool inputs. Unset means empty.
-    int32 tool_set_id = 5;
+    uint32 tool_set_id = 5;
 
     // The set of outputs.
     repeated Output outputs = 6;
@@ -397,7 +397,7 @@ message ExecLogEntry {
   // If nonzero, then this entry may be referenced by later entries by this ID.
   // Nonzero IDs must be strictly monotonically increasing within a log and
   // should be consecutive to simplify bookkeeping for consumers.
-  int32 id = 1;
+  uint32 id = 1;
 
   // The entry payload.
   oneof type {
