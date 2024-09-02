@@ -95,17 +95,17 @@ public final class ResourceManagerTest {
   }
 
   private ResourceHandle acquire(double ram, double cpu, int tests, ResourcePriority priority)
-      throws InterruptedException, IOException {
+      throws InterruptedException, IOException, ExecException {
     return manager.acquireResources(resourceOwner, ResourceSet.create(ram, cpu, tests), priority);
   }
 
   private ResourceHandle acquire(double ram, double cpu, int tests)
-      throws InterruptedException, IOException {
+      throws InterruptedException, IOException, ExecException {
     return acquire(ram, cpu, tests, ResourcePriority.LOCAL);
   }
 
   private ResourceHandle acquire(double ram, double cpu, int tests, String mnemonic)
-      throws InterruptedException, IOException {
+      throws InterruptedException, IOException, ExecException {
 
     return manager.acquireResources(
         resourceOwner,
@@ -123,7 +123,7 @@ public final class ResourceManagerTest {
       ImmutableMap<String, Double> extraResources,
       int tests,
       ResourcePriority priority)
-      throws InterruptedException, IOException, NoSuchElementException {
+      throws InterruptedException, IOException, NoSuchElementException, ExecException {
     ImmutableMap.Builder<String, Double> resources = ImmutableMap.builder();
     resources.putAll(extraResources).put(ResourceSet.MEMORY, ram).put(ResourceSet.CPU, cpu);
     return manager.acquireResources(
@@ -133,7 +133,7 @@ public final class ResourceManagerTest {
   @CanIgnoreReturnValue
   private ResourceHandle acquire(
       double ram, double cpu, ImmutableMap<String, Double> extraResources, int tests)
-      throws InterruptedException, IOException, NoSuchElementException {
+      throws InterruptedException, IOException, NoSuchElementException, ExecException {
     return acquire(ram, cpu, extraResources, tests, ResourcePriority.LOCAL);
   }
 
@@ -665,7 +665,7 @@ public final class ResourceManagerTest {
         new TestThread(
             () ->
                 assertThrows(
-                    NoSuchElementException.class,
+                    UserExecException.class,
                     () -> acquire(0, 0, ImmutableMap.of("nonexisting", 1.0), 0)));
     thread1.start();
     thread1.joinAndAssertState(1000);
@@ -688,7 +688,7 @@ public final class ResourceManagerTest {
   }
 
   @Test
-  public void testInvalidateAndClose() throws IOException, InterruptedException {
+  public void testInvalidateAndClose() throws IOException, InterruptedException, ExecException {
     ResourceHandle handle;
     verify(workerStatus, times(0)).maybeUpdateStatus(any());
 
