@@ -120,7 +120,8 @@ most build rules</a>.
    this <code>cc_library</code>'s data files.
 </p>
 <p>Using the functionality defined by the <code>runfiles.h</code> located under 
-   <code>tools/cpp/runfiles/runfiles_src.h</code> Your C++ code can access these data files,
+   <code>tools/cpp/runfiles/runfiles.h</code>. This header is provided by the following target
+   <code>@bazel_tools//cpp/runfiles:runfiles</code> Your C++ code can access these data files,
    like so:
 </p>
 <pre><code class="lang-starlark">
