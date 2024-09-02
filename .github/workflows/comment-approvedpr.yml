@@ -1,41 +1,67 @@
-name: Label & Comment on Approved PR
+name: Check PR Approvals
 
 on:
-  pull_request_review:
-    types: [submitted]
+  schedule:
+    - cron: "*/10 * * * *" # Run daily at midnight
 
 jobs:
-  approved:
-    if: github.event.review.state == 'APPROVED'
+  check-pr-approvals:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/github-script@v7
+      - name: Get PRs with 'awaiting-review' label
+        id: get-prs
+        uses: actions/github-script@v6
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const pullRequest = context.payload.pull_request;
-            const approvedReview = pullRequest.reviews.find(review => review.state === 'APPROVED' && review.user.login === github.actor);
-
-            if (approvedReview) {
-              const daysSinceApproval = Math.floor((new Date() - new Date(approvedReview.submitted_at)) / (1000 * 60 * 60 * 24));
-
-              if (daysSinceApproval > 0 && pullRequest.labels.some(label => label.name === 'awaiting-review')) {
-                // Check if the comment has already been posted
-                const comments = await github.issues.listComments({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: pullRequest.number
+            const octokit = new Octokit({
+              auth: context.token
+            });
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const label = "awaiting-review";
+            const query = `repo:${owner}/${repo} is:pr label:${label}`;
+            const result = await octokit.rest.pulls.list({
+              query: query,
+              state: "open"
+            });
+            const prs = result.data;
+            return prs;
+      - name: Check PR Approvals
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const prs = JSON.parse('${{ steps.get-prs.outputs.prs }}');
+            const octokit = new Octokit({
+              auth: context.token
+            });
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const commentBody = "Since we can see that this PR has been approved before 5 days, Please let us know whether gTech team should proceed with importing it internally. Thanks!";
+            const fiveDaysAgo = new Date();
+            fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+            for (const pr of prs) {
+              const reviews = await octokit.rest.pulls.listReviews({
+                owner: owner,
+                repo: repo,
+                pull_number: pr.number
+              });
+              const approvedReview = reviews.data.find(review => review.state === "APPROVED");
+              if (approvedReview && approvedReview.created_at < fiveDaysAgo) {
+                const comments = await octokit.rest.issues.listComments({
+                  owner: owner,
+                  repo: repo,
+                  issue_number: pr.number
                 });
-
-                const hasComment = comments.data.some(comment => comment.body.includes('This PR has been approved for more than 5 days and still has the \'awaiting-review\' label applied'));
-
-                if (!hasComment) {
-                  await github.issues.createComment({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    issue_number: pullRequest.number,
-                    body: `This PR has been approved for more than 5 days and still has the 'awaiting-review' label applied. If this has been reviewed and you’d like the PR to be imported, please apply the 'awaiting-pr-merge' label, or remove 'awaiting-PR-merge' label to import directly.`
+                const existingComment = comments.data.find(comment => comment.body === commentBody);
+                if (!existingComment) {
+                  await octokit.rest.issues.createComment({
+                    owner: owner,
+                    repo: repo,
+                    issue_number: pr.number,
+                    body: commentBody
                   });
                 }
               }
