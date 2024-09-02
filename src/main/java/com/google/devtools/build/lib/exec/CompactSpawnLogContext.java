@@ -387,7 +387,15 @@ public class CompactSpawnLogContext extends SpawnLogContext {
             if (input instanceof Artifact && ((Artifact) input).isMiddlemanArtifact()) {
               RunfilesTree runfilesTree =
                   inputMetadataProvider.getRunfilesMetadata(input).getRunfilesTree();
-              builder.addInputIds(logRunfilesTree(runfilesTree, inputMetadataProvider, fileSystem));
+              builder.addInputIds(
+                  logRunfilesTree(
+                      runfilesTree,
+                      inputMetadataProvider,
+                      fileSystem,
+                      // If the nested set containing the runfiles tree isn't shared (i.e., it
+                      // contains inputs, not tools), the runfiles are also likely not shared. This
+                      // avoids storing the runfiles tree of a test.
+                      shared));
               continue;
             }
 
@@ -502,13 +510,18 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * store them in the log as a special entry that references the nested set of artifacts instead of
    * as a flat directory.
    *
+   * @param shared whether this runfiles tree is likely to be contained in more than one Spawn's
+   *     inputs
    * @return the entry ID of the {@link ExecLogEntry.RunfilesTree} describing the directory.
    */
   private int logRunfilesTree(
-      RunfilesTree runfilesTree, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
+      RunfilesTree runfilesTree,
+      InputMetadataProvider inputMetadataProvider,
+      FileSystem fileSystem,
+      boolean shared)
       throws IOException, InterruptedException {
     return logEntry(
-        runfilesTree.getExecPath().getPathString(),
+        shared ? runfilesTree.getExecPath().getPathString() : null,
         () -> {
           Preconditions.checkState(workspaceName.equals(runfilesTree.getWorkspaceName()));
 
