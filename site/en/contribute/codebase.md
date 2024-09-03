@@ -79,7 +79,7 @@ At the end of a command, the Bazel server transmits the exit code the client
 should return. An interesting wrinkle is the implementation of `bazel run`: the
 job of this command is to run something Bazel just built, but it can't do that
 from the server process because it doesn't have a terminal. So instead it tells
-the client what binary it should `ujexec()` and with what arguments.
+the client what binary it should `exec()` and with what arguments.
 
 When one presses Ctrl-C, the client translates it to a Cancel call on the gRPC
 connection, which tries to terminate the command as soon as possible. After the
