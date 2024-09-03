@@ -217,9 +217,8 @@ A dictionary of the attributes this macro supports, analogous to <a href="#rule.
 </code> (see the <a href=\"../toplevel/attr.html\">attr</a> module).
 
 <p>The special <code>name</code> attribute is predeclared and must not be included in the
-dictionary. There are also reserved attribute names that must not be included:
-<code>visibility</code>, <code>deprecation</code>, <code>tags</code>, <code>testonly</code>, and
-<code>features</code>.
+dictionary. The <code>visibility</code> attribute name is reserved and must not be included in the
+dictionary.
 
 <p>Attributes whose names start with <code>_</code> are private -- they cannot be passed at the call
 site of the rule. Such attributes can be assigned a default value (as in
@@ -248,6 +247,9 @@ site of the rule. Such attributes can be assigned a default value (as in
         // list of disallowed APIs to there.
         // TODO: #19922 - Make good on the above threat of enforcing a cap on the number of
         // attributes.
+        // TODO: #19922 - Add a mechanism to optionally automatically pre-populate attrs with
+        // common build rule attributes ("tags", "testonly", etc.), or to inherit the list of
+        // attributes of a given rule class.
         @Param(
             name = "finalizer",
             positional = false,
