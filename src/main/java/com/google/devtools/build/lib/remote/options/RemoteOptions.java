@@ -621,17 +621,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public ExecutionMessagePrintMode remotePrintExecutionMessages;
 
   @Option(
-      name = "incompatible_remote_downloader_send_all_headers",
-      defaultValue = "true",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Whether to send all values of a multi-valued header to the remote downloader instead of"
-              + " just the first.")
-  public boolean remoteDownloaderSendAllHeaders;
-
-  @Option(
       name = "experimental_remote_mark_tool_inputs",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.REMOTE,
