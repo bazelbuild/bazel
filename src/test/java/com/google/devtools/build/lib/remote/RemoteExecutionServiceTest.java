@@ -1650,7 +1650,7 @@ public class RemoteExecutionServiceTest {
 
     // act
     UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
-    uploadOutputsAndWait(service, action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -1697,7 +1697,7 @@ public class RemoteExecutionServiceTest {
 
     // act
     UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
-    uploadOutputsAndWait(service, action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -1771,7 +1771,7 @@ public class RemoteExecutionServiceTest {
 
     // act
     UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
-    uploadOutputsAndWait(service, action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -1807,7 +1807,7 @@ public class RemoteExecutionServiceTest {
 
     // act
     UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
-    uploadOutputsAndWait(service, action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -1859,7 +1859,7 @@ public class RemoteExecutionServiceTest {
             .build();
 
     // act
-    uploadOutputsAndWait(service, action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     // assert
     assertThat(
@@ -1885,7 +1885,7 @@ public class RemoteExecutionServiceTest {
         .when(cache)
         .uploadActionResult(any(), any(), any());
 
-    uploadOutputsAndWait(service, action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     assertThat(eventHandler.getEvents()).hasSize(1);
     Event evt = eventHandler.getEvents().get(0);
@@ -1910,7 +1910,7 @@ public class RemoteExecutionServiceTest {
             .setRunnerName("test")
             .build();
 
-    uploadOutputsAndWait(service, action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     assertThat(eventHandler.getPosts())
         .containsAtLeast(
@@ -1937,7 +1937,7 @@ public class RemoteExecutionServiceTest {
             .setRunnerName("test")
             .build();
 
-    uploadOutputsAndWait(service, action, spawnResult);
+    service.uploadOutputs(action, spawnResult, () -> {});
 
     // assert
     assertThat(cache.getNumFindMissingDigests()).isEmpty();
@@ -2577,12 +2577,5 @@ public class RemoteExecutionServiceTest {
       }
       dir.createDirectoryAndParents();
     }
-  }
-
-  private static void uploadOutputsAndWait(
-      RemoteExecutionService service, RemoteAction action, SpawnResult result) throws Exception {
-    SettableFuture<Void> future = SettableFuture.create();
-    service.uploadOutputs(action, result, () -> future.set(null));
-    future.get();
   }
 }
