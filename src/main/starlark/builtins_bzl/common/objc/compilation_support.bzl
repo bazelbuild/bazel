@@ -17,7 +17,6 @@
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/objc/apple_env.bzl", "apple_host_system_env", "target_apple_env")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
@@ -150,14 +149,6 @@ def _compile(
     if pch_hdr != None:
         textual_hdrs.append(pch_hdr)
 
-    compilation_contexts = (
-        objc_compilation_context.cc_compilation_contexts +
-        cc_helper.get_compilation_contexts_from_deps(
-            cc_semantics.get_cc_runtimes(common_variables.ctx, True),
-        )
-    )
-    runtimes_copts = cc_semantics.get_cc_runtimes_copts(common_variables.ctx)
-
     return cc_common.compile(
         actions = common_variables.ctx.actions,
         feature_configuration = feature_configuration,
@@ -171,9 +162,9 @@ def _compile(
         includes = objc_compilation_context.includes,
         system_includes = objc_compilation_context.system_includes,
         quote_includes = objc_compilation_context.quote_includes,
-        compilation_contexts = compilation_contexts,
+        compilation_contexts = objc_compilation_context.cc_compilation_contexts,
         implementation_compilation_contexts = objc_compilation_context.implementation_cc_compilation_contexts,
-        user_compile_flags = runtimes_copts + user_compile_flags,
+        user_compile_flags = user_compile_flags,
         module_map = module_map,
         propagate_module_map_to_compile_action = True,
         variables_extension = extension,

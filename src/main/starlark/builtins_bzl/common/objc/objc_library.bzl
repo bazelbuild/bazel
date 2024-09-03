@@ -14,14 +14,13 @@
 
 """objc_library Starlark implementation replacing native"""
 
-load(":common/cc/cc_helper.bzl", "cc_helper")
+load("@_builtins//:common/cc/cc_helper.bzl", "cc_helper")
+load("@_builtins//:common/objc/attrs.bzl", "common_attrs")
+load("@_builtins//:common/objc/compilation_support.bzl", "compilation_support")
+load("@_builtins//:common/objc/objc_common.bzl", "extensions", "objc_common")
+load("@_builtins//:common/objc/semantics.bzl", "semantics")
 load(":common/cc/cc_info.bzl", "CcInfo")
-load(":common/cc/semantics.bzl", cc_semantics = "semantics")
-load(":common/objc/attrs.bzl", "common_attrs")
-load(":common/objc/compilation_support.bzl", "compilation_support")
-load(":common/objc/objc_common.bzl", "extensions", "objc_common")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
-load(":common/objc/semantics.bzl", "semantics")
 
 objc_internal = _builtins.internal.objc_internal
 coverage_common = _builtins.toplevel.coverage_common
@@ -140,5 +139,5 @@ in binary targets that depend on this library."""),
     ),
     fragments = ["objc", "apple", "cpp"],
     cfg = semantics.apple_crosstool_transition,
-    toolchains = cc_helper.use_cpp_toolchain() + cc_semantics.get_runtimes_toolchain(),
+    toolchains = cc_helper.use_cpp_toolchain(),
 )
