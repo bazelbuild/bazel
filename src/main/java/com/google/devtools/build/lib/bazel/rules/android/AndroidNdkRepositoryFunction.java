@@ -18,8 +18,10 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
@@ -63,6 +65,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
@@ -80,11 +83,6 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
   private static String getDefaultCrosstool(int majorRevision) {
     // From NDK 17, libc++ replaces gnu-libstdc++ as the default STL.
     return majorRevision <= 16 ? GnuLibStdCppStlImpl.NAME : LibCppStlImpl.NAME;
-  }
-
-  private static PathFragment getAndroidNdkHomeEnvironmentVar(
-      Path workspace, Map<String, String> env) {
-    return workspace.getRelative(PathFragment.create(env.get(PATH_ENV_VAR))).asFragment();
   }
 
   private static String createBuildFile(
@@ -275,17 +273,11 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
 
   @Override
   @Nullable
-  public RepositoryDirectoryValue.Builder fetch(
-      Rule rule,
-      Path outputDirectory,
-      BlazeDirectories directories,
-      Environment env,
-      Map<RepoRecordedInput, String> recordedInputValues,
-      SkyKey key)
+  public FetchResult fetch(
+      Rule rule, Path outputDirectory, BlazeDirectories directories, Environment env, SkyKey key)
       throws InterruptedException, RepositoryFunctionException {
     ensureNativeRepoRuleEnabled(rule, env, "https://github.com/bazelbuild/rules_android_ndk");
-    Map<String, String> environ =
-        declareEnvironmentDependencies(recordedInputValues, env, PATH_ENV_VAR_AS_SET);
+    ImmutableMap<String, Optional<String>> environ = getEnvVarValues(env, PATH_ENV_VAR_AS_SET);
     if (environ == null) {
       return null;
     }
@@ -297,13 +289,14 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
     }
     WorkspaceAttributeMapper attributes = WorkspaceAttributeMapper.of(rule);
     PathFragment pathFragment;
-    String userDefinedPath = null;
+    String userDefinedPath;
     if (attributes.isAttributeValueExplicitlySpecified("path")) {
       userDefinedPath = getPathAttr(rule);
       pathFragment = getTargetPath(userDefinedPath, directories.getWorkspace());
-    } else if (environ.get(PATH_ENV_VAR) != null) {
-      userDefinedPath = environ.get(PATH_ENV_VAR);
-      pathFragment = getAndroidNdkHomeEnvironmentVar(directories.getWorkspace(), environ);
+    } else if (environ.getOrDefault(PATH_ENV_VAR, Optional.empty()).isPresent()) {
+      userDefinedPath = environ.get(PATH_ENV_VAR).get();
+      Path workspace = directories.getWorkspace();
+      pathFragment = workspace.getRelative(PathFragment.create(userDefinedPath)).asFragment();
     } else {
       throw new RepositoryFunctionException(
           Starlark.errorf(
@@ -440,7 +433,9 @@ public class AndroidNdkRepositoryFunction extends AndroidRepositoryFunction {
             .replaceAll(
                 "%big_conditional_populating_variables%",
                 Joiner.on("\n" + "    ").join(bigConditional.build())));
-    return RepositoryDirectoryValue.builder().setPath(outputDirectory);
+    return new FetchResult(
+        RepositoryDirectoryValue.builder().setPath(outputDirectory),
+        Maps.transformValues(RepoRecordedInput.EnvVar.wrap(environ), v -> v.orElse(null)));
   }
 
   private ImmutableList<String> generateBzlConfigFor(String version, CToolchain toolchain) {
