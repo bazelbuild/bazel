@@ -431,14 +431,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public int cacheCompressionThreshold;
 
   @Option(
-      name = "build_event_upload_max_threads",
-      defaultValue = "100",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "The number of threads used to do build event uploads. Capped at 1000.")
-  public int buildEventUploadMaxThreads;
-
-  @Option(
       name = "remote_download_outputs",
       oldName = "experimental_remote_download_outputs",
       defaultValue = "toplevel",
