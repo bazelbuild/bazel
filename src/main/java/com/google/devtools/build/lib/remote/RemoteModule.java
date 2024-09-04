@@ -29,7 +29,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -37,7 +36,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
-import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.authandtls.GoogleAuthUtils;
@@ -71,7 +69,6 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
-import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlockWaitingModule;
@@ -816,11 +813,6 @@ public final class RemoteModule extends BlazeModule {
       remoteOutputChecker.afterTopLevelTargetAnalysis(
           configuredTarget, request::getTopLevelArtifactContext);
     }
-    if (shouldParseNoCacheOutputs()) {
-      parseNoCacheOutputsFromSingleConfiguredTarget(
-          Preconditions.checkNotNull(buildEventArtifactUploaderFactoryDelegate.get()),
-          configuredTarget);
-    }
   }
 
   @Override
@@ -853,47 +845,6 @@ public final class RemoteModule extends BlazeModule {
       AnalysisResult analysisResult) {
     if (remoteOutputChecker != null) {
       remoteOutputChecker.afterAnalysis(analysisResult);
-    }
-
-    if (shouldParseNoCacheOutputs()) {
-      parseNoCacheOutputs(analysisResult);
-    }
-  }
-
-  // Separating the conditions for readability.
-  private boolean shouldParseNoCacheOutputs() {
-    return false;
-  }
-
-  private void parseNoCacheOutputs(AnalysisResult analysisResult) {
-    ByteStreamBuildEventArtifactUploader uploader =
-        Preconditions.checkNotNull(buildEventArtifactUploaderFactoryDelegate.get());
-
-    for (ConfiguredTarget configuredTarget : analysisResult.getTargetsToBuild()) {
-      parseNoCacheOutputsFromSingleConfiguredTarget(uploader, configuredTarget);
-    }
-  }
-
-  private void parseNoCacheOutputsFromSingleConfiguredTarget(
-      ByteStreamBuildEventArtifactUploader uploader, ConfiguredTarget configuredTarget) {
-    // This will either dereference an alias chain, or return the final ConfiguredTarget.
-    ConfiguredTarget actualConfiguredTarget = configuredTarget.getActual();
-    if (!(actualConfiguredTarget instanceof RuleConfiguredTarget ruleConfiguredTarget)) {
-      return;
-    }
-
-    for (ActionAnalysisMetadata action : ruleConfiguredTarget.getActions()) {
-      boolean uploadLocalResults =
-          Utils.shouldUploadLocalResultsToRemoteCache(remoteOptions, action.getExecutionInfo());
-      if (!uploadLocalResults) {
-        for (Artifact output : action.getOutputs()) {
-          if (output.isTreeArtifact()) {
-            uploader.omitTree(output.getPath());
-          } else {
-            uploader.omitFile(output.getPath());
-          }
-        }
-      }
     }
   }
 
@@ -1108,14 +1059,6 @@ public final class RemoteModule extends BlazeModule {
     public void init(ByteStreamBuildEventArtifactUploaderFactory uploaderFactory) {
       Preconditions.checkState(this.uploaderFactory == null);
       this.uploaderFactory = uploaderFactory;
-    }
-
-    @Nullable
-    public ByteStreamBuildEventArtifactUploader get() {
-      if (uploaderFactory == null) {
-        return null;
-      }
-      return uploaderFactory.get();
     }
 
     public void reset() {

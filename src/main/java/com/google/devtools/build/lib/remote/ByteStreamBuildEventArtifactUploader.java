@@ -28,7 +28,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
-import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -42,7 +41,6 @@ import com.google.devtools.build.lib.remote.options.RemoteBuildEventUploadMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import io.netty.util.AbstractReferenceCounted;
 import io.netty.util.ReferenceCounted;
@@ -82,8 +80,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private final AtomicBoolean shutdown = new AtomicBoolean();
   private final Scheduler scheduler;
 
-  private final Set<PathFragment> omittedFiles = Sets.newConcurrentHashSet();
-  private final Set<PathFragment> omittedTreeRoots = Sets.newConcurrentHashSet();
   private final XattrProvider xattrProvider;
   private final RemoteBuildEventUploadMode remoteBuildEventUploadMode;
 
@@ -111,20 +107,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     this.remoteBuildEventUploadMode = remoteBuildEventUploadMode;
   }
 
-  public void omitFile(Path file) {
-    Preconditions.checkState(
-        remoteBuildEventUploadMode != RemoteBuildEventUploadMode.MINIMAL,
-        "Cannot omit file in MINIMAL mode");
-    omittedFiles.add(file.asFragment());
-  }
-
-  public void omitTree(Path treeRoot) {
-    Preconditions.checkState(
-        remoteBuildEventUploadMode != RemoteBuildEventUploadMode.MINIMAL,
-        "Cannot omit tree in MINIMAL mode");
-    omittedTreeRoots.add(treeRoot.asFragment());
-  }
-
   /** Returns {@code true} if Bazel knows that the file is stored on a remote system. */
   private static boolean isRemoteFile(Path file) throws IOException {
     return file.getFileSystem() instanceof RemoteActionFileSystem
@@ -138,7 +120,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     private final boolean directory;
     private final boolean symlink;
     private final boolean remote;
-    private final boolean omitted;
     private final boolean isBuildToolLog;
     private final DigestFunction.Value digestFunction;
 
@@ -148,7 +129,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         boolean directory,
         boolean symlink,
         boolean remote,
-        boolean omitted,
         boolean isBuildToolLog,
         DigestFunction.Value digestFunction) {
       this.path = path;
@@ -156,7 +136,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       this.directory = directory;
       this.symlink = symlink;
       this.remote = remote;
-      this.omitted = omitted;
       this.isBuildToolLog = isBuildToolLog;
       this.digestFunction = digestFunction;
     }
@@ -179,10 +158,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
     public boolean isRemote() {
       return remote;
-    }
-
-    public boolean isOmitted() {
-      return omitted;
     }
 
     public boolean isBuildToolLog() {
@@ -212,7 +187,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           /* directory= */ true,
           /* symlink= */ false,
           /* remote= */ false,
-          /* omitted= */ false,
           /* isBuildToolLog= */ false,
           /* digestFunction= */ digestUtil.getDigestFunction());
     }
@@ -223,22 +197,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
           /* directory= */ false,
           /* symlink= */ true,
           /* remote= */ false,
-          /* omitted= */ false,
           /* isBuildToolLog= */ false,
           /* digestFunction= */ digestUtil.getDigestFunction());
-    }
-
-    PathFragment filePathFragment = path.asFragment();
-    boolean omitted = false;
-    if (omittedFiles.contains(filePathFragment)) {
-      omitted = true;
-    } else {
-      for (PathFragment treeRoot : omittedTreeRoots) {
-        if (path.startsWith(treeRoot)) {
-          omittedFiles.add(filePathFragment);
-          omitted = true;
-        }
-      }
     }
 
     Digest digest = digestUtil.compute(path);
@@ -250,7 +210,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         /* directory= */ false,
         /* symlink= */ false,
         isRemoteFile(path),
-        omitted,
         isBuildToolLog,
         digestUtil.getDigestFunction());
   }
@@ -270,7 +229,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                 file.isDirectory(),
                 file.isSymlink(),
                 /* remote= */ true,
-                file.isOmitted(),
                 file.isBuildToolLog(),
                 file.getDigestFunction());
         knownRemotePaths.add(remotePathMetadata);
@@ -280,11 +238,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
 
   private boolean shouldUpload(PathMetadata path) {
     boolean result =
-        path.getDigest() != null
-            && !path.isRemote()
-            && !path.isDirectory()
-            && !path.isSymlink()
-            && !path.isOmitted();
+        path.getDigest() != null && !path.isRemote() && !path.isDirectory() && !path.isSymlink();
 
     if (remoteBuildEventUploadMode == RemoteBuildEventUploadMode.MINIMAL) {
       result = result && (path.isBuildToolLog() || isBuildOrTestLog(path));
@@ -304,8 +258,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     List<PathMetadata> filesToQuery = new ArrayList<>();
     Set<Digest> digestsToQuery = new HashSet<>();
     for (PathMetadata path : paths) {
-      // Query remote cache for files even if omitted from uploading
-      if (shouldUpload(path) || path.isOmitted()) {
+      if (shouldUpload(path)) {
         filesToQuery.add(path);
         digestsToQuery.add(path.getDigest());
       } else {
@@ -369,7 +322,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                               // set remote to true so the PathConverter will use bytestream://
                               // scheme to convert the URI for this file
                               /* remote= */ true,
-                              path.isOmitted(),
                               path.isBuildToolLog(),
                               path.getDigestFunction()))
                   .onErrorResumeNext(
@@ -425,7 +377,6 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                             /* directory= */ false,
                             /* symlink= */ false,
                             /* remote= */ false,
-                            /* omitted= */ false,
                             /* isBuildToolLog= */ false,
                             DigestFunction.Value.SHA256);
                       }
