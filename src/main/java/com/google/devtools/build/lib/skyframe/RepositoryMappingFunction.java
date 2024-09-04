@@ -59,6 +59,12 @@ public class RepositoryMappingFunction implements SkyFunction {
     boolean enableBzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
     boolean enableWorkspace = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE);
 
+    if (!enableBzlmod && !enableWorkspace) {
+      throw new RepositoryMappingFunctionException(
+          "Both --enable_bzlmod and --enable_workspace are disabled, but one of them must be"
+              + " enabled to fetch external dependencies.");
+    }
+
     if (enableBzlmod) {
       if (StarlarkBuiltinsValue.isBuiltinsRepo(repositoryName)) {
         // If tools repo is not set, repo mapping for @_builtins should be always fallback.
@@ -214,7 +220,7 @@ public class RepositoryMappingFunction implements SkyFunction {
       throws RepositoryMappingFunctionException {
     Package externalPackage = externalPackageValue.getPackage();
     if (externalPackage.containsErrors()) {
-      throw new RepositoryMappingFunctionException();
+      throw new RepositoryMappingFunctionException("error evaluating WORKSPACE");
     }
     RepositoryMapping workspaceMapping =
         RepositoryMapping.createAllowingFallback(
@@ -239,9 +245,9 @@ public class RepositoryMappingFunction implements SkyFunction {
   }
 
   private static class RepositoryMappingFunctionException extends SkyFunctionException {
-    RepositoryMappingFunctionException() {
+    RepositoryMappingFunctionException(String message) {
       super(
-          new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER),
+          new BuildFileContainsErrorsException(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER, message),
           Transience.PERSISTENT);
     }
   }
