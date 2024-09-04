@@ -347,6 +347,11 @@ public final class CppCompileActionTemplate extends ActionKeyComputer
   }
 
   @Override
+  public NestedSet<Artifact> getOriginalInputs() {
+    return getInputs();
+  }
+
+  @Override
   public NestedSet<Artifact> getSchedulingDependencies() {
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }

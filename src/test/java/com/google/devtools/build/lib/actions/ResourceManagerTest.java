@@ -861,6 +861,11 @@ public final class ResourceManagerTest {
     }
 
     @Override
+    public NestedSet<Artifact> getOriginalInputs() {
+      throw new IllegalStateException();
+    }
+
+    @Override
     public NestedSet<Artifact> getSchedulingDependencies() {
       throw new IllegalStateException();
     }

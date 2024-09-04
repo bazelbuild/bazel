@@ -616,7 +616,7 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
   }
 
   @Override
-  protected final NestedSet<Artifact> getOriginalInputs() {
+  public final NestedSet<Artifact> getOriginalInputs() {
     return mandatoryInputs;
   }
 

@@ -80,13 +80,9 @@ message Action {
   repeated KeyValuePair environment_variables = 7;
 
   // The set of input dep sets that the action depends upon. If the action does
-  // input discovery, the contents of this set might change during execution.
+  // input discovery and `--include_pruned_outputs` is disabled, the contents of
+  // this set might differ before and after execution.
   repeated uint32 input_dep_set_ids = 8;
-
-  // The set of scheduling dependency dep sets the action depends on.
-  // Only set of both --include_artifacts and --include_scheduling_dependencies
-  // is set to true.
-  repeated uint32 scheduling_dep_dep_set_ids = 20;
 
   // The list of Artifact IDs that represent the output files that this action
   // will generate.
@@ -129,6 +125,8 @@ message Action {
   // If FileWrite actions should make their output executable.
   // (ctx.actions.write(is_executable=True))
   bool is_executable = 19;
+
+  reserved 20;
 }
 
 // Represents a single target (without configuration information) that is

@@ -223,7 +223,7 @@ public final class LtoBackendAction extends SpawnAction {
   }
 
   @Override
-  protected NestedSet<Artifact> getOriginalInputs() {
+  public NestedSet<Artifact> getOriginalInputs() {
     return mandatoryInputs;
   }
 

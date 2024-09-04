@@ -43,20 +43,19 @@ public class AqueryOptions extends CommonQueryOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
-      help =
-          "Includes names of the action inputs and outputs in the output " + "(potentially large).")
+      help = "Includes names of the action inputs and outputs in the output (potentially large).")
   public boolean includeArtifacts;
 
   @Option(
-      name = "include_scheduling_dependencies",
-      defaultValue = "false",
+      name = "include_pruned_inputs",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.QUERY,
       effectTags = {OptionEffectTag.TERMINAL_OUTPUT},
       help =
-          "Includes names of the scheduling dependencies of actions "
-              + "(potentially large). "
-              + "Only takes effect if --include_artifacts is also set.")
-  public boolean includeSchedulingDependencies;
+          "Includes action inputs that were pruned during action execution. Only affects actions"
+              + " that discover inputs and have been executed in a previous invocation. Only takes"
+              + " effect if --include_artifacts is also set.")
+  public boolean includePrunedInputs;
 
   @Option(
       name = "include_param_files",

@@ -137,6 +137,11 @@ public final class ExtraAction extends SpawnAction {
   }
 
   @Override
+  public NestedSet<Artifact> getOriginalInputs() {
+    return shadowedAction.getOriginalInputs();
+  }
+
+  @Override
   public NestedSet<Artifact> getSchedulingDependencies() {
     return shadowedAction.getSchedulingDependencies();
   }

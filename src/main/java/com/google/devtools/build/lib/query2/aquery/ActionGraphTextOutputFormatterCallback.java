@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.query2.aquery;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.query2.aquery.AqueryUtils.getActionInputs;
 import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToExternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.analysis.actions.TemplateExpansionAction;
 import com.google.devtools.build.lib.analysis.starlark.UnresolvedSymlinkAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.AspectDescriptor;
 import com.google.devtools.build.lib.packages.LabelPrinter;
@@ -122,7 +124,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
       getParamFileNameToContentMap().put(paramFileName, fileContent);
     }
 
-    if (!AqueryUtils.matchesAqueryFilters(action, actionFilters)) {
+    if (!AqueryUtils.matchesAqueryFilters(action, actionFilters, options.includePrunedInputs)) {
       return;
     }
 
@@ -199,25 +201,16 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     }
 
     if (options.includeArtifacts) {
+      NestedSet<Artifact> inputs = getActionInputs(action, options.includePrunedInputs);
+
       stringBuilder
           .append("  Inputs: [")
           .append(
-              action.getInputs().toList().stream()
+              inputs.toList().stream()
                   .map(input -> escapeBytestringUtf8(input.getExecPathString()))
                   .sorted()
                   .collect(Collectors.joining(", ")))
           .append("]\n");
-
-      if (options.includeSchedulingDependencies && !action.getSchedulingDependencies().isEmpty()) {
-        stringBuilder
-            .append("  SchedulingDependencies: [")
-            .append(
-                action.getSchedulingDependencies().toList().stream()
-                    .map(input -> escapeBytestringUtf8(input.getExecPathString()))
-                    .sorted()
-                    .collect(Collectors.joining(", ")))
-            .append("]\n");
-      }
 
       stringBuilder
           .append("  Outputs: [")
@@ -279,7 +272,7 @@ class ActionGraphTextOutputFormatterCallback extends AqueryThreadsafeCallback {
     if (options.includeParamFiles) {
       // Assumption: if an Action takes a param file as an input, it will be used
       // to provide params to the command.
-      for (Artifact input : action.getInputs().toList()) {
+      for (Artifact input : getActionInputs(action, options.includePrunedInputs).toList()) {
         String inputFileName = input.getExecPathString();
         if (getParamFileNameToContentMap().containsKey(inputFileName)) {
           stringBuilder

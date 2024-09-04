@@ -128,11 +128,18 @@ public interface ActionAnalysisMetadata {
   /**
    * Returns the input Artifacts that this Action depends upon. May be empty.
    *
-   * <p>For actions that do input discovery or input pruning, a different result may be returned
-   * before and after action execution, because input discovery may add additional artifacts from
-   * {@link #getSchedulingDependencies}, and input pruning may remove them.
+   * <p>For actions that do input discovery, a different result may be returned before and after
+   * action execution, because input discovery may add or remove inputs. The original input set may
+   * be retrieved from {@link ActionExecutionMetadata#getOriginalInputs}.
    */
   NestedSet<Artifact> getInputs();
+
+  /**
+   * Returns this action's original inputs prior to input discovery.
+   *
+   * <p>Unlike {@link #getInputs}, the same result is returned before and after action execution.
+   */
+  NestedSet<Artifact> getOriginalInputs();
 
   /**
    * Returns the input Artifacts that must be built before the action can be executed, but are not
@@ -167,7 +174,7 @@ public interface ActionAnalysisMetadata {
    * other files as well. For example C(++) compilation may perform include file header scanning.
    * This needs to be mirrored by the extra_action rule. Called by {@link
    * com.google.devtools.build.lib.analysis.extra.ExtraAction} at execution time for actions that
-   * return true for {link #discoversInputs()}.
+   * return true for {link ActionExecutionMetadata#discoversInputs}.
    *
    * @param actionExecutionContext Services in the scope of the action, like the Out/Err streams.
    * @throws ActionExecutionException only when code called from this method throws that exception.

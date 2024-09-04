@@ -243,33 +243,261 @@ EOF
   assert_not_contains "Outputs: \[" output
 }
 
-function test_aquery_include_scheduling_dependencies() {
+function test_prunable_headers() {
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'
-cc_binary(name="b", srcs=["b.cc"], deps=[":l"])
-cc_library(name="l", hdrs=["library_header.h"])
+cc_binary(
+  name = "foo",
+  srcs = ["foo.cc"],
+  deps = [":bar"],
+)
+cc_library(
+  name = "bar",
+  hdrs = ["used.h", "useless.h"],
+)
+EOF
+  cat > "$pkg/foo.cc" <<'EOF'
+#include "used.h"
+int main() { used(); return 0; }
+EOF
+  cat > "$pkg/used.h" <<'EOF'
+inline void used() {}
+EOF
+  cat > "$pkg/useless.h" <<'EOF'
+inline void useless() {}
 EOF
 
-  bazel aquery \
-    --include_artifacts \
-    --include_scheduling_dependencies \
-    "mnemonic(CppCompile,//$pkg:b)" > output 2> "$TEST_log" \
+  # Test --include_pruned_inputs before build.
+  # Expect used.h and useless.h to be considered inputs.
+
+  bazel aquery "mnemonic(CppCompile,//$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_contains "Inputs:.*used.h" output
+  assert_contains "Inputs:.*useless.h" output
+
+  bazel aquery "inputs(.*used.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_nonempty_file output
+
+  bazel aquery "inputs(.*useless.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_nonempty_file output
+
+  # Test --include_pruned_inputs after build.
+  # Expect used.h and useless.h to be considered inputs.
+
+  bazel build "//$pkg:foo" || fail "Expected success"
+
+  bazel aquery "mnemonic(CppCompile,//$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_contains "Inputs:.*used.h" output
+  assert_contains "Inputs:.*useless.h" output
+
+  bazel aquery "inputs(.*used.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_nonempty_file output
+
+  bazel aquery "inputs(.*useless.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_nonempty_file output
+
+  if [[ "${PRODUCT_NAME}" == "bazel" ]]; then
+    # Include scanning not supported.
+    return 0
+  fi
+
+  bazel clean
+
+  # Test --noinclude_pruned_inputs before build.
+  # Expect used.h and useless.h to be considered inputs.
+
+  bazel aquery --noinclude_pruned_inputs \
+    "mnemonic(CppCompile,//$pkg:foo)" > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
 
-  assert_contains "SchedulingDependencies:.*library_header.h" output
+  assert_contains "Inputs:.*used.h" output
+  assert_contains "Inputs:.*useless.h" output
 
-  bazel aquery \
-    --include_artifacts \
-    --include_scheduling_dependencies \
-    --output=jsonproto \
-    "mnemonic(CppCompile,//$pkg:b)" > output 2> "$TEST_log" \
+  bazel aquery --noinclude_pruned_inputs \
+    "inputs(.*used.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_nonempty_file output
+
+  bazel aquery --noinclude_pruned_inputs \
+    "inputs(.*useless.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_nonempty_file output
+
+  # Test --noinclude_pruned_inputs after build.
+  # Expect used.h to be considered an input, but not useless.h.
+
+  bazel build "//$pkg:foo" || fail "Expected success"
+
+  bazel aquery --noinclude_pruned_inputs \
+    "mnemonic(CppCompile,//$pkg:foo)" > output 2> "$TEST_log" \
     || fail "Expected success"
   cat output >> "$TEST_log"
-  assert_contains "library_header.h" output
+
+  assert_contains "Inputs:.*used.h" output
+  assert_not_contains "Inputs:.*useless.h" output
+
+  bazel aquery --noinclude_pruned_inputs \
+    "inputs(.*used.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_nonempty_file output
+
+  bazel aquery --noinclude_pruned_inputs \
+    "inputs(.*useless.h, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_empty_file output
 }
 
+function test_unused_inputs() {
+  local pkg="${FUNCNAME[0]}"
+  mkdir -p "$pkg" || fail "mkdir -p $pkg"
+  cat > "$pkg/defs.bzl" <<EOF
+def _impl(ctx):
+  ctx.actions.run(
+    inputs = [ctx.file.used, ctx.file.unused],
+    outputs = [ctx.outputs.out],
+    unused_inputs_list = ctx.outputs.out,
+    executable = ctx.executable._tool,
+    arguments = [ctx.file.unused.path, ctx.outputs.out.path],
+  )
+  return DefaultInfo(files = depset([ctx.outputs.out]))
+
+foo = rule(
+  _impl,
+  attrs = {
+    "used": attr.label(allow_single_file = True),
+    "unused": attr.label(allow_single_file = True),
+    "out": attr.output(),
+    "_tool": attr.label(cfg = "exec", executable = True, default = "//$pkg:tool")
+  },
+)
+EOF
+  cat > "$pkg/BUILD" <<'EOF'
+load(":defs.bzl", "foo")
+sh_binary(
+    name = "tool",
+    srcs = ["tool.sh"],
+)
+foo(
+  name = "foo",
+  used = "used.txt",
+  unused = "useless.txt",
+  out = "out.txt",
+)
+EOF
+  cat > "$pkg/tool.sh" <<'EOF'
+#!/bin/bash
+echo "$1" > "$2"
+EOF
+  chmod +x "$pkg/tool.sh"
+  touch "$pkg/used.txt" "$pkg/useless.txt"
+
+  # Test --include_pruned_inputs before build.
+  # Expect used.txt and useless.txt to be considered inputs.
+
+  bazel aquery "mnemonic(Action,//$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_contains "Inputs:.*used.txt" output
+  assert_contains "Inputs:.*useless.txt" output
+
+  bazel aquery "inputs(.*used.txt, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_nonempty_file output
+
+  bazel aquery "inputs(.*useless.txt, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_nonempty_file output
+
+  # Test --include_pruned_inputs after build.
+  # Expect used.txt and useless.txt to be considered inputs.
+
+  bazel build "//$pkg:foo" || fail "Expected success"
+
+  bazel aquery "mnemonic(Action,//$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_contains "Inputs:.*used.txt" output
+  assert_contains "Inputs:.*useless.txt" output
+
+  bazel aquery "inputs(.*used.txt, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_nonempty_file output
+
+  bazel aquery "inputs(.*useless.txt, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_nonempty_file output
+
+  bazel clean
+
+  # Test --noinclude_pruned_inputs before build.
+  # Expect used.txt and useless.txt to be considered inputs.
+
+  bazel aquery --noinclude_pruned_inputs \
+    "mnemonic(Action,//$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "Inputs:.*used.txt" output
+  assert_contains "Inputs:.*useless.txt" output
+
+  bazel aquery --noinclude_pruned_inputs \
+    "inputs(.*used.txt, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_nonempty_file output
+
+  bazel aquery --noinclude_pruned_inputs \
+    "inputs(.*useless.txt, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_nonempty_file output
+
+  # Test --noinclude_pruned_inputs after build.
+  # Expect used.h to be considered an input, but not useless.h.
+
+  bazel build "//$pkg:foo" || fail "Expected success"
+
+  bazel aquery --noinclude_pruned_inputs \
+    "mnemonic(Action,//$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+  cat output >> "$TEST_log"
+
+  assert_contains "Inputs:.*used.txt" output
+  assert_not_contains "Inputs:.*useless.txt" output
+
+  bazel aquery --noinclude_pruned_inputs \
+    "inputs(.*used.txt, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_nonempty_file output
+
+  bazel aquery --noinclude_pruned_inputs \
+    "inputs(.*useless.txt, //$pkg:foo)" > output 2> "$TEST_log" \
+    || fail "Expected success"
+
+  assert_empty_file output
+}
 
 function test_aquery_starlark_env() {
   local pkg="${FUNCNAME[0]}"

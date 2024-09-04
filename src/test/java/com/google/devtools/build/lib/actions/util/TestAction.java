@@ -106,6 +106,11 @@ public class TestAction extends AbstractAction {
   }
 
   @Override
+  public NestedSet<Artifact> getOriginalInputs() {
+    return mandatoryInputs;
+  }
+
+  @Override
   public NestedSet<Artifact> getAllowedDerivedInputs() {
     return NestedSetBuilder.<Artifact>wrap(Order.STABLE_ORDER, optionalInputs);
   }

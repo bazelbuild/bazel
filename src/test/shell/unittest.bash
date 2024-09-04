@@ -514,6 +514,36 @@ function assert_contains_n() {
     return 1
 }
 
+# Usage: assert_empty_file <file> [error-message]
+# Asserts that the file exists and is empty. On failure copies the file to
+# undeclared outputs, prints the specified (optional) error message, and returns
+# non-zero.
+function assert_empty_file() {
+    local file=$1
+    local message=${2:-"Expected '$file' to exist and be empty"}
+    if [[ -f "$file" && ! -s "$file" ]]; then
+        return 0
+    fi
+
+    fail "$message" $(__copy_to_undeclared_outputs "$1")
+    return 1
+}
+
+# Usage: assert_nonempty_file <file> [error-message]
+# Asserts that the file exists and is nonempty. On failure copies the file to
+# undeclared outputs, prints the specified (optional) error message, and returns
+# non-zero.
+function assert_nonempty_file() {
+    local file=$1
+    local message=${2:-"Expected '$file' to exist and be nonempty"}
+    if [[ -f "$file" && -s "$file" ]]; then
+        return 0
+    fi
+
+    fail "$message" $(__copy_to_undeclared_outputs "$1")
+    return 1
+}
+
 # Copies $1 to undeclared outputs with a unique path and logs the mapping
 # between the original file and the new file.
 function __copy_to_undeclared_outputs() {

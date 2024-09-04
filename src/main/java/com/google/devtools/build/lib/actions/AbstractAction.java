@@ -125,8 +125,8 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   /**
    * {@inheritDoc}
    *
-   * <p>Should be overridden along with {@link #discoverInputs}, {@link #inputsDiscovered}, and
-   * {@link #setInputsDiscovered} by actions that do input discovery.
+   * <p>Should be overridden along with {@link #discoverInputs}, {@link #inputsDiscovered}, {@link
+   * #setInputsDiscovered} and {@link #getOriginalInputs} by actions that do input discovery.
    */
   @Override
   public boolean discoversInputs() {
@@ -137,8 +137,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   @Nullable
   public NestedSet<Artifact> discoverInputs(ActionExecutionContext actionExecutionContext)
       throws ActionExecutionException, InterruptedException {
-    throw new IllegalStateException("discoverInputs cannot be called for " + this.prettyPrint()
-        + " since it does not discover inputs");
+    throw new IllegalStateException("Not an input-discovering action: " + this);
   }
 
   @Override
@@ -147,12 +146,9 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
     if (!inputsKnown()) {
       return;
     }
-    NestedSet<Artifact> originalInputs = getOriginalInputs();
-    if (originalInputs != null) {
-      synchronized (this) {
-        inputs = originalInputs;
-        setInputsDiscovered(false);
-      }
+    synchronized (this) {
+      inputs = getOriginalInputs();
+      setInputsDiscovered(false);
     }
   }
 
@@ -168,7 +164,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   @ForOverride
   @GuardedBy("this")
   protected boolean inputsDiscovered() {
-    throw new IllegalStateException("Must be overridden by input-discovering actions: " + this);
+    throw new IllegalStateException("Must be overridden by input-discovering action: " + this);
   }
 
   /**
@@ -178,26 +174,19 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
   @ForOverride
   @GuardedBy("this")
   protected void setInputsDiscovered(boolean inputsDiscovered) {
-    throw new IllegalStateException("Must be overridden by input-discovering actions: " + this);
+    throw new IllegalStateException("Must be overridden by input-discovering action: " + this);
   }
 
-  /**
-   * Returns this action's <em>original</em> inputs, prior to {@linkplain #discoverInputs input
-   * discovery}.
-   *
-   * <p>Input-discovering actions which are able to reconstitute their original inputs may override
-   * this, allowing for memory savings.
-   */
-  @Nullable
-  @ForOverride
-  protected NestedSet<Artifact> getOriginalInputs() {
-    return null;
+  @Override
+  public NestedSet<Artifact> getOriginalInputs() {
+    checkState(!discoversInputs(), "Must be overridden by input-discovering action");
+    return getInputs();
   }
 
   @Override
   public NestedSet<Artifact> getAllowedDerivedInputs() {
     throw new IllegalStateException(
-        "Method must be overridden for actions that may have unknown inputs.");
+        "Must be overridden for action that may have unknown inputs: " + this);
   }
 
   @Override
@@ -217,7 +206,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
    */
   @Override
   public synchronized void updateInputs(NestedSet<Artifact> inputs) {
-    checkState(discoversInputs(), "Can't update inputs unless discovering: %s %s", this, inputs);
+    checkState(discoversInputs(), "Not an input-discovering action: %s", this);
     this.inputs = inputs;
     setInputsDiscovered(true);
   }
@@ -295,9 +284,7 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
     // The default behavior is to return the first input artifact of the original input list (before
     // input discovery).
     // Call through the method, not the field, because it may be overridden.
-    NestedSet<Artifact> originalInputs = getOriginalInputs();
-    NestedSet<Artifact> inputs = originalInputs == null ? getInputs() : originalInputs;
-    return Iterables.getFirst(inputs.toList(), null);
+    return Iterables.getFirst(getOriginalInputs().toList(), null);
   }
 
   @Override

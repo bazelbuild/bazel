@@ -137,6 +137,11 @@ public class FakeOwner implements ActionExecutionMetadata {
   }
 
   @Override
+  public NestedSet<Artifact> getOriginalInputs() {
+    throw new UnsupportedOperationException();
+  }
+
+  @Override
   public NestedSet<Artifact> getSchedulingDependencies() {
     throw new UnsupportedOperationException();
   }

@@ -256,7 +256,7 @@ public class StarlarkAction extends SpawnAction {
     }
 
     @Override
-    protected NestedSet<Artifact> getOriginalInputs() {
+    public NestedSet<Artifact> getOriginalInputs() {
       return allStarlarkActionInputs;
     }
 

@@ -79,7 +79,8 @@ public interface ActionExecutionMetadata extends ActionAnalysisMetadata {
   String describeKey();
 
   /**
-   * Returns true iff the {@link #getInputs} set is known to be complete.
+   * Returns true iff the {@link #getInputs} set has been updated taking input discovery into
+   * account.
    *
    * <p>For most actions, this always returns true. For actions which {@linkplain #discoversInputs
    * discover inputs} (e.g. C++ compilation), inputs are dynamically discovered from the previous
