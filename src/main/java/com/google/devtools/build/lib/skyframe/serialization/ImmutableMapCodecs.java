@@ -44,12 +44,14 @@ import java.util.Comparator;
  * ImmutableSortedMap}, arbitrary otherwise, we avoid specifying the key type as a parameter.
  */
 @SuppressWarnings({"unchecked", "rawtypes"})
-final class ImmutableMapCodecs {
+public final class ImmutableMapCodecs {
 
   @SerializationConstant static final Comparator<?> ORDERING_NATURAL = Ordering.natural();
 
   // In practice, the natural comparator seems to always be Ordering.natural(), but be flexible.
   @SerializationConstant static final Comparator<?> COMPARATOR_NATURAL_ORDER = naturalOrder();
+
+  public static final ImmutableMapCodec IMMUTABLE_MAP_CODEC = new ImmutableMapCodec();
 
   @Keep // used reflectively
   private static class ImmutableMapCodec extends DeferredObjectCodec<ImmutableMap> {

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.config;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.devtools.build.lib.skyframe.serialization.ImmutableMapCodecs.IMMUTABLE_MAP_CODEC;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -28,9 +29,12 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.MapDifference;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -418,6 +422,81 @@ public final class BuildOptions implements Cloneable {
     private final Map<Label, Object> starlarkOptions = new HashMap<>();
 
     private Builder() {}
+  }
+
+  public static ValueSharingCodec valueSharingCodec() {
+    return ValueSharingCodec.INSTANCE;
+  }
+
+  /**
+   * A value sharing codec for BuildOptions that does not rely on an OptionsChecksumCache.
+   *
+   * <p>This allows the BuildOptions object to be serialized remotely, and fetched with a new
+   * instance without relying on an existing local primed cache.
+   */
+  private static final class ValueSharingCodec extends DeferredObjectCodec<BuildOptions> {
+    private static final ValueSharingCodec INSTANCE = new ValueSharingCodec();
+
+    @Override
+    public boolean autoRegister() {
+      return false;
+    }
+
+    @Override
+    public Class<BuildOptions> getEncodedClass() {
+      return BuildOptions.class;
+    }
+
+    @Override
+    public void serialize(
+        SerializationContext context, BuildOptions options, CodedOutputStream codedOut)
+        throws SerializationException, IOException {
+      context.putSharedValue(options.fragmentOptionsMap, null, IMMUTABLE_MAP_CODEC, codedOut);
+      context.putSharedValue(options.starlarkOptionsMap, null, IMMUTABLE_MAP_CODEC, codedOut);
+    }
+
+    @Override
+    public DeferredValue<? extends BuildOptions> deserializeDeferred(
+        AsyncDeserializationContext context, CodedInputStream codedIn)
+        throws SerializationException, IOException {
+      var builder = new DeserializationBuilder();
+      context.getSharedValue(
+          codedIn,
+          null,
+          IMMUTABLE_MAP_CODEC,
+          builder,
+          DeserializationBuilder::setFragmentOptionsMap);
+      context.getSharedValue(
+          codedIn,
+          null,
+          IMMUTABLE_MAP_CODEC,
+          builder,
+          DeserializationBuilder::setStarlarkOptionsMap);
+      return builder;
+    }
+
+    private static final class DeserializationBuilder
+        implements DeferredObjectCodec.DeferredValue<BuildOptions> {
+
+      ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptionsMap;
+      ImmutableMap<Label, Object> starlarkOptionsMap;
+
+      @Override
+      public BuildOptions call() {
+        return new BuildOptions(fragmentOptionsMap, starlarkOptionsMap);
+      }
+
+      @SuppressWarnings("unchecked")
+      private static void setFragmentOptionsMap(DeserializationBuilder builder, Object value) {
+        builder.fragmentOptionsMap =
+            (ImmutableMap<Class<? extends FragmentOptions>, FragmentOptions>) value;
+      }
+
+      @SuppressWarnings("unchecked")
+      private static void setStarlarkOptionsMap(DeserializationBuilder builder, Object value) {
+        builder.starlarkOptionsMap = (ImmutableMap<Label, Object>) value;
+      }
+    }
   }
 
   /**

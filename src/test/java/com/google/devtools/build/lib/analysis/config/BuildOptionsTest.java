@@ -31,10 +31,11 @@ import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.ByteString;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /**
  * A test for {@link BuildOptions}.
@@ -43,7 +44,7 @@ import org.junit.runners.JUnit4;
  * types of options do not interact. In the future when we begin to migrate native options to
  * Starlark options, the format of this test class will need to accommodate that overlap.
  */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class BuildOptionsTest {
 
   /** Extra options for this test. */
@@ -163,8 +164,9 @@ public final class BuildOptionsTest {
   }
 
   @Test
-  public void serialization() throws Exception {
-    new SerializationTester(
+  public void serialization(@TestParameter boolean useSharedValues) throws Exception {
+    var tester =
+        new SerializationTester(
             BuildOptions.of(makeOptionsClassBuilder().build(), "--str_option=foo"),
             BuildOptions.of(makeOptionsClassBuilder().build(), "--str_option=bar"),
             BuildOptions.of(makeOptionsClassBuilder().add(SecondDummyTestOptions.class).build()),
@@ -172,9 +174,19 @@ public final class BuildOptionsTest {
                 makeOptionsClassBuilder().add(SecondDummyTestOptions.class).build(),
                 "--str_option=foo",
                 "--second_str_option=baz",
-                "--another_str_option=bar"))
-        .addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache())
-        .runTests();
+                "--another_str_option=bar"),
+            BuildOptions.builder()
+                .addStarlarkOption(Label.parseCanonicalUnchecked("//custom:flag"), "hello")
+                .build());
+
+    if (useSharedValues) {
+      tester.makeMemoizingAndAllowFutureBlocking(true);
+      tester.addCodec(BuildOptions.valueSharingCodec());
+    } else {
+      tester.addDependency(OptionsChecksumCache.class, new MapBackedChecksumCache());
+    }
+
+    tester.runTests();
   }
 
   private static ImmutableList.Builder<Class<? extends FragmentOptions>> makeOptionsClassBuilder() {

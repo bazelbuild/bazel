@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.TransitiveInfoProviderMapImpl;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.OutputDirectories.OutputDirectory;
 import com.google.devtools.build.lib.analysis.test.TestConfiguration;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -130,6 +131,7 @@ public final class SerializationRegistrySetupHelpers {
           .add(ConfiguredTargetKey.valueSharingCodec())
           .add(TransitiveInfoProviderMapImpl.valueSharingCodec())
           .add(RemoteConfiguredTargetValue.codec())
+          .add(BuildOptions.valueSharingCodec())
           .addAll(ArtifactCodecs.VALUE_SHARING_CODECS)
           .build();
 
