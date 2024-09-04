@@ -3307,8 +3307,7 @@ EOF
   # now build both //blarg and @r. The latter depends on the former, which is in error.
   # with --keep_going, this could result in a deadlock.
   bazel build --keep_going //blarg @r >& $TEST_log && fail "bazel somehow succeeded"
-  # the fact that the invocation didn't time out should suffice as success.
-  true
+  expect_log "no such package 'blarg': Symlink cycle detected while trying to find BUILD file"
 }
 
 function test_legacy_label_print() {
