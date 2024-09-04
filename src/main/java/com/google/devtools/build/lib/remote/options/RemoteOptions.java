@@ -298,16 +298,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
   }
 
   @Option(
-      name = "incompatible_remote_output_paths_relative_to_input_root",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.REMOTE,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, output paths are relative to input root instead of working directory.")
-  public boolean incompatibleRemoteOutputPathsRelativeToInputRoot;
-
-  @Option(
       name = "remote_instance_name",
       defaultValue = "",
       documentationCategory = OptionDocumentationCategory.REMOTE,

@@ -344,15 +344,15 @@ public class RemoteExecutionServiceTest {
   }
 
   @Test
-  public void downloadOutputs_siblingLayoutAndRelativeToInputRoot_works() throws Exception {
+  public void downloadOutputs_siblingLayout() throws Exception {
     // arrange
-    remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot, true);
+    remotePathResolver = new SiblingRepositoryLayoutResolver(execRoot);
 
     Digest fooDigest = cache.addContents(remoteActionExecutionContext, "foo-contents");
     Digest barDigest = cache.addContents(remoteActionExecutionContext, "bar-contents");
     ActionResult.Builder builder = ActionResult.newBuilder();
-    builder.addOutputFilesBuilder().setPath("execroot/outputs/foo").setDigest(fooDigest);
-    builder.addOutputFilesBuilder().setPath("execroot/outputs/bar").setDigest(barDigest);
+    builder.addOutputFilesBuilder().setPath("outputs/foo").setDigest(fooDigest);
+    builder.addOutputFilesBuilder().setPath("outputs/bar").setDigest(barDigest);
     RemoteActionResult result =
         RemoteActionResult.createFromCache(CachedActionResult.remote(builder.build()));
     Spawn spawn = newSpawnFromResult(result);
