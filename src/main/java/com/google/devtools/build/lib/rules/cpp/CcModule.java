@@ -148,6 +148,7 @@ public abstract class CcModule
                   "", "rust/private"),
               BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
               BuiltinRestriction.allowlistEntry("rules_android", ""),
+              BuiltinRestriction.allowlistEntry("rules_java", ""),
               BuiltinRestriction.allowlistEntry("rules_rust", "rust/private"));
 
   // TODO(bazel-team): This only makes sense for the parameter in cc_common.compile()

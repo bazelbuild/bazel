@@ -967,3 +967,5 @@ JavaPluginInfo, _new_javaplugininfo = provider(
     },
     init = _javaplugininfo_init,
 )
+
+JavaCompilationInfo = _JavaCompilationInfo

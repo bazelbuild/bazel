@@ -128,6 +128,7 @@ public final class StarlarkRuleContext
               BuiltinRestriction.allowlistEntry("", "third_party/bazel_rules/rules_android"),
               BuiltinRestriction.allowlistEntry("build_bazel_rules_android", ""),
               BuiltinRestriction.allowlistEntry("rules_android", ""),
+              BuiltinRestriction.allowlistEntry("rules_java", ""),
               BuiltinRestriction.allowlistEntry("", "tools/build_defs/android"));
 
   private static final String EXECUTABLE_OUTPUT_NAME = "executable";

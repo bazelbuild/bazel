@@ -70,7 +70,10 @@ public class JavaStarlarkCommon
 
   private static final ImmutableSet<BuiltinRestriction.AllowlistEntry>
       PRIVATE_STARLARKIFACTION_ALLOWLIST =
-          ImmutableSet.of(BuiltinRestriction.allowlistEntry("", "bazel_internal/test_rules"));
+          ImmutableSet.of(
+              BuiltinRestriction.allowlistEntry("", "bazel_internal/test_rules"),
+              BuiltinRestriction.allowlistEntry("rules_java", "")
+          );
   private final JavaSemantics javaSemantics;
 
   private static StrictDepsMode getStrictDepsMode(String strictDepsMode) {

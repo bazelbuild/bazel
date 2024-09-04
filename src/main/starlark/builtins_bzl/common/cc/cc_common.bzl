@@ -35,6 +35,7 @@ _PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("", "third_party/bazel_rules/rules_android"),
     ("build_bazel_rules_android", ""),
     ("rules_android", ""),
+    ("rules_java", ""),
     ("", "rust/private"),
     ("rules_rust", "rust/private"),
 ]
