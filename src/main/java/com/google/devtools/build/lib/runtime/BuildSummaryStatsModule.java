@@ -212,6 +212,7 @@ public class BuildSummaryStatsModule extends BlazeModule {
                     (now - commandStartMillis) / 1000.0,
                     overheadTime / 1000.0,
                     executionTime / 1000.0)));
+        logger.atInfo().log("Stats summary: %s", Joiner.on(", ").join(items));
       } else {
         reporter.handle(Event.info(Joiner.on(", ").join(items)));
         reporter.handle(Event.info(spawnSummaryString));
