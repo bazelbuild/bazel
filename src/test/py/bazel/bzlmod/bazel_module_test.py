@@ -299,6 +299,39 @@ class BazelModuleTest(test_base.TestBase):
     ])
     self.RunBazel(['build', '@no_op//:no_op'])
 
+  def testNoRestart(self):
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'data_ext = use_extension("//:ext.bzl", "data_ext")',
+            'use_repo(data_ext, "no_op")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile('foo.txt', ['abc'])
+    self.ScratchFile(
+        'ext.bzl',
+        [
+            'def _no_op_impl(ctx):',
+            '  ctx.file("BUILD", "filegroup(name=\\"no_op\\")")',
+            'no_op = repository_rule(_no_op_impl)',
+            'def _data_ext_impl(ctx):',
+            '  print("I AM HERE")',
+            '  ctx.watch(Label("//:foo.txt"))',
+            '  no_op(name="no_op")',
+            'data_ext = module_extension(_data_ext_impl)',
+        ],
+    )
+    _, _, stderr = self.RunBazel(['build', '@no_op//:no_op'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('I AM HERE', stderr)
+    self.assertEqual(
+        stderr.count('I AM HERE'),
+        1,
+        'expected "I AM HERE" once, but got %s times:\n%s'
+        % (stderr.count('I AM HERE'), stderr),
+    )
+
   def setUpProjectWithLocalRegistryModule(self, dep_name, dep_version):
     self.main_registry.generateCcSource(dep_name, dep_version)
     self.main_registry.createLocalPathModule(dep_name, dep_version,
