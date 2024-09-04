@@ -171,6 +171,12 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       imports.put(localRepoName, exportedName);
     }
 
+    public void addOverride(String localRepoName, String exportedName, Location location) throws EvalException {
+      RepositoryName.validateUserProvidedRepoName(localRepoName);
+      RepositoryName.validateUserProvidedRepoName(exportedName);
+      context.add
+    }
+
     void addTag(Tag tag) {
       tags.add(tag);
     }
