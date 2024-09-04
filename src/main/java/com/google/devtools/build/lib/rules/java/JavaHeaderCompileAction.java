@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType.UNQUOTED;
+import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
 import static com.google.devtools.build.lib.rules.java.JavaCompileActionBuilder.UTF8_ENVIRONMENT;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
@@ -207,6 +208,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
     private boolean enableDirectClasspath = true;
 
+    private String execGroup = DEFAULT_EXEC_GROUP_NAME;
+
     private Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
     }
@@ -363,6 +366,14 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       return this;
     }
 
+    /** Sets the exec group used for selecting execution platform of `JavaHeaderCompileAction`. */
+    @CanIgnoreReturnValue
+    public Builder setExecGroup(String execGroup) {
+      checkNotNull(execGroup, "execGroup must not be null");
+      this.execGroup = execGroup;
+      return this;
+    }
+
     @CanIgnoreReturnValue
     public Builder enableHeaderCompilerDirect(boolean enableHeaderCompilerDirect) {
       this.enableHeaderCompilerDirect = enableHeaderCompilerDirect;
@@ -503,6 +514,10 @@ public final class JavaHeaderCompileAction extends SpawnAction {
           TargetUtils.getExecutionInfo(
               ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
 
+      ActionOwner actionOwner = null;
+      if (ruleContext.useAutoExecGroups()) {
+        actionOwner = ruleContext.getActionOwner(execGroup);
+      }
       if (useDirectClasspath) {
         NestedSet<Artifact> classpath;
         NestedSet<Artifact> additionalArtifactsForPathMapping;
@@ -530,7 +545,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
         ruleContext.registerAction(
             new JavaHeaderCompileAction(
-                /* owner= */ ruleContext.getActionOwner(),
+                /* owner= */ actionOwner == null ? ruleContext.getActionOwner() : actionOwner,
                 /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
                 /* inputs= */ allInputs,
                 /* outputs= */ outputs.build(),
@@ -586,7 +601,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       ruleContext.registerAction(
           new JavaCompileAction(
               /* compilationType= */ JavaCompileAction.CompilationType.TURBINE,
-              /* owner= */ ruleContext.getActionOwner(),
+              /* owner= */ actionOwner == null ? ruleContext.getActionOwner() : actionOwner,
               /* tools= */ toolsJars,
               /* progressMessage= */ progressMessage,
               /* mandatoryInputs= */ mandatoryInputs,

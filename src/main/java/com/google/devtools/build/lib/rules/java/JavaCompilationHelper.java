@@ -584,6 +584,7 @@ public final class JavaCompilationHelper {
     builder.setInjectingRuleKind(attributes.getInjectingRuleKind());
     builder.setAdditionalInputs(additionalInputsForDatabinding);
     builder.setToolsJars(javaToolchain.getTools());
+    builder.setExecGroup(execGroup);
     return builder;
   }
 

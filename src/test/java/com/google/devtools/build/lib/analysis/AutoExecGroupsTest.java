@@ -25,6 +25,7 @@ import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.analysis.actions.LazyWritePathsFileAction;
+import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -37,6 +38,7 @@ import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
+import com.google.devtools.build.lib.rules.java.JavaCompileAction;
 import com.google.devtools.build.lib.rules.java.JavaGenJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -2406,5 +2408,135 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         ruleContext.getToolchainInfo(Label.parseCanonical("//test/alias:alias_toolchain_type_2"));
 
     assertThat(realToolchainInfo2).isEqualTo(aliasToolchainInfo2);
+  }
+
+  @Test
+  public void testHeaderCompilationAction_automaticExecGroupsEnabled() throws Exception {
+    scratch.file(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/jdk/turbine_canary_deploy.jar");
+    scratch.file(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/jdk/tzdata.jar");
+    scratch.overwriteFile(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/jdk/BUILD",
+        "load(",
+        "    ':java_toolchain_alias.bzl',",
+        "    'java_toolchain_alias',",
+        "    'java_runtime_alias',",
+        "    'java_host_runtime_alias',",
+        ")",
+        "toolchain_type(name = 'toolchain_type')",
+        "java_toolchain_alias(name='current_java_toolchain')",
+        "java_plugins_flag_alias(name = 'java_plugins_flag_alias')",
+        "filegroup(name = 'message_translations')",
+        "java_toolchain(name = 'toolchain',",
+        "    source_version = '6',",
+        "    target_version = '6',",
+        "    bootclasspath = ['rt.jar'],",
+        "    xlint = ['toto'],",
+        "    javacopts =['-Xmaxerrs 500'],",
+        "    compatible_javacopts = {",
+        "        'appengine': ['-XDappengineCompatible'],",
+        "        'android': ['-XDandroidCompatible'],",
+        "    },",
+        "    tools = [':javac_canary.jar'],",
+        "    javabuilder = [':JavaBuilder_deploy.jar'],",
+        "    jacocorunner = ':jacocorunner.jar',",
+        "    header_compiler = [':turbine_canary_deploy.jar'],",
+        "    header_compiler_direct = [':turbine_graal'],",
+        "    singlejar = ['singlejar'],",
+        "    ijar = ['ijar'],",
+        "    genclass = ['GenClass_deploy.jar'],",
+        "    timezone_data = 'tzdata.jar',",
+        "    java_runtime = ':jvm-k8',",
+        "    exec_compatible_with = ['@@//platforms:constraint_2'],",
+        ")",
+        "java_runtime(",
+        "    name = 'jvm-k8',",
+        "    srcs = [",
+        "        'k8/a', ",
+        "        'k8/b',",
+        "    ], ",
+        "    java_home = 'k8',",
+        ")",
+        "toolchain(",
+        "    name = 'java_toolchain',",
+        "    toolchain = ':toolchain',",
+        "    toolchain_type = '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "',",
+        "    exec_compatible_with = ['@@//platforms:constraint_2'],",
+        ")");
+    scratch.file(
+        "foo/custom_rule.bzl",
+        "def _impl(ctx):",
+        "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
+        "  compilation_provider = java_common.compile(",
+        "    ctx,",
+        "    source_files = ctx.files.srcs,",
+        "    output = output_jar,",
+        "    java_toolchain = ctx.toolchains['" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'].java,",
+        "    deps = [p[JavaInfo] for p in ctx.attr.deps],",
+        "    plugins = [p[JavaPluginInfo] for p in ctx.attr.plugins],",
+        "    enable_annotation_processing = False,",
+        "  )",
+        "  return [DefaultInfo(files = depset([output_jar])), compilation_provider]",
+        "java_custom_library = rule(",
+        "  implementation = _impl,",
+        "  outputs = {",
+        "    'my_output': 'lib%{name}.jar'",
+        "  },",
+        "  attrs = {",
+        "    'srcs': attr.label_list(allow_files=True),",
+        "    'deps': attr.label_list(providers=[JavaInfo]),",
+        "    'plugins': attr.label_list(providers=[JavaPluginInfo]),",
+        "  },",
+        "  toolchains = ['//rule:toolchain_type_1', '" + TestConstants.JAVA_TOOLCHAIN_TYPE + "'],",
+        "  fragments = ['java']",
+        ")");
+    scratch.file(
+        "foo/BUILD",
+        """
+        load(":custom_rule.bzl", "java_custom_library")
+
+        java_plugin(
+            name = "processor",
+            srcs = ["processor.java"],
+            data = ["processor_data.txt"],
+            generates_api = 1,  # so Turbine would normally run it
+            processor_class = "Foo",
+        )
+
+        java_library(
+            name = "exports_processor",
+            exported_plugins = [":processor"],
+        )
+
+        java_custom_library(
+            name = "custom",
+            srcs = ["custom.java"],
+            plugins = [":processor"],
+            deps = [":exports_processor"],
+        )
+
+        java_custom_library(
+            name = "custom_noproc",
+            srcs = ["custom.java"],
+        )
+        """);
+    useConfiguration(
+        "--java_header_compilation=true",
+        "--experimental_java_header_input_pruning",
+        "--incompatible_auto_exec_groups=True");
+
+    ConfiguredTarget custom = getConfiguredTarget("//foo:custom");
+    ConfiguredTarget customNoproc = getConfiguredTarget("//foo:custom_noproc");
+    JavaCompileAction turbineAction =
+        (JavaCompileAction) getGeneratingAction(getBinArtifact("libcustom-hjar.jar", custom));
+    SpawnAction turbineActionNoProc =
+        (SpawnAction)
+            getGeneratingAction(getBinArtifact("libcustom_noproc-hjar.jar", customNoproc));
+
+    assertThat(turbineAction.getMnemonic()).isEqualTo("JavacTurbine");
+    assertThat(turbineAction.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
+    assertThat(turbineActionNoProc.getMnemonic()).isEqualTo("Turbine");
+    assertThat(turbineActionNoProc.getOwner().getExecutionPlatform().label())
+        .isEqualTo(Label.parseCanonical("//platforms:platform_2"));
   }
 }
