@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote;
 
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.common.ProgressStatusListener.NO_ACTION;
@@ -26,11 +27,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
-import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
@@ -219,34 +217,7 @@ public class RemoteCache extends AbstractReferenceCounted {
     }
     ByteArrayOutputStream bOut = new ByteArrayOutputStream((int) digest.getSizeBytes());
     var download = downloadBlob(context, blobName, digest, bOut);
-    SettableFuture<byte[]> outerF = SettableFuture.create();
-    outerF.addListener(
-        () -> {
-          if (outerF.isCancelled()) {
-            download.cancel(/* mayInterruptIfRunning= */ true);
-          }
-        },
-        directExecutor());
-    Futures.addCallback(
-        download,
-        new FutureCallback<Void>() {
-          @Override
-          public void onSuccess(Void aVoid) {
-            try {
-              outerF.set(bOut.toByteArray());
-            } catch (RuntimeException e) {
-              logger.atWarning().withCause(e).log("Unexpected exception");
-              outerF.setException(e);
-            }
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-            outerF.setException(t);
-          }
-        },
-        directExecutor());
-    return outerF;
+    return Futures.transform(download, (v) -> bOut.toByteArray(), directExecutor());
   }
 
   private ListenableFuture<Void> downloadBlob(
@@ -254,33 +225,15 @@ public class RemoteCache extends AbstractReferenceCounted {
     if (digest.getSizeBytes() == 0) {
       return COMPLETED_SUCCESS;
     }
-    var download = cacheProtocol.downloadBlob(context, digest, out);
-    SettableFuture<Void> future = SettableFuture.create();
-    future.addListener(
-        () -> {
-          if (future.isCancelled()) {
-            download.cancel(/* mayInterruptIfRunning= */ true);
-          }
+    var future = cacheProtocol.downloadBlob(context, digest, out);
+    return Futures.catchingAsync(
+        future,
+        CacheNotFoundException.class,
+        (cacheNotFoundException) -> {
+          cacheNotFoundException.setFilename(blobName);
+          return immediateFailedFuture(cacheNotFoundException);
         },
         directExecutor());
-    Futures.addCallback(
-        download,
-        new FutureCallback<Void>() {
-          @Override
-          public void onSuccess(Void result) {
-            future.set(result);
-          }
-
-          @Override
-          public void onFailure(Throwable t) {
-            if (t instanceof CacheNotFoundException cacheNotFoundException) {
-              cacheNotFoundException.setFilename(blobName);
-            }
-            future.setException(t);
-          }
-        },
-        directExecutor());
-    return future;
   }
 
   /** A reporter that reports download progresses. */
@@ -351,37 +304,20 @@ public class RemoteCache extends AbstractReferenceCounted {
       Digest digest,
       DownloadProgressReporter reporter)
       throws IOException {
-    SettableFuture<Void> outerF = SettableFuture.create();
     ListenableFuture<Void> f = downloadFile(context, localPath, digest, reporter);
-    outerF.addListener(
-        () -> {
-          if (outerF.isCancelled()) {
-            f.cancel(/* mayInterruptIfRunning= */ true);
+    return Futures.catchingAsync(
+        f,
+        Throwable.class,
+        (throwable) -> {
+          if (throwable instanceof CacheNotFoundException cacheNotFoundException) {
+            cacheNotFoundException.setFilename(outputPath);
+          } else if (throwable instanceof OutputDigestMismatchException e) {
+            e.setOutputPath(outputPath);
+            e.setLocalPath(localPath);
           }
+          return immediateFailedFuture(throwable);
         },
         directExecutor());
-    Futures.addCallback(
-        f,
-        new FutureCallback<Void>() {
-          @Override
-          public void onSuccess(Void unused) {
-            outerF.set(null);
-          }
-
-          @Override
-          public void onFailure(Throwable throwable) {
-            if (throwable instanceof CacheNotFoundException cacheNotFoundException) {
-              cacheNotFoundException.setFilename(outputPath);
-            } else if (throwable instanceof OutputDigestMismatchException e) {
-              e.setOutputPath(outputPath);
-              e.setLocalPath(localPath);
-            }
-            outerF.setException(throwable);
-          }
-        },
-        MoreExecutors.directExecutor());
-
-    return outerF;
   }
 
   /** Downloads a file (that is not a directory). The content is fetched from the digest. */
