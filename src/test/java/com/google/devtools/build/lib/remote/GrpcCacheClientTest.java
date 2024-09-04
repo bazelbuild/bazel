@@ -1242,6 +1242,7 @@ public class GrpcCacheClientTest {
       throws IOException, InterruptedException {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.cacheCompression = true;
+    options.cacheCompressionThreshold = 0;
     final GrpcCacheClient client = newClient(options);
     final Digest digest = DIGEST_UTIL.computeAsUtf8("abcdefg");
     ByteString chunk1 = ByteString.copyFrom(Zstd.compress("abc".getBytes(UTF_8)));

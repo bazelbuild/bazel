@@ -412,7 +412,9 @@ public final class RemoteOptions extends CommonRemoteOptions {
 
   @Option(
       name = "experimental_remote_cache_compression_threshold",
-      defaultValue = "0",
+      // Based on discussions in #18997, `~100` is the break even point where the compression
+      // actually helps the builds.
+      defaultValue = "100",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
