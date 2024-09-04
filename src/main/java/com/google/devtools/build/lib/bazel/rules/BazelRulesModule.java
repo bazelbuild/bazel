@@ -343,26 +343,6 @@ public final class BazelRulesModule extends BlazeModule {
     public String makeVariableSource;
 
     @Option(
-        name = "incompatible_cc_coverage",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        oldName = "experimental_cc_coverage",
-        metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE, OptionMetadataTag.DEPRECATED},
-        help = "Obsolete, no effect.")
-    public boolean useGcovCoverage;
-
-    @Deprecated
-    @Option(
-        name = "glibc",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help = "Deprecated no-op.")
-    public String glibc;
-
-    @Option(
         name = "force_ignore_dash_static",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -514,33 +494,6 @@ public final class BazelRulesModule extends BlazeModule {
         effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
         help = "No-op")
     public boolean useEventBasedBuildCompletionStatus;
-
-    @Option(
-        name = "experimental_use_fork_join_pool",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        metadataTags = OptionMetadataTag.DEPRECATED,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "No-op.")
-    public boolean useForkJoinPool;
-
-    @Option(
-        name = "experimental_use_priority_in_analysis",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        metadataTags = OptionMetadataTag.DEPRECATED,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "No-op.")
-    public boolean usePrioritization;
-
-    @Option(
-        name = "incompatible_generated_protos_in_virtual_imports",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.NO_OP},
-        metadataTags = {OptionMetadataTag.DEPRECATED},
-        help = "No-op.")
-    public boolean generatedProtosInVirtualImports;
 
     @Option(
         name = "experimental_java_proto_add_allowed_public_imports",
