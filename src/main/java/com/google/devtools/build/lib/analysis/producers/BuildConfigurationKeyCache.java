@@ -24,8 +24,7 @@ import javax.annotation.Nullable;
  * mappings and platform based flags into account.
  */
 public class BuildConfigurationKeyCache {
-  private final Cache<BuildOptions, BuildConfigurationKey> cache =
-      Caffeine.newBuilder().weakKeys().build();
+  private final Cache<BuildOptions, BuildConfigurationKey> cache = Caffeine.newBuilder().build();
 
   @Nullable
   public BuildConfigurationKey get(BuildOptions options) {
