@@ -121,12 +121,16 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   }
 
   static class ModuleExtensionUsageBuilder {
+
+    private record ApparentNameAndLocation(String moduleLocalName, Location location) {}
+
     private final ModuleThreadContext context;
     private final String extensionBzlFile;
     private final String extensionName;
     private final boolean isolate;
     private final ArrayList<ModuleExtensionUsage.Proxy.Builder> proxyBuilders;
     private final HashBiMap<String, String> imports;
+    private final Map<String, ApparentNameAndLocation> overrides;
     private final ImmutableList.Builder<Tag> tags;
 
     ModuleExtensionUsageBuilder(
@@ -140,6 +144,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       this.isolate = isolate;
       this.proxyBuilders = new ArrayList<>();
       this.imports = HashBiMap.create();
+      this.overrides = HashBiMap.create();
       this.tags = ImmutableList.builder();
     }
 
@@ -171,10 +176,21 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       imports.put(localRepoName, exportedName);
     }
 
-    public void addOverride(String localRepoName, String exportedName, Location location) throws EvalException {
-      RepositoryName.validateUserProvidedRepoName(localRepoName);
-      RepositoryName.validateUserProvidedRepoName(exportedName);
-      context.add
+    public void addRepoOverride(String extensionLocalName, String apparentName, Location location)
+        throws EvalException {
+      RepositoryName.validateUserProvidedRepoName(extensionLocalName);
+      RepositoryName.validateUserProvidedRepoName(apparentName);
+      if (overrides.containsKey(extensionLocalName)) {
+        var collision = overrides.get(extensionLocalName);
+        throw Starlark.errorf(
+            "The repo '%s' defined by extension '%s' from %s is already overridden with '%s' at %s",
+            extensionLocalName,
+            extensionBzlFile,
+            extensionName,
+            collision.moduleLocalName,
+            collision.location);
+      }
+      overrides.put(extensionLocalName, new ApparentNameAndLocation(apparentName, location));
     }
 
     void addTag(Tag tag) {
@@ -204,6 +220,10 @@ public class ModuleThreadContext extends StarlarkThreadContext {
         builder.setIsolationKey(Optional.empty());
       }
       return builder.build();
+    }
+
+    ImmutableMap<String, String> buildRepoOverrides() {
+
     }
   }
 

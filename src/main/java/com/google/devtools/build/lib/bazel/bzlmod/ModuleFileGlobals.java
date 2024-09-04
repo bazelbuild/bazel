@@ -548,9 +548,9 @@ public class ModuleFileGlobals {
       proxyBuilder.addImport(localRepoName, exportedName);
     }
 
-    void addOverride(String localRepoName, String exportedName, Location location)
+    void addOverride(String extensionLocalName, String moduleLocalName, Location location)
         throws EvalException {
-      usageBuilder.addOverride(localRepoName, exportedName, location);
+      usageBuilder.addRepoOverride(extensionLocalName, moduleLocalName, location);
     }
 
     class TagCallable implements StarlarkValue {
@@ -670,6 +670,11 @@ public class ModuleFileGlobals {
       throws EvalException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "override_repo()");
     context.setNonModuleCalled();
+    if (context.shouldIgnoreDevDeps()) {
+      // Ignore calls early as they may refer to repos that are dev dependencies (or this is not the
+      // root module).
+      return;
+    }
     Location location = thread.getCallerLocation();
     for (String arg : Sequence.cast(args, String.class, "args")) {
       extensionProxy.addOverride(arg, arg, location);
