@@ -21,6 +21,7 @@ load(
     ":common/java/java_info.bzl",
     "JavaCompilationInfo",
     "JavaInfo",
+    "JavaPluginDataInfo",
     "JavaPluginInfo",
     "to_java_binary_info",
     _java_info_add_constraints = "add_constraints",
@@ -305,6 +306,8 @@ def _internal_exports():
         get_runtime_classpath_for_archive = _java_common_internal.get_runtime_classpath_for_archive,
         to_java_binary_info = to_java_binary_info,
         run_ijar_private_for_builtins = run_ijar,
+        expand_java_opts = _java_common_internal.expand_java_opts,
+        JavaPluginDataInfo = JavaPluginDataInfo,
     )
 
 def _make_java_common():
