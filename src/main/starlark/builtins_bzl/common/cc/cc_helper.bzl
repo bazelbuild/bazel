@@ -671,6 +671,7 @@ def _contains_sysroot(original_cc_flags, feature_config_cc_flags):
 
     return False
 
+# LINT.IfChange
 def _lookup_var(ctx, additional_vars, var):
     expanded_make_var_ctx = ctx.var.get(var)
     expanded_make_var_additional = additional_vars.get(var)
@@ -679,27 +680,6 @@ def _lookup_var(ctx, additional_vars, var):
     if expanded_make_var_ctx != None:
         return expanded_make_var_ctx
     fail("{}: {} not defined".format(ctx.label, "$(" + var + ")"))
-
-def _get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain):
-    original_cc_flags = cc_toolchain._legacy_cc_flags_make_variable
-    sysroot_cc_flag = ""
-    if cc_toolchain.sysroot != None:
-        sysroot_cc_flag = SYSROOT_FLAG + cc_toolchain.sysroot
-
-    build_vars = cc_toolchain._build_variables
-    feature_config_cc_flags = cc_common.get_memory_inefficient_command_line(
-        feature_configuration = feature_configuration,
-        action_name = "cc-flags-make-variable",
-        variables = build_vars,
-    )
-    cc_flags = [original_cc_flags]
-
-    # Only add sysroots flag if nothing else adds sysroot, BUT it must appear
-    # before the feature config flags.
-    if not _contains_sysroot(original_cc_flags, feature_config_cc_flags):
-        cc_flags.append(sysroot_cc_flag)
-    cc_flags.extend(feature_config_cc_flags)
-    return {"CC_FLAGS": " ".join(cc_flags)}
 
 def _expand_nested_variable(ctx, additional_vars, exp, execpath = True, targets = []):
     # If make variable is predefined path variable(like $(location ...))
@@ -796,6 +776,21 @@ def _expand(ctx, expression, additional_make_variable_substitutions, execpath = 
 
     return "".join(result)
 
+def _get_expanded_env(ctx, additional_make_variable_substitutions):
+    if not hasattr(ctx.attr, "env"):
+        fail("could not find rule attribute named: 'env'")
+    expanded_env = {}
+    for k in ctx.attr.env:
+        expanded_env[k] = _expand(
+            ctx,
+            ctx.attr.env[k],
+            additional_make_variable_substitutions,
+            # By default, Starlark `ctx.expand_location` has `execpath` semantics.
+            # For legacy attributes, e.g. `env`, we want `rootpath` semantics instead.
+            execpath = False,
+        )
+    return expanded_env
+
 # Implementation of Bourne shell tokenization.
 # Tokenizes str and appends result to the options list.
 def _tokenize(options, options_string):
@@ -856,6 +851,29 @@ def _tokenize(options, options_string):
     if force_token or len(token) > 0:
         options.append("".join(token))
 
+# LINT.ThenChange(@rules_cc//cc/common/cc_helper.bzl)
+
+def _get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain):
+    original_cc_flags = cc_toolchain._legacy_cc_flags_make_variable
+    sysroot_cc_flag = ""
+    if cc_toolchain.sysroot != None:
+        sysroot_cc_flag = SYSROOT_FLAG + cc_toolchain.sysroot
+
+    build_vars = cc_toolchain._build_variables
+    feature_config_cc_flags = cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_configuration,
+        action_name = "cc-flags-make-variable",
+        variables = build_vars,
+    )
+    cc_flags = [original_cc_flags]
+
+    # Only add sysroots flag if nothing else adds sysroot, BUT it must appear
+    # before the feature config flags.
+    if not _contains_sysroot(original_cc_flags, feature_config_cc_flags):
+        cc_flags.append(sysroot_cc_flag)
+    cc_flags.extend(feature_config_cc_flags)
+    return {"CC_FLAGS": " ".join(cc_flags)}
+
 # Tries to expand a single make variable from token.
 # If token has additional characters other than ones
 # corresponding to make variable returns None.
@@ -892,21 +910,6 @@ def _get_copts(ctx, feature_configuration, additional_make_variable_substitution
     tokenization = not (cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "no_copts_tokenization") or "no_copts_tokenization" in ctx.features)
     expanded_attribute_copts = _expand_make_variables_for_copts(ctx, tokenization, attribute_copts, additional_make_variable_substitutions)
     return expanded_attribute_copts
-
-def _get_expanded_env(ctx, additional_make_variable_substitutions):
-    if not hasattr(ctx.attr, "env"):
-        fail("could not find rule attribute named: 'env'")
-    expanded_env = {}
-    for k in ctx.attr.env:
-        expanded_env[k] = _expand(
-            ctx,
-            ctx.attr.env[k],
-            additional_make_variable_substitutions,
-            # By default, Starlark `ctx.expand_location` has `execpath` semantics.
-            # For legacy attributes, e.g. `env`, we want `rootpath` semantics instead.
-            execpath = False,
-        )
-    return expanded_env
 
 def _has_target_constraints(ctx, constraints):
     # Constraints is a label_list.
