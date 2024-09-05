@@ -32,7 +32,7 @@ bazel_dep(name = "rules_python", version = "0.33.2")
 bazel_dep(name = "rules_testing", version = "0.6.0")
 bazel_dep(name = "googletest", version = "1.14.0.bcr.1", repo_name = "com_google_googletest")
 bazel_dep(name = "with_cfg.bzl", version = "0.2.4")
-bazel_dep(name = "abseil-cpp", version = "20230802.1")
+bazel_dep(name = "abseil-cpp", version = "20240116.2")
 
 # TODO(pcloudy): Add remoteapis and googleapis as Bazel modules in the BCR.
 bazel_dep(name = "remoteapis", version = "")
