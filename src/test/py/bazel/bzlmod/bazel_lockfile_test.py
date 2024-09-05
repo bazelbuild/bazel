@@ -2597,6 +2597,62 @@ class BazelLockfileTest(test_base.TestBase):
     stderr = '\n'.join(stderr)
     self.assertIn('LAZYEVAL_KEY=None', stderr)
 
+  def testModuleExtensionRerunsOnUniqueNameChange(self):
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'my_ext_1 = use_extension("//:ext1.bzl","my_ext")',
+        'use_repo(my_ext_1, "foo")',
+      ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+      'ext1.bzl',
+      [
+        'def _my_repo_impl(ctx):',
+        '  ctx.file("REPO.bazel")',
+        '  ctx.file("BUILD")',
+        '  ctx.file("hi.txt", "hi")',
+        '  if ctx.attr.label:',
+        '    print("label: {}".format(ctx.attr.label))',
+        'my_repo = repository_rule(',
+        '  implementation=_my_repo_impl,',
+        '  attrs={"label": attr.label()}',
+        ')',
+        'def _my_ext_impl(ctx):',
+        '  my_repo(name="foo",label="@bar")',
+        '  my_repo(name="bar")',
+        'my_ext = module_extension(implementation=_my_ext_impl)',
+      ],
+    )
+    self.ScratchFile(
+      'ext2.bzl',
+      [
+        'load(":ext1.bzl", "my_repo")',
+        'def _my_ext_impl(ctx):',
+        '  my_repo(name="foo")',
+        'my_ext = module_extension(implementation=_my_ext_impl)',
+      ]
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@foo//:all'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('label: @@+my_ext+bar//:bar\n', stderr)
+
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'my_ext_2 = use_extension("//:ext2.bzl","my_ext")',
+        'use_repo(my_ext_2, other_foo = "foo")',
+        'my_ext_1 = use_extension("//:ext1.bzl","my_ext")',
+        'use_repo(my_ext_1, "foo")',
+      ],
+    )
+
+    _, _, stderr = self.RunBazel(['build', '@foo//:all'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('label: @@+my_ext2+bar//:bar\n', stderr)
+
 
 if __name__ == '__main__':
   absltest.main()

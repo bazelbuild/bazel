@@ -84,9 +84,7 @@ public abstract class SingleExtensionUsagesValue implements SkyValue {
     return SingleExtensionUsagesValue.create(
         ImmutableMap.copyOf(
             Maps.transformValues(getExtensionUsages(), ModuleExtensionUsage::trimForEvaluation)),
-        // extensionUniqueName: Not accessible to the extension's implementation function.
-        // TODO: Reconsider this when resolving #19055.
-        "",
+        getExtensionUniqueName(),
         getAbridgedModules(),
         // repoMappings: The usage of repo mappings by the extension's implementation function is
         // tracked on the level of individual entries and all label attributes are provided as
