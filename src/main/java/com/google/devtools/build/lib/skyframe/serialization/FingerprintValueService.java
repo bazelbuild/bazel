@@ -80,7 +80,7 @@ public final class FingerprintValueService {
   }
 
   /** Delegates to {@link FingerprintValueStore#put}. */
-  ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
+  public ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
     return store.put(fingerprint, serializedBytes);
   }
 
