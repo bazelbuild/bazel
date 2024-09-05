@@ -269,6 +269,9 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   }
 
   public ImmutableMap<String, ModuleOverride> buildOverrides() {
+    if (shouldIgnoreDevDeps()){
+      return ImmutableMap.of();
+    }
     // Add overrides for builtin modules if there is no existing override for them.
     if (ModuleKey.ROOT.equals(module.getKey())) {
       for (String moduleName : builtinModules.keySet()) {
