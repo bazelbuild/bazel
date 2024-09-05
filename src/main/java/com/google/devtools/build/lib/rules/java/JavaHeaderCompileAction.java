@@ -514,10 +514,11 @@ public final class JavaHeaderCompileAction extends SpawnAction {
           TargetUtils.getExecutionInfo(
               ruleContext.getRule(), ruleContext.isAllowTagsPropagation()));
 
-      ActionOwner actionOwner = null;
-      if (ruleContext.useAutoExecGroups()) {
-        actionOwner = ruleContext.getActionOwner(execGroup);
-      }
+      ActionOwner actionOwner =
+          ruleContext.useAutoExecGroups()
+              ? ruleContext.getActionOwner(execGroup)
+              : ruleContext.getActionOwner();
+
       if (useDirectClasspath) {
         NestedSet<Artifact> classpath;
         NestedSet<Artifact> additionalArtifactsForPathMapping;
@@ -545,7 +546,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
         ruleContext.registerAction(
             new JavaHeaderCompileAction(
-                /* owner= */ actionOwner == null ? ruleContext.getActionOwner() : actionOwner,
+                /* owner= */ actionOwner,
                 /* tools= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER),
                 /* inputs= */ allInputs,
                 /* outputs= */ outputs.build(),
@@ -601,7 +602,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       ruleContext.registerAction(
           new JavaCompileAction(
               /* compilationType= */ JavaCompileAction.CompilationType.TURBINE,
-              /* owner= */ actionOwner == null ? ruleContext.getActionOwner() : actionOwner,
+              /* owner= */ actionOwner,
               /* tools= */ toolsJars,
               /* progressMessage= */ progressMessage,
               /* mandatoryInputs= */ mandatoryInputs,
