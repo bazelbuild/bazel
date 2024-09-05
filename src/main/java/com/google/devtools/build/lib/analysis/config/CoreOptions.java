@@ -884,12 +884,14 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "experimental_inprocess_symlink_creation",
-      defaultValue = "false",
+      defaultValue = "true",
       converter = BooleanConverter.class,
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       metadataTags = OptionMetadataTag.EXPERIMENTAL,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS, OptionEffectTag.EXECUTION},
-      help = "Whether to make direct file system calls to create symlink trees")
+      help =
+          "Whether to make direct filesystem calls to create symlink trees instead of delegating"
+              + " to a helper process.")
   public boolean inProcessSymlinkCreation;
 
   @Option(
