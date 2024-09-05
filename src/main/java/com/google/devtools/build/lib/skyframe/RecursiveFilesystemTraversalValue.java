@@ -404,7 +404,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     @Override
     @Nullable
     public RootedPath getPath() {
-      return null;
+      return symlink.linkName;
     }
 
     @Override
@@ -473,7 +473,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
     @Override
     public RootedPath getPath() {
-      return path;
+      return symlink.linkName;
     }
 
     @Override
@@ -537,7 +537,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
 
     @Override
     public RootedPath getPath() {
-      return path;
+      return symlink.linkName;
     }
 
     @Override
@@ -622,12 +622,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     /** Type of the entity under {@link #getPath()}. */
     FileType getType();
 
-    /**
-     * Path of the file, directory or resolved target of the symlink.
-     *
-     * <p>May only return null for dangling symlinks.
-     */
-    @Nullable
+    /** Path of the file, directory or symlink. */
     RootedPath getPath();
 
     /**
@@ -644,6 +639,7 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
      * should have necessary prefixes stripped (if any).
      */
     PathFragment getNameInSymlinkTree();
+  
 
     /**
      * Returns the path of the symlink target.

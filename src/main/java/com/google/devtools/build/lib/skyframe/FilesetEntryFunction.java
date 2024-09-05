@@ -179,7 +179,17 @@ public final class FilesetEntryFunction implements SkyFunction {
 
       PathFragment targetName;
       try {
-        targetName = f.getTargetInSymlinkTree(direct.isFollowingSymlinks());
+        switch (direct.getSymlinkBehavior()) {
+          case COPY:
+            targetName = f.getTargetInSymlinkTree(false);
+            break;
+          case DEREFERENCE:
+            targetName = f.getTargetInSymlinkTree(true);
+            break;
+          default:
+            targetName = f.getPath().asPath().asFragment();
+            break;
+        }
       } catch (DanglingSymlinkException e) {
         throw new FilesetEntryFunctionException(e);
       }
