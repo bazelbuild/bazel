@@ -1,0 +1,75 @@
+name: Comment on Stale Approved PRs
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Runs every day at midnight
+
+jobs:
+  comment-on-stale-prs:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v2
+      with:
+        node-version: '14'
+
+    - name: Install dependencies
+      run: npm install @octokit/rest
+
+    - name: Comment on stale approved PRs
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        node -e "
+        const { Octokit } = require('@octokit/rest');
+        const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+
+        (async () => {
+          const { data: pullRequests } = await octokit.pulls.list({
+            owner: 'sgowroji',
+            repo: 'bazel',
+            state: 'open',
+            labels: 'awaiting-review'
+          });
+
+          const fiveDaysAgo = new Date();
+          fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+
+          for (const pr of pullRequests) {
+            const { data: reviews } = await octokit.pulls.listReviews({
+              owner: 'sgowroji',
+              repo: 'bazel',
+              pull_number: pr.number
+            });
+
+            const approvedReviews = reviews.filter(review => review.state === 'APPROVED');
+            if (approvedReviews.length > 0) {
+              const lastApprovedReview = approvedReviews[approvedReviews.length - 1];
+              const lastApprovedDate = new Date(lastApprovedReview.submitted_at);
+
+              if (lastApprovedDate < fiveDaysAgo) {
+                const { data: comments } = await octokit.issues.listComments({
+                  owner: 'your-org',
+                  repo: 'your-repo',
+                  issue_number: pr.number
+                });
+
+                const commentExists = comments.some(comment => comment.body.includes('Since we can see that this PR has been approved before 5 days'));
+
+                if (!commentExists) {
+                  await octokit.issues.createComment({
+                    owner: 'sgowroji',
+                    repo: 'bazel',
+                    issue_number: pr.number,
+                    body: 'Since we can see that this PR has been approved before 5 days, Please let us know whether gTech team should proceed with importing it internally. Thanks!'
+                  });
+                }
+              }
+            }
+          }
+        })();
+        "
