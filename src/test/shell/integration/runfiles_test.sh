@@ -60,10 +60,12 @@ if "$is_windows"; then
   export MSYS_NO_PATHCONV=1
   export MSYS2_ARG_CONV_EXCL="*"
   export EXT=".exe"
+  export EXTRA_STARTUP_FLAGS="--windows_enable_symlinks"
   export EXTRA_BUILD_FLAGS="--incompatible_use_python_toolchains=false \
 --enable_runfiles --build_python_zip=0"
 else
   export EXT=""
+  export EXTRA_STARTUP_FLAGS=""
   export EXTRA_BUILD_FLAGS="--incompatible_use_python_toolchains=false"
 fi
 
@@ -140,7 +142,7 @@ genrule(name = "hidden",
         outs = [ "e/f/g/hidden.txt" ],
         cmd = "touch \$@")
 EOF
-  bazel build $pkg:bin $EXTRA_BUILD_FLAGS >&$TEST_log 2>&1 || fail "build failed"
+  bazel $EXTRA_STARTUP_FLAGS build $pkg:bin $EXTRA_BUILD_FLAGS >&$TEST_log 2>&1 || fail "build failed"
 
   # we get a warning that hidden.txt is inaccessible
   expect_log_once "${pkg}/e/f/g/hidden.txt obscured by ${pkg}/e/f "
@@ -174,7 +176,7 @@ py_binary(name = "py",
           data = ["e/f/g/ignored.txt"],
           deps = ["//:root"])
 EOF
-  bazel build $pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
+  bazel $EXTRA_STARTUP_FLAGS build $pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
   workspace_root=$PWD
 
   cd ${PRODUCT_NAME}-bin/$pkg/foo${EXT}.runfiles
@@ -284,7 +286,7 @@ sh_binary(name = "foo",
           srcs = [ "x/y/z.sh" ],
           data = [ "e/f" ])
 EOF
-  bazel build $pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
+  bazel $EXTRA_STARTUP_FLAGS build $pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
 
   cd ${PRODUCT_NAME}-bin/$pkg/foo${EXT}.runfiles
 
@@ -391,12 +393,12 @@ EOF
   cat > thing.cc <<EOF
 int main() { return 0; }
 EOF
-  bazel build --noenable_bzlmod --enable_workspace //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
+  bazel $EXTRA_STARTUP_FLAGS build --noenable_bzlmod --enable_workspace //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
   [[ -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/foo ]] || fail "foo not found"
 
   # Change workspace name to bar.
   sed -ie 's,workspace(.*,workspace(name = "bar"),' WORKSPACE
-  bazel build --noenable_bzlmod --enable_workspace //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
+  bazel $EXTRA_STARTUP_FLAGS build --noenable_bzlmod --enable_workspace //:thing $EXTRA_BUILD_FLAGS &> $TEST_log || fail "Build failed"
   [[ -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/bar ]] || fail "bar not found"
   [[ ! -d ${PRODUCT_NAME}-bin/thing${EXT}.runfiles/foo ]] \
     || fail "Old foo still found"
@@ -490,7 +492,7 @@ EOF
   chmod +x foo.sh
 
   # Build once to create a runfiles directory.
-  bazel build //:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
+  bazel $EXTRA_STARTUP_FLAGS build //:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
 
   # Remove the MANIFEST file that was created by the previous build.
   # Create an inaccessible file in the place where build-runfiles writes
@@ -505,7 +507,7 @@ EOF
 
   # Even with the inaccessible temporary file in place, build-runfiles
   # should complete successfully. The MANIFEST file should be recreated.
-  bazel build //:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
+  bazel $EXTRA_STARTUP_FLAGS build //:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "build failed"
   [[ -f ${PRODUCT_NAME}-bin/foo${EXT}.runfiles/MANIFEST ]] \
     || fail "MANIFEST file not recreated"
 }
