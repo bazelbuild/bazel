@@ -51,7 +51,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   @Nullable private final ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile;
   private final Map<String, DepSpec> deps = new LinkedHashMap<>();
   private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
-  private final Map<String, ModuleOverride> overrides = new HashMap<>();
+  private final Map<String, ModuleOverride> overrides = new LinkedHashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
 
   public static ModuleThreadContext fromOrFail(StarlarkThread thread, String what)
@@ -269,15 +269,16 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   }
 
   public ImmutableMap<String, ModuleOverride> buildOverrides() {
-    if (shouldIgnoreDevDeps()){
-      return ImmutableMap.of();
+    LinkedHashMap<String, ModuleOverride> effectiveOverrides = new LinkedHashMap<>();
+    if (!shouldIgnoreDevDeps()) {
+      effectiveOverrides.putAll(overrides);
     }
     // Add overrides for builtin modules if there is no existing override for them.
     if (ModuleKey.ROOT.equals(module.getKey())) {
       for (String moduleName : builtinModules.keySet()) {
-        overrides.putIfAbsent(moduleName, builtinModules.get(moduleName));
+        effectiveOverrides.putIfAbsent(moduleName, builtinModules.get(moduleName));
       }
     }
-    return ImmutableMap.copyOf(overrides);
+    return ImmutableMap.copyOf(effectiveOverrides);
   }
 }
