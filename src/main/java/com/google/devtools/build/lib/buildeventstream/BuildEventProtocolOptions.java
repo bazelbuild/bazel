@@ -163,10 +163,16 @@ public class BuildEventProtocolOptions extends OptionsBase {
    * Collects the values in {@link #outputGroupFileModes} into a map and returns a {@link
    * OutputGroupFileModes} backed by that map and defaulting to {@link
    * OutputGroupFileMode.NAMED_SET_OF_FILES_ONLY} for out groups not in that map.
+   *
+   * <p>This also implements the default value of the {@code
+   * --experimental_build_event_output_group_mode} option, which as an {@code allowMultiple} option
+   * cannot specify a default value. The default value sets the mode for coverage artifacts to BOTH:
+   * {@code --experimental_build_event_output_group_mode=baseline.lcov=both}.
    */
   public OutputGroupFileModes getOutputGroupFileModesMapping() {
     var modeMap =
         ImmutableMap.<String, OutputGroupFileMode>builder()
+            .put(TestFileNameConstants.BASELINE_COVERAGE, OutputGroupFileMode.BOTH)
             .putAll(outputGroupFileModes)
             .buildKeepingLast();
     return (outputGroup) ->
@@ -185,6 +191,7 @@ public class BuildEventProtocolOptions extends OptionsBase {
               + " BEP events. Values are an assignment of an output group name to one of"
               + " 'NAMED_SET_OF_FILES_ONLY', 'INLINE_ONLY', or 'BOTH'. The default value is"
               + " 'NAMED_SET_OF_FILES_ONLY'. If an output group is repeated, the final value to"
-              + " appear is used.")
+              + " appear is used. The default value sets the mode for coverage artifacts to BOTH: "
+              + "--experimental_build_event_output_group_mode=baseline.lcov=both")
   public List<Map.Entry<String, OutputGroupFileMode>> outputGroupFileModes;
 }

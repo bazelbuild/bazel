@@ -594,8 +594,8 @@ public final class TargetCompleteEvent
     OutputGroupFileMode fileMode = converters.getFileModeForOutputGroup(outputGroup);
     if (fileMode == OutputGroupFileMode.NAMED_SET_OF_FILES_ONLY
         || fileMode == OutputGroupFileMode.BOTH) {
-      ArtifactGroupNamer namer2 = converters.artifactGroupNamer();
-      builder.addFileSets(namer2.apply(artifactsToReport.get().toNode()));
+      ArtifactGroupNamer namer = converters.artifactGroupNamer();
+      builder.addFileSets(namer.apply(artifactsToReport.get().toNode()));
     }
     if (fileMode == OutputGroupFileMode.INLINE_ONLY || fileMode == OutputGroupFileMode.BOTH) {
       addFilesDirectlyToProtoField(
