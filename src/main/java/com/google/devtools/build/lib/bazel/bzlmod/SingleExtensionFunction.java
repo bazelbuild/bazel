@@ -52,7 +52,8 @@ public class SingleExtensionFunction implements SkyFunction {
     for (ModuleExtensionUsage usage : usagesValue.getExtensionUsages().values()) {
       for (ModuleExtensionUsage.Proxy proxy : usage.getProxies()) {
         for (Entry<String, String> repoImport : proxy.getImports().entrySet()) {
-          if (!evalOnlyValue.getGeneratedRepoSpecs().containsKey(repoImport.getValue())) {
+          if (!evalOnlyValue.getGeneratedRepoSpecs().containsKey(repoImport.getValue())
+              && !usagesValue.getRepoOverrides().containsKey(repoImport.getValue())) {
             throw new SingleExtensionFunctionException(
                 ExternalDepsException.withMessage(
                     Code.INVALID_EXTENSION_IMPORT,

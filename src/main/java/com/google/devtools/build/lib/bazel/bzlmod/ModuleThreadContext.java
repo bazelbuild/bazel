@@ -229,16 +229,16 @@ public class ModuleThreadContext extends StarlarkThreadContext {
               override.getValue().location,
               apparentName);
         }
-        if (imports.inverse().containsKey(extensionLocalName)) {
-          throw Starlark.errorf(
-              "The repo exported as '%s' by module extension '%s' is both overridden with '%s' at %s and imported at %s, which is not supported. Please use '%s' directly instead.",
-              extensionLocalName,
-              extensionName,
-              apparentName,
-              override.getValue().location,
-              context.repoNameUsages.get(imports.inverse().get(extensionLocalName)).where,
-              apparentName);
-        }
+//        if (imports.inverse().containsKey(extensionLocalName)) {
+//          throw Starlark.errorf(
+//              "The repo exported as '%s' by module extension '%s' is both overridden with '%s' at %s and imported at %s, which is not supported. Please use '%s' directly instead.",
+//              extensionLocalName,
+//              extensionName,
+//              apparentName,
+//              override.getValue().location,
+//              context.repoNameUsages.get(imports.inverse().get(extensionLocalName)).where,
+//              apparentName);
+//        }
       }
       builder.setRepoOverrides(
           ImmutableMap.copyOf(Maps.transformValues(overrides, v -> v.apparentName)));
@@ -325,14 +325,5 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       }
     }
     return ImmutableMap.copyOf(overrides);
-  }
-
-  public ImmutableMap<ModuleExtensionUsage, ImmutableMap<String, String>> buildRepoOverrides()
-      throws EvalException {
-    var result = new LinkedHashMap<ModuleExtensionUsage, ImmutableMap<String, String>>();
-    for (var extensionUsageBuilder : extensionUsageBuilders) {
-      result.put(extensionUsageBuilder.buildUsage(), extensionUsageBuilder.buildRepoOverrides());
-    }
-    return ImmutableMap.copyOf(result);
   }
 }

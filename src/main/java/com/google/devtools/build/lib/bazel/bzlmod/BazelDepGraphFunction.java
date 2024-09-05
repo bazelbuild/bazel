@@ -214,7 +214,11 @@ public class BazelDepGraphFunction implements SkyFunction {
             depGraph,
             extensionUsagesTable,
             extensionUniqueNames,
-            canonicalRepoNameLookup);
+            canonicalRepoNameLookup,
+            // ModuleFileFunction ensures that repos that override other repos are not themselves
+            // overridden, so we can safely pass an empty table here instead of resolving chains
+            // of overrides.
+            ImmutableTable.of());
     ImmutableTable.Builder<ModuleExtensionId, String, RepositoryName> repoOverridesBuilder =
         ImmutableTable.builder();
     for (var extensionId : extensionUsagesTable.rowKeySet()) {

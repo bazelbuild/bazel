@@ -118,7 +118,8 @@ public abstract class BazelDepGraphValue implements SkyValue {
         getDepGraph(),
         getExtensionUsagesTable(),
         getExtensionUniqueNames(),
-        getCanonicalRepoNameLookup());
+        getCanonicalRepoNameLookup(),
+        getRepoOverrides());
   }
 
   static RepositoryMapping getRepositoryMapping(
@@ -126,7 +127,8 @@ public abstract class BazelDepGraphValue implements SkyValue {
       ImmutableMap<ModuleKey, Module> depGraph,
       ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesTable,
       ImmutableMap<ModuleExtensionId, String> extensionUniqueNames,
-      ImmutableBiMap<RepositoryName, ModuleKey> canonicalRepoNameLookup) {
+      ImmutableBiMap<RepositoryName, ModuleKey> canonicalRepoNameLookup,
+      ImmutableTable<ModuleExtensionId, String, RepositoryName> repoOverrides) {
     ImmutableMap.Builder<String, RepositoryName> mapping = ImmutableMap.builder();
     for (Map.Entry<ModuleExtensionId, ModuleExtensionUsage> extIdAndUsage :
         extensionUsagesTable.column(key).entrySet()) {
@@ -135,8 +137,13 @@ public abstract class BazelDepGraphValue implements SkyValue {
       String repoNamePrefix = extensionUniqueNames.get(extensionId) + "+";
       for (ModuleExtensionUsage.Proxy proxy : usage.getProxies()) {
         for (Map.Entry<String, String> entry : proxy.getImports().entrySet()) {
-          String canonicalRepoName = repoNamePrefix + entry.getValue();
-          mapping.put(entry.getKey(), RepositoryName.createUnvalidated(canonicalRepoName));
+          RepositoryName defaultCanonicalRepoName =
+              RepositoryName.createUnvalidated(repoNamePrefix + entry.getValue());
+          mapping.put(
+              entry.getKey(),
+              repoOverrides
+                  .row(extensionId)
+                  .getOrDefault(entry.getValue(), defaultCanonicalRepoName));
         }
       }
     }
