@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
+import com.google.devtools.build.lib.analysis.RunfilesProvider;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.config.CompilationMode;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
@@ -363,6 +364,18 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
     assertThat(compileActionA.getArguments()).doesNotContain("--DBG_ONLY_FLAG");
     assertThat(compileActionA.getArguments()).doesNotContain("--FASTBUILD_ONLY_FLAG");
     assertThat(compileActionA.getArguments()).contains("--OPT_ONLY_FLAG");
+  }
+
+  @Test
+  public void testCreate_runfilesWithSourcesOnly() throws Exception {
+    ConfiguredTarget target =
+        createLibraryTargetWriter("//objc:One")
+            .setAndCreateFiles("srcs", "a.m", "b.m", "private.h")
+            .write();
+    RunfilesProvider provider = target.getProvider(RunfilesProvider.class);
+    assertThat(baseArtifactNames(provider.getDefaultRunfiles().getArtifacts())).isEmpty();
+    assertThat(Artifact.toRootRelativePaths(provider.getDataRunfiles().getArtifacts()))
+        .containsExactly("objc/libOne.a");
   }
 
   @Test

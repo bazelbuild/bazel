@@ -99,9 +99,9 @@ def _objc_library_impl(ctx):
     )
 
     return [
-        # TODO(b/360366113): propagate runfiles of inputs (like cc_library).
         DefaultInfo(
             files = depset(files),
+            data_runfiles = ctx.runfiles(files = files),
         ),
         CcInfo(
             compilation_context = compilation_context,
