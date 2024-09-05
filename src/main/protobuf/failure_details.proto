@@ -150,6 +150,7 @@ message FailureDetail {
     ModCommand mod_command = 183;
     BuildReport build_report = 184;
     Skyfocus skyfocus = 185;
+    RemoteAnalysisCaching remote_analysis_caching = 186;
   }
 
   reserved 102; // For internal use
@@ -382,6 +383,16 @@ message Skyfocus {
     NON_WORKING_SET_CHANGE = 1 [(metadata) = { exit_code: 2 }];
     CONFIGURATION_CHANGE = 2 [(metadata) = { exit_code: 2 }];
     DISALLOWED_OPERATION_ON_FOCUSED_GRAPH = 3 [(metadata) = { exit_code: 2 }];
+  }
+
+  Code code = 1;
+}
+
+// Failure details for errors produced during remote analysis caching.
+message RemoteAnalysisCaching {
+  enum Code {
+    REMOTE_ANALYSIS_CACHING_UNKNOWN = 0 [(metadata) = { exit_code: 1 }];
+    SERIALIZED_FRONTIER_PROFILE_FAILED = 1 [(metadata) = { exit_code: 1 }];
   }
 
   Code code = 1;
@@ -950,7 +961,8 @@ message DumpCommand {
     STARLARK_HEAP_DUMP_FAILED = 5 [(metadata) = { exit_code: 8 }];
      reserved 6; // For internal use
     SKYFRAME_MEMORY_DUMP_FAILED = 7 [(metadata) = { exit_code: 7 }];
-    SERIALIZED_FRONTIER_PROFILE_FAILED = 8 [(metadata) = { exit_code: 7 }];
+    // deprecated, moved to the RemoteAnalysisCaching message.
+    reserved 8;
   }
 
   Code code = 1;

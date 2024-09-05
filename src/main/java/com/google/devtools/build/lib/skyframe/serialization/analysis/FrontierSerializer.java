@@ -11,14 +11,13 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package com.google.devtools.build.lib.runtime.commands;
+package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.devtools.build.lib.runtime.commands.DumpCommand.createFailureResult;
-import static com.google.devtools.build.lib.runtime.commands.FrontierSerializer.SelectionMarking.ACTIVE;
-import static com.google.devtools.build.lib.runtime.commands.FrontierSerializer.SelectionMarking.FRONTIER_CANDIDATE;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.ACTIVE;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking.FRONTIER_CANDIDATE;
 import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -41,7 +40,9 @@ import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
-import com.google.devtools.build.lib.server.FailureDetails.DumpCommand.Code;
+import com.google.devtools.build.lib.server.FailureDetails;
+import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
 import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
@@ -75,8 +76,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
-/** Implements dump with {@code --serialized_frontier_profile}. */
-final class FrontierSerializer {
+/**
+ * Implements frontier serialization with pprof dumping using {@code --serialized_frontier_profile}.
+ */
+public final class FrontierSerializer {
 
   private FrontierSerializer() {}
 
@@ -86,7 +89,7 @@ final class FrontierSerializer {
    *
    * @return empty if successful, otherwise a result containing the appropriate error
    */
-  static Optional<BlazeCommandResult> dumpFrontierSerializationProfile(
+  public static Optional<BlazeCommandResult> dumpFrontierSerializationProfile(
       PrintStream out, CommandEnvironment env, String path) throws InterruptedException {
     // Starts initializing ObjectCodecs in a background thread as it can take some time.
     var futureCodecs = new FutureTask<>(() -> initObjectCodecs(env));
@@ -371,5 +374,14 @@ final class FrontierSerializer {
       stopwatch.reset().start();
       return text;
     }
+  }
+
+  static BlazeCommandResult createFailureResult(String message, Code detailedCode) {
+    return BlazeCommandResult.failureDetail(
+        FailureDetail.newBuilder()
+            .setMessage(message)
+            .setRemoteAnalysisCaching(
+                FailureDetails.RemoteAnalysisCaching.newBuilder().setCode(detailedCode))
+            .build());
   }
 }

@@ -8,6 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec:srcs",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/testutils:srcs",
     ],
