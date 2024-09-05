@@ -106,6 +106,11 @@ public interface TargetData {
     return null;
   }
 
+  /** Whether this target can be made available during dependency resolution. */
+  default boolean isForDependencyResolution() {
+    return false;
+  }
+
   default AdvertisedProviderSet getAdvertisedProviders() {
     return AdvertisedProviderSet.EMPTY;
   }

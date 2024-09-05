@@ -1037,6 +1037,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         documented,
         binaryOutput,
         workspaceOnly,
+        /* isForDependencyResolution= */ false,
         outputsDefaultExecutable,
         isAnalysisTest,
         /* hasAnalysisTestTransition= */ false,

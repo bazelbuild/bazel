@@ -1251,6 +1251,11 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
   }
 
   @Override
+  public boolean isForDependencyResolution() {
+    return getRuleClassObject().isForDependencyResolution();
+  }
+
+  @Override
   public AdvertisedProviderSet getAdvertisedProviders() {
     return getRuleClassObject().getAdvertisedProviders();
   }
@@ -1396,6 +1401,11 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
     @Override
     public boolean isTestOnly() {
       return isTestOnly;
+    }
+
+    @Override
+    public boolean isForDependencyResolution() {
+      return ruleClassData.isForDependencyResolution();
     }
 
     @Override

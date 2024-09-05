@@ -245,7 +245,10 @@ final class RuleDataCodec extends DeferredObjectCodec<RuleData> {
     // Serializes rule data for Starlark.
     context.serialize(
         new AutoValue_RuleDataCodec_StarlarkRuleClassData(
-            obj.getName(), obj.getTargetKind(), obj.getAdvertisedProviders()),
+            obj.getName(),
+            obj.getTargetKind(),
+            obj.isForDependencyResolution(),
+            obj.getAdvertisedProviders()),
         codedOut);
   }
 

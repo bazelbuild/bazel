@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.packages.Type.STRING_NO_INTERN;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Function;
 import com.google.common.base.Functions;
+import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
@@ -51,6 +52,7 @@ import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplic
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.AttributeValues;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -669,6 +671,7 @@ public class RuleClass implements RuleClassData {
     private boolean documented;
     private boolean outputsToBindir = true;
     private boolean workspaceOnly = false;
+    private boolean isForDependencyResolution = false;
     private boolean isExecutableStarlark = false;
     private boolean isAnalysisTest = false;
     private boolean hasAnalysisTestTransition = false;
@@ -812,7 +815,7 @@ public class RuleClass implements RuleClassData {
       Preconditions.checkArgument(this.name.isEmpty() || this.name.equals(name));
       type.checkName(name);
 
-      checkAttributes(name, type, attributes);
+      checkAttributes(name);
 
       Preconditions.checkState(
           (type == RuleClassType.ABSTRACT)
@@ -884,6 +887,7 @@ public class RuleClass implements RuleClassData {
           documented,
           outputsToBindir,
           workspaceOnly,
+          isForDependencyResolution,
           isExecutableStarlark,
           isAnalysisTest,
           hasAnalysisTestTransition,
@@ -912,8 +916,7 @@ public class RuleClass implements RuleClassData {
           subrules);
     }
 
-    private static void checkAttributes(
-        String ruleClassName, RuleClassType ruleClassType, Map<String, Attribute> attributes) {
+    private void checkAttributes(String ruleClassName) {
       Preconditions.checkArgument(
           attributes.size() <= MAX_ATTRIBUTES,
           "Rule class %s declared too many attributes (%s > %s)",
@@ -921,7 +924,13 @@ public class RuleClass implements RuleClassData {
           attributes.size(),
           MAX_ATTRIBUTES);
 
-      for (String attributeName : attributes.keySet()) {
+      ImmutableList.Builder<String> attributesNotForDependencyResolutionBuilder =
+          ImmutableList.builder();
+
+      for (var entry : attributes.entrySet()) {
+        String attributeName = entry.getKey();
+        Attribute attribute = entry.getValue();
+
         // TODO(b/151171037): This check would make more sense at Attribute creation time, but the
         // use of unchecked exceptions in these APIs makes it brittle.
         Preconditions.checkArgument(
@@ -931,9 +940,24 @@ public class RuleClass implements RuleClassData {
             attributeName,
             attributeName.length(),
             MAX_ATTRIBUTE_NAME_LENGTH);
+
+        if (isForDependencyResolution) {
+          if (attribute.getType().getLabelClass() == LabelClass.DEPENDENCY
+              && !attribute.isForDependencyResolution()) {
+            attributesNotForDependencyResolutionBuilder.add(attributeName);
+          }
+        }
       }
 
-      ruleClassType.checkAttributes(attributes);
+      ImmutableList<String> attributesNotForDependencyResolution =
+          attributesNotForDependencyResolutionBuilder.build();
+      if (!attributesNotForDependencyResolution.isEmpty()) {
+        throw new IllegalStateException(
+            "Rule is available for dependency resolution but some dependency attributes aren't: "
+                + Joiner.on(", ").join(attributesNotForDependencyResolution));
+      }
+
+      type.checkAttributes(attributes);
     }
 
     private void assertStarlarkRuleClassHasImplementationFunction() {
@@ -1345,6 +1369,16 @@ public class RuleClass implements RuleClassData {
     }
 
     /**
+     * Mark the rule as "for dependency resolution". Rules so marked can only depend on other rules
+     * also marked as such.
+     */
+    @CanIgnoreReturnValue
+    public Builder setForDependencyResolution() {
+      this.isForDependencyResolution = true;
+      return this;
+    }
+
+    /**
      * This rule class outputs a default executable for every rule with the same name as the
      * rules's. Only works for Starlark.
      */
@@ -1600,6 +1634,7 @@ public class RuleClass implements RuleClassData {
   private final boolean documented;
   private final boolean outputsToBindir;
   private final boolean workspaceOnly;
+  private final boolean isForDependencyResolution;
   private final boolean isExecutableStarlark;
   private final boolean isAnalysisTest;
   private final boolean hasAnalysisTestTransition;
@@ -1730,6 +1765,7 @@ public class RuleClass implements RuleClassData {
       boolean documented,
       boolean outputsToBindir,
       boolean workspaceOnly,
+      boolean isForDependencyResolution,
       boolean isExecutableStarlark,
       boolean isAnalysisTest,
       boolean hasAnalysisTestTransition,
@@ -1785,6 +1821,7 @@ public class RuleClass implements RuleClassData {
     this.outputFileKind = outputFileKind;
     this.attributes = attributes;
     this.workspaceOnly = workspaceOnly;
+    this.isForDependencyResolution = isForDependencyResolution;
     this.isExecutableStarlark = isExecutableStarlark;
     this.isAnalysisTest = isAnalysisTest;
     this.hasAnalysisTestTransition = hasAnalysisTestTransition;
@@ -2560,6 +2597,12 @@ public class RuleClass implements RuleClassData {
   /** Returns true if this RuleClass is Starlark-defined and is subject to analysis-time tests. */
   public boolean isStarlarkTestable() {
     return starlarkTestable;
+  }
+
+  /** Returns true if rules of this class can be made available for dependency resolution. */
+  @Override
+  public boolean isForDependencyResolution() {
+    return isForDependencyResolution;
   }
 
   /** Returns true if this rule class outputs a default executable for every rule. */

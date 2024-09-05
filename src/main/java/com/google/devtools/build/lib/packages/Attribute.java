@@ -186,6 +186,12 @@ public final class Attribute implements Comparable<Attribute> {
 
     /** Whether to run the transitive validation actions from this attribute. */
     SKIP_VALIDATIONS,
+
+    /**
+     * Whether the attribute is available during dependency resolution. If set, only rules also m
+     * arked as such can be referenced through this attribute.
+     */
+    FOR_DEPENDENCY_RESOLUTION,
   }
 
   /** A predicate class to check if the value of the attribute comes from a predefined set. */
@@ -1916,6 +1922,18 @@ public final class Attribute implements Comparable<Attribute> {
   /** Returns true if this label type parameter is checked by silent ruleclass filtering. */
   public boolean isSilentRuleClassFilter() {
     return getPropertyFlag(PropertyFlag.SILENT_RULECLASS_FILTER);
+  }
+
+  /**
+   * Returns whether the dependencies through this attribute are accessible during dependency
+   * resolution.
+   *
+   * <p>Only makes sense for attributes where {@code getType().getLabelClass()} is {@code
+   * DEPENDENCY}. Non-dependency attributes (non-label ones and label ones with a different label
+   * class) are always accessible during dependency resolution.
+   */
+  public boolean isForDependencyResolution() {
+    return getPropertyFlag(PropertyFlag.FOR_DEPENDENCY_RESOLUTION);
   }
 
   public boolean skipValidations() {

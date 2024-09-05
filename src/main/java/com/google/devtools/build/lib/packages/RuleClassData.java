@@ -31,6 +31,9 @@ interface RuleClassData {
   /** Returns the target kind of this class of rule (e.g. "cc_library rule"). */
   String getTargetKind();
 
+  /** Returns whether rules of this class can be made available during dependency resolution. */
+  boolean isForDependencyResolution();
+
   /** Returns the set of advertised transitive info providers. */
   AdvertisedProviderSet getAdvertisedProviders();
 
