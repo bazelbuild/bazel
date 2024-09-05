@@ -88,6 +88,6 @@ public final class FakeRunfilesTree implements RunfilesTree {
 
   @Override
   public String getWorkspaceName() {
-    return runfiles.getSuffix().getPathString();
+    return runfiles.getPrefix();
   }
 }

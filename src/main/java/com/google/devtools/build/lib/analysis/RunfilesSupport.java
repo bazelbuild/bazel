@@ -175,7 +175,7 @@ public final class RunfilesSupport {
 
     @Override
     public String getWorkspaceName() {
-      return runfiles.getSuffix().getPathString();
+      return runfiles.getPrefix();
     }
   }
 

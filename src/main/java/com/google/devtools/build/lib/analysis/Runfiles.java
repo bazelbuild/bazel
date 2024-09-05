@@ -118,9 +118,9 @@ public final class Runfiles implements RunfilesApi {
    *
    * <p>Using "foo" will put runfiles under &lt;target&gt;.runfiles/foo.
    *
-   * <p>This is either set to the workspace name, or is empty.
+   * <p>This is either set to the workspace name, or the empty string.
    */
-  private final PathFragment suffix;
+  private final String prefix;
 
   /**
    * The artifacts that should be present in the runfiles directory.
@@ -194,14 +194,14 @@ public final class Runfiles implements RunfilesApi {
   private final boolean legacyExternalRunfiles;
 
   private Runfiles(
-      PathFragment suffix,
+      String prefix,
       NestedSet<Artifact> artifacts,
       NestedSet<SymlinkEntry> symlinks,
       NestedSet<SymlinkEntry> rootSymlinks,
       EmptyFilesSupplier emptyFilesSupplier,
       ConflictPolicy conflictPolicy,
       boolean legacyExternalRunfiles) {
-    this.suffix = suffix;
+    this.prefix = prefix;
     this.artifacts = Preconditions.checkNotNull(artifacts);
     this.symlinks = Preconditions.checkNotNull(symlinks);
     this.rootSymlinks = Preconditions.checkNotNull(rootSymlinks);
@@ -215,11 +215,9 @@ public final class Runfiles implements RunfilesApi {
     return true; // immutable and Starlark-hashable
   }
 
-  /**
-   * Returns the runfiles' suffix.
-   */
-  public PathFragment getSuffix() {
-    return suffix;
+  /** Returns the runfiles' prefix. This is the same as the workspace name. */
+  public String getPrefix() {
+    return prefix;
   }
 
   /** Returns the collection of runfiles as artifacts. */
@@ -366,7 +364,8 @@ public final class Runfiles implements RunfilesApi {
     // Copy manifest map to another manifest map, prepending the workspace name to every path.
     // E.g. for workspace "myworkspace", the runfile entry "mylib.so"->"/path/to/mylib.so" becomes
     // "myworkspace/mylib.so"->"/path/to/mylib.so".
-    ManifestBuilder builder = new ManifestBuilder(suffix, legacyExternalRunfiles);
+    ManifestBuilder builder =
+        new ManifestBuilder(PathFragment.create(prefix), legacyExternalRunfiles);
     builder.addUnderWorkspace(manifest, checker);
 
     // Finally add symlinks relative to the root of the runfiles tree, on top of everything else.
@@ -640,7 +639,7 @@ public final class Runfiles implements RunfilesApi {
   public static final class Builder {
 
     /** This is set to the workspace name */
-    private final PathFragment suffix;
+    private final String prefix;
 
     /**
      * This must be COMPILE_ORDER because {@link #asMapWithoutRootSymlinks} overwrites earlier
@@ -662,7 +661,7 @@ public final class Runfiles implements RunfilesApi {
      * Only used for Runfiles.EMPTY.
      */
     private Builder() {
-      this.suffix = PathFragment.EMPTY_FRAGMENT;
+      this.prefix = "";
       this.legacyExternalRunfiles = false;
     }
 
@@ -678,23 +677,12 @@ public final class Runfiles implements RunfilesApi {
 
     /**
      * Creates a builder with the given suffix.
-     * @param workspace is the string specified in workspace() in the WORKSPACE file.
-     * @param legacyExternalRunfiles if the wsname/external/repo symlinks should also be
-     *     created.
+     *
+     * @param prefix is the string specified in workspace() in the WORKSPACE file.
+     * @param legacyExternalRunfiles if the wsname/external/repo symlinks should also be created.
      */
-    public Builder(String workspace, boolean legacyExternalRunfiles) {
-      this(PathFragment.create(workspace), legacyExternalRunfiles);
-    }
-
-    /**
-     * Creates a builder with the given suffix.
-     * @param suffix is the PathFragment wrapping the string specified in workspace() in the
-     *     WORKSPACE file.
-     * @param legacyExternalRunfiles if the wsname/external/repo symlinks should also be
-     *     created.
-     */
-    private Builder(PathFragment suffix, boolean legacyExternalRunfiles) {
-      this.suffix = suffix;
+    public Builder(String prefix, boolean legacyExternalRunfiles) {
+      this.prefix = prefix;
       this.legacyExternalRunfiles = legacyExternalRunfiles;
     }
 
@@ -703,7 +691,7 @@ public final class Runfiles implements RunfilesApi {
      */
     public Runfiles build() {
       return new Runfiles(
-          suffix,
+          prefix,
           artifactsBuilder.build(),
           symlinksBuilder.build(),
           rootSymlinksBuilder.build(),
@@ -832,10 +820,10 @@ public final class Runfiles implements RunfilesApi {
       if (runfiles.isEmpty()) {
         return this;
       }
-      // The suffix should be the same within any blaze build, except for the EMPTY runfiles, which
-      // may have an empty suffix, but that is covered above.
+      // The prefix should be the same within any blaze build, except for the EMPTY runfiles, which
+      // may have an empty prefix, but that is covered above.
       Preconditions.checkArgument(
-          suffix.equals(runfiles.suffix), "%s != %s", suffix, runfiles.suffix);
+          prefix.equals(runfiles.prefix), "%s != %s", prefix, runfiles.prefix);
       artifactsBuilder.addTransitive(runfiles.getArtifacts());
       symlinksBuilder.addTransitive(runfiles.getSymlinks());
       rootSymlinksBuilder.addTransitive(runfiles.getRootSymlinks());
@@ -1026,7 +1014,7 @@ public final class Runfiles implements RunfilesApi {
     } else if (o.isEmpty()) {
       return this;
     }
-    return new Runfiles.Builder(suffix, false)
+    return new Runfiles.Builder(prefix, false)
         .merge(this)
         .merge(o)
         .build()
@@ -1044,7 +1032,7 @@ public final class Runfiles implements RunfilesApi {
     // and `x.merge(y)` in Starlark.
     Runfiles uniqueNonEmptyMergee = null;
     if (!this.isEmpty()) {
-      builder = new Builder(suffix, false).merge(this);
+      builder = new Builder(prefix, false).merge(this);
       uniqueNonEmptyMergee = this;
     }
 
@@ -1052,7 +1040,7 @@ public final class Runfiles implements RunfilesApi {
     for (Runfiles runfiles : runfilesSequence) {
       if (!runfiles.isEmpty()) {
         if (builder == null) {
-          builder = new Builder(runfiles.suffix, /* legacyExternalRunfiles = */ false);
+          builder = new Builder(runfiles.prefix, /* legacyExternalRunfiles= */ false);
           uniqueNonEmptyMergee = runfiles;
         } else {
           uniqueNonEmptyMergee = null;
@@ -1075,7 +1063,7 @@ public final class Runfiles implements RunfilesApi {
       ActionKeyContext actionKeyContext, Fingerprint fp, boolean digestAbsolutePaths) {
     fp.addInt(conflictPolicy.ordinal());
     fp.addBoolean(legacyExternalRunfiles);
-    fp.addPath(suffix);
+    fp.addString(prefix);
 
     actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, symlinks);
     actionKeyContext.addNestedSetToFingerprint(SYMLINK_ENTRY_MAP_FN, fp, rootSymlinks);
@@ -1094,7 +1082,7 @@ public final class Runfiles implements RunfilesApi {
   String describeFingerprint(boolean digestAbsolutePaths) {
     return String.format("conflictPolicy: %s\n", conflictPolicy)
         + String.format("legacyExternalRunfiles: %s\n", legacyExternalRunfiles)
-        + String.format("suffix: %s\n", suffix)
+        + String.format("prefix: %s\n", prefix)
         + String.format(
             "symlinks: %s\n", describeNestedSetFingerprint(SYMLINK_ENTRY_MAP_FN, symlinks))
         + String.format(

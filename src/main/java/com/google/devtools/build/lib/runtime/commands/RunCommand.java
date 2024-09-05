@@ -926,7 +926,7 @@ public class RunCommand implements BlazeCommand {
     // On Windows, runfiles tree is disabled.
     // Workspace name directory doesn't exist, so don't add it.
     if (configuration.runfilesEnabled()) {
-      workingDir = workingDir.getRelative(runfilesSupport.getRunfiles().getSuffix());
+      workingDir = workingDir.getRelative(runfilesSupport.getRunfiles().getPrefix());
     }
 
     // Always create runfiles directory and the workspace-named directory underneath, even if we
