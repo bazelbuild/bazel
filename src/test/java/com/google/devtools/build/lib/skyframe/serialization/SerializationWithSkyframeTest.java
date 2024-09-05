@@ -14,7 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
+import static com.google.devtools.build.lib.skyframe.serialization.ExampleValue.exampleValueCodec;
 import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
 import static org.junit.Assert.assertThrows;
 
@@ -28,9 +28,7 @@ import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NestedA
 import com.google.devtools.build.lib.skyframe.serialization.NotNestedSet.NotNestedSetCodec;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.GetRecordingStore.GetRequest;
-import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.EnvironmentForUtilities;
 import com.google.errorprone.annotations.Keep;
 import com.google.protobuf.ByteString;
@@ -334,73 +332,7 @@ public final class SerializationWithSkyframeTest {
     return continuation.process(new EnvironmentForUtilities(entries::get));
   }
 
-  private record ExampleKey(String name) implements SkyKey {
-    @Override
-    public SkyFunctionName functionName() {
-      throw new UnsupportedOperationException();
-    }
-  }
-
-  /** A class that is deserialized using {@link DeserializationContext#getSkyValue}. */
-  private record ExampleValue(ExampleKey key, int x) implements SkyValue {}
-
   private record SharedExampleValue(ExampleValue value) {}
-
-  private static final class ExampleKeyCodec extends LeafObjectCodec<ExampleKey> {
-    private static final ExampleKeyCodec INSTANCE = new ExampleKeyCodec();
-
-    @Override
-    public Class<ExampleKey> getEncodedClass() {
-      return ExampleKey.class;
-    }
-
-    @Override
-    public void serialize(
-        LeafSerializationContext context, ExampleKey key, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      context.serializeLeaf(key.name(), stringCodec(), codedOut);
-    }
-
-    @Override
-    public ExampleKey deserialize(LeafDeserializationContext context, CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      return new ExampleKey(context.deserializeLeaf(codedIn, stringCodec()));
-    }
-  }
-
-  private static ExampleKeyCodec exampleKeyCodec() {
-    return ExampleKeyCodec.INSTANCE;
-  }
-
-  private static final class ExampleValueCodec extends DeferredObjectCodec<ExampleValue> {
-    private static final ExampleValueCodec INSTANCE = new ExampleValueCodec();
-
-    @Override
-    public Class<ExampleValue> getEncodedClass() {
-      return ExampleValue.class;
-    }
-
-    @Override
-    public void serialize(
-        SerializationContext context, ExampleValue obj, CodedOutputStream codedOut)
-        throws SerializationException, IOException {
-      context.serializeLeaf(obj.key(), exampleKeyCodec(), codedOut);
-    }
-
-    @Override
-    public DeferredValue<ExampleValue> deserializeDeferred(
-        AsyncDeserializationContext context, CodedInputStream codedIn)
-        throws SerializationException, IOException {
-      ExampleKey key = context.deserializeLeaf(codedIn, exampleKeyCodec());
-      SimpleDeferredValue<ExampleValue> builder = SimpleDeferredValue.create();
-      context.getSkyValue(key, builder, SimpleDeferredValue::set);
-      return builder;
-    }
-  }
-
-  private static ExampleValueCodec exampleValueCodec() {
-    return ExampleValueCodec.INSTANCE;
-  }
 
   @Keep // used reflectively
   private static final class SharedExampleValueCodec
