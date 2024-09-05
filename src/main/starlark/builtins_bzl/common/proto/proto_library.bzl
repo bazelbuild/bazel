@@ -163,8 +163,7 @@ def _write_descriptor_set(ctx, proto_info, deps, exports, descriptor_set):
     args = ctx.actions.args()
     if ctx.fragments.proto.experimental_proto_descriptorsets_include_source_info():
         args.add("--include_source_info")
-    if hasattr(ctx.attr, "_retain_options") and ctx.attr._retain_options:
-        args.add("--retain_options")
+    args.add("--retain_options")
 
     strict_deps_mode = ctx.fragments.proto.strict_proto_deps()
     strict_deps = strict_deps_mode != "OFF" and strict_deps_mode != "DEFAULT"
