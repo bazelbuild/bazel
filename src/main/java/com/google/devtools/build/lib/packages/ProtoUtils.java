@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.devtools.build.lib.packages.BuildType.DISTRIBUTIONS;
+import static com.google.devtools.build.lib.packages.BuildType.DORMANT_LABEL;
+import static com.google.devtools.build.lib.packages.BuildType.DORMANT_LABEL_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.GENQUERY_SCOPE_TYPE;
 import static com.google.devtools.build.lib.packages.BuildType.GENQUERY_SCOPE_TYPE_LIST;
 import static com.google.devtools.build.lib.packages.BuildType.LABEL;
@@ -55,6 +57,8 @@ public class ProtoUtils {
           .put(GENQUERY_SCOPE_TYPE, Discriminator.LABEL)
           .put(GENQUERY_SCOPE_TYPE_LIST, Discriminator.LABEL_LIST)
           .put(NODEP_LABEL_LIST, Discriminator.STRING_LIST)
+          .put(DORMANT_LABEL, Discriminator.LABEL_LIST)
+          .put(DORMANT_LABEL_LIST, Discriminator.STRING_LIST)
           .put(STRING, Discriminator.STRING)
           .put(STRING_NO_INTERN, Discriminator.STRING)
           .put(STRING_LIST, Discriminator.STRING_LIST)

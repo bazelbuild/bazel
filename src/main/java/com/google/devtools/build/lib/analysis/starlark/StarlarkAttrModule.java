@@ -711,6 +711,39 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   }
 
   @Override
+  public StarlarkAttrModuleApi.Descriptor dormantLabelAttribute(
+      Object defaultValue, Object doc, Boolean mandatory, StarlarkThread thread)
+      throws EvalException {
+    checkContext(thread, "attr.dormant_label()");
+
+    ImmutableAttributeFactory attribute =
+        createAttributeFactory(
+            BuildType.DORMANT_LABEL,
+            Starlark.toJavaOptional(doc, String.class),
+            optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory),
+            thread,
+            "dormant_label");
+    return new Descriptor("dormant_label", attribute);
+  }
+
+  @Override
+  public StarlarkAttrModuleApi.Descriptor dormantLabelListAttribute(
+      Boolean allowEmpty, Object defaultValue, Object doc, Boolean mandatory, StarlarkThread thread)
+      throws EvalException {
+    checkContext(thread, "attr.dormant_label_list()");
+    Map<String, Object> kwargs =
+        optionMap(DEFAULT_ARG, defaultValue, MANDATORY_ARG, mandatory, ALLOW_EMPTY_ARG, allowEmpty);
+    ImmutableAttributeFactory attribute =
+        createAttributeFactory(
+            BuildType.DORMANT_LABEL_LIST,
+            Starlark.toJavaOptional(doc, String.class),
+            kwargs,
+            thread,
+            "dormant_label_list");
+    return new Descriptor("dormant_label_list", attribute);
+  }
+
+  @Override
   public Descriptor labelKeyedStringDictAttribute(
       Boolean allowEmpty,
       Object configurable,

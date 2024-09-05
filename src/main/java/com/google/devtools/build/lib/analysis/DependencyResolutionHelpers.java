@@ -372,6 +372,8 @@ public final class DependencyResolutionHelpers {
           || type == BuildType.OUTPUT_LIST
           || type == BuildType.NODEP_LABEL
           || type == BuildType.NODEP_LABEL_LIST
+          || type == BuildType.DORMANT_LABEL
+          || type == BuildType.DORMANT_LABEL_LIST
           || type == BuildType.GENQUERY_SCOPE_TYPE
           || type == BuildType.GENQUERY_SCOPE_TYPE_LIST) {
         // These types invoke visitLabels() so that they are reported in "bazel query" but do not

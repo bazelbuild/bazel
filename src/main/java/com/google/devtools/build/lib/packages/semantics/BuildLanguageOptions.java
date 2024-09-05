@@ -752,6 +752,18 @@ public final class BuildLanguageOptions extends OptionsBase {
   public boolean experimentalRuleExtensionApi;
 
   @Option(
+      name = "experimental_dormant_deps",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
+      help =
+          " If set to true, attr.label(materializer=), attr(for_dependency_resolution=),"
+              + " attr.dormant_label(), attr.dormant_label_list() and"
+              + " rule(for_dependency_resolution=) are allowed.")
+  public boolean experimentalDormantDeps;
+
+  @Option(
       name = "incompatible_enable_deprecated_label_apis",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
@@ -877,6 +889,7 @@ public final class BuildLanguageOptions extends OptionsBase {
                 INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS,
                 incompatibleDisableTargetDefaultProviderFields)
             .setBool(EXPERIMENTAL_RULE_EXTENSION_API, experimentalRuleExtensionApi)
+            .setBool(EXPERIMENTAL_DORMANT_DEPS, experimentalDormantDeps)
             .setBool(INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS, enableDeprecatedLabelApis)
             .setBool(
                 INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH, incompatibleStopExportingBuildFilePath)
@@ -975,6 +988,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS =
       "-incompatible_disable_target_default_provider_fields";
   public static final String EXPERIMENTAL_RULE_EXTENSION_API = "-experimental_rule_extension_api";
+  public static final String EXPERIMENTAL_DORMANT_DEPS = "-experimental_dormant_deps";
   public static final String INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS =
       "+incompatible_enable_deprecated_label_apis";
   public static final String INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH =

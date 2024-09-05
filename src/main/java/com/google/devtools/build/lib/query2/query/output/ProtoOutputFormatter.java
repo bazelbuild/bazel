@@ -93,6 +93,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           Type.STRING,
           BuildType.LABEL,
           BuildType.NODEP_LABEL,
+          BuildType.DORMANT_LABEL,
           BuildType.OUTPUT,
           Type.BOOLEAN,
           BuildType.TRISTATE,
@@ -508,6 +509,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     if (attrType == Types.STRING_LIST
         || attrType == BuildType.LABEL_LIST
         || attrType == BuildType.NODEP_LABEL_LIST
+        || attrType == BuildType.DORMANT_LABEL_LIST
         || attrType == BuildType.OUTPUT_LIST
         || attrType == BuildType.DISTRIBUTIONS
         || attrType == Types.INTEGER_LIST) {

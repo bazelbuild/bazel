@@ -81,6 +81,13 @@ public final class BuildType {
   @SerializationConstant
   public static final ListType<Label> NODEP_LABEL_LIST = ListType.create(NODEP_LABEL);
 
+  @SerializationConstant
+  public static final Type<Label> DORMANT_LABEL =
+      new LabelType(LabelClass.GENQUERY_SCOPE_REFERENCE);
+
+  @SerializationConstant
+  public static final ListType<Label> DORMANT_LABEL_LIST = ListType.create(DORMANT_LABEL);
+
   /**
    * This is a label type that causes dependencies, but the dependencies are NOT to be configured.
    * Does not say anything about whether the attribute of this type is itself configurable.

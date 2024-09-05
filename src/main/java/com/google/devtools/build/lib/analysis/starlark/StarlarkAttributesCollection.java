@@ -13,10 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AspectContext;
+import com.google.devtools.build.lib.analysis.DormantDependency;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.PrerequisiteArtifacts;
 import com.google.devtools.build.lib.analysis.PrerequisitesCollection;
@@ -205,6 +208,26 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
       // and currently only applies to subrule attributes
       // TODO: b/293304174 - let subrules explicitly mark attributes as not-visible-to-starlark
       if (!Identifier.isValid(skyname)) {
+        return;
+      }
+
+      if (type == BuildType.DORMANT_LABEL) {
+        if (val == null) {
+          attrBuilder.put(skyname, Starlark.NONE);
+        } else {
+          DormantDependency dormantDep = new DormantDependency(BuildType.DORMANT_LABEL.cast(val));
+          attrBuilder.put(skyname, dormantDep);
+        }
+        return;
+      }
+
+      if (type == BuildType.DORMANT_LABEL_LIST) {
+        StarlarkList<DormantDependency> dormantDeps =
+            StarlarkList.immutableCopyOf(
+                BuildType.DORMANT_LABEL_LIST.cast(val).stream()
+                    .map(DormantDependency::new)
+                    .collect(toImmutableList()));
+        attrBuilder.put(skyname, dormantDeps);
         return;
       }
 

@@ -305,6 +305,7 @@ java_library(
         ":constraints/supported_environments",
         ":constraints/supported_environments_provider",
         ":dependency_kind",
+        ":dormant_dependency",
         ":exec_group_collection",
         ":extra/extra_action_info_file_write_action",
         ":extra_action_artifacts_provider",
@@ -2597,6 +2598,16 @@ java_library(
     deps = [
         ":rule_error_consumer",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/net/starlark/java/eval",
+    ],
+)
+
+java_library(
+    name = "dormant_dependency",
+    srcs = ["DormantDependency.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
     ],
 )

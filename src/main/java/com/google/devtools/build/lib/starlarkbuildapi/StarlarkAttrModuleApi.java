@@ -437,6 +437,46 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       throws EvalException;
 
   @StarlarkMethod(
+      name = "dormant_label",
+      documented = false,
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_DORMANT_DEPS,
+      useStarlarkThread = true,
+      parameters = {
+        @Param(
+            name = DEFAULT_ARG,
+            allowedTypes = {
+              @ParamType(type = Label.class),
+              @ParamType(type = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc =
+                DEFAULT_DOC
+                    + "Use a string or the <a"
+                    + " href=\"../builtins/Label.html#Label\"><code>Label</code></a> function to"
+                    + " specify a default value, for example, <code>attr.label(default ="
+                    + " \"//a:b\")</code>."),
+        @Param(
+            name = DOC_ARG,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
+            doc = DOC_DOC,
+            named = true,
+            positional = false),
+        @Param(
+            name = MANDATORY_ARG,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = MANDATORY_DOC),
+      })
+  Descriptor dormantLabelAttribute(
+      Object defaultValue, Object doc, Boolean mandatory, StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
       name = "string_list",
       doc = "Creates a schema for a list-of-strings attribute.",
       parameters = {
@@ -640,6 +680,40 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Object cfg,
       Sequence<?> aspects,
       StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
+      name = "dormant_label_list",
+      enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_DORMANT_DEPS,
+      useStarlarkThread = true,
+      documented = false,
+      parameters = {
+        @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
+        @Param(
+            name = DEFAULT_ARG,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = Label.class),
+            },
+            defaultValue = "[]",
+            named = true,
+            positional = false,
+            doc = DEFAULT_DOC),
+        @Param(
+            name = DOC_ARG,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
+            doc = DOC_DOC,
+            named = true,
+            positional = false),
+        @Param(
+            name = MANDATORY_ARG,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = MANDATORY_DOC),
+      })
+  Descriptor dormantLabelListAttribute(
+      Boolean allowEmpty, Object defaultValue, Object doc, Boolean mandatory, StarlarkThread thread)
       throws EvalException;
 
   @StarlarkMethod(
