@@ -123,7 +123,8 @@ public class ModuleThreadContext extends StarlarkThreadContext {
 
   static class ModuleExtensionUsageBuilder {
 
-    private record ApparentNameAndLocation(String apparentName, Location location) {}
+    private record ApparentNameAndStack(
+        String apparentName, ImmutableList<StarlarkThread.CallStackEntry> stack) {}
 
     private final ModuleThreadContext context;
     private final String extensionBzlFile;
@@ -131,7 +132,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     private final boolean isolate;
     private final ArrayList<ModuleExtensionUsage.Proxy.Builder> proxyBuilders;
     private final HashBiMap<String, String> imports;
-    private final Map<String, ApparentNameAndLocation> overrides;
+    private final Map<String, ApparentNameAndStack> overrides;
     private final ImmutableList.Builder<Tag> tags;
 
     ModuleExtensionUsageBuilder(
@@ -177,7 +178,10 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       imports.put(localRepoName, exportedName);
     }
 
-    public void addRepoOverride(String extensionLocalName, String apparentName, Location location)
+    public void addRepoOverride(
+        String extensionLocalName,
+        String apparentName,
+        ImmutableList<StarlarkThread.CallStackEntry> stack)
         throws EvalException {
       RepositoryName.validateUserProvidedRepoName(extensionLocalName);
       RepositoryName.validateUserProvidedRepoName(apparentName);
@@ -185,9 +189,13 @@ public class ModuleThreadContext extends StarlarkThreadContext {
         var collision = overrides.get(extensionLocalName);
         throw Starlark.errorf(
             "The repo exported as '%s' by module extension '%s' is already overridden with '%s' at %s",
-            extensionLocalName, extensionName, collision.apparentName, collision.location);
+            extensionLocalName,
+            extensionName,
+            collision.apparentName,
+            // Skip over the override_repo frame.
+            collision.stack.reverse().get(1).location);
       }
-      overrides.put(extensionLocalName, new ApparentNameAndLocation(apparentName, location));
+      overrides.put(extensionLocalName, new ApparentNameAndStack(apparentName, stack));
     }
 
     void addTag(Tag tag) {
@@ -222,12 +230,9 @@ public class ModuleThreadContext extends StarlarkThreadContext {
         String apparentName = override.getValue().apparentName;
         if (!context.repoNameUsages.containsKey(apparentName)) {
           throw Starlark.errorf(
-              "The repo exported as '%s' by module extension '%s' is overridden with '%s' at %s, but no repo is imported as '%s'",
-              extensionLocalName,
-              extensionName,
-              apparentName,
-              override.getValue().location,
-              apparentName);
+                  "The repo exported as '%s' by module extension '%s' is overridden with '%s', but no repo is imported under this name",
+                  extensionLocalName, extensionName, apparentName)
+              .withCallStack(override.getValue().stack);
         }
 //        if (imports.inverse().containsKey(extensionLocalName)) {
 //          throw Starlark.errorf(

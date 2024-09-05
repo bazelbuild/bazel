@@ -3184,19 +3184,17 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         ext = use_extension("//:defs.bzl","ext")
         use_repo(ext, "bar", module_foo = "foo")
         data_repo = use_repo_rule("@data_repo//:defs.bzl", "data_repo")
-        data_repo(name = "override", data = "overridden_data")
-        override_repo(ext, foo = "override")
+        data_repo(name = "foo", data = "overridden_data")
+        override_repo(ext, "foo")
         """);
     scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
     scratch.file(
         workspaceRoot.getRelative("data.bzl").getPathString(),
         """
         load("@bar//:list.bzl", _bar_list = "list")
-        load("@override//:data.bzl", _override_data = "data")
-        load("@module_foo//:data.bzl", _foo_data = "data")
+        load("@foo//:data.bzl", _foo_data = "data")
         bar_list = _bar_list
         foo_data = _foo_data
-        override_data = _override_data
         """);
     scratch.file(
         workspaceRoot.getRelative("defs.bzl").getPathString(),
@@ -3206,7 +3204,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
           ctx.file("WORKSPACE")
           ctx.file("BUILD")
           labels = [str(Label(l)) for l in ctx.attr.labels]
-          labels += [str(Label("@module_foo//:target3"))]
+          labels += [str(Label("@foo//:target3"))]
           ctx.file("list.bzl", "list = " + repr(labels) + " + [str(Label('@foo//:target4'))]")
         list_repo = repository_rule(
           implementation = _list_repo_impl,
@@ -3221,7 +3219,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
               # lazy extension implementation function repository mapping
               "@foo//:target1",
               # module repo repository mapping
-              "@module_foo//:target2",
+              Label("@foo//:target2"),
             ],
           )
         ext = module_extension(implementation = _ext_impl)
@@ -3235,15 +3233,13 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     }
     assertThat((List<?>) result.get(skyKey).getModule().getGlobal("bar_list"))
         .containsExactly(
-            "@@+_repo_rules+override//:target1",
-            "@@+_repo_rules+override//:target2",
-            "@@+_repo_rules+override//:target3",
-            "@@+_repo_rules+override//:target4")
+            "@@+_repo_rules+foo//:target1",
+            "@@+_repo_rules+foo//:target2",
+            "@@+_repo_rules+foo//:target3",
+            "@@+_repo_rules+foo//:target4")
         .inOrder();
-    Object overrideData = result.get(skyKey).getModule().getGlobal("override_data");
-    assertThat(overrideData).isInstanceOf(String.class);
-    assertThat(overrideData).isEqualTo("overridden_data");
     Object fooData = result.get(skyKey).getModule().getGlobal("foo_data");
-    assertThat(fooData).isSameInstanceAs(overrideData);
+    assertThat(fooData).isInstanceOf(String.class);
+    assertThat(fooData).isEqualTo("overridden_data");
   }
 }

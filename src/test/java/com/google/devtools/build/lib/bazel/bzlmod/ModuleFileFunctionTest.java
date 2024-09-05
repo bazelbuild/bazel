@@ -1705,4 +1705,53 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             + " name 'foo/bar:extensions.bzl': repo names may contain only A-Z, a-z, 0-9, '-',"
             + " '_', '.' and '+'");
   }
+
+  @Test
+  public void testOverrideRepo_overridingRepoDoesntExist() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        ext = use_extension('//:defs.bzl', 'ext')
+        override_repo(ext, 'foo')
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+            ERROR /workspace/MODULE.bazel:3:14: Traceback (most recent call last):
+            \tFile "/workspace/MODULE.bazel", line 3, column 14, in <toplevel>
+            Error in override_repo: The repo exported as 'foo' by module extension 'ext' is overridden with 'foo', but no repo is imported under this name""");
+  }
+
+  @Test
+  public void testOverrideRepo_duplicateOverride() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        bazel_dep(name = "override1", version = "1.0")
+        bazel_dep(name = "override2", version = "1.0")
+        ext = use_extension('//:defs.bzl', 'ext')
+        override_repo(ext, foo = "override1")
+        override_repo(ext, foo = "override2")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+            ERROR /workspace/MODULE.bazel:6:14: Traceback (most recent call last):
+            \tFile "/workspace/MODULE.bazel", line 6, column 14, in <toplevel>
+            Error in override_repo: The repo exported as 'foo' by module extension 'ext' is already overridden with 'override1' at /workspace/MODULE.bazel:5:14""");
+  }
 }

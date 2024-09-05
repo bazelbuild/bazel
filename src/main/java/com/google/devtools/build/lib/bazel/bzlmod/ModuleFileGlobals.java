@@ -548,9 +548,12 @@ public class ModuleFileGlobals {
       proxyBuilder.addImport(localRepoName, exportedName);
     }
 
-    void addOverride(String extensionLocalName, String moduleLocalName, Location location)
+    void addOverride(
+        String extensionLocalName,
+        String moduleLocalName,
+        ImmutableList<StarlarkThread.CallStackEntry> stack)
         throws EvalException {
-      usageBuilder.addRepoOverride(extensionLocalName, moduleLocalName, location);
+      usageBuilder.addRepoOverride(extensionLocalName, moduleLocalName, stack);
     }
 
     class TagCallable implements StarlarkValue {
@@ -675,13 +678,13 @@ public class ModuleFileGlobals {
       // root module).
       return;
     }
-    Location location = thread.getCallerLocation();
+    ImmutableList<StarlarkThread.CallStackEntry> stack = thread.getCallStack();
     for (String arg : Sequence.cast(args, String.class, "args")) {
-      extensionProxy.addOverride(arg, arg, location);
+      extensionProxy.addOverride(arg, arg, stack);
     }
     for (Map.Entry<String, String> entry :
         Dict.cast(kwargs, String.class, String.class, "kwargs").entrySet()) {
-      extensionProxy.addOverride(entry.getKey(), entry.getValue(), location);
+      extensionProxy.addOverride(entry.getKey(), entry.getValue(), stack);
     }
   }
 
