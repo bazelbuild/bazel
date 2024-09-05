@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -56,13 +57,16 @@ public abstract class SingleExtensionUsagesValue implements SkyValue {
   /** The repo mappings to use for each module that used this extension. */
   public abstract ImmutableMap<ModuleKey, RepositoryMapping> getRepoMappings();
 
+  public abstract ImmutableMap<String, RepositoryName> getRepoOverrides();
+
   public static SingleExtensionUsagesValue create(
       ImmutableMap<ModuleKey, ModuleExtensionUsage> extensionUsages,
       String extensionUniqueName,
       ImmutableList<AbridgedModule> abridgedModules,
-      ImmutableMap<ModuleKey, RepositoryMapping> repoMappings) {
+      ImmutableMap<ModuleKey, RepositoryMapping> repoMappings,
+      ImmutableMap<String, RepositoryName> repoOverrides) {
     return new AutoValue_SingleExtensionUsagesValue(
-        extensionUsages, extensionUniqueName, abridgedModules, repoMappings);
+        extensionUsages, extensionUniqueName, abridgedModules, repoMappings, repoOverrides);
   }
 
   /**
@@ -89,7 +93,8 @@ public abstract class SingleExtensionUsagesValue implements SkyValue {
         // repoMappings: The usage of repo mappings by the extension's implementation function is
         // tracked on the level of individual entries and all label attributes are provided as
         // `Label`, which exclusively reference canonical repository names.
-        ImmutableMap.of());
+        ImmutableMap.of(),
+        getRepoOverrides());
   }
 
   public static Key key(ModuleExtensionId id) {

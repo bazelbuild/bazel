@@ -216,10 +216,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       } else {
         builder.setIsolationKey(Optional.empty());
       }
-      return builder.build();
-    }
 
-    ImmutableMap<String, String> buildRepoOverrides() throws EvalException {
       for (var override : overrides.entrySet()) {
         String extensionLocalName = override.getKey();
         String apparentName = override.getValue().apparentName;
@@ -243,7 +240,10 @@ public class ModuleThreadContext extends StarlarkThreadContext {
               apparentName);
         }
       }
-      return ImmutableMap.copyOf(Maps.transformValues(overrides, v -> v.apparentName));
+      builder.setRepoOverrides(
+          ImmutableMap.copyOf(Maps.transformValues(overrides, v -> v.apparentName)));
+
+      return builder.build();
     }
   }
 

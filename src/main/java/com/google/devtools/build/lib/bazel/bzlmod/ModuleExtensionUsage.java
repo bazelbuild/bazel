@@ -19,6 +19,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.ryanharter.auto.value.gson.GenerateTypeAdapter;
@@ -130,6 +131,8 @@ public abstract class ModuleExtensionUsage {
     return getProxies().stream().anyMatch(p -> !p.isDevDependency());
   }
 
+  public abstract ImmutableMap<String, String> getRepoOverrides();
+
   public abstract Builder toBuilder();
 
   public static Builder builder() {
@@ -152,6 +155,8 @@ public abstract class ModuleExtensionUsage {
         // Extension implementation functions do not see the imports, they are only validated
         // against the set of generated repos in a validation step that comes afterward.
         .setProxies(ImmutableList.of())
+        // Tracked in SingleExtensionUsagesValue instead, using canonical instead of apparent names.
+        .setRepoOverrides(ImmutableMap.of())
         .build();
   }
 
@@ -184,6 +189,10 @@ public abstract class ModuleExtensionUsage {
       tagsBuilder().add(value);
       return this;
     }
+
+    @CanIgnoreReturnValue
+    public abstract Builder setRepoOverrides(
+        ImmutableMap<String, String> extensionLocalToApparentName);
 
     public abstract ModuleExtensionUsage build();
   }
