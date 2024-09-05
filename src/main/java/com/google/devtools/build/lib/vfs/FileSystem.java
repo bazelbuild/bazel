@@ -199,7 +199,7 @@ public abstract class FileSystem {
       throw new IOException(path + " (Not a directory)");
     }
 
-    chmod(path, 0755);
+    chmod(path, 0777);
     return false;
   }
 
