@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.remote.circuitbreaker.FailureCircuitBreaker;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
 import com.google.devtools.build.lib.runtime.BlazeWorkspace;
@@ -538,6 +539,30 @@ public final class RemoteModuleTest {
       outputServiceService.shutdownNow();
       outputServiceService.awaitTermination();
     }
+  }
+
+  @Test
+  public void httpCacheWithOutputMinimal_overrideToAll() throws Exception {
+    remoteOptions.remoteCache = "http://nonexistent.com";
+    remoteOptions.remoteOutputsMode = RemoteOutputsMode.MINIMAL;
+
+    beforeCommand();
+
+    assertThat(
+            remoteModule.getActionContextProvider().getRemoteOutputChecker().getRemoteOutputsMode())
+        .isEqualTo(RemoteOutputsMode.ALL);
+  }
+
+  @Test
+  public void httpCacheWithOutputToplevel_overrideToAll() throws Exception {
+    remoteOptions.remoteCache = "http://nonexistent.com";
+    remoteOptions.remoteOutputsMode = RemoteOutputsMode.TOPLEVEL;
+
+    beforeCommand();
+
+    assertThat(
+            remoteModule.getActionContextProvider().getRemoteOutputChecker().getRemoteOutputsMode())
+        .isEqualTo(RemoteOutputsMode.ALL);
   }
 
   private void beforeCommand() throws IOException, AbruptExitException {
