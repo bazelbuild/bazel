@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.analysis.config.BuildConfigurationVa
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.BuildFailedException;
@@ -101,29 +102,8 @@ public final class AnalysisPhaseRunner {
     }
     env.setWorkspaceName(targetPatternPhaseValue.getWorkspaceName());
 
-    BuildOptions postFlagsetsBuildOptions;
-    String sclConfig = buildOptionsBeforeFlagSets.get(CoreOptions.class).sclConfig;
-    if (sclConfig != null && !sclConfig.isEmpty()) {
-      Label projectFile =
-          BuildTool.getProjectFile(
-              targetPatternPhaseValue.getTargetLabels(),
-              env.getSkyframeExecutor(),
-              env.getReporter());
-      if (projectFile != null) {
-        postFlagsetsBuildOptions =
-            BuildTool.applySclConfigs(
-                buildOptionsBeforeFlagSets,
-                projectFile,
-                request.getBuildOptions().enforceProjectConfigs,
-                env.getSkyframeExecutor(),
-                env.getReporter());
-      } else {
-        postFlagsetsBuildOptions = buildOptionsBeforeFlagSets;
-      }
-    } else {
-      postFlagsetsBuildOptions = buildOptionsBeforeFlagSets;
-    }
-
+    BuildOptions postFlagsetsBuildOptions =
+        evaluateProjectFile(request, buildOptionsBeforeFlagSets, targetPatternPhaseValue, env);
     // Compute the heuristic instrumentation filter if needed.
     if (request.needsInstrumentationFilter()) {
       try (SilentCloseable c = Profiler.instance().profile("Compute instrumentation filter")) {
@@ -185,6 +165,46 @@ public final class AnalysisPhaseRunner {
     }
 
     return analysisResult;
+  }
+
+  /**
+   * Evaluates the PROJECT.scl file and set corresponding options, if required by specific feature
+   * flags (e.g. canonical configurations).
+   *
+   * <p>Shared by both Skymeld and non-Skymeld analysis.
+   */
+  static BuildOptions evaluateProjectFile(
+      BuildRequest request,
+      BuildOptions buildOptions,
+      TargetPatternPhaseValue targetPatternPhaseValue,
+      CommandEnvironment env)
+      throws LoadingFailedException, InvalidConfigurationException {
+    // Canonical configurations feature flag.
+    String sclConfig = buildOptions.get(CoreOptions.class).sclConfig;
+    boolean neededForSclConfig =
+        !Strings.isNullOrEmpty(sclConfig) || request.getBuildOptions().enforceProjectConfigs;
+
+    if (!neededForSclConfig) {
+      return buildOptions;
+    }
+
+    Label projectFile =
+        BuildTool.getProjectFile(
+            targetPatternPhaseValue.getTargetLabels(),
+            env.getSkyframeExecutor(),
+            env.getReporter());
+
+    if (projectFile != null) {
+      // Do not apply canonical configurations if the project file doesn't exist.
+      return BuildTool.applySclConfigs(
+          buildOptions,
+          projectFile,
+          request.getBuildOptions().enforceProjectConfigs,
+          env.getSkyframeExecutor(),
+          env.getReporter());
+    }
+
+    return buildOptions;
   }
 
   static void postAbortedEventsForSkippedTargets(

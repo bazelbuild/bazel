@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -40,7 +41,6 @@ import com.google.devtools.build.lib.analysis.Project.ProjectParseException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
@@ -355,26 +355,8 @@ public class BuildTool {
     }
     env.setWorkspaceName(loadingResult.getWorkspaceName());
 
-    BuildOptions postFlagSetsBuildOptions;
-    String sclConfig = buildOptionsBeforeFlagSets.get(CoreOptions.class).sclConfig;
-    if ((sclConfig != null && !sclConfig.isEmpty())
-        || request.getBuildOptions().enforceProjectConfigs) {
-      Label projectFile =
-          getProjectFile(loadingResult.getTargetLabels(), env.getSkyframeExecutor(), getReporter());
-      if (projectFile != null) {
-        postFlagSetsBuildOptions =
-            applySclConfigs(
-                buildOptionsBeforeFlagSets,
-                projectFile,
-                request.getBuildOptions().enforceProjectConfigs,
-                env.getSkyframeExecutor(),
-                getReporter());
-      } else {
-        postFlagSetsBuildOptions = buildOptionsBeforeFlagSets;
-      }
-    } else {
-      postFlagSetsBuildOptions = buildOptionsBeforeFlagSets;
-    }
+    BuildOptions postFlagSetsBuildOptions =
+        evaluateProjectFile(request, buildOptionsBeforeFlagSets, loadingResult, env);
 
     // See https://github.com/bazelbuild/rules_nodejs/issues/3693.
     env.getSkyframeExecutor().clearSyscallCache();
