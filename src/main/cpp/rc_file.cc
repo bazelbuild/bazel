@@ -115,7 +115,7 @@ RcFile::ParseError RcFile::ParseFile(const std::string& filename,
                                                          &import_filename);
       if (!could_relativize && command == kCommandImport) {
         *error_text = absl::StrFormat(
-            "Nonexistant path in import declaration in config file '%s': '%s'"
+            "Nonexistent path in import declaration in config file '%s': '%s'"
             " (are you in your source checkout/WORKSPACE?)",
             canonical_filename, line);
         return ParseError::INVALID_FORMAT;
