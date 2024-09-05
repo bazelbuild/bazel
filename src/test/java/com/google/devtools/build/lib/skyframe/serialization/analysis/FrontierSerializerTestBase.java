@@ -25,7 +25,6 @@ import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
-import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
@@ -38,12 +37,10 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.perftools.profiles.ProfileProto.Profile;
 import com.google.protobuf.ExtensionRegistry;
-import java.io.PrintStream;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import org.junit.Before;
 import org.junit.Test;
@@ -257,18 +254,11 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
   }
 
   @Test
-  public void dump_writesProfile() throws Exception {
-    setupScenarioWithAspects();
-
+  public void buildCommand_serializedFrontierProfileContainsExpectedClasses() throws Exception {
     @SuppressWarnings("UnnecessarilyFullyQualified") // to avoid confusion with vfs Paths
     java.nio.file.Path profilePath = Files.createTempFile(null, "profile");
 
-    Optional<BlazeCommandResult> result =
-        FrontierSerializer.dumpFrontierSerializationProfile(
-            new PrintStream(outErr.getOutputStream()),
-            getCommandEnvironment(),
-            profilePath.toString());
-    assertThat(result).isEmpty(); // success
+    setupScenarioWithAspects("--serialized_frontier_profile=" + profilePath);
 
     // The proto parses successfully from the file.
     var proto =
@@ -322,7 +312,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         .doesNotContain("com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue");
   }
 
-  private void setupScenarioWithAspects() throws Exception {
+  private void setupScenarioWithAspects(String... options) throws Exception {
     write(
         "foo/provider.bzl",
         """
@@ -405,6 +395,7 @@ genrule(
 """);
 
     addOptions("--aspects=//foo:file_count.bzl%file_count_aspect");
+    addOptions(options);
     assertThat(buildTarget("//bar:one").getSuccess()).isTrue();
   }
 

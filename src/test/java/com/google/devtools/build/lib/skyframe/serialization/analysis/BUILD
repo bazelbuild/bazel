@@ -10,7 +10,6 @@ java_library(
     testonly = True,
     srcs = ["FrontierSerializerTestBase.java"],
     deps = [
-        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",

@@ -16,7 +16,6 @@ java_library(
     srcs = ["FrontierSerializer.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
-        "//src/main/java/com/google/devtools/build/lib:runtime/blaze_command_result",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
@@ -39,5 +38,13 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
+    ],
+)
+
+java_library(
+    name = "options",
+    srcs = ["RemoteAnalysisCachingOptions.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/common/options",
     ],
 )

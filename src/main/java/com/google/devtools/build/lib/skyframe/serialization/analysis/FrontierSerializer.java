@@ -35,10 +35,10 @@ import com.google.devtools.build.lib.analysis.config.InvalidConfigurationExcepti
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
-import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -65,7 +65,6 @@ import com.google.protobuf.ByteString;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Optional;
@@ -89,8 +88,8 @@ public final class FrontierSerializer {
    *
    * @return empty if successful, otherwise a result containing the appropriate error
    */
-  public static Optional<BlazeCommandResult> dumpFrontierSerializationProfile(
-      PrintStream out, CommandEnvironment env, String path) throws InterruptedException {
+  public static Optional<FailureDetail> dumpFrontierSerializationProfile(
+      CommandEnvironment env, String path) throws InterruptedException {
     // Starts initializing ObjectCodecs in a background thread as it can take some time.
     var futureCodecs = new FutureTask<>(() -> initObjectCodecs(env));
     commonPool().execute(futureCodecs);
@@ -100,17 +99,22 @@ public final class FrontierSerializer {
     switch (computeDirectoryMatcher(env.getSkyframeExecutor(), env.getReporter())) {
       case DirectoryMatcherError error:
         return Optional.of(
-            createFailureResult(error.message(), Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
+            createFailureDetail(error.message(), Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
       case ActiveDirectoryMatcher matcher:
         directoryMatcher = matcher;
         break;
     }
-    out.format("Determined active directories in %s\n", stopwatch);
+    env.getReporter()
+        .handle(Event.info(String.format("Determined active directories in %s\n", stopwatch)));
 
     InMemoryGraph graph = env.getSkyframeExecutor().getEvaluator().getInMemoryGraph();
     ConcurrentHashMap<ActionLookupKey, SelectionMarking> selection =
         computeSelection(graph, directoryMatcher);
-    out.format("Found %d active or frontier keys in %s\n", selection.size(), stopwatch);
+    env.getReporter()
+        .handle(
+            Event.info(
+                String.format(
+                    "Found %d active or frontier keys in %s", selection.size(), stopwatch)));
 
     var profileCollector = new ProfileCollector();
     var fingerprintValueService =
@@ -130,9 +134,10 @@ public final class FrontierSerializer {
     if (codecs == null) {
       String message = "serialization not supported";
       env.getReporter().error(null, message);
-      return Optional.of(createFailureResult(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
+      return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
     }
-    out.format("Initializing codecs took %s\n", stopwatch);
+
+    env.getReporter().handle(Event.info(String.format("Initializing codecs took %s\n", stopwatch)));
 
     var writeStatuses = Collections.synchronizedList(new ArrayList<ListenableFuture<Void>>());
     AtomicInteger frontierValueCount = new AtomicInteger();
@@ -164,7 +169,12 @@ public final class FrontierSerializer {
             writeStatuses.add(immediateFailedFuture(e));
           }
         });
-    out.format("Serialized %s frontier entries in %s\n", frontierValueCount, stopwatch);
+
+    env.getReporter()
+        .handle(
+            Event.info(
+                String.format(
+                    "Serialized %s frontier entries in %s\n", frontierValueCount, stopwatch)));
 
     try {
       var unusedNull =
@@ -176,9 +186,12 @@ public final class FrontierSerializer {
         message = "with unexpected exception type " + cause.getClass().getName() + ": " + message;
       }
       env.getReporter().error(/* location= */ null, message, cause);
-      return Optional.of(createFailureResult(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
+      return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
     }
-    out.format("Waiting for write futures took an additional %s\n", stopwatch);
+    env.getReporter()
+        .handle(
+            Event.info(
+                String.format("Waiting for write futures took an additional %s\n", stopwatch)));
 
     try (var fileOutput = new FileOutputStream(path);
         var bufferedOutput = new BufferedOutputStream(fileOutput)) {
@@ -186,7 +199,7 @@ public final class FrontierSerializer {
     } catch (IOException e) {
       String message = "Error writing serialization profile to file: " + e.getMessage();
       env.getReporter().error(null, message, e);
-      return Optional.of(createFailureResult(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
+      return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
     }
     return Optional.empty();
   }
@@ -376,12 +389,11 @@ public final class FrontierSerializer {
     }
   }
 
-  static BlazeCommandResult createFailureResult(String message, Code detailedCode) {
-    return BlazeCommandResult.failureDetail(
-        FailureDetail.newBuilder()
-            .setMessage(message)
-            .setRemoteAnalysisCaching(
-                FailureDetails.RemoteAnalysisCaching.newBuilder().setCode(detailedCode))
-            .build());
+  public static FailureDetail createFailureDetail(String message, Code detailedCode) {
+    return FailureDetail.newBuilder()
+        .setMessage(message)
+        .setRemoteAnalysisCaching(
+            FailureDetails.RemoteAnalysisCaching.newBuilder().setCode(detailedCode))
+        .build();
   }
 }

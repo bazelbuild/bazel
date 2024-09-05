@@ -35,6 +35,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.runtime.LoadingPhaseThreadsOption;
 import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.List;
@@ -57,6 +58,7 @@ import java.util.List;
       LoadingPhaseThreadsOption.class,
       BuildEventProtocolOptions.class,
       SkyfocusOptions.class,
+      RemoteAnalysisCachingOptions.class,
     },
     usesConfigurationOptions = true,
     shortDescription = "Builds the specified targets.",
