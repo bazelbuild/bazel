@@ -210,6 +210,10 @@ Connection: Keep-Alive
 0x310x320x330x340x350x360x370x380x39
 ```
 
+WARNING: [Build without the Bytes](https://blog.bazel.build/2023/10/06/bwob-in-bazel-7.html)
+is incompatible with an HTTP cache. In order to get a maximum performance boost,
+consider using a gRPC cache instead.
+
 ## Run Bazel using the remote cache {:#run-remote-cache}
 
 Once a server is set up as the remote cache, to use the remote cache you
