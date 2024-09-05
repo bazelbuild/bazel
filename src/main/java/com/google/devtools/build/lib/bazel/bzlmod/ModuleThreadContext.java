@@ -225,6 +225,9 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   }
 
   public void addOverride(String moduleName, ModuleOverride override) throws EvalException {
+    if (shouldIgnoreDevDeps()) {
+      return;
+    }
     ModuleOverride existingOverride = overrides.putIfAbsent(moduleName, override);
     if (existingOverride != null) {
       throw Starlark.errorf("multiple overrides for dep %s found", moduleName);
@@ -269,16 +272,12 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   }
 
   public ImmutableMap<String, ModuleOverride> buildOverrides() {
-    LinkedHashMap<String, ModuleOverride> effectiveOverrides = new LinkedHashMap<>();
-    if (!shouldIgnoreDevDeps()) {
-      effectiveOverrides.putAll(overrides);
-    }
     // Add overrides for builtin modules if there is no existing override for them.
     if (ModuleKey.ROOT.equals(module.getKey())) {
       for (String moduleName : builtinModules.keySet()) {
-        effectiveOverrides.putIfAbsent(moduleName, builtinModules.get(moduleName));
+        overrides.putIfAbsent(moduleName, builtinModules.get(moduleName));
       }
     }
-    return ImmutableMap.copyOf(effectiveOverrides);
+    return ImmutableMap.copyOf(overrides);
   }
 }
