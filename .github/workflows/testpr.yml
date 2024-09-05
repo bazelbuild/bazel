@@ -2,7 +2,7 @@ name: Comment on Stale Approved PRs
 
 on:
   schedule:
-    - cron: '0 0 * * *' # Runs every day at midnight
+    - cron: '*/10 * * * *' # Runs every day at midnight
 
 jobs:
   comment-on-stale-prs:
