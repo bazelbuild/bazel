@@ -834,7 +834,7 @@ function test_undeclared_outputs_are_zipped() {
   local -r output_text=$outputs_dir/text.txt
   local -r output_html=$outputs_dir/fake.html
 
-  bazel test -s //dir:test &> $TEST_log || fail "expected success"
+  bazel test -s --zip_undeclared_test_outputs //dir:test &> $TEST_log || fail "expected success"
 
   # Newlines are useful around diffs. This helps us get them in bash strings.
   N=$'\n'
@@ -867,7 +867,7 @@ function test_undeclared_outputs_are_not_zipped() {
   local -r output_text=$outputs_dir/text.txt
   local -r output_html=$outputs_dir/fake.html
 
-  bazel test -s --nozip_undeclared_test_outputs //dir:test &> $TEST_log || fail "expected success"
+  bazel test -s //dir:test &> $TEST_log || fail "expected success"
 
   # Newlines are useful around diffs. This helps us get them in bash strings.
   N=$'\n'
@@ -898,13 +898,13 @@ function test_undeclared_outputs_zipped_then_unzipped() {
   local -r output_text=$outputs_dir/text.txt
   local -r output_html=$outputs_dir/fake.html
 
-  bazel test -s //dir:test &> $TEST_log || fail "expected success"
+  bazel test -s --zip_undeclared_test_outputs //dir:test &> $TEST_log || fail "expected success"
 
   [ -s $output_text ] && fail "$output_text was present after test"
   [ -s $output_html ] && fail "$output_html was present after test"
   [ -s $outputs_zip ] || fail "$outputs_zip was not present after test"
 
-  bazel test -s --nozip_undeclared_test_outputs //dir:test &> $TEST_log || fail "expected success"
+  bazel test -s //dir:test &> $TEST_log || fail "expected success"
 
   [ -s $outputs_zip ] && fail "$outputs_zip was present after test"
   [ -s $output_text ] || fail "$output_text was not present after test"
@@ -919,13 +919,13 @@ function test_undeclared_outputs_unzipped_then_zipped() {
   local -r output_text=$outputs_dir/text.txt
   local -r output_html=$outputs_dir/fake.html
 
-  bazel test -s --nozip_undeclared_test_outputs //dir:test &> $TEST_log || fail "expected success"
+  bazel test -s //dir:test &> $TEST_log || fail "expected success"
 
   [ -s $outputs_zip ] && fail "$outputs_zip was present after test"
   [ -s $output_text ] || fail "$output_text was not present after test"
   [ -s $output_html ] || fail "$output_html was not present after test"
 
-  bazel test -s //dir:test &> $TEST_log || fail "expected success"
+  bazel test -s --zip_undeclared_test_outputs //dir:test &> $TEST_log || fail "expected success"
 
   [ -s $output_text ] && fail "$output_text was present after test"
   [ -s $output_html ] && fail "$output_html was present after test"

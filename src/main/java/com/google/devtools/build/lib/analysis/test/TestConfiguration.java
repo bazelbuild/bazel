@@ -298,7 +298,7 @@ public class TestConfiguration extends Fragment {
 
     @Option(
         name = "zip_undeclared_test_outputs",
-        defaultValue = "true",
+        defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.TESTING,
         effectTags = {OptionEffectTag.TEST_RUNNER},
         help = "If true, undeclared test outputs will be archived in a zip file.")

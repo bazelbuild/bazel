@@ -529,6 +529,7 @@ class TestWrapperTest(test_base.TestBase):
             '//foo:undecl_test',
             '-t-',
             '--test_output=errors',
+            '--zip_undeclared_test_outputs',
         ]
         + flags
     )
