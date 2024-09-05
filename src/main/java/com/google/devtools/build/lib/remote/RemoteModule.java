@@ -261,16 +261,6 @@ public final class RemoteModule extends BlazeModule {
     credentialModule = Preconditions.checkNotNull(runtime.getBlazeModule(CredentialModule.class));
   }
 
-  private static String remoteOutputsModeToFlagName(RemoteOutputsMode remoteOutputsMode) {
-    String flagName = "";
-    switch (remoteOutputsMode) {
-      case MINIMAL -> flagName = "--remote_download_minimal";
-      case TOPLEVEL -> flagName = "--remote_download_toplevel";
-      case ALL -> flagName = "--remote_download_all";
-    }
-    return flagName;
-  }
-
   @Override
   public void beforeCommand(CommandEnvironment env) throws AbruptExitException {
     Preconditions.checkState(actionContextProvider == null, "actionContextProvider must be null");
@@ -366,26 +356,10 @@ public final class RemoteModule extends BlazeModule {
                   .build()));
     }
 
-    var remoteOutputsMode = remoteOptions.remoteOutputsMode;
-    if (enableHttpCache && remoteOutputsMode != RemoteOutputsMode.ALL) {
-      // HTTP cache is generally configured to automatically delete old files. It doesn't support
-      // lease extension and doesn't understand the relationships between AC and CAS. Hence, it's
-      // incompatible with other RemoteOutputsMode.
-      //
-      // See https://github.com/bazelbuild/bazel/issues/18696.
-      env.getReporter()
-          .handle(
-              Event.warn(
-                  String.format(
-                      "%s is incompatible with HTTP cache. Using --remote_download_all.",
-                      remoteOutputsModeToFlagName(remoteOutputsMode))));
-      remoteOutputsMode = RemoteOutputsMode.ALL;
-    }
-
     // TODO(bazel-team): Consider adding a warning or more validation if the remoteDownloadRegex is
     // used without Build without the Bytes.
     ImmutableList.Builder<Pattern> patternsToDownloadBuilder = ImmutableList.builder();
-    if (remoteOutputsMode != RemoteOutputsMode.ALL) {
+    if (remoteOptions.remoteOutputsMode != RemoteOutputsMode.ALL) {
       for (RegexPatternOption patternOption : remoteOptions.remoteDownloadRegex) {
         patternsToDownloadBuilder.add(patternOption.regexPattern());
       }
@@ -395,7 +369,7 @@ public final class RemoteModule extends BlazeModule {
         new RemoteOutputChecker(
             new JavaClock(),
             env.getCommandName(),
-            remoteOutputsMode,
+            remoteOptions.remoteOutputsMode,
             patternsToDownloadBuilder.build(),
             lastRemoteOutputChecker);
     remoteOutputChecker.maybeInvalidateSkyframeValues(env.getSkyframeExecutor().getEvaluator());

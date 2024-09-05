@@ -18,7 +18,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.packages.TargetUtils.isTestRuleName;
 import static com.google.devtools.build.lib.skyframe.CoverageReportValue.COVERAGE_REPORT_KEY;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -88,11 +87,6 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
     this.outputsMode = outputsMode;
     this.patternsToDownload = patternsToDownload;
     this.lastRemoteOutputChecker = lastRemoteOutputChecker;
-  }
-
-  @VisibleForTesting
-  RemoteOutputsMode getRemoteOutputsMode() {
-    return outputsMode;
   }
 
   // Skymeld-only.
