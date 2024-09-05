@@ -110,18 +110,19 @@ public final class FutureHelpers {
    */
   static void reportAnyFailures(Futures.FutureCombiner<?> combiner) {
     Futures.addCallback(
-        combiner.call(() -> null, directExecutor()),
-        new FutureCallback<Void>() {
-          @Override
-          public void onSuccess(Void unused) {}
-
-          @Override
-          public void onFailure(Throwable t) {
-            BugReporter.defaultInstance().sendBugReport(t);
-          }
-        },
-        directExecutor());
+        combiner.call(() -> null, directExecutor()), FAILURE_REPORTING_CALLBACK, directExecutor());
   }
+
+  static final FutureCallback<Void> FAILURE_REPORTING_CALLBACK =
+      new FutureCallback<>() {
+        @Override
+        public void onSuccess(Void unused) {}
+
+        @Override
+        public void onFailure(Throwable t) {
+          BugReporter.defaultInstance().sendBugReport(t);
+        }
+      };
 
   /** Combines a list of {@code Void} futures into a single future. */
   static ListenableFuture<Void> aggregateStatusFutures(List<ListenableFuture<Void>> futures) {
