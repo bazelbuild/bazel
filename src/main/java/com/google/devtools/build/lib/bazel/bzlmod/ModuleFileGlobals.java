@@ -548,11 +548,11 @@ public class ModuleFileGlobals {
     }
 
     void addOverride(
-        String extensionLocalName,
-        String moduleLocalName,
+        String exportedName,
+        String localRepoName,
         ImmutableList<StarlarkThread.CallStackEntry> stack)
         throws EvalException {
-      usageBuilder.addRepoOverride(extensionLocalName, moduleLocalName, stack);
+      usageBuilder.addRepoOverride(exportedName, localRepoName, stack);
     }
 
     class TagCallable implements StarlarkValue {
