@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.cpp.proto;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -50,7 +51,8 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
 
   private final StarlarkAspectClass starlarkCcProtoAspect =
       new StarlarkAspectClass(
-          Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_proto_library.bzl"),
+          keyForBuiltins(
+              Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_proto_library.bzl")),
           "cc_proto_aspect");
 
   @Before
@@ -61,7 +63,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "toolchain_type(name = 'toolchain_type', visibility = ['//visibility:public'])");
     scratch.file("protobuf/WORKSPACE");
     scratch.overwriteFile(
-        "protobuf/BUILD",
+        "protobuf_workspace/BUILD",
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         TestConstants.LOAD_PROTO_LIBRARY,
         "package(default_visibility=['//visibility:public'])",
@@ -75,19 +77,22 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "    command_line = '--cpp_out=$(OUT)',",
         "    blacklisted_protos = [':any_proto'],",
         "    progress_message = 'Generating C++ proto_library %{label}',",
+        "    toolchain_type = '@rules_cc//cc/proto:toolchain_type',",
         ")");
     scratch.appendFile(
         "WORKSPACE",
+        "register_toolchains('@com_google_protobuf//:all')",
         "local_repository(",
         "    name = 'com_google_protobuf',",
-        "    path = 'protobuf',",
+        "    path = 'protobuf_workspace',",
         ")");
     invalidatePackages(); // A dash of magic to re-evaluate the WORKSPACE file.
   }
 
   @Test
   public void protoToolchainResolution_enabled() throws Exception {
-    setBuildLanguageOptions("--incompatible_enable_proto_toolchain_resolution");
+    setBuildLanguageOptions(
+        "--incompatible_enable_proto_toolchain_resolution", "--enable_workspace");
     getAnalysisMock()
         .ccSupport()
         .setupCcToolchainConfig(
@@ -247,7 +252,8 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void outputDirectoryForProtoCompileAction_externalRepos() throws Exception {
-    setBuildLanguageOptions("--experimental_builtins_injection_override=+cc_proto_library");
+    setBuildLanguageOptions(
+        "--experimental_builtins_injection_override=+cc_proto_library", "--enable_workspace");
     scratch.file(
         "x/BUILD", "cc_proto_library(name = 'foo_cc_proto', deps = ['@bla//foo:bar_proto'])");
 
@@ -333,6 +339,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void importPrefixWorksWithRepositories() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
     invalidatePackages();
@@ -358,6 +365,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void stripImportPrefixWorksWithRepositories() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
     invalidatePackages();
@@ -382,6 +390,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void importPrefixAndStripImportPrefixWorksWithRepositories() throws Exception {
+    setBuildLanguageOptions("--enable_workspace");
     FileSystemUtils.appendIsoLatin1(
         scratch.resolve("WORKSPACE"), "local_repository(name = 'yolo_repo', path = '/yolo_repo')");
     invalidatePackages();
@@ -413,7 +422,9 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     CcInfo ccInfo = configuredTarget.get(CcInfo.PROVIDER);
     ImmutableList<Artifact> headers =
         ccInfo.getCcCompilationContext().getDeclaredIncludeSrcs().toList();
-    return Iterables.getOnlyElement(headers).getExecPathString();
+    // TODO(b/364873432): cc_proto_library returns headers in both _virtual_includes and
+    // _virtual_imports
+    return Iterables.getFirst(headers, null).getExecPathString();
   }
 
   @Test
