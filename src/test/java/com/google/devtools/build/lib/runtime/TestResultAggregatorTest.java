@@ -20,6 +20,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
@@ -264,13 +265,13 @@ public final class TestResultAggregatorTest {
 
   private static TestResult testResult(TestResultData.Builder data, boolean locallyCached) {
     TestRunnerAction mockTestAction = mock(TestRunnerAction.class);
-    when(mockTestAction.getTestOutputsMapping(any(), any())).thenReturn(ImmutableList.of());
+    when(mockTestAction.getTestOutputsMapping(any(), any())).thenReturn(ImmutableMultimap.of());
     return new TestResult(mockTestAction, data.build(), locallyCached, /*systemFailure=*/ null);
   }
 
   private static TestResult shardedTestResult(TestResultData.Builder data, int shardNum) {
     TestRunnerAction mockTestAction = mock(TestRunnerAction.class);
-    when(mockTestAction.getTestOutputsMapping(any(), any())).thenReturn(ImmutableList.of());
+    when(mockTestAction.getTestOutputsMapping(any(), any())).thenReturn(ImmutableMultimap.of());
     when(mockTestAction.getShardNum()).thenReturn(shardNum);
     return new TestResult(mockTestAction, data.build(), /*cached=*/ false, /*systemFailure=*/ null);
   }

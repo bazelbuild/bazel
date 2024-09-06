@@ -18,6 +18,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -26,12 +27,10 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.util.DetailedExitCode;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.build.lib.view.test.TestStatus.TestResultData;
-import java.util.Collection;
 import java.util.List;
 import javax.annotation.Nullable;
 
@@ -183,7 +182,7 @@ public class TestResult implements ExtendedEventHandler.Postable {
    * Returns the collection of files created by the test, tagged by their name indicating usage
    * (e.g., "test.log").
    */
-  private Collection<Pair<String, Path>> getFiles() {
+  private ImmutableMultimap<String, Path> getFiles() {
     // TODO(ulfjack): Cache the set of generated files in the TestResultData.
     return testAction.getTestOutputsMapping(ArtifactPathResolver.forExecRoot(execRoot), execRoot);
   }

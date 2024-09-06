@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.time.Duration;
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 
 /** Context to be informed of top-level outputs and their runfiles. */
@@ -82,7 +82,7 @@ public interface ImportantOutputHandler extends ActionContext {
    * Actions#dependsOnBuildId}), so outputs passed to this method come from a just-executed test
    * action.
    */
-  void processTestOutputs(List<Path> testOutputs)
+  void processTestOutputs(Collection<Path> testOutputs)
       throws ImportantOutputException, InterruptedException;
 
   /**

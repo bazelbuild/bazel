@@ -22,8 +22,8 @@ import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.flogger.GoogleLogger;
@@ -65,7 +65,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -401,73 +400,64 @@ public class TestRunnerAction extends AbstractAction
    * file system for existence of these output files, so it must only be used after test execution.
    */
   // TODO(ulfjack): Instead of going to local disk here, use SpawnResult (add list of files there).
-  public ImmutableList<Pair<String, Path>> getTestOutputsMapping(
+  public ImmutableMultimap<String, Path> getTestOutputsMapping(
       ArtifactPathResolver resolver, Path execRoot) {
-    ImmutableList.Builder<Pair<String, Path>> builder = ImmutableList.builder();
+    ImmutableMultimap.Builder<String, Path> builder = ImmutableMultimap.builder();
     if (resolver.toPath(getTestLog()).exists()) {
-      builder.add(Pair.of(TestFileNameConstants.TEST_LOG, resolver.toPath(getTestLog())));
+      builder.put(TestFileNameConstants.TEST_LOG, resolver.toPath(getTestLog()));
     }
     if (getCoverageData() != null && resolver.toPath(getCoverageData()).exists()) {
-      builder.add(Pair.of(TestFileNameConstants.TEST_COVERAGE, resolver.toPath(getCoverageData())));
+      builder.put(TestFileNameConstants.TEST_COVERAGE, resolver.toPath(getCoverageData()));
     }
     if (execRoot != null) {
       ResolvedPaths resolvedPaths = resolve(execRoot);
       if (resolvedPaths.getTestStderr().exists()) {
-        builder.add(Pair.of(TestFileNameConstants.TEST_STDERR, resolvedPaths.getTestStderr()));
+        builder.put(TestFileNameConstants.TEST_STDERR, resolvedPaths.getTestStderr());
       }
       if (resolvedPaths.getXmlOutputPath().exists()) {
-        builder.add(Pair.of(TestFileNameConstants.TEST_XML, resolvedPaths.getXmlOutputPath()));
+        builder.put(TestFileNameConstants.TEST_XML, resolvedPaths.getXmlOutputPath());
       }
       if (resolvedPaths.getSplitLogsPath().exists()) {
-        builder.add(Pair.of(TestFileNameConstants.SPLIT_LOGS, resolvedPaths.getSplitLogsPath()));
+        builder.put(TestFileNameConstants.SPLIT_LOGS, resolvedPaths.getSplitLogsPath());
       }
       if (resolvedPaths.getTestWarningsPath().exists()) {
-        builder.add(
-            Pair.of(TestFileNameConstants.TEST_WARNINGS, resolvedPaths.getTestWarningsPath()));
+        builder.put(TestFileNameConstants.TEST_WARNINGS, resolvedPaths.getTestWarningsPath());
       }
       if (testConfiguration.getZipUndeclaredTestOutputs()
           && resolvedPaths.getUndeclaredOutputsZipPath().exists()) {
-        builder.add(
-            Pair.of(
-                TestFileNameConstants.UNDECLARED_OUTPUTS_ZIP,
-                resolvedPaths.getUndeclaredOutputsZipPath()));
+        builder.put(
+            TestFileNameConstants.UNDECLARED_OUTPUTS_ZIP,
+            resolvedPaths.getUndeclaredOutputsZipPath());
       }
       if (!testConfiguration.getZipUndeclaredTestOutputs()
           && resolvedPaths.getUndeclaredOutputsDir().exists()) {
-        builder.add(
-            Pair.of(
-                TestFileNameConstants.UNDECLARED_OUTPUTS_DIR,
-                resolvedPaths.getUndeclaredOutputsDir()));
+
+        builder.put(
+            TestFileNameConstants.UNDECLARED_OUTPUTS_DIR, resolvedPaths.getUndeclaredOutputsDir());
       }
       if (resolvedPaths.getUndeclaredOutputsManifestPath().exists()) {
-        builder.add(
-            Pair.of(
-                TestFileNameConstants.UNDECLARED_OUTPUTS_MANIFEST,
-                resolvedPaths.getUndeclaredOutputsManifestPath()));
+        builder.put(
+            TestFileNameConstants.UNDECLARED_OUTPUTS_MANIFEST,
+            resolvedPaths.getUndeclaredOutputsManifestPath());
       }
       if (resolvedPaths.getUndeclaredOutputsAnnotationsPath().exists()) {
-        builder.add(
-            Pair.of(
-                TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS,
-                resolvedPaths.getUndeclaredOutputsAnnotationsPath()));
+        builder.put(
+            TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS,
+            resolvedPaths.getUndeclaredOutputsAnnotationsPath());
       }
       if (resolvedPaths.getUndeclaredOutputsAnnotationsPbPath().exists()) {
-        builder.add(
-            Pair.of(
-                TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS_PB,
-                resolvedPaths.getUndeclaredOutputsAnnotationsPbPath()));
+        builder.put(
+            TestFileNameConstants.UNDECLARED_OUTPUTS_ANNOTATIONS_PB,
+            resolvedPaths.getUndeclaredOutputsAnnotationsPbPath());
       }
       if (resolvedPaths.getUnusedRunfilesLogPath().exists()) {
-        builder.add(
-            Pair.of(
-                TestFileNameConstants.UNUSED_RUNFILES_LOG,
-                resolvedPaths.getUnusedRunfilesLogPath()));
+        builder.put(
+            TestFileNameConstants.UNUSED_RUNFILES_LOG, resolvedPaths.getUnusedRunfilesLogPath());
       }
       if (resolvedPaths.getInfrastructureFailureFile().exists()) {
-        builder.add(
-            Pair.of(
-                TestFileNameConstants.TEST_INFRASTRUCTURE_FAILURE,
-                resolvedPaths.getInfrastructureFailureFile()));
+        builder.put(
+            TestFileNameConstants.TEST_INFRASTRUCTURE_FAILURE,
+            resolvedPaths.getInfrastructureFailureFile());
       }
     }
     return builder.build();

@@ -39,7 +39,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.ForOverride;
 import java.io.IOException;
-import java.util.List;
+import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
@@ -115,7 +115,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
     }
 
     @Override
-    public void processTestOutputs(List<Path> testOutputs) {
+    public void processTestOutputs(Collection<Path> testOutputs) {
       throw new UnsupportedOperationException();
     }
 

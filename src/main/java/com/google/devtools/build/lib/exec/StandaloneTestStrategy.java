@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.common.io.ByteStreams;
@@ -51,7 +52,6 @@ import com.google.devtools.build.lib.runtime.TestSummaryOptions;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.TestAction;
-import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -146,10 +146,10 @@ public class StandaloneTestStrategy extends TestStrategy {
     return new StandaloneTestRunnerSpawn(action, actionExecutionContext, spawn, tmpDir, execRoot);
   }
 
-  private static ImmutableList<Pair<String, Path>> renameOutputs(
+  private static ImmutableMultimap<String, Path> renameOutputs(
       ActionExecutionContext actionExecutionContext,
       TestRunnerAction action,
-      ImmutableList<Pair<String, Path>> testOutputs,
+      ImmutableMultimap<String, Path> testOutputs,
       int attemptId)
       throws IOException {
     // Rename outputs
@@ -163,12 +163,12 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     // Get the normal test output paths, and then update them to use "attempt_N" names, and
     // attemptDir, before adding them to the outputs.
-    ImmutableList.Builder<Pair<String, Path>> testOutputsBuilder = new ImmutableList.Builder<>();
-    for (Pair<String, Path> testOutput : testOutputs) {
+    ImmutableMultimap.Builder<String, Path> testOutputsBuilder = ImmutableMultimap.builder();
+    for (Map.Entry<String, Path> testOutput : testOutputs.entries()) {
       // e.g. /testRoot/test.dir/file, an example we follow throughout this loop's comments.
-      Path testOutputPath = testOutput.getSecond();
+      Path testOutputPath = testOutput.getValue();
       Path destinationPath;
-      if (testOutput.getFirst().equals(TestFileNameConstants.TEST_LOG)) {
+      if (testOutput.getKey().equals(TestFileNameConstants.TEST_LOG)) {
         // The rename rules for the test log are different than for all the other files.
         destinationPath = testLog;
       } else {
@@ -188,7 +188,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       // Move to the destination.
       testOutputPath.renameTo(destinationPath);
 
-      testOutputsBuilder.add(Pair.of(testOutput.getFirst(), destinationPath));
+      testOutputsBuilder.put(testOutput.getKey(), destinationPath);
     }
     return testOutputsBuilder.build();
   }
@@ -240,7 +240,7 @@ public class StandaloneTestStrategy extends TestStrategy {
       TestRunnerAction action,
       StandaloneTestResult result)
       throws IOException {
-    ImmutableList<Pair<String, Path>> testOutputs =
+    ImmutableMultimap<String, Path> testOutputs =
         action.getTestOutputsMapping(
             actionExecutionContext.getPathResolver(), actionExecutionContext.getExecRoot());
     if (!isLastAttempt) {
@@ -249,10 +249,10 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     // Recover the test log path, which may have been renamed, and add it to the data builder.
     Path renamedTestLog = null;
-    for (Pair<String, Path> pair : testOutputs) {
-      if (TestFileNameConstants.TEST_LOG.equals(pair.getFirst())) {
+    for (Map.Entry<String, Path> pair : testOutputs.entries()) {
+      if (TestFileNameConstants.TEST_LOG.equals(pair.getKey())) {
         Preconditions.checkState(renamedTestLog == null, "multiple test_log matches");
-        renamedTestLog = pair.getSecond();
+        renamedTestLog = pair.getValue();
       }
     }
 
