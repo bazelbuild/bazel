@@ -99,6 +99,8 @@ class UiStateTracker {
 
   private int sampleSize = 3;
 
+  private boolean newStatsSummary = false;
+
   protected String status;
   protected String additionalMessage = "";
   // Not null after the loading phase has completed.
@@ -412,6 +414,10 @@ class UiStateTracker {
     this.sampleSize = Math.max(1, sampleSize);
   }
 
+  void setNewStatsSummary(boolean newStatsSummary) {
+    this.newStatsSummary = newStatsSummary;
+  }
+
   void mainRepoMappingComputationStarted() {
     status = "Computing main repo mapping";
     additionalMessage = "";
@@ -478,20 +484,23 @@ class UiStateTracker {
     additionalMessage = "";
     if (event.getResult().getSuccess()) {
       int actionsCompleted = this.actionsCompleted.get();
+      StringBuilder completedStringBuilder = new StringBuilder().append("Build completed");
       if (failedTests == 0) {
-        return Event.info(
-            "Build completed successfully, "
-                + actionsCompleted
-                + pluralize(" total action", actionsCompleted));
+        completedStringBuilder.append(" successfully");
       } else {
-        return Event.info(
-            "Build completed, "
-                + failedTests
-                + pluralize(" test", failedTests)
-                + " FAILED, "
-                + actionsCompleted
-                + pluralize(" total action", actionsCompleted));
+        completedStringBuilder
+            .append(", ")
+            .append(failedTests)
+            .append(pluralize(" test", failedTests))
+            .append(" FAILED");
       }
+      if (!newStatsSummary) {
+        completedStringBuilder
+            .append(", ")
+            .append(actionsCompleted)
+            .append(pluralize(" total action", actionsCompleted));
+      }
+      return Event.info(completedStringBuilder.toString());
     } else {
       ok = false;
       return Event.error("Build did NOT complete successfully");

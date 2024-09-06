@@ -92,7 +92,8 @@ public final class UiEventHandlerStdOutAndStdErrTest {
             new ManualClock(),
             new EventBus(),
             /* workspacePathFragment= */ null,
-            /* skymeldMode= */ skymeldMode);
+            /* skymeldMode= */ skymeldMode,
+            /* newStatsSummary= */ false);
     uiEventHandler.mainRepoMappingComputationStarted(new MainRepoMappingComputationStartingEvent());
     uiEventHandler.buildStarted(
         BuildStartingEvent.create(

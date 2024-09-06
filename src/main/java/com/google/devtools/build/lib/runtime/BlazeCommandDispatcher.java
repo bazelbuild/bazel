@@ -487,7 +487,11 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
         DebugLoggerConfigurator.setupLogging(commonOptions.verbosity);
 
-        EventHandler handler = createEventHandler(outErr, eventHandlerOptions, env);
+        boolean newStatsSummary =
+            options.getOptions(ExecutionOptions.class) != null
+                && options.getOptions(ExecutionOptions.class).statsSummary;
+        EventHandler handler =
+            createEventHandler(outErr, eventHandlerOptions, env, newStatsSummary);
         reporter.addHandler(handler);
         env.getEventBus().register(handler);
 
@@ -497,7 +501,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         // modified.
         if (!eventHandlerOptions.useColor()) {
           UiEventHandler ansiAllowingHandler =
-              createEventHandler(colorfulOutErr, eventHandlerOptions, env);
+              createEventHandler(colorfulOutErr, eventHandlerOptions, env, newStatsSummary);
           reporter.registerAnsiAllowingHandler(handler, ansiAllowingHandler);
           env.getEventBus().register(new PassiveExperimentalEventHandler(ansiAllowingHandler));
         }
@@ -867,7 +871,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
   /** Returns the event handler to use for this Blaze command. */
   private UiEventHandler createEventHandler(
-      OutErr outErr, UiOptions eventOptions, CommandEnvironment env) {
+      OutErr outErr, UiOptions eventOptions, CommandEnvironment env, boolean newStatsSummary) {
     Path workspacePath = runtime.getWorkspace().getDirectories().getWorkspace();
     PathFragment workspacePathFragment = workspacePath == null ? null : workspacePath.asFragment();
     return new UiEventHandler(
@@ -876,7 +880,8 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         runtime.getClock(),
         env.getEventBus(),
         workspacePathFragment,
-        env.withMergedAnalysisAndExecutionSourceOfTruth());
+        env.withMergedAnalysisAndExecutionSourceOfTruth(),
+        newStatsSummary);
   }
 
   /** Returns the runtime instance shared by the commands that this dispatcher dispatches to. */
