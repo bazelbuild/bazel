@@ -31,19 +31,16 @@ class InMemoryRemoteCache extends RemoteExecutionCache {
 
   InMemoryRemoteCache(
       Map<Digest, byte[]> casEntries, RemoteOptions options, DigestUtil digestUtil) {
-    super(
-        new InMemoryCacheClient(casEntries),
-        options,
-        digestUtil);
+    super(new InMemoryCacheClient(casEntries), /* diskCacheClient= */ null, options, digestUtil);
   }
 
   InMemoryRemoteCache(RemoteOptions options, DigestUtil digestUtil) {
-    super(new InMemoryCacheClient(), options, digestUtil);
+    super(new InMemoryCacheClient(), /* diskCacheClient= */ null, options, digestUtil);
   }
 
   InMemoryRemoteCache(
       RemoteCacheClient cacheProtocol, RemoteOptions options, DigestUtil digestUtil) {
-    super(cacheProtocol, options, digestUtil);
+    super(cacheProtocol, /* diskCacheClient= */ null, options, digestUtil);
   }
 
   Digest addContents(RemoteActionExecutionContext context, String txt)
@@ -54,7 +51,7 @@ class InMemoryRemoteCache extends RemoteExecutionCache {
   Digest addContents(RemoteActionExecutionContext context, byte[] bytes)
       throws IOException, InterruptedException {
     Digest digest = digestUtil.compute(bytes);
-    Utils.getFromFuture(cacheProtocol.uploadBlob(context, digest, ByteString.copyFrom(bytes)));
+    Utils.getFromFuture(remoteCacheClient.uploadBlob(context, digest, ByteString.copyFrom(bytes)));
     return digest;
   }
 
@@ -65,25 +62,25 @@ class InMemoryRemoteCache extends RemoteExecutionCache {
 
   Digest addException(String txt, Exception e) {
     Digest digest = digestUtil.compute(txt.getBytes(UTF_8));
-    ((InMemoryCacheClient) cacheProtocol).addDownloadFailure(digest, e);
+    ((InMemoryCacheClient) remoteCacheClient).addDownloadFailure(digest, e);
     return digest;
   }
 
   Digest addException(Message m, Exception e) {
     Digest digest = digestUtil.compute(m);
-    ((InMemoryCacheClient) cacheProtocol).addDownloadFailure(digest, e);
+    ((InMemoryCacheClient) remoteCacheClient).addDownloadFailure(digest, e);
     return digest;
   }
 
   int getNumSuccessfulDownloads() {
-    return ((InMemoryCacheClient) cacheProtocol).getNumSuccessfulDownloads();
+    return ((InMemoryCacheClient) remoteCacheClient).getNumSuccessfulDownloads();
   }
 
   int getNumFailedDownloads() {
-    return ((InMemoryCacheClient) cacheProtocol).getNumFailedDownloads();
+    return ((InMemoryCacheClient) remoteCacheClient).getNumFailedDownloads();
   }
 
   Map<Digest, Integer> getNumFindMissingDigests() {
-    return ((InMemoryCacheClient) cacheProtocol).getNumFindMissingDigests();
+    return ((InMemoryCacheClient) remoteCacheClient).getNumFindMissingDigests();
   }
 }
