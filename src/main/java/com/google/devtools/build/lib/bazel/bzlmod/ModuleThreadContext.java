@@ -324,7 +324,9 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     // raise an error and suggest to directly override A with C. This ensures that repo overrides
     // can be applied to repo mappings in a single step (and also prevents cycles).
     Optional<String> repoOverrideChainLink =
-        reposUsedAsRepoOverride.keySet().stream().filter(repoNameUsages::containsKey).findFirst();
+        reposUsedAsRepoOverride.keySet().stream()
+            .filter(reposSubjectToRepoOverride::containsKey)
+            .findFirst();
     if (repoOverrideChainLink.isPresent()) {
       var override = reposUsedAsRepoOverride.get(repoOverrideChainLink.get());
       var overrideOnOverride = reposSubjectToRepoOverride.get(repoOverrideChainLink.get());
