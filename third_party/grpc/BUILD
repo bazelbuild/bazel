@@ -70,3 +70,5 @@ filegroup(
         "build_defs.bzl",
     ],
 )
+
+exports_files(["00_disable_layering_check.patch"])
