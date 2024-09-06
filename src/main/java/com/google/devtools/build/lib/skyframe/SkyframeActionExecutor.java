@@ -1020,7 +1020,8 @@ public final class SkyframeActionExecutor {
               action.getMnemonic(),
               action.describe(),
               action.getPrimaryOutput().getExecPathString(),
-              getOwnerLabelAsString(action))) {
+              getOwnerLabelAsString(action),
+              getOwnerConfigurationAsString(action))) {
         String message = action.getProgressMessage();
         if (message != null) {
           reporter.startTask(null, prependExecPhaseStats(message));
@@ -1087,6 +1088,14 @@ public final class SkyframeActionExecutor {
         return "";
       }
       return ownerLabel.getCanonicalForm();
+    }
+
+    private String getOwnerConfigurationAsString(Action action) {
+      ActionOwner owner = action.getOwner();
+      if (owner == null) {
+        return "";
+      }
+      return owner.getConfigurationChecksum();
     }
 
     private void notifyActionCompletion(

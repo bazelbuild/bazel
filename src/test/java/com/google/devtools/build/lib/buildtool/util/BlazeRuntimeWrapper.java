@@ -413,6 +413,7 @@ public class BlazeRuntimeWrapper {
             /* slimProfile= */ false,
             /* includePrimaryOutput= */ false,
             /* includeTargetLabel= */ false,
+            /* includeConfiguration= */ false,
             /* collectTaskHistograms= */ true,
             new CollectLocalResourceUsage(
                 runtime.getBugReporter(),

@@ -258,6 +258,14 @@ public class CommonCommandOptions extends OptionsBase {
   public boolean profileIncludeTargetLabel;
 
   @Option(
+      name = "experimental_profile_include_target_configuration",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help = "Includes target configuration hash in action events' JSON profile data.")
+  public boolean profileIncludeTargetConfiguration;
+
+  @Option(
       name = "profile",
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
