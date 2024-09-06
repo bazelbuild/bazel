@@ -318,20 +318,21 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       boolean tracerEnabled,
       ExtendedEventHandler eventHandler,
       BlazeWorkspace workspace,
-      CommonCommandOptions options,
-      BuildEventProtocolOptions bepOptions,
+      OptionsProvider options,
       CommandEnvironment env,
       long execStartTimeNanos,
       long waitTimeInMs) {
+    BuildEventProtocolOptions bepOptions = options.getOptions(BuildEventProtocolOptions.class);
+    CommonCommandOptions commandOptions = options.getOptions(CommonCommandOptions.class);
     OutputStream out = null;
-    boolean recordFullProfilerData = options.recordFullProfilerData;
+    boolean recordFullProfilerData = commandOptions.recordFullProfilerData;
     ImmutableSet.Builder<ProfilerTask> profiledTasksBuilder = ImmutableSet.builder();
     Profiler.Format format = Format.JSON_TRACE_FILE_FORMAT;
     Path profilePath = null;
     InstrumentationOutput profile = null;
     try {
       if (tracerEnabled) {
-        if (options.profilePath == null) {
+        if (commandOptions.profilePath == null) {
           String profileName = "command.profile.gz";
           format = Format.JSON_TRACE_FILE_COMPRESSED_FORMAT;
           if (bepOptions != null && bepOptions.streamingLogFileUploads) {
@@ -354,10 +355,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           }
         } else {
           format =
-              options.profilePath.toString().endsWith(".gz")
+              commandOptions.profilePath.toString().endsWith(".gz")
                   ? Format.JSON_TRACE_FILE_COMPRESSED_FORMAT
                   : Format.JSON_TRACE_FILE_FORMAT;
-          profilePath = workspace.getWorkspace().getRelative(options.profilePath);
+          profilePath = workspace.getWorkspace().getRelative(commandOptions.profilePath);
           profile =
               instrumentationOutputFactory
                   .createLocalInstrumentationOutputBuilder()
@@ -379,11 +380,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             profiledTasksBuilder.add(profilerTask);
           }
         }
-        profiledTasksBuilder.addAll(options.additionalProfileTasks);
-        if (options.recordFullProfilerData) {
+        profiledTasksBuilder.addAll(commandOptions.additionalProfileTasks);
+        if (commandOptions.recordFullProfilerData) {
           profiledTasksBuilder.addAll(EnumSet.allOf(ProfilerTask.class));
         }
-      } else if (options.alwaysProfileSlowOperations) {
+      } else if (commandOptions.alwaysProfileSlowOperations) {
         recordFullProfilerData = false;
         out = null;
         for (ProfilerTask profilerTask : ProfilerTask.values()) {
@@ -394,7 +395,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
       ImmutableSet<ProfilerTask> profiledTasks = profiledTasksBuilder.build();
       if (!profiledTasks.isEmpty()) {
-        if (options.slimProfile && options.includePrimaryOutput) {
+        if (commandOptions.slimProfile && commandOptions.includePrimaryOutput) {
           eventHandler.handle(
               Event.warn(
                   "Enabling both --slim_profile and"
@@ -415,27 +416,27 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             recordFullProfilerData,
             clock,
             execStartTimeNanos,
-            options.slimProfile,
-            options.includePrimaryOutput,
-            options.profileIncludeTargetLabel,
-            options.alwaysProfileSlowOperations,
+            commandOptions.slimProfile,
+            commandOptions.includePrimaryOutput,
+            commandOptions.profileIncludeTargetLabel,
+            commandOptions.alwaysProfileSlowOperations,
             new CollectLocalResourceUsage(
                 bugReporter,
                 workerProcessMetricsCollector,
                 env.getLocalResourceManager(),
-                options.collectSkyframeCounts
+                commandOptions.collectSkyframeCounts
                     ? env.getSkyframeExecutor().getEvaluator().getInMemoryGraph()
                     : null,
-                options.collectWorkerDataInProfiler,
-                options.collectLoadAverageInProfiler,
-                options.collectSystemNetworkUsage,
-                options.collectResourceEstimation,
-                options.collectPressureStallIndicators,
-                options.collectSkyframeCounts));
+                commandOptions.collectWorkerDataInProfiler,
+                commandOptions.collectLoadAverageInProfiler,
+                commandOptions.collectSystemNetworkUsage,
+                commandOptions.collectResourceEstimation,
+                commandOptions.collectPressureStallIndicators,
+                commandOptions.collectSkyframeCounts));
         // Instead of logEvent() we're calling the low level function to pass the timings we took in
         // the launcher. We're setting the INIT phase marker so that it follows immediately the
         // LAUNCH phase.
-        long startupTimeNanos = options.startupTime * 1000000L;
+        long startupTimeNanos = commandOptions.startupTime * 1000000L;
         long waitTimeNanos = waitTimeInMs * 1000000L;
         long clientStartTimeNanos = execStartTimeNanos - startupTimeNanos - waitTimeNanos;
         profiler.logSimpleTaskDuration(
@@ -443,17 +444,17 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
             Duration.ofNanos(startupTimeNanos),
             ProfilerTask.PHASE,
             ProfilePhase.LAUNCH.description);
-        if (options.extractDataTime > 0) {
+        if (commandOptions.extractDataTime > 0) {
           profiler.logSimpleTaskDuration(
               clientStartTimeNanos,
-              Duration.ofMillis(options.extractDataTime),
+              Duration.ofMillis(commandOptions.extractDataTime),
               ProfilerTask.PHASE,
               "Extracting Bazel binary");
         }
-        if (options.waitTime > 0) {
+        if (commandOptions.waitTime > 0) {
           profiler.logSimpleTaskDuration(
               clientStartTimeNanos,
-              Duration.ofMillis(options.waitTime),
+              Duration.ofMillis(commandOptions.waitTime),
               ProfilerTask.PHASE,
               "Blocking on busy Bazel server (in client)");
         }

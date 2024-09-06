@@ -387,8 +387,7 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
             tracerEnabled,
             storedEventHandler,
             workspace,
-            commonOptions,
-            options.getOptions(BuildEventProtocolOptions.class),
+            options,
             env,
             execStartTimeNanos,
             waitTimeInMs);
