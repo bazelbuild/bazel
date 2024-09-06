@@ -1,3 +1,30 @@
+## Release 8.0.0-pre.20240826.1 (2024-09-06)
+
+```
+Baseline: 39481ad142469d3ed16d283694c76091b271d523
+```
+
+Important changes:
+
+  - Repository rules instantiated in the same module extensions can
+    now refer to each other by their extension-specified names in
+    label attributes.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Cornelius Riemenschneider, dependabot[bot], Fabian Meumertzheim, George Gensure, Jay Conrod, Keith Smiley, Michael Siegrist, Xdng Yng, xinyu.wang.
+
+## Release 8.0.0-pre.20240821.2 (2024-08-27)
+
+```
+Baseline: 04f0ef76938057f143562e9faeb2f47defa30939
+
+Cherry picks:
+
+   + 0000000000000000000000000000000000000000:
+     
+```
+
+This release contains contributions from many people at Google, as well as Fabian Meumertzheim.
+
 ## Release 8.0.0-pre.20240819.2 (2024-08-22)
 
 ```
