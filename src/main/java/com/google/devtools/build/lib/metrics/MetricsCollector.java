@@ -217,7 +217,7 @@ class MetricsCollector {
   public void onSomeExecutionStarted(SomeExecutionStartedEvent event) {
     if (event.countedInExecutionTime()) {
       if (executionStarted.compareAndSet(false, true)) {
-        Duration elapsedWallTime = Profiler.elapsedTimeMaybe();
+        Duration elapsedWallTime = Profiler.getProfileElapsedTime();
         if (elapsedWallTime != null) {
           timingMetrics.setActionsExecutionStartInMs(elapsedWallTime.toMillis());
         }
@@ -490,11 +490,11 @@ class MetricsCollector {
   }
 
   private TimingMetrics finishTimingMetrics() {
-    Duration elapsedWallTime = Profiler.elapsedTimeMaybe();
+    Duration elapsedWallTime = Profiler.getProfileElapsedTime();
     if (elapsedWallTime != null) {
       timingMetrics.setWallTimeInMs(elapsedWallTime.toMillis());
     }
-    Duration cpuTime = Profiler.getProcessCpuTimeMaybe();
+    Duration cpuTime = Profiler.getServerProcessCpuTime();
     if (cpuTime != null) {
       timingMetrics.setCpuTimeInMs(cpuTime.toMillis());
     }

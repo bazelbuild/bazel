@@ -729,11 +729,13 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
       try {
         Profiler.instance().stop();
-        MemoryProfiler.instance().stop();
       } catch (IOException e) {
         env.getReporter()
             .handle(Event.error("Error while writing profile file: " + e.getMessage()));
       }
+
+      Profiler.instance().clear();
+      MemoryProfiler.instance().stop();
 
       // Swallow IOException, as we are already in a finally clause
       Flushables.flushQuietly(outErr.getOutputStream());

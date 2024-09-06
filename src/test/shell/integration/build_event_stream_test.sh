@@ -1478,9 +1478,12 @@ EOF
   chmod +x a/a.sh
 
   bazel build --build_event_text_file=bep.txt //a:a || fail "build failed"
-  assert_contains "^build_metrics {" bep.txt
 
-  bazel test --build_event_text_file=bep.txt //a:a || fail "build failed"
+  assert_contains "^build_metrics {" bep.txt
+  assert_contains "cpu_time_in_ms: " bep.txt
+
+  # Check if null builds still have build metrics
+  bazel build --build_event_text_file=bep.txt //a:a || fail "build failed"
   assert_contains "^build_metrics {" bep.txt
 }
 

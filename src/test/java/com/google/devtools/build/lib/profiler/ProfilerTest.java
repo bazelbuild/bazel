@@ -64,6 +64,7 @@ public final class ProfilerTest {
   @Before
   public void setManualClock() {
     BlazeClock.setClock(clock);
+    profiler.clear();
   }
 
   @AfterClass
@@ -730,21 +731,6 @@ public final class ProfilerTest {
             /* collectSkyframeCounts= */ false));
     profiler.logSimpleTask(badClock.nanoTime(), ProfilerTask.INFO, "some task");
     profiler.stop();
-  }
-
-  /** Checks that the histograms are cleared in the stop call. */
-  @Test
-  public void testEmptyTaskHistograms() throws Exception {
-    startUnbuffered(getAllProfilerTasks());
-    profiler.logSimpleTaskDuration(
-        Profiler.nanoTimeMaybe(), Duration.ofSeconds(10), ProfilerTask.INFO, "foo");
-    for (StatRecorder recorder : profiler.tasksHistograms) {
-      assertThat(recorder).isNotNull();
-    }
-    profiler.stop();
-    for (StatRecorder recorder : profiler.tasksHistograms) {
-      assertThat(recorder).isNull();
-    }
   }
 
   @Test

@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -306,9 +307,12 @@ public final class Profiler {
 
   private Clock clock;
   private Set<ProfilerTask> profiledTasks;
-  private volatile long profileStartTime;
+  private volatile boolean active = false;
   private volatile boolean recordAllDurations = false;
-  private Duration profileCpuStartTime;
+  private Duration profileCpuStartTime = Duration.ZERO;
+  private Duration profileCpuEndTime = Duration.ZERO;
+  private Duration profileStartTime = Duration.ZERO;
+  private Duration profileEndTime = Duration.ZERO;
 
   /**
    * The reference to the current writer, if any. If the referenced writer is null, then disk writes
@@ -376,7 +380,8 @@ public final class Profiler {
   // stop instead? However, this is currently only called from one location in a module, and that
   // can't call stop itself. What to do?
   public synchronized ImmutableList<StatRecorder> getTasksHistograms() {
-    return isActive() ? ImmutableList.copyOf(tasksHistograms) : ImmutableList.of();
+    Preconditions.checkState(isActive());
+    return ImmutableList.copyOf(tasksHistograms);
   }
 
   public static Profiler instance() {
@@ -393,14 +398,12 @@ public final class Profiler {
     return -1;
   }
 
-  // Returns the elapsed wall clock time since the profile has been started or null if inactive.
-  @Nullable
-  public static Duration elapsedTimeMaybe() {
-    if (instance.isActive()) {
-      return Duration.ofNanos(instance.clock.nanoTime())
-          .minus(Duration.ofNanos(instance.profileStartTime));
-    }
-    return null;
+  // Returns the elapsed wall clock time since the profile has been started.
+  public static Duration getProfileElapsedTime() {
+    Duration endTime =
+        instance.isActive() ? Duration.ofNanos(instance.clock.nanoTime()) : instance.profileEndTime;
+
+    return endTime.minus(instance.profileStartTime);
   }
 
   private static Duration getProcessCpuTime() {
@@ -409,13 +412,10 @@ public final class Profiler {
     return Duration.ofNanos(bean.getProcessCpuTime());
   }
 
-  // Returns the CPU time since the profile has been started or null if inactive.
-  @Nullable
-  public static Duration getProcessCpuTimeMaybe() {
-    if (instance().isActive()) {
-      return getProcessCpuTime().minus(instance().profileCpuStartTime);
-    }
-    return null;
+  // Returns the CPU time since the profile has been started.
+  public static Duration getServerProcessCpuTime() {
+    Duration cpuEndTime = instance.isActive() ? getProcessCpuTime() : instance.profileCpuEndTime;
+    return cpuEndTime.minus(instance.profileCpuStartTime);
   }
 
   /**
@@ -447,7 +447,8 @@ public final class Profiler {
       boolean collectTaskHistograms,
       LocalResourceCollector localResourceCollector)
       throws IOException {
-    checkState(!isActive(), "Profiler already active");
+    checkState(!active, "Profiler already active");
+
     initHistograms();
 
     this.profiledTasks = profiledTasks.isEmpty() ? profiledTasks : EnumSet.copyOf(profiledTasks);
@@ -484,8 +485,9 @@ public final class Profiler {
     this.writerRef.set(writer);
 
     // Activate profiler.
-    profileStartTime = execStartTimeNanos;
+    profileStartTime = Duration.ofNanos(execStartTimeNanos);
     profileCpuStartTime = getProcessCpuTime();
+    active = true;
 
     this.localResourceCollector = localResourceCollector;
     // Start collecting Bazel and system-wide CPU metric collection.
@@ -553,24 +555,41 @@ public final class Profiler {
    * will no longer be recorded in the profile.
    */
   public synchronized void stop() throws IOException {
-    if (!isActive()) {
+    if (!active) {
       return;
     }
 
     collectActionCounts();
-
     localResourceCollector.stop();
 
     // Log a final event to update the duration of ProfilePhase.FINISH.
     logEvent(ProfilerTask.INFO, "Finishing");
-    JsonTraceFileWriter writer = writerRef.getAndSet(null);
-    if (writer != null) {
-      writer.shutdown();
-      writer = null;
+    try {
+      JsonTraceFileWriter writer = writerRef.getAndSet(null);
+      if (writer != null) {
+        writer.shutdown();
+        writer = null;
+      }
+    } finally {
+      profileCpuEndTime = getProcessCpuTime();
+      profileEndTime = Duration.ofNanos(clock.nanoTime());
+      active = false;
     }
+  }
+
+  /**
+   * Clears the records the profiler instance keeps.
+   *
+   * <p>Should always be called between a {@link #stop()} and a subsequent {@link #start}.
+   */
+  public synchronized void clear() {
+    Preconditions.checkState(!active);
+
     Arrays.fill(tasksHistograms, null);
-    profileStartTime = 0L;
-    profileCpuStartTime = null;
+    profileStartTime = Duration.ZERO;
+    profileEndTime = Duration.ZERO;
+    profileCpuStartTime = Duration.ZERO;
+    profileCpuEndTime = Duration.ZERO;
 
     for (SlowestTaskAggregator aggregator : slowestTasks) {
       if (aggregator != null) {
@@ -583,7 +602,7 @@ public final class Profiler {
 
   /** Returns true iff profiling is currently enabled. */
   public boolean isActive() {
-    return profileStartTime != 0L;
+    return active;
   }
 
   public boolean isProfiling(ProfilerTask type) {
