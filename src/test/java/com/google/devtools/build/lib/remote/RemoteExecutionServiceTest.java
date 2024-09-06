@@ -35,7 +35,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import build.bazel.remote.execution.v2.ActionResult;
-import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
@@ -47,7 +46,6 @@ import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.OutputSymlink;
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
-import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Throwables;
@@ -1829,12 +1827,6 @@ public class RemoteExecutionServiceTest {
 
   @Test
   public void uploadOutputs_uploadAbsoluteDanglingSymlink() throws Exception {
-    when(cache.getCacheCapabilities())
-        .thenReturn(
-            CacheCapabilities.newBuilder()
-                .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
-                .build());
-
     doUploadDanglingSymlink(PathFragment.create("/some/path"));
   }
 
@@ -2037,7 +2029,7 @@ public class RemoteExecutionServiceTest {
               uploadBlobCalled.countDown();
               return future;
             })
-        .when(cache.cacheProtocol)
+        .when(cache.remoteCacheClient)
         .uploadBlob(any(), any(), any());
     ActionInput input = ActionInputHelper.fromPath("inputs/foo");
     fakeFileCache.createScratchInput(input, "input-foo");

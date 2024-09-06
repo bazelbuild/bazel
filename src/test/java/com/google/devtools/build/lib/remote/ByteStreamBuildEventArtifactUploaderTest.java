@@ -595,7 +595,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
         .when(cacheClient)
         .findMissingDigests(any(), any());
 
-    return new RemoteCache(cacheClient, remoteOptions, DIGEST_UTIL);
+    return new RemoteCache(cacheClient, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
   }
 
   private ByteStreamBuildEventArtifactUploader newArtifactUploader(RemoteCache remoteCache) {

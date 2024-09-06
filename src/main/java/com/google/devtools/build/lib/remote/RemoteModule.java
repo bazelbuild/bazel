@@ -56,10 +56,12 @@ import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnStrategyRegistry;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.LeaseService.LeaseExtension;
+import com.google.devtools.build.lib.remote.RemoteCacheClientFactory.CombinedCacheClient;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
 import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
+import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.http.DownloadTimeoutException;
 import com.google.devtools.build.lib.remote.http.HttpException;
@@ -221,11 +223,11 @@ public final class RemoteModule extends BlazeModule {
       RemoteOptions remoteOptions,
       DigestUtil digestUtil,
       ExecutorService executorService) {
-    RemoteCacheClient cacheClient;
+    CombinedCacheClient combinedCacheClient;
     Retrier.CircuitBreaker circuitBreaker =
         CircuitBreakerFactory.createCircuitBreaker(remoteOptions);
     try {
-      cacheClient =
+      combinedCacheClient =
           RemoteCacheClientFactory.create(
               remoteOptions,
               credentials,
@@ -239,7 +241,12 @@ public final class RemoteModule extends BlazeModule {
       handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
       return;
     }
-    RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
+    RemoteCache remoteCache =
+        new RemoteCache(
+            combinedCacheClient.remoteCacheClient(),
+            combinedCacheClient.diskCacheClient(),
+            remoteOptions,
+            digestUtil);
     actionContextProvider =
         RemoteActionContextProvider.createForRemoteCaching(
             executorService,
@@ -586,22 +593,22 @@ public final class RemoteModule extends BlazeModule {
       }
     }
 
-    RemoteCacheClient cacheClient =
+    RemoteCacheClient remoteCacheClient =
         new GrpcCacheClient(
             cacheChannel.retain(), callCredentialsProvider, remoteOptions, retrier, digestUtil);
     cacheChannel.release();
+    DiskCacheClient diskCacheClient = null;
 
     if (enableRemoteExecution) {
       if (enableDiskCache) {
         try {
-          cacheClient =
-              RemoteCacheClientFactory.createDiskAndRemoteClient(
+          diskCacheClient =
+              RemoteCacheClientFactory.createDiskCache(
                   env.getWorkingDirectory(),
                   remoteOptions,
                   digestUtil,
                   executorService,
-                  remoteOptions.remoteVerifyDownloads,
-                  cacheClient);
+                  remoteOptions.remoteVerifyDownloads);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return;
@@ -631,7 +638,7 @@ public final class RemoteModule extends BlazeModule {
       }
       execChannel.release();
       RemoteExecutionCache remoteCache =
-          new RemoteExecutionCache(cacheClient, remoteOptions, digestUtil);
+          new RemoteExecutionCache(remoteCacheClient, diskCacheClient, remoteOptions, digestUtil);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteExecution(
               executorService,
@@ -656,21 +663,21 @@ public final class RemoteModule extends BlazeModule {
     } else {
       if (enableDiskCache) {
         try {
-          cacheClient =
-              RemoteCacheClientFactory.createDiskAndRemoteClient(
+          diskCacheClient =
+              RemoteCacheClientFactory.createDiskCache(
                   env.getWorkingDirectory(),
                   remoteOptions,
                   digestUtil,
                   executorService,
-                  remoteOptions.remoteVerifyDownloads,
-                  cacheClient);
+                  remoteOptions.remoteVerifyDownloads);
         } catch (Exception e) {
           handleInitFailure(env, e, Code.CACHE_INIT_FAILURE);
           return;
         }
       }
 
-      RemoteCache remoteCache = new RemoteCache(cacheClient, remoteOptions, digestUtil);
+      RemoteCache remoteCache =
+          new RemoteCache(remoteCacheClient, diskCacheClient, remoteOptions, digestUtil);
       actionContextProvider =
           RemoteActionContextProvider.createForRemoteCaching(
               executorService,
@@ -731,7 +738,7 @@ public final class RemoteModule extends BlazeModule {
               downloaderChannel.retain(),
               Optional.ofNullable(callCredentials),
               retrier,
-              cacheClient,
+              remoteCacheClient,
               digestUtil.getDigestFunction(),
               remoteOptions,
               verboseFailures,

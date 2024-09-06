@@ -21,6 +21,7 @@ import static org.junit.Assert.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -192,6 +193,9 @@ public class RemoteSpawnRunnerTest {
     remoteOptions = Options.getDefaults(RemoteOptions.class);
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+
+    when(cache.hasRemoteCache()).thenReturn(true);
+    when(cache.remoteActionCacheSupportsUpdate()).thenReturn(true);
   }
 
   @After
@@ -303,6 +307,8 @@ public class RemoteSpawnRunnerTest {
 
     verify(localRunner).exec(spawn, policy);
     verify(cache).ensureInputsPresent(any(), any(), any(), anyBoolean(), any());
+    verify(cache, atLeastOnce()).hasRemoteCache();
+    verify(cache, atLeastOnce()).hasDiskCache();
     verifyNoMoreInteractions(cache);
   }
 

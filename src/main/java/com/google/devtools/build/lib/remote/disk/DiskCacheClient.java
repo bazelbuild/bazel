@@ -151,7 +151,7 @@ public class DiskCacheClient implements RemoteCacheClient {
    * <p>The caller must ensure that the digest is correct and the file has been recently modified.
    * This method should only be called by the combined cache implementation.
    */
-  void captureFile(Path src, Digest digest, Store store) throws IOException {
+  public void captureFile(Path src, Digest digest, Store store) throws IOException {
     Path target = toPath(digest, store);
     target.getParentDirectory().createDirectoryAndParents();
     src.renameTo(target);
@@ -345,7 +345,7 @@ public class DiskCacheClient implements RemoteCacheClient {
     return immediateFuture(ImmutableSet.copyOf(digests));
   }
 
-  Path getTempPath() {
+  public Path getTempPath() {
     return tmpRoot.getChild(UUID.randomUUID().toString());
   }
 

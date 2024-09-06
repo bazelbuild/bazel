@@ -73,9 +73,11 @@ import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
+import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -326,6 +328,9 @@ public class RemoteSpawnCacheTest {
     simplePolicy = createSpawnExecutionContext(simpleSpawn, execRoot, fakeFileCache, outErr);
 
     fakeFileCache.createScratchInput(simpleSpawn.getInputFiles().getSingleton(), "xyz");
+
+    when(remoteCache.hasRemoteCache()).thenReturn(true);
+    when(remoteCache.remoteActionCacheSupportsUpdate()).thenReturn(true);
   }
 
   @Test
@@ -419,8 +424,20 @@ public class RemoteSpawnCacheTest {
 
     RemoteOptions withLocalCache = Options.getDefaults(RemoteOptions.class);
     withLocalCache.diskCache = PathFragment.create("/etc/something/cache/here");
-    for (RemoteSpawnCache remoteSpawnCache :
-        ImmutableList.of(createRemoteSpawnCache(), remoteSpawnCacheWithOptions(withLocalCache))) {
+    for (var remoteOptions :
+        ImmutableList.of(Options.getDefaults(RemoteOptions.class), withLocalCache)) {
+
+      DiskCacheClient diskCacheClient = null;
+      RemoteCacheClient remoteCacheClient = null;
+      if (remoteOptions == withLocalCache) {
+        diskCacheClient = mock(DiskCacheClient.class);
+      } else {
+        remoteCacheClient = mock(RemoteCacheClient.class);
+      }
+      remoteCache =
+          spy(new RemoteCache(remoteCacheClient, diskCacheClient, remoteOptions, digestUtil));
+
+      var remoteSpawnCache = remoteSpawnCacheWithOptions(remoteOptions);
       for (String requirement :
           ImmutableList.of(ExecutionRequirements.NO_CACHE, ExecutionRequirements.LOCAL)) {
         SimpleSpawn uncacheableSpawn =
@@ -436,7 +453,11 @@ public class RemoteSpawnCacheTest {
                 .setRunnerName("test")
                 .build();
         entry.store(result);
-        verifyNoMoreInteractions(remoteCache);
+        if (remoteOptions == withLocalCache) {
+          verifyNoMoreInteractions(diskCacheClient);
+        } else {
+          verifyNoMoreInteractions(remoteCacheClient);
+        }
       }
     }
   }
@@ -448,6 +469,11 @@ public class RemoteSpawnCacheTest {
 
     RemoteOptions remoteCacheOptions = Options.getDefaults(RemoteOptions.class);
     remoteCacheOptions.remoteCache = "https://somecache.com";
+    RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
+    remoteCache =
+        spy(
+            new RemoteCache(
+                remoteCacheClient, /* diskCacheClient= */ null, remoteCacheOptions, digestUtil));
     RemoteSpawnCache remoteSpawnCache = remoteSpawnCacheWithOptions(remoteCacheOptions);
     for (String requirement :
         ImmutableList.of(
@@ -469,7 +495,7 @@ public class RemoteSpawnCacheTest {
               .setRunnerName("test")
               .build();
       entry.store(result);
-      verifyNoMoreInteractions(remoteCache);
+      verifyNoMoreInteractions(remoteCacheClient);
     }
   }
 
@@ -483,6 +509,10 @@ public class RemoteSpawnCacheTest {
     combinedCacheOptions.remoteCache = "https://somecache.com";
     combinedCacheOptions.diskCache = PathFragment.create("/etc/something/cache/here");
     RemoteSpawnCache remoteSpawnCache = remoteSpawnCacheWithOptions(combinedCacheOptions);
+    RemoteCacheClient remoteCacheClient = mock(RemoteCacheClient.class);
+    DiskCacheClient diskCacheClient = mock(DiskCacheClient.class);
+    remoteCache =
+        spy(new RemoteCache(remoteCacheClient, diskCacheClient, combinedCacheOptions, digestUtil));
 
     for (String requirement :
         ImmutableList.of(ExecutionRequirements.NO_CACHE, ExecutionRequirements.LOCAL)) {
@@ -502,7 +532,7 @@ public class RemoteSpawnCacheTest {
               .setRunnerName("test")
               .build();
       entry.store(result);
-      verifyNoMoreInteractions(remoteCache);
+      verifyNoMoreInteractions(remoteCacheClient);
     }
   }
 
@@ -510,6 +540,8 @@ public class RemoteSpawnCacheTest {
   public void noRemoteCacheStillUsesLocalCache() throws Exception {
     RemoteOptions remoteOptions = Options.getDefaults(RemoteOptions.class);
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
+    when(remoteCache.hasRemoteCache()).thenReturn(false);
+    when(remoteCache.hasDiskCache()).thenReturn(true);
     RemoteSpawnCache cache = remoteSpawnCacheWithOptions(remoteOptions);
     ArgumentCaptor<ActionKey> actionKeyCaptor = ArgumentCaptor.forClass(ActionKey.class);
     when(remoteCache.downloadActionResult(

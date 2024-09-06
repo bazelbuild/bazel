@@ -331,7 +331,9 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
     GrpcCacheClient cacheProtocol =
         new GrpcCacheClient(
             channel.retain(), callCredentialsProvider, remoteOptions, retrier, DIGEST_UTIL);
-    remoteCache = new RemoteExecutionCache(cacheProtocol, remoteOptions, DIGEST_UTIL);
+    remoteCache =
+        new RemoteExecutionCache(
+            cacheProtocol, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
     RemoteExecutionService remoteExecutionService =
         new RemoteExecutionService(
             directExecutor(),

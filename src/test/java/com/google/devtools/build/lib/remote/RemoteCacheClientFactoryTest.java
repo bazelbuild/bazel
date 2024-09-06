@@ -21,9 +21,6 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
 import com.google.devtools.build.lib.clock.JavaClock;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
-import com.google.devtools.build.lib.remote.disk.DiskAndRemoteCacheClient;
-import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.http.HttpCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -75,7 +72,7 @@ public class RemoteCacheClientFactoryTest {
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
     fs.getPath("/etc/something/cache/here").createDirectoryAndParents();
 
-    RemoteCacheClient blobStore =
+    var blobStore =
         RemoteCacheClientFactory.create(
             remoteOptions,
             /* creds= */ null,
@@ -85,7 +82,8 @@ public class RemoteCacheClientFactoryTest {
             executorService,
             retrier);
 
-    assertThat(blobStore).isInstanceOf(DiskAndRemoteCacheClient.class);
+    assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
+    assertThat(blobStore.diskCacheClient()).isNotNull();
   }
 
   @Test
@@ -94,7 +92,7 @@ public class RemoteCacheClientFactoryTest {
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
     assertThat(workingDirectory.exists()).isFalse();
 
-    RemoteCacheClient blobStore =
+    var blobStore =
         RemoteCacheClientFactory.create(
             remoteOptions,
             /* creds= */ null,
@@ -104,7 +102,8 @@ public class RemoteCacheClientFactoryTest {
             executorService,
             retrier);
 
-    assertThat(blobStore).isInstanceOf(DiskAndRemoteCacheClient.class);
+    assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
+    assertThat(blobStore.diskCacheClient()).isNotNull();
     assertThat(workingDirectory.exists()).isTrue();
   }
 
@@ -132,7 +131,7 @@ public class RemoteCacheClientFactoryTest {
     remoteOptions.remoteCache = "http://doesnotexist.com";
     remoteOptions.remoteProxy = "unix://some-proxy";
 
-    RemoteCacheClient blobStore =
+    var blobStore =
         RemoteCacheClientFactory.create(
             remoteOptions,
             /* creds= */ null,
@@ -142,7 +141,8 @@ public class RemoteCacheClientFactoryTest {
             executorService,
             retrier);
 
-    assertThat(blobStore).isInstanceOf(HttpCacheClient.class);
+    assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
+    assertThat(blobStore.diskCacheClient()).isNull();
   }
 
   @Test
@@ -170,7 +170,7 @@ public class RemoteCacheClientFactoryTest {
   public void createHttpCacheWithoutProxy() throws IOException {
     remoteOptions.remoteCache = "http://doesnotexist.com";
 
-    RemoteCacheClient blobStore =
+    var blobStore =
         RemoteCacheClientFactory.create(
             remoteOptions,
             /* creds= */ null,
@@ -180,14 +180,15 @@ public class RemoteCacheClientFactoryTest {
             executorService,
             retrier);
 
-    assertThat(blobStore).isInstanceOf(HttpCacheClient.class);
+    assertThat(blobStore.remoteCacheClient()).isInstanceOf(HttpCacheClient.class);
+    assertThat(blobStore.diskCacheClient()).isNull();
   }
 
   @Test
   public void createDiskCache() throws IOException {
     remoteOptions.diskCache = PathFragment.create("/etc/something/cache/here");
 
-    RemoteCacheClient blobStore =
+    var blobStore =
         RemoteCacheClientFactory.create(
             remoteOptions,
             /* creds= */ null,
@@ -197,7 +198,8 @@ public class RemoteCacheClientFactoryTest {
             executorService,
             retrier);
 
-    assertThat(blobStore).isInstanceOf(DiskCacheClient.class);
+    assertThat(blobStore.remoteCacheClient()).isNull();
+    assertThat(blobStore.diskCacheClient()).isNotNull();
   }
 
   @Test

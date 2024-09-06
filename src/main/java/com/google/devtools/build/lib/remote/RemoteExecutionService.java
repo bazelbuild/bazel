@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
@@ -286,12 +285,12 @@ public class RemoteExecutionService {
     return command.setWorkingDirectory(remotePathResolver.getWorkingDirectory()).build();
   }
 
-  private static boolean useRemoteCache(RemoteOptions options) {
-    return !isNullOrEmpty(options.remoteCache) || !isNullOrEmpty(options.remoteExecutor);
+  private boolean useRemoteCache() {
+    return remoteCache != null && remoteCache.hasRemoteCache();
   }
 
-  private static boolean useDiskCache(RemoteOptions options) {
-    return options.diskCache != null && !options.diskCache.isEmpty();
+  private boolean useDiskCache() {
+    return remoteCache != null && remoteCache.hasDiskCache();
   }
 
   public CachePolicy getReadCachePolicy(Spawn spawn) {
@@ -299,20 +298,9 @@ public class RemoteExecutionService {
       return CachePolicy.NO_CACHE;
     }
 
-    boolean allowDiskCache = false;
-    boolean allowRemoteCache = false;
-
-    if (useRemoteCache(remoteOptions)) {
-      allowRemoteCache = remoteOptions.remoteAcceptCached && Spawns.mayBeCachedRemotely(spawn);
-      if (useDiskCache(remoteOptions)) {
-        // Combined cache. Disk cache is treated as local cache. Actions which are tagged with
-        // `no-remote-cache` can still hit the disk cache.
-        allowDiskCache = Spawns.mayBeCached(spawn);
-      }
-    } else {
-      // Disk cache only
-      allowDiskCache = Spawns.mayBeCached(spawn);
-    }
+    boolean allowRemoteCache =
+        useRemoteCache() && remoteOptions.remoteAcceptCached && Spawns.mayBeCachedRemotely(spawn);
+    boolean allowDiskCache = useDiskCache() && Spawns.mayBeCached(spawn);
 
     return CachePolicy.create(allowRemoteCache, allowDiskCache);
   }
@@ -322,22 +310,11 @@ public class RemoteExecutionService {
       return CachePolicy.NO_CACHE;
     }
 
-    boolean allowDiskCache = false;
-    boolean allowRemoteCache = false;
-
-    if (useRemoteCache(remoteOptions)) {
-      allowRemoteCache =
-          shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn.getExecutionInfo())
-              && remoteCache.actionCacheSupportsUpdate();
-      if (useDiskCache(remoteOptions)) {
-        // Combined cache. Treat the disk cache part as local cache. Actions which are tagged with
-        // `no-remote-cache` can still hit the disk cache.
-        allowDiskCache = Spawns.mayBeCached(spawn);
-      }
-    } else {
-      // Disk cache only
-      allowDiskCache = Spawns.mayBeCached(spawn);
-    }
+    boolean allowRemoteCache =
+        useRemoteCache()
+            && shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn.getExecutionInfo())
+            && remoteCache.remoteActionCacheSupportsUpdate();
+    boolean allowDiskCache = useDiskCache() && Spawns.mayBeCached(spawn);
 
     return CachePolicy.create(allowRemoteCache, allowDiskCache);
   }
@@ -1310,7 +1287,7 @@ public class RemoteExecutionService {
       // When downloading outputs from just remotely executed action, the action result comes from
       // Execution response which means, if disk cache is enabled, action result hasn't been
       // uploaded to it. Upload action result to disk cache here so next build could hit it.
-      if (useDiskCache(remoteOptions) && result.executeResponse != null) {
+      if (useDiskCache() && result.executeResponse != null) {
         getFromFuture(
             remoteCache.uploadActionResult(
                 context.withWriteCachePolicy(CachePolicy.DISK_CACHE_ONLY),
@@ -1583,7 +1560,7 @@ public class RemoteExecutionService {
 
             return UploadManifest.create(
                 remoteOptions,
-                remoteCache.getCacheCapabilities(),
+                remoteCache.getRemoteCacheCapabilities(),
                 digestUtil,
                 action.getRemotePathResolver(),
                 action.getActionKey(),

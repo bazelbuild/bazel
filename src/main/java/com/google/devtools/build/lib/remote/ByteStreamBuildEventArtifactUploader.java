@@ -338,7 +338,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       return Single.just(remoteBytestreamUriPrefix);
     }
 
-    return toSingle(remoteCache.cacheProtocol::getAuthority, directExecutor())
+    return toSingle(remoteCache::getRemoteAuthority, directExecutor())
         .map(
             a -> {
               if (!Strings.isNullOrEmpty(remoteInstanceName)) {
