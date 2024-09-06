@@ -55,6 +55,11 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   private final Map<String, ModuleOverride> overrides = new LinkedHashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
 
+  private final Map<String, ModuleExtensionUsageBuilder.RepoOverride> reposSubjectToRepoOverride =
+      new HashMap<>();
+  private final Map<String, ModuleExtensionUsageBuilder.RepoOverride> reposUsedAsRepoOverride =
+      new HashMap<>();
+
   public static ModuleThreadContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
     StarlarkThreadContext context = thread.getThreadLocal(StarlarkThreadContext.class);
@@ -123,8 +128,16 @@ public class ModuleThreadContext extends StarlarkThreadContext {
 
   static class ModuleExtensionUsageBuilder {
 
-    private record ApparentNameAndStack(
-        String apparentName, ImmutableList<StarlarkThread.CallStackEntry> stack) {}
+    private record RepoOverride(
+        String exportedName,
+        String localRepoName,
+        ModuleExtensionUsageBuilder extensionUsageBuilder,
+        ImmutableList<StarlarkThread.CallStackEntry> stack) {
+      Location location() {
+        // Skip over the override_repo builtin frame.
+        return stack.reverse().get(1).location;
+      }
+    }
 
     private final ModuleThreadContext context;
     private final String extensionBzlFile;
@@ -132,7 +145,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     private final boolean isolate;
     private final ArrayList<ModuleExtensionUsage.Proxy.Builder> proxyBuilders;
     private final HashBiMap<String, String> imports;
-    private final Map<String, ApparentNameAndStack> overrides;
+    private final Map<String, RepoOverride> repoOverrides;
     private final ImmutableList.Builder<Tag> tags;
 
     ModuleExtensionUsageBuilder(
@@ -146,7 +159,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       this.isolate = isolate;
       this.proxyBuilders = new ArrayList<>();
       this.imports = HashBiMap.create();
-      this.overrides = HashBiMap.create();
+      this.repoOverrides = HashBiMap.create();
       this.tags = ImmutableList.builder();
     }
 
@@ -179,23 +192,20 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     }
 
     public void addRepoOverride(
-        String extensionLocalName,
-        String apparentName,
+        String exportedName,
+        String localRepoName,
         ImmutableList<StarlarkThread.CallStackEntry> stack)
         throws EvalException {
-      RepositoryName.validateUserProvidedRepoName(extensionLocalName);
-      RepositoryName.validateUserProvidedRepoName(apparentName);
-      if (overrides.containsKey(extensionLocalName)) {
-        var collision = overrides.get(extensionLocalName);
+      RepositoryName.validateUserProvidedRepoName(exportedName);
+      RepositoryName.validateUserProvidedRepoName(localRepoName);
+      if (repoOverrides.containsKey(exportedName)) {
+        var collision = repoOverrides.get(exportedName);
         throw Starlark.errorf(
-            "The repo exported as '%s' by module extension '%s' is already overridden with '%s' at %s",
-            extensionLocalName,
-            extensionName,
-            collision.apparentName,
-            // Skip over the override_repo frame.
-            collision.stack.reverse().get(1).location);
+            "The repo exported as '%s' by module extension '%s' is already overridden with '%s' at"
+                + " %s",
+            exportedName, extensionName, collision.localRepoName, collision.location());
       }
-      overrides.put(extensionLocalName, new ApparentNameAndStack(apparentName, stack));
+      repoOverrides.put(exportedName, new RepoOverride(exportedName, localRepoName, this, stack));
     }
 
     void addTag(Tag tag) {
@@ -225,28 +235,24 @@ public class ModuleThreadContext extends StarlarkThreadContext {
         builder.setIsolationKey(Optional.empty());
       }
 
-      for (var override : overrides.entrySet()) {
-        String extensionLocalName = override.getKey();
-        String apparentName = override.getValue().apparentName;
-        if (!context.repoNameUsages.containsKey(apparentName)) {
+      for (var override : repoOverrides.entrySet()) {
+        String exportedName = override.getKey();
+        String localRepoName = override.getValue().localRepoName;
+        if (!context.repoNameUsages.containsKey(localRepoName)) {
           throw Starlark.errorf(
-                  "The repo exported as '%s' by module extension '%s' is overridden with '%s', but no repo is imported under this name",
-                  extensionLocalName, extensionName, apparentName)
+                  "The repo exported as '%s' by module extension '%s' is overridden with '%s', but"
+                      + " no repo is imported under this name",
+                  exportedName, extensionName, localRepoName)
               .withCallStack(override.getValue().stack);
         }
-//        if (imports.inverse().containsKey(extensionLocalName)) {
-//          throw Starlark.errorf(
-//              "The repo exported as '%s' by module extension '%s' is both overridden with '%s' at %s and imported at %s, which is not supported. Please use '%s' directly instead.",
-//              extensionLocalName,
-//              extensionName,
-//              apparentName,
-//              override.getValue().location,
-//              context.repoNameUsages.get(imports.inverse().get(extensionLocalName)).where,
-//              apparentName);
-//        }
+        String importedAs = imports.inverse().get(exportedName);
+        if (importedAs != null) {
+          context.reposSubjectToRepoOverride.put(importedAs, override.getValue());
+        }
+        context.reposUsedAsRepoOverride.put(localRepoName, override.getValue());
       }
       builder.setRepoOverrides(
-          ImmutableMap.copyOf(Maps.transformValues(overrides, v -> v.apparentName)));
+          ImmutableMap.copyOf(Maps.transformValues(repoOverrides, v -> v.localRepoName)));
 
       return builder.build();
     }
@@ -314,6 +320,41 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       }
       extensionUsages.add(extensionUsageBuilder.buildUsage());
     }
+    // Check for chains in repo overrides: If A is overridden with B, and B is overridden with C,
+    // raise an error and suggest to directly override A with C. This ensures that repo overrides
+    // can be applied to repo mappings in a single step (and also prevents cycles).
+    Optional<String> repoOverrideChainLink =
+        reposUsedAsRepoOverride.keySet().stream().filter(repoNameUsages::containsKey).findFirst();
+    if (repoOverrideChainLink.isPresent()) {
+      var override = reposUsedAsRepoOverride.get(repoOverrideChainLink.get());
+      var overrideOnOverride = reposSubjectToRepoOverride.get(repoOverrideChainLink.get());
+      if (override.exportedName.equals(
+          override.extensionUsageBuilder.imports.get(overrideOnOverride.localRepoName))) {
+        throw Starlark.errorf(
+                "The repo '%s' used as an override for '%s' in module extension '%s' is itself"
+                    + " overridden with '%s' at %s, which forms a cycle.",
+                override.localRepoName,
+                override.exportedName,
+                override.extensionUsageBuilder.extensionName,
+                overrideOnOverride.localRepoName,
+                overrideOnOverride.location())
+            .withCallStack(override.stack);
+      } else {
+        throw Starlark.errorf(
+                "The repo '%s' used as an override for '%s' in module extension '%s' is itself"
+                    + " overridden with '%s' at %s, which is not supported. Please directly"
+                    + " override '%s' with '%s' instead.",
+                override.localRepoName,
+                override.exportedName,
+                override.extensionUsageBuilder.extensionName,
+                overrideOnOverride.localRepoName,
+                overrideOnOverride.location(),
+                override.exportedName,
+                overrideOnOverride.localRepoName)
+            .withCallStack(override.stack);
+      }
+    }
+
     return module
         .setRegistry(registry)
         .setDeps(ImmutableMap.copyOf(deps))

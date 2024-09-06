@@ -131,12 +131,19 @@ public abstract class ModuleExtensionUsage {
     return getProxies().stream().anyMatch(p -> !p.isDevDependency());
   }
 
+  /**
+   * Maps repo names local to the extension to the apparent name in the using module of the repo
+   * they are overridden with.
+   *
+   * <p>This is only non-empty for root module usages and repos that override other repos are not
+   * themselves overridden.
+   */
   public abstract ImmutableMap<String, String> getRepoOverrides();
 
   public abstract Builder toBuilder();
 
   public static Builder builder() {
-    return new AutoValue_ModuleExtensionUsage.Builder();
+    return new AutoValue_ModuleExtensionUsage.Builder().setRepoOverrides(ImmutableMap.of());
   }
 
   /**

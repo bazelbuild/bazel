@@ -106,6 +106,10 @@ public abstract class BazelDepGraphValue implements SkyValue {
    */
   public abstract ImmutableMap<ModuleExtensionId, String> getExtensionUniqueNames();
 
+  /**
+   * For each module extension, a mapping from the name of the repo exported by the extension to the
+   * canonical repo name of the repo that should override it (if any).
+   */
   public abstract ImmutableTable<ModuleExtensionId, String, RepositoryName> getRepoOverrides();
 
   /**
