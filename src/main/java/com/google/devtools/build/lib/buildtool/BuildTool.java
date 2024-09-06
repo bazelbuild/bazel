@@ -21,6 +21,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -82,6 +83,8 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.InvalidAqueryOutputFormatException;
 import com.google.devtools.build.lib.skyframe.config.FlagSetValue;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -97,6 +100,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.Collection;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -264,6 +268,10 @@ public class BuildTool {
         if (delayedFailureDetail != null) {
           throw new BuildFailedException(
               delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
+        }
+
+        if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor) {
+          serializeFrontier(request.getOptions(RemoteAnalysisCachingOptions.class));
         }
 
         // Only consider builds with SequencedSkyframeExecutor.
@@ -754,6 +762,29 @@ public class BuildTool {
     }
 
     return result;
+  }
+
+  private void serializeFrontier(@Nullable RemoteAnalysisCachingOptions options)
+      throws InterruptedException, AbruptExitException {
+    if (options == null || Strings.isNullOrEmpty(options.serializedFrontierProfile)) {
+      return;
+    }
+
+    Optional<FailureDetail> maybeFailureDetail =
+        FrontierSerializer.dumpFrontierSerializationProfile(
+            env.getRuntime().getAnalysisCodecRegistry(),
+            env.getSkyframeBuildView().getArtifactFactory(),
+            env.getRuntime().getRuleClassProvider(),
+            env.getSkyframeExecutor(),
+            // TODO: b/353233779 - consider falling back on full serialization when there is
+            // no project matcher.
+            env.getRuntime().getActiveDirectoriesPrefixTrie(),
+            env.getReporter(),
+            options.serializedFrontierProfile);
+
+    if (maybeFailureDetail.isPresent()) {
+      throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));
+    }
   }
 
   private static void maybeSetStopOnFirstFailure(BuildRequest request, BuildResult result) {

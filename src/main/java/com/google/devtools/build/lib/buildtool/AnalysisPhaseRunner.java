@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.buildtool;
 
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
+import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.PROJECT_FILE_NOT_FOUND;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -53,6 +54,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
@@ -61,6 +63,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedE
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -169,7 +172,10 @@ public final class AnalysisPhaseRunner {
 
   /**
    * Evaluates the PROJECT.scl file and set corresponding options, if required by specific feature
-   * flags (e.g. canonical configurations).
+   * flags (e.g. canonical configurations, remote analysis caching).
+   *
+   * <p>May have a side-effect from updating the fields in the {@link CommandEnvironment} {@code
+   * env} parameter.
    *
    * <p>Shared by both Skymeld and non-Skymeld analysis.
    */
@@ -179,12 +185,19 @@ public final class AnalysisPhaseRunner {
       TargetPatternPhaseValue targetPatternPhaseValue,
       CommandEnvironment env)
       throws LoadingFailedException, InvalidConfigurationException {
+    // Remote analysis caching feature flag.
+    var analysisCachingOpts = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
+    boolean neededForAnalysisCaching =
+        analysisCachingOpts != null
+            && !Strings.isNullOrEmpty(analysisCachingOpts.serializedFrontierProfile);
+
     // Canonical configurations feature flag.
     String sclConfig = buildOptions.get(CoreOptions.class).sclConfig;
     boolean neededForSclConfig =
         !Strings.isNullOrEmpty(sclConfig) || request.getBuildOptions().enforceProjectConfigs;
 
-    if (!neededForSclConfig) {
+    if (!(neededForSclConfig || neededForAnalysisCaching)) {
+      // All feature flags disabled.
       return buildOptions;
     }
 
@@ -194,7 +207,28 @@ public final class AnalysisPhaseRunner {
             env.getSkyframeExecutor(),
             env.getReporter());
 
-    if (projectFile != null) {
+    if (neededForAnalysisCaching) {
+      if (projectFile == null) {
+        // TODO: b/353233779 - consider falling back on full serialization when there is no
+        // project matcher.
+        String message =
+            "Failed to find PROJECT.scl file for: " + targetPatternPhaseValue.getTargetLabels();
+        throw new LoadingFailedException(
+            message,
+            DetailedExitCode.of(
+                FailureDetail.newBuilder()
+                    .setMessage(message)
+                    .setRemoteAnalysisCaching(
+                        RemoteAnalysisCaching.newBuilder().setCode(PROJECT_FILE_NOT_FOUND))
+                    .build()));
+      }
+      env.getRuntime()
+          .setActiveDirectoriesPrefixTrie(
+              BuildTool.getWorkingSetMatcherForSkyfocus(
+                  projectFile, env.getSkyframeExecutor(), env.getReporter()));
+    }
+
+    if (neededForSclConfig && projectFile != null) {
       // Do not apply canonical configurations if the project file doesn't exist.
       return BuildTool.applySclConfigs(
           buildOptions,

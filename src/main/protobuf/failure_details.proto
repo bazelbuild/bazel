@@ -393,6 +393,7 @@ message RemoteAnalysisCaching {
   enum Code {
     REMOTE_ANALYSIS_CACHING_UNKNOWN = 0 [(metadata) = { exit_code: 1 }];
     SERIALIZED_FRONTIER_PROFILE_FAILED = 1 [(metadata) = { exit_code: 1 }];
+    PROJECT_FILE_NOT_FOUND = 2 [(metadata) = { exit_code: 2 }];
   }
 
   Code code = 1;

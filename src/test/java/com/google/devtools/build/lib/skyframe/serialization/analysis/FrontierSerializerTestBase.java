@@ -17,27 +17,23 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dumper.dumpStructureWithEquivalenceReduction;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
+import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
-import com.google.devtools.build.lib.skyframe.ProjectValue;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.ActiveDirectoryMatcher;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.DirectoryMatcherError;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking;
-import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.perftools.profiles.ProfileProto.Profile;
 import com.google.protobuf.ExtensionRegistry;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -49,149 +45,103 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
 
   @Before
   public void setCommonConfiguration() {
-    addOptions("--experimental_enable_scl_dialect", "--nobuild");
+    addOptions(
+        // Required to use PROJECT.scl.
+        "--experimental_enable_scl_dialect",
+        // Note that `--nobuild` disables skymeld, because skymeld has no utility
+        // without the execution phase
+        "--nobuild");
   }
 
   @Test
-  public void noProject_infersFromTopLevelTargets() throws Exception {
+  public void serializingFrontierWithNoProjectFile_hasError() throws Exception {
     write(
         "foo/BUILD",
         """
-        genrule(
-            name = "target",
-            srcs = ["x.txt"],
-            outs = ["out"],
-            cmd = "cat $< > $@",
-        )
+        package_group(name = "empty")
+        """);
+    addOptions("--serialized_frontier_profile=/tmp/anything");
+    LoadingFailedException exception =
+        assertThrows(LoadingFailedException.class, () -> buildTarget("//foo:empty"));
+    assertThat(exception).hasMessageThat().contains("Failed to find PROJECT.scl file");
+  }
+
+  @Test
+  public void serializingFrontierWithProjectFile_hasNoError() throws Exception {
+    write(
+        "foo/BUILD",
+        """
+        package_group(name = "empty")
         """);
     write(
         "foo/PROJECT.scl",
         """
         active_directories = {"default": ["foo"] }
         """);
-    assertThat(buildTarget("//foo:target").getSuccess()).isTrue();
-
-    ActiveDirectoryMatcher matcher =
-        (ActiveDirectoryMatcher)
-            FrontierSerializer.computeDirectoryMatcher(getSkyframeExecutor(), events.reporter());
-
-    // In this case, the computeDirectoryMatcher step above populates this value in Skyframe.
-    ProjectValue projectValue =
-        (ProjectValue)
-            getSkyframeExecutor()
-                .getEvaluator()
-                .getInMemoryGraph()
-                .getIfPresent(new ProjectValue.Key(label("//foo:PROJECT.scl")))
-                .getValue();
-
-    assertMatcherEqualsDefaultProjectMatcher(matcher.matcher(), projectValue);
-  }
-
-  @Test
-  public void singleProjectFileInGraph_returnsDefaultMatcher() throws Exception {
-    // Defines a package to avoid a noBuildFile error.
-    write(
-        "foo/BUILD",
-        """
-        package_group(
-          name = "empty",
-        )
-        """);
-    write(
-        "foo/PROJECT.scl",
-        """
-        active_directories = {"default": ["foo"] }
-        """);
-    // Performs a trivial build to prime Bazel state.
+    addOptions("--serialized_frontier_profile=/tmp/anything");
     assertThat(buildTarget("//foo:empty").getSuccess()).isTrue();
-
-    var projectKey = new ProjectValue.Key(label("//foo:PROJECT.scl"));
-    EvaluationResult<SkyValue> projectResult =
-        getSkyframeExecutor()
-            .evaluateSkyKeys(
-                events.reporter(), ImmutableList.of(projectKey), /* keepGoing= */ false);
-    ProjectValue projectValue = (ProjectValue) projectResult.get(projectKey);
-
-    ActiveDirectoryMatcher matcher =
-        (ActiveDirectoryMatcher)
-            FrontierSerializer.computeDirectoryMatcher(getSkyframeExecutor(), events.reporter());
-    assertMatcherEqualsDefaultProjectMatcher(matcher.matcher(), projectValue);
   }
 
   @Test
-  public void multipleProjectFilesInGraph_causesAnError() throws Exception {
-    // Defines a package to avoid a BzlLoadFailedException (required to load PROJECT.scl files).
+  public void serializingWithMultipleTopLevelProjectFiles_hasError() throws Exception {
     write(
         "foo/BUILD",
         """
-        package_group(
-          name = "empty",
-        )
+        package_group(name = "empty")
         """);
     write(
         "foo/PROJECT.scl",
         """
         active_directories = {"default": ["foo"] }
         """);
-    write("bar/BUILD", "");
+
+    write(
+        "bar/BUILD",
+        """
+        package_group(name = "empty")
+        """);
     write(
         "bar/PROJECT.scl",
         """
         active_directories = {"default": ["bar"] }
         """);
-    // Performs a trivial build to prime Bazel state.
-    assertThat(buildTarget("//foo:empty").getSuccess()).isTrue();
 
-    // Injects 2 ProjectValues into Skyframe.
-    EvaluationResult<SkyValue> seedProjectValuesResult =
-        getSkyframeExecutor()
-            .evaluateSkyKeys(
-                events.reporter(),
-                ImmutableList.of(
-                    new ProjectValue.Key(label("//foo:PROJECT.scl")),
-                    new ProjectValue.Key(label("//bar:PROJECT.scl"))),
-                /* keepGoing= */ false);
-    assertThat(seedProjectValuesResult.hasError()).isFalse();
-
-    DirectoryMatcherError error =
-        (DirectoryMatcherError)
-            FrontierSerializer.computeDirectoryMatcher(getSkyframeExecutor(), events.reporter());
-    assertThat(error.message())
-        .isEqualTo(
-            "Dumping the frontier serialization profile does not support more than 1 project"
-                + " file.");
+    addOptions("--serialized_frontier_profile=/tmp/anything");
+    LoadingFailedException exception =
+        assertThrows(LoadingFailedException.class, () -> buildTarget("//foo:empty", "//bar:empty"));
+    assertThat(exception)
+        .hasMessageThat()
+        .contains(
+            "This build doesn't support automatic project resolution. Targets have different"
+                + " project settings.");
   }
 
   @Test
-  public void noTargets_returnsError() throws Exception {
-    DirectoryMatcherError error =
-        (DirectoryMatcherError)
-            FrontierSerializer.computeDirectoryMatcher(getSkyframeExecutor(), events.reporter());
-    assertThat(error.message()).isEqualTo("No top level targets could be determined.");
-  }
-
-  @Test
-  public void noProjectFile_returnsError() throws Exception {
+  public void serializingWithMultipleTargetsResolvingToSameProjectFile_hasNoError()
+      throws Exception {
     write(
         "foo/BUILD",
         """
-        package_group(
-          name = "empty",
-        )
+        package_group(name = "empty")
         """);
-    // Performs a build to populate top level targets.
-    assertThat(buildTarget("//foo:empty").getSuccess()).isTrue();
+    write(
+        "foo/bar/BUILD",
+        """
+        package_group(name = "empty")
+        """);
+    write(
+        "foo/PROJECT.scl",
+        """
+        active_directories = {"default": ["foo"] }
+        """);
 
-    DirectoryMatcherError error =
-        (DirectoryMatcherError)
-            FrontierSerializer.computeDirectoryMatcher(getSkyframeExecutor(), events.reporter());
-    assertThat(error.message())
-        .isEqualTo("No project file could be determined from targets: //foo:empty");
+    addOptions("--serialized_frontier_profile=/tmp/anything");
+    assertThat(buildTarget("//foo:empty", "//foo/bar:empty").getSuccess()).isTrue();
   }
 
   @Test
   public void activeAspect_activatesBaseConfiguredTarget() throws Exception {
-    setupScenarioWithAspects();
+    setupScenarioWithAspects("--serialized_frontier_profile=/tmp/anything");
     InMemoryGraph graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
 
     ConfiguredTargetKey generateYKey =
@@ -215,12 +165,9 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
       assertThat(key).isInstanceOf(AspectBaseKey.class);
     }
 
-    ActiveDirectoryMatcher matcher =
-        (ActiveDirectoryMatcher)
-            FrontierSerializer.computeDirectoryMatcher(getSkyframeExecutor(), events.reporter());
-
     Map<ActionLookupKey, SelectionMarking> selection =
-        FrontierSerializer.computeSelection(graph, matcher);
+        FrontierSerializer.computeSelection(
+            graph, getCommandEnvironment().getRuntime().getActiveDirectoriesPrefixTrie());
 
     ImmutableSet<ActionLookupKey> activeKeys =
         selection.entrySet().stream()
@@ -256,7 +203,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
   @Test
   public void buildCommand_serializedFrontierProfileContainsExpectedClasses() throws Exception {
     @SuppressWarnings("UnnecessarilyFullyQualified") // to avoid confusion with vfs Paths
-    java.nio.file.Path profilePath = Files.createTempFile(null, "profile");
+    Path profilePath = Files.createTempFile(null, "profile");
 
     setupScenarioWithAspects("--serialized_frontier_profile=" + profilePath);
 
@@ -399,12 +346,5 @@ genrule(
     assertThat(buildTarget("//bar:one").getSuccess()).isTrue();
   }
 
-  private static void assertMatcherEqualsDefaultProjectMatcher(
-      PathFragmentPrefixTrie matcher, ProjectValue projectValue) {
-    assertThat(dumpStructureWithEquivalenceReduction(matcher))
-        .isEqualTo(
-            dumpStructureWithEquivalenceReduction(
-                PathFragmentPrefixTrie.of(projectValue.getDefaultActiveDirectory())));
-  }
 }
 

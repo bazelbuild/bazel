@@ -23,31 +23,25 @@ import static java.util.concurrent.ForkJoinPool.commonPool;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.common.collect.Sets;
 import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
+import com.google.devtools.build.lib.actions.ArtifactFactory;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
 import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
-import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
-import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
 import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
-import com.google.devtools.build.lib.skyframe.ProjectValue;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueCache;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
@@ -60,7 +54,6 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
-import com.google.devtools.build.skyframe.SkyValue;
 import com.google.protobuf.ByteString;
 import java.io.BufferedOutputStream;
 import java.io.FileOutputStream;
@@ -72,8 +65,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 
 /**
  * Implements frontier serialization with pprof dumping using {@code --serialized_frontier_profile}.
@@ -89,32 +80,28 @@ public final class FrontierSerializer {
    * @return empty if successful, otherwise a result containing the appropriate error
    */
   public static Optional<FailureDetail> dumpFrontierSerializationProfile(
-      CommandEnvironment env, String path) throws InterruptedException {
+      ObjectCodecRegistry registry,
+      ArtifactFactory artifactFactory,
+      RuleClassProvider ruleClassProvider,
+      SkyframeExecutor skyframeExecutor,
+      PathFragmentPrefixTrie matcher,
+      Reporter reporter,
+      String path)
+      throws InterruptedException {
     // Starts initializing ObjectCodecs in a background thread as it can take some time.
-    var futureCodecs = new FutureTask<>(() -> initObjectCodecs(env));
+    var futureCodecs =
+        new FutureTask<>(
+            () -> initObjectCodecs(registry, artifactFactory, ruleClassProvider, skyframeExecutor));
     commonPool().execute(futureCodecs);
 
     var stopwatch = new ResettingStopwatch(Stopwatch.createStarted());
-    ActiveDirectoryMatcher directoryMatcher;
-    switch (computeDirectoryMatcher(env.getSkyframeExecutor(), env.getReporter())) {
-      case DirectoryMatcherError error:
-        return Optional.of(
-            createFailureDetail(error.message(), Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
-      case ActiveDirectoryMatcher matcher:
-        directoryMatcher = matcher;
-        break;
-    }
-    env.getReporter()
-        .handle(Event.info(String.format("Determined active directories in %s\n", stopwatch)));
+    InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
 
-    InMemoryGraph graph = env.getSkyframeExecutor().getEvaluator().getInMemoryGraph();
     ConcurrentHashMap<ActionLookupKey, SelectionMarking> selection =
-        computeSelection(graph, directoryMatcher);
-    env.getReporter()
-        .handle(
-            Event.info(
-                String.format(
-                    "Found %d active or frontier keys in %s", selection.size(), stopwatch)));
+        computeSelection(graph, matcher);
+    reporter.handle(
+        Event.info(
+            String.format("Found %d active or frontier keys in %s", selection.size(), stopwatch)));
 
     var profileCollector = new ProfileCollector();
     var fingerprintValueService =
@@ -133,11 +120,11 @@ public final class FrontierSerializer {
     }
     if (codecs == null) {
       String message = "serialization not supported";
-      env.getReporter().error(null, message);
+      reporter.error(null, message);
       return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
     }
 
-    env.getReporter().handle(Event.info(String.format("Initializing codecs took %s\n", stopwatch)));
+    reporter.handle(Event.info(String.format("Initializing codecs took %s\n", stopwatch)));
 
     var writeStatuses = Collections.synchronizedList(new ArrayList<ListenableFuture<Void>>());
     AtomicInteger frontierValueCount = new AtomicInteger();
@@ -170,11 +157,10 @@ public final class FrontierSerializer {
           }
         });
 
-    env.getReporter()
-        .handle(
-            Event.info(
-                String.format(
-                    "Serialized %s frontier entries in %s\n", frontierValueCount, stopwatch)));
+    reporter.handle(
+        Event.info(
+            String.format(
+                "Serialized %s frontier entries in %s\n", frontierValueCount, stopwatch)));
 
     try {
       var unusedNull =
@@ -185,20 +171,18 @@ public final class FrontierSerializer {
       if (!(cause instanceof SerializationException || cause instanceof IOException)) {
         message = "with unexpected exception type " + cause.getClass().getName() + ": " + message;
       }
-      env.getReporter().error(/* location= */ null, message, cause);
+      reporter.error(/* location= */ null, message, cause);
       return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
     }
-    env.getReporter()
-        .handle(
-            Event.info(
-                String.format("Waiting for write futures took an additional %s\n", stopwatch)));
+    reporter.handle(
+        Event.info(String.format("Waiting for write futures took an additional %s\n", stopwatch)));
 
     try (var fileOutput = new FileOutputStream(path);
         var bufferedOutput = new BufferedOutputStream(fileOutput)) {
       profileCollector.toProto().writeTo(bufferedOutput);
     } catch (IOException e) {
       String message = "Error writing serialization profile to file: " + e.getMessage();
-      env.getReporter().error(null, message, e);
+      reporter.error(null, message, e);
       return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
     }
     return Optional.empty();
@@ -219,7 +203,7 @@ public final class FrontierSerializer {
 
   @VisibleForTesting
   static ConcurrentHashMap<ActionLookupKey, SelectionMarking> computeSelection(
-      InMemoryGraph graph, ActiveDirectoryMatcher matcher) {
+      InMemoryGraph graph, PathFragmentPrefixTrie matcher) {
     var selection = new ConcurrentHashMap<ActionLookupKey, SelectionMarking>();
     graph.parallelForEach(
         node -> {
@@ -227,7 +211,10 @@ public final class FrontierSerializer {
             return;
           }
           Label label = actionLookupKey.getLabel();
-          if (!matcher.matches(label)) {
+          if (label == null) {
+            return;
+          }
+          if (!matcher.includes(label.getPackageFragment())) {
             return;
           }
           markActiveAndTraverseEdges(graph, actionLookupKey, selection);
@@ -269,112 +256,21 @@ public final class FrontierSerializer {
     }
   }
 
-  private sealed interface DirectoryMatcherResult
-      permits FrontierSerializer.ActiveDirectoryMatcher, FrontierSerializer.DirectoryMatcherError {}
-
-  @VisibleForTesting
-  record ActiveDirectoryMatcher(PathFragmentPrefixTrie matcher) implements DirectoryMatcherResult {
-    public boolean matches(@Nullable Label label) {
-      if (label == null) {
-        return false;
-      }
-      return matcher.includes(label.getPackageFragment());
-    }
-  }
-
-  @VisibleForTesting
-  record DirectoryMatcherError(String message) implements DirectoryMatcherResult {}
-
-  /**
-   * Computes a matcher for active directories.
-   *
-   * <p>If a unique {@link ProjectValue} is found in the graph, it is used. The presence of multiple
-   * {@link ProjectValue}s results in an error. Otherwise, attempts to create construct a {@link
-   * ProjectValue} from any {@link TargetPatternPhaseValue}s in the graph.
-   */
-  @VisibleForTesting
-  static DirectoryMatcherResult computeDirectoryMatcher(
-      SkyframeExecutor skyframeExecutor, Reporter reporter) {
-    var targetLabels = Sets.<Label>newConcurrentHashSet();
-    var projectValues = Sets.<ProjectValue>newConcurrentHashSet();
-    skyframeExecutor
-        .getEvaluator()
-        .getInMemoryGraph()
-        .parallelForEach(
-            node -> {
-              SkyValue value = node.getValue();
-              if (value instanceof TargetPatternPhaseValue targetPattern) {
-                targetLabels.addAll(targetPattern.getTargetLabels());
-              } else if (value instanceof ProjectValue project) {
-                projectValues.add(project);
-              }
-            });
-
-    if (projectValues.size() > 1) {
-      String message =
-          "Dumping the frontier serialization profile does not support more than 1 project file.";
-      reporter.error(/* location= */ null, message);
-      return new DirectoryMatcherError(message);
-    }
-
-    if (projectValues.size() == 1) {
-      return new ActiveDirectoryMatcher(
-          PathFragmentPrefixTrie.of(projectValues.iterator().next().getDefaultActiveDirectory()));
-    }
-
-    if (targetLabels.isEmpty()) {
-      // TODO: b/353233779 - consider falling back on full serialization instead of erroring
-      String message = "No top level targets could be determined.";
-      reporter.error(/* location= */ null, message);
-      return new DirectoryMatcherError(message);
-    }
-
-    // Computes the ProjectValue based on the target labels.
-    Label projectFile;
-    try {
-      projectFile = BuildTool.getProjectFile(targetLabels, skyframeExecutor, reporter);
-    } catch (LoadingFailedException e) {
-      String message = "Error loading project file: " + e.getMessage();
-      reporter.error(/* location= */ null, message, e);
-      return new DirectoryMatcherError(message);
-    }
-    if (projectFile == null) {
-      // TODO: b/353233779 - consider falling back on full serialization instead of erroring
-      String message =
-          "No project file could be determined from targets: "
-              + targetLabels.stream().map(Label::toString).collect(Collectors.joining(", "));
-      reporter.error(/* location= */ null, message);
-      return new DirectoryMatcherError(message);
-    }
-    try {
-      return new ActiveDirectoryMatcher(
-          BuildTool.getWorkingSetMatcherForSkyfocus(projectFile, skyframeExecutor, reporter));
-    } catch (InvalidConfigurationException e) {
-      String message =
-          "Error reading project configuration from " + projectFile + ": " + e.getMessage();
-      reporter.error(/* location= */ null, message, e);
-      return new DirectoryMatcherError(message);
-    }
-  }
-
-  @Nullable // null if unsupported
-  private static ObjectCodecs initObjectCodecs(CommandEnvironment env) {
-    ObjectCodecRegistry registry = env.getRuntime().getAnalysisCodecRegistry();
-    if (registry == null) {
-      return null;
-    }
+  private static ObjectCodecs initObjectCodecs(
+      ObjectCodecRegistry registry,
+      ArtifactFactory artifactFactory,
+      RuleClassProvider ruleClassProvider,
+      SkyframeExecutor skyframeExecutor) {
 
     ImmutableClassToInstanceMap.Builder<Object> serializationDeps =
         ImmutableClassToInstanceMap.builder()
-            .put(
-                ArtifactSerializationContext.class,
-                env.getSkyframeBuildView().getArtifactFactory()::getSourceArtifact)
+            .put(ArtifactSerializationContext.class, artifactFactory::getSourceArtifact)
             .put(OptionsChecksumCache.class, new MapBackedChecksumCache())
-            .put(RuleClassProvider.class, env.getRuntime().getRuleClassProvider())
+            .put(RuleClassProvider.class, ruleClassProvider)
             // We need a RootCodecDependencies but don't care about the likely roots.
             .put(Root.RootCodecDependencies.class, new Root.RootCodecDependencies())
             // This is needed to determine TargetData for a ConfiguredTarget during serialization.
-            .put(PrerequisitePackageFunction.class, env.getSkyframeExecutor()::getExistingPackage);
+            .put(PrerequisitePackageFunction.class, skyframeExecutor::getExistingPackage);
 
     return new ObjectCodecs(registry, serializationDeps.build());
   }
