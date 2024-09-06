@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -35,6 +36,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFile
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions.LockfileMode;
 import com.google.devtools.build.lib.bazel.repository.starlark.StarlarkRepositoryModule;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -62,8 +64,11 @@ import com.google.devtools.build.lib.testutil.FoundationTestCase;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
 import com.google.devtools.build.lib.vfs.FileStateKey;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.EvaluationContext;
 import com.google.devtools.build.skyframe.EvaluationResult;
@@ -1710,6 +1715,132 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "Error in use_extension: invalid label \"@foo/bar:extensions.bzl\": invalid repository"
             + " name 'foo/bar:extensions.bzl': repo names may contain only A-Z, a-z, 0-9, '-',"
             + " '_', '.' and '+'");
+  }
+
+  @Test
+  public void testSingleVersionOverridePatches() throws Exception {
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleKey bbb = createModuleKey("bbb", "1.0");
+    registry.addModule(bbb, "module(name='bbb',version='1.0')");
+
+    scratch.file("BUILD");
+    scratch.file(
+        "patch.diff",
+        """
+        diff --git a/MODULE.bazel b/MODULE.bazel
+        --- a/MODULE.bazel
+        +++ b/MODULE.bazel
+        @@ -1,1 +1,1 @@
+        -module(name='bbb',version='1.0')
+        +module(name='bbb',version='1.0',bazel_compatibility=[">=7.0.0"])
+        diff --git a/not/MODULE.bazel b/not/MODULE.bazel
+        --- a/not/MODULE.bazel
+        +++ b/not/MODULE.bazel
+        @@ -1,1 +1,2 @@
+         module(name='bbb',version='1.0',bazel_compatibility=[">=7.0.0"])
+        +bazel_dep(name='ccc',version='3.0')
+        diff --git a/also/not/MODULE.bazel b/also/not/MODULE.bazel.bak
+        similarity index 55%
+        rename from also/not/MODULE.bazel
+        rename to also/not/MODULE.bazel.bak
+        index 3f855b5..949dd15 100644
+        """);
+    scratch.file("other/pkg/BUILD");
+    Path otherPatch =
+        scratch.file(
+            "other/pkg/other_patch.diff",
+            """
+            --- a/MODULE.bazel
+            +++ b/MODULE.bazel
+            @@ -1,1 +1,2 @@
+             module(name='bbb',version='1.0',bazel_compatibility=[">=7.0.0"])
+            +bazel_dep(name='ccc',version='3.0')
+            """);
+
+    var moduleFileKey =
+        ModuleFileValue.key(
+            bbb,
+            SingleVersionOverride.create(
+                Version.EMPTY,
+                "",
+                ImmutableList.of(
+                    Label.parseCanonicalUnchecked("//:patch.diff"),
+                    Label.parseCanonicalUnchecked("@other_repo//:patch.diff"),
+                    Label.parseCanonicalUnchecked("//other/pkg:other_patch.diff")),
+                ImmutableList.of(),
+                1));
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(moduleFileKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(moduleFileKey).getModule().getBazelCompatibility())
+        .isEqualTo(ImmutableList.of(">=7.0.0"));
+    assertThat(result.get(moduleFileKey).getModule().getDeps())
+        .containsExactly(
+            "ccc", InterimModule.DepSpec.fromModuleKey(new ModuleKey("ccc", Version.parse("3.0"))));
+
+    FileSystemUtils.writeContentAsLatin1(
+        otherPatch,
+        """
+        --- a/MODULE.bazel
+        +++ b/MODULE.bazel
+        @@ -1,1 +1,2 @@
+         module(name='bbb',version='1.0',bazel_compatibility=[">=7.0.0"])
+        +bazel_dep(name='ccc',version='2.0')
+        """);
+    differencer.invalidate(
+        ImmutableList.of(
+            FileStateValue.key(RootedPath.toRootedPath(Root.fromPath(rootDirectory), otherPatch))));
+
+    result = evaluator.evaluate(ImmutableList.of(moduleFileKey), evaluationContext);
+    if (result.hasError()) {
+      throw result.getError().getException();
+    }
+    assertThat(result.get(moduleFileKey).getModule().getBazelCompatibility())
+        .isEqualTo(ImmutableList.of(">=7.0.0"));
+    assertThat(result.get(moduleFileKey).getModule().getDeps())
+        .containsExactly(
+            "ccc", InterimModule.DepSpec.fromModuleKey(new ModuleKey("ccc", Version.parse("2.0"))));
+  }
+
+  @Test
+  public void testSingleVersionOverridePatches_failsOnRename() throws Exception {
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleKey bbb = createModuleKey("bbb", "1.0");
+    registry.addModule(bbb, "module(name='bbb',version='1.0')");
+
+    scratch.file("BUILD");
+    scratch.file(
+        "patch.diff",
+        """
+        diff --git a/MODULE.bazel b/MODULE.bazel.bak
+        similarity index 55%
+        rename from MODULE.bazel
+        rename to MODULE.bazel.bak
+        index 3f855b5..949dd15 100644
+        """);
+
+    var moduleFileKey =
+        ModuleFileValue.key(
+            bbb,
+            SingleVersionOverride.create(
+                Version.EMPTY,
+                "",
+                ImmutableList.of(Label.parseCanonicalUnchecked("//:patch.diff")),
+                ImmutableList.of(),
+                1));
+    EvaluationResult<ModuleFileValue> result =
+        evaluator.evaluate(ImmutableList.of(moduleFileKey), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+    assertThat(result.getError().getException())
+        .hasMessageThat()
+        .isEqualTo(
+            "error applying single_version_override patch /workspace/patch.diff to module file:"
+                + " Renaming /module/MODULE.bazel while applying patches to it as a single file is"
+                + " not supported.");
   }
 
   @Test

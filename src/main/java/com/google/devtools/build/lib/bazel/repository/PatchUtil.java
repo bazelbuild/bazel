@@ -417,9 +417,31 @@ public class PatchUtil {
    *
    * @param patchFile the patch file to apply
    * @param strip the number of leading components to strip from file path in the patch file
-   * @param outputDirectory the repository directory to apply the patch file
+   * @param outputDirectory the directory to apply the patch file to
    */
   public static void apply(Path patchFile, int strip, Path outputDirectory)
+      throws IOException, PatchFailedException {
+    applyInternal(patchFile, strip, outputDirectory, /* singleFile= */ null);
+  }
+
+  /**
+   * Apply a patch file under a directory, skipping all parts of the patch file that do not apply to
+   * the given single file.
+   *
+   * @param patchFile the patch file to apply
+   * @param strip the number of leading components to strip from file path in the patch file
+   * @param outputDirectory the directory to apply the patch file to
+   * @param singleFile only apply the parts of the patch file that apply to this file. Renaming the
+   *     file is not supported in this case.
+   */
+  public static void applyToSingleFile(
+      Path patchFile, int strip, Path outputDirectory, Path singleFile)
+      throws IOException, PatchFailedException {
+    applyInternal(patchFile, strip, outputDirectory, singleFile);
+  }
+
+  private static void applyInternal(
+      Path patchFile, int strip, Path outputDirectory, @Nullable Path singleFile)
       throws IOException, PatchFailedException {
     if (!patchFile.exists()) {
       throw new PatchFailedException("Cannot find patch file: " + patchFile.getPathString());
@@ -561,15 +583,25 @@ public class PatchUtil {
                 patchContent, header, oldLineCount, newLineCount, patchStartLocation);
 
             if (isRenaming) {
-              checkFilesStatusForRenaming(
-                  oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
+              if (singleFile != null) {
+                if (singleFile.equals(newFile) || singleFile.equals(oldFile)) {
+                  throw new PatchFailedException(
+                      "Renaming %s while applying patches to it as a single file is not supported."
+                          .formatted(singleFile));
+                }
+              } else {
+                checkFilesStatusForRenaming(
+                    oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
+              }
             }
 
-            Patch<String> patch = UnifiedDiffUtils.parseUnifiedDiff(patchContent);
-            checkFilesStatusForPatching(
-                patch, oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
+            if (singleFile == null || (singleFile.equals(newFile) && singleFile.equals(oldFile))) {
+              Patch<String> patch = UnifiedDiffUtils.parseUnifiedDiff(patchContent);
+              checkFilesStatusForPatching(
+                  patch, oldFile, newFile, oldFileStr, newFileStr, patchStartLocation);
 
-            applyPatchToFile(patch, oldFile, newFile, isRenaming, filePermission);
+              applyPatchToFile(patch, oldFile, newFile, isRenaming, filePermission);
+            }
           }
 
           patchContent.clear();
