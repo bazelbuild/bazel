@@ -3021,6 +3021,80 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testCoverageBroadcomInstrumentedFragmentCoverageDisabled() throws Exception {
+    setUpCoverageInstrumentedTest();
+    useConfiguration(
+        "--nocollect_code_coverage",
+        "--broadcom_instrumentation_filter_fragment=.");
+    StarlarkRuleContext ruleContext = createRuleContext("//test:foo");
+    setRuleContext(ruleContext);
+    Object result = ev.eval("ruleContext.coverage_instrumented()");
+    assertThat((Boolean) result).isFalse();
+  }
+
+  @Test
+  public void testCoverageBroadcomInstrumentedFragmentFalseForSourceFileLabel() throws Exception {
+    setUpCoverageInstrumentedTest();
+    useConfiguration(
+        "--collect_code_coverage",
+        "--broadcom_instrumentation_filter_fragment=:foo",
+        "--broadcom_instrumentation_filter_fragment=:bar");
+    setRuleContext(createRuleContext("//test:foo"));
+    Object result = ev.eval("ruleContext.coverage_instrumented(ruleContext.attr.srcs[0])");
+    assertThat((Boolean) result).isFalse();
+  }
+
+  @Test
+  public void testCoverageBroadcomInstrumentedFragmentDoesNotMatchFilter() throws Exception {
+    setUpCoverageInstrumentedTest();
+    useConfiguration(
+        "--collect_code_coverage",
+        "--broadcom_instrumentation_filter_fragment=:foo",
+        "--broadcom_instrumentation_filter_fragment=-:bar");
+    setRuleContext(createRuleContext("//test:bar"));
+    Object result = ev.eval("ruleContext.coverage_instrumented()");
+    assertThat((Boolean) result).isFalse();
+  }
+
+  @Test
+  public void testCoverageBroadcomInstrumentedFragmentMatchesFilter() throws Exception {
+    setUpCoverageInstrumentedTest();
+    useConfiguration(
+        "--collect_code_coverage",
+        "--broadcom_instrumentation_filter_fragment=:foo",
+        "--broadcom_instrumentation_filter_fragment=:bar");
+    setRuleContext(createRuleContext("//test:foo"));
+    Object result = ev.eval("ruleContext.coverage_instrumented()");
+    assertThat((Boolean) result).isTrue();
+  }
+
+  @Test
+  public void testCoverageBroadcomInstrumentedFragmentDoesNotMatchFilterNonDefaultLabel() throws Exception {
+    setUpCoverageInstrumentedTest();
+    useConfiguration(
+        "--collect_code_coverage",
+        "--broadcom_instrumentation_filter_fragment=:foo",
+        // --instrumentation_filter has no effect because --broadcom_instrumentation_filter_fragment is used.
+        "--instrumentation_filter=:bar");
+    setRuleContext(createRuleContext("//test:foo"));
+    // //test:bar does not match :foo, though //test:foo would.
+    Object result = ev.eval("ruleContext.coverage_instrumented(ruleContext.attr.deps[0])");
+    assertThat((Boolean) result).isFalse();
+  }
+
+  @Test
+  public void testCoverageBroadcomInstrumentedFragmentMatchesFilterNonDefaultLabel() throws Exception {
+    setUpCoverageInstrumentedTest();
+    useConfiguration(
+        "--collect_code_coverage",
+        "--broadcom_instrumentation_filter_fragment=:bar");
+    setRuleContext(createRuleContext("//test:foo"));
+    // //test:bar does match :bar, though //test:foo would not.
+    Object result = ev.eval("ruleContext.coverage_instrumented(ruleContext.attr.deps[0])");
+    assertThat((Boolean) result).isTrue();
+  }
+
+  @Test
   public void testCoverageInstrumentedCoverageDisabled() throws Exception {
     setUpCoverageInstrumentedTest();
     useConfiguration("--nocollect_code_coverage", "--instrumentation_filter=.");
