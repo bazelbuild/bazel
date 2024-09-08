@@ -60,6 +60,7 @@ import javax.annotation.Nullable;
 import javax.annotation.concurrent.Immutable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
@@ -666,6 +667,23 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
+     * Sets the attribute default value. The type of the default value must match the type
+     * parameter. (e.g. list=[], integer=0, string="", label=null). The {@code defaultValue} must be
+     * immutable.
+     *
+     * <p>If defaultValue is of type Label and is a target, that target will become an implicit
+     * dependency of the Rule; we will load the target (and its dependencies) if it encounters the
+     * Rule and build the target if needs to apply the Rule.
+     */
+    @CanIgnoreReturnValue
+    public Builder<TYPE> value(NoneType _defaultValue) {
+      Preconditions.checkState(!valueSet, "the default value is already set");
+      value = null;
+      valueSet = true;
+      return this;
+    }
+
+    /**
      * See value(TYPE) above. This method is only meant for Starlark usage.
      *
      * <p>The parameter {@code labelConverter} is relevant iff the default value is a Label string.
@@ -677,12 +695,16 @@ public final class Attribute implements Comparable<Attribute> {
         Object defaultValue, LabelConverter labelConverter, @Nullable String parameterName)
         throws ConversionException {
       Preconditions.checkState(!valueSet, "the default value is already set");
-      value =
-          type.convert(
-              defaultValue,
-              ((parameterName == null) ? "" : String.format("parameter '%s' of ", parameterName))
-                  + String.format("attribute '%s'", name),
-              labelConverter);
+      if (defaultValue == Starlark.NONE) {
+        value = null;
+      } else {
+        value =
+            type.convert(
+                defaultValue,
+                ((parameterName == null) ? "" : String.format("parameter '%s' of ", parameterName))
+                    + String.format("attribute '%s'", name),
+                labelConverter);
+      }
       valueSet = true;
       return this;
     }

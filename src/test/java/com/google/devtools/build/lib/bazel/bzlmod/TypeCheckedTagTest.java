@@ -153,6 +153,22 @@ public class TypeCheckedTagTest {
   }
 
   @Test
+  public void stringListDict_noneAsDefault() throws Exception {
+    TypeCheckedTag typeCheckedTag =
+        TypeCheckedTag.create(
+            createTagClass(
+                attr("foo", Types.STRING_LIST_DICT)
+                    .value(Starlark.NONE)
+                    .build()),
+            buildTag("tag_name").build(),
+            null,
+            "root module");
+    assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
+    assertThat(getattr(typeCheckedTag, "foo")).isEqualTo(Starlark.NONE);
+    assertThat(typeCheckedTag.isDevDependency()).isFalse();
+  }
+
+  @Test
   public void multipleAttributesAndDefaults() throws Exception {
     TypeCheckedTag typeCheckedTag =
         TypeCheckedTag.create(

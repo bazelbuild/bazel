@@ -244,6 +244,22 @@ public final class StarlarkRepositoryContextTest {
   }
 
   @Test
+  public void testAttr_noneAsDefault() throws Exception {
+    setUpContextForRule(
+        ImmutableMap.of("name", "test"),
+        ImmutableSet.of(),
+        ImmutableMap.of("FOO", "BAR"),
+        StarlarkSemantics.DEFAULT,
+        /* repoRemoteExecutor= */ null,
+        Attribute.attr("foo", Type.STRING)
+            .defaultValue(Starlark.NONE)
+            .build());
+
+    assertThat(context.getAttr().getFieldNames()).contains("foo");
+    assertThat(context.getAttr().getValue("foo")).isEqualTo(Starlark.NONE);
+  }
+
+  @Test
   public void testWhich() throws Exception {
     setUpContextForRule(
         ImmutableMap.of("name", "test"),

@@ -1297,4 +1297,43 @@ public final class RuleClassTest extends PackageLoadingTestCase {
     assertThat(noopRule.getAttr(RuleClass.APPLICABLE_METADATA_ATTR, LABEL_LIST))
         .isEqualTo(Lists.newArrayList(Label.parseCanonical("//testpackage:info")));
   }
+
+  @Test
+  public void testAttr_noneAsDefault() throws Exception {
+    var ruleClass = newRuleClass(
+        "ruleNoneAsDefault",
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        SafeImplicitOutputsFunction.NONE,
+        null,
+        DUMMY_CONFIGURED_TARGET_FACTORY,
+        AdvertisedProviderSet.EMPTY,
+        null,
+        ImmutableSet.of(),
+        true,
+        attr("my-string-attr-with-none-default", STRING).value(Starlark.NONE).build());
+
+    // NOTE Is converted to None when read in Starlark
+    // Important thing is that the implicit type default is not applied
+    assertThat(ruleClass.getAttributeByName("my-string-attr-with-none-default").getDefaultValueUnchecked())
+        .isEqualTo(null);
+
+    Map<String, Object> attributeValues = new HashMap<>();
+    reporter.removeHandler(failFastHandler);
+    EventCollector collector = new EventCollector(EventKind.ERRORS);
+    reporter.addHandler(collector);
+
+    Rule rule = createRule(ruleClass, TEST_RULE_NAME, attributeValues);
+
+    // Test attribute access:
+    AttributeMap attributes = RawAttributeMapper.of(rule);
+    // NOTE Is converted to None when read in Starlark
+    // Important thing is that the implicit type default is not applied
+    assertThat(attributes.get("my-string-attr-with-none-default", STRING))
+        .isEqualTo(null);
+  }
 }

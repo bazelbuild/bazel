@@ -128,7 +128,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   String DEFAULT_ARG = "default";
   // A trailing space is required because it's often prepended to other sentences
   String DEFAULT_DOC =
-      "A default value to use if no value for this attribute is given when instantiating the rule.";
+      "A default value to use if no value for this attribute is given when instantiating the rule. "
+          + "<code>None</code> is allowed, and can be used to identify an unset attribute.";
 
   String DOC_ARG = "doc";
   String DOC_DOC =

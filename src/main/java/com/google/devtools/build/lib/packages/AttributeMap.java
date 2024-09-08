@@ -57,6 +57,8 @@ public interface AttributeMap {
    *
    * <p>If the rule doesn't have this attribute with the specified type, throws an
    * {@link IllegalArgumentException}.
+   * 
+   * Note that null may be the default value, check if default set
    */
   @Nullable
   <T> T get(String attributeName, Type<T> type);
@@ -65,6 +67,8 @@ public interface AttributeMap {
    * Returns the value of the named rule attribute if it exists, otherwise the given default value.
    * This may be null (for example, for an attribute with no default value that isn't explicitly set
    * in the rule - see {@link Type#getDefaultValue}).
+   *
+   * Note that null may be the default value, check if default set
    */
   default <T> T getOrDefault(String attributeName, Type<T> type, T defaultValue) {
     if (has(attributeName)) {
