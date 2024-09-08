@@ -131,6 +131,28 @@ public class TypeCheckedTagTest {
   }
 
   @Test
+  public void stringListDict_defaultOnNone() throws Exception {
+    TypeCheckedTag typeCheckedTag =
+        TypeCheckedTag.create(
+            createTagClass(
+                attr("foo", Types.STRING_LIST_DICT)
+                    .value(ImmutableMap.of("key", ImmutableList.of("value1", "value2")))
+                    .build()),
+            buildTag("tag_name")
+                .addAttr("foo", Starlark.NONE)
+                .build(),
+            null,
+            "root module");
+    assertThat(typeCheckedTag.getFieldNames()).containsExactly("foo");
+    assertThat(getattr(typeCheckedTag, "foo"))
+        .isEqualTo(
+            Dict.builder()
+                .put("key", StarlarkList.immutableOf("value1", "value2"))
+                .buildImmutable());
+    assertThat(typeCheckedTag.isDevDependency()).isFalse();
+  }
+
+  @Test
   public void multipleAttributesAndDefaults() throws Exception {
     TypeCheckedTag typeCheckedTag =
         TypeCheckedTag.create(
