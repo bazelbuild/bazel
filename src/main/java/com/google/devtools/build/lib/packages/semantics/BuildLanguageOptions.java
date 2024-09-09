@@ -101,7 +101,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   @Option(
       name = "incompatible_autoload_externally",
       converter = CommaSeparatedOptionSetConverter.class,
-      defaultValue = "",
+      defaultValue = "+@rules_python",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
