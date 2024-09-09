@@ -97,7 +97,7 @@
     "@@pybind11_bazel+//:python_configure.bzl%extension": {
       "general": {
         "bzlTransitiveDigest": "G3SemBWzaIO+x1xBhQUm5bJt0Ya96KJBOYyTLJ60rkg=",
-        "usagesDigest": "2sRkX2Fe6GKsvm2LrwIhSdrBg1htEZDiNGCnzZugeQg=",
+        "usagesDigest": "a5tqKbjXT7f0Xy3JzcN5ULrU6fqdNgF8Nv/khBbUqX0=",
         "recordedFileInputs": {
           "@@pybind11_bazel+//MODULE.bazel": "88af1c246226d87e65be78ed49ecd1e6f5e98648558c14ce99176da041dc378e"
         },
@@ -1185,7 +1185,7 @@
     "@@rules_python+//python/extensions:python.bzl%python": {
       "general": {
         "bzlTransitiveDigest": "MX4oCRNwMg54iHZ0EmJE/6hlf7cC9DukSl2R0KFi9b4=",
-        "usagesDigest": "CclTlIDL9S8prt08X0s2c5t33rLCcR817dqF0wkxq68=",
+        "usagesDigest": "V7PXX+/Kd+MyVFCKxyw2BxK7h8TZntjv84en2pwA2YE=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -1365,7 +1365,7 @@
     "@@rules_python+//python/extensions/private:internal_deps.bzl%internal_deps": {
       "general": {
         "bzlTransitiveDigest": "+VtSndIbI6PVyr9qEWW7GSpFObk2trP03nBoiBZOG9k=",
-        "usagesDigest": "UnaEK0wR4s1pHcmuxYn+Aw4/+fhn/D76h8HE6cpqb9o=",
+        "usagesDigest": "AtX+Oc+rPZjjM2vG2JPjtVOjWOY639xwA97gIF8hc3w=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
