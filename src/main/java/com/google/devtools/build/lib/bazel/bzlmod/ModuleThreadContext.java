@@ -50,7 +50,7 @@ public class ModuleThreadContext {
   @Nullable private final ImmutableMap<String, CompiledModuleFile> includeLabelToCompiledModuleFile;
   private final Map<String, DepSpec> deps = new LinkedHashMap<>();
   private final List<ModuleExtensionUsageBuilder> extensionUsageBuilders = new ArrayList<>();
-  private final Map<String, ModuleOverride> overrides = new HashMap<>();
+  private final Map<String, ModuleOverride> overrides = new LinkedHashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
 
   public static ModuleThreadContext fromOrFail(StarlarkThread thread, String what)
@@ -231,6 +231,9 @@ public class ModuleThreadContext {
   }
 
   public void addOverride(String moduleName, ModuleOverride override) throws EvalException {
+    if (shouldIgnoreDevDeps()) {
+      return;
+    }
     ModuleOverride existingOverride = overrides.putIfAbsent(moduleName, override);
     if (existingOverride != null) {
       throw Starlark.errorf("multiple overrides for dep %s found", moduleName);
