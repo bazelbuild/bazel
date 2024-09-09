@@ -1033,7 +1033,7 @@ public final class RemoteModule extends BlazeModule {
       var leaseService =
           new LeaseService(
               env.getSkyframeExecutor().getEvaluator(),
-              env.getBlazeWorkspace().getPersistentActionCache(),
+              () -> env.getBlazeWorkspace().getPersistentActionCache(),
               leaseExtension);
       env.getEventBus().register(leaseService);
 
