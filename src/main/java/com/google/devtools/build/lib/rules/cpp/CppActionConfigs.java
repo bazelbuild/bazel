@@ -552,19 +552,15 @@ public class CppActionConfigs {
                         "      }",
                         "      flag_group {",
                         "        expand_if_false: 'is_cc_test'",
+                        "        flag: '-Xlinker'",
+                        "        flag: '-rpath'",
+                        "        flag: '-Xlinker'",
                         ifLinux(
                             platform,
-                            "        flag: '-Xlinker'",
-                            "        flag: '-rpath'",
-                            "        flag: '-Xlinker'",
-                            "        flag: '$ORIGIN/" + "%{runtime_library_search_directories}'"),
+                            "        flag: '$ORIGIN/%{runtime_library_search_directories}'"),
                         ifMac(
                             platform,
-                            "        flag: '-Xlinker'",
-                            "        flag: '-rpath'",
-                            "        flag: '-Xlinker'",
-                            "        flag: '@loader_path/"
-                                + "%{runtime_library_search_directories}'"),
+                            "        flag: '@loader_path/%{runtime_library_search_directories}'"),
                         "      }",
                         "    }",
                         "  }",
@@ -580,19 +576,15 @@ public class CppActionConfigs {
                         "      expand_if_all_available: 'runtime_library_search_directories'",
                         "      iterate_over: 'runtime_library_search_directories'",
                         "      flag_group {",
+                        "        flag: '-Xlinker'",
+                        "        flag: '-rpath'",
+                        "        flag: '-Xlinker'",
                         ifLinux(
                             platform,
-                            "        flag: '-Xlinker'",
-                            "        flag: '-rpath'",
-                            "        flag: '-Xlinker'",
-                            "        flag: '$ORIGIN/" + "%{runtime_library_search_directories}'"),
+                            "        flag: '$ORIGIN/%{runtime_library_search_directories}'"),
                         ifMac(
                             platform,
-                            "        flag: '-Xlinker'",
-                            "        flag: '-rpath'",
-                            "        flag: '-Xlinker'",
-                            "        flag: '@loader_path/"
-                                + "%{runtime_library_search_directories}'"),
+                            "        flag: '@loader_path/%{runtime_library_search_directories}'"),
                         "    }",
                         "  }",
                         "}")));
@@ -631,8 +623,8 @@ public class CppActionConfigs {
                         "    }",
                         "    flag_group {",
                         "      expand_if_all_available: 'output_execpath'",
-                        ifLinux(platform, "flag: '%{output_execpath}'"),
-                        ifMac(platform, "flag: '-o'", "flag: '%{output_execpath}'"),
+                        ifMac(platform, "flag: '-o'"),
+                        "      flag: '%{output_execpath}'",
                         "    }",
                         "  }",
                         "  flag_set { ",
@@ -747,6 +739,14 @@ public class CppActionConfigs {
                             "    }",
                             "    flag: '-Wl,-no-whole-archive'",
                             "  }"),
+                        // macOS mirrors the linux behavior above with the following exceptions:
+                        // - The -Wl,-whole-archive flags are excluded, as they are not supported on
+                        //   macOS.
+                        // - Every expansion of libraries_to_link is split into a -Wl,-force_load
+                        //   version and a regular link version (with the exception of
+                        //   dynamic_library and versioned_dynamic_library).
+                        // - versioned_dynamic_library has slightly different flag syntax on
+                        //   macOS.
                         ifMac(
                             platform,
                             "  flag_group {",
