@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2024 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,16 +11,14 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
 package com.google.devtools.build.remote.worker.http;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
+import com.google.common.flogger.GoogleLogger;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelFutureListener;
-import io.netty.channel.ChannelHandler.Sharable;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.DefaultFullHttpResponse;
@@ -32,27 +30,20 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.HttpUtil;
 import io.netty.handler.codec.http.HttpVersion;
 import io.netty.util.CharsetUtil;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
-/** A simple HTTP REST in-memory cache used during testing the LRE. */
-@Sharable
-public class HttpCacheServerHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
+/**
+ * An abstract HTTP REST cache that convert HTTP requests to abstract methods {@link
+ * #readFromCache(String)} and {@link #writeToCache(String, byte[])}.
+ */
+public abstract class AbstractHttpCacheServerHandler
+    extends SimpleChannelInboundHandler<FullHttpRequest> {
+  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final Pattern URI_PATTERN = Pattern.compile("^/?(.*/)?(ac/|cas/)([a-f0-9]{64})$");
-
-  private final ConcurrentMap<String, byte[]> cache;
-
-  @VisibleForTesting
-  public HttpCacheServerHandler(ConcurrentMap<String, byte[]> cache) {
-    this.cache = Preconditions.checkNotNull(cache);
-  }
-
-  HttpCacheServerHandler() {
-    this(new ConcurrentHashMap<>());
-  }
 
   @Override
   protected void channelRead0(ChannelHandlerContext ctx, FullHttpRequest request) {
@@ -82,7 +73,14 @@ public class HttpCacheServerHandler extends SimpleChannelInboundHandler<FullHttp
       return;
     }
 
-    byte[] contents = cache.get(request.uri());
+    byte[] contents;
+    try {
+      contents = readFromCache(request.uri());
+    } catch (IOException e) {
+      logger.atSevere().withCause(e).log();
+      sendError(ctx, request, HttpResponseStatus.INTERNAL_SERVER_ERROR);
+      return;
+    }
 
     if (contents == null) {
       sendError(ctx, request, HttpResponseStatus.NOT_FOUND);
@@ -101,6 +99,11 @@ public class HttpCacheServerHandler extends SimpleChannelInboundHandler<FullHttp
     }
   }
 
+  @Nullable
+  protected abstract byte[] readFromCache(String uri) throws IOException;
+
+  protected abstract void writeToCache(String uri, byte[] content) throws IOException;
+
   private void handlePut(ChannelHandlerContext ctx, FullHttpRequest request) {
     if (!request.decoderResult().isSuccess()) {
       sendError(ctx, request, HttpResponseStatus.INTERNAL_SERVER_ERROR);
@@ -113,7 +116,13 @@ public class HttpCacheServerHandler extends SimpleChannelInboundHandler<FullHttp
 
     byte[] contentBytes = new byte[request.content().readableBytes()];
     request.content().readBytes(contentBytes);
-    cache.putIfAbsent(request.uri(), contentBytes);
+    try {
+      writeToCache(request.uri(), contentBytes);
+    } catch (IOException e) {
+      logger.atSevere().withCause(e).log();
+      sendError(ctx, request, HttpResponseStatus.INTERNAL_SERVER_ERROR);
+      return;
+    }
 
     FullHttpResponse response =
         new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, HttpResponseStatus.NO_CONTENT);
@@ -126,7 +135,7 @@ public class HttpCacheServerHandler extends SimpleChannelInboundHandler<FullHttp
 
   private static void sendError(
       ChannelHandlerContext ctx, FullHttpRequest request, HttpResponseStatus status) {
-    ByteBuf data = Unpooled.copiedBuffer("Failure: " + status + "\r\n", CharsetUtil.UTF_8);
+    ByteBuf data = Unpooled.copiedBuffer(status.reasonPhrase() + "\r\n", CharsetUtil.UTF_8);
     FullHttpResponse response = new DefaultFullHttpResponse(HttpVersion.HTTP_1_1, status, data);
     response.headers().set(HttpHeaderNames.CONTENT_TYPE, "text/plain; charset=UTF-8");
     response.headers().set(HttpHeaderNames.CONTENT_LENGTH, data.readableBytes());
