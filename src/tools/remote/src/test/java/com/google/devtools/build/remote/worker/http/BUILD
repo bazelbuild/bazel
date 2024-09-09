@@ -14,9 +14,8 @@ filegroup(
 java_test(
     name = "http",
     srcs = glob(["*.java"]),
-    test_class = "com.google.devtools.build.remote.worker.http.HttpCacheServerHandlerTest",
+    test_class = "com.google.devtools.build.remote.worker.http.AbstractHttpCacheServerHandlerTest",
     deps = [
-        "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker",
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker/http",
         "//third_party:junit4",
         "//third_party:truth",

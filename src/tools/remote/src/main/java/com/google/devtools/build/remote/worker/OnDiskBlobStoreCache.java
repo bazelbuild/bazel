@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.remote.worker;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 
 import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
@@ -114,5 +115,9 @@ class OnDiskBlobStoreCache extends RemoteCache {
   public ListenableFuture<Void> uploadFile(
       RemoteActionExecutionContext context, Digest digest, Path file) {
     return uploadFile(context, digest, file, /* force= */ true);
+  }
+
+  public DiskCacheClient getDiskCacheClient() {
+    return checkNotNull(diskCacheClient);
   }
 }
