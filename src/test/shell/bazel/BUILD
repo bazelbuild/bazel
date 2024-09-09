@@ -1426,3 +1426,13 @@ sh_test(
     ],
     tags = ["no_windows"],
 )
+
+sh_test(
+    name = "profile_test",
+    size = "small",
+    srcs = ["profile_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+)
