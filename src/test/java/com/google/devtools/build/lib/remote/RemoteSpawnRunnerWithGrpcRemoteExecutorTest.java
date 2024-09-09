@@ -60,6 +60,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -349,7 +350,8 @@ public class RemoteSpawnRunnerWithGrpcRemoteExecutorTest {
             tempPathGenerator,
             /* captureCorruptedOutputsDir= */ null,
             remoteOutputChecker,
-            mock(OutputService.class));
+            mock(OutputService.class),
+            Sets.newConcurrentHashSet());
     client =
         new RemoteSpawnRunner(
             execRoot,

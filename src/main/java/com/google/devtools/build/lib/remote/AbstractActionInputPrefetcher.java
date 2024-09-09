@@ -536,8 +536,9 @@ public abstract class AbstractActionInputPrefetcher implements ActionInputPrefet
                         })
                     .doOnError(
                         error -> {
-                          if (error instanceof CacheNotFoundException) {
-                            reporter.post(new LostInputsEvent());
+                          if (error instanceof CacheNotFoundException cacheNotFoundException) {
+                            reporter.post(
+                                new LostInputsEvent(cacheNotFoundException.getMissingDigest()));
                           }
                         }));
 

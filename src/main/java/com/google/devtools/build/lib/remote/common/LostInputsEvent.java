@@ -13,10 +13,21 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.common;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.devtools.build.lib.events.ExtendedEventHandler.Postable;
 
 /**
  * An event sent when an input to an action was previously determined to exist remotely, but has
  * since been evicted.
  */
-public class LostInputsEvent implements Postable {}
+public class LostInputsEvent implements Postable {
+  private final Digest missingDigest;
+
+  public LostInputsEvent(Digest missingDigest) {
+    this.missingDigest = missingDigest;
+  }
+
+  public Digest getMissingDigest() {
+    return missingDigest;
+  }
+}

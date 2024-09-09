@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 
+import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.DigestFunction;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.google.auth.Credentials;
@@ -26,6 +27,7 @@ import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -113,6 +115,7 @@ import java.net.URISyntaxException;
 import java.nio.channels.ClosedChannelException;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -126,6 +129,8 @@ import javax.annotation.Nullable;
 public final class RemoteModule extends BlazeModule {
   private final ListeningScheduledExecutorService retryScheduler =
       MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+
+  private final Set<Digest> knownMissingCasDigests = Sets.newConcurrentHashSet();
 
   @Nullable private AsynchronousMessageOutputStream<LogEntry> rpcLogFile;
   @Nullable private ExecutorService executorService;
@@ -249,7 +254,8 @@ public final class RemoteModule extends BlazeModule {
             /* retryScheduler= */ null,
             digestUtil,
             remoteOutputChecker,
-            outputService);
+            outputService,
+            knownMissingCasDigests);
   }
 
   @Override
@@ -271,6 +277,10 @@ public final class RemoteModule extends BlazeModule {
     Preconditions.checkState(tempPathGenerator == null, "tempPathGenerator must be null");
     Preconditions.checkState(remoteOutputChecker == null, "remoteOutputChecker must be null");
     Preconditions.checkState(outputService == null, "remoteOutputService must be null");
+
+    if ("clean".equals(env.getCommandName())) {
+      knownMissingCasDigests.clear();
+    }
 
     RemoteOptions remoteOptions = env.getOptions().getOptions(RemoteOptions.class);
     if (remoteOptions == null) {
@@ -328,7 +338,8 @@ public final class RemoteModule extends BlazeModule {
     if (!enableDiskCache && !enableHttpCache && !enableGrpcCache && !enableRemoteExecution) {
       // Quit if no remote caching or execution was enabled.
       actionContextProvider =
-          RemoteActionContextProvider.createForPlaceholder(env, retryScheduler, digestUtil);
+          RemoteActionContextProvider.createForPlaceholder(
+              env, retryScheduler, digestUtil, knownMissingCasDigests);
       return;
     }
 
@@ -643,7 +654,8 @@ public final class RemoteModule extends BlazeModule {
               digestUtil,
               logDir,
               remoteOutputChecker,
-              outputService);
+              outputService,
+              knownMissingCasDigests);
       repositoryRemoteExecutorFactoryDelegate.init(
           new RemoteRepositoryRemoteExecutorFactory(
               remoteCache,
@@ -680,7 +692,8 @@ public final class RemoteModule extends BlazeModule {
               retryScheduler,
               digestUtil,
               remoteOutputChecker,
-              outputService);
+              outputService,
+              knownMissingCasDigests);
     }
 
     buildEventArtifactUploaderFactoryDelegate.init(
