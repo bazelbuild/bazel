@@ -238,8 +238,6 @@ public class ProtoOutputFormatterCallbackTest extends ConfiguredTargetQueryTest 
         .contains(
             Fragment.newBuilder()
                 .setName("com.google.devtools.build.lib.rules.cpp.CppConfiguration")
-                .addFragmentOptionNames(
-                    "com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions")
                 .addFragmentOptionNames("com.google.devtools.build.lib.rules.cpp.CppOptions")
                 .build());
 
