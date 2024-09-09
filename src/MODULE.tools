@@ -49,7 +49,7 @@ use_repo(buildozer_binary, "buildozer_binary")
 # Dependencies used to auto-load removed symbols and rules from Bazel (due to Starlarkification)
 # See also:  --incompatible_autoload_externally, AutoloadSymbols
 bazel_dep(name = "protobuf", version = "3.19.6", repo_name = "com_google_protobuf")
-bazel_dep(name = "rules_java", version = "7.9.0")
+bazel_dep(name = "rules_java", version = "7.11.0")
 bazel_dep(name = "rules_cc", version = "0.0.9")
 bazel_dep(name = "rules_python", version = "0.22.1")
 # add rules_android
