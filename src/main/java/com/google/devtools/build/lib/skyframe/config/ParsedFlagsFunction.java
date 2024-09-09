@@ -133,8 +133,7 @@ public class ParsedFlagsFunction implements SkyFunction {
     }
   }
 
-  /** Exception class for errors during flag parsing. */
-  public static class ParsedFlagsFunctionException extends SkyFunctionException {
+  private static final class ParsedFlagsFunctionException extends SkyFunctionException {
     ParsedFlagsFunctionException(OptionsParsingException e) {
       super(e, Transience.PERSISTENT);
     }
