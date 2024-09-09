@@ -1287,7 +1287,7 @@ EOF
 
   # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames on-disk cache
   #  and the action should not be re-run.
-  expect_log "1 process: 1 internal"
+  expect_log "1 process: .*1 internal"
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
@@ -1337,7 +1337,7 @@ EOF
 
   # Changing --remote_default_platform_properties value does not invalidate SkyFrames
   # given its is superseded by the platform exec_properties.
-  expect_log "1 process: 1 internal."
+  expect_log "1 process: .*1 internal."
 }
 
 function test_platform_default_properties_invalidation_with_platform_remote_execution_properties() {
