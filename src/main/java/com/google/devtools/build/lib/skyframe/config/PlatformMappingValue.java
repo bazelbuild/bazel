@@ -145,8 +145,8 @@ public final class PlatformMappingValue implements SkyValue {
     }
   }
 
-  private final ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags;
-  private final ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms;
+  private final ImmutableMap<Label, ParsedFlagsValue> platformsToFlags;
+  private final ImmutableMap<ParsedFlagsValue, Label> flagsToPlatforms;
   private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
   private final LoadingCache<BuildOptions, BuildOptions> mappingCache;
 
@@ -161,8 +161,8 @@ public final class PlatformMappingValue implements SkyValue {
    * @param optionsClasses default options classes that should be used for options parsing
    */
   PlatformMappingValue(
-      ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags,
-      ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms,
+      ImmutableMap<Label, ParsedFlagsValue> platformsToFlags,
+      ImmutableMap<ParsedFlagsValue, Label> flagsToPlatforms,
       ImmutableSet<Class<? extends FragmentOptions>> optionsClasses) {
     this.platformsToFlags = checkNotNull(platformsToFlags);
     this.flagsToPlatforms = checkNotNull(flagsToPlatforms);
@@ -224,14 +224,14 @@ public final class PlatformMappingValue implements SkyValue {
         return originalOptions;
       }
 
-      NativeAndStarlarkFlags args = platformsToFlags.get(targetPlatform);
-      modifiedOptions = args.mergeWith(originalOptions);
+      ParsedFlagsValue parsedFlags = platformsToFlags.get(targetPlatform);
+      modifiedOptions = parsedFlags.mergeWith(originalOptions);
     } else {
       boolean mappingFound = false;
-      for (Map.Entry<NativeAndStarlarkFlags, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {
-        NativeAndStarlarkFlags flags = flagsToPlatform.getKey();
+      for (Map.Entry<ParsedFlagsValue, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {
+        ParsedFlagsValue parsedFlags = flagsToPlatform.getKey();
         Label platformLabel = flagsToPlatform.getValue();
-        if (originalOptions.matches(flags.parse())) {
+        if (originalOptions.matches(parsedFlags.parsingResult())) {
           modifiedOptions = originalOptions.clone();
           modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(platformLabel);
           mappingFound = true;

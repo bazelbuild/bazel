@@ -191,7 +191,8 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
 
     BuildOptions baseOptions = createBuildOptions("--platforms=//platforms:sample");
     // Fails because the changed platform has an invalid mapping.
-    assertThrows(OptionsParsingException.class, () -> fetch(baseOptions));
+    var e = assertThrows(PlatformMappingException.class, () -> fetch(baseOptions));
+    assertThat(e).hasMessageThat().contains("Unrecognized option: --fake_option");
   }
 
   @Test

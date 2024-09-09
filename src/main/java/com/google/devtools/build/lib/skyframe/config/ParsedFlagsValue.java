@@ -13,21 +13,32 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.config;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import java.util.Objects;
+import com.google.devtools.common.options.OptionDefinition;
+import com.google.devtools.common.options.OptionValueDescription;
+import com.google.devtools.common.options.OptionsParsingException;
+import com.google.devtools.common.options.OptionsParsingResult;
+import java.util.Map;
 
-/** Stores the {@link NativeAndStarlarkFlags} that are the result of {@link ParsedFlagsFunction}. */
+/** Stores the {@link OptionsParsingResult} from {@link ParsedFlagsFunction}. */
 @AutoCodec
 public final class ParsedFlagsValue implements SkyValue {
+
   /** Key for {@link ParsedFlagsValue} based on the raw flags. */
   @ThreadSafety.Immutable
   @AutoCodec
@@ -47,7 +58,6 @@ public final class ParsedFlagsValue implements SkyValue {
      * --compilation_mode=bdg} or {@code --//custom/starlark:flag=23}.
      */
     @AutoCodec.Instantiator
-    @VisibleForSerialization
     public static Key create(
         ImmutableList<String> rawFlags,
         PackageContext packageContext,
@@ -63,20 +73,20 @@ public final class ParsedFlagsValue implements SkyValue {
         ImmutableList<String> rawFlags,
         PackageContext packageContext,
         boolean includeDefaultValues) {
-      this.rawFlags = rawFlags;
-      this.packageContext = packageContext;
+      this.rawFlags = checkNotNull(rawFlags);
+      this.packageContext = checkNotNull(packageContext);
       this.includeDefaultValues = includeDefaultValues;
     }
 
-    public ImmutableList<String> rawFlags() {
+    ImmutableList<String> rawFlags() {
       return rawFlags;
     }
 
-    public PackageContext packageContext() {
+    PackageContext packageContext() {
       return packageContext;
     }
 
-    public boolean includeDefaultValues() {
+    boolean includeDefaultValues() {
       return includeDefaultValues;
     }
 
@@ -90,26 +100,27 @@ public final class ParsedFlagsValue implements SkyValue {
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof Key that)) {
         return false;
       }
-      Key key = (Key) o;
-      return Objects.equals(rawFlags, key.rawFlags)
-          && Objects.equals(packageContext, key.packageContext);
+      return rawFlags.equals(that.rawFlags)
+          && packageContext.equals(that.packageContext)
+          && includeDefaultValues == that.includeDefaultValues;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(rawFlags, packageContext);
+      return HashCodes.hashObjects(rawFlags, packageContext) * 31
+          + Boolean.hashCode(includeDefaultValues);
     }
 
     @Override
     public String toString() {
-      return "ParsedFlagsValue.Key{rawFlags="
-          + rawFlags
-          + ", packageContext="
-          + packageContext
-          + "}";
+      return MoreObjects.toStringHelper("ParsedFlagsValue.Key")
+          .add("rawFlags", rawFlags)
+          .add("packageContext", packageContext)
+          .add("includeDefaultValues", includeDefaultValues)
+          .toString();
     }
 
     @Override
@@ -118,18 +129,109 @@ public final class ParsedFlagsValue implements SkyValue {
     }
   }
 
-  public static ParsedFlagsValue create(NativeAndStarlarkFlags flags) {
-    return new ParsedFlagsValue(flags);
+  static ParsedFlagsValue parseAndCreate(NativeAndStarlarkFlags flags)
+      throws OptionsParsingException {
+    return new ParsedFlagsValue(flags, flags.parse());
+  }
+
+  @AutoCodec.Instantiator
+  @VisibleForSerialization
+  static ParsedFlagsValue createForDeserialization(NativeAndStarlarkFlags flags) {
+    try {
+      return parseAndCreate(flags);
+    } catch (OptionsParsingException e) {
+      // Should be impossible since it parsed successfully before it was serialized.
+      throw new IllegalStateException(e);
+    }
   }
 
   private final NativeAndStarlarkFlags flags;
+  private final OptionsParsingResult parsingResult;
 
-  ParsedFlagsValue(NativeAndStarlarkFlags flags) {
-    this.flags = flags;
+  private ParsedFlagsValue(NativeAndStarlarkFlags flags, OptionsParsingResult parsingResult) {
+    this.parsingResult = checkNotNull(parsingResult);
+    this.flags = checkNotNull(flags);
   }
 
-  public NativeAndStarlarkFlags flags() {
-    return flags;
+  public OptionsParsingResult parsingResult() {
+    return parsingResult;
+  }
+
+  /**
+   * Returns a new {@link BuildOptions} instance, which contains all flags from the given {@link
+   * BuildOptions} with {@link #parsingResult()} merged in.
+   *
+   * <p>The merging logic is as follows:
+   *
+   * <ul>
+   *   <li>For native flags, only the fragments in the original {@link BuildOptions} are kept.
+   *   <li>Any native flags in this instance, for fragments that are kept, are set to the value from
+   *       this instance.
+   *   <li>All Starlark flags from the original {@link BuildOptions} are kept, then all Starlark
+   *       options from this instance are added.
+   *   <li>Any Starlark flags which are present in both, the value from this instance is kept.
+   * </ul>
+   *
+   * <p>To preserve fragment trimming, this method will not expand the set of included native
+   * fragments from the original {@link BuildOptions}. If the parsing result contains native options
+   * whose owning fragment is not part of the original {@link BuildOptions} they will be ignored
+   * (i.e. not set on the resulting options). Starlark options are not affected by this restriction.
+   *
+   * @param source the base options to modify
+   * @return the new options after applying this object to the original options
+   */
+  public BuildOptions mergeWith(BuildOptions source) {
+    BuildOptions.Builder builder = source.toBuilder();
+
+    // Handle native options.
+    for (OptionValueDescription optionValue : parsingResult.allOptionValues()) {
+      OptionDefinition optionDefinition = optionValue.getOptionDefinition();
+      // All options obtained from an options parser are guaranteed to have been defined in an
+      // FragmentOptions class.
+      Class<? extends FragmentOptions> fragmentOptionClass =
+          optionDefinition.getDeclaringClass(FragmentOptions.class);
+
+      FragmentOptions fragment = builder.getFragmentOptions(fragmentOptionClass);
+      if (fragment == null) {
+        // Preserve trimming by ignoring fragments not present in the original options.
+        continue;
+      }
+      updateOptionValue(fragment, optionDefinition, optionValue);
+    }
+
+    // Also copy Starlark options.
+    for (Map.Entry<String, Object> starlarkOption : parsingResult.getStarlarkOptions().entrySet()) {
+      updateStarlarkFlag(builder, starlarkOption.getKey(), starlarkOption.getValue());
+    }
+
+    return builder.build();
+  }
+
+  private static void updateOptionValue(
+      FragmentOptions fragment,
+      OptionDefinition optionDefinition,
+      OptionValueDescription optionValue) {
+    // TODO: https://github.com/bazelbuild/bazel/issues/22453 - This will completely overwrite
+    //  accumulating flags, which is almost certainly not what users want. Instead this should
+    //  intelligently merge options.
+    Object value = optionValue.getValue();
+    optionDefinition.setValue(fragment, value);
+  }
+
+  private void updateStarlarkFlag(
+      BuildOptions.Builder builder, String rawFlagName, Object rawFlagValue) {
+    Label flagName = Label.parseCanonicalUnchecked(rawFlagName);
+    // If the known default value is the same as the new value, unset it.
+    if (isStarlarkFlagSetToDefault(rawFlagName, rawFlagValue)) {
+      builder.removeStarklarkOption(flagName);
+    } else {
+      builder.addStarlarkOption(flagName, rawFlagValue);
+    }
+  }
+
+  private boolean isStarlarkFlagSetToDefault(String rawFlagName, Object rawFlagValue) {
+    var defaultVal = flags.starlarkFlagDefaults().get(rawFlagName);
+    return defaultVal != null && defaultVal.equals(rawFlagValue);
   }
 
   @Override
@@ -140,16 +242,19 @@ public final class ParsedFlagsValue implements SkyValue {
     if (!(obj instanceof ParsedFlagsValue that)) {
       return false;
     }
-    return this.flags.equals(that.flags);
+    return flags.equals(that.flags);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hashCode(flags);
+    return flags.hashCode();
   }
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this).add("flags", flags).toString();
+    return MoreObjects.toStringHelper(this)
+        .add("flags", flags)
+        .add("parsingResult", parsingResult)
+        .toString();
   }
 }

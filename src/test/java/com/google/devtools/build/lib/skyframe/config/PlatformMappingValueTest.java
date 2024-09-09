@@ -29,10 +29,12 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParsingException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
 import java.util.Map;
+import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -75,7 +77,8 @@ public final class PlatformMappingValueTest {
       // PlatformOptions is required for mapping.
       ImmutableSet.of(PlatformOptions.class, DummyTestOptions.class);
 
-  private BuildOptions createBuildOptions(String... args) throws OptionsParsingException {
+  private static BuildOptions createBuildOptions(String... args) throws OptionsParsingException {
+
     return BuildOptions.of(BUILD_CONFIG_OPTIONS, args);
   }
 
@@ -83,46 +86,62 @@ public final class PlatformMappingValueTest {
     return new PlatformMappingBuilder();
   }
 
-  private static class PlatformMappingBuilder {
-    private final Map<Label, NativeAndStarlarkFlags> platformsToFlags = new HashMap<>();
-    private final Map<NativeAndStarlarkFlags, Label> flagsToPlatforms = new HashMap<>();
+  private static final class PlatformMappingBuilder {
+    private final Map<Label, ParsedFlagsValue> platformsToFlags = new HashMap<>();
+    private final Map<ParsedFlagsValue, Label> flagsToPlatforms = new HashMap<>();
 
     @CanIgnoreReturnValue
-    public PlatformMappingBuilder addPlatform(Label platform, NativeAndStarlarkFlags flags) {
+    PlatformMappingBuilder addPlatform(Label platform, ParsedFlagsValue flags) {
       this.platformsToFlags.put(platform, flags);
       return this;
     }
 
     @CanIgnoreReturnValue
-    public PlatformMappingBuilder addPlatform(Label platform, String... nativeFlags) {
+    PlatformMappingBuilder addPlatform(Label platform, String... nativeFlags)
+        throws OptionsParsingException {
       return this.addPlatform(platform, createFlags(nativeFlags));
     }
 
     @CanIgnoreReturnValue
-    public PlatformMappingBuilder addFlags(NativeAndStarlarkFlags flags, Label platform) {
+    PlatformMappingBuilder addFlags(ParsedFlagsValue flags, Label platform) {
       this.flagsToPlatforms.put(flags, platform);
       return this;
     }
 
     @CanIgnoreReturnValue
-    public PlatformMappingBuilder addFlags(Label platform, String... nativeFlags) {
+    PlatformMappingBuilder addFlags(Label platform, String... nativeFlags)
+        throws OptionsParsingException {
       return this.addFlags(createFlags(nativeFlags), platform);
     }
 
-    public PlatformMappingValue build() {
+    PlatformMappingValue build() {
       return new PlatformMappingValue(
           ImmutableMap.copyOf(platformsToFlags),
           ImmutableMap.copyOf(flagsToPlatforms),
           BUILD_CONFIG_OPTIONS);
     }
 
-    private NativeAndStarlarkFlags createFlags(String... nativeFlags) {
-      return NativeAndStarlarkFlags.builder()
-          .nativeFlags(ImmutableList.copyOf(nativeFlags))
-          .optionsClasses(BUILD_CONFIG_OPTIONS)
-          .repoMapping(REPO_MAPPING)
-          .build();
+    private static ParsedFlagsValue createFlags(String... nativeFlags)
+        throws OptionsParsingException {
+      NativeAndStarlarkFlags flags =
+          NativeAndStarlarkFlags.builder()
+              .nativeFlags(ImmutableList.copyOf(nativeFlags))
+              .optionsClasses(BUILD_CONFIG_OPTIONS)
+              .repoMapping(REPO_MAPPING)
+              .build();
+      return ParsedFlagsValue.parseAndCreate(flags);
     }
+  }
+
+  /**
+   * Caching of option default values does not consider conversion context (b/365420093). Parse the
+   * default {@link PlatformOptions} up front with no conversion context so that the default value
+   * of {@link PlatformOptions#hostPlatform} is deterministic.
+   */
+  // TODO: b/365420093 - Remove this workaround when the bug is fixed.
+  @BeforeClass
+  public static void computeDefaultPlatformOptions() {
+    var unused = Options.getDefaults(PlatformOptions.class);
   }
 
   @Test

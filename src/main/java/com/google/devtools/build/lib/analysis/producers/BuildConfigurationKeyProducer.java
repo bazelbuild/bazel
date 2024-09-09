@@ -18,7 +18,7 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.platform.PlatformValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.config.NativeAndStarlarkFlags;
+import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
@@ -28,6 +28,7 @@ import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.build.skyframe.state.StateMachine.ValueOrExceptionSink;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -64,7 +65,7 @@ public class BuildConfigurationKeyProducer<C>
 
   // -------------------- Internal State --------------------
   private PlatformMappingValue platformMappingValue;
-  private NativeAndStarlarkFlags platformFlags;
+  private Optional<ParsedFlagsValue> platformFlags = Optional.empty();
 
   BuildConfigurationKeyProducer(
       ResultSink<C> sink,
@@ -178,8 +179,8 @@ public class BuildConfigurationKeyProducer<C>
   private BuildConfigurationKey applyFlagsForOptions(BuildOptions options)
       throws OptionsParsingException {
     // Does the target platform provide any flags?
-    if (this.platformFlags != null && !this.platformFlags.isEmpty()) {
-      BuildOptions updatedOptions = platformFlags.mergeWith(options);
+    if (this.platformFlags.isPresent()) {
+      BuildOptions updatedOptions = this.platformFlags.get().mergeWith(options);
       return BuildConfigurationKey.create(updatedOptions);
     }
 

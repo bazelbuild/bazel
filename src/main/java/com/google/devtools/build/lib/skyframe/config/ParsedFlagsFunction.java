@@ -41,7 +41,7 @@ import javax.annotation.Nullable;
  * --//custom/starlark:flag=foo}) into a {@link NativeAndStarlarkFlags} instance. This is intended
  * as preparation for using the flags to create or update a build configuration in Bazel.
  */
-public class ParsedFlagsFunction implements SkyFunction {
+public final class ParsedFlagsFunction implements SkyFunction {
   private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
 
   public ParsedFlagsFunction(ImmutableSet<Class<? extends FragmentOptions>> optionsClasses) {
@@ -93,18 +93,23 @@ public class ParsedFlagsFunction implements SkyFunction {
       flags.starlarkFlagDefaults(starlarkFlagParser.getDefaultValues());
     }
 
-    return ParsedFlagsValue.create(flags.build());
+    try {
+      return ParsedFlagsValue.parseAndCreate(flags.build());
+    } catch (OptionsParsingException e) {
+      throw new ParsedFlagsFunctionException(e);
+    }
   }
 
   /**
    * Lets {@link StarlarkOptionsParser} convert flag names to {@link Target}s through a Skyframe
    * {@link PackageValue} lookup.
    */
-  private static class SkyframeTargetLoader implements StarlarkOptionsParser.BuildSettingLoader {
+  private static final class SkyframeTargetLoader
+      implements StarlarkOptionsParser.BuildSettingLoader {
     private final Environment env;
     private final PackageContext packageContext;
 
-    public SkyframeTargetLoader(Environment env, PackageContext packageContext) {
+    SkyframeTargetLoader(Environment env, PackageContext packageContext) {
       this.env = env;
       this.packageContext = packageContext;
     }

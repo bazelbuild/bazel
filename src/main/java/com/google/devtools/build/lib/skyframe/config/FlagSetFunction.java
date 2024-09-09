@@ -29,7 +29,6 @@ import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -89,7 +88,7 @@ public final class FlagSetFunction implements SkyFunction {
     if (parsedFlags == null) {
       return null;
     }
-    return FlagSetValue.create(changeOptions(key.getTargetOptions(), parsedFlags));
+    return FlagSetValue.create(parsedFlags.mergeWith(key.getTargetOptions()));
   }
 
   /**
@@ -204,16 +203,6 @@ public final class FlagSetFunction implements SkyFunction {
         env.getValue(
             ParsedFlagsValue.Key.create(
                 ImmutableList.copyOf(flagsAsStarlarkList), mainRepoContext.rootPackage()));
-  }
-
-  /** Modifies input build options with the desired flag set and returns the result. */
-  private static BuildOptions changeOptions(BuildOptions fromOptions, ParsedFlagsValue parsedFlags)
-      throws FlagSetFunctionException {
-    try {
-      return parsedFlags.flags().mergeWith(fromOptions);
-    } catch (OptionsParsingException e) {
-      throw new FlagSetFunctionException(e, Transience.PERSISTENT);
-    }
   }
 
   private static final class FlagSetFunctionException extends SkyFunctionException {
