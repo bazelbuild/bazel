@@ -34,7 +34,9 @@ public final class CharacterEncodingInfoItem extends InfoItem {
       Supplier<BuildConfigurationValue> configurationSupplier, CommandEnvironment env) {
     return print(
         String.format(
-            "file.encoding = %s, defaultCharset = %s",
-            System.getProperty("file.encoding", "unknown"), Charset.defaultCharset().name()));
+            "file.encoding = %s, defaultCharset = %s, sun.jnu.encoding = %s",
+            System.getProperty("file.encoding", "unknown"),
+            Charset.defaultCharset().name(),
+            System.getProperty("sun.jnu.encoding", "unknown")));
   }
 }
