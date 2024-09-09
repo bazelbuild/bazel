@@ -47,6 +47,7 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
@@ -1155,7 +1156,8 @@ public class RemoteSpawnRunnerTest {
             tempPathGenerator,
             /* captureCorruptedOutputsDir= */ null,
             remoteOutputChecker,
-            mock(OutputService.class));
+            mock(OutputService.class),
+            Sets.newConcurrentHashSet());
     RemoteSpawnRunner runner =
         new RemoteSpawnRunner(
             execRoot,
@@ -1691,7 +1693,8 @@ public class RemoteSpawnRunnerTest {
                 tempPathGenerator,
                 /* captureCorruptedOutputsDir= */ null,
                 remoteOutputChecker,
-                mock(OutputService.class)));
+                mock(OutputService.class),
+                Sets.newConcurrentHashSet()));
 
     return new RemoteSpawnRunner(
         execRoot,

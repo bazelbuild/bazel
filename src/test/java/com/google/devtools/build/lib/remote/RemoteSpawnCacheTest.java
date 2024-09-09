@@ -41,6 +41,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionContext;
@@ -299,7 +300,8 @@ public class RemoteSpawnCacheTest {
                 tempPathGenerator,
                 /* captureCorruptedOutputsDir= */ null,
                 DUMMY_REMOTE_OUTPUT_CHECKER,
-                mock(OutputService.class)));
+                mock(OutputService.class),
+                Sets.newConcurrentHashSet()));
     return new RemoteSpawnCache(
         execRoot, options, /* verboseFailures= */ true, service, digestUtil);
   }
