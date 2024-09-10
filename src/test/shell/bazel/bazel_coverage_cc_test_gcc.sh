@@ -109,7 +109,8 @@ end_of_record"
 
   # Verify that this is also true for cached coverage actions.
   bazel coverage  --test_output=all \
-      --build_event_text_file="${BEP}" //:t \
+      --build_event_text_file="${BEP}" \
+      --legacy_important_outputs //:t \
       &>"$TEST_log" || fail "Coverage for //:t failed"
   expect_log '//:t.*cached'
   # Verify the files are reported correctly in the build event protocol.
