@@ -91,6 +91,7 @@ public final class ActionOutputDirectoryHelper {
       if (done.add(outputDir)) {
         try {
           outputDir.createDirectoryAndParents();
+          outputDir.setWritable(true);
           continue;
         } catch (IOException e) {
           /* Fall through to plan B. */
