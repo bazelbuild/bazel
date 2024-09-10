@@ -43,6 +43,7 @@ import io.grpc.Channel;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.List;
 import java.util.Map;
@@ -83,6 +84,9 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   // delimit the qualifier prefix which denotes an HTTP header qualifer from the
   // header name itself.
   private static final String QUALIFIER_HTTP_HEADER_PREFIX = "http_header:";
+  // Same as HTTP_HEADER_PREFIX, but only apply for a specific URL.
+  // The index starts from 0 and corresponds to the URL index in the request.
+  private static final String QUALIFIER_HTTP_HEADER_URL_PREFIX = "http_header_url:";
 
   public GrpcRemoteDownloader(
       String buildRequestId,
@@ -135,7 +139,14 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
 
     final FetchBlobRequest request =
         newFetchBlobRequest(
-            options.remoteInstanceName, urls, checksum, canonicalId, digestFunction, headers);
+            options.remoteInstanceName,
+            options.remoteDownloaderPropagateCredentials,
+            urls,
+            checksum,
+            canonicalId,
+            digestFunction,
+            headers,
+            credentials);
     try {
       FetchBlobResponse response =
           retrier.execute(
@@ -180,17 +191,40 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   @VisibleForTesting
   static FetchBlobRequest newFetchBlobRequest(
       String instanceName,
+      boolean remoteDownloaderPropagateCredentials,
       List<URL> urls,
       Optional<Checksum> checksum,
       String canonicalId,
       DigestFunction.Value digestFunction,
-      Map<String, List<String>> headers) {
+      Map<String, List<String>> headers,
+      Credentials credentials)
+      throws IOException {
     FetchBlobRequest.Builder requestBuilder =
         FetchBlobRequest.newBuilder()
             .setInstanceName(instanceName)
             .setDigestFunction(digestFunction);
-    for (URL url : urls) {
+    for (int i = 0; i < urls.size(); i++) {
+      var url = urls.get(i);
       requestBuilder.addUris(url.toString());
+
+      if (!remoteDownloaderPropagateCredentials) {
+        continue;
+      }
+
+      try {
+        var metadata = credentials.getRequestMetadata(url.toURI());
+        for (var entry : metadata.entrySet()) {
+          for (var value : entry.getValue()) {
+            requestBuilder.addQualifiers(
+                Qualifier.newBuilder()
+                    .setName(QUALIFIER_HTTP_HEADER_URL_PREFIX + i + ":" + entry.getKey())
+                    .setValue(value)
+                    .build());
+          }
+        }
+      } catch (URISyntaxException e) {
+        throw new IOException(e);
+      }
     }
 
     if (checksum.isPresent()) {
