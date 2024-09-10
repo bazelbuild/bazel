@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.ProjectEvaluationResult;
 import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper.DisplayMode;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -207,6 +208,9 @@ public class BuildTool {
 
       initializeOutputFilter(request);
 
+      // TODO: b/365667094: consider converging Skymeld and non-Skymeld code path as much as
+      // possible, so that it's simpler to incorporate features common to both paths without
+      // threading too much state into the respective analysis runners.
       if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
         // Skymeld is useful only for commands that perform execution.
         buildTargetsWithMergedAnalysisExecution(request, result, validator, buildOptions);
@@ -271,7 +275,9 @@ public class BuildTool {
         }
 
         if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor) {
-          serializeFrontier(request.getOptions(RemoteAnalysisCachingOptions.class));
+          serializeFrontier(
+              request.getOptions(RemoteAnalysisCachingOptions.class),
+              analysisResult.getActiveDirectoriesMatcher());
         }
 
         // Only consider builds with SequencedSkyframeExecutor.
@@ -363,7 +369,7 @@ public class BuildTool {
     }
     env.setWorkspaceName(loadingResult.getWorkspaceName());
 
-    BuildOptions postFlagSetsBuildOptions =
+    ProjectEvaluationResult projectEvaluationResult =
         evaluateProjectFile(request, buildOptionsBeforeFlagSets, loadingResult, env);
 
     // See https://github.com/bazelbuild/rules_nodejs/issues/3693.
@@ -383,7 +389,7 @@ public class BuildTool {
           AnalysisAndExecutionPhaseRunner.execute(
               env,
               request,
-              postFlagSetsBuildOptions,
+              projectEvaluationResult.buildOptions(),
               loadingResult,
               () -> executionTool.prepareForExecution(executionTimer),
               result::setBuildConfiguration,
@@ -404,7 +410,8 @@ public class BuildTool {
                       .getTestActionContext()
                       .forceExclusiveIfLocalTestsInParallel();
                 }
-              });
+              },
+              projectEvaluationResult.activeDirectoriesMatcher());
       buildCompleted = true;
 
       // This value is null when there's no analysis.
@@ -764,11 +771,19 @@ public class BuildTool {
     return result;
   }
 
-  private void serializeFrontier(@Nullable RemoteAnalysisCachingOptions options)
+  private void serializeFrontier(
+      @Nullable RemoteAnalysisCachingOptions options,
+      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
       throws InterruptedException, AbruptExitException {
     if (options == null || Strings.isNullOrEmpty(options.serializedFrontierProfile)) {
       return;
     }
+
+    // TODO: b/353233779 - consider falling back on full serialization when there is
+    // no project matcher.
+    Preconditions.checkState(
+        activeDirectoriesMatcher.isPresent(),
+        "the PROJECT.scl active_directories matcher is missing, was it initialized correctly?");
 
     Optional<FailureDetail> maybeFailureDetail =
         FrontierSerializer.dumpFrontierSerializationProfile(
@@ -776,9 +791,7 @@ public class BuildTool {
             env.getSkyframeBuildView().getArtifactFactory(),
             env.getRuntime().getRuleClassProvider(),
             env.getSkyframeExecutor(),
-            // TODO: b/353233779 - consider falling back on full serialization when there is
-            // no project matcher.
-            env.getRuntime().getActiveDirectoriesPrefixTrie(),
+            activeDirectoriesMatcher.get(),
             env.getReporter(),
             options.serializedFrontierProfile);
 

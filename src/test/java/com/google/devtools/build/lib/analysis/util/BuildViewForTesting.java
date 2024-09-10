@@ -251,7 +251,8 @@ public class BuildViewForTesting {
         /* executionSetupCallback= */ null,
         /* buildConfigurationsCreatedCallback= */ null,
         /* buildDriverKeyTestContext= */ null,
-        /* additionalConfigurationChangeEvent= */ Optional.empty());
+        /* additionalConfigurationChangeEvent= */ Optional.empty(),
+        /* activeDirectoriesMatcher= */ Optional.empty());
   }
 
   /** Sets the configuration. Not thread-safe. */

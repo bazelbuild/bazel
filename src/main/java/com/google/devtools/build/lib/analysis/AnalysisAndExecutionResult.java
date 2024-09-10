@@ -18,10 +18,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import java.util.Collection;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -46,7 +48,8 @@ public final class AnalysisAndExecutionResult extends AnalysisResult {
       ImmutableSet<ConfiguredTarget> exclusiveIfLocalTests,
       TopLevelArtifactContext topLevelContext,
       String workspaceName,
-      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
+      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs,
+      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher) {
     super(
         configuration,
         targetsToBuild,
@@ -62,7 +65,8 @@ public final class AnalysisAndExecutionResult extends AnalysisResult {
         topLevelContext,
         /* packageRoots= */ null,
         workspaceName,
-        topLevelTargetsWithConfigs);
+        topLevelTargetsWithConfigs,
+        activeDirectoriesMatcher);
     this.executionDetailedExitCode = executionDetailedExitCode;
   }
 

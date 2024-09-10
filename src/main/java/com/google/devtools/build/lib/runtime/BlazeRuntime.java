@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.buildtool.CommandPrecompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ProfilerStartedEvent;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
@@ -199,8 +198,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   @Nullable // not all environments provide this
   private Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier;
-  @Nullable // only present with PROJECT.scl
-  private PathFragmentPrefixTrie activeDirectoriesPrefixTrie;
   private final InstrumentationOutputFactory instrumentationOutputFactory;
 
   private BlazeRuntime(
@@ -558,15 +555,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
   public ImmutableMap<String, InfoItem> getInfoItems() {
     return infoItems;
-  }
-
-  public void setActiveDirectoriesPrefixTrie(PathFragmentPrefixTrie trie) {
-    this.activeDirectoriesPrefixTrie = trie;
-  }
-
-  @Nullable
-  public PathFragmentPrefixTrie getActiveDirectoriesPrefixTrie() {
-    return activeDirectoriesPrefixTrie;
   }
 
   public Iterable<BlazeModule> getBlazeModules() {
