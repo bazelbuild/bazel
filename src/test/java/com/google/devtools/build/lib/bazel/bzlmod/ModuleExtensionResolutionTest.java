@@ -3100,21 +3100,21 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     }
     assertThat((List<?>) result.get(skyKey).getModule().getGlobal("foo_list"))
         .containsExactly(
-            "@@+ext+foo//:target1",
-            "@@+ext+bar//:target2",
-            "@@+other_ext+other_foo//:target3",
-            "@@+other_ext+other_bar//:target4",
-            "@@+other_ext+other_foo//:foo",
-            "@@+other_ext+other_bar//:bar")
+            "@@_main~ext~foo//:target1",
+            "@@_main~ext~bar//:target2",
+            "@@_main~other_ext~other_foo//:target3",
+            "@@_main~other_ext~other_bar//:target4",
+            "@@_main~other_ext~other_foo//:foo",
+            "@@_main~other_ext~other_bar//:bar")
         .inOrder();
     assertThat((List<?>) result.get(skyKey).getModule().getGlobal("bar_list"))
         .containsExactly(
-            "@@+ext+foo//:target5",
-            "@@+ext+bar//:target6",
-            "@@+other_ext+other_foo//:target7",
-            "@@+other_ext+other_bar//:target8",
-            "@@+other_ext+other_foo//:foo",
-            "@@+other_ext+other_bar//:bar")
+            "@@_main~ext~foo//:target5",
+            "@@_main~ext~bar//:target6",
+            "@@_main~other_ext~other_foo//:target7",
+            "@@_main~other_ext~other_bar//:target8",
+            "@@_main~other_ext~other_foo//:foo",
+            "@@_main~other_ext~other_bar//:bar")
         .inOrder();
   }
 }
