@@ -190,9 +190,10 @@ public final class FunctionTransitionUtil {
     //  1: --trim_test_configuration means the flags may not exist. Starlark logic needs to handle
     //     that possibility.
     //  2: --runs_per_test has a non-Starlark readable type.
-    if (fromOptions.contains(TestOptions.class)) {
+    var testOptions = fromOptions.get(TestOptions.class);
+    if (testOptions != null) {
       defaultBuilder.removeFragmentOptions(TestOptions.class);
-      defaultBuilder.addFragmentOptions(fromOptions.get(TestOptions.class));
+      defaultBuilder.addFragmentOptions(testOptions);
     }
     BuildOptions ans = defaultBuilder.build();
     if (fromOptions.get(CoreOptions.class).excludeDefinesFromExecConfig) {

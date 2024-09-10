@@ -101,11 +101,12 @@ public final class BuildConfigurationKeyProducer<C>
     }
 
     // Short-circuit if there are no platform options.
-    if (!options.contains(PlatformOptions.class)) {
+    var platformOptions = options.get(PlatformOptions.class);
+    if (platformOptions == null) {
       return finishConfigurationKeyProcessing(BuildConfigurationKey.create(options));
     }
 
-    List<Label> targetPlatforms = options.get(PlatformOptions.class).platforms;
+    List<Label> targetPlatforms = platformOptions.platforms;
     if (targetPlatforms.size() == 1) {
       // TODO: https://github.com/bazelbuild/bazel/issues/19807 - We define this flag to only use
       //  the first value and ignore any subsequent ones. Remove this check as part of cleanup.
@@ -113,7 +114,7 @@ public final class BuildConfigurationKeyProducer<C>
           new PlatformProducer(targetPlatforms.getFirst(), this, this::checkTargetPlatformFlags));
       return runAfter;
     } else {
-      return mergeFromPlatformMapping(tasks);
+      return mergeFromPlatformMapping(tasks, platformOptions);
     }
   }
 
@@ -126,12 +127,12 @@ public final class BuildConfigurationKeyProducer<C>
       BuildOptions updatedOptions = parsedFlags.get().mergeWith(options);
       return finishConfigurationKeyProcessing(BuildConfigurationKey.create(updatedOptions));
     } else {
-      return mergeFromPlatformMapping(tasks);
+      return mergeFromPlatformMapping(tasks, options.get(PlatformOptions.class));
     }
   }
 
-  private StateMachine mergeFromPlatformMapping(Tasks tasks) {
-    PathFragment platformMappingsPath = options.get(PlatformOptions.class).platformMappings;
+  private StateMachine mergeFromPlatformMapping(Tasks tasks, PlatformOptions platformOptions) {
+    PathFragment platformMappingsPath = platformOptions.platformMappings;
     tasks.lookUp(
         PlatformMappingValue.Key.create(platformMappingsPath),
         PlatformMappingException.class,

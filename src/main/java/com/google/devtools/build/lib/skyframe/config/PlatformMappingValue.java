@@ -201,20 +201,20 @@ public final class PlatformMappingValue implements SkyValue {
   }
 
   private BuildOptions computeMapping(BuildOptions originalOptions) throws OptionsParsingException {
-
     if (originalOptions.hasNoConfig()) {
       // The empty configuration (produced by NoConfigTransition) is terminal: it'll never change.
       return originalOptions;
     }
 
+    var platformOptions = originalOptions.get(PlatformOptions.class);
     checkArgument(
-        originalOptions.contains(PlatformOptions.class),
+        platformOptions != null,
         "When using platform mappings, all configurations must contain platform options");
 
     BuildOptions modifiedOptions = null;
 
-    if (!originalOptions.get(PlatformOptions.class).platforms.isEmpty()) {
-      List<Label> platforms = originalOptions.get(PlatformOptions.class).platforms;
+    if (!platformOptions.platforms.isEmpty()) {
+      List<Label> platforms = platformOptions.platforms;
 
       // Platform mapping only supports a single target platform, others are ignored.
       Label targetPlatform = Iterables.getFirst(platforms, null);
@@ -240,7 +240,7 @@ public final class PlatformMappingValue implements SkyValue {
       }
 
       if (!mappingFound) {
-        Label targetPlatform = originalOptions.get(PlatformOptions.class).computeTargetPlatform();
+        Label targetPlatform = platformOptions.computeTargetPlatform();
         modifiedOptions = originalOptions.clone();
         modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(targetPlatform);
       }

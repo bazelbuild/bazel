@@ -14,7 +14,6 @@
 
 package com.google.devtools.build.lib.analysis.config;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.skyframe.serialization.ImmutableMapCodecs.IMMUTABLE_MAP_CODEC;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
@@ -125,10 +124,13 @@ public final class BuildOptions implements Cloneable {
     return builder().addStarlarkOptions(starlarkOptions).build();
   }
 
-  /** Returns the actual instance of a FragmentOptions class. */
+  /**
+   * Returns the actual instance of a {@link FragmentOptions} class, or {@code null} if the options
+   * class is not present.
+   */
+  @Nullable
   public <T extends FragmentOptions> T get(Class<T> optionsClass) {
     FragmentOptions options = fragmentOptionsMap.get(optionsClass);
-    checkNotNull(options, "fragment options unavailable: %s", optionsClass);
     return optionsClass.cast(options);
   }
 

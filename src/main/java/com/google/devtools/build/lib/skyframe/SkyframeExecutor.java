@@ -3124,8 +3124,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         return;
       }
       BuildOptions options = t.getConfigurationKey().getOptions();
-      if (!options.contains(GenQueryOptions.class)
-          || !options.get(GenQueryOptions.class).skipTtvs) {
+      var genQueryOptions = options.get(GenQueryOptions.class);
+      if (genQueryOptions == null || !genQueryOptions.skipTtvs) {
         return;
       }
       for (SkyKey key : directDeps.getAllElementsAsIterable()) {

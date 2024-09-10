@@ -115,7 +115,6 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
     assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
         .isEqualTo("from_cmd");
   }
@@ -159,7 +158,6 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
     assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
         .isEqualTo("from_mapping_changed");
   }
@@ -213,7 +211,6 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
     assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
         .isEqualTo("from_platform");
   }
@@ -237,7 +234,6 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
     assertThat(result.getOptions().get(DummyTestOptions.class).option).isEqualTo("from_platform");
   }
 
@@ -262,7 +258,6 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
     assertThat(result.getOptions().get(DummyTestOptions.class).accumulating)
         .containsExactly("from_cli", "from_platform")
         .inOrder();
@@ -324,7 +319,6 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
     assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
         .isEqualTo("from_platform");
   }

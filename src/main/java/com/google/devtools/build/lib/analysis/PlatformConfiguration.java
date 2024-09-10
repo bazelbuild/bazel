@@ -39,9 +39,11 @@ public class PlatformConfiguration extends Fragment implements PlatformConfigura
   private final List<Map.Entry<RegexFilter, List<Label>>> targetFilterToAdditionalExecConstraints;
   private final RegexFilter toolchainResolutionDebugRegexFilter;
 
-  public PlatformConfiguration(BuildOptions buildOptions) {
-    PlatformOptions platformOptions = buildOptions.get(PlatformOptions.class);
+  public PlatformConfiguration(BuildOptions options) {
+    this(options.get(PlatformOptions.class));
+  }
 
+  public PlatformConfiguration(PlatformOptions platformOptions) {
     this.hostPlatform = platformOptions.hostPlatform;
     this.extraExecutionPlatforms = ImmutableList.copyOf(platformOptions.extraExecutionPlatforms);
     this.targetPlatform = platformOptions.computeTargetPlatform();

@@ -255,15 +255,11 @@ public class BuildConfigurationValue
     this.buildOptions = buildOptions;
     this.mnemonic = mnemonic;
     this.options = buildOptions.get(CoreOptions.class);
-    PlatformOptions platformOptions = null;
-    if (buildOptions.contains(PlatformOptions.class)) {
-      platformOptions = buildOptions.get(PlatformOptions.class);
-    }
     this.outputDirectories =
         new OutputDirectories(
             directories,
             options,
-            platformOptions,
+            buildOptions.get(PlatformOptions.class),
             mnemonic,
             workspaceName,
             siblingRepositoryLayout);
