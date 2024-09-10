@@ -159,7 +159,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     return createAttribute(type, doc, arguments, thread, name).buildPartial();
   }
 
-  @SuppressWarnings("unchecked")
+  @SuppressWarnings({"rawtypes", "unchecked"})
   private static Attribute.Builder<?> createAttribute(
       Type<?> type,
       Optional<String> doc,
@@ -171,7 +171,43 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
     doc.map(Starlark::trimDocString).ifPresent(builder::setDoc);
 
     Object defaultValue = arguments.get(DEFAULT_ARG);
-    if (!Starlark.isNullOrNone(defaultValue)) {
+    Object materializer = arguments.get(MATERIALIZER_ARG);
+    boolean isMandatory =
+        containsNonNoneKey(arguments, MANDATORY_ARG) && (Boolean) arguments.get(MANDATORY_ARG);
+    boolean configurableParamSet =
+        containsNonNoneKey(arguments, CONFIGURABLE_ARG)
+            && arguments.get(CONFIGURABLE_ARG) != Starlark.UNBOUND;
+
+    if (!Starlark.isNullOrNone(materializer)) {
+      if (!(materializer instanceof StarlarkFunction)) {
+        throw Starlark.errorf(
+            "Expected a function in 'materializer' parameter, got '%s'",
+            Starlark.type(materializer));
+      }
+
+      // defaultValue.equals(type.getDefaultValue()) doesn't work because defaultValue is
+      // a StarlarkImmutableList whose equality checks if the other object is also a
+      // StarlarkImmutableList. Using Objects.equal() would be brittle because that would rely on
+      // it doing the equality check the right way.
+      if ((type.getDefaultValue() == null && defaultValue != null)
+          || (type.getDefaultValue() != null && !type.getDefaultValue().equals(defaultValue))) {
+        throw Starlark.errorf("The 'materializer' and 'default' parameters are incompatible");
+      }
+
+      if (isMandatory) {
+        throw Starlark.errorf("The 'materializer' and 'mandatory' parameters are incompatible");
+      }
+
+      if (configurableParamSet) {
+        throw Starlark.errorf("The 'materializer' and 'configurable' parameters are incompatible");
+      }
+
+      // This method doesn't have a type parameter so we can't supply one to
+      // StarlarkMaterializingLateBoundDefault, either.
+      builder.value(
+          new StarlarkMaterializingLateBoundDefault(
+              type, thread.getSemantics(), (StarlarkFunction) materializer));
+    } else if (!Starlark.isNullOrNone(defaultValue)) {
       if (defaultValue instanceof StarlarkFunction) {
         // Computed attribute. Non label type attributes already caused a type check error.
         StarlarkCallbackHelper callback =
@@ -202,18 +238,16 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       }
     }
 
-    if (containsNonNoneKey(arguments, MANDATORY_ARG) && (Boolean) arguments.get(MANDATORY_ARG)) {
+    if (isMandatory) {
       builder.setPropertyFlag("MANDATORY");
     }
 
-    if (containsNonNoneKey(arguments, CONFIGURABLE_ARG)) {
-      if (arguments.get(CONFIGURABLE_ARG) != Starlark.UNBOUND) {
-        builder.configurableAttrWasUserSet();
-        if (!((Boolean) arguments.get(CONFIGURABLE_ARG))) {
-          // output, output_list, and license type attributes don't support the configurable= arg,
-          // so no need to worry about calling nonconfigurable() twice.
-          builder.nonconfigurable("This attribute was marked as nonconfigurable");
-        }
+    if (configurableParamSet) {
+      builder.configurableAttrWasUserSet();
+      if (!((Boolean) arguments.get(CONFIGURABLE_ARG))) {
+        // output, output_list, and license type attributes don't support the configurable= arg,
+        // so no need to worry about calling nonconfigurable() twice.
+        builder.nonconfigurable("This attribute was marked as nonconfigurable");
       }
     }
 
@@ -288,6 +322,11 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       if (isSplit && defaultValue instanceof StarlarkLateBoundDefault) {
         throw Starlark.errorf(
             "late-bound attributes must not have a split configuration transition");
+      }
+
+      if (isSplit && defaultValue instanceof StarlarkMaterializingLateBoundDefault<?>) {
+        throw Starlark.errorf(
+            "materializing attributes must not have a split configuration transition");
       }
 
       // Check if this transition includes an analysis test or a Starlark transition.
@@ -558,6 +597,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   public Descriptor labelAttribute(
       Object configurable,
       Object defaultValue, // Label | String | LateBoundDefaultApi | StarlarkFunction
+      Object materializer,
       Object doc,
       Boolean executable,
       Object allowFiles,
@@ -582,6 +622,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
                 configurable,
                 DEFAULT_ARG,
                 defaultValue,
+                MATERIALIZER_ARG,
+                materializer,
                 EXECUTABLE_ARG,
                 executable,
                 ALLOW_FILES_ARG,
@@ -664,6 +706,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Boolean allowEmpty,
       Object configurable,
       Object defaultValue, // Sequence | StarlarkFunction
+      Object materializer,
       Object doc,
       Object allowFiles,
       Object allowRules,
@@ -682,6 +725,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             configurable,
             DEFAULT_ARG,
             defaultValue,
+            MATERIALIZER_ARG,
+            materializer,
             ALLOW_FILES_ARG,
             allowFiles,
             ALLOW_RULES_ARG,

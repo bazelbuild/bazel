@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.syntax.Location;
 
 /**
@@ -94,7 +95,7 @@ public final class DependencyResolutionHelpers {
       ImmutableMap<Label, ConfigMatchingProvider> configConditions,
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts)
-      throws Failure {
+      throws Failure, InterruptedException {
     Target target = node.getTarget();
     BuildConfigurationValue config = node.getConfiguration();
     OrderedSetMultimap<DependencyKind, Label> outgoingLabels = OrderedSetMultimap.create();
@@ -254,7 +255,7 @@ public final class DependencyResolutionHelpers {
       @Nullable ToolchainCollection<ToolchainContext> toolchainContexts,
       @Nullable ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts,
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels)
-      throws Failure {
+      throws Failure, InterruptedException {
     Preconditions.checkArgument(node.getTarget() instanceof Rule, node);
     BuildConfigurationValue ruleConfig = Preconditions.checkNotNull(node.getConfiguration(), node);
     Rule rule = (Rule) node.getTarget();
@@ -355,7 +356,8 @@ public final class DependencyResolutionHelpers {
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
       Rule rule,
       ConfiguredAttributeMapper attributeMap,
-      BuildConfigurationValue ruleConfig) {
+      BuildConfigurationValue ruleConfig)
+      throws InterruptedException {
     for (AttributeDependencyKind dependencyKind : attributeDependencyKinds) {
       Attribute attribute = dependencyKind.getAttribute();
       // Not only is resolving CONFIG_SETTING_DEPS_ATTRIBUTE deps here wasteful, since the only
@@ -394,7 +396,8 @@ public final class DependencyResolutionHelpers {
       OrderedSetMultimap<DependencyKind, Label> outgoingLabels,
       Rule rule,
       ConfiguredAttributeMapper attributeMap,
-      BuildConfigurationValue ruleConfig) {
+      BuildConfigurationValue ruleConfig)
+      throws InterruptedException {
     T attributeValue = null;
     if (attribute.isImplicit()) {
       // Since the attributes that come from aspects do not appear in attributeMap, we have to get
@@ -434,32 +437,43 @@ public final class DependencyResolutionHelpers {
   @Nullable
   @VisibleForTesting(/* used to test LateBoundDefaults' default values */ )
   static <FragmentT> Object resolveLateBoundDefault(
-      Rule rule,
-      AttributeMap attributeMap,
-      Attribute attribute,
-      BuildConfigurationValue ruleConfig) {
+      Rule rule, AttributeMap attributeMap, Attribute attribute, BuildConfigurationValue ruleConfig)
+      throws InterruptedException {
     Preconditions.checkState(!attribute.getTransitionFactory().isSplit());
     @SuppressWarnings("unchecked")
     LateBoundDefault<FragmentT, ?> lateBoundDefault =
         (LateBoundDefault<FragmentT, ?>) attribute.getLateBoundDefault();
 
     Class<FragmentT> fragmentClass = lateBoundDefault.getFragmentClass();
-    // TODO(b/65746853): remove this when nothing uses it anymore
-    if (BuildConfigurationValue.class.equals(fragmentClass)
-        // noconfig targets can't meaningfully parse late-bound defaults. See NoConfigTransition.
-        && !ruleConfig.getOptions().hasNoConfig()) {
-      return lateBoundDefault.resolve(rule, attributeMap, fragmentClass.cast(ruleConfig));
+    try {
+      // TODO(b/65746853): remove this when nothing uses it anymore
+      if (BuildConfigurationValue.class.equals(fragmentClass)
+          // noconfig targets can't meaningfully parse late-bound defaults. See NoConfigTransition.
+          && !ruleConfig.getOptions().hasNoConfig()) {
+        return lateBoundDefault.resolve(
+            rule,
+            attributeMap,
+            fragmentClass.cast(ruleConfig),
+            /* ctx= */ null,
+            /* eventHandler= */ null);
+      }
+      if (Void.class.equals(fragmentClass)) {
+        return lateBoundDefault.resolve(
+            rule, attributeMap, /* input= */ null, /* ctx= */ null, /* eventHandler= */ null);
+      }
+      @SuppressWarnings("unchecked")
+      FragmentT fragment =
+          fragmentClass.cast(ruleConfig.getFragment((Class<? extends Fragment>) fragmentClass));
+      if (fragment == null) {
+        return null;
+      }
+      return lateBoundDefault.resolve(
+          rule, attributeMap, fragment, /* ctx= */ null, /* eventHandler= */ null);
+    } catch (EvalException e) {
+      // Materializers should not be called here and those are the only kind of late-bound defaults
+      // that can throw these exceptions.
+      throw new IllegalStateException(e);
     }
-    if (Void.class.equals(fragmentClass)) {
-      return lateBoundDefault.resolve(rule, attributeMap, null);
-    }
-    @SuppressWarnings("unchecked")
-    FragmentT fragment =
-        fragmentClass.cast(ruleConfig.getFragment((Class<? extends Fragment>) fragmentClass));
-    if (fragment == null) {
-      return null;
-    }
-    return lateBoundDefault.resolve(rule, attributeMap, fragment);
   }
 
   /**

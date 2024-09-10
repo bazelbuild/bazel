@@ -127,9 +127,6 @@ public class DormantDependencyTest extends AnalysisTestCase {
           print("dormant label list is " + str(ctx.attr.dormant_list[0].label()))
           return [DefaultInfo()]
 
-        def obb(a):
-          fail("wat")
-
         r = rule(
           implementation = _r_impl,
           attrs = {
@@ -149,5 +146,158 @@ public class DormantDependencyTest extends AnalysisTestCase {
     update("//dormant:r");
     assertContainsEvent("dormant label is @@//dormant:a");
     assertContainsEvent("dormant label list is @@//dormant:b");
+  }
+
+  @Test
+  public void testExistenceOfMaterializerParameter() throws Exception {
+    scratch.file(
+        "dormant/dormant.bzl",
+        """
+        def _r_impl(ctx):
+          return [DefaultInfo()]
+
+        def _label_materializer(*args, **kwargs):
+          return None
+
+        def _list_materializer(*args, **kwargs):
+          return []
+
+        r = rule(
+          implementation = _r_impl,
+          attrs = {
+            "_materialized": attr.label(materializer=_label_materializer),
+            "_materialized_list": attr.label_list(materializer=_list_materializer),
+          })""");
+
+    scratch.file(
+        "dormant/BUILD",
+        """
+        load(":dormant.bzl", "r")
+        r(name="r")""");
+
+    update("//dormant:r");
+  }
+
+  @Test
+  public void testMaterializedOnNonHiddenAttribute() throws Exception {
+    scratch.file(
+        "dormant/dormant.bzl",
+        """
+        def _r_impl(ctx):
+          return [DefaultInfo()]
+
+        def _label_materializer(*args, **kwargs):
+          return None
+
+        r = rule(
+          implementation = _r_impl,
+          attrs = {
+            "materialized": attr.label(materializer=_label_materializer),
+          })""");
+
+    scratch.file(
+        "dormant/BUILD",
+        """
+        load(":dormant.bzl", "r")
+        r(name="r")""");
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(TargetParsingException.class, () -> update("//dormant:r"));
+    assertContainsEvent("attribute must be private");
+  }
+
+  @Test
+  public void testMaterializerAndDefaultAreIncompatible() throws Exception {
+    scratch.file(
+        "dormant/dormant.bzl",
+        """
+        def _r_impl(ctx):
+          return [DefaultInfo()]
+
+        def _label_materializer(*args, **kwargs):
+          return None
+
+        def _list_materializer(*args, **kwargs):
+          return []
+
+        r = rule(
+          implementation = _r_impl,
+          attrs = {
+            "_materialized": attr.label(
+                materializer=_label_materializer,
+                default=Label("//dormant:default")),
+          })""");
+
+    scratch.file(
+        "dormant/BUILD",
+        """
+        load(":dormant.bzl", "r")
+        r(name="r")""");
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(TargetParsingException.class, () -> update("//dormant:r"));
+    assertContainsEvent("parameters are incompatible");
+  }
+
+  @Test
+  public void testMaterializerAndMandatoryAreIncompatible() throws Exception {
+    scratch.file(
+        "dormant/dormant.bzl",
+        """
+        def _r_impl(ctx):
+          return [DefaultInfo()]
+
+        def _label_materializer(*args, **kwargs):
+          return None
+
+        def _list_materializer(*args, **kwargs):
+          return []
+
+        r = rule(
+          implementation = _r_impl,
+          attrs = {
+            "_materialized": attr.label(materializer=_label_materializer, mandatory=True),
+          })""");
+
+    scratch.file(
+        "dormant/BUILD",
+        """
+        load(":dormant.bzl", "r")
+        r(name="r")""");
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(TargetParsingException.class, () -> update("//dormant:r"));
+    assertContainsEvent("parameters are incompatible");
+  }
+
+  @Test
+  public void testMaterializerAndConfigurableAreIncompatible() throws Exception {
+    scratch.file(
+        "dormant/dormant.bzl",
+        """
+        def _r_impl(ctx):
+          return [DefaultInfo()]
+
+        def _label_materializer(*args, **kwargs):
+          return None
+
+        def _list_materializer(*args, **kwargs):
+          return []
+
+        r = rule(
+          implementation = _r_impl,
+          attrs = {
+            "_materialized": attr.label(materializer=_label_materializer, configurable=True),
+          })""");
+
+    scratch.file(
+        "dormant/BUILD",
+        """
+        load(":dormant.bzl", "r")
+        r(name="r")""");
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(TargetParsingException.class, () -> update("//dormant:r"));
+    assertContainsEvent("parameters are incompatible");
   }
 }
