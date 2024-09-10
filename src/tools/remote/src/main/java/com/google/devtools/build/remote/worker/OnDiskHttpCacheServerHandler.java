@@ -22,6 +22,7 @@ import com.google.devtools.build.remote.worker.http.AbstractHttpCacheServerHandl
 import io.netty.channel.ChannelHandler.Sharable;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -51,6 +52,8 @@ public class OnDiskHttpCacheServerHandler extends AbstractHttpCacheServerHandler
         var in = path.getInputStream()) {
       ByteStreams.copy(in, out);
       return out.toByteArray();
+    } catch (FileNotFoundException e) {
+      return null;
     }
   }
 

@@ -54,6 +54,7 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
@@ -2514,7 +2515,8 @@ public class RemoteExecutionServiceTest {
         tempPathGenerator,
         null,
         remoteOutputChecker,
-        outputService);
+        outputService,
+        Sets.newConcurrentHashSet());
   }
 
   private RunfilesSupplier createRunfilesSupplier(String root, Collection<Artifact> artifacts) {
