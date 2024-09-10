@@ -56,7 +56,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 /**
- * Implements frontier serialization with pprof dumping using {@code --serialized_frontier_profile}.
+ * Implements frontier serialization with pprof dumping using {@code
+ * --experimental_remote_analysis_cache_mode=upload}.
  */
 public final class FrontierSerializer {
 
@@ -68,13 +69,13 @@ public final class FrontierSerializer {
    *
    * @return empty if successful, otherwise a result containing the appropriate error
    */
-  public static Optional<FailureDetail> dumpFrontierSerializationProfile(
+  public static Optional<FailureDetail> serializeAndUploadFrontier(
       Supplier<ObjectCodecs> codecsSupplier,
       SkyframeExecutor skyframeExecutor,
       PathFragmentPrefixTrie matcher,
       FingerprintValueService fingerprintValueService,
       Reporter reporter,
-      String path)
+      String profilePath)
       throws InterruptedException {
     // Starts initializing ObjectCodecs in a background thread as it can take some time.
     var futureCodecs = new FutureTask<>(codecsSupplier::get);
@@ -156,11 +157,11 @@ public final class FrontierSerializer {
     reporter.handle(
         Event.info(String.format("Waiting for write futures took an additional %s\n", stopwatch)));
 
-    if (path.isEmpty()) {
+    if (profilePath.isEmpty()) {
       return Optional.empty();
     }
 
-    try (var fileOutput = new FileOutputStream(path);
+    try (var fileOutput = new FileOutputStream(profilePath);
         var bufferedOutput = new BufferedOutputStream(fileOutput)) {
       profileCollector.toProto().writeTo(bufferedOutput);
     } catch (IOException e) {

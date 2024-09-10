@@ -275,27 +275,29 @@ public class BuildTool {
               delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
         }
 
+        // Only run these post-build steps for builds with SequencedSkyframeExecutor.
         if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor) {
-          serializeFrontier(
-              request.getOptions(RemoteAnalysisCachingOptions.class),
-              analysisResult.getActiveDirectoriesMatcher());
-        }
+          try (SilentCloseable closeable =
+              Profiler.instance().profile("serializeAndUploadFrontier")) {
+            serializeFrontier(
+                request.getOptions(RemoteAnalysisCachingOptions.class),
+                analysisResult.getActiveDirectoriesMatcher());
+          }
 
-        // Only consider builds with SequencedSkyframeExecutor.
-        if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor
-            && request.getBuildOptions().aqueryDumpAfterBuildFormat != null) {
-          try (SilentCloseable c = Profiler.instance().profile("postExecutionDumpSkyframe")) {
-            dumpSkyframeStateAfterBuild(
-                request.getOptions(BuildEventProtocolOptions.class),
-                request.getBuildOptions().aqueryDumpAfterBuildFormat,
-                request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
-          } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
-            throw new PostExecutionDumpException(e);
-          } catch (InvalidAqueryOutputFormatException e) {
-            throw new PostExecutionDumpException(
-                "--skyframe_state must be used with "
-                    + "--output=proto|streamed_proto|textproto|jsonproto.",
-                e);
+          if (request.getBuildOptions().aqueryDumpAfterBuildFormat != null) {
+            try (SilentCloseable c = Profiler.instance().profile("postExecutionDumpSkyframe")) {
+              dumpSkyframeStateAfterBuild(
+                  request.getOptions(BuildEventProtocolOptions.class),
+                  request.getBuildOptions().aqueryDumpAfterBuildFormat,
+                  request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
+            } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
+              throw new PostExecutionDumpException(e);
+            } catch (InvalidAqueryOutputFormatException e) {
+              throw new PostExecutionDumpException(
+                  "--skyframe_state must be used with "
+                      + "--output=proto|streamed_proto|textproto|jsonproto.",
+                  e);
+            }
           }
         }
       }
@@ -787,14 +789,13 @@ public class BuildTool {
         "the PROJECT.scl active_directories matcher is missing, was it initialized correctly?");
 
     Optional<FailureDetail> maybeFailureDetail =
-        FrontierSerializer.dumpFrontierSerializationProfile(
+        FrontierSerializer.serializeAndUploadFrontier(
             requireNonNull(env.getAnalysisObjectCodecsSupplier()),
             env.getSkyframeExecutor(),
             activeDirectoriesMatcher.get(),
             requireNonNull(env.getFingerprintValueService()),
             env.getReporter(),
             options.serializedFrontierProfile);
-
     if (maybeFailureDetail.isPresent()) {
       throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));
     }
