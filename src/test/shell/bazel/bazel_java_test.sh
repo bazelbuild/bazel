@@ -2145,7 +2145,7 @@ EOF
  # Required by @remote_java_tools, which is loaded via module extension.
  bazel_dep(name = "rules_proto", version = "4.0.0")
  bazel_dep(name = "rules_license", version = "0.0.3")
-+bazel_dep(name = "abseil-cpp", version = "20240116.2", repo_name = "com_google_absl")
++bazel_dep(name = "abseil-cpp", version = "20230802.1", repo_name = "com_google_absl")
 
  register_toolchains("//toolchains:all")
 
