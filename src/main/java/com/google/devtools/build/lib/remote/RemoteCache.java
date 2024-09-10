@@ -221,22 +221,18 @@ public class RemoteCache extends AbstractReferenceCounted {
   /** Upload the action result to the remote cache. */
   public ListenableFuture<Void> uploadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
-    ListenableFuture<Void> future = Futures.immediateVoidFuture();
-
+    ListenableFuture<Void> diskCacheFuture = Futures.immediateVoidFuture();
     if (diskCacheClient != null && context.getWriteCachePolicy().allowDiskCache()) {
-      future = diskCacheClient.uploadActionResult(context, actionKey, actionResult);
+      diskCacheFuture = diskCacheClient.uploadActionResult(context, actionKey, actionResult);
     }
 
+    ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      // TODO(chiwang): Make two uploads in parallel?
-      future =
-          Futures.transformAsync(
-              future,
-              v -> remoteCacheClient.uploadActionResult(context, actionKey, actionResult),
-              directExecutor());
+      remoteCacheFuture = remoteCacheClient.uploadActionResult(context, actionKey, actionResult);
     }
 
-    return future;
+    return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)
+        .call(() -> null, directExecutor());
   }
 
   /**
@@ -260,30 +256,24 @@ public class RemoteCache extends AbstractReferenceCounted {
       return COMPLETED_SUCCESS;
     }
 
-    ListenableFuture<Void> future = Futures.immediateVoidFuture();
+    ListenableFuture<Void> diskCacheFuture = Futures.immediateVoidFuture();
     if (diskCacheClient != null && context.getWriteCachePolicy().allowDiskCache()) {
-      future = diskCacheClient.uploadFile(context, digest, file);
+      diskCacheFuture = diskCacheClient.uploadFile(context, digest, file);
     }
 
+    ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      // TODO(chiwang): Make two uploads in parallel?
-      future =
-          Futures.transformAsync(
-              future,
-              v -> {
-                Completable upload =
-                    casUploadCache.execute(
-                        digest,
-                        RxFutures.toCompletable(
-                            () -> remoteCacheClient.uploadFile(context, digest, file),
-                            directExecutor()),
-                        force);
-                return RxFutures.toListenableFuture(upload);
-              },
-              directExecutor());
+      Completable upload =
+          casUploadCache.execute(
+              digest,
+              RxFutures.toCompletable(
+                  () -> remoteCacheClient.uploadFile(context, digest, file), directExecutor()),
+              force);
+      remoteCacheFuture = RxFutures.toListenableFuture(upload);
     }
 
-    return future;
+    return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)
+        .call(() -> null, directExecutor());
   }
 
   /**
@@ -307,32 +297,25 @@ public class RemoteCache extends AbstractReferenceCounted {
       return COMPLETED_SUCCESS;
     }
 
-    ListenableFuture<Void> future = Futures.immediateVoidFuture();
-
+    ListenableFuture<Void> diskCacheFuture = Futures.immediateVoidFuture();
     if (diskCacheClient != null && context.getWriteCachePolicy().allowDiskCache()) {
-      future = diskCacheClient.uploadBlob(context, digest, data);
+      diskCacheFuture = diskCacheClient.uploadBlob(context, digest, data);
     }
 
+    ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
     if (remoteCacheClient != null && context.getWriteCachePolicy().allowRemoteCache()) {
-      // TODO(chiwang): Make two uploads in parallel?
-      future =
-          Futures.transformAsync(
-              future,
-              v -> {
-                Completable upload =
-                    casUploadCache.execute(
-                        digest,
-                        RxFutures.toCompletable(
-                            () -> remoteCacheClient.uploadBlob(context, digest, data),
-                            directExecutor()),
-                        force);
+      Completable upload =
+          casUploadCache.execute(
+              digest,
+              RxFutures.toCompletable(
+                  () -> remoteCacheClient.uploadBlob(context, digest, data), directExecutor()),
+              force);
 
-                return RxFutures.toListenableFuture(upload);
-              },
-              directExecutor());
+      remoteCacheFuture = RxFutures.toListenableFuture(upload);
     }
 
-    return future;
+    return Futures.whenAllSucceed(diskCacheFuture, remoteCacheFuture)
+        .call(() -> null, directExecutor());
   }
 
   public ListenableFuture<byte[]> downloadBlob(
