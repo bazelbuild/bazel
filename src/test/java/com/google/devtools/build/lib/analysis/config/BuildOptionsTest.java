@@ -29,6 +29,7 @@ import com.google.devtools.common.options.Converters.CommaSeparatedOptionListCon
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
+import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.protobuf.ByteString;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -367,5 +368,44 @@ public final class BuildOptionsTest {
     parser.parse("--null_option=foo"); // Note: null_option is null by default.
 
     assertThat(original.matches(parser)).isFalse();
+  }
+
+  @Test
+  public void nativeOptionsOrderedLexicographically() {
+    var options1 = Options.getDefaults(DummyTestOptions.class);
+    var options2 = Options.getDefaults(SecondDummyTestOptions.class);
+
+    BuildOptions forward =
+        BuildOptions.builder().addFragmentOptions(options1).addFragmentOptions(options2).build();
+    BuildOptions backward =
+        BuildOptions.builder().addFragmentOptions(options2).addFragmentOptions(options1).build();
+
+    assertThat(forward.getFragmentClasses())
+        .isInOrder(BuildOptions.LEXICAL_FRAGMENT_OPTIONS_COMPARATOR);
+    assertThat(backward.getFragmentClasses())
+        .isInOrder(BuildOptions.LEXICAL_FRAGMENT_OPTIONS_COMPARATOR);
+    assertThat(forward.getNativeOptions()).containsExactly(options1, options2).inOrder();
+    assertThat(backward.getNativeOptions()).containsExactly(options1, options2).inOrder();
+  }
+
+  @Test
+  public void starlarkOptionsOrderedByLabel() {
+    Label label1 = Label.parseCanonicalUnchecked("//pkg:option1");
+    Label label2 = Label.parseCanonicalUnchecked("//pkg:option2");
+
+    BuildOptions forward =
+        BuildOptions.builder()
+            .addStarlarkOption(label1, true)
+            .addStarlarkOption(label2, false)
+            .build();
+    BuildOptions backward =
+        BuildOptions.builder()
+            .addStarlarkOption(label2, false)
+            .addStarlarkOption(label1, true)
+            .build();
+    assertThat(forward.getStarlarkOptions()).containsExactly(label1, true, label2, false).inOrder();
+    assertThat(backward.getStarlarkOptions())
+        .containsExactly(label1, true, label2, false)
+        .inOrder();
   }
 }

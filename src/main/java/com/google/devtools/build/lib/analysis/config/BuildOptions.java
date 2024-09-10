@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.analysis.config;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.devtools.build.lib.skyframe.serialization.ImmutableMapCodecs.IMMUTABLE_MAP_CODEC;
 import static com.google.devtools.build.lib.skyframe.serialization.strings.UnsafeStringCodec.stringCodec;
+import static java.util.Comparator.naturalOrder;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
@@ -49,9 +50,11 @@ import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -415,8 +418,23 @@ public final class BuildOptions implements Cloneable {
 
     public BuildOptions build() {
       return new BuildOptions(
-          ImmutableSortedMap.copyOf(fragmentOptions, LEXICAL_FRAGMENT_OPTIONS_COMPARATOR),
-          ImmutableSortedMap.copyOf(starlarkOptions));
+          sortedImmutableHashMap(fragmentOptions, LEXICAL_FRAGMENT_OPTIONS_COMPARATOR),
+          sortedImmutableHashMap(starlarkOptions, naturalOrder()));
+    }
+
+    /**
+     * Constructs a hash-based {@link ImmutableMap} copy of the given map, with an iteration order
+     * defined by the given key comparator.
+     *
+     * <p>The returned map has a deterministic iteration order but is <em>not</em> an {@link
+     * ImmutableSortedMap}, which uses binary search lookups. Hash-based lookups are expected to be
+     * much faster for build options.
+     */
+    private static <K, V> ImmutableMap<K, V> sortedImmutableHashMap(
+        Map<K, V> map, Comparator<K> keyComparator) {
+      List<Map.Entry<K, V>> entries = new ArrayList<>(map.entrySet());
+      entries.sort(Map.Entry.comparingByKey(keyComparator));
+      return ImmutableMap.copyOf(entries);
     }
 
     private final Map<Class<? extends FragmentOptions>, FragmentOptions> fragmentOptions =
