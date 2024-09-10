@@ -399,24 +399,25 @@ public class RemoteCache extends AbstractReferenceCounted {
     if (diskCacheClient != null && context.getWriteCachePolicy().allowDiskCache()) {
       Path tempPath = diskCacheClient.getTempPath();
       LazyFileOutputStream tempOut = new LazyFileOutputStream(tempPath);
-      ListenableFuture<Void> download =
-          cleanupTempFileOnError(
-              remoteCacheClient.downloadBlob(context, digest, tempOut), tempPath, tempOut);
-      return Futures.transformAsync(
-          download,
-          (unused) -> {
-            try {
-              // Fsync temp before we rename it to avoid data loss in the case of machine
-              // crashes (the OS may reorder the writes and the rename).
-              tempOut.syncIfPossible();
-              tempOut.close();
-              diskCacheClient.captureFile(tempPath, digest, Store.CAS);
-            } catch (IOException e) {
-              return immediateFailedFuture(e);
-            }
-            return diskCacheClient.downloadBlob(context, digest, out);
-          },
-          directExecutor());
+      ListenableFuture<Void> download = remoteCacheClient.downloadBlob(context, digest, tempOut);
+      return cleanupTempFileOnError(
+          Futures.transformAsync(
+              download,
+              (unused) -> {
+                try {
+                  // Fsync temp before we rename it to avoid data loss in the case of machine
+                  // crashes (the OS may reorder the writes and the rename).
+                  tempOut.syncIfPossible();
+                  tempOut.close();
+                  diskCacheClient.captureFile(tempPath, digest, Store.CAS);
+                } catch (IOException e) {
+                  return immediateFailedFuture(e);
+                }
+                return diskCacheClient.downloadBlob(context, digest, out);
+              },
+              directExecutor()),
+          tempPath,
+          tempOut);
     }
 
     return remoteCacheClient.downloadBlob(context, digest, out);
