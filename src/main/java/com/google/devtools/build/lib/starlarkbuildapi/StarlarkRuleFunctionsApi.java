@@ -684,7 +684,7 @@ targets defined by any rule finalizer, including this one.
             named = true,
             defaultValue = "[]",
             doc =
-                "Experimental: List of toolchain types. The aspect propagates to target"
+                "List of toolchain types. The aspect propagates to target"
                     + " toolchains which match these toolchain types."),
         @Param(
             name = "attrs",
