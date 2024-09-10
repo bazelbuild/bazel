@@ -218,6 +218,38 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
   }
 
   @Test
+  public void buildCommandWithSkymeld_uploadsFrontierBytesWithUploadMode() throws Exception {
+    write(
+        "foo/PROJECT.scl",
+        """
+        active_directories = {"default": ["foo"] }
+        """);
+    write(
+        "foo/BUILD",
+        """
+        genrule(name = "g", srcs = ["//bar"], outs = ["g.out"], cmd = "cp $< $@")
+        genrule(name = "h", srcs = ["//bar"], outs = ["h.out"], cmd = "cp $< $@")
+        """);
+    write(
+        "bar/BUILD",
+        """
+        genrule(name = "bar", outs = ["out"], cmd = "touch $@")
+        """);
+    addOptions(
+        "--experimental_remote_analysis_cache_mode=upload",
+        "--build", // overrides --nobuild in setup step.
+        "--experimental_merged_skyframe_analysis_execution" // forces Skymeld.
+        );
+    assertThat(buildTarget("//foo:all").getSuccess()).isTrue();
+
+    // Validate that Skymeld did run.
+    assertThat(getCommandEnvironment().withMergedAnalysisAndExecutionSourceOfTruth()).isTrue();
+
+    assertContainsEvent("active or frontier keys in");
+    assertContainsEvent("Waiting for write futures took an additional");
+  }
+
+  @Test
   public void buildCommand_serializedFrontierProfileContainsExpectedClasses() throws Exception {
     @SuppressWarnings("UnnecessarilyFullyQualified") // to avoid confusion with vfs Paths
     Path profilePath = Files.createTempFile(null, "profile");

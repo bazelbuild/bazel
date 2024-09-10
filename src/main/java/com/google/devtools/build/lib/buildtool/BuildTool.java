@@ -279,6 +279,7 @@ public class BuildTool {
         if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor) {
           try (SilentCloseable closeable =
               Profiler.instance().profile("serializeAndUploadFrontier")) {
+            // TODO: b/365667094 - deduplicate Skymeld and non-Skymeld paths.
             serializeFrontier(
                 request.getOptions(RemoteAnalysisCachingOptions.class),
                 analysisResult.getActiveDirectoriesMatcher());
@@ -420,6 +421,13 @@ public class BuildTool {
       // This value is null when there's no analysis.
       if (analysisAndExecutionResult == null) {
         return;
+      }
+
+      try (SilentCloseable closeable = Profiler.instance().profile("serializeAndUploadFrontier")) {
+        // TODO: b/365667094 - deduplicate Skymeld and non-Skymeld paths.
+        serializeFrontier(
+            request.getOptions(RemoteAnalysisCachingOptions.class),
+            analysisAndExecutionResult.getActiveDirectoriesMatcher());
       }
     } catch (InvalidConfigurationException
         | RepositoryMappingResolutionException
