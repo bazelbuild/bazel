@@ -134,7 +134,7 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
         try {
           builder.addAspect(starlarkAspect);
         } catch (EvalException e) {
-          env.getListener().handle(Event.error(e.getMessage()));
+          env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
           throw new BuildTopLevelAspectsDetailsFunctionException(
               new TopLevelAspectsDetailsBuildFailedException(
                   e.getMessage(), Code.ASPECT_CREATION_FAILED));
@@ -156,7 +156,7 @@ final class BuildTopLevelAspectsDetailsFunction implements SkyFunction {
         aspectsList.validateTopLevelAspectsParameters(topLevelAspectsParameters);
         return aspectsList.buildAspects(topLevelAspectsParameters);
     } catch (EvalException e) {
-      env.getListener().handle(Event.error(e.getMessage()));
+      env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw new BuildTopLevelAspectsDetailsFunctionException(
           new TopLevelAspectsDetailsBuildFailedException(
               e.getMessage(), Code.ASPECT_CREATION_FAILED));

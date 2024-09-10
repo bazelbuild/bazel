@@ -45,14 +45,15 @@ public abstract class AttributeValues {
 
   public abstract Dict<String, Object> attributes();
 
-  public static void validateAttrs(AttributeValues attributes, String what) throws EvalException {
+  public static void validateAttrs(AttributeValues attributes, String where, String what)
+      throws EvalException {
     for (var entry : attributes.attributes().entrySet()) {
-      validateSingleAttr(entry.getKey(), entry.getValue(), what);
+      validateSingleAttr(entry.getKey(), entry.getValue(), where, what);
     }
   }
 
-  public static void validateSingleAttr(String attrName, Object attrValue, String what)
-      throws EvalException {
+  public static void validateSingleAttr(
+      String attrName, Object attrValue, String where, String what) throws EvalException {
     var maybeNonVisibleLabel = getFirstNonVisibleLabel(attrValue);
     if (maybeNonVisibleLabel.isEmpty()) {
       return;
@@ -60,17 +61,9 @@ public abstract class AttributeValues {
     Label label = maybeNonVisibleLabel.get();
     String repoName = label.getRepository().getName();
     throw Starlark.errorf(
-        "no repository visible as '@%s' to the %s, but referenced by label '@%s//%s:%s' in"
-            + " attribute '%s' of %s. Is the %s missing a bazel_dep or use_repo(..., \"%s\")?",
-        repoName,
-        label.getRepository().getOwnerRepoDisplayString(),
-        repoName,
-        label.getPackageName(),
-        label.getName(),
-        attrName,
-        what,
-        label.getRepository().getOwnerModuleDisplayString(),
-        repoName);
+        "no repository visible as '@%s' %s, but referenced by label '@%s//%s:%s' in"
+            + " attribute '%s' of %s.",
+        repoName, where, repoName, label.getPackageName(), label.getName(), attrName, what);
   }
 
   private static Optional<Label> getFirstNonVisibleLabel(Object nativeAttrValue) {

@@ -239,7 +239,9 @@ final class InnateRunnableExtension implements RunnableExtension {
                     Maps.transformEntries(kwargs, (k, v) -> ruleInstance.getAttr(k)),
                     k -> !k.equals("name")));
         AttributeValues.validateAttrs(
-            attributesValue, String.format("%s '%s'", ruleInstance.getRuleClass(), name));
+            attributesValue,
+            String.format("to the %s", moduleKey.toDisplayString()),
+            String.format("%s '%s'", ruleInstance.getRuleClass(), name));
       } catch (InvalidRuleException | NoSuchPackageException | EvalException e) {
         throw ExternalDepsException.withCauseAndMessage(
             Code.BAD_MODULE,

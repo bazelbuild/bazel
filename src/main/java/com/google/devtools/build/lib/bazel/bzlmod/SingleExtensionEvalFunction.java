@@ -473,7 +473,7 @@ public class SingleExtensionEvalFunction implements SkyFunction {
                     generatedRepoSpecs.keySet(),
                     env.getListener());
       } catch (EvalException e) {
-        env.getListener().handle(Event.error(e.getMessageWithStack()));
+        env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
         throw new SingleExtensionEvalFunctionException(
             ExternalDepsException.withMessage(
                 Code.BAD_MODULE,
