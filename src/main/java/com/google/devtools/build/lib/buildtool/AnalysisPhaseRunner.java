@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
 import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.PROJECT_FILE_NOT_FOUND;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.OFF;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
@@ -207,8 +208,7 @@ public final class AnalysisPhaseRunner {
     // Remote analysis caching feature flag.
     var analysisCachingOpts = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
     boolean neededForAnalysisCaching =
-        analysisCachingOpts != null
-            && !Strings.isNullOrEmpty(analysisCachingOpts.serializedFrontierProfile);
+        analysisCachingOpts != null && analysisCachingOpts.mode != OFF;
 
     // Canonical configurations feature flag.
     String sclConfig = buildOptions.get(CoreOptions.class).sclConfig;

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.OFF;
 import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -355,8 +356,7 @@ public class CommandEnvironment {
         CommandLinePathFactory.create(runtime.getFileSystem(), directories);
 
     var remoteAnalysisCachingOptions = options.getOptions(RemoteAnalysisCachingOptions.class);
-    if (remoteAnalysisCachingOptions != null
-        && !remoteAnalysisCachingOptions.serializedFrontierProfile.isEmpty()) {
+    if (remoteAnalysisCachingOptions != null && remoteAnalysisCachingOptions.mode != OFF) {
       this.analysisObjectCodecsSupplier =
           () ->
               initAnalysisObjectCodecs(

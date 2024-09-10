@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.UPLOAD;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -22,7 +23,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -776,7 +776,7 @@ public class BuildTool {
       @Nullable RemoteAnalysisCachingOptions options,
       Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
       throws InterruptedException, AbruptExitException {
-    if (options == null || Strings.isNullOrEmpty(options.serializedFrontierProfile)) {
+    if (options == null || options.mode != UPLOAD) {
       return;
     }
 

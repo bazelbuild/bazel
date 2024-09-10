@@ -156,6 +156,10 @@ public final class FrontierSerializer {
     reporter.handle(
         Event.info(String.format("Waiting for write futures took an additional %s\n", stopwatch)));
 
+    if (path.isEmpty()) {
+      return Optional.empty();
+    }
+
     try (var fileOutput = new FileOutputStream(path);
         var bufferedOutput = new BufferedOutputStream(fileOutput)) {
       profileCollector.toProto().writeTo(bufferedOutput);

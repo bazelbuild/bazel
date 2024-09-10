@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -28,4 +29,53 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
       effectTags = {OptionEffectTag.BAZEL_MONITORING},
       help = "Dump a profile of serialized frontier bytes. Specifies the output path.")
   public String serializedFrontierProfile;
+
+  @Option(
+      name = "experimental_remote_analysis_cache_mode",
+      defaultValue = "off",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      converter = RemoteAnalysisCacheModeConverter.class,
+      help = "The transport direction for the remote analysis cache.")
+  public RemoteAnalysisCacheMode mode;
+
+  /** * The transport direction for the remote analysis cache. */
+  public enum RemoteAnalysisCacheMode {
+    /** Serializes and uploads Skyframe analysis nodes after the build command finishes. */
+    UPLOAD,
+
+    /**
+     * Fetches and deserializes the Skyframe analysis nodes during the build.
+     *
+     * <p>TODO: b/358347258 - implement.
+     */
+    DOWNLOAD,
+
+    /** Disabled. */
+    OFF
+  }
+
+  /** Enum converter for {@link RemoteAnalysisCacheMode}. */
+  private static class RemoteAnalysisCacheModeConverter
+      extends EnumConverter<RemoteAnalysisCacheMode> {
+    public RemoteAnalysisCacheModeConverter() {
+      super(RemoteAnalysisCacheMode.class, "Frontier serialization mode");
+    }
+  }
+
+  @Option(
+      name = "experimental_remote_analysis_cache",
+      defaultValue = "",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      help = "The URL for the remote analysis caching backend.")
+  public String remoteAnalysisCache;
+
+  @Option(
+      name = "experimental_remote_analysis_cache_concurrency",
+      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      effectTags = {OptionEffectTag.BAZEL_INTERNAL_CONFIGURATION},
+      defaultValue = "16",
+      help = "Target concurrency for remote analysis caching RPCs.")
+  public int concurrency;
 }

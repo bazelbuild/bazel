@@ -62,7 +62,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         """
         package_group(name = "empty")
         """);
-    addOptions("--serialized_frontier_profile=/tmp/anything");
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
     LoadingFailedException exception =
         assertThrows(LoadingFailedException.class, () -> buildTarget("//foo:empty"));
     assertThat(exception).hasMessageThat().contains("Failed to find PROJECT.scl file");
@@ -80,7 +80,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         """
         active_directories = {"default": ["foo"] }
         """);
-    addOptions("--serialized_frontier_profile=/tmp/anything");
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
     assertThat(buildTarget("//foo:empty").getSuccess()).isTrue();
   }
 
@@ -108,7 +108,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         active_directories = {"default": ["bar"] }
         """);
 
-    addOptions("--serialized_frontier_profile=/tmp/anything");
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
     LoadingFailedException exception =
         assertThrows(LoadingFailedException.class, () -> buildTarget("//foo:empty", "//bar:empty"));
     assertThat(exception)
@@ -137,13 +137,15 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         active_directories = {"default": ["foo"] }
         """);
 
-    addOptions("--serialized_frontier_profile=/tmp/anything");
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
     assertThat(buildTarget("//foo:empty", "//foo/bar:empty").getSuccess()).isTrue();
   }
 
   @Test
   public void activeAspect_activatesBaseConfiguredTarget() throws Exception {
-    setupScenarioWithAspects("--serialized_frontier_profile=/tmp/anything");
+    setupScenarioWithAspects(
+        "--experimental_remote_analysis_cache_mode=upload",
+        "--serialized_frontier_profile=/tmp/unused");
     InMemoryGraph graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
 
     ConfiguredTargetKey generateYKey =
@@ -208,11 +210,21 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
   }
 
   @Test
+  public void buildCommand_uploadsFrontierBytesWithUploadMode() throws Exception {
+    setupScenarioWithAspects("--experimental_remote_analysis_cache_mode=upload");
+
+    assertContainsEvent("active or frontier keys in");
+    assertContainsEvent("Waiting for write futures took an additional");
+  }
+
+  @Test
   public void buildCommand_serializedFrontierProfileContainsExpectedClasses() throws Exception {
     @SuppressWarnings("UnnecessarilyFullyQualified") // to avoid confusion with vfs Paths
     Path profilePath = Files.createTempFile(null, "profile");
 
-    setupScenarioWithAspects("--serialized_frontier_profile=" + profilePath);
+    setupScenarioWithAspects(
+        "--experimental_remote_analysis_cache_mode=upload",
+        "--serialized_frontier_profile=" + profilePath);
 
     // The proto parses successfully from the file.
     var proto =
