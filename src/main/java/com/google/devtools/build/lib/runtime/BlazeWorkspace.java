@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.memory.AllocationTracker;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -47,6 +49,7 @@ import com.google.protobuf.Any;
 import java.io.IOException;
 import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -72,6 +75,8 @@ public final class BlazeWorkspace {
   private final SkyframeExecutor skyframeExecutor;
   private final SyscallCache syscallCache;
   private final QuiescingExecutorsImpl quiescingExecutors;
+  @Nullable private final Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier;
+  @Nullable private final FingerprintValueService.Factory fingerprintValueServiceFactory;
 
   /**
    * Loaded lazily on the first build command that enables the action cache. Cleared on a build
@@ -95,6 +100,8 @@ public final class BlazeWorkspace {
       BinTools binTools,
       @Nullable AllocationTracker allocationTracker,
       SyscallCache syscallCache,
+      Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier,
+      FingerprintValueService.Factory fingerprintValueServiceFactory,
       boolean allowExternalRepositories) {
     this.runtime = runtime;
     this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
@@ -108,6 +115,8 @@ public final class BlazeWorkspace {
     this.quiescingExecutors = QuiescingExecutorsImpl.createDefault();
     this.allowExternalRepositories = allowExternalRepositories;
     this.virtualPackageLocator = createPackageLocatorIfVirtual(directories, skyframeExecutor);
+    this.analysisCodecRegistrySupplier = analysisCodecRegistrySupplier;
+    this.fingerprintValueServiceFactory = fingerprintValueServiceFactory;
 
     if (directories.inWorkspace()) {
       writeOutputBaseReadmeFile();
@@ -353,6 +362,16 @@ public final class BlazeWorkspace {
 
   public boolean doesAllowExternalRepositories() {
     return allowExternalRepositories;
+  }
+
+  @Nullable
+  public Supplier<ObjectCodecRegistry> getAnalysisObjectCodecRegistrySupplier() {
+    return analysisCodecRegistrySupplier;
+  }
+
+  @Nullable
+  public FingerprintValueService.Factory getFingerprintValueServiceFactory() {
+    return fingerprintValueServiceFactory;
   }
 
   @Nullable

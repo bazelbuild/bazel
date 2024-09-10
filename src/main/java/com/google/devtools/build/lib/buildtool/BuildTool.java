@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -787,11 +788,10 @@ public class BuildTool {
 
     Optional<FailureDetail> maybeFailureDetail =
         FrontierSerializer.dumpFrontierSerializationProfile(
-            env.getRuntime().getAnalysisCodecRegistry(),
-            env.getSkyframeBuildView().getArtifactFactory(),
-            env.getRuntime().getRuleClassProvider(),
+            requireNonNull(env.getAnalysisObjectCodecsSupplier()),
             env.getSkyframeExecutor(),
             activeDirectoriesMatcher.get(),
+            requireNonNull(env.getFingerprintValueService()),
             env.getReporter(),
             options.serializedFrontierProfile);
 
