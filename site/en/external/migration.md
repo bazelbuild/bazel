@@ -824,7 +824,7 @@ You can set the `dev_dependency` attribute to true for
 [`use_extension`](/rules/lib/globals/module#use_extension) directives so that
 they don't propagate to dependent projects. As the root module, you can use the
 [`--ignore_dev_dependency`][ignore_dev_dep_flag] flag to verify if your targets
-still build without dev dependencies.
+still build without dev dependencies and overrides.
 
 [ignore_dev_dep_flag]: /reference/command-line-reference#flag--ignore_dev_dependency
 
