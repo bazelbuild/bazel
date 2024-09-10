@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -90,8 +89,8 @@ public final class AnalysisPhaseRunner {
   public static AnalysisResult execute(
       CommandEnvironment env,
       BuildRequest request,
-      BuildOptions buildOptionsBeforeFlagSets,
-      TargetValidator validator)
+      TargetPatternPhaseValue targetPatternPhaseValue,
+      BuildOptions buildOptionsBeforeFlagSets)
       throws BuildFailedException,
           InterruptedException,
           ViewCreationFailedException,
@@ -100,14 +99,6 @@ public final class AnalysisPhaseRunner {
           AbruptExitException,
           InvalidConfigurationException,
           RepositoryMappingResolutionException {
-
-    // Target pattern evaluation.
-    TargetPatternPhaseValue targetPatternPhaseValue;
-    Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
-    try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
-      targetPatternPhaseValue = evaluateTargetPatterns(env, request, validator);
-    }
-    env.setWorkspaceName(targetPatternPhaseValue.getWorkspaceName());
 
     ProjectEvaluationResult projectEvaluationResult =
         evaluateProjectFile(request, buildOptionsBeforeFlagSets, targetPatternPhaseValue, env);
@@ -277,28 +268,6 @@ public final class AnalysisPhaseRunner {
                   String.format("Target %s build was skipped.", label),
                   label));
     }
-  }
-
-  private static TargetPatternPhaseValue evaluateTargetPatterns(
-      CommandEnvironment env, final BuildRequest request, final TargetValidator validator)
-      throws LoadingFailedException, TargetParsingException, InterruptedException {
-    boolean keepGoing = request.getKeepGoing();
-    TargetPatternPhaseValue result =
-        env.getSkyframeExecutor()
-            .loadTargetPatternsWithFilters(
-                env.getReporter(),
-                request.getTargets(),
-                env.getRelativeWorkingDirectory(),
-                request.getLoadingOptions(),
-                request.getLoadingPhaseThreadCount(),
-                keepGoing,
-                request.shouldRunTests());
-    if (validator != null) {
-      Collection<Target> targets =
-          result.getTargets(env.getReporter(), env.getSkyframeExecutor().getPackageManager());
-      validator.validateTargets(targets, keepGoing);
-    }
-    return result;
   }
 
   /**

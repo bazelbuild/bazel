@@ -63,6 +63,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -209,17 +210,37 @@ public class BuildTool {
 
       initializeOutputFilter(request);
 
+      // --------------------------------
+      // Target pattern evaluation phase.
+      // --------------------------------
+
+      TargetPatternPhaseValue targetPatternPhaseValue;
+      Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
+      try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
+        targetPatternPhaseValue = evaluateTargetPatterns(env, request, validator);
+      }
+      env.setWorkspaceName(targetPatternPhaseValue.getWorkspaceName());
+
+      // ------------------------------------
+      // Analysis/Execution phases (Skymeld).
+      // ------------------------------------
+      //
       // TODO: b/365667094: consider converging Skymeld and non-Skymeld code path as much as
       // possible, so that it's simpler to incorporate features common to both paths without
       // threading too much state into the respective analysis runners.
       if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
         // Skymeld is useful only for commands that perform execution.
-        buildTargetsWithMergedAnalysisExecution(request, result, validator, buildOptions);
+        buildTargetsWithMergedAnalysisExecution(
+            request, result, targetPatternPhaseValue, buildOptions);
         return;
       }
 
+      // -----------------------------
+      // Analysis phase (non-Skymeld).
+      // -----------------------------
+
       AnalysisResult analysisResult =
-          AnalysisPhaseRunner.execute(env, request, buildOptions, validator);
+          AnalysisPhaseRunner.execute(env, request, targetPatternPhaseValue, buildOptions);
 
       // We cannot move the executionTool down to the execution phase part since it does set up the
       // symlinks for tools.
@@ -255,7 +276,9 @@ public class BuildTool {
           analysisPostProcessor.process(request, env, runtime, analysisResult);
         }
 
-        // Execution phase.
+        // ------------------------------
+        // Execution phase (non-Skymeld).
+        // ------------------------------
         if (needsExecutionPhase(request.getBuildOptions())) {
           try (SilentCloseable closeable = Profiler.instance().profile("ExecutionTool.init")) {
             executionTool.init();
@@ -349,14 +372,35 @@ public class BuildTool {
     }
   }
 
+  private static TargetPatternPhaseValue evaluateTargetPatterns(
+      CommandEnvironment env, final BuildRequest request, final TargetValidator validator)
+      throws LoadingFailedException, TargetParsingException, InterruptedException {
+    boolean keepGoing = request.getKeepGoing();
+    TargetPatternPhaseValue result =
+        env.getSkyframeExecutor()
+            .loadTargetPatternsWithFilters(
+                env.getReporter(),
+                request.getTargets(),
+                env.getRelativeWorkingDirectory(),
+                request.getLoadingOptions(),
+                request.getLoadingPhaseThreadCount(),
+                keepGoing,
+                request.shouldRunTests());
+    if (validator != null) {
+      ImmutableSet<Target> targets =
+          result.getTargets(env.getReporter(), env.getSkyframeExecutor().getPackageManager());
+      validator.validateTargets(targets, keepGoing);
+    }
+    return result;
+  }
+
   /** Performs the merged analysis and execution phase. */
   private void buildTargetsWithMergedAnalysisExecution(
       BuildRequest request,
       BuildResult result,
-      TargetValidator validator,
+      TargetPatternPhaseValue targetPatternPhaseValue,
       BuildOptions buildOptionsBeforeFlagSets)
       throws InterruptedException,
-          TargetParsingException,
           LoadingFailedException,
           AbruptExitException,
           ViewCreationFailedException,
@@ -364,17 +408,8 @@ public class BuildTool {
           TestExecException,
           InvalidConfigurationException,
           RepositoryMappingResolutionException {
-    // Target pattern evaluation.
-    TargetPatternPhaseValue loadingResult;
-    Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
-    try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
-      loadingResult =
-          AnalysisAndExecutionPhaseRunner.evaluateTargetPatterns(env, request, validator);
-    }
-    env.setWorkspaceName(loadingResult.getWorkspaceName());
-
     ProjectEvaluationResult projectEvaluationResult =
-        evaluateProjectFile(request, buildOptionsBeforeFlagSets, loadingResult, env);
+        evaluateProjectFile(request, buildOptionsBeforeFlagSets, targetPatternPhaseValue, env);
 
     // See https://github.com/bazelbuild/rules_nodejs/issues/3693.
     env.getSkyframeExecutor().clearSyscallCache();
@@ -394,7 +429,7 @@ public class BuildTool {
               env,
               request,
               projectEvaluationResult.buildOptions(),
-              loadingResult,
+              targetPatternPhaseValue,
               () -> executionTool.prepareForExecution(executionTimer),
               result::setBuildConfiguration,
               new BuildDriverKeyTestContext() {
