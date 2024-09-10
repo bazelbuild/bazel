@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
  *
  * <p>Name is chosen to make for semi-sensible "ValidateTarget" aspect events.
  */
-class ValidateTarget extends NativeAspectClass implements ConfiguredAspectFactory {
+public class ValidateTarget extends NativeAspectClass implements ConfiguredAspectFactory {
 
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
@@ -53,6 +53,7 @@ class ValidateTarget extends NativeAspectClass implements ConfiguredAspectFactor
       RepositoryName toolsRepository)
       throws ActionConflictException, InterruptedException {
     OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(ct);
+    System.err.println(ct + ": " + outputGroupInfo);
     if (outputGroupInfo != null) {
       NestedSet<Artifact> validations = outputGroupInfo.getOutputGroup(OutputGroupInfo.VALIDATION);
       if (!validations.isEmpty()) {
