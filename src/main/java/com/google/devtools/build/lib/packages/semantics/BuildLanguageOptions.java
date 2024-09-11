@@ -243,7 +243,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_enable_scl_dialect",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
       // TODO(brandjon): point to more extensive user documentation somewhere
@@ -925,7 +925,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_single_package_toolchain_binding";
   public static final String EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS =
       "-experimental_enable_first_class_macros";
-  public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "-experimental_enable_scl_dialect";
+  public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "+experimental_enable_scl_dialect";
   public static final String ENABLE_BZLMOD = "+enable_bzlmod";
   public static final String ENABLE_WORKSPACE = "-enable_workspace";
   public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
