@@ -741,23 +741,23 @@ public class CcToolchainProviderTest extends BuildViewTestCase {
   @Test
   public void testDwpFilesIsBlocked() throws Exception {
     scratch.file(
-        "test/dwp_files_rule.bzl",
+        "foobar/dwp_files_rule.bzl",
         "def _impl(ctx):",
         "  cc_toolchain = ctx.attr._cc_toolchain[cc_common.CcToolchainInfo]",
         "  cc_toolchain.dwp_files()",
         "  return []",
         "dwp_files_rule = rule(",
         "  implementation = _impl,",
-        "  attrs = {'_cc_toolchain':" + " attr.label(default=Label('//test:alias'))},",
+        "  attrs = {'_cc_toolchain':" + " attr.label(default=Label('//foobar:alias'))},",
         ")");
     scratch.file(
-        "test/BUILD",
+        "foobar/BUILD",
         "load(':dwp_files_rule.bzl', 'dwp_files_rule')",
         "cc_toolchain_alias(name='alias')",
         "dwp_files_rule(name = 'target')");
     reporter.removeHandler(failFastHandler);
 
-    getConfiguredTarget("//test:target");
+    getConfiguredTarget("//foobar:target");
 
     assertContainsEvent("cannot use private API");
   }
