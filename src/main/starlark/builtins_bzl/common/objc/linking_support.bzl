@@ -17,7 +17,7 @@
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/objc/compilation_support.bzl", "compilation_support")
-load(":common/objc/multi_arch_binary_support.bzl", "subtract_linking_contexts")
+load(":common/objc/multi_arch_binary_support.bzl", "get_split_target_triplet", "subtract_linking_contexts")
 load(":common/objc/objc_info.bzl", "ObjcInfo")
 
 objc_internal = _builtins.internal.objc_internal
@@ -86,7 +86,8 @@ def _link_multi_arch_static_library(ctx):
                 - platform: Linked static library target Apple platform (e.g. 'ios', 'macos').
                 - environment: Linked static library environment (e.g. 'device', 'simulator').
     """
-    split_target_triplets = objc_internal.get_split_target_triplet(ctx)
+
+    split_target_triplets = get_split_target_triplet(ctx)
 
     split_deps = ctx.split_attr.deps
     split_avoid_deps = ctx.split_attr.avoid_deps
@@ -172,7 +173,8 @@ def _link_multi_arch_binary(
     This API is **highly experimental** and subject to change at any time. Do
     not depend on the stability of this function at this time.
     """
-    split_target_triplets = objc_internal.get_split_target_triplet(ctx)
+
+    split_target_triplets = get_split_target_triplet(ctx)
     split_build_configs = objc_internal.get_split_build_configs(ctx)
     split_deps = ctx.split_attr.deps
     child_configs_and_toolchains = ctx.split_attr._child_configuration_dummy
