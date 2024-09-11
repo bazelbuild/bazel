@@ -373,13 +373,13 @@ public class TypeTest {
 
   @Test
   public void testStringListDict_concat() throws Exception {
-    assertThat(Types.STRING_LIST_DICT.concat(ImmutableList.of())).isEmpty();
+    assertThat(Type.STRING_LIST_DICT.concat(ImmutableList.of())).isEmpty();
 
     ImmutableMap<String, List<String>> expected =
         ImmutableMap.of(
             "foo", Arrays.asList("foo", "bar"),
             "wiz", Arrays.asList("bang"));
-    assertThat(Types.STRING_LIST_DICT.concat(ImmutableList.of(expected))).isEqualTo(expected);
+    assertThat(Type.STRING_LIST_DICT.concat(ImmutableList.of(expected))).isEqualTo(expected);
 
     ImmutableMap<String, List<String>> map1 =
         ImmutableMap.of(
@@ -396,7 +396,7 @@ public class TypeTest {
             "bar", Arrays.asList("x", "y"),
             "baz", Arrays.asList("z"));
 
-    assertThat(Types.STRING_LIST_DICT.concat(ImmutableList.of(map1, map2)))
+    assertThat(Type.STRING_LIST_DICT.concat(ImmutableList.of(map1, map2)))
         .isEqualTo(expectedAfterConcat);
   }
 
