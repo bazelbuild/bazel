@@ -2657,7 +2657,7 @@ class BazelLockfileTest(test_base.TestBase):
 
     _, _, stderr = self.RunBazel(['build', '@foo//:all'])
     stderr = '\n'.join(stderr)
-    self.assertIn('label: @@+my_ext2+bar//:bar\n', stderr)
+    self.assertIn('label: @@_main~my_ext2~bar//:bar\n', stderr)
 
 
 if __name__ == '__main__':
