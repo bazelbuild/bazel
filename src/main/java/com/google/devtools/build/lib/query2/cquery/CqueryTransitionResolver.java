@@ -125,8 +125,8 @@ public class CqueryTransitionResolver {
    * @see ResolvedTransition for more details.
    * @param configuredTarget the configured target whose dependencies are being looked up.
    */
-  public ImmutableSet<ResolvedTransition> dependencies(CqueryNode configuredTarget)
-      throws EvaluateException, InterruptedException {
+  ImmutableSet<ResolvedTransition> dependencies(CqueryNode configuredTarget)
+      throws EvaluateException, InterruptedException, IncompatibleTargetException {
     if (!(configuredTarget instanceof RuleConfiguredTarget)) {
       return ImmutableSet.of();
     }
@@ -154,7 +154,7 @@ public class CqueryTransitionResolver {
           eventHandler)) {
         throw new EvaluateException("DependencyResolver.evaluate did not complete");
       }
-    } catch (ReportedException | UnreportedException | IncompatibleTargetException e) {
+    } catch (ReportedException | UnreportedException e) {
       throw new EvaluateException(e.getMessage());
     }
 

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -105,8 +106,18 @@ class TransitionsOutputFormatterCallback extends CqueryThreadsafeCallback {
                     eventHandler, accessor, this, ruleClassProvider, transitionCache)
                 .dependencies(keyedConfiguredTarget);
       } catch (EvaluateException e) {
-        // This is an abuse of InterruptedException.
-        throw new InterruptedException(e.getMessage());
+        eventHandler.handle(
+            Event.error(
+                String.format(
+                    "Failed to evaluate %s: %s", keyedConfiguredTarget.getOriginalLabel(), e)));
+        return;
+      } catch (IncompatibleTargetChecker.IncompatibleTargetException e) {
+        eventHandler.handle(
+            Event.warn(
+                String.format(
+                    "Skipping dependencies of incompatible target %s",
+                    keyedConfiguredTarget.getOriginalLabel())));
+        return;
       }
       for (ResolvedTransition dep : dependencies) {
         addResult(
