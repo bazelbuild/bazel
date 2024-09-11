@@ -78,7 +78,7 @@ setup_remote() {
 
   mkdir main
   cd main
-  cat >> "MODULE.bazel" <<EOF
+  cat > $(setup_module_dot_bazel) <<EOF
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remote",
@@ -101,7 +101,7 @@ setup_local() {
 
   mkdir main
   cd main
-  cat >> "MODULE.bazel" <<EOF
+  cat > $(setup_module_dot_bazel) <<EOF
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name="local_rep",
