@@ -148,6 +148,14 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   String MANDATORY_DOC =
       "If true, the value must be specified explicitly (even if it has a <code>default</code>).";
 
+  String MATERIALIZER_ARG = "materializer";
+  String MATERALIZER_DOC =
+      "If set, the attribute materializes dormant dependencies from the transitive closure. The "
+          + "value of this parameter must be a functon that gets access to the values of the "
+          + "attributes of the rule that either are not dependencies or are marked as available "
+          + "for dependency resolution. It must return either a dormant dependency or a list of "
+          + "them depending on the type of the attribute";
+
   String ALLOW_EMPTY_ARG = "allow_empty";
   String ALLOW_EMPTY_DOC = "True if the attribute can be empty.";
 
@@ -332,6 +340,15 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
                     + " specify a default value, for example, <code>attr.label(default ="
                     + " \"//a:b\")</code>."),
         @Param(
+            name = MATERIALIZER_ARG,
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_DORMANT_DEPS,
+            allowedTypes = {@ParamType(type = StarlarkFunction.class)},
+            valueWhenDisabled = "None",
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = MATERALIZER_DOC),
+        @Param(
             name = DOC_ARG,
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "None",
@@ -423,6 +440,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   Descriptor labelAttribute(
       Object configurable,
       Object defaultValue,
+      Object materializer,
       Object doc,
       Boolean executable,
       Object allowFiles,
@@ -600,6 +618,15 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
                     + " specify default values, for example, <code>attr.label_list(default ="
                     + " [\"//a:b\", \"//a:c\"])</code>."),
         @Param(
+            name = MATERIALIZER_ARG,
+            enableOnlyWithFlag = BuildLanguageOptions.EXPERIMENTAL_DORMANT_DEPS,
+            allowedTypes = {@ParamType(type = StarlarkFunction.class)},
+            valueWhenDisabled = "None",
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = MATERALIZER_DOC),
+        @Param(
             name = DOC_ARG,
             allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
             defaultValue = "None",
@@ -671,6 +698,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Boolean allowEmpty,
       Object configurable,
       Object defaultValue,
+      Object materializer,
       Object doc,
       Object allowFiles,
       Object allowRules,

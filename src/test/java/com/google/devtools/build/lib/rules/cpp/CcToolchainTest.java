@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
@@ -35,17 +36,14 @@ import com.google.devtools.build.lib.rules.cpp.CcToolchainFeatures.FeatureConfig
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.DynamicMode;
 import com.google.devtools.build.lib.rules.cpp.CppConfiguration.Tool;
 import com.google.devtools.build.lib.testutil.TestConstants;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.io.IOException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Tests for toolchain features.
- */
+/** Tests for toolchain features. */
 @RunWith(JUnit4.class)
-public class CcToolchainTest extends BuildViewTestCase {
+public final class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testFilesToBuild() throws Exception {
@@ -151,7 +149,7 @@ public class CcToolchainTest extends BuildViewTestCase {
         .get()
         .getOutputs()
         .stream()
-        .map(a -> a.getFilename())
+        .map(Artifact::getFilename)
         .collect(ImmutableList.toImmutableList());
   }
 
@@ -311,9 +309,10 @@ public class CcToolchainTest extends BuildViewTestCase {
 
     assertThat(cppConfiguration.getDynamicModeFlag()).isEqualTo(DynamicMode.FULLY);
 
-    // Check an invalid value for disable_dynamic.
-    OptionsParsingException e =
-        assertThrows(OptionsParsingException.class, () -> useConfiguration("--dynamic_mode=very"));
+    // Check an invalid value for --dynamic_mode.
+    var e =
+        assertThrows(
+            InvalidConfigurationException.class, () -> useConfiguration("--dynamic_mode=very"));
     assertThat(e)
         .hasMessageThat()
         .isEqualTo(
@@ -321,7 +320,7 @@ public class CcToolchainTest extends BuildViewTestCase {
                 + "(should be off, default or fully)");
   }
 
-  public void assertInvalidIncludeDirectoryMessage(String entry, String messageRegex)
+  private void assertInvalidIncludeDirectoryMessage(String entry, String messageRegex)
       throws Exception {
     scratch.overwriteFile("a/BUILD", "cc_toolchain_alias(name = 'b')");
     getAnalysisMock()
@@ -425,8 +424,8 @@ public class CcToolchainTest extends BuildViewTestCase {
 
   @Test
   public void testToolchainAlias() throws Exception {
-    ConfiguredTarget reference = scratchConfiguredTarget("a", "ref",
-        "cc_toolchain_alias(name='ref')");
+    ConfiguredTarget reference =
+        scratchConfiguredTarget("a", "ref", "cc_toolchain_alias(name='ref')");
     assertThat(reference.get(CcToolchainProvider.PROVIDER.getKey())).isNotNull();
   }
 

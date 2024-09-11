@@ -140,7 +140,19 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   //
   // As a workaround, we put a synchronized block around the fork.
   private synchronized Process start(ProcessBuilder builder) throws IOException {
-    return builder.start();
+    try {
+      return builder.start();
+    } catch (IOException e) {
+      if (e.getMessage().contains("Failed to exec spawn helper")) {
+        // Detect permanent failures due to an upgrade of the underlying JDK version,
+        // see https://bugs.openjdk.org/browse/JDK-8325621.
+        throw new IllegalStateException(
+            "Subprocess creation has failed, the current JDK version is newer than the version"
+                + " used at startup. Re-rerunning the blaze invocation should succeed.",
+            e);
+      }
+      throw e;
+    }
   }
 
   @Override

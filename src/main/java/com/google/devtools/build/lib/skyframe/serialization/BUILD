@@ -50,9 +50,12 @@ java_library(
     name = "serialization_module",
     srcs = ["SerializationModule.java"],
     deps = [
+        ":serialization",
         ":serialization_registry_setup_helpers",
         "//src/main/java/com/google/devtools/build/lib:runtime",
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
     ],
 )
 
@@ -82,6 +85,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/com/google/devtools/common/options",
         "//third_party:auto_value",
         "//third_party:caffeine",
         "//third_party:error_prone_annotations",

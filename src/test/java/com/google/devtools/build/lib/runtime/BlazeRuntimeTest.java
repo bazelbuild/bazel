@@ -28,9 +28,12 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.Symlinks;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.OptionsBase;
@@ -49,6 +52,45 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link BlazeRuntime} static methods. */
 @RunWith(JUnit4.class)
 public class BlazeRuntimeTest {
+
+  @Test
+  public void manageProfiles() throws Exception {
+    var clock = new ManualClock();
+    var fs = new InMemoryFileSystem(clock, DigestHashFunction.SHA256);
+    var dir = fs.getPath("/output_base");
+    dir.createDirectory();
+    dir.getChild("foo").createDirectory();
+    dir.getChild("bar").getOutputStream().close();
+    clock.advanceMillis(10);
+    var p1 = BlazeRuntime.manageProfiles(dir, "p1", 3);
+    assertThat(p1.getBaseName()).isEqualTo("command-p1.profile.gz");
+    p1.getOutputStream().close();
+    clock.advanceMillis(10);
+    var p2 = BlazeRuntime.manageProfiles(dir, "p2", 3);
+    assertThat(p2.getBaseName()).isEqualTo("command-p2.profile.gz");
+    p2.getOutputStream().close();
+    clock.advanceMillis(10);
+    var p3 = BlazeRuntime.manageProfiles(dir, "p3", 3);
+    assertThat(p3.getBaseName()).isEqualTo("command-p3.profile.gz");
+    p3.getOutputStream().close();
+    clock.advanceMillis(10);
+    var p4 = BlazeRuntime.manageProfiles(dir, "p4", 3);
+    assertThat(p4.getBaseName()).isEqualTo("command-p4.profile.gz");
+    p4.getOutputStream().close();
+    assertThat(dir.readdir(Symlinks.FOLLOW).stream().map(Dirent::getName))
+        .containsExactly(
+            "foo",
+            "bar",
+            "command-p2.profile.gz",
+            "command-p3.profile.gz",
+            "command-p4.profile.gz");
+    clock.advanceMillis(10);
+    var p5 = BlazeRuntime.manageProfiles(dir, "p5", 1);
+    assertThat(p5.getBaseName()).isEqualTo("command-p5.profile.gz");
+    p5.getOutputStream().close();
+    assertThat(dir.readdir(Symlinks.FOLLOW).stream().map(Dirent::getName))
+        .containsExactly("foo", "bar", "command-p5.profile.gz");
+  }
 
   @Test
   public void optionSplitting() {

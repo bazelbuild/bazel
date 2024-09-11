@@ -111,10 +111,7 @@ public final class BuildConfigurationFunction implements SkyFunction {
       return Optional.empty();
     }
 
-    PlatformOptions platformOptions = null;
-    if (targetOptions.contains(PlatformOptions.class)) {
-      platformOptions = targetOptions.get(PlatformOptions.class);
-    }
+    var platformOptions = targetOptions.get(PlatformOptions.class);
 
     // Determine whether this is part of the exec transition, or if we need to calculate a target
     // platform.

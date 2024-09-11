@@ -15,13 +15,14 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.UPLOAD;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
-import com.google.common.base.Strings;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.Local
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
 import com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil;
 import com.google.devtools.build.lib.buildeventstream.BuildEventProtocolOptions;
+import com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.ProjectEvaluationResult;
 import com.google.devtools.build.lib.buildtool.SkyframeMemoryDumper.DisplayMode;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
@@ -61,6 +63,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -207,14 +210,37 @@ public class BuildTool {
 
       initializeOutputFilter(request);
 
+      // --------------------------------
+      // Target pattern evaluation phase.
+      // --------------------------------
+
+      TargetPatternPhaseValue targetPatternPhaseValue;
+      Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
+      try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
+        targetPatternPhaseValue = evaluateTargetPatterns(env, request, validator);
+      }
+      env.setWorkspaceName(targetPatternPhaseValue.getWorkspaceName());
+
+      // ------------------------------------
+      // Analysis/Execution phases (Skymeld).
+      // ------------------------------------
+      //
+      // TODO: b/365667094: consider converging Skymeld and non-Skymeld code path as much as
+      // possible, so that it's simpler to incorporate features common to both paths without
+      // threading too much state into the respective analysis runners.
       if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
         // Skymeld is useful only for commands that perform execution.
-        buildTargetsWithMergedAnalysisExecution(request, result, validator, buildOptions);
+        buildTargetsWithMergedAnalysisExecution(
+            request, result, targetPatternPhaseValue, buildOptions);
         return;
       }
 
+      // -----------------------------
+      // Analysis phase (non-Skymeld).
+      // -----------------------------
+
       AnalysisResult analysisResult =
-          AnalysisPhaseRunner.execute(env, request, buildOptions, validator);
+          AnalysisPhaseRunner.execute(env, request, targetPatternPhaseValue, buildOptions);
 
       // We cannot move the executionTool down to the execution phase part since it does set up the
       // symlinks for tools.
@@ -250,7 +276,9 @@ public class BuildTool {
           analysisPostProcessor.process(request, env, runtime, analysisResult);
         }
 
-        // Execution phase.
+        // ------------------------------
+        // Execution phase (non-Skymeld).
+        // ------------------------------
         if (needsExecutionPhase(request.getBuildOptions())) {
           try (SilentCloseable closeable = Profiler.instance().profile("ExecutionTool.init")) {
             executionTool.init();
@@ -270,25 +298,30 @@ public class BuildTool {
               delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
         }
 
+        // Only run these post-build steps for builds with SequencedSkyframeExecutor.
         if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor) {
-          serializeFrontier(request.getOptions(RemoteAnalysisCachingOptions.class));
-        }
+          try (SilentCloseable closeable =
+              Profiler.instance().profile("serializeAndUploadFrontier")) {
+            // TODO: b/365667094 - deduplicate Skymeld and non-Skymeld paths.
+            serializeFrontier(
+                request.getOptions(RemoteAnalysisCachingOptions.class),
+                analysisResult.getActiveDirectoriesMatcher());
+          }
 
-        // Only consider builds with SequencedSkyframeExecutor.
-        if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor
-            && request.getBuildOptions().aqueryDumpAfterBuildFormat != null) {
-          try (SilentCloseable c = Profiler.instance().profile("postExecutionDumpSkyframe")) {
-            dumpSkyframeStateAfterBuild(
-                request.getOptions(BuildEventProtocolOptions.class),
-                request.getBuildOptions().aqueryDumpAfterBuildFormat,
-                request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
-          } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
-            throw new PostExecutionDumpException(e);
-          } catch (InvalidAqueryOutputFormatException e) {
-            throw new PostExecutionDumpException(
-                "--skyframe_state must be used with "
-                    + "--output=proto|streamed_proto|textproto|jsonproto.",
-                e);
+          if (request.getBuildOptions().aqueryDumpAfterBuildFormat != null) {
+            try (SilentCloseable c = Profiler.instance().profile("postExecutionDumpSkyframe")) {
+              dumpSkyframeStateAfterBuild(
+                  request.getOptions(BuildEventProtocolOptions.class),
+                  request.getBuildOptions().aqueryDumpAfterBuildFormat,
+                  request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
+            } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
+              throw new PostExecutionDumpException(e);
+            } catch (InvalidAqueryOutputFormatException e) {
+              throw new PostExecutionDumpException(
+                  "--skyframe_state must be used with "
+                      + "--output=proto|streamed_proto|textproto|jsonproto.",
+                  e);
+            }
           }
         }
       }
@@ -339,14 +372,35 @@ public class BuildTool {
     }
   }
 
+  private static TargetPatternPhaseValue evaluateTargetPatterns(
+      CommandEnvironment env, final BuildRequest request, final TargetValidator validator)
+      throws LoadingFailedException, TargetParsingException, InterruptedException {
+    boolean keepGoing = request.getKeepGoing();
+    TargetPatternPhaseValue result =
+        env.getSkyframeExecutor()
+            .loadTargetPatternsWithFilters(
+                env.getReporter(),
+                request.getTargets(),
+                env.getRelativeWorkingDirectory(),
+                request.getLoadingOptions(),
+                request.getLoadingPhaseThreadCount(),
+                keepGoing,
+                request.shouldRunTests());
+    if (validator != null) {
+      ImmutableSet<Target> targets =
+          result.getTargets(env.getReporter(), env.getSkyframeExecutor().getPackageManager());
+      validator.validateTargets(targets, keepGoing);
+    }
+    return result;
+  }
+
   /** Performs the merged analysis and execution phase. */
   private void buildTargetsWithMergedAnalysisExecution(
       BuildRequest request,
       BuildResult result,
-      TargetValidator validator,
+      TargetPatternPhaseValue targetPatternPhaseValue,
       BuildOptions buildOptionsBeforeFlagSets)
       throws InterruptedException,
-          TargetParsingException,
           LoadingFailedException,
           AbruptExitException,
           ViewCreationFailedException,
@@ -354,17 +408,8 @@ public class BuildTool {
           TestExecException,
           InvalidConfigurationException,
           RepositoryMappingResolutionException {
-    // Target pattern evaluation.
-    TargetPatternPhaseValue loadingResult;
-    Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
-    try (SilentCloseable c = Profiler.instance().profile("evaluateTargetPatterns")) {
-      loadingResult =
-          AnalysisAndExecutionPhaseRunner.evaluateTargetPatterns(env, request, validator);
-    }
-    env.setWorkspaceName(loadingResult.getWorkspaceName());
-
-    BuildOptions postFlagSetsBuildOptions =
-        evaluateProjectFile(request, buildOptionsBeforeFlagSets, loadingResult, env);
+    ProjectEvaluationResult projectEvaluationResult =
+        evaluateProjectFile(request, buildOptionsBeforeFlagSets, targetPatternPhaseValue, env);
 
     // See https://github.com/bazelbuild/rules_nodejs/issues/3693.
     env.getSkyframeExecutor().clearSyscallCache();
@@ -383,8 +428,8 @@ public class BuildTool {
           AnalysisAndExecutionPhaseRunner.execute(
               env,
               request,
-              postFlagSetsBuildOptions,
-              loadingResult,
+              projectEvaluationResult.buildOptions(),
+              targetPatternPhaseValue,
               () -> executionTool.prepareForExecution(executionTimer),
               result::setBuildConfiguration,
               new BuildDriverKeyTestContext() {
@@ -404,12 +449,20 @@ public class BuildTool {
                       .getTestActionContext()
                       .forceExclusiveIfLocalTestsInParallel();
                 }
-              });
+              },
+              projectEvaluationResult.activeDirectoriesMatcher());
       buildCompleted = true;
 
       // This value is null when there's no analysis.
       if (analysisAndExecutionResult == null) {
         return;
+      }
+
+      try (SilentCloseable closeable = Profiler.instance().profile("serializeAndUploadFrontier")) {
+        // TODO: b/365667094 - deduplicate Skymeld and non-Skymeld paths.
+        serializeFrontier(
+            request.getOptions(RemoteAnalysisCachingOptions.class),
+            analysisAndExecutionResult.getActiveDirectoriesMatcher());
       }
     } catch (InvalidConfigurationException
         | RepositoryMappingResolutionException
@@ -764,24 +817,29 @@ public class BuildTool {
     return result;
   }
 
-  private void serializeFrontier(@Nullable RemoteAnalysisCachingOptions options)
+  private void serializeFrontier(
+      @Nullable RemoteAnalysisCachingOptions options,
+      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
       throws InterruptedException, AbruptExitException {
-    if (options == null || Strings.isNullOrEmpty(options.serializedFrontierProfile)) {
+    if (options == null || options.mode != UPLOAD) {
       return;
     }
 
-    Optional<FailureDetail> maybeFailureDetail =
-        FrontierSerializer.dumpFrontierSerializationProfile(
-            env.getRuntime().getAnalysisCodecRegistry(),
-            env.getSkyframeBuildView().getArtifactFactory(),
-            env.getRuntime().getRuleClassProvider(),
-            env.getSkyframeExecutor(),
-            // TODO: b/353233779 - consider falling back on full serialization when there is
-            // no project matcher.
-            env.getRuntime().getActiveDirectoriesPrefixTrie(),
-            env.getReporter(),
-            options.serializedFrontierProfile);
+    // TODO: b/353233779 - consider falling back on full serialization when there is
+    // no project matcher.
+    Preconditions.checkState(
+        activeDirectoriesMatcher.isPresent(),
+        "the PROJECT.scl active_directories matcher is missing, was it initialized correctly?");
 
+    Optional<FailureDetail> maybeFailureDetail =
+        FrontierSerializer.serializeAndUploadFrontier(
+            requireNonNull(env.getAnalysisObjectCodecsSupplier()),
+            env.getSkyframeExecutor(),
+            activeDirectoriesMatcher.get(),
+            requireNonNull(env.getFingerprintValueService()),
+            env.getReporter(),
+            env.getEventBus(),
+            options.serializedFrontierProfile);
     if (maybeFailureDetail.isPresent()) {
       throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));
     }

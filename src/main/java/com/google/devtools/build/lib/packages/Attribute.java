@@ -1558,7 +1558,12 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     @Override
-    public ValueT resolve(Rule rule, AttributeMap attributes, FragmentT input) {
+    public ValueT resolve(
+        Rule rule,
+        AttributeMap attributes,
+        @Nullable FragmentT input,
+        @Nullable Object ctx,
+        @Nullable EventHandler eventHandler) {
       return resolver.resolve(rule, attributes, input);
     }
   }
@@ -1619,7 +1624,8 @@ public final class Attribute implements Comparable<Attribute> {
       return (LateBoundDefault<Void, ValueT>) AlwaysNullLateBoundDefault.INSTANCE;
     }
 
-    LateBoundDefault(Class<FragmentT> fragmentClass, Function<Rule, ValueT> defaultValueEvaluator) {
+    protected LateBoundDefault(
+        Class<FragmentT> fragmentClass, Function<Rule, ValueT> defaultValueEvaluator) {
       this.defaultValueEvaluator = defaultValueEvaluator;
       this.fragmentClass = fragmentClass;
     }
@@ -1652,8 +1658,16 @@ public final class Attribute implements Comparable<Attribute> {
      * @param rule the rule being evaluated
      * @param attributes interface for retrieving the values of the rule's other attributes
      * @param input the configuration fragment to evaluate with
+     * @param ctx a context object that may be used to evaluate the attribute
+     * @param eventHandler an event handler where messages from the evaluation are reported
      */
-    public abstract ValueT resolve(Rule rule, AttributeMap attributes, FragmentT input);
+    public abstract ValueT resolve(
+        Rule rule,
+        AttributeMap attributes,
+        @Nullable FragmentT input,
+        @Nullable Object ctx,
+        @Nullable EventHandler eventHandler)
+        throws InterruptedException, EvalException;
   }
 
   /**

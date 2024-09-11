@@ -22,7 +22,11 @@ import io.netty.handler.codec.http.HttpServerCodec;
 
 /** The initializer used by the HttpCacheServerHandler. */
 public class HttpCacheServerInitializer extends ChannelInitializer<SocketChannel> {
-  private final HttpCacheServerHandler handler = new HttpCacheServerHandler();
+  private final AbstractHttpCacheServerHandler handler;
+
+  public HttpCacheServerInitializer(AbstractHttpCacheServerHandler handler) {
+    this.handler = handler;
+  }
 
   @Override
   protected void initChannel(SocketChannel ch) {

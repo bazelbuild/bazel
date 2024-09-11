@@ -319,6 +319,8 @@ public class WorkerModuleTest {
             BinTools.forUnitTesting(blazeDirectories, ImmutableList.of()),
             /* allocationTracker= */ null,
             /* syscallCache= */ null,
+            /* analysisCodecRegistrySupplier= */ null,
+            /* fingerprintValueServiceFactory= */ null,
             /* allowExternalRepositories= */ true);
     when(env.getBlazeWorkspace()).thenReturn(blazeWorkspace);
     when(env.getDirectories()).thenReturn(blazeDirectories);

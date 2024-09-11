@@ -22,35 +22,25 @@ import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.ImmutableClassToInstanceMap;
-import com.google.common.hash.Hashing;
+import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
-import com.google.devtools.build.lib.actions.ArtifactFactory;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
-import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueCache;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
-import com.google.devtools.build.lib.vfs.Root;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener.SerializedNodeEvent;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -65,9 +55,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 /**
- * Implements frontier serialization with pprof dumping using {@code --serialized_frontier_profile}.
+ * Implements frontier serialization with pprof dumping using {@code
+ * --experimental_remote_analysis_cache_mode=upload}.
  */
 public final class FrontierSerializer {
 
@@ -79,19 +71,17 @@ public final class FrontierSerializer {
    *
    * @return empty if successful, otherwise a result containing the appropriate error
    */
-  public static Optional<FailureDetail> dumpFrontierSerializationProfile(
-      ObjectCodecRegistry registry,
-      ArtifactFactory artifactFactory,
-      RuleClassProvider ruleClassProvider,
+  public static Optional<FailureDetail> serializeAndUploadFrontier(
+      Supplier<ObjectCodecs> codecsSupplier,
       SkyframeExecutor skyframeExecutor,
       PathFragmentPrefixTrie matcher,
+      FingerprintValueService fingerprintValueService,
       Reporter reporter,
-      String path)
+      EventBus eventBus,
+      String profilePath)
       throws InterruptedException {
     // Starts initializing ObjectCodecs in a background thread as it can take some time.
-    var futureCodecs =
-        new FutureTask<>(
-            () -> initObjectCodecs(registry, artifactFactory, ruleClassProvider, skyframeExecutor));
+    var futureCodecs = new FutureTask<>(codecsSupplier::get);
     commonPool().execute(futureCodecs);
 
     var stopwatch = new ResettingStopwatch(Stopwatch.createStarted());
@@ -104,13 +94,6 @@ public final class FrontierSerializer {
             String.format("Found %d active or frontier keys in %s", selection.size(), stopwatch)));
 
     var profileCollector = new ProfileCollector();
-    var fingerprintValueService =
-        new FingerprintValueService(
-            commonPool(),
-            // TODO: b/358347099 - use a persistent store
-            FingerprintValueStore.inMemoryStore(),
-            new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
-            Hashing.murmur3_128());
     ObjectCodecs codecs;
     try {
       codecs = futureCodecs.get();
@@ -130,20 +113,19 @@ public final class FrontierSerializer {
     AtomicInteger frontierValueCount = new AtomicInteger();
     selection.forEach(
         /* parallelismThreshold= */ 0,
-        (actionLookupKey, marking) -> {
+        (key, marking) -> {
           if (!marking.equals(FRONTIER_CANDIDATE)) {
             return;
           }
           try {
             SerializationResult<ByteString> keyBytes =
-                codecs.serializeMemoizedAndBlocking(
-                    fingerprintValueService, actionLookupKey, profileCollector);
+                codecs.serializeMemoizedAndBlocking(fingerprintValueService, key, profileCollector);
             var keyWriteStatus = keyBytes.getFutureToBlockWritesOn();
             if (keyWriteStatus != null) {
               writeStatuses.add(keyWriteStatus);
             }
 
-            InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(actionLookupKey));
+            InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(key));
             SerializationResult<ByteString> valueBytes =
                 codecs.serializeMemoizedAndBlocking(
                     fingerprintValueService, node.getValue(), profileCollector);
@@ -151,7 +133,9 @@ public final class FrontierSerializer {
             if (writeStatusFuture != null) {
               writeStatuses.add(writeStatusFuture);
             }
+
             frontierValueCount.getAndIncrement();
+            eventBus.post(new SerializedNodeEvent(key));
           } catch (SerializationException e) {
             writeStatuses.add(immediateFailedFuture(e));
           }
@@ -159,8 +143,7 @@ public final class FrontierSerializer {
 
     reporter.handle(
         Event.info(
-            String.format(
-                "Serialized %s frontier entries in %s\n", frontierValueCount, stopwatch)));
+            String.format("Serialized %s frontier entries in %s", frontierValueCount, stopwatch)));
 
     try {
       var unusedNull =
@@ -175,9 +158,13 @@ public final class FrontierSerializer {
       return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
     }
     reporter.handle(
-        Event.info(String.format("Waiting for write futures took an additional %s\n", stopwatch)));
+        Event.info(String.format("Waiting for write futures took an additional %s", stopwatch)));
 
-    try (var fileOutput = new FileOutputStream(path);
+    if (profilePath.isEmpty()) {
+      return Optional.empty();
+    }
+
+    try (var fileOutput = new FileOutputStream(profilePath);
         var bufferedOutput = new BufferedOutputStream(fileOutput)) {
       profileCollector.toProto().writeTo(bufferedOutput);
     } catch (IOException e) {
@@ -254,25 +241,6 @@ public final class FrontierSerializer {
       }
       markActiveAndTraverseEdges(graph, parent, selection);
     }
-  }
-
-  private static ObjectCodecs initObjectCodecs(
-      ObjectCodecRegistry registry,
-      ArtifactFactory artifactFactory,
-      RuleClassProvider ruleClassProvider,
-      SkyframeExecutor skyframeExecutor) {
-
-    ImmutableClassToInstanceMap.Builder<Object> serializationDeps =
-        ImmutableClassToInstanceMap.builder()
-            .put(ArtifactSerializationContext.class, artifactFactory::getSourceArtifact)
-            .put(OptionsChecksumCache.class, new MapBackedChecksumCache())
-            .put(RuleClassProvider.class, ruleClassProvider)
-            // We need a RootCodecDependencies but don't care about the likely roots.
-            .put(Root.RootCodecDependencies.class, new Root.RootCodecDependencies())
-            // This is needed to determine TargetData for a ConfiguredTarget during serialization.
-            .put(PrerequisitePackageFunction.class, skyframeExecutor::getExistingPackage);
-
-    return new ObjectCodecs(registry, serializationDeps.build());
   }
 
   /** Stopwatch that resets upon reporting the time via {@link #toString}. */

@@ -15,7 +15,18 @@
 """Support utility for creating multi-arch Apple binaries."""
 
 load(":common/cc/cc_common.bzl", "cc_common")
+load(":common/objc/apple_platform.bzl", "apple_platform")
 load(":common/objc/compilation_support.bzl", "compilation_support")
+
+objc_internal = _builtins.internal.objc_internal
+TargetTripletInfo = provider(
+    "Contains the the target triplet (architecture, platform, environment) for a given configuration.",
+    fields = {
+        "architecture": "string, the CPU as returned by AppleConfiguration.getSingleArchitecture()",
+        "platform": "apple_platform.PLATFORM_TPYE string as returned by apple_platform.get_target_platform()",
+        "environment": "string ('device', 'simulator' or 'macabi) as returned by apple_platform.get_target_environment",
+    },
+)
 
 def _build_avoid_library_set(avoid_dep_linking_contexts):
     avoid_library_set = dict()
@@ -63,3 +74,32 @@ def subtract_linking_contexts(owner, linking_contexts, avoid_dep_linking_context
         linker_inputs = depset([linker_input]),
         owner = owner,
     )
+
+def _get_target_triplet(config):
+    """Returns the target triplet (architecture, platform, environment) for a given configuration."""
+    cpu_platform = apple_platform.for_target_cpu(objc_internal.get_cpu(config))
+    apple_config = objc_internal.get_apple_config(config)
+
+    return TargetTripletInfo(
+        architecture = apple_config.single_arch_cpu,
+        platform = apple_platform.get_target_platform(cpu_platform),
+        environment = apple_platform.get_target_environment(cpu_platform),
+    )
+
+def get_split_target_triplet(ctx):
+    """Transforms a rule context's ctads to a Starlark Dict mapping transitions to target triplets.
+
+    Args:
+      ctx: The Starlark rule context.
+
+    Returns:
+      A Starlark Dict<String, StructImpl> keyed by split transition keys with
+      their target triplet (architecture, platform, environment) as value.
+    """
+    result = dict()
+    ctads = objc_internal.get_split_prerequisites(ctx)
+    for split_transition_key, config in ctads.items():
+        if split_transition_key == None:
+            fail("unexpected empty key in split transition")
+        result[split_transition_key] = _get_target_triplet(config)
+    return result

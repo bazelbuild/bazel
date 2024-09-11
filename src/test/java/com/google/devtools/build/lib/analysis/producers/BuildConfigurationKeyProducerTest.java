@@ -137,7 +137,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
     assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
         .isEqualTo("from_cmd");
   }
@@ -167,7 +166,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
     assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
         .isEqualTo("from_mapping_changed");
   }
@@ -199,7 +197,8 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
 
     BuildOptions baseOptions = createBuildOptions("--platforms=//platforms:sample");
     // Fails because the changed platform has an invalid mapping.
-    assertThrows(OptionsParsingException.class, () -> fetch(baseOptions));
+    var e = assertThrows(PlatformMappingException.class, () -> fetch(baseOptions));
+    assertThat(e).hasMessageThat().contains("Unrecognized option: --fake_option");
   }
 
   @Test
@@ -220,7 +219,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
     assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
         .isEqualTo("from_platform");
   }
@@ -267,7 +265,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
     assertThat(result.getOptions().get(DummyTestOptions.class).option).isEqualTo("from_platform");
   }
 
@@ -314,7 +311,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
     assertThat(result.getOptions().get(DummyTestOptions.class).option).isEqualTo("from_default");
   }
 
@@ -366,7 +362,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
     assertThat(result.getOptions().get(DummyTestOptions.class).accumulating)
         .containsExactly("from_cli", "from_platform")
         .inOrder();
@@ -428,7 +423,6 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
     BuildConfigurationKey result = fetch(baseOptions);
 
     assertThat(result).isNotNull();
-    assertThat(result.getOptions().contains(DummyTestOptions.class)).isTrue();
     assertThat(result.getOptions().get(DummyTestOptions.class).internalOption)
         .isEqualTo("from_platform");
   }

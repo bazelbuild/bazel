@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.AbstractLabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -55,7 +56,8 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
   private final String fragmentFieldName;
 
   @Override
-  public Label resolve(Rule rule, AttributeMap attributes, FragmentT config) {
+  public Label resolve(
+      Rule rule, AttributeMap attributes, FragmentT config, Object ctx, EventHandler eventHandler) {
     try {
       Object result = method.invoke(config);
       return (Label) result;

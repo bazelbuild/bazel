@@ -195,7 +195,7 @@ public class RemoteExecutionCache extends RemoteCache {
           // If we get here, the remote input was determined to exist in the remote or disk cache at
           // some point before action execution, but reported to be missing when querying the remote
           // for missing action inputs; possibly because it was evicted in the interim.
-          reporter.post(new LostInputsEvent());
+          reporter.post(new LostInputsEvent(digest));
           throw new CacheNotFoundException(digest, path.getPathString());
         }
       } catch (IOException e) {

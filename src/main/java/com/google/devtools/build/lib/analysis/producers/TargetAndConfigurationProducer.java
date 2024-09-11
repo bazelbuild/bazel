@@ -309,14 +309,12 @@ public final class TargetAndConfigurationProducer
         return UnloadedToolchainContextsInputs.empty();
       }
 
-      if (!preRuleTransitionKey
-          .getConfigurationKey()
-          .getOptions()
-          .contains(PlatformOptions.class)) {
+      var platformOptions =
+          preRuleTransitionKey.getConfigurationKey().getOptions().get(PlatformOptions.class);
+      if (platformOptions == null) {
         return UnloadedToolchainContextsInputs.empty();
       }
-      PlatformConfiguration platformConfiguration =
-          new PlatformConfiguration(preRuleTransitionKey.getConfigurationKey().getOptions());
+      PlatformConfiguration platformConfiguration = new PlatformConfiguration(platformOptions);
       var defaultExecConstraintLabels =
           getExecutionPlatformConstraints(rule, platformConfiguration);
       var ruleClass = rule.getRuleClassObject();

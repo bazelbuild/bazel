@@ -46,7 +46,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.SyscallCache;
-import com.google.devtools.build.remote.worker.http.HttpCacheServerHandler;
+import com.google.devtools.build.remote.worker.http.InMemoryHttpCacheServerHandler;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
 import io.netty.bootstrap.ServerBootstrap;
@@ -357,7 +357,7 @@ public class HttpCacheClientTest {
     ServerChannel server = null;
     try {
       ConcurrentHashMap<String, byte[]> cacheContents = new ConcurrentHashMap<>();
-      server = testServer.start(new HttpCacheServerHandler(cacheContents));
+      server = testServer.start(new InMemoryHttpCacheServerHandler(cacheContents));
 
       HttpCacheClient blobStore =
           createHttpBlobStore(
@@ -383,7 +383,7 @@ public class HttpCacheClientTest {
     ServerChannel server = null;
     try {
       ConcurrentHashMap<String, byte[]> cacheContents = new ConcurrentHashMap<>();
-      server = testServer.start(new HttpCacheServerHandler(cacheContents));
+      server = testServer.start(new InMemoryHttpCacheServerHandler(cacheContents));
 
       HttpCacheClient blobStore =
           createHttpBlobStore(

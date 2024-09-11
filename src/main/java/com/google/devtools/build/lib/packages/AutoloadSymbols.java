@@ -667,8 +667,6 @@ public class AutoloadSymbols {
                   "py_library"))
           .put("aar_import", ruleRedirect("@rules_android//rules:rules.bzl"))
           .put("android_binary", ruleRedirect("@rules_android//rules:rules.bzl"))
-          .put("android_device_script_fixture", ruleRedirect("@rules_android//rules:rules.bzl"))
-          .put("android_host_service_fixture", ruleRedirect("@rules_android//rules:rules.bzl"))
           .put("android_library", ruleRedirect("@rules_android//rules:rules.bzl"))
           .put("android_local_test", ruleRedirect("@rules_android//rules:rules.bzl"))
           .put("android_sdk", ruleRedirect("@rules_android//rules:rules.bzl"))

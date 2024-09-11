@@ -17,11 +17,12 @@ package com.google.devtools.build.lib.analysis.platform;
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.config.NativeAndStarlarkFlags;
+import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Optional;
 
 /** A platform's {@link PlatformInfo} along with its parsed flags. */
 @AutoValue
@@ -31,10 +32,15 @@ public abstract class PlatformValue implements SkyValue {
 
   public abstract PlatformInfo platformInfo();
 
-  public abstract NativeAndStarlarkFlags parsedFlags();
+  /** Only present if the platform specifies flags. */
+  public abstract Optional<ParsedFlagsValue> parsedFlags();
 
-  static PlatformValue of(PlatformInfo platformInfo, NativeAndStarlarkFlags parsedFlags) {
-    return new AutoValue_PlatformValue(platformInfo, parsedFlags);
+  static PlatformValue noFlags(PlatformInfo platformInfo) {
+    return new AutoValue_PlatformValue(platformInfo, /* parsedFlags= */ Optional.empty());
+  }
+
+  static PlatformValue withFlags(PlatformInfo platformInfo, ParsedFlagsValue parsedFlags) {
+    return new AutoValue_PlatformValue(platformInfo, Optional.of(parsedFlags));
   }
 
   public static PlatformKey key(Label platformLabel) {

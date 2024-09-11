@@ -1138,21 +1138,43 @@ public abstract class BuildWithoutTheBytesIntegrationTestBase extends BuildInteg
   }
 
   @Test
-  public void incrementalBuild_deleteOutputsInUnwritableParentDirectory() throws Exception {
+  public void incrementalBuild_unwritableParentDirectory_outputExists() throws Exception {
     write(
         "BUILD",
         "genrule(",
         "  name = 'unwritable',",
         "  srcs = ['file.in'],",
         "  outs = ['unwritable/somefile.out'],",
-        "  cmd = 'cat $(SRCS) > $@; chmod a-w $$(dirname $@)',",
+        "  cmd = 'cat $(SRCS) > $@',",
         "  local = True,",
         ")");
     write("file.in", "content");
     buildTarget("//:unwritable");
 
-    write("file.in", "updated content");
+    getOutputPath("unwritable").setWritable(false);
 
+    write("file.in", "updated content");
+    buildTarget("//:unwritable");
+  }
+
+  @Test
+  public void incrementalBuild_unwritableParentDirectory_outputDoesNotExist() throws Exception {
+    write(
+        "BUILD",
+        "genrule(",
+        "  name = 'unwritable',",
+        "  srcs = ['file.in'],",
+        "  outs = ['unwritable/somefile.out'],",
+        "  cmd = 'cat $(SRCS) > $@',",
+        "  local = True,",
+        ")");
+    write("file.in", "content");
+    buildTarget("//:unwritable");
+
+    getOutputPath("unwritable/somefile.out").delete();
+    getOutputPath("unwritable").setWritable(false);
+
+    write("file.in", "updated content");
     buildTarget("//:unwritable");
   }
 

@@ -34,10 +34,12 @@ platform_common = _builtins.toplevel.platform_common
 
 artifact_category = _artifact_category
 
+# LINT.IfChange(linker_mode)
 linker_mode = struct(
     LINKING_DYNAMIC = "dynamic_linking_mode",
     LINKING_STATIC = "static_linking_mode",
 )
+# LINT.ThenChange(@rules_cc//cc/common/cc_helper.bzl:linker_mode)
 
 cpp_file_types = struct(
     LINKER_SCRIPT = ["ld", "lds", "ldscript"],
@@ -88,54 +90,6 @@ def _check_file_extensions(attr_values, allowed_extensions, attr_name, label, ru
 
 def _check_srcs_extensions(ctx, allowed_extensions, rule_name, allow_versioned_shared_libraries):
     _check_file_extensions(ctx.attr.srcs, allowed_extensions, "srcs", ctx.label, rule_name, allow_versioned_shared_libraries)
-
-def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_configuration):
-    if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "no_stripping"):
-        ctx.actions.symlink(
-            output = output,
-            target_file = input,
-            progress_message = "Symlinking original binary as stripped binary",
-        )
-        return
-
-    if not cc_common.action_is_enabled(feature_configuration = feature_configuration, action_name = "strip"):
-        fail("Expected action_config for 'strip' to be configured.")
-
-    variables = cc_common.create_compile_variables(
-        cc_toolchain = cc_toolchain,
-        feature_configuration = feature_configuration,
-        output_file = output.path,
-        input_file = input.path,
-        strip_opts = cpp_config.strip_opts(),
-    )
-    command_line = cc_common.get_memory_inefficient_command_line(
-        feature_configuration = feature_configuration,
-        action_name = "strip",
-        variables = variables,
-    )
-    env = cc_common.get_environment_variables(
-        feature_configuration = feature_configuration,
-        action_name = "strip",
-        variables = variables,
-    )
-    execution_info = {}
-    for execution_requirement in cc_common.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = "strip"):
-        execution_info[execution_requirement] = ""
-    ctx.actions.run(
-        inputs = depset(
-            direct = [input],
-            transitive = [cc_toolchain._strip_files],
-        ),
-        outputs = [output],
-        use_default_shell_env = True,
-        env = env,
-        executable = cc_common.get_tool_for_action(feature_configuration = feature_configuration, action_name = "strip"),
-        toolchain = cc_helper.CPP_TOOLCHAIN_TYPE,
-        execution_requirements = execution_info,
-        progress_message = "Stripping {} for {}".format(output.short_path, ctx.label),
-        mnemonic = "CcStrip",
-        arguments = command_line,
-    )
 
 def _merge_cc_debug_contexts(compilation_outputs, dep_cc_infos):
     debug_context = cc_common.create_debug_context(compilation_outputs)
@@ -545,19 +499,6 @@ def _get_providers(deps, provider):
             providers.append(dep[provider])
     return providers
 
-def _get_static_mode_params_for_dynamic_library_libraries(libs):
-    linker_inputs = []
-    for lib in libs.to_list():
-        if lib.pic_static_library:
-            linker_inputs.append(lib.pic_static_library)
-        elif lib.static_library:
-            linker_inputs.append(lib.static_library)
-        elif lib.interface_library:
-            linker_inputs.append(lib.interface_library)
-        else:
-            linker_inputs.append(lib.dynamic_library)
-    return linker_inputs
-
 def _libraries_from_linking_context(linking_context):
     libraries = []
     for linker_input in linking_context.linker_inputs.to_list():
@@ -671,7 +612,69 @@ def _contains_sysroot(original_cc_flags, feature_config_cc_flags):
 
     return False
 
-# LINT.IfChange
+# LINT.IfChange(forked_exports)
+
+def _get_static_mode_params_for_dynamic_library_libraries(libs):
+    linker_inputs = []
+    for lib in libs.to_list():
+        if lib.pic_static_library:
+            linker_inputs.append(lib.pic_static_library)
+        elif lib.static_library:
+            linker_inputs.append(lib.static_library)
+        elif lib.interface_library:
+            linker_inputs.append(lib.interface_library)
+        else:
+            linker_inputs.append(lib.dynamic_library)
+    return linker_inputs
+
+def _create_strip_action(ctx, cc_toolchain, cpp_config, input, output, feature_configuration):
+    if cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "no_stripping"):
+        ctx.actions.symlink(
+            output = output,
+            target_file = input,
+            progress_message = "Symlinking original binary as stripped binary",
+        )
+        return
+
+    if not cc_common.action_is_enabled(feature_configuration = feature_configuration, action_name = "strip"):
+        fail("Expected action_config for 'strip' to be configured.")
+
+    variables = cc_common.create_compile_variables(
+        cc_toolchain = cc_toolchain,
+        feature_configuration = feature_configuration,
+        output_file = output.path,
+        input_file = input.path,
+        strip_opts = cpp_config.strip_opts(),
+    )
+    command_line = cc_common.get_memory_inefficient_command_line(
+        feature_configuration = feature_configuration,
+        action_name = "strip",
+        variables = variables,
+    )
+    env = cc_common.get_environment_variables(
+        feature_configuration = feature_configuration,
+        action_name = "strip",
+        variables = variables,
+    )
+    execution_info = {}
+    for execution_requirement in cc_common.get_tool_requirement_for_action(feature_configuration = feature_configuration, action_name = "strip"):
+        execution_info[execution_requirement] = ""
+    ctx.actions.run(
+        inputs = depset(
+            direct = [input],
+            transitive = [cc_toolchain._strip_files],
+        ),
+        outputs = [output],
+        use_default_shell_env = True,
+        env = env,
+        executable = cc_common.get_tool_for_action(feature_configuration = feature_configuration, action_name = "strip"),
+        toolchain = cc_helper.CPP_TOOLCHAIN_TYPE,
+        execution_requirements = execution_info,
+        progress_message = "Stripping {} for {}".format(output.short_path, ctx.label),
+        mnemonic = "CcStrip",
+        arguments = command_line,
+    )
+
 def _lookup_var(ctx, additional_vars, var):
     expanded_make_var_ctx = ctx.var.get(var)
     expanded_make_var_additional = additional_vars.get(var)
@@ -851,7 +854,25 @@ def _tokenize(options, options_string):
     if force_token or len(token) > 0:
         options.append("".join(token))
 
-# LINT.ThenChange(@rules_cc//cc/common/cc_helper.bzl)
+def _should_use_pic(ctx, cc_toolchain, feature_configuration):
+    """Whether to use pic files
+
+    Args:
+        ctx: (RuleContext)
+        cc_toolchain: (CcToolchainInfo)
+        feature_configuration: (FeatureConfiguration)
+
+    Returns:
+        (bool)
+    """
+    return ctx.fragments.cpp.force_pic() or (
+        cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration) and (
+            ctx.var["COMPILATION_MODE"] != "opt" or
+            cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "prefer_pic_for_opt_binaries")
+        )
+    )
+
+# LINT.ThenChange(@rules_cc//cc/common/cc_helper.bzl:forked_exports)
 
 def _get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain):
     original_cc_flags = cc_toolchain._legacy_cc_flags_make_variable
@@ -1177,24 +1198,6 @@ def _proto_output_root(proto_root, bin_dir_path):
         return proto_root
     else:
         return bin_dir_path + "/" + proto_root
-
-def _should_use_pic(ctx, cc_toolchain, feature_configuration):
-    """Whether to use pic files
-
-    Args:
-        ctx: (RuleContext)
-        cc_toolchain: (CcToolchainInfo)
-        feature_configuration: (FeatureConfiguration)
-
-    Returns:
-        (bool)
-    """
-    return ctx.fragments.cpp.force_pic() or (
-        cc_toolchain.needs_pic_for_dynamic_libraries(feature_configuration = feature_configuration) and (
-            ctx.var["COMPILATION_MODE"] != "opt" or
-            cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "prefer_pic_for_opt_binaries")
-        )
-    )
 
 def _check_cpp_modules(ctx, feature_configuration):
     if len(ctx.files.module_interfaces) == 0:

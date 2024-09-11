@@ -39,6 +39,8 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
@@ -47,7 +49,7 @@ import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.syntax.Identifier;
 
 /** Information about attributes of a rule an aspect is applied to. */
-class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
+public class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
   private final StarlarkRuleContext starlarkRuleContext;
   private final StructImpl attrObject;
   private final StructImpl executableObject;
@@ -171,6 +173,7 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
     return new Builder(ruleContext, prerequisitesCollection);
   }
 
+  /** A builder for {@link StarlarkAttributesCollection}. */
   public static class Builder {
     private final StarlarkRuleContext context;
     private final PrerequisitesCollection prerequisites;
@@ -189,6 +192,75 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
       this.prerequisites = prerequisitesCollection;
     }
 
+    @Nullable
+    private static Object convertAttributeValue(
+        Supplier<List<? extends TransitiveInfoCollection>> prerequisiteSupplier,
+        Attribute a,
+        Object val) {
+      Type<?> type = a.getType();
+      String skyname = a.getPublicName();
+
+      // Some legacy native attribute types do not have a valid Starlark type. Avoid exposing
+      // these to Starlark.
+      if (type == BuildType.DISTRIBUTIONS || type == BuildType.TRISTATE) {
+        return null;
+      }
+
+      // Don't expose invalid attributes via the rule ctx.attr. Ordinarily, this case cannot happen,
+      // and currently only applies to subrule attributes
+      // TODO: b/293304174 - let subrules explicitly mark attributes as not-visible-to-starlark
+      if (!Identifier.isValid(skyname)) {
+        return null;
+      }
+
+      if (type == BuildType.DORMANT_LABEL) {
+        return val == null
+            ? Starlark.NONE
+            : new DormantDependency(BuildType.DORMANT_LABEL.cast(val));
+      }
+
+      if (type == BuildType.DORMANT_LABEL_LIST) {
+        StarlarkList<DormantDependency> dormantDeps =
+            StarlarkList.immutableCopyOf(
+                BuildType.DORMANT_LABEL_LIST.cast(val).stream()
+                    .map(DormantDependency::new)
+                    .collect(toImmutableList()));
+        return dormantDeps;
+      }
+
+      // TODO(b/140636597): Remove the LABEL_DICT_UNARY special case of this conditional
+      // LABEL_DICT_UNARY was previously not treated as a dependency-bearing type, and was put into
+      // Starlark as a Map<String, Label>; this special case preserves that behavior temporarily.
+      if (type.getLabelClass() != LabelClass.DEPENDENCY || type == BuildType.LABEL_DICT_UNARY) {
+        // Attribute values should be type safe
+        return Attribute.valueToStarlark(val);
+      }
+
+      if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
+        List<? extends TransitiveInfoCollection> prerequisites = prerequisiteSupplier.get();
+        return prerequisites.isEmpty() ? Starlark.NONE : prerequisites.get(0);
+      } else if (type == BuildType.LABEL_LIST
+          || (type == BuildType.LABEL && a.getTransitionFactory().isSplit())) {
+        List<?> allPrereq = prerequisiteSupplier.get();
+        return StarlarkList.immutableCopyOf(allPrereq);
+      } else if (type == BuildType.LABEL_KEYED_STRING_DICT) {
+        Dict.Builder<TransitiveInfoCollection, String> builder = Dict.builder();
+        Map<Label, String> original = BuildType.LABEL_KEYED_STRING_DICT.cast(val);
+        List<? extends TransitiveInfoCollection> allPrereq = prerequisiteSupplier.get();
+        for (TransitiveInfoCollection prereq : allPrereq) {
+          builder.put(prereq, original.get(AliasProvider.getDependencyLabel(prereq)));
+        }
+        return builder.buildImmutable();
+      } else {
+        throw new IllegalArgumentException(
+            "Can't transform attribute "
+                + a.getName()
+                + " of type "
+                + type
+                + " to a Starlark object");
+      }
+    }
+
     public void addAttribute(Attribute a, Object val) {
       Type<?> type = a.getType();
       String skyname = a.getPublicName();
@@ -198,47 +270,25 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
         return;
       }
 
-      // Some legacy native attribute types do not have a valid Starlark type. Avoid exposing
-      // these to Starlark.
-      if (type == BuildType.DISTRIBUTIONS || type == BuildType.TRISTATE) {
+      Object starlarkVal =
+          convertAttributeValue(() -> prerequisites.getPrerequisites(a.getName()), a, val);
+      if (starlarkVal == null) {
         return;
       }
 
-      // Don't expose invalid attributes via the rule ctx.attr. Ordinarily, this case cannot happen,
-      // and currently only applies to subrule attributes
-      // TODO: b/293304174 - let subrules explicitly mark attributes as not-visible-to-starlark
-      if (!Identifier.isValid(skyname)) {
-        return;
-      }
-
-      if (type == BuildType.DORMANT_LABEL) {
-        if (val == null) {
-          attrBuilder.put(skyname, Starlark.NONE);
-        } else {
-          DormantDependency dormantDep = new DormantDependency(BuildType.DORMANT_LABEL.cast(val));
-          attrBuilder.put(skyname, dormantDep);
-        }
-        return;
-      }
-
-      if (type == BuildType.DORMANT_LABEL_LIST) {
-        StarlarkList<DormantDependency> dormantDeps =
-            StarlarkList.immutableCopyOf(
-                BuildType.DORMANT_LABEL_LIST.cast(val).stream()
-                    .map(DormantDependency::new)
-                    .collect(toImmutableList()));
-        attrBuilder.put(skyname, dormantDeps);
-        return;
-      }
-
-      // TODO(b/140636597): Remove the LABEL_DICT_UNARY special case of this conditional
-      // LABEL_DICT_UNARY was previously not treated as a dependency-bearing type, and was put into
-      // Starlark as a Map<String, Label>; this special case preserves that behavior temporarily.
+      attrBuilder.put(skyname, starlarkVal);
       if (type.getLabelClass() != LabelClass.DEPENDENCY || type == BuildType.LABEL_DICT_UNARY) {
-        // Attribute values should be type safe
-        attrBuilder.put(skyname, Attribute.valueToStarlark(val));
         return;
       }
+
+      NestedSet<Artifact> files = PrerequisiteArtifacts.nestedSet(prerequisites, a.getName());
+      filesBuilder.put(
+          skyname,
+          files.isEmpty()
+              ? StarlarkList.empty()
+              : StarlarkList.lazyImmutable(
+                  (StarlarkList.SerializableListSupplier<Artifact>) files::toList));
+
       if (a.isExecutable()) {
         // In a Starlark-defined rule, only LABEL type attributes (not LABEL_LIST) can have the
         // Executable flag. However, we could be here because we're creating a StarlarkRuleContext
@@ -272,41 +322,6 @@ class StarlarkAttributesCollection implements StarlarkAttributesCollectionApi {
         } else {
           fileBuilder.put(skyname, Starlark.NONE);
         }
-      }
-      NestedSet<Artifact> files = PrerequisiteArtifacts.nestedSet(prerequisites, a.getName());
-      filesBuilder.put(
-          skyname,
-          files.isEmpty()
-              ? StarlarkList.empty()
-              : StarlarkList.lazyImmutable(
-                  (StarlarkList.SerializableListSupplier<Artifact>) files::toList));
-
-      if (type == BuildType.LABEL && !a.getTransitionFactory().isSplit()) {
-        Object prereq = prerequisites.getPrerequisite(a.getName());
-        if (prereq == null) {
-          prereq = Starlark.NONE;
-        }
-        attrBuilder.put(skyname, prereq);
-      } else if (type == BuildType.LABEL_LIST
-          || (type == BuildType.LABEL && a.getTransitionFactory().isSplit())) {
-        List<?> allPrereq = prerequisites.getPrerequisites(a.getName());
-        attrBuilder.put(skyname, StarlarkList.immutableCopyOf(allPrereq));
-      } else if (type == BuildType.LABEL_KEYED_STRING_DICT) {
-        Dict.Builder<TransitiveInfoCollection, String> builder = Dict.builder();
-        Map<Label, String> original = BuildType.LABEL_KEYED_STRING_DICT.cast(val);
-        List<? extends TransitiveInfoCollection> allPrereq =
-            prerequisites.getPrerequisites(a.getName());
-        for (TransitiveInfoCollection prereq : allPrereq) {
-          builder.put(prereq, original.get(AliasProvider.getDependencyLabel(prereq)));
-        }
-        attrBuilder.put(skyname, builder.buildImmutable());
-      } else {
-        throw new IllegalArgumentException(
-            "Can't transform attribute "
-                + a.getName()
-                + " of type "
-                + type
-                + " to a Starlark object");
       }
     }
 

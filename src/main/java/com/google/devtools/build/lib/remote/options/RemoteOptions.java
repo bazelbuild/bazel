@@ -102,13 +102,16 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public PathFragment remoteCaptureCorruptedOutputs;
 
   @Option(
-      name = "experimental_remote_cache_async",
-      defaultValue = "false",
+      name = "remote_cache_async",
+      oldName = "experimental_remote_cache_async",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "If true, remote cache I/O will happen in the background instead of taking place as the"
-              + " part of a spawn.")
+          "If true, uploading of action results to a disk or remote cache will happen in the"
+              + " background instead of blocking the completion of an action. Some actions are"
+              + " incompatible with background uploads, and may still block even when this flag is"
+              + " set.")
   public boolean remoteCacheAsync;
 
   @Option(

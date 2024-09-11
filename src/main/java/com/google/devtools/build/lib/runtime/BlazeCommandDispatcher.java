@@ -732,6 +732,9 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
 
       try {
         Profiler.instance().stop();
+        if (profilerStartedEvent.getProfile() instanceof LocalInstrumentationOutput profile) {
+          profile.makeConvenienceLink();
+        }
       } catch (IOException e) {
         env.getReporter()
             .handle(Event.error("Error while writing profile file: " + e.getMessage()));

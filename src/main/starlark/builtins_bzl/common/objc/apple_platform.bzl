@@ -65,4 +65,95 @@ PLATFORM = struct(
     watchos_simulator = _create_platform("watchos_simulator", "WatchSimulator", PLATFORM_TYPE.watchos, False),
     catalyst = _create_platform("catalyst", "MacOSX", PLATFORM_TYPE.catalyst, True),
 )
+
+_TARGET_CPUS_BY_PLATFORM = {
+    "ios_simulator": {
+        "ios_x86_64": True,
+        "ios_i386": True,
+        "ios_sim_arm64": True,
+    },
+    "ios_device": {
+        "ios_armv6": True,
+        "ios_arm64": True,
+        "ios_armv7": True,
+        "ios_armv7s": True,
+        "ios_arm64e": True,
+    },
+    "visionos_simulator": {
+        "visionos_sim_arm64": True,
+    },
+    "visionos_device": {
+        "visionos_arm64": True,
+    },
+    "watchos_simulator": {
+        "watchos_i386": True,
+        "watchos_x86_64": True,
+        "watchos_arm64": True,
+    },
+    "watchos_device": {
+        "watchos_armv7k": True,
+        "watchos_arm64_32": True,
+        "watchos_device_arm64": True,
+        "watchos_device_arm64e": True,
+    },
+    "tvos_simulator": {
+        "tvos_x86_64": True,
+        "tvos_sim_arm64": True,
+    },
+    "tvos_device": {
+        "tvos_arm64": True,
+    },
+    "catalyst": {
+        "catalyst_x86_64": True,
+    },
+    "macos": {
+        "darwin_x86_64": True,
+        "darwin_arm64": True,
+        "darwin_arm64e": True,
+    },
+}
+
+def _for_target_cpu(target_cpu):
+    """Returns the platform for the given target CPU.
+
+    Args:
+      target_cpu: The target CPU.
+
+    Returns:
+      The platform for the given target CPU.
+    """
+    for platform, target_cpus in _TARGET_CPUS_BY_PLATFORM.items():
+        if target_cpu in target_cpus:
+            return getattr(PLATFORM, platform)
+    fail("No platform found for target CPU %s" % target_cpu)
+
+def _get_target_platform(platform):
+    """Returns the target platform as it would be represented in a target triple.
+
+    Note that the target platform for Catalyst is "ios", despite it being represented here as
+    its own value.
+    """
+    if platform.platform_type == PLATFORM_TYPE.catalyst:
+        return PLATFORM_TYPE.ios
+    return platform.platform_type
+
+def _get_target_environment(platform):
+    """Returns the platform's target environment as it would be represented in a target triple.
+
+    Note that the target environment corresponds to the target platform (as returned by
+    _get_target_platform(), so "macabi" is an environment of iOS, not a separate platform as it is
+    represented in this enumerated type.
+    """
+    if platform.platform_type == PLATFORM_TYPE.catalyst:
+        return "macabi"
+    if platform.is_device:
+        return "device"
+    return "simulator"
+
 # LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/apple/ApplePlatform.java)
+
+apple_platform = struct(
+    for_target_cpu = _for_target_cpu,
+    get_target_platform = _get_target_platform,
+    get_target_environment = _get_target_environment,
+)

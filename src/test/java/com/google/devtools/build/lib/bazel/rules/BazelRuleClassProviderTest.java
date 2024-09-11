@@ -201,11 +201,12 @@ public class BazelRuleClassProviderTest extends BuildViewTestCase {
   @Test
   public void optionsAlsoApplyToHost() throws Exception {
     BuildOptions options = targetConfig.getOptions().clone();
-    if (!options.contains(StrictActionEnvOptions.class)) {
+    var strictActionEnvOptions = options.get(StrictActionEnvOptions.class);
+    if (strictActionEnvOptions == null) {
       // This Bazel build doesn't include StrictActionEnvOptions. Nothing to test.
       return;
     }
-    options.get(StrictActionEnvOptions.class).useStrictActionEnv = true;
+    strictActionEnvOptions.useStrictActionEnv = true;
 
     StrictActionEnvOptions h =
         AnalysisTestUtil.execOptions(options, skyframeExecutor, reporter)

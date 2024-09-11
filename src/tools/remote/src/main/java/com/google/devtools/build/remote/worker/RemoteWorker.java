@@ -323,7 +323,7 @@ public final class RemoteWorker {
       b.group(bossGroup, workerGroup)
           .channel(NioServerSocketChannel.class)
           .handler(new LoggingHandler(LogLevel.INFO))
-          .childHandler(new HttpCacheServerInitializer());
+          .childHandler(new HttpCacheServerInitializer(new OnDiskHttpCacheServerHandler(cache)));
       ch = b.bind(remoteWorkerOptions.httpListenPort).sync().channel();
       logger.atInfo().log(
           "Started HTTP cache server on port %d", remoteWorkerOptions.httpListenPort);

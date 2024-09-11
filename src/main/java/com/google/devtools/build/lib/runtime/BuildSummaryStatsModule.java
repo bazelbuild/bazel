@@ -22,6 +22,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ActionCompletionEvent;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionResultReceivedEvent;
+import com.google.devtools.build.lib.actions.cache.PostableActionCacheStats;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.ExecutionStartingEvent;
@@ -139,6 +140,11 @@ public class BuildSummaryStatsModule extends BlazeModule {
   @AllowConcurrentEvents
   public void actionCompletion(ActionCompletionEvent event) {
     spawnStats.incrementActionCount();
+  }
+
+  @Subscribe
+  public void actionCacheStats(PostableActionCacheStats event) {
+    spawnStats.recordActionCacheStats(event.asProto());
   }
 
   @Subscribe

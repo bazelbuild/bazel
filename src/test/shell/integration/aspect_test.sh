@@ -169,6 +169,7 @@ EOF
   # propagate to its dependencies where they will run based on the dependencies
   # advertised providers.
   bazel build "${package}:target_with_a" \
+        --noincompatible_top_level_aspects_require_providers \
         --aspects="//${package}:lib.bzl%aspect_a" \
         --aspects="//${package}:lib.bzl%aspect_b" &>"$TEST_log" \
       || fail "Build failed but should have succeeded"

@@ -137,9 +137,6 @@ public final class SerializationRegistrySetupHelpers {
 
   /**
    * Initializes an {@link ObjectCodecRegistry} for analysis serialization.
-   *
-   * <p>This gets injected into {@link BlazeRuntime} and made available to clients via {@link
-   * BlazeRuntime#getAnalysisCodecRegistry}.
    */
   public static Supplier<ObjectCodecRegistry> createAnalysisCodecRegistrySupplier(
       BlazeRuntime runtime, ImmutableList<Object> additionalReferenceConstants) {

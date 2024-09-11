@@ -75,8 +75,9 @@ public interface FeatureFlagValue {
     }
     result.addStarlarkOptions(newValueObjects.buildOrThrow());
     BuildOptions builtResult = result.build();
-    if (builtResult.contains(ConfigFeatureFlagOptions.class)) {
-      builtResult.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent = true;
+    var configFeatureFlagOptions = builtResult.get(ConfigFeatureFlagOptions.class);
+    if (configFeatureFlagOptions != null) {
+      configFeatureFlagOptions.allFeatureFlagValuesArePresent = true;
     }
     return builtResult;
   }
@@ -90,11 +91,10 @@ public interface FeatureFlagValue {
     Set<Label> seenFlags = new LinkedHashSet<>();
     Set<Label> flagsToTrim = new LinkedHashSet<>();
     Map<Label, Object> unknownFlagsToAdd = new LinkedHashMap<>();
-    boolean changeAllValuesPresentOption = false;
-    if (original.contains(ConfigFeatureFlagOptions.class)) {
-      changeAllValuesPresentOption =
-          original.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent;
-    }
+    var originalConfigFeatureFlagOptions = original.get(ConfigFeatureFlagOptions.class);
+    boolean changeAllValuesPresentOption =
+        originalConfigFeatureFlagOptions != null
+            && originalConfigFeatureFlagOptions.allFeatureFlagValuesArePresent;
 
     // What do we need to change?
     original.getStarlarkOptions().entrySet().stream()
@@ -117,8 +117,9 @@ public interface FeatureFlagValue {
     flagsToTrim.forEach(trimmedFlag -> result.removeStarlarkOption(trimmedFlag));
     unknownFlagsToAdd.forEach((flag, value) -> result.addStarlarkOption(flag, value));
     BuildOptions builtResult = result.build();
-    if (builtResult.contains(ConfigFeatureFlagOptions.class)) {
-      builtResult.get(ConfigFeatureFlagOptions.class).allFeatureFlagValuesArePresent = false;
+    var builtConfigFeatureFlagOptions = builtResult.get(ConfigFeatureFlagOptions.class);
+    if (builtConfigFeatureFlagOptions != null) {
+      builtConfigFeatureFlagOptions.allFeatureFlagValuesArePresent = false;
     }
     return builtResult;
   }

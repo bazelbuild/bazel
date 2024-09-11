@@ -354,7 +354,7 @@ public class PatchUtil {
     String oldFileError = "";
     String newFileError = "";
     if (oldFile == null) {
-      oldFileError = ", old file name (%s) is not specified";
+      oldFileError = ", old file name is not specified";
     } else if (!oldFile.exists()) {
       oldFileError = String.format(", old file name (%s) doesn't exist", oldFileStr);
     }
@@ -397,7 +397,7 @@ public class PatchUtil {
       String oldFileError;
       String newFileError;
       if (oldFile == null) {
-        oldFileError = ", old file name (%s) is not specified";
+        oldFileError = ", old file name is not specified";
       } else {
         oldFileError = String.format(", old file name (%s) doesn't exist", oldFileStr);
       }

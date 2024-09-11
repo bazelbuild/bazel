@@ -351,11 +351,15 @@ public class DiskCacheClient implements RemoteCacheClient {
 
   public Path toPath(Digest digest, Store store) {
     String hash = digest.getHash();
+    return toPath(hash, store);
+  }
+
+  public Path toPath(String hash, Store store) {
     // Create the file in a subfolder to bypass possible folder file count limits.
     return storeRootMap.get(store).getChild(hash.substring(0, 2)).getChild(hash);
   }
 
-  private void saveFile(Digest digest, Store store, InputStream in) throws IOException {
+  public void saveFile(Digest digest, Store store, InputStream in) throws IOException {
     Path path = toPath(digest, store);
 
     if (refresh(path)) {
