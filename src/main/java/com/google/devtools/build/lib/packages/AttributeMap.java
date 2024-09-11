@@ -52,23 +52,18 @@ public interface AttributeMap {
 
   /**
    * Returns the value of the named rule attribute, which must be of the given type. This may
-   * be null (for example, for an attribute with no default value that isn't explicitly set in
-   * the rule - see {@link Type#getDefaultValue}).
+   * be null (for example, when no value has been provided - see {@link Attribute#getDefaultValue}).
    *
    * <p>If the rule doesn't have this attribute with the specified type, throws an
    * {@link IllegalArgumentException}.
-   * 
-   * Note that null may be the default value, check if default set
    */
   @Nullable
   <T> T get(String attributeName, Type<T> type);
 
   /**
    * Returns the value of the named rule attribute if it exists, otherwise the given default value.
-   * This may be null (for example, for an attribute with no default value that isn't explicitly set
-   * in the rule - see {@link Type#getDefaultValue}).
-   *
-   * Note that null may be the default value, check if default set
+   * This may be null (for example, when no value has been provided and the default is
+   * None - see {@link Attribute#getDefaultValue}).
    */
   default <T> T getOrDefault(String attributeName, Type<T> type, T defaultValue) {
     if (has(attributeName)) {

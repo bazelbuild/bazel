@@ -667,13 +667,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     /**
-     * Sets the attribute default value. The type of the default value must match the type
-     * parameter. (e.g. list=[], integer=0, string="", label=null). The {@code defaultValue} must be
-     * immutable.
-     *
-     * <p>If defaultValue is of type Label and is a target, that target will become an implicit
-     * dependency of the Rule; we will load the target (and its dependencies) if it encounters the
-     * Rule and build the target if needs to apply the Rule.
+     * Sets the attribute default value as `None` (null).
      */
     @CanIgnoreReturnValue
     public Builder<TYPE> value(NoneType _defaultValue) {
@@ -2170,7 +2164,7 @@ public final class Attribute implements Comparable<Attribute> {
   /**
    * Returns the default value of this attribute.
    *
-   * <p>The result may be null (although this is not a value in the build language).
+   * <p>The result may be null (represented by None in the build language).
    *
    * <p>During population of the rule's attribute dictionary, all non-computed defaults must be set
    * before all computed ones.

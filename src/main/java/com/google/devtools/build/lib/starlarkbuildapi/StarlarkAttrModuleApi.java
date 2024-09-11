@@ -126,10 +126,12 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
           + "<code>macOS</code>, or <code>Windows</code>.";
 
   String DEFAULT_ARG = "default";
-  // A trailing space is required because it's often prepended to other sentences
   String DEFAULT_DOC =
-      "A default value to use if no value for this attribute is given when instantiating the rule. "
-          + "<code>None</code> is allowed, and can be used to identify an unset attribute.";
+      """
+      A default value to use if no value for this attribute is given when instantiating the rule. \
+      <code>None</code> may be specified to identify an unset attribute and (for example) \
+      implement customized default behavior.
+      """;
 
   String DOC_ARG = "doc";
   String DOC_DOC =
@@ -335,7 +337,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc =
                 DEFAULT_DOC
-                    + "Use a string or the <a"
+                    + " Use a string or the <a"
                     + " href=\"../builtins/Label.html#Label\"><code>Label</code></a> function to"
                     + " specify a default value, for example, <code>attr.label(default ="
                     + " \"//a:b\")</code>."),
@@ -473,7 +475,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc =
                 DEFAULT_DOC
-                    + "Use a string or the <a"
+                    + " Use a string or the <a"
                     + " href=\"../builtins/Label.html#Label\"><code>Label</code></a> function to"
                     + " specify a default value, for example, <code>attr.label(default ="
                     + " \"//a:b\")</code>."),
@@ -613,7 +615,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc =
                 DEFAULT_DOC
-                    + "Use strings or the <a"
+                    + " Use strings or the <a"
                     + " href=\"../builtins/Label.html#Label\"><code>Label</code></a> function to"
                     + " specify default values, for example, <code>attr.label_list(default ="
                     + " [\"//a:b\", \"//a:c\"])</code>."),
@@ -774,7 +776,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc =
                 DEFAULT_DOC
-                    + "Use strings or the <a"
+                    + " Use strings or the <a"
                     + " href=\"../builtins/Label.html#Label\"><code>Label</code></a> function to"
                     + " specify default values, for example,"
                     + " <code>attr.label_keyed_string_dict(default = {\"//a:b\": \"value\","
