@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkFunction;
+import net.starlark.java.syntax.Location;
 
 /** Contains a number of utility methods for functions and parameters. */
 public final class StarlarkFunctionInfoExtractor {
@@ -58,16 +59,16 @@ public final class StarlarkFunctionInfoExtractor {
    * @param fn the function object
    * @param labelRenderer a string renderer for {@link Label} values in argument defaults and for
    *     the {@link OriginKey}'s file
-   * @throws DocstringParseException if the function's docstring is malformed
+   * @throws ExtractionException if the function's docstring is malformed
    */
   public static StarlarkFunctionInfo fromNameAndFunction(
       String functionName, StarlarkFunction fn, LabelRenderer labelRenderer)
-      throws DocstringParseException {
+      throws ExtractionException {
     return new StarlarkFunctionInfoExtractor(labelRenderer).extract(functionName, fn);
   }
 
   private StarlarkFunctionInfo extract(String functionName, StarlarkFunction fn)
-      throws DocstringParseException {
+      throws ExtractionException {
     Map<String, String> paramNameToDocMap = Maps.newLinkedHashMap();
     StarlarkFunctionInfo.Builder functionInfoBuilder =
         StarlarkFunctionInfo.newBuilder().setFunctionName(functionName);
@@ -77,7 +78,7 @@ public final class StarlarkFunctionInfoExtractor {
       List<DocstringParseError> parseErrors = Lists.newArrayList();
       DocstringInfo docstringInfo = DocstringUtils.parseDocstring(doc, parseErrors);
       if (!parseErrors.isEmpty()) {
-        throw new DocstringParseException(functionName, fn.getLocation(), parseErrors);
+        throw makeDocstringExtractionException(functionName, fn.getLocation(), parseErrors);
       }
       StringBuilder functionDescription = new StringBuilder(docstringInfo.getSummary());
       if (!docstringInfo.getSummary().isEmpty() && !docstringInfo.getLongDescription().isEmpty()) {
@@ -101,6 +102,25 @@ public final class StarlarkFunctionInfoExtractor {
     }
     functionInfoBuilder.addAllParameter(parameterInfos(fn, paramNameToDocMap));
     return functionInfoBuilder.build();
+  }
+
+  private static ExtractionException makeDocstringExtractionException(
+      String functionName, Location definedLocation, List<DocstringParseError> parseErrors) {
+    StringBuilder message = new StringBuilder();
+    message.append(
+        String.format(
+            "Unable to generate documentation for function %s (defined at %s) "
+                + "due to malformed docstring. Parse errors:\n",
+            functionName, definedLocation));
+    for (DocstringParseError parseError : parseErrors) {
+      message.append(
+          String.format(
+              "  %s line %s: %s\n",
+              definedLocation,
+              parseError.getLineNumber(),
+              parseError.getMessage().replace('\n', ' ')));
+    }
+    return new ExtractionException(message.toString());
   }
 
   private FunctionParamInfo forParam(

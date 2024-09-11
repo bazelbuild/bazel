@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.starlarkdocextract;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
+import static com.google.devtools.build.lib.starlarkdocextract.AttributeInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_ORDINARY;
 import static org.junit.Assert.assertThrows;
 
@@ -355,7 +356,7 @@ public final class StarlarkDocExtractTest extends BuildViewTestCase {
 
     assertThat(moduleInfo.getRuleInfo(0).getAttributeList())
         .containsExactly(
-            ModuleInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO,
+            IMPLICIT_NAME_ATTRIBUTE_INFO,
             AttributeInfo.newBuilder()
                 .setName("a")
                 .setType(AttributeType.LABEL)
