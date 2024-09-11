@@ -69,7 +69,7 @@ public final class PlatformMappingFunction implements SkyFunction {
   @Override
   public PlatformMappingValue compute(SkyKey skyKey, Environment env)
       throws PlatformMappingFunctionException, InterruptedException {
-    PlatformMappingValue.Key platformMappingKey = (PlatformMappingValue.Key) skyKey.argument();
+    PlatformMappingKey platformMappingKey = (PlatformMappingKey) skyKey.argument();
     PathFragment workspaceRelativeMappingPath =
         platformMappingKey.getWorkspaceRelativeMappingPath();
 

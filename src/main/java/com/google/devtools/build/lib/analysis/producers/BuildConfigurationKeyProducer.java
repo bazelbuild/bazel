@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.build.skyframe.state.StateMachine.ValueOrExceptionSink;
@@ -132,11 +131,7 @@ public final class BuildConfigurationKeyProducer<C>
   }
 
   private StateMachine mergeFromPlatformMapping(Tasks tasks, PlatformOptions platformOptions) {
-    PathFragment platformMappingsPath = platformOptions.platformMappings;
-    tasks.lookUp(
-        PlatformMappingValue.Key.create(platformMappingsPath),
-        PlatformMappingException.class,
-        this);
+    tasks.lookUp(platformOptions.platformMappingKey, PlatformMappingException.class, this);
     return this::applyPlatformMapping;
   }
 

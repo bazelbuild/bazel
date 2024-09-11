@@ -30,20 +30,13 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
-import javax.annotation.Nullable;
 
 /**
  * Stores contents of a platforms/flags mapping file for transforming one {@link BuildOptions} into
@@ -55,95 +48,6 @@ import javax.annotation.Nullable;
  */
 @AutoCodec
 public final class PlatformMappingValue implements SkyValue {
-
-  /** Key for {@link PlatformMappingValue} based on the location of the mapping file. */
-  @ThreadSafety.Immutable
-  @AutoCodec
-  public static final class Key implements SkyKey {
-    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
-
-    /**
-     * Creates a new platform mappings key with the given, main workspace-relative path to the
-     * mappings file, typically derived from the {@code --platform_mappings} flag.
-     *
-     * <p>If the path is {@code null} the {@link PlatformOptions#DEFAULT_PLATFORM_MAPPINGS default
-     * path} will be used and the key marked as not having been set by a user.
-     *
-     * @param workspaceRelativeMappingPath main workspace relative path to the mappings file or
-     *     {@code null} if the default location should be used
-     */
-    public static Key create(@Nullable PathFragment workspaceRelativeMappingPath) {
-      if (workspaceRelativeMappingPath == null) {
-        return create(PlatformOptions.DEFAULT_PLATFORM_MAPPINGS, false);
-      } else {
-        return create(workspaceRelativeMappingPath, true);
-      }
-    }
-
-    private static Key create(
-        PathFragment workspaceRelativeMappingPath, boolean wasExplicitlySetByUser) {
-      return interner.intern(new Key(workspaceRelativeMappingPath, wasExplicitlySetByUser));
-    }
-
-    @VisibleForSerialization
-    @AutoCodec.Interner
-    static Key intern(Key key) {
-      return interner.intern(key);
-    }
-
-    private final PathFragment path;
-    private final boolean wasExplicitlySetByUser;
-
-    private Key(PathFragment path, boolean wasExplicitlySetByUser) {
-      this.path = path;
-      this.wasExplicitlySetByUser = wasExplicitlySetByUser;
-    }
-
-    /** Returns the main-workspace relative path this mapping's mapping file can be found at. */
-    public PathFragment getWorkspaceRelativeMappingPath() {
-      return path;
-    }
-
-    boolean wasExplicitlySetByUser() {
-      return wasExplicitlySetByUser;
-    }
-
-    @Override
-    public SkyFunctionName functionName() {
-      return SkyFunctions.PLATFORM_MAPPING;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      Key key = (Key) o;
-      return Objects.equals(path, key.path) && wasExplicitlySetByUser == key.wasExplicitlySetByUser;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(path, wasExplicitlySetByUser);
-    }
-
-    @Override
-    public String toString() {
-      return "PlatformMappingValue.Key{path="
-          + path
-          + ", wasExplicitlySetByUser="
-          + wasExplicitlySetByUser
-          + "}";
-    }
-
-    @Override
-    public SkyKeyInterner<Key> getSkyKeyInterner() {
-      return interner;
-    }
-  }
 
   private final ImmutableMap<Label, ParsedFlagsValue> platformsToFlags;
   private final ImmutableMap<ParsedFlagsValue, Label> flagsToPlatforms;

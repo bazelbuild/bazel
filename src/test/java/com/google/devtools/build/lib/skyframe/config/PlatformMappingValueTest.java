@@ -25,7 +25,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -245,22 +244,5 @@ public final class PlatformMappingValueTest {
 
     // No change because the platform is not in the mapping.
     assertThat(modifiedOptions).isEqualTo(mapped);
-  }
-
-  @Test
-  public void defaultKey() {
-    PlatformMappingValue.Key key = PlatformMappingValue.Key.create(null);
-
-    assertThat(key.getWorkspaceRelativeMappingPath())
-        .isEqualTo(PlatformOptions.DEFAULT_PLATFORM_MAPPINGS);
-    assertThat(key.wasExplicitlySetByUser()).isFalse();
-  }
-
-  @Test
-  public void customKey() {
-    PlatformMappingValue.Key key = PlatformMappingValue.Key.create(PathFragment.create("my/path"));
-
-    assertThat(key.getWorkspaceRelativeMappingPath()).isEqualTo(PathFragment.create("my/path"));
-    assertThat(key.wasExplicitlySetByUser()).isTrue();
   }
 }
