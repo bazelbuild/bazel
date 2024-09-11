@@ -88,7 +88,8 @@ public final class FlagSetFunction implements SkyFunction {
     if (parsedFlags == null) {
       return null;
     }
-    return FlagSetValue.create(parsedFlags.mergeWith(key.getTargetOptions()));
+    BuildOptions mergedOptions = parsedFlags.mergeWith(key.getTargetOptions()).getOptions();
+    return FlagSetValue.create(mergedOptions);
   }
 
   /**

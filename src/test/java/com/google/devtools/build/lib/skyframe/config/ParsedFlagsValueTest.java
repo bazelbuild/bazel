@@ -135,7 +135,7 @@ public final class ParsedFlagsValueTest {
             .build();
     ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
-    BuildOptions modified = parsedFlags.mergeWith(original);
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
     // Ensure the original wasn't modified.
     assertThat(original.get(DummyTestOptions.class))
@@ -166,7 +166,7 @@ public final class ParsedFlagsValueTest {
     ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
     // The native flags that are unknown to the original options should not be present.
-    BuildOptions modified = parsedFlags.mergeWith(original);
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
     assertThat(modified.contains(BuildOptionsTest.SecondDummyTestOptions.class)).isFalse();
   }
 
@@ -197,7 +197,7 @@ public final class ParsedFlagsValueTest {
             .build();
     ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
-    BuildOptions modified = parsedFlags.mergeWith(original);
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
     assertThat(modified.get(DummyTestOptions.class).listOption)
         // Because this flag does not allow multiple values the list simply overwrites the previous
@@ -217,7 +217,7 @@ public final class ParsedFlagsValueTest {
             .build();
     ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
-    BuildOptions modified = parsedFlags.mergeWith(original);
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
     assertThat(modified.get(DummyTestOptions.class).dummyOption).isEqualTo("direct");
     assertThat(modified.get(DummyTestOptions.class).implicitOption).isEqualTo("set_implicitly");
@@ -234,7 +234,7 @@ public final class ParsedFlagsValueTest {
             .build();
     ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
-    BuildOptions modified = parsedFlags.mergeWith(original);
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
     assertThat(modified.get(DummyTestOptions.class).accumulatingOption)
         .containsExactly("foo", "bar")
@@ -259,7 +259,7 @@ public final class ParsedFlagsValueTest {
             .build();
     ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
-    BuildOptions modified = parsedFlags.mergeWith(original);
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
     // Check the modified values.
     assertThat(modified.getStarlarkOptions())
@@ -281,7 +281,7 @@ public final class ParsedFlagsValueTest {
             .build();
     ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
-    BuildOptions modified = parsedFlags.mergeWith(original);
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
     // The Starlark flag should not be present since it was reset to the default value
     assertThat(modified.getStarlarkOptions())

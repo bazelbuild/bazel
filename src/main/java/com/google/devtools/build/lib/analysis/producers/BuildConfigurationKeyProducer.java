@@ -123,8 +123,8 @@ public final class BuildConfigurationKeyProducer<C>
     }
     Optional<ParsedFlagsValue> parsedFlags = targetPlatformValue.parsedFlags();
     if (parsedFlags.isPresent()) {
-      BuildOptions updatedOptions = parsedFlags.get().mergeWith(options);
-      return finishConfigurationKeyProcessing(BuildConfigurationKey.create(updatedOptions));
+      BuildConfigurationKey updatedKey = parsedFlags.get().mergeWith(options);
+      return finishConfigurationKeyProcessing(updatedKey);
     } else {
       return mergeFromPlatformMapping(tasks, options.get(PlatformOptions.class));
     }

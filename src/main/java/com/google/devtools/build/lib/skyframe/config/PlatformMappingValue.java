@@ -133,7 +133,7 @@ public final class PlatformMappingValue implements SkyValue {
       }
 
       ParsedFlagsValue parsedFlags = platformsToFlags.get(targetPlatform);
-      return BuildConfigurationKey.create(parsedFlags.mergeWith(originalOptions));
+      return parsedFlags.mergeWith(originalOptions);
     }
 
     for (Map.Entry<ParsedFlagsValue, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {

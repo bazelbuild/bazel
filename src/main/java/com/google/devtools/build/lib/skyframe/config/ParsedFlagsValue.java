@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.skyframe.config;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.github.benmanes.caffeine.cache.Caffeine;
+import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
@@ -147,6 +149,8 @@ public final class ParsedFlagsValue implements SkyValue {
 
   private final NativeAndStarlarkFlags flags;
   private final OptionsParsingResult parsingResult;
+  private final LoadingCache<BuildOptions, BuildConfigurationKey> mergeCache =
+      Caffeine.newBuilder().weakKeys().build(this::mergeWithImpl);
 
   private ParsedFlagsValue(NativeAndStarlarkFlags flags, OptionsParsingResult parsingResult) {
     this.parsingResult = checkNotNull(parsingResult);
@@ -158,8 +162,12 @@ public final class ParsedFlagsValue implements SkyValue {
   }
 
   /**
-   * Returns a new {@link BuildOptions} instance, which contains all flags from the given {@link
-   * BuildOptions} with {@link #parsingResult()} merged in.
+   * Returns a new {@link BuildConfigurationKey} with options containing all flags from the given
+   * {@link BuildOptions} with {@link #parsingResult()} merged in.
+   *
+   * <p>Returns a {@link BuildConfigurationKey} instead of just {@link BuildOptions} so that caching
+   * of mappings also saves the CPU cost of interning {@link BuildConfigurationKey} (which is what
+   * callers typically need).
    *
    * <p>The merging logic is as follows:
    *
@@ -178,9 +186,14 @@ public final class ParsedFlagsValue implements SkyValue {
    * (i.e. not set on the resulting options). Starlark options are not affected by this restriction.
    *
    * @param source the base options to modify
-   * @return the new options after applying this object to the original options
+   * @return a {@link BuildConfigurationKey} to request the new configuration after applying this
+   *     parsed flags value to the original options
    */
-  public BuildOptions mergeWith(BuildOptions source) {
+  public BuildConfigurationKey mergeWith(BuildOptions source) {
+    return mergeCache.get(source);
+  }
+
+  private BuildConfigurationKey mergeWithImpl(BuildOptions source) {
     BuildOptions.Builder builder = source.toBuilder();
 
     // Handle native options.
@@ -204,7 +217,7 @@ public final class ParsedFlagsValue implements SkyValue {
       updateStarlarkFlag(builder, starlarkOption.getKey(), starlarkOption.getValue());
     }
 
-    return builder.build();
+    return BuildConfigurationKey.create(builder.build());
   }
 
   private static void updateOptionValue(
