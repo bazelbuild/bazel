@@ -44,9 +44,6 @@ def get_feature_configuration(ctx, has_sources, extra_requested_features = []):
         unsupported_features = unsupported_features,
     )
 
-def _get_test_only_target(ctx):
-    return ctx.rule.kind.endswith("_test") or getattr(ctx.rule.attr, "testonly", False)
-
 def _get_libraries_from_linking_outputs(linking_outputs, feature_configuration):
     library_to_link = linking_outputs.library_to_link
     if not library_to_link:
@@ -126,7 +123,6 @@ def cc_proto_compile_and_link(ctx, deps, sources, headers, disallow_dynamic_libr
             linking_contexts = [dep[CcInfo].linking_context for dep in deps],
             name = ctx.label.name,
             disallow_dynamic_library = disallow_dynamic_library,
-            test_only_target = _get_test_only_target(ctx),
             alwayslink = alwayslink,
         )
         libraries = _get_libraries_from_linking_outputs(linking_outputs, feature_configuration)
