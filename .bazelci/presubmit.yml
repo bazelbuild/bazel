@@ -44,6 +44,8 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
+      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
+      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
     include_json_profile:
       - build
       - test
@@ -94,6 +96,8 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
+      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
     include_json_profile:
       - build
       - test
@@ -154,6 +158,8 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
+      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
     include_json_profile:
       - build
       - test
@@ -194,9 +200,10 @@ tasks:
       - "-//src/test/py/..."
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
-      # Disable android tests since we are moving Android rules them out of Bazel repo.
+      # Disable android tests since we are moving Android rules out of the Bazel repo.
       - "-//src/tools/android/java/com/google/devtools/build/android/..."
       - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
+      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
       # ServerTests frequently runs into deadlocks on Intel Macs
       - "-//src/test/java/com/google/devtools/build/lib/server:ServerTests"
       # Add back a few Apple specific tests
@@ -240,6 +247,7 @@ tasks:
       - "-//src/test/shell/bazel/android/..."
       - "-//src/tools/android/java/com/google/devtools/build/android/..."
       - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
+      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
     include_json_profile:
       - build
       - test
@@ -376,6 +384,8 @@ tasks:
       # Flaky on rbe_ubuntu2004
       # https://github.com/bazelbuild/continuous-integration/issues/1631
       - "-//src/test/shell/bazel:bazel_sandboxing_networking_test"
+      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
+      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
     include_json_profile:
       - build
       - test
