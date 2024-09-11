@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.core.Bootstrap;
 import com.google.devtools.build.lib.starlarkbuildapi.core.ContextAndFlagGuardedValue;
-import net.starlark.java.eval.FlagGuardedValue;
 import net.starlark.java.eval.Starlark;
 
 /** {@link Bootstrap} for Starlark objects related to the java language. */
@@ -61,9 +60,6 @@ public class JavaBootstrap implements Bootstrap {
             Starlark.NONE,
             allowedRepositories));
 
-    builder.put(
-        ProguardSpecProviderApi.NAME,
-        FlagGuardedValue.onlyWhenExperimentalFlagIsTrue(
-            BuildLanguageOptions.EXPERIMENTAL_GOOGLE_LEGACY_API, proguardSpecProvider));
+    builder.put(ProguardSpecProviderApi.NAME, proguardSpecProvider);
   }
 }

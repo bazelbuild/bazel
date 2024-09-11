@@ -1145,7 +1145,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
   public void testInstrumentedFilesInfo_coverageSupportAndEnvVarsArePrivateAPI() throws Exception {
     // Arrange
     scratch.file(
-        "test/starlark/extension.bzl",
+        "foobar/starlark/extension.bzl",
         "",
         "def custom_rule_impl(ctx):",
         "  return [",
@@ -1163,8 +1163,8 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "  },",
         ")");
     scratch.file(
-        "test/starlark/BUILD",
-        "load('//test/starlark:extension.bzl', 'custom_rule')",
+        "foobar/starlark/BUILD",
+        "load('//foobar/starlark:extension.bzl', 'custom_rule')",
         "",
         "custom_rule(",
         "  name = 'foo',",
@@ -1173,10 +1173,10 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
 
     // Act
-    getConfiguredTarget("//test/starlark:foo");
+    getConfiguredTarget("//foobar/starlark:foo");
 
     // Assert
-    assertContainsEvent("file '//test/starlark:extension.bzl' cannot use private @_builtins API");
+    assertContainsEvent("file '//foobar/starlark:extension.bzl' cannot use private API");
   }
 
   @Test

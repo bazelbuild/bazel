@@ -83,8 +83,7 @@ public abstract class JavaCompilationInfoProvider
       Builder builder =
           new Builder()
               .setJavacOpts(
-                  Sequence.cast(info.getValue("javac_options"), String.class, "javac_options")
-                      .getImmutableList())
+                  Depset.cast(info.getValue("javac_options"), String.class, "javac_options"))
               .setBootClasspath(
                   NestedSetBuilder.wrap(
                       Order.NAIVE_LINK_ORDER,
@@ -112,13 +111,13 @@ public abstract class JavaCompilationInfoProvider
 
   /** Builder for {@link JavaCompilationInfoProvider}. */
   public static class Builder {
-    private ImmutableList<String> javacOpts = ImmutableList.of();
+    private NestedSet<String> javacOpts = NestedSetBuilder.emptySet(Order.NAIVE_LINK_ORDER);
     private NestedSet<Artifact> runtimeClasspath;
     private NestedSet<Artifact> compilationClasspath;
     private NestedSet<Artifact> bootClasspath = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
 
     @CanIgnoreReturnValue
-    public Builder setJavacOpts(@Nonnull ImmutableList<String> javacOpts) {
+    public Builder setJavacOpts(@Nonnull NestedSet<String> javacOpts) {
       this.javacOpts = javacOpts;
       return this;
     }
@@ -143,15 +142,21 @@ public abstract class JavaCompilationInfoProvider
 
     public JavaCompilationInfoProvider build() throws RuleErrorException {
       return new AutoValue_JavaCompilationInfoProvider(
-          JavaCompilationHelper.internJavacOpts(javacOpts),
-          runtimeClasspath,
-          compilationClasspath,
-          bootClasspath);
+          javacOpts, runtimeClasspath, compilationClasspath, bootClasspath);
     }
   }
 
+  public abstract NestedSet<String> getJavacOpts();
+
   @Override
-  public abstract ImmutableList<String> getJavacOpts();
+  public Depset getJavacOptsStarlark() {
+    return Depset.of(String.class, getJavacOpts());
+  }
+
+  @Override
+  public ImmutableList<String> getJavacOptsList() {
+    return JavaCompilationHelper.internJavacOpts(JavaHelper.tokenizeJavaOptions(getJavacOpts()));
+  }
 
   @Nullable
   public abstract NestedSet<Artifact> runtimeClasspath();
@@ -203,7 +208,7 @@ public abstract class JavaCompilationInfoProvider
       return false;
     }
     JavaCompilationInfoProvider other = (JavaCompilationInfoProvider) obj;
-    return Objects.equals(getJavacOpts(), other.getJavacOpts())
+    return getJavacOpts().shallowEquals(other.getJavacOpts())
         && Objects.equals(getRuntimeClasspath(), other.getRuntimeClasspath())
         && Objects.equals(getCompilationClasspath(), other.getCompilationClasspath())
         && bootClasspath().shallowEquals(other.bootClasspath());

@@ -209,7 +209,7 @@ public class ObjcConfiguration extends Fragment implements ObjcConfigurationApi<
   @Override
   public boolean targetShouldAlwayslink(StarlarkRuleContext ruleContext, StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
 
     AttributeMap attributes = ruleContext.getRuleContext().attributes();
     if (attributes.isAttributeValueExplicitlySpecified("alwayslink")) {

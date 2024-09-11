@@ -13,11 +13,16 @@
 # limitations under the License.
 
 load(":bazel_cc_build_info.bzl", "bazel_cc_build_info")
+load(":bazel_java_build_info.bzl", "bazel_java_build_info")
 
 package(default_visibility = ["//visibility:public"])
 
 bazel_cc_build_info(
     name = "cc_build_info",
+)
+
+bazel_java_build_info(
+    name = "java_build_info",
 )
 
 filegroup(
