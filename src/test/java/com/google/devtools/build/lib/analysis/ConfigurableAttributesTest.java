@@ -31,10 +31,12 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Set;
 import org.junit.Before;
@@ -164,6 +166,12 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
                       .add(attr("deps", LABEL_LIST).allowedFileTypes())
                       .useToolchainResolution(ToolchainResolutionMode.DISABLED));
 
+  private static final MockRule RULE_WITH_STRING_LIST_DICT_ATTR =
+      () ->
+          MockRule.define(
+              "rule_with_string_list_dict_attr",
+              attr("string_list_dict_attr", Types.STRING_LIST_DICT));
+
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
     ConfiguredRuleClassProvider.Builder builder =
@@ -173,7 +181,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
             .addRuleDefinition(RULE_WITH_BOOLEAN_ATTR)
             .addRuleDefinition(RULE_WITH_ALLOWED_VALUES)
             .addRuleDefinition(RULE_WITH_LABEL_DEFAULT)
-            .addRuleDefinition(RULE_WITH_NO_PLATFORM);
+            .addRuleDefinition(RULE_WITH_NO_PLATFORM)
+            .addRuleDefinition(RULE_WITH_STRING_LIST_DICT_ATTR);
     TestRuleClassProvider.addStandardRules(builder);
     // Allow use of --foo as a dummy flag
     builder.addConfigurationFragment(DummyTestFragment.class);
@@ -1926,5 +1935,25 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
         "--foo=b",
         /*expected:*/ ImmutableList.of("bin java/foo/libb.jar", "bin java/foo/libb2.jar"),
         /*not expected:*/ ImmutableList.of("bin java/foo/liba.jar", "bin java/foo/liba2.jar"));
+  }
+
+  @Test
+  public void stringListDictTypeConcatConfigurable() throws Exception {
+    writeConfigRules();
+    scratch.file(
+        "foo/BUILD",
+        """
+        rule_with_string_list_dict_attr(
+            name = 'rule',
+            string_list_dict_attr =  {'a': ['a.out']} | select({
+                '//conditions:b': {'b': ['b.out']},
+            }))
+        """);
+
+    useConfiguration("--foo=b");
+    ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//foo:rule");
+    AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
+    assertThat(attributes.get("string_list_dict_attr", Types.STRING_LIST_DICT))
+        .containsExactly("a", Arrays.asList("a.out"), "b", Arrays.asList("b.out"));
   }
 }
