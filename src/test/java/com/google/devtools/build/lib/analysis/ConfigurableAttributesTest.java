@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -170,7 +169,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
       () ->
           MockRule.define(
               "rule_with_string_list_dict_attr",
-              attr("string_list_dict_attr", Types.STRING_LIST_DICT));
+              attr("string_list_dict_attr", Type.STRING_LIST_DICT));
 
   @Override
   protected ConfiguredRuleClassProvider createRuleClassProvider() {
@@ -1953,7 +1952,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     useConfiguration("--foo=b");
     ConfiguredTargetAndData ctad = getConfiguredTargetAndData("//foo:rule");
     AttributeMap attributes = getMapperFromConfiguredTargetAndTarget(ctad);
-    assertThat(attributes.get("string_list_dict_attr", Types.STRING_LIST_DICT))
+    assertThat(attributes.get("string_list_dict_attr", Type.STRING_LIST_DICT))
         .containsExactly("a", Arrays.asList("a.out"), "b", Arrays.asList("b.out"));
   }
 }
