@@ -3144,37 +3144,12 @@ function setup_cc_binary_tool_with_dynamic_deps() {
   local repo=$1
 
   cat >> MODULE.bazel <<'EOF'
-bazel_dep(name = "apple_support")
-# TODO: Remove this after https://github.com/bazelbuild/apple_support/pull/343.
-single_version_override(
-    module_name = "apple_support",
-    version = "1.16.0",
-    patches = ["//:apple_support.patch"],
-    patch_strip = 1,
-)
-
+bazel_dep(name = "apple_support", version = "1.17.0")
 local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name = "other_repo",
   path = "other_repo",
 )
-EOF
-  touch BUILD
-  cat > apple_support.patch <<'EOF'
---- a/crosstool/cc_toolchain_config.bzl
-+++ b/crosstool/cc_toolchain_config.bzl
-@@ -2439,7 +2439,10 @@ please file an issue at https://github.com/bazelbuild/apple_support/issues/new
-                 flag_groups = [
-                     flag_group(
-                         flags = [
--                            "-Wl,-install_name,@rpath/%{runtime_solib_name}",
-+                            "-Xlinker",
-+                            "-install_name",
-+                            "-Xlinker",
-+                            "@rpath/%{runtime_solib_name}",
-                         ],
-                         expand_if_available = "runtime_solib_name",
-                     ),
 EOF
 
   mkdir -p $repo
