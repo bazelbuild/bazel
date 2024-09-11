@@ -227,7 +227,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       useStarlarkThread = true)
   Descriptor intAttribute(
       Object configurable,
-      StarlarkInt defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       Sequence<?> values,
@@ -254,7 +254,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = DEFAULT_DOC,
             allowedTypes = {
               @ParamType(type = String.class),
-              @ParamType(type = NativeComputedDefaultApi.class)
+              @ParamType(type = NativeComputedDefaultApi.class),
+              @ParamType(type = NoneType.class),
             },
             named = true,
             positional = false),
@@ -517,7 +518,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = String.class),
-              @ParamType(type = NativeComputedDefaultApi.class)
+              @ParamType(type = NativeComputedDefaultApi.class),
+              @ParamType(type = NoneType.class),
             },
             defaultValue = "[]",
             doc = DEFAULT_DOC,
@@ -561,7 +563,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false),
         @Param(
             name = DEFAULT_ARG,
-            allowedTypes = {@ParamType(type = Sequence.class, generic1 = StarlarkInt.class)},
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = StarlarkInt.class),
+              @ParamType(type = NoneType.class),
+            },
             defaultValue = "[]",
             doc = DEFAULT_DOC,
             named = true,
@@ -579,7 +584,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Boolean mandatory,
       Boolean allowEmpty,
       Object configurable,
-      Sequence<?> defaultValue,
+      Object defaultValue,
       Object doc,
       StarlarkThread thread)
       throws EvalException;
@@ -608,7 +613,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = Label.class),
-              @ParamType(type = StarlarkFunction.class)
+              @ParamType(type = StarlarkFunction.class),
+              @ParamType(type = NoneType.class),
             },
             defaultValue = "[]",
             named = true,
@@ -724,6 +730,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = Label.class),
+              @ParamType(type = NoneType.class),
             },
             defaultValue = "[]",
             named = true,
@@ -769,7 +776,8 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             name = DEFAULT_ARG,
             allowedTypes = {
               @ParamType(type = Dict.class),
-              @ParamType(type = StarlarkFunction.class)
+              @ParamType(type = StarlarkFunction.class),
+              @ParamType(type = NoneType.class),
             },
             defaultValue = "{}",
             named = true,
@@ -898,7 +906,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       useStarlarkThread = true)
   Descriptor boolAttribute(
       Object configurable,
-      Boolean defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       StarlarkThread thread)
@@ -961,7 +969,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
               + "strings.",
       parameters = {
         @Param(
-            name = ALLOW_EMPTY_ARG, //
+            name = ALLOW_EMPTY_ARG,
             defaultValue = "True",
             doc = ALLOW_EMPTY_DOC,
             named = true),
@@ -999,7 +1007,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   Descriptor stringDictAttribute(
       Boolean allowEmpty,
       Object configurable,
-      Dict<?, ?> defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       StarlarkThread thread)
@@ -1050,7 +1058,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   Descriptor stringListDictAttribute(
       Boolean allowEmpty,
       Object configurable,
-      Dict<?, ?> defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       StarlarkThread thread)

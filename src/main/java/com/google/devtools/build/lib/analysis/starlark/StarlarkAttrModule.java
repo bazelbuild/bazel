@@ -543,7 +543,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   @Override
   public Descriptor intAttribute(
       Object configurable,
-      StarlarkInt defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       Sequence<?> values,
@@ -680,7 +680,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Boolean mandatory,
       Boolean allowEmpty,
       Object configurable,
-      Sequence<?> defaultValue,
+      Object defaultValue,
       Object doc,
       StarlarkThread thread)
       throws EvalException {
@@ -839,7 +839,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   @Override
   public Descriptor boolAttribute(
       Object configurable,
-      Boolean defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       StarlarkThread thread)
@@ -889,7 +889,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   public Descriptor stringDictAttribute(
       Boolean allowEmpty,
       Object configurable,
-      Dict<?, ?> defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       StarlarkThread thread)
@@ -915,7 +915,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   public Descriptor stringListDictAttribute(
       Boolean allowEmpty,
       Object configurable,
-      Dict<?, ?> defaultValue,
+      Object defaultValue,
       Object doc,
       Boolean mandatory,
       StarlarkThread thread)

@@ -3145,4 +3145,37 @@ EOF
   expect_log "LAZYEVAL_KEY=xal3"
 }
 
+function test_attribute_none_default() {
+    cat > repo.bzl <<EOF
+def _impl(rctx):
+    rctx.file("BUILD", "")
+    print("string:", repr(rctx.attr.string))
+
+dummy_repository = repository_rule(
+    implementation = _impl,
+    attrs = {
+        # All attr functions called to validate allowed types
+        "bool": attr.bool(default = None),
+        "int": attr.int(default = None),
+        "int_list": attr.int_list(default = None),
+        "label": attr.label(default = None),
+        "label_keyed_string_dict": attr.label_keyed_string_dict(default = None),
+        "label_list": attr.label_list(default = None),
+        "string": attr.string(default = None),
+        "string_dict": attr.string_dict(default = None),
+        "string_list_dict": attr.string_list_dict(default = None),
+    },
+)
+EOF
+  touch BUILD
+  cat > MODULE.bazel <<EOF
+dummy_repository = use_repo_rule('//:repo.bzl', 'dummy_repository')
+dummy_repository(name = 'foo')
+EOF
+
+  bazel query @foo//:all \
+    2>$TEST_log || fail 'Expected fetch to succeed'
+  expect_log "string: None"
+}
+
 run_suite "external tests"
