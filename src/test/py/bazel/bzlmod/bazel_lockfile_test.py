@@ -2643,7 +2643,7 @@ class BazelLockfileTest(test_base.TestBase):
 
     _, _, stderr = self.RunBazel(['build', '@foo//:all'])
     stderr = '\n'.join(stderr)
-    self.assertIn('label: @@+my_ext+bar//:bar\n', stderr)
+    self.assertIn('label: @@_main~my_ext~bar//:bar\n', stderr)
 
     self.ScratchFile(
         'MODULE.bazel',
