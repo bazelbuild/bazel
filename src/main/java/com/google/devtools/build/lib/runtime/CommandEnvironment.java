@@ -68,6 +68,7 @@ import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -146,6 +147,7 @@ public class CommandEnvironment {
   private final DelegatingDownloader delegatingDownloader;
   @Nullable private final Supplier<ObjectCodecs> analysisObjectCodecsSupplier;
   @Nullable private final FingerprintValueService fingerprintValueService;
+  private final RemoteAnalysisCachingEventListener remoteAnalysisCachingEventListener;
 
   private boolean mergedAnalysisAndExecution;
 
@@ -178,6 +180,16 @@ public class CommandEnvironment {
   // List of flags and their values that were added by invocation policy. May contain multiple
   // occurrences of the same flag.
   private ImmutableList<OptionAndRawValue> invocationPolicyFlags = ImmutableList.of();
+
+  /**
+   * Gets the {@link RemoteAnalysisCachingEventListener} for this invocation.
+   *
+   * <p>A new copy of the listener is instantiated for every new {@link CommandEnvironment}, so
+   * statistics are not retained between invocations.
+   */
+  public RemoteAnalysisCachingEventListener getRemoteAnalysisCachingEventListener() {
+    return remoteAnalysisCachingEventListener;
+  }
 
   private class BlazeModuleEnvironment implements BlazeModule.ModuleEnvironment {
     @Nullable
@@ -369,6 +381,8 @@ public class CommandEnvironment {
       this.analysisObjectCodecsSupplier = null;
       this.fingerprintValueService = null;
     }
+    this.remoteAnalysisCachingEventListener = new RemoteAnalysisCachingEventListener();
+    this.eventBus.register(remoteAnalysisCachingEventListener);
   }
 
   private static ObjectCodecs initAnalysisObjectCodecs(

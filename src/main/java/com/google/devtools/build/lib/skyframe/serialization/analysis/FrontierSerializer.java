@@ -22,6 +22,7 @@ import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
+import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -39,6 +40,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationResult;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener.SerializedNodeEvent;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -75,6 +77,7 @@ public final class FrontierSerializer {
       PathFragmentPrefixTrie matcher,
       FingerprintValueService fingerprintValueService,
       Reporter reporter,
+      EventBus eventBus,
       String profilePath)
       throws InterruptedException {
     // Starts initializing ObjectCodecs in a background thread as it can take some time.
@@ -110,20 +113,19 @@ public final class FrontierSerializer {
     AtomicInteger frontierValueCount = new AtomicInteger();
     selection.forEach(
         /* parallelismThreshold= */ 0,
-        (actionLookupKey, marking) -> {
+        (key, marking) -> {
           if (!marking.equals(FRONTIER_CANDIDATE)) {
             return;
           }
           try {
             SerializationResult<ByteString> keyBytes =
-                codecs.serializeMemoizedAndBlocking(
-                    fingerprintValueService, actionLookupKey, profileCollector);
+                codecs.serializeMemoizedAndBlocking(fingerprintValueService, key, profileCollector);
             var keyWriteStatus = keyBytes.getFutureToBlockWritesOn();
             if (keyWriteStatus != null) {
               writeStatuses.add(keyWriteStatus);
             }
 
-            InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(actionLookupKey));
+            InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(key));
             SerializationResult<ByteString> valueBytes =
                 codecs.serializeMemoizedAndBlocking(
                     fingerprintValueService, node.getValue(), profileCollector);
@@ -131,7 +133,9 @@ public final class FrontierSerializer {
             if (writeStatusFuture != null) {
               writeStatuses.add(writeStatusFuture);
             }
+
             frontierValueCount.getAndIncrement();
+            eventBus.post(new SerializedNodeEvent(key));
           } catch (SerializationException e) {
             writeStatuses.add(immediateFailedFuture(e));
           }
@@ -139,8 +143,7 @@ public final class FrontierSerializer {
 
     reporter.handle(
         Event.info(
-            String.format(
-                "Serialized %s frontier entries in %s\n", frontierValueCount, stopwatch)));
+            String.format("Serialized %s frontier entries in %s", frontierValueCount, stopwatch)));
 
     try {
       var unusedNull =
@@ -155,7 +158,7 @@ public final class FrontierSerializer {
       return Optional.of(createFailureDetail(message, Code.SERIALIZED_FRONTIER_PROFILE_FAILED));
     }
     reporter.handle(
-        Event.info(String.format("Waiting for write futures took an additional %s\n", stopwatch)));
+        Event.info(String.format("Waiting for write futures took an additional %s", stopwatch)));
 
     if (profilePath.isEmpty()) {
       return Optional.empty();

@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -210,14 +211,6 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
   }
 
   @Test
-  public void buildCommand_uploadsFrontierBytesWithUploadMode() throws Exception {
-    setupScenarioWithAspects("--experimental_remote_analysis_cache_mode=upload");
-
-    assertContainsEvent("active or frontier keys in");
-    assertContainsEvent("Waiting for write futures took an additional");
-  }
-
-  @Test
   public void buildCommandWithSkymeld_uploadsFrontierBytesWithUploadMode() throws Exception {
     write(
         "foo/PROJECT.scl",
@@ -245,7 +238,10 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
     // Validate that Skymeld did run.
     assertThat(getCommandEnvironment().withMergedAnalysisAndExecutionSourceOfTruth()).isTrue();
 
-    assertContainsEvent("active or frontier keys in");
+    var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
+    assertThat(listener.getSerializedKeysCount()).isAtLeast(1);
+    assertThat(listener.getSkyfunctionCounts().count(SkyFunctions.CONFIGURED_TARGET)).isAtLeast(1);
+
     assertContainsEvent("Waiting for write futures took an additional");
   }
 
@@ -310,7 +306,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         .doesNotContain("com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue");
   }
 
-  private void setupScenarioWithAspects(String... options) throws Exception {
+  protected final void setupScenarioWithAspects(String... options) throws Exception {
     write(
         "foo/provider.bzl",
         """

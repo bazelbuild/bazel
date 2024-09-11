@@ -838,6 +838,7 @@ public class BuildTool {
             activeDirectoriesMatcher.get(),
             requireNonNull(env.getFingerprintValueService()),
             env.getReporter(),
+            env.getEventBus(),
             options.serializedFrontierProfile);
     if (maybeFailureDetail.isPresent()) {
       throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));

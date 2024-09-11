@@ -13,8 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationModule;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
@@ -24,5 +28,17 @@ public final class FrontierSerializerTest extends FrontierSerializerTestBase {
   @Override
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
     return super.getRuntimeBuilder().addBlazeModule(new SerializationModule());
+  }
+
+  @Test
+  public void buildCommand_uploadsFrontierBytesWithUploadMode() throws Exception {
+    setupScenarioWithAspects("--experimental_remote_analysis_cache_mode=upload");
+
+    var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
+    assertThat(listener.getSerializedKeysCount()).isAtLeast(9); // for Bazel
+    assertThat(listener.getSkyfunctionCounts().count(SkyFunctions.CONFIGURED_TARGET))
+        .isAtLeast(9); // for Bazel
+
+    assertContainsEvent("Waiting for write futures took an additional");
   }
 }
