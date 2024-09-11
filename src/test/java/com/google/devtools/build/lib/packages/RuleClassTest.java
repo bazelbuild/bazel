@@ -1318,22 +1318,17 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         true,
         attr("my-string-attr-with-none-default", STRING).value(Starlark.NONE).build());
 
-    // NOTE Is converted to None when read in Starlark
-    // Important thing is that the implicit type default is not applied
+    // NOTE null is converted to None when pass to Starlark
+    // Assertions only need to confirm the implicit type default (an empty string) is not applied
+
+    // Default in definition
     assertThat(ruleClass.getAttributeByName("my-string-attr-with-none-default").getDefaultValueUnchecked())
         .isEqualTo(null);
 
-    Map<String, Object> attributeValues = new HashMap<>();
-    reporter.removeHandler(failFastHandler);
-    EventCollector collector = new EventCollector(EventKind.ERRORS);
-    reporter.addHandler(collector);
+    Rule rule = createRule(ruleClass, TEST_RULE_NAME, new HashMap<>());
 
-    Rule rule = createRule(ruleClass, TEST_RULE_NAME, attributeValues);
-
-    // Test attribute access:
+    // Default in final value
     AttributeMap attributes = RawAttributeMapper.of(rule);
-    // NOTE Is converted to None when read in Starlark
-    // Important thing is that the implicit type default is not applied
     assertThat(attributes.get("my-string-attr-with-none-default", STRING))
         .isEqualTo(null);
   }
