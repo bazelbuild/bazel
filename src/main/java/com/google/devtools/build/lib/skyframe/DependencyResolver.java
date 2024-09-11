@@ -48,7 +48,6 @@ import com.google.devtools.build.lib.analysis.config.transitions.TransitionColle
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory.TransitionCreationException;
 import com.google.devtools.build.lib.analysis.constraints.IncompatibleTargetChecker.IncompatibleTargetException;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyCache;
 import com.google.devtools.build.lib.analysis.producers.DependencyContext;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextError;
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducer;
@@ -331,7 +330,6 @@ public final class DependencyResolver {
       ConfiguredTargetKey configuredTargetKey,
       RuleClassProvider ruleClassProvider,
       StarlarkTransitionCache transitionCache,
-      BuildConfigurationKeyCache buildConfigurationKeyCache,
       SemaphoreAcquirer semaphoreLocker,
       LookupEnvironment env,
       ExtendedEventHandler listener)
@@ -396,7 +394,6 @@ public final class DependencyResolver {
               configuredTargetKey,
               /* aspects= */ ImmutableList.of(),
               transitionCache,
-              buildConfigurationKeyCache,
               starlarkExecTransition.orElse(null),
               env,
               listener,
@@ -631,7 +628,6 @@ public final class DependencyResolver {
       ConfiguredTargetKey configuredTargetKey,
       ImmutableList<Aspect> aspects,
       StarlarkTransitionCache transitionCache,
-      BuildConfigurationKeyCache buildConfigurationKeyCache,
       @Nullable StarlarkAttributeTransitionProvider starlarkTransitionProvider,
       LookupEnvironment env,
       ExtendedEventHandler listener,
@@ -674,7 +670,6 @@ public final class DependencyResolver {
                         aspects,
                         starlarkTransitionProvider,
                         transitionCache,
-                        buildConfigurationKeyCache,
                         toolchainContexts,
                         dependencyLabels.attributeMap(),
                         state.transitiveState,

@@ -45,7 +45,6 @@ final class TransitionApplier
   private final BuildConfigurationKey fromConfiguration;
   private final ConfigurationTransition transition;
   private final StarlarkTransitionCache transitionCache;
-  private final BuildConfigurationKeyCache buildConfigurationKeyCache;
 
   // -------------------- Output --------------------
   private final ResultSink sink;
@@ -61,14 +60,12 @@ final class TransitionApplier
       BuildConfigurationKey fromConfiguration,
       ConfigurationTransition transition,
       StarlarkTransitionCache transitionCache,
-      BuildConfigurationKeyCache buildConfigurationKeyCache,
       ResultSink sink,
       ExtendedEventHandler eventHandler,
       StateMachine runAfter) {
     this.fromConfiguration = fromConfiguration;
     this.transition = transition;
     this.transitionCache = transitionCache;
-    this.buildConfigurationKeyCache = buildConfigurationKeyCache;
     this.sink = sink;
     this.eventHandler = eventHandler;
     this.runAfter = runAfter;
@@ -87,7 +84,6 @@ final class TransitionApplier
       return new BuildConfigurationKeyMapProducer(
           this.sink,
           this.runAfter,
-          this.buildConfigurationKeyCache,
           transition.apply(
               TransitionUtil.restrict(transition, fromConfiguration.getOptions()), eventHandler));
     }
@@ -133,7 +129,6 @@ final class TransitionApplier
       sink.acceptTransitionError(e);
       return runAfter;
     }
-    return new BuildConfigurationKeyMapProducer(
-        this.sink, this.runAfter, this.buildConfigurationKeyCache, transitionedOptions);
+    return new BuildConfigurationKeyMapProducer(this.sink, this.runAfter, transitionedOptions);
   }
 }

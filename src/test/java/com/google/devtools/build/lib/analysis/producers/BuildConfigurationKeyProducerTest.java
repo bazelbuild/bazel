@@ -436,8 +436,7 @@ public class BuildConfigurationKeyProducerTest extends ProducerTestCase {
           InvalidPlatformException {
     Sink sink = new Sink();
     BuildConfigurationKeyProducer<String> producer =
-        new BuildConfigurationKeyProducer<>(
-            sink, StateMachine.DONE, new BuildConfigurationKeyCache(), CONTEXT, options);
+        new BuildConfigurationKeyProducer<>(sink, StateMachine.DONE, CONTEXT, options);
     // Ignore the return value: sink will either return a result or re-throw whatever exception it
     // received from the producer.
     var unused = executeProducer(producer);

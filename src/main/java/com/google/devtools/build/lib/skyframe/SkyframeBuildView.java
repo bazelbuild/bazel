@@ -71,7 +71,6 @@ import com.google.devtools.build.lib.analysis.config.OptionsDiff;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader;
 import com.google.devtools.build.lib.analysis.config.StarlarkExecTransitionLoader.StarlarkExecTransitionLoadingException;
 import com.google.devtools.build.lib.analysis.config.StarlarkTransitionCache;
-import com.google.devtools.build.lib.analysis.producers.BuildConfigurationKeyCache;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkAttributeTransitionProvider;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailurePropagationException;
 import com.google.devtools.build.lib.analysis.test.CoverageArtifactsKnownEvent;
@@ -170,8 +169,6 @@ public final class SkyframeBuildView {
   private boolean foundActionConflictInLatestCheck;
 
   private final StarlarkTransitionCache starlarkTransitionCache = new StarlarkTransitionCache();
-  private final BuildConfigurationKeyCache buildConfigurationKeyCache =
-      new BuildConfigurationKeyCache();
 
   public SkyframeBuildView(
       ArtifactFactory artifactFactory,
@@ -286,8 +283,7 @@ public final class SkyframeBuildView {
   // TODO(schmitt): This method assumes that the only option that can cause multiple target
   //  configurations is --cpu which (with the presence of split transitions) is no longer true.
   private ImmutableSet<OptionDefinition> getNativeCacheInvalidatingDifferences(
-      BuildConfigurationValue newConfig,
-      OptionsDiff diff) {
+      BuildConfigurationValue newConfig, OptionsDiff diff) {
     return diff.getFirst().keySet().stream()
         .filter(
             (definition) ->
@@ -370,7 +366,6 @@ public final class SkyframeBuildView {
       skyframeExecutor.clearAnalysisCache(topLevelTargets, topLevelAspects);
     }
     starlarkTransitionCache.clear();
-    buildConfigurationKeyCache.clear();
   }
 
   /**
@@ -743,7 +738,7 @@ public final class SkyframeBuildView {
           // Run exclusive tests sequentially.
           Iterable<SkyKey> testCompletionKeys =
               TestCompletionValue.keys(
-                  exclusiveTestsToRun, topLevelArtifactContext, /*exclusiveTesting=*/ true);
+                  exclusiveTestsToRun, topLevelArtifactContext, /* exclusiveTesting= */ true);
           for (SkyKey testCompletionKey : testCompletionKeys) {
             EvaluationResult<SkyValue> testRunResult =
                 skyframeExecutor.runExclusiveTestSkymeld(
@@ -837,7 +832,6 @@ public final class SkyframeBuildView {
               bugReporter,
               /* includeExecutionPhase= */ true);
       detailedExitCodes.add(errorProcessingResult.executionDetailedExitCode());
-
 
       foundActionConflictInLatestCheck = !errorProcessingResult.actionConflicts().isEmpty();
       TopLevelActionConflictReport topLevelActionConflictReport =
@@ -1385,7 +1379,6 @@ public final class SkyframeBuildView {
   void clearLegacyData() {
     artifactFactory.clear();
     starlarkTransitionCache.clear();
-    buildConfigurationKeyCache.clear();
   }
 
   /**
@@ -1410,7 +1403,6 @@ public final class SkyframeBuildView {
   public void clearInvalidatedActionLookupKeys() {
     dirtiedActionLookupKeys = Sets.newConcurrentHashSet();
     starlarkTransitionCache.clear();
-    buildConfigurationKeyCache.clear();
   }
 
   /**
@@ -1425,10 +1417,6 @@ public final class SkyframeBuildView {
 
   public StarlarkTransitionCache getStarlarkTransitionCache() {
     return starlarkTransitionCache;
-  }
-
-  public BuildConfigurationKeyCache getBuildConfigurationKeyCache() {
-    return buildConfigurationKeyCache;
   }
 
   private final class ActionLookupValueProgressReceiver implements EvaluationProgressReceiver {

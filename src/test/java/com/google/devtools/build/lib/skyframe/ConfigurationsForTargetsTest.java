@@ -47,7 +47,6 @@ import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.serialization.AsyncDeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec;
-import com.google.devtools.build.lib.skyframe.serialization.DeferredObjectCodec.DeferredValue;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextKey;
@@ -227,7 +226,6 @@ public final class ConfigurationsForTargetsTest extends AnalysisTestCase {
                     .build(),
                 /* aspects= */ ImmutableList.of(),
                 stateProvider.lateBoundSkyframeBuildView().getStarlarkTransitionCache(),
-                stateProvider.lateBoundSkyframeBuildView().getBuildConfigurationKeyCache(),
                 starlarkExecTransition.orElse(null),
                 env,
                 env.getListener(),

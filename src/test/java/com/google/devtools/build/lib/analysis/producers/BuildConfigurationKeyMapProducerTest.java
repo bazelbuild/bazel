@@ -339,8 +339,7 @@ public class BuildConfigurationKeyMapProducerTest extends ProducerTestCase {
           InvalidPlatformException {
     Sink sink = new Sink();
     BuildConfigurationKeyMapProducer producer =
-        new BuildConfigurationKeyMapProducer(
-            sink, StateMachine.DONE, new BuildConfigurationKeyCache(), options);
+        new BuildConfigurationKeyMapProducer(sink, StateMachine.DONE, options);
     // Ignore the return value: sink will either return a result or re-throw whatever exception it
     // received from the producer.
     var unused = executeProducer(producer);

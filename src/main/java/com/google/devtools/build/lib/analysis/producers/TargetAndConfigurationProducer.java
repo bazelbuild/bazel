@@ -139,7 +139,6 @@ public final class TargetAndConfigurationProducer
   @Nullable private final TransitionFactory<RuleTransitionData> trimmingTransitionFactory;
   private final PatchTransition toolchainTaggedTrimmingTransition;
   private final StarlarkTransitionCache transitionCache;
-  private final BuildConfigurationKeyCache buildConfigurationKeyCache;
 
   private final TransitiveDependencyState transitiveState;
 
@@ -155,7 +154,6 @@ public final class TargetAndConfigurationProducer
       @Nullable TransitionFactory<RuleTransitionData> trimmingTransitionFactory,
       PatchTransition toolchainTaggedTrimmingTransition,
       StarlarkTransitionCache transitionCache,
-      BuildConfigurationKeyCache buildConfigurationKeyCache,
       TransitiveDependencyState transitiveState,
       ResultSink sink,
       ExtendedEventHandler eventHandler) {
@@ -163,7 +161,6 @@ public final class TargetAndConfigurationProducer
     this.trimmingTransitionFactory = trimmingTransitionFactory;
     this.toolchainTaggedTrimmingTransition = toolchainTaggedTrimmingTransition;
     this.transitionCache = transitionCache;
-    this.buildConfigurationKeyCache = buildConfigurationKeyCache;
     this.transitiveState = transitiveState;
     this.sink = sink;
     this.eventHandler = eventHandler;
@@ -482,7 +479,6 @@ public final class TargetAndConfigurationProducer
           preRuleTransitionKey.getConfigurationKey(),
           ruleTransition,
           transitionCache,
-          buildConfigurationKeyCache,
           (TransitionApplier.ResultSink) this,
           eventHandler,
           /* runAfter= */ this::processTransitionedKey);
@@ -585,7 +581,6 @@ public final class TargetAndConfigurationProducer
             configurationKey,
             ruleTransition,
             transitionCache,
-            buildConfigurationKeyCache,
             (TransitionApplier.ResultSink) this,
             eventHandler,
             /* runAfter= */ this::checkIdempotencyAndDelegate);

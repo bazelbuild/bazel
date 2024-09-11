@@ -268,7 +268,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
           configuredTargetKey,
           ruleClassProvider,
           view.getStarlarkTransitionCache(),
-          view.getBuildConfigurationKeyCache(),
           () -> maybeAcquireSemaphoreWithLogging(key),
           env,
           env.getListener())) {
@@ -494,7 +493,6 @@ public final class ConfiguredTargetFunction implements SkyFunction {
                     ((ConfiguredRuleClassProvider) ruleClassProvider)
                         .getToolchainTaggedTrimmingTransition(),
                     buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache(),
-                    buildViewProvider.getSkyframeBuildView().getBuildConfigurationKeyCache(),
                     state.computeDependenciesState.transitiveState,
                     (TargetAndConfigurationProducer.ResultSink) state,
                     storedEvents));

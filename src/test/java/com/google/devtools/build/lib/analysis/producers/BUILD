@@ -27,7 +27,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/fragment_options",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
-        "//src/main/java/com/google/devtools/build/lib/analysis/producers:build_configuration_key_cache",
         "//src/main/java/com/google/devtools/build/lib/analysis/producers:build_configuration_key_map_producer",
         "//src/main/java/com/google/devtools/build/lib/analysis/producers:platform_producer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

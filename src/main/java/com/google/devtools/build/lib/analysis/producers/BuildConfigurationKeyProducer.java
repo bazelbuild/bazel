@@ -70,7 +70,6 @@ public final class BuildConfigurationKeyProducer<C>
   // -------------------- Input --------------------
   private final ResultSink<C> sink;
   private final StateMachine runAfter;
-  private final BuildConfigurationKeyCache cache;
   private final C context;
   private final BuildOptions options;
 
@@ -79,26 +78,15 @@ public final class BuildConfigurationKeyProducer<C>
   private PlatformMappingValue platformMappingValue;
 
   BuildConfigurationKeyProducer(
-      ResultSink<C> sink,
-      StateMachine runAfter,
-      BuildConfigurationKeyCache cache,
-      C context,
-      BuildOptions options) {
+      ResultSink<C> sink, StateMachine runAfter, C context, BuildOptions options) {
     this.sink = sink;
     this.runAfter = runAfter;
-    this.cache = cache;
     this.context = context;
     this.options = options;
   }
 
   @Override
   public StateMachine step(Tasks tasks) throws InterruptedException {
-    BuildConfigurationKey result = cache.get(options);
-    if (result != null) {
-      sink.acceptTransitionedConfiguration(context, result);
-      return runAfter;
-    }
-
     // Short-circuit if there are no platform options.
     var platformOptions = options.get(PlatformOptions.class);
     if (platformOptions == null) {
@@ -182,8 +170,7 @@ public final class BuildConfigurationKeyProducer<C>
   }
 
   private StateMachine finishConfigurationKeyProcessing(BuildConfigurationKey newConfigurationKey) {
-    cache.put(this.options, newConfigurationKey);
-    sink.acceptTransitionedConfiguration(this.context, newConfigurationKey);
-    return this.runAfter;
+    sink.acceptTransitionedConfiguration(context, newConfigurationKey);
+    return runAfter;
   }
 }
