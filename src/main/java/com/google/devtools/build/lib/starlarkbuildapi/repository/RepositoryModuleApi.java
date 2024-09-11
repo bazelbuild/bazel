@@ -40,10 +40,12 @@ public interface RepositoryModuleApi {
   @StarlarkMethod(
       name = "repository_rule",
       doc =
-          "Creates a new repository rule. Store it in a global value, so that it can be loaded and"
-              + " called from a <code><a href=\"#module_extension\">module extension</a></code>"
-              + " implementation function, or used by <code><a"
-              + " href=\"../globals/module.html#use_repo_rule\">use_repo_rule</a></code>.",
+          """
+          Creates a new repository rule. Store it in a global value, so that it can be loaded and \
+          called from a <a href="#module_extension"><code>module_extension()</code></a> \
+          implementation function, or used by \
+          <a href="../globals/module.html#use_repo_rule"><code>use_repo_rule()</code></a>.
+          """,
       parameters = {
         @Param(
             name = "implementation",
@@ -61,12 +63,16 @@ public interface RepositoryModuleApi {
             },
             defaultValue = "None",
             doc =
-                "dictionary to declare all the attributes of the rule. It maps from an attribute "
-                    + "name to an attribute object (see <a href=\"../toplevel/attr.html\">attr</a> "
-                    + "module). Attributes starting with <code>_</code> are private, and can be "
-                    + "used to add an implicit dependency on a label to a file (a repository "
-                    + "rule cannot depend on a generated artifact). The attribute "
-                    + "<code>name</code> is implicitly added and must not be specified.",
+                """
+                A dictionary to declare all the attributes of the repository rule. It maps from \
+                an attribute name to an attribute object (see
+                <a href="../toplevel/attr.html"><code>attr</code></a> module). Attributes \
+                starting with <code>_</code> are private, and can be used to add an implicit \
+                dependency on a label to a file (a repository rule cannot depend on a generated \
+                artifact). The attribute <code>name</code> is implicitly added and must not be \
+                specified.
+                <p>Declared attributes will convert <code>None</code> to the default value.</p>
+                """,
             named = true,
             positional = false),
         @Param(
@@ -213,9 +219,16 @@ public interface RepositoryModuleApi {
             defaultValue = "{}",
             named = true,
             doc =
-                "A dictionary to declare all the attributes of this tag class. It maps from an"
-                    + " attribute name to an attribute object (see <a"
-                    + " href=\"../toplevel/attr.html\">attr</a> module)."),
+                """
+                A dictionary to declare all the attributes of this tag class. It maps from an \
+                attribute name to an attribute object (see <a href="../toplevel/attr.html">
+                attr</a> module).
+                <p>Note that unlike <a href="../globals/bzl.html#rule"><code>rule()</code></a>, \
+                <a href="../globals/bzl.html#aspect"><code>aspect()</code></a> and \
+                <a href="../globals/bzl.html#repository_rule"><code>repository_rule()</code></a>,
+                declared attributes will not convert <code>None</code> to the default value. For \
+                the default to be used, the attribute must be omitted entirely by the caller.</p>
+                """),
         @Param(
             name = "doc",
             allowedTypes = {
@@ -238,7 +251,11 @@ public interface RepositoryModuleApi {
   @StarlarkBuiltin(
       name = "tag_class",
       category = DocCategory.BUILTIN,
-      doc = "Defines a schema of attributes for a tag.")
+      doc =
+          """
+          Defines a schema of attributes for a tag, created by \
+          <a href="../globals/bzl.html#tag_class"><code>tag_class()</code></a>.
+          """)
   interface TagClassApi extends StarlarkValue {}
 
   @StarlarkMethod(

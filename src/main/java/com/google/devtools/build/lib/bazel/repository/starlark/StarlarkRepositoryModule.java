@@ -139,8 +139,9 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
       doc =
           """
           A callable value that may be invoked during evaluation of the WORKSPACE file or within \
-          the implementation function of a module extension to instantiate and return a \
-          repository rule.
+          the implementation function of a module extension to instantiate and return a repository \
+          rule. Created by \
+          <a href="../globals/bzl.html#repository_rule"><code>repository_rule()</code></a>.
           """)
   public static final class RepositoryRuleFunction
       implements StarlarkCallable, StarlarkExportable, RuleFunction {

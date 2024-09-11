@@ -334,16 +334,19 @@ targets defined by any rule finalizer, including this one.
             positional = false,
             defaultValue = "{}",
             doc =
-                "dictionary to declare all the attributes of the rule. It maps from an attribute"
-                    + " name to an attribute object (see <a href=\"../toplevel/attr.html\">attr</a>"
-                    + " module). Attributes starting with <code>_</code> are private, and can be"
-                    + " used to add an implicit dependency on a label. The attribute"
-                    + " <code>name</code> is implicitly added and must not be specified. Attributes"
-                    + " <code>visibility</code>, <code>deprecation</code>, <code>tags</code>,"
-                    + " <code>testonly</code>, and <code>features</code> are implicitly added and"
-                    + " cannot be overridden. Most rules need only a handful of attributes. To"
-                    + " limit memory usage, there is a cap on the number of attributes that may be"
-                    + " declared."),
+                """
+                A dictionary to declare all the attributes of the rule. It maps from an attribute \
+                name to an attribute object (see
+                <a href="../toplevel/attr.html"><code>attr</code></a> module). Attributes starting \
+                with <code>_</code> are private, and can be used to add an implicit dependency on \
+                a label. The attribute <code>name</code> is implicitly added and must not be \
+                specified. Attributes <code>visibility</code>, <code>deprecation</code>, \
+                <code>tags</code>, <code>testonly</code>, and <code>features</code> are implicitly \
+                added and cannot be overridden. Most rules need only a handful of attributes. To \
+                limit memory usage, there is a cap on the number of attributes that may be \
+                declared.
+                <p>Declared attributes will convert <code>None</code> to the default value.</p>
+                """),
         // TODO(bazel-team): need to give the types of these builtin attributes
         @Param(
             name = "outputs",
@@ -694,17 +697,20 @@ targets defined by any rule finalizer, including this one.
             named = true,
             defaultValue = "{}",
             doc =
-                "A dictionary declaring all the attributes of the aspect. It maps from an attribute"
-                    + " name to an attribute object, like `attr.label` or `attr.string` (see <a"
-                    + " href=\"../toplevel/attr.html\">attr</a> module). Aspect attributes are"
-                    + " available to implementation function as fields of <code>ctx</code>"
-                    + " parameter. <p>Implicit attributes starting with <code>_</code> must have"
-                    + " default values, and have type <code>label</code> or"
-                    + " <code>label_list</code>. <p>Explicit attributes must have type"
-                    + " <code>string</code>, and must use the <code>values</code> restriction."
-                    + " Explicit attributes restrict the aspect to only be used with rules that"
-                    + " have attributes of the same name, type, and valid values according to the"
-                    + " restriction."),
+                """
+                A dictionary declaring all the attributes of the aspect. It maps from an \
+                attribute name to an attribute object, like <code>attr.label</code> or \
+                <code>attr.string</code> (see \
+                <a href="../toplevel/attr.html"><code>attr</code></a> module). Aspect attributes \
+                are available to implementation function as fields of <code>ctx</code> parameter. \
+                <p>Implicit attributes starting with <code>_</code> must have default values, and \
+                have type <code>label</code> or <code>label_list</code>.</p> \
+                <p>Explicit attributes must have type <code>string</code>, and must use the \
+                <code>values</code> restriction. Explicit attributes restrict the aspect to only \
+                be used with rules that have attributes of the same name, type, and valid values \
+                according to the restriction.</p>
+                <p>Declared attributes will convert <code>None</code> to the default value.</p>
+                """),
         @Param(
             name = "required_providers",
             named = true,
