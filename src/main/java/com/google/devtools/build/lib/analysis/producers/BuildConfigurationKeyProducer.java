@@ -140,8 +140,8 @@ public final class BuildConfigurationKeyProducer<C>
       return DONE; // Error.
     }
     try {
-      BuildOptions updatedOptions = platformMappingValue.map(options);
-      return finishConfigurationKeyProcessing(BuildConfigurationKey.create(updatedOptions));
+      BuildConfigurationKey updatedKey = platformMappingValue.map(options);
+      return finishConfigurationKeyProcessing(updatedKey);
     } catch (OptionsParsingException e) {
       sink.acceptOptionsParsingError(e);
       return runAfter;

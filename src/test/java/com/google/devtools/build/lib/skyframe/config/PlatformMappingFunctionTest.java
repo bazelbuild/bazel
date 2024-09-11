@@ -125,7 +125,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
   public void invalidMappingFile_doesNotExist_defaultLocation() throws Exception {
     PlatformMappingValue platformMappingValue = executeFunction(PlatformMappingKey.DEFAULT);
 
-    BuildOptions mapped = platformMappingValue.map(createBuildOptions());
+    BuildOptions mapped = platformMappingValue.map(createBuildOptions()).getOptions();
 
     assertThat(mapped.get(PlatformOptions.class).platforms)
         .containsExactly(Label.parseCanonicalUnchecked("@bazel_tools//tools:host_platform"));
@@ -161,7 +161,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
@@ -185,7 +185,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
@@ -213,7 +213,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
             PlatformMappingKey.createExplicitlySet(PathFragment.create("my_mapping_file")));
     BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
@@ -236,7 +236,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
@@ -266,7 +266,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
@@ -289,7 +289,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(DummyTestOptions.class).internalOption).isEqualTo("something_new");
   }
@@ -311,7 +311,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.getStarlarkOptions())
         .containsExactly(Label.parseCanonical("//flag:my_string_flag"), "mapped_value");
@@ -334,7 +334,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
     BuildOptions modifiedOptions =
         createBuildOptions("--platforms=//platforms:one", "--list=from_config");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     // The mapping should completely replace the list, because it is not accumulating.
     assertThat(mapped.get(DummyTestOptions.class).list).containsExactly("from_mapping");
@@ -456,7 +456,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions modifiedOptions = createBuildOptions("--str_option=one");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
   }
@@ -478,7 +478,7 @@ public final class PlatformMappingFunctionTest extends BuildViewTestCase {
 
     BuildOptions modifiedOptions = createBuildOptions("--//flag:my_string_flag=mapped_value");
 
-    BuildOptions mapped = platformMappingValue.map(modifiedOptions);
+    BuildOptions mapped = platformMappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM1);
   }

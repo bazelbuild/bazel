@@ -31,11 +31,11 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletionException;
 
 /**
@@ -52,7 +52,7 @@ public final class PlatformMappingValue implements SkyValue {
   private final ImmutableMap<Label, ParsedFlagsValue> platformsToFlags;
   private final ImmutableMap<ParsedFlagsValue, Label> flagsToPlatforms;
   private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
-  private final LoadingCache<BuildOptions, BuildOptions> mappingCache;
+  private final LoadingCache<BuildOptions, BuildConfigurationKey> mappingCache;
 
   /**
    * Creates a new mapping value which will match on the given platforms (if a target platform is
@@ -75,7 +75,12 @@ public final class PlatformMappingValue implements SkyValue {
   }
 
   /**
-   * Maps one {@link BuildOptions} to another by way of mappings provided in a file.
+   * Maps one {@link BuildOptions} to another's {@link BuildConfigurationKey} by way of mappings
+   * provided in a file.
+   *
+   * <p>Returns a {@link BuildConfigurationKey} instead of just {@link BuildOptions} so that caching
+   * of mappings also saves the CPU cost of interning {@link BuildConfigurationKey} (which is what
+   * callers typically need).
    *
    * <p>The <a href=https://docs.google.com/document/d/1Vg_tPgiZbSrvXcJ403vZVAGlsWhH9BUDrAxMOYnO0Ls>
    * full design</a> contains the details for the mapping logic but in short:
@@ -89,12 +94,12 @@ public final class PlatformMappingValue implements SkyValue {
    * </ol>
    *
    * @param original the key representing the configuration to be mapped
-   * @return the mapped key if any mapping matched the original or else the original
+   * @return a {@link BuildConfigurationKey} to request the mapped configuration
    * @throws OptionsParsingException if any of the user configured flags cannot be parsed
    * @throws IllegalArgumentException if the original does not contain a {@link PlatformOptions}
    *     fragment
    */
-  public BuildOptions map(BuildOptions original) throws OptionsParsingException {
+  public BuildConfigurationKey map(BuildOptions original) throws OptionsParsingException {
     try {
       return mappingCache.get(original);
     } catch (CompletionException e) {
@@ -104,18 +109,17 @@ public final class PlatformMappingValue implements SkyValue {
     }
   }
 
-  private BuildOptions computeMapping(BuildOptions originalOptions) throws OptionsParsingException {
+  private BuildConfigurationKey computeMapping(BuildOptions originalOptions)
+      throws OptionsParsingException {
     if (originalOptions.hasNoConfig()) {
       // The empty configuration (produced by NoConfigTransition) is terminal: it'll never change.
-      return originalOptions;
+      return BuildConfigurationKey.create(originalOptions);
     }
 
     var platformOptions = originalOptions.get(PlatformOptions.class);
     checkArgument(
         platformOptions != null,
         "When using platform mappings, all configurations must contain platform options");
-
-    BuildOptions modifiedOptions = null;
 
     if (!platformOptions.platforms.isEmpty()) {
       List<Label> platforms = platformOptions.platforms;
@@ -125,32 +129,28 @@ public final class PlatformMappingValue implements SkyValue {
       if (!platformsToFlags.containsKey(targetPlatform)) {
         // This can happen if the user has set the platform and any other flags that would normally
         // be mapped from it on the command line instead of relying on the mapping.
-        return originalOptions;
+        return BuildConfigurationKey.create(originalOptions);
       }
 
       ParsedFlagsValue parsedFlags = platformsToFlags.get(targetPlatform);
-      modifiedOptions = parsedFlags.mergeWith(originalOptions);
-    } else {
-      boolean mappingFound = false;
-      for (Map.Entry<ParsedFlagsValue, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {
-        ParsedFlagsValue parsedFlags = flagsToPlatform.getKey();
-        Label platformLabel = flagsToPlatform.getValue();
-        if (originalOptions.matches(parsedFlags.parsingResult())) {
-          modifiedOptions = originalOptions.clone();
-          modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(platformLabel);
-          mappingFound = true;
-          break;
-        }
-      }
+      return BuildConfigurationKey.create(parsedFlags.mergeWith(originalOptions));
+    }
 
-      if (!mappingFound) {
-        Label targetPlatform = platformOptions.computeTargetPlatform();
-        modifiedOptions = originalOptions.clone();
-        modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(targetPlatform);
+    for (Map.Entry<ParsedFlagsValue, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {
+      ParsedFlagsValue parsedFlags = flagsToPlatform.getKey();
+      Label platformLabel = flagsToPlatform.getValue();
+      if (originalOptions.matches(parsedFlags.parsingResult())) {
+        BuildOptions modifiedOptions = originalOptions.clone();
+        modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(platformLabel);
+        return BuildConfigurationKey.create(modifiedOptions);
       }
     }
 
-    return modifiedOptions;
+    // No mapping found.
+    Label targetPlatform = platformOptions.computeTargetPlatform();
+    BuildOptions modifiedOptions = originalOptions.clone();
+    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(targetPlatform);
+    return BuildConfigurationKey.create(modifiedOptions);
   }
 
   @Override
@@ -168,7 +168,7 @@ public final class PlatformMappingValue implements SkyValue {
 
   @Override
   public int hashCode() {
-    return Objects.hash(flagsToPlatforms, platformsToFlags, optionsClasses);
+    return HashCodes.hashObjects(flagsToPlatforms, platformsToFlags, optionsClasses);
   }
 
   @Override

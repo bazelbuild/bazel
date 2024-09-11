@@ -147,7 +147,7 @@ public final class PlatformMappingValueTest {
   public void map_noMappings() throws OptionsParsingException {
     PlatformMappingValue mappingValue = builder().build();
 
-    BuildOptions mapped = mappingValue.map(createBuildOptions());
+    BuildOptions mapped = mappingValue.map(createBuildOptions()).getOptions();
 
     assertThat(mapped.get(PlatformOptions.class).platforms)
         .containsExactly(DEFAULT_TARGET_PLATFORM);
@@ -160,7 +160,7 @@ public final class PlatformMappingValueTest {
 
     BuildOptions modifiedOptions = createBuildOptions("--platforms=//platforms:one");
 
-    BuildOptions mapped = mappingValue.map(modifiedOptions);
+    BuildOptions mapped = mappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(DummyTestOptions.class).strOption).isEqualTo("one");
   }
@@ -171,7 +171,7 @@ public final class PlatformMappingValueTest {
         builder().addFlags(PLATFORM_ONE, "--str_option=one", "--other_str_option=dbg").build();
 
     BuildOptions modifiedOptions = createBuildOptions("--str_option=one", "--other_str_option=dbg");
-    BuildOptions mapped = mappingValue.map(modifiedOptions);
+    BuildOptions mapped = mappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM_ONE);
   }
@@ -186,7 +186,7 @@ public final class PlatformMappingValueTest {
 
     BuildOptions modifiedOptions = createBuildOptions("--str_option=two");
 
-    BuildOptions mapped = mappingValue.map(modifiedOptions);
+    BuildOptions mapped = mappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(PlatformOptions.class).platforms).containsExactly(PLATFORM_TWO);
   }
@@ -198,7 +198,7 @@ public final class PlatformMappingValueTest {
 
     BuildOptions modifiedOptions = createBuildOptions("--str_option=bar");
 
-    BuildOptions mapped = mappingValue.map(modifiedOptions);
+    BuildOptions mapped = mappingValue.map(modifiedOptions).getOptions();
 
     assertThat(mapped.get(PlatformOptions.class).platforms)
         .containsExactly(DEFAULT_TARGET_PLATFORM);
@@ -223,7 +223,7 @@ public final class PlatformMappingValueTest {
 
     BuildOptions modifiedOptions =
         createBuildOptions("--str_option=one", "--platforms=//platforms:two");
-    BuildOptions mapped = mappingValue.map(modifiedOptions);
+    BuildOptions mapped = mappingValue.map(modifiedOptions).getOptions();
 
     // No change because the platform is not in the mapping.
     assertThat(modifiedOptions).isEqualTo(mapped);
@@ -240,7 +240,7 @@ public final class PlatformMappingValueTest {
     BuildOptions modifiedOptions =
         createBuildOptions("--str_option=one", "--platforms=//platforms:two");
 
-    BuildOptions mapped = mappingValue.map(modifiedOptions);
+    BuildOptions mapped = mappingValue.map(modifiedOptions).getOptions();
 
     // No change because the platform is not in the mapping.
     assertThat(modifiedOptions).isEqualTo(mapped);
