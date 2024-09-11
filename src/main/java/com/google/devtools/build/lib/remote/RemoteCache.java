@@ -113,10 +113,7 @@ public class RemoteCache extends AbstractReferenceCounted {
   }
 
   public CacheCapabilities getRemoteCacheCapabilities() throws IOException {
-    if (remoteCacheClient == null) {
-      return CacheCapabilities.getDefaultInstance();
-    }
-    return remoteCacheClient.getCacheCapabilities();
+    return getRemoteServerCapabilities().getCacheCapabilities();
   }
 
   public ListenableFuture<String> getRemoteAuthority() {

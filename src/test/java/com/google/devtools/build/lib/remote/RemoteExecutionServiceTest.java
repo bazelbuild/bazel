@@ -34,7 +34,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.ActionResult;
+import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.DirectoryNode;
@@ -48,6 +50,7 @@ import build.bazel.remote.execution.v2.OutputSymlink;
 import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.ServerCapabilities;
+import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.SymlinkNode;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Throwables;
@@ -155,10 +158,17 @@ public class RemoteExecutionServiceTest {
   private final Reporter reporter = new Reporter(new EventBus());
   private final StoredEventHandler eventHandler = new StoredEventHandler();
 
+  private final CacheCapabilities cacheCapabilities =
+      CacheCapabilities.newBuilder()
+          .setActionCacheUpdateCapabilities(
+              ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
+          .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
+          .build();
   // In the past, Bazel only supports RemoteApi version 2.0.
   // Use this to ensure we are backward compatible with Servers that only support 2.0.
   private final ServerCapabilities legacyRemoteExecutorCapabilities =
       ServerCapabilities.newBuilder()
+          .setCacheCapabilities(cacheCapabilities)
           .setLowApiVersion(ApiVersion.twoPointZero.toSemVer())
           .setHighApiVersion(ApiVersion.twoPointZero.toSemVer())
           .setExecutionCapabilities(ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
@@ -166,6 +176,7 @@ public class RemoteExecutionServiceTest {
 
   private final ServerCapabilities remoteExecutorCapabilities =
       ServerCapabilities.newBuilder()
+          .setCacheCapabilities(cacheCapabilities)
           .setLowApiVersion(ApiVersion.low.toSemVer())
           .setHighApiVersion(ApiVersion.high.toSemVer())
           .setExecutionCapabilities(ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
