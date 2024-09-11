@@ -24,7 +24,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.spelling.SpellChecker;
@@ -74,20 +73,16 @@ public class TypeCheckedTag implements Structure {
       }
       Attribute attr = tagClass.getAttributes().get(attrIndex);
       Object nativeValue;
-      if (attr.getDefaultValueUnchecked() != null && attrValue.getValue() == Starlark.NONE) {
-        nativeValue = attr.getDefaultValueUnchecked();
-      } else {
-        try {
-          nativeValue =
-              attr.getType().convert(attrValue.getValue(), attr.getPublicName(), labelConverter);
-        } catch (ConversionException e) {
-          throw ExternalDepsException.withCauseAndMessage(
-              Code.BAD_MODULE,
-              e,
-              "in tag at %s, error converting value for attribute %s",
-              tag.getLocation(),
-              attr.getPublicName());
-        }
+      try {
+        nativeValue =
+            attr.getType().convert(attrValue.getValue(), attr.getPublicName(), labelConverter);
+      } catch (ConversionException e) {
+        throw ExternalDepsException.withCauseAndMessage(
+            Code.BAD_MODULE,
+            e,
+            "in tag at %s, error converting value for attribute %s",
+            tag.getLocation(),
+            attr.getPublicName());
       }
 
       // Check that the value is actually allowed.
