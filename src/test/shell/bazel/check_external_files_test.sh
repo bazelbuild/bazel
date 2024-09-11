@@ -239,7 +239,7 @@ test_no_build_doesnt_break_the_cache() {
 test_symlink_outside_still_checked() {
   mkdir main
   cd main
-  touch MODULE.bazel
+  setup_module_dot_bazel
   echo 'sh_test(name = "symlink", srcs = ["symlink.sh"])' > BUILD
 
   mkdir ../foo
