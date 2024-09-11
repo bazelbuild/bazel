@@ -13,29 +13,15 @@
 # limitations under the License.
 """Starlark implementation of cc_proto_library"""
 
-load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/cc_proto_support.bzl", "cc_proto_compile_and_link")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/proto/proto_common.bzl", "toolchains", proto_common = "proto_common_do_not_use")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
 
 _ProtoCcFilesInfo = provider(fields = ["files"], doc = "Provide cc proto files.")
 _ProtoCcHeaderInfo = provider(fields = ["headers"], doc = "Provide cc proto headers.")
-
-def _get_feature_configuration(ctx, cc_toolchain, proto_info, should_generate_code):
-    requested_features = list(ctx.features)
-    unsupported_features = ctx.disabled_features + ["parse_headers", "layering_check"]
-    if should_generate_code or len(proto_info.direct_sources) == 0:
-        unsupported_features.append("header_modules")
-    else:
-        requested_features.append("header_modules")
-    return cc_common.configure_features(
-        ctx = ctx,
-        cc_toolchain = cc_toolchain,
-        requested_features = requested_features,
-        unsupported_features = unsupported_features,
-    )
 
 def _get_output_files(actions, proto_info, suffixes):
     result = []
@@ -63,28 +49,6 @@ def _get_strip_include_prefix(ctx, proto_info):
 
     strip_include_prefix = "//" + proto_root
     return strip_include_prefix
-
-def _get_libraries_from_linking_outputs(linking_outputs, feature_configuration):
-    library_to_link = linking_outputs.library_to_link
-    if not library_to_link:
-        return []
-    outputs = []
-    if library_to_link.static_library:
-        outputs.append(library_to_link.static_library)
-    if library_to_link.pic_static_library:
-        outputs.append(library_to_link.pic_static_library)
-
-    # On Windows, dynamic library is not built by default, so don't add them to files_to_build.
-    if not cc_common.is_enabled(feature_configuration = feature_configuration, feature_name = "targets_windows"):
-        if library_to_link.resolved_symlink_dynamic_library:
-            outputs.append(library_to_link.resolved_symlink_dynamic_library)
-        elif library_to_link.dynamic_library:
-            outputs.append(library_to_link.dynamic_library)
-        if library_to_link.resolved_symlink_interface_library:
-            outputs.append(library_to_link.resolved_symlink_interface_library)
-        elif library_to_link.interface_library:
-            outputs.append(library_to_link.interface_library)
-    return outputs
 
 def _aspect_impl(target, ctx):
     proto_info = target[ProtoInfo]
@@ -154,60 +118,25 @@ def _aspect_impl(target, ctx):
         experimental_output_files = "multiple",
     )
 
-    deps = ([proto_toolchain.runtime] if proto_toolchain.runtime else []) + getattr(ctx.rule.attr, "deps", [])
+    deps = []
+    if proto_toolchain.runtime:
+        deps = [proto_toolchain.runtime]
+    deps.extend(getattr(ctx.rule.attr, "deps", []))
 
-    cc_toolchain = cc_helper.find_cpp_toolchain(ctx)
-    feature_configuration = _get_feature_configuration(ctx, cc_toolchain, proto_info, should_generate_code)
-    (compilation_context, compilation_outputs) = cc_common.compile(
-        actions = ctx.actions,
-        feature_configuration = feature_configuration,
-        cc_toolchain = cc_toolchain,
-        srcs = sources,
-        public_hdrs = headers,
-        compilation_contexts = [dep[CcInfo].compilation_context for dep in deps],
-        name = ctx.label.name,
-        # Don't instrument the generated C++ files even when --collect_code_coverage is set.
-        code_coverage_enabled = False,
+    cc_info, libraries, temps = cc_proto_compile_and_link(
+        ctx = ctx,
+        deps = deps,
+        sources = sources,
+        headers = headers,
         additional_exported_hdrs = additional_exported_hdrs,
         textual_hdrs = textual_hdrs,
         strip_include_prefix = _get_strip_include_prefix(ctx, proto_info),
     )
 
-    if sources:
-        # TODO(dougk): Configure output artifact with action_config
-        # once proto compile action is configurable from the crosstool.
-        disallow_dynamic_library = not cc_common.is_enabled(
-            feature_name = "supports_dynamic_linker",
-            feature_configuration = feature_configuration,
-        )
-        linking_context, linking_outputs = cc_common.create_linking_context_from_compilation_outputs(
-            actions = ctx.actions,
-            feature_configuration = feature_configuration,
-            cc_toolchain = cc_toolchain,
-            compilation_outputs = compilation_outputs,
-            linking_contexts = [dep[CcInfo].linking_context for dep in deps],
-            name = ctx.label.name,
-            disallow_dynamic_library = disallow_dynamic_library,
-            test_only_target = getattr(ctx.rule.attr, "testonly", False),
-        )
-        libraries = _get_libraries_from_linking_outputs(linking_outputs, feature_configuration)
-    else:
-        linking_context = cc_common.merge_linking_contexts(
-            linking_contexts = [dep[CcInfo].linking_context for dep in deps if CcInfo in dep],
-        )
-        libraries = []
-
     return [
-        CcInfo(
-            compilation_context = compilation_context,
-            linking_context = linking_context,
-            debug_context = cc_common.merge_debug_context(
-                [cc_common.create_debug_context(compilation_outputs)] +
-                [dep[CcInfo].debug_context() for dep in deps if CcInfo in dep],
-            ),
-        ),
+        cc_info,
         _ProtoCcFilesInfo(files = depset(sources + headers + libraries)),
-        OutputGroupInfo(temp_files_INTERNAL_ = compilation_outputs.temps()),
+        OutputGroupInfo(temp_files_INTERNAL_ = temps),
         header_provider,
     ]
 
@@ -223,7 +152,7 @@ cc_proto_aspect = aspect(
     toolchains = cc_helper.use_cpp_toolchain() + toolchains.use_toolchain(semantics.CC_PROTO_TOOLCHAIN),
 )
 
-def _cc_proto_library_rule(ctx):
+def _cc_proto_library_impl(ctx):
     if len(ctx.attr.deps) != 1:
         fail(
             "'deps' attribute must contain exactly one label " +
@@ -241,7 +170,7 @@ def _cc_proto_library_rule(ctx):
     return [DefaultInfo(files = dep[_ProtoCcFilesInfo].files), dep[CcInfo], dep[OutputGroupInfo]]
 
 cc_proto_library = rule(
-    implementation = _cc_proto_library_rule,
+    implementation = _cc_proto_library_impl,
     doc = """
 <p>
 <code>cc_proto_library</code> generates C++ code from <code>.proto</code> files.
