@@ -831,6 +831,7 @@ public final class ActionExecutionFunction implements SkyFunction {
               action,
               inputMetadataProvider,
               outputMetadataStore,
+              pathResolver,
               artifactExpander,
               actionStartTime,
               state.allInputs.actionCacheInputs,

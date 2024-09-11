@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
-import com.google.devtools.build.lib.analysis.test.TestActionContext.FailedAttemptResult;
+import com.google.devtools.build.lib.analysis.test.TestActionContext.ProcessedAttemptResult;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestAttemptResult;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestAttemptResult.Result;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerSpawn;
@@ -402,6 +402,11 @@ public class TestRunnerAction extends AbstractAction
   // TODO(ulfjack): Instead of going to local disk here, use SpawnResult (add list of files there).
   public ImmutableMultimap<String, Path> getTestOutputsMapping(
       ArtifactPathResolver resolver, Path execRoot) {
+    // TODO(tjgq): The existence checks below will incorrectly return false if the test action was
+    // reconstructed from the action cache, as we don't populate the output filesystem on an action
+    // cache hit. This is difficult to fix because some of the files below are produced by test
+    // spawns, but not declared as action outputs, and only the latter are stored in the action
+    // cache.
     ImmutableMultimap.Builder<String, Path> builder = ImmutableMultimap.builder();
     if (resolver.toPath(getTestLog()).exists()) {
       builder.put(TestFileNameConstants.TEST_LOG, resolver.toPath(getTestLog()));
@@ -633,12 +638,15 @@ public class TestRunnerAction extends AbstractAction
       return false;
     }
     try {
+      ImmutableMultimap<String, Path> testOutputs =
+          getTestOutputsMapping(executor.getPathResolver(), executor.getExecRoot());
       executor
           .getEventHandler()
           .post(
               executor
                   .getContext(TestActionContext.class)
-                  .newCachedTestResult(executor.getExecRoot(), this, cachedTestResultData.get()));
+                  .newCachedTestResult(
+                      executor.getExecRoot(), this, cachedTestResultData.get(), testOutputs));
     } catch (IOException e) {
       logger.atInfo().log("%s", getErrorMessageOnNewCachedTestResultError(e.getMessage()));
       executor
@@ -962,7 +970,7 @@ public class TestRunnerAction extends AbstractAction
       throws ActionExecutionException, InterruptedException {
 
     List<SpawnResult> spawnResults = new ArrayList<>();
-    List<FailedAttemptResult> failedAttempts = new ArrayList<>();
+    List<ProcessedAttemptResult> failedAttempts = new ArrayList<>();
     TestRunnerSpawn testRunnerSpawn = null;
     AttemptGroup attemptGroup = null;
 
@@ -1159,7 +1167,7 @@ public class TestRunnerAction extends AbstractAction
       boolean keepGoing,
       final AttemptGroup attemptGroup,
       List<SpawnResult> spawnResults,
-      List<FailedAttemptResult> failedAttempts)
+      List<ProcessedAttemptResult> failedAttempts)
       throws ExecException, IOException, InterruptedException {
     int maxAttempts = 0;
 

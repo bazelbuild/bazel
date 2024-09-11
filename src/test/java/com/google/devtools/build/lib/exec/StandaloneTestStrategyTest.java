@@ -44,7 +44,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.test.TestActionContext;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.AttemptGroup;
-import com.google.devtools.build.lib.analysis.test.TestActionContext.FailedAttemptResult;
+import com.google.devtools.build.lib.analysis.test.TestActionContext.ProcessedAttemptResult;
 import com.google.devtools.build.lib.analysis.test.TestActionContext.TestRunnerSpawn;
 import com.google.devtools.build.lib.analysis.test.TestAttempt;
 import com.google.devtools.build.lib.analysis.test.TestProvider;
@@ -60,7 +60,7 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
-import com.google.devtools.build.lib.exec.StandaloneTestStrategy.StandaloneFailedAttemptResult;
+import com.google.devtools.build.lib.exec.StandaloneTestStrategy.StandaloneProcessedAttemptResult;
 import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.TestExecutorBuilder;
 import com.google.devtools.build.lib.runtime.TestSummaryOptions;
@@ -1161,10 +1161,10 @@ public final class StandaloneTestStrategyTest extends BuildViewTestCase {
             .setTestResultDataBuilder(builder)
             .setExecutionInfo(ExecutionInfo.getDefaultInstance())
             .build();
-    FailedAttemptResult failedResult = spawn.finalizeFailedTestAttempt(result, 0);
+    ProcessedAttemptResult failedResult = spawn.finalizeFailedTestAttempt(result, 0);
 
-    assertThat(failedResult).isInstanceOf(StandaloneFailedAttemptResult.class);
-    TestResultData data = ((StandaloneFailedAttemptResult) failedResult).testResultData();
+    assertThat(failedResult).isInstanceOf(StandaloneProcessedAttemptResult.class);
+    TestResultData data = ((StandaloneProcessedAttemptResult) failedResult).testResultData();
     assertThat(data.getStatus()).isEqualTo(BlazeTestStatus.INCOMPLETE);
   }
 }

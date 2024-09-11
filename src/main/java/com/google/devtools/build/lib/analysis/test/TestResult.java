@@ -20,7 +20,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
@@ -44,6 +43,7 @@ public class TestResult implements ExtendedEventHandler.Postable {
 
   private final TestRunnerAction testAction;
   private final TestResultData data;
+  private final ImmutableMultimap<String, Path> testOutputs;
   private final boolean cached;
   @Nullable protected final Path execRoot;
   @Nullable private final DetailedExitCode systemFailure;
@@ -62,11 +62,13 @@ public class TestResult implements ExtendedEventHandler.Postable {
   public TestResult(
       TestRunnerAction testAction,
       TestResultData data,
+      ImmutableMultimap<String, Path> testOutputs,
       boolean cached,
       @Nullable Path execRoot,
       @Nullable DetailedExitCode systemFailure) {
     this.testAction = checkNotNull(testAction);
     this.data = checkNotNull(data);
+    this.testOutputs = checkNotNull(testOutputs);
     this.cached = cached;
     this.execRoot = execRoot;
     this.systemFailure = systemFailure;
@@ -75,9 +77,10 @@ public class TestResult implements ExtendedEventHandler.Postable {
   public TestResult(
       TestRunnerAction testAction,
       TestResultData data,
+      ImmutableMultimap<String, Path> testOutputs,
       boolean cached,
       @Nullable DetailedExitCode systemFailure) {
-    this(testAction, data, cached, null, systemFailure);
+    this(testAction, data, testOutputs, cached, null, systemFailure);
   }
 
   public static boolean isBlazeTestStatusPassed(BlazeTestStatus status) {
@@ -119,9 +122,9 @@ public class TestResult implements ExtendedEventHandler.Postable {
             testAction,
             data,
             1,
-            getFiles(),
+            testOutputs,
             BuildEventStreamProtos.TestResult.ExecutionInfo.getDefaultInstance(),
-            /*lastAttempt=*/ true));
+            /* lastAttempt= */ true));
   }
 
   /** Returns the coverage data artifact, if available, and null otherwise. */
@@ -176,14 +179,5 @@ public class TestResult implements ExtendedEventHandler.Postable {
   @Nullable
   public DetailedExitCode getSystemFailure() {
     return systemFailure;
-  }
-
-  /**
-   * Returns the collection of files created by the test, tagged by their name indicating usage
-   * (e.g., "test.log").
-   */
-  private ImmutableMultimap<String, Path> getFiles() {
-    // TODO(ulfjack): Cache the set of generated files in the TestResultData.
-    return testAction.getTestOutputsMapping(ArtifactPathResolver.forExecRoot(execRoot), execRoot);
   }
 }

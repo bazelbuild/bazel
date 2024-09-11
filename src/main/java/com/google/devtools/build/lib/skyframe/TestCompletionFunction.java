@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableMultimap;
 import com.google.devtools.build.lib.actions.ActionExecutionException;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
@@ -134,6 +135,12 @@ public final class TestCompletionFunction implements SkyFunction {
     TestResultData testData = TestResultData.newBuilder().setStatus(status).build();
     env.getListener().post(TestAttempt.forUnstartableTestResult(testRunnerAction, testData));
     env.getListener()
-        .post(new TestResult(testRunnerAction, testData, /* cached= */ false, detailedExitCode));
+        .post(
+            new TestResult(
+                testRunnerAction,
+                testData,
+                ImmutableMultimap.of(),
+                /* cached= */ false,
+                detailedExitCode));
   }
 }

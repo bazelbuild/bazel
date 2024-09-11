@@ -193,7 +193,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     return testOutputsBuilder.build();
   }
 
-  private StandaloneFailedAttemptResult processFailedTestAttempt(
+  private StandaloneProcessedAttemptResult processFailedTestAttempt(
       int attemptId,
       ActionExecutionContext actionExecutionContext,
       TestRunnerAction action,
@@ -207,19 +207,20 @@ public class StandaloneTestStrategy extends TestStrategy {
       TestRunnerAction action,
       ActionExecutionContext actionExecutionContext,
       StandaloneTestResult standaloneTestResult,
-      List<FailedAttemptResult> failedAttempts)
+      List<ProcessedAttemptResult> failedAttempts)
       throws IOException {
-    processTestAttempt(
-        failedAttempts.size() + 1,
-        /*isLastAttempt=*/ true,
-        actionExecutionContext,
-        action,
-        standaloneTestResult);
+    StandaloneProcessedAttemptResult lastAttempt =
+        processTestAttempt(
+            failedAttempts.size() + 1,
+            /* isLastAttempt= */ true,
+            actionExecutionContext,
+            action,
+            standaloneTestResult);
 
     TestResultData.Builder dataBuilder = standaloneTestResult.testResultDataBuilder();
-    for (FailedAttemptResult failedAttempt : failedAttempts) {
+    for (ProcessedAttemptResult failedAttempt : failedAttempts) {
       TestResultData failedAttemptData =
-          ((StandaloneFailedAttemptResult) failedAttempt).testResultData;
+          ((StandaloneProcessedAttemptResult) failedAttempt).testResultData();
       dataBuilder.addAllFailedLogs(failedAttemptData.getFailedLogsList());
       dataBuilder.addTestTimes(failedAttemptData.getTestTimes(0));
       dataBuilder.addAllTestProcessTimes(failedAttemptData.getTestProcessTimesList());
@@ -229,11 +230,16 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
     TestResultData data = dataBuilder.build();
     TestResult result =
-        new TestResult(action, data, false, standaloneTestResult.primarySystemFailure());
+        new TestResult(
+            action,
+            data,
+            lastAttempt.testOutputs(),
+            false,
+            standaloneTestResult.primarySystemFailure());
     postTestResult(actionExecutionContext, result);
   }
 
-  private StandaloneFailedAttemptResult processTestAttempt(
+  private StandaloneProcessedAttemptResult processTestAttempt(
       int attemptId,
       boolean isLastAttempt,
       ActionExecutionContext actionExecutionContext,
@@ -280,7 +286,7 @@ public class StandaloneTestStrategy extends TestStrategy {
             TestAttempt.forExecutedTestResult(
                 action, data, attemptId, testOutputs, result.executionInfo(), isLastAttempt));
     processTestOutput(actionExecutionContext, data, action.getTestName(), renamedTestLog);
-    return new StandaloneFailedAttemptResult(data);
+    return new StandaloneProcessedAttemptResult(data, testOutputs);
   }
 
   private static Map<String, String> setupEnvironment(
@@ -536,22 +542,18 @@ public class StandaloneTestStrategy extends TestStrategy {
 
   @Override
   public TestResult newCachedTestResult(
-      Path execRoot, TestRunnerAction action, TestResultData data) {
-    return new TestResult(action, data, /*cached*/ true, execRoot, /*systemFailure=*/ null);
+      Path execRoot,
+      TestRunnerAction action,
+      TestResultData cachedResult,
+      ImmutableMultimap<String, Path> testOutputs) {
+    return new TestResult(
+        action, cachedResult, testOutputs, /* cached= */ true, execRoot, /* systemFailure= */ null);
   }
 
   @VisibleForTesting
-  static final class StandaloneFailedAttemptResult implements FailedAttemptResult {
-    private final TestResultData testResultData;
-
-    StandaloneFailedAttemptResult(TestResultData testResultData) {
-      this.testResultData = testResultData;
-    }
-
-    TestResultData testResultData() {
-      return testResultData;
-    }
-  }
+  record StandaloneProcessedAttemptResult(
+      TestResultData testResultData, ImmutableMultimap<String, Path> testOutputs)
+      implements ProcessedAttemptResult {}
 
   private final class StandaloneTestRunnerSpawn implements TestRunnerSpawn {
     private final TestRunnerAction testAction;
@@ -590,7 +592,7 @@ public class StandaloneTestStrategy extends TestStrategy {
     }
 
     @Override
-    public FailedAttemptResult finalizeFailedTestAttempt(
+    public StandaloneProcessedAttemptResult finalizeFailedTestAttempt(
         TestAttemptResult testAttemptResult, int attempt) throws IOException {
       return processFailedTestAttempt(
           attempt, actionExecutionContext, testAction, (StandaloneTestResult) testAttemptResult);
@@ -598,14 +600,15 @@ public class StandaloneTestStrategy extends TestStrategy {
 
     @Override
     public void finalizeTest(
-        TestAttemptResult finalResult, List<FailedAttemptResult> failedAttempts)
+        TestAttemptResult finalResult, List<ProcessedAttemptResult> failedAttempts)
         throws IOException {
       StandaloneTestStrategy.this.finalizeTest(
           testAction, actionExecutionContext, (StandaloneTestResult) finalResult, failedAttempts);
     }
 
     @Override
-    public void finalizeCancelledTest(List<FailedAttemptResult> failedAttempts) throws IOException {
+    public void finalizeCancelledTest(List<ProcessedAttemptResult> failedAttempts)
+        throws IOException {
       TestResultData.Builder builder =
           TestResultData.newBuilder()
               .setCachable(false)
