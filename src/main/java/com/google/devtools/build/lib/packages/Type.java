@@ -621,11 +621,11 @@ public abstract class Type<T> {
 
     @Override
     public Map<KeyT, ValueT> concat(Iterable<Map<KeyT, ValueT>> iterable) {
-      Dict.Builder<KeyT, ValueT> output = new Dict.Builder<>();
+      ImmutableMap.Builder<KeyT, ValueT> builder = ImmutableMap.builder();
       for (Map<KeyT, ValueT> map : iterable) {
-        output.putAll(map);
+        builder.putAll(map);
       }
-      return output.buildImmutable();
+      return builder.buildKeepingLast();
     }
 
     @Override
