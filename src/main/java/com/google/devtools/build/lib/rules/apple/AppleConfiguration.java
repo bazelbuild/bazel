@@ -190,18 +190,17 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
    */
   @Override
   public String getSingleArchitecture() {
-    return getSingleArchitecture(applePlatformType, appleCpus, /* removeEnvironmentPrefix= */ true);
+    return getUnprefixedAppleCpu(applePlatformType, appleCpus);
   }
 
-  private static String getSingleArchitecture(
-      String applePlatformType, AppleCpus appleCpus, boolean removeEnvironmentPrefix) {
-    // The removeEnvironmentPrefix argument is used to remove the environment data from the CPU
-    // - e.g. whether the target CPU is for simulator, device or catalyst. For older CPUs,
-    // no environment may be provided.
+  private static String getUnprefixedAppleCpu(String applePlatformType, AppleCpus appleCpus) {
+    // The environment data prefix is removed from the CPU string,
+    // - e.g. whether the target CPU is for simulator, device or catalyst.
+    //  For older CPUs no environment may be provided.
     String cpu = getPrefixedAppleCpu(applePlatformType, appleCpus);
-    if (removeEnvironmentPrefix && cpu.startsWith(SIMULATOR_ENVIRONMENT_CPU_PREFIX)) {
+    if (cpu.startsWith(SIMULATOR_ENVIRONMENT_CPU_PREFIX)) {
       cpu = cpu.substring(SIMULATOR_ENVIRONMENT_CPU_PREFIX.length());
-    } else if (removeEnvironmentPrefix && cpu.startsWith(DEVICE_ENVIRONMENT_CPU_PREFIX)) {
+    } else if (cpu.startsWith(DEVICE_ENVIRONMENT_CPU_PREFIX)) {
       cpu = cpu.substring(DEVICE_ENVIRONMENT_CPU_PREFIX.length());
     }
     return cpu;
@@ -288,8 +287,7 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
   @Override
   public ApplePlatform getSingleArchPlatform() {
     return ApplePlatform.forTarget(
-        applePlatformType,
-        getSingleArchitecture(applePlatformType, appleCpus, /* removeEnvironmentPrefix= */ false));
+        applePlatformType, getPrefixedAppleCpu(applePlatformType, appleCpus));
   }
 
   /**
