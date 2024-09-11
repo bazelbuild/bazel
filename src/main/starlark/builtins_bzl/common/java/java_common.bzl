@@ -19,8 +19,11 @@ load(":common/java/java_common_internal_for_builtins.bzl", "compile", "run_ijar"
 load(":common/java/java_helper.bzl", "helper")
 load(
     ":common/java/java_info.bzl",
+    "JavaCompilationInfo",
     "JavaInfo",
+    "JavaPluginDataInfo",
     "JavaPluginInfo",
+    "to_java_binary_info",
     _java_info_add_constraints = "add_constraints",
     _java_info_make_non_strict = "make_non_strict",
     _java_info_merge = "merge",
@@ -289,6 +292,24 @@ def _java_toolchain_label(java_toolchain):
     _java_common_internal.check_provider_instances([java_toolchain], "java_toolchain", JavaToolchainInfo)
     return java_toolchain.label
 
+def _internal_exports():
+    _builtins.internal.cc_common.check_private_api(allowlist = [
+        ("", "third_party/bazel_rules/rules_java"),
+        ("rules_java", ""),
+    ])
+    return struct(
+        incompatible_disable_non_executable_java_binary = _java_common_internal.incompatible_disable_non_executable_java_binary,
+        target_kind = _java_common_internal.target_kind,
+        compile = compile,
+        JavaCompilationInfo = JavaCompilationInfo,
+        collect_native_deps_dirs = _java_common_internal.collect_native_deps_dirs,
+        get_runtime_classpath_for_archive = _java_common_internal.get_runtime_classpath_for_archive,
+        to_java_binary_info = to_java_binary_info,
+        run_ijar_private_for_builtins = run_ijar,
+        expand_java_opts = _java_common_internal.expand_java_opts,
+        JavaPluginDataInfo = JavaPluginDataInfo,
+    )
+
 def _make_java_common():
     methods = {
         "provider": JavaInfo,
@@ -305,6 +326,7 @@ def _make_java_common():
         "JavaRuntimeInfo": JavaRuntimeInfo,
         "BootClassPathInfo": BootClassPathInfo,
         "JavaRuntimeClasspathInfo": JavaRuntimeClasspathInfo,
+        "internal_DO_NOT_USE": _internal_exports,
     }
     if _java_common_internal._google_legacy_api_enabled():
         methods.update(

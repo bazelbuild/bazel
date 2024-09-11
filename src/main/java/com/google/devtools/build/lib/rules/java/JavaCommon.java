@@ -830,7 +830,7 @@ public class JavaCommon {
 
   private JavaCompilationInfoProvider createCompilationInfoProvider() throws RuleErrorException {
     return new JavaCompilationInfoProvider.Builder()
-        .setJavacOpts(javacOpts)
+        .setJavacOpts(JavaHelper.detokenizeJavaOptions(javacOpts))
         .setBootClasspath(getBootClasspath())
         .setCompilationClasspath(getCompileTimeClasspath())
         .setRuntimeClasspath(getRuntimeClasspath())

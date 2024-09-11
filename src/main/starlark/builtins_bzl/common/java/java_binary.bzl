@@ -18,7 +18,7 @@ load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/java/basic_java_library.bzl", "BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS", "basic_java_library", "collect_deps")
-load(":common/java/java_binary_deploy_jar.bzl", "create_deploy_archive")
+load(":common/java/boot_class_path_info.bzl", "BootClassPathInfo")
 load(":common/java/java_common.bzl", "java_common")
 load(
     ":common/java/java_common_internal_for_builtins.bzl",
@@ -26,7 +26,7 @@ load(
     "get_runtime_classpath_for_archive",
 )
 load(":common/java/java_helper.bzl", "helper")
-load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo", "to_java_binary_info")
+load(":common/java/java_info.bzl", "JavaCompilationInfo", "JavaInfo", "JavaPluginInfo", "to_java_binary_info")
 load(":common/java/java_semantics.bzl", "semantics")
 load(":common/paths.bzl", "paths")
 load(":common/proto/proto_info.bzl", "ProtoInfo")
@@ -126,8 +126,10 @@ def basic_java_binary(
         coverage_config = coverage_config,
         add_exports = ctx.attr.add_exports,
         add_opens = ctx.attr.add_opens,
+        bootclasspath = ctx.attr.bootclasspath,
     )
     java_info = target["JavaInfo"]
+    compilation_info = java_info.compilation_info
     runtime_classpath = depset(
         order = "preorder",
         transitive = [
@@ -149,6 +151,13 @@ def basic_java_binary(
                     source_jar = extension_registry_provider.src_jar,
                 ),
             ],
+        )
+        compilation_info = JavaCompilationInfo(
+            compilation_classpath = compilation_info.compilation_classpath,
+            runtime_classpath = runtime_classpath,
+            boot_classpath = compilation_info.boot_classpath,
+            javac_options = compilation_info.javac_options,
+            javac_options_list = compilation_info.javac_options_list,
         )
 
     java_attrs = _collect_attrs(ctx, runtime_classpath, classpath_resources)
@@ -265,56 +274,10 @@ def basic_java_binary(
 
     _filter_validation_output_group(ctx, output_groups)
 
-    java_binary_info = to_java_binary_info(java_info)
-
-    internal_deploy_jar_info = InternalDeployJarInfo(
-        java_attrs = java_attrs,
-        launcher_info = struct(
-            runtime_jars = launcher_info.runtime_jars,
-            launcher = launcher_info.launcher,
-            unstripped_launcher = launcher_info.unstripped_launcher,
-        ),
-        shared_archive = shared_archive,
-        main_class = main_class,
-        coverage_main_class = coverage_main_class,
-        strip_as_default = strip_as_default,
-        stamp = ctx.attr.stamp,
-        hermetic = hasattr(ctx.attr, "hermetic") and ctx.attr.hermetic,
-        add_exports = add_exports,
-        add_opens = add_opens,
-        manifest_lines = ctx.attr.deploy_manifest_lines,
-    )
-
-    # "temporary" workaround for https://github.com/bazelbuild/intellij/issues/5845
-    extra_files = []
-    if is_test_rule_class and ctx.fragments.java.auto_create_java_test_deploy_jars():
-        extra_files.append(_auto_create_deploy_jar(ctx, internal_deploy_jar_info))
-
-    internal_deploy_jar_info = InternalDeployJarInfo(
-        java_attrs = java_attrs,
-        launcher_info = struct(
-            runtime_jars = launcher_info.runtime_jars,
-            launcher = launcher_info.launcher,
-            unstripped_launcher = launcher_info.unstripped_launcher,
-        ),
-        shared_archive = shared_archive,
-        main_class = main_class,
-        coverage_main_class = coverage_main_class,
-        strip_as_default = strip_as_default,
-        stamp = ctx.attr.stamp,
-        hermetic = hasattr(ctx.attr, "hermetic") and ctx.attr.hermetic,
-        add_exports = add_exports,
-        add_opens = add_opens,
-        manifest_lines = ctx.attr.deploy_manifest_lines,
-    )
-
-    # "temporary" workaround for https://github.com/bazelbuild/intellij/issues/5845
-    extra_files = []
-    if is_test_rule_class and ctx.fragments.java.auto_create_java_test_deploy_jars():
-        extra_files.append(_auto_create_deploy_jar(ctx, internal_deploy_jar_info))
+    java_binary_info = to_java_binary_info(java_info, compilation_info)
 
     default_info = struct(
-        files = depset(extra_files, transitive = [files]),
+        files = files,
         runfiles = runfiles,
         executable = executable,
     )
@@ -324,7 +287,23 @@ def basic_java_binary(
         "JavaInfo": java_binary_info,
         "InstrumentedFilesInfo": target["InstrumentedFilesInfo"],
         "JavaRuntimeClasspathInfo": java_common.JavaRuntimeClasspathInfo(runtime_classpath = java_info.transitive_runtime_jars),
-        "InternalDeployJarInfo": internal_deploy_jar_info,
+        "InternalDeployJarInfo": InternalDeployJarInfo(
+            java_attrs = java_attrs,
+            launcher_info = struct(
+                runtime_jars = launcher_info.runtime_jars,
+                launcher = launcher_info.launcher,
+                unstripped_launcher = launcher_info.unstripped_launcher,
+            ),
+            shared_archive = shared_archive,
+            main_class = main_class,
+            coverage_main_class = coverage_main_class,
+            strip_as_default = strip_as_default,
+            stamp = ctx.attr.stamp,
+            hermetic = hasattr(ctx.attr, "hermetic") and ctx.attr.hermetic,
+            add_exports = add_exports,
+            add_opens = add_opens,
+            manifest_lines = ctx.attr.deploy_manifest_lines,
+        ),
     }, default_info, jvm_flags
 
 def _collect_attrs(ctx, runtime_classpath, classpath_resources):
@@ -422,7 +401,7 @@ def _create_one_version_check(ctx, inputs, is_test_rule_class):
     else:
         allowlist = helper.check_and_get_one_version_attribute(ctx, "_one_version_allowlist")
 
-    if not tool:  # On Mac oneversion tool is not available
+    if not tool or not allowlist:  # On Mac oneversion tool is not available
         return None
 
     output = ctx.actions.declare_file("%s-one-version.txt" % ctx.label.name)
@@ -430,11 +409,8 @@ def _create_one_version_check(ctx, inputs, is_test_rule_class):
     args = ctx.actions.args()
     args.set_param_file_format("shell").use_param_file("@%s", use_always = True)
 
-    one_version_inputs = []
     args.add("--output", output)
-    if allowlist:
-        args.add("--whitelist", allowlist)
-        one_version_inputs.append(allowlist)
+    args.add("--whitelist", allowlist)
     if one_version_level == "WARNING":
         args.add("--succeed_on_found_violations")
     args.add_all(
@@ -448,7 +424,7 @@ def _create_one_version_check(ctx, inputs, is_test_rule_class):
         progress_message = "Checking for one-version violations in %{label}",
         executable = tool,
         toolchain = semantics.JAVA_TOOLCHAIN_TYPE,
-        inputs = depset(one_version_inputs, transitive = [inputs]),
+        inputs = depset([allowlist], transitive = [inputs]),
         tools = [tool],
         outputs = [output],
         arguments = [args],
@@ -479,6 +455,7 @@ def _filter_validation_output_group(ctx, output_group):
                attr_name not in [
                    "deploy_env",
                    "applicable_licenses",
+                   "package_metadata",
                    "plugins",
                    "translations",
                    # special ignored attributes
@@ -513,42 +490,6 @@ def _get_validations_from_target(target):
         return target[OutputGroupInfo]._validation
     else:
         return depset()
-
-# TODO: bazelbuild/intellij/issues/5845 - remove this once no longer required
-# this need not be completely identical to the regular deploy jar since we only
-# care about packaging the classpath
-def _auto_create_deploy_jar(ctx, info):
-    output = ctx.actions.declare_file(ctx.label.name + "_auto_deploy.jar")
-    java_attrs = info.java_attrs
-    runtime_classpath = depset(
-        direct = info.launcher_info.runtime_jars,
-        transitive = [
-            java_attrs.runtime_jars,
-            java_attrs.runtime_classpath_for_archive,
-        ],
-        order = "preorder",
-    )
-    create_deploy_archive(
-        ctx,
-        launcher = info.launcher_info.launcher,
-        main_class = info.main_class,
-        coverage_main_class = info.coverage_main_class,
-        resources = java_attrs.resources,
-        classpath_resources = java_attrs.classpath_resources,
-        runtime_classpath = runtime_classpath,
-        manifest_lines = info.manifest_lines,
-        build_info_files = [],
-        build_target = str(ctx.label),
-        output = output,
-        shared_archive = info.shared_archive,
-        one_version_level = ctx.fragments.java.one_version_enforcement_level,
-        one_version_allowlist = helper.check_and_get_one_version_attribute(ctx, "_one_version_allowlist"),
-        multi_release = ctx.fragments.java.multi_release_deploy_jars,
-        hermetic = info.hermetic,
-        add_exports = info.add_exports,
-        add_opens = info.add_opens,
-    )
-    return output
 
 BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
     BASIC_JAVA_LIBRARY_IMPLICIT_ATTRS,
@@ -592,6 +533,10 @@ BASIC_JAVA_BINARY_ATTRIBUTES = merge_attrs(
         "launcher": attr.label(
             allow_files = False,
             # TODO(b/295221112): add back CcLauncherInfo
+        ),
+        "bootclasspath": attr.label(
+            providers = [BootClassPathInfo],
+            flags = ["SKIP_CONSTRAINTS_OVERRIDE"],
         ),
         "neverlink": attr.bool(),
         "javacopts": attr.string_list(),

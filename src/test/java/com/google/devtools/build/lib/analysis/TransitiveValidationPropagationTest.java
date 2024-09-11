@@ -142,17 +142,17 @@ public final class TransitiveValidationPropagationTest extends BuildViewTestCase
   @Test
   public void testTransitiveValidationOutputGroupNotAllowedForStarlarkRules() throws Exception {
     scratch.file(
-        "test/foo_rule.bzl",
+        "foobar/foo_rule.bzl",
         "def _impl(ctx):",
         "  return [OutputGroupInfo(_validation_transitive = depset())]",
         "foo_rule = rule(implementation = _impl)");
-    scratch.file("test/BUILD", "load('//test:foo_rule.bzl', 'foo_rule')", "foo_rule(name='foo')");
+    scratch.file("foobar/BUILD", "load('//foobar:foo_rule.bzl', 'foo_rule')", "foo_rule(name='foo')");
 
     AssertionError expected =
-        assertThrows(AssertionError.class, () -> getConfiguredTarget("//test:foo"));
+        assertThrows(AssertionError.class, () -> getConfiguredTarget("//foobar:foo"));
 
     assertThat(expected)
         .hasMessageThat()
-        .contains("//test:foo_rule.bzl cannot access the _transitive_validation private API");
+        .contains("//foobar:foo_rule.bzl cannot access the _transitive_validation private API");
   }
 }

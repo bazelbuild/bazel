@@ -680,7 +680,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
     assertThat(prettyArtifactNames(compilationInfo.getRuntimeClasspath().toList(Artifact.class)))
         .containsExactly("java/test/libdep.jar", "java/test/libcustom.jar");
 
-    assertThat(compilationInfo.getJavacOpts()).contains("-XDone");
+    assertThat(compilationInfo.getJavacOptsList()).contains("-XDone");
   }
 
   @Test
@@ -2182,7 +2182,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
             prettyArtifactNames(
                 javaCompilationInfoProvider.getRuntimeClasspath().getSet(Artifact.class)))
         .containsExactly("foo/libmy_java_lib_a.jar");
-    assertThat(javaCompilationInfoProvider.getJavacOpts()).contains("opt1");
+    assertThat(javaCompilationInfoProvider.getJavacOpts().toList()).contains("opt1");
     assertThat(javaCompilationInfoProvider.getJavacOptsList()).contains("opt1");
   }
 
@@ -2953,7 +2953,7 @@ public class JavaStarlarkApiTest extends BuildViewTestCase {
 
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:r");
-    assertContainsEvent("got value of type 'ToolchainInfo', want 'JavaToolchainInfo'");
+    assertContainsEvent("got element of type ToolchainInfo, want JavaToolchainInfo");
   }
 
   @Test

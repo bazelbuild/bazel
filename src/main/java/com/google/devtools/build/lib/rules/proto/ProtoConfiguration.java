@@ -209,7 +209,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       documented = false)
   public boolean experimentalProtoDescriptorSetsIncludeSourceInfoForStarlark(StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return experimentalProtoDescriptorSetsIncludeSourceInfo();
   }
 
@@ -273,13 +273,13 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
 
   @StarlarkMethod(name = "strict_proto_deps", useStarlarkThread = true, documented = false)
   public String strictProtoDepsForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return strictProtoDeps().toString();
   }
 
   @StarlarkMethod(name = "strict_public_imports", useStarlarkThread = true, documented = false)
   public String strictPublicImportsForStarlark(StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return options.strictPublicImports.toString();
   }
 
@@ -293,7 +293,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       documented = false)
   public List<String> ccProtoLibraryHeaderSuffixesForStarlark(StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return ccProtoLibraryHeaderSuffixes();
   }
 
@@ -307,7 +307,7 @@ public class ProtoConfiguration extends Fragment implements ProtoConfigurationAp
       documented = false)
   public List<String> ccProtoLibrarySourceSuffixesForStarlark(StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return ccProtoLibrarySourceSuffixes();
   }
 

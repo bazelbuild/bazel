@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultT
 import com.google.devtools.build.lib.packages.AttributeTransitionData;
 import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BuildType;
-import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.LabelConverter;
 import com.google.devtools.build.lib.packages.Provider;
@@ -58,7 +57,6 @@ import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.StarlarkInt;
-import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkThread;
 
 /**
@@ -512,19 +510,10 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Object allowRules,
       Object cfg,
       Sequence<?> aspects,
-      Object flagsObject, // Sequence<String> expected
+      Sequence<?> flags,
       StarlarkThread thread)
       throws EvalException {
     checkContext(thread, "attr.label()");
-
-    if (flagsObject != Starlark.UNBOUND) {
-      BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
-    }
-    @SuppressWarnings("unchecked")
-    Sequence<String> flags =
-        flagsObject == Starlark.UNBOUND
-            ? StarlarkList.immutableOf()
-            : ((Sequence<String>) flagsObject);
 
     ImmutableAttributeFactory attribute =
         createAttributeFactory(
