@@ -561,6 +561,10 @@ function test_validation_actions_in_rule_and_aspect_no_use_validation_aspect() {
   bazel build --run_validations --aspects=//aspect:def.bzl%validation_aspect \
       --noexperimental_use_validation_aspect \
       //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
+  expect_log "Target //validation_actions:foo0 up-to-date:"
+  expect_log "validation_actions/foo0.main"
+  assert_exists bazel-bin/validation_actions/foo0.validation
+  assert_exists bazel-bin/validation_actions/foo0.aspect_validation
 
   cat > aspect/aspect_validation_tool <<'EOF'
 #!/bin/bash
@@ -582,6 +586,10 @@ function test_validation_actions_in_rule_and_aspect_use_validation_aspect() {
   bazel build --run_validations --aspects=//aspect:def.bzl%validation_aspect \
       --experimental_use_validation_aspect \
       //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
+  expect_log "Target //validation_actions:foo0 up-to-date:"
+  expect_log "validation_actions/foo0.main"
+  assert_exists bazel-bin/validation_actions/foo0.validation
+  assert_exists bazel-bin/validation_actions/foo0.aspect_validation
 
   cat > aspect/aspect_validation_tool <<'EOF'
 #!/bin/bash
