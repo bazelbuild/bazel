@@ -57,7 +57,6 @@ def _aspect_impl(target, ctx):
     sources = []
     headers = []
     textual_hdrs = []
-    additional_exported_hdrs = []
 
     proto_toolchain = toolchains.find_toolchain(ctx, "_aspect_cc_proto_toolchain", semantics.CC_PROTO_TOOLCHAIN)
     should_generate_code = proto_common.experimental_should_generate_code(proto_info, proto_toolchain, "cc_proto_library", target.label)
@@ -90,24 +89,6 @@ def _aspect_impl(target, ctx):
             header_provider = _ProtoCcHeaderInfo(headers = depset(transitive = transitive_headers))
 
     else:  # shouldn't generate code
-        # Hack: This is a proto_library for descriptor.proto or similar.
-        #
-        # The headers of those libraries are precomputed. They are also explicitly part of normal
-        # cc_library rules that export them in their 'hdrs' attribute, and compile them as header
-        # module if requested.
-        #
-        # The sole purpose of a proto_library with forbidden srcs is so other proto_library rules
-        # can import them from a protocol buffer, as proto_library rules can only depend on other
-        # proto library rules.
-        for source in proto_info.direct_sources:
-            for suffix in proto_configuration.cc_proto_library_header_suffixes():
-                # We add the header to the proto_library's module map as additional (textual) header for
-                # two reasons:
-                # 1. The header will be exported via a normal cc_library, and a header must only be exported
-                #    non-textually from one library.
-                # 2. We want to allow proto_library rules that depend on the bootstrap-hack proto_library
-                #    to be layering-checked; we need to provide a module map for the layering check to work.
-                additional_exported_hdrs.append(source.short_path[:-len(source.extension)] + suffix)
         header_provider = _ProtoCcHeaderInfo(headers = depset())
 
     proto_common.compile(
@@ -128,7 +109,6 @@ def _aspect_impl(target, ctx):
         deps = deps,
         sources = sources,
         headers = headers,
-        additional_exported_hdrs = additional_exported_hdrs,
         textual_hdrs = textual_hdrs,
         strip_include_prefix = _get_strip_include_prefix(ctx, proto_info),
     )

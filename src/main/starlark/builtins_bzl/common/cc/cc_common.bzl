@@ -661,7 +661,7 @@ def _compile(
         public_hdrs = [],
         private_hdrs = [],
         textual_hdrs = [],
-        additional_exported_hdrs = _UNBOUND,
+        additional_exported_hdrs = _UNBOUND,  # TODO(ilist@): remove, there are no uses
         includes = [],
         quote_includes = [],
         system_includes = [],
