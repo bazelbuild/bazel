@@ -65,6 +65,26 @@ local_path_override(
 EOF
 }
 
+
+function mock_rules_java() {
+  rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
+  mkdir -p "${rules_java_workspace}/java"
+  touch "${rules_java_workspace}/java/BUILD"
+  touch "${rules_java_workspace}/WORKSPACE"
+  cat > "${rules_java_workspace}/MODULE.bazel" << EOF
+module(name = "rules_java")
+EOF
+  cat >> MODULE.bazel << EOF
+bazel_dep(
+    name = "rules_java",
+)
+local_path_override(
+    module_name = "rules_java",
+    path = "${rules_java_workspace}",
+)
+EOF
+}
+
 function disabled_test_removed_rule_loaded() {
   setup_module_dot_bazel
   mock_rules_android
@@ -418,6 +438,43 @@ py_library(
 EOF
   bazel query --incompatible_autoload_externally=+@rules_python ':py_library' --output=build >&$TEST_log 2>&1 || fail "build failed"
 }
+
+function test_legacy_symbols() {
+  setup_module_dot_bazel
+  mock_rules_java
+
+  rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"
+
+  mkdir -p "${rules_java_workspace}/java/common"
+  touch "${rules_java_workspace}/java/common/BUILD"
+  cat > "${rules_java_workspace}/java/common/proguard_spec_info.bzl" << EOF
+def _init(specs):
+  return {"specs": specs}
+
+def _proguard_spec_info():
+  if hasattr(native, "legacy_symbols"):
+    if hasattr(native.legacy_symbols, "ProguardSpecProvider"):
+      print("Native provider")
+      return native.legacy_symbols.ProguardSpecProvider
+  print("Starlark provider")
+  return provider(fields = ["specs"], init = _init)[0]
+
+ProguardSpecInfo = _proguard_spec_info()
+EOF
+
+  cat > BUILD << EOF
+load("@rules_java//java/common:proguard_spec_info.bzl", "ProguardSpecInfo")
+EOF
+
+  bazel build --incompatible_autoload_externally=+ProguardSpecProvider :all >&$TEST_log 2>&1 || fail "build unexpectedly failed"
+  expect_log "Native provider"
+
+
+  bazel build --incompatible_autoload_externally=ProguardSpecProvider,-java_lite_proto_library,-java_import :all >&$TEST_log 2>&1 || fail "build unexpectedly failed"
+  expect_log "Starlark provider"
+}
+
+
 
 
 run_suite "load_removed_symbols"
