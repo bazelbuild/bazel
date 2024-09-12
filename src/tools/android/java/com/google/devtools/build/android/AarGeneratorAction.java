@@ -18,6 +18,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.android.builder.core.VariantTypeImpl;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 import com.beust.jcommander.Parameters;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
@@ -122,7 +123,7 @@ public class AarGeneratorAction {
     public boolean throwOnResourceConflict;
   }
 
-  public static void main(String[] args) throws CompatOptionsParsingException, IOException {
+  public static void main(String[] args) throws ParameterException, IOException {
     Stopwatch timer = Stopwatch.createStarted();
     AarGeneratorOptions options = new AarGeneratorOptions();
     Object[] allOptions = new Object[] {options, new ResourceProcessorCommonOptions()};

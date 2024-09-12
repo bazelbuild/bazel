@@ -19,29 +19,26 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.util.Comparator.comparing;
 
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
-import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.AndroidOptionsUtils;
+import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
 import com.google.devtools.build.android.desugar.io.CoreLibraryRewriter;
 import com.google.devtools.build.android.desugar.io.HeaderClassLoader;
 import com.google.devtools.build.android.desugar.io.IndexedInputs;
 import com.google.devtools.build.android.desugar.io.InputFileProvider;
 import com.google.devtools.build.android.desugar.io.ThrowingClassLoader;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.IOError;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -54,68 +51,46 @@ import org.objectweb.asm.Type;
 
 class KeepScanner {
 
-  public static class KeepScannerOptions extends OptionsBase {
-    @Option(
-        name = "input",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = OptionEffectTag.UNKNOWN,
-        converter = ExistingPathConverter.class,
-        abbrev = 'i',
-        help = "Input Jar with classes to scan.")
+  @Parameters(separators = "= ")
+  public static class KeepScannerOptions {
+    @Parameter(
+        names = {"--input", "-i"},
+        description = "Input Jar with classes to scan.")
     public Path inputJars;
 
-    @Option(
-        name = "classpath_entry",
-        allowMultiple = true,
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        help =
+    @Parameter(
+        names = "--classpath_entry",
+        converter = CompatExistingPathConverter.class,
+        description =
             "Ordered classpath (Jar or directory) to resolve symbols in the --input Jar, like "
                 + "javac's -cp flag.")
-    public List<Path> classpath;
+    public List<Path> classpath = ImmutableList.of();
 
-    @Option(
-        name = "bootclasspath_entry",
-        allowMultiple = true,
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        help =
+    @Parameter(
+        names = "--bootclasspath_entry",
+        converter = CompatExistingPathConverter.class,
+        description =
             "Bootclasspath that was used to compile the --input Jar with, like javac's "
                 + "-bootclasspath flag (required).")
-    public List<Path> bootclasspath;
+    public List<Path> bootclasspath = ImmutableList.of();
 
-    @Option(
-        name = "keep_file",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = OptionEffectTag.UNKNOWN,
-        converter = PathConverter.class,
-        help = "Where to write keep rules to.")
+    @Parameter(
+        names = "--keep_file",
+        converter = CompatPathConverter.class,
+        description = "Where to write keep rules to.")
     public Path keepDest;
 
-    @Option(
-        name = "prefix",
-        defaultValue = "j$/",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = OptionEffectTag.UNKNOWN,
-        help = "type to scan for.")
-    public String prefix;
+    @Parameter(names = "--prefix", description = "type to scan for.")
+    public String prefix = "j$/";
   }
 
   public static void main(String... args) throws Exception {
-    OptionsParser parser =
-        OptionsParser.builder()
-            .optionsClasses(KeepScannerOptions.class)
-            .allowResidue(false)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    parser.parseAndExitUponError(args);
-    KeepScannerOptions options = parser.getOptions(KeepScannerOptions.class);
+    KeepScannerOptions options = new KeepScannerOptions();
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(options, preprocessedArgs);
+
+    JCommander.newBuilder().addObject(options).build().parse(normalizedArgs);
 
     Map<String, ImmutableSet<KeepReference>> seeds;
     try (Closer closer = Closer.create()) {

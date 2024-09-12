@@ -16,6 +16,7 @@ package com.google.devtools.build.android;
 import com.android.builder.core.VariantTypeImpl;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 import com.beust.jcommander.Parameters;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.AndroidResourceProcessor.AaptConfigOptions;
@@ -75,7 +76,7 @@ public class AndroidDataBindingProcessingAction {
     public String appId;
   }
 
-  public static void main(String[] args) throws CompatOptionsParsingException, IOException {
+  public static void main(String[] args) throws ParameterException, IOException {
     Options options = new Options();
     AaptConfigOptions aaptConfigOptions = new AaptConfigOptions();
     ResourceProcessorCommonOptions resourceProcessorCommonOptions =

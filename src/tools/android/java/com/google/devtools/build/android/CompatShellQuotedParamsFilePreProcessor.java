@@ -16,6 +16,7 @@ package com.google.devtools.build.android;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.beust.jcommander.ParameterException;
 import java.io.IOException;
 import java.io.PushbackReader;
 import java.io.Reader;
@@ -43,19 +44,22 @@ public class CompatShellQuotedParamsFilePreProcessor {
     this.fs = fs;
   }
 
-  public List<String> preProcess(List<String> args) throws CompatOptionsParsingException {
+  public List<String> preProcess(List<String> args) throws ParameterException {
     if (!args.isEmpty() && args.get(0).startsWith("@")) {
       if (args.size() > 1) {
-        throw new CompatOptionsParsingException(
-            String.format("A params file must be the only argument: %s", args), args.get(0));
+        throw new ParameterException(
+            String.format(
+                "A params file must be the only argument: %s.\nInvalid argument: %s",
+                args, args.get(0)));
       }
       Path path = fs.getPath(args.get(0).substring(1));
       try {
         return parse(path);
       } catch (RuntimeException | IOException e) {
-        throw new CompatOptionsParsingException(
-            String.format("Error reading params file: %s %s", path, e.getMessage()),
-            args.get(0),
+        throw new ParameterException(
+            String.format(
+                "Error reading params file: %s %s.\nInvalid argument: %s",
+                path, e.getMessage(), args.get(0)),
             e);
       }
     }

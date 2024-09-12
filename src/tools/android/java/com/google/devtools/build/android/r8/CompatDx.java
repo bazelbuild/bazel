@@ -30,16 +30,14 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.utils.ArchiveResourceProvider;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
+import com.google.devtools.build.android.AndroidOptionsUtils;
 import com.google.devtools.build.android.r8.CompatDx.DxCompatOptions.DxUsageMessage;
 import com.google.devtools.build.android.r8.CompatDx.DxCompatOptions.PositionInfo;
-import com.google.devtools.common.options.Converters.StringConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -72,271 +70,119 @@ public class CompatDx {
   private static final String USAGE_HEADER = "Usage: compatdx [options] <input files>";
 
   /** Commandline options. */
-  public static class Options extends OptionsBase {
-    @Option(
-        name = "dex",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Generate dex output.")
-    public boolean dex;
+  @Parameters(separators = "= ")
+  public static class Options {
+    @Parameter(names = "--dex", arity = 1, description = "Generate dex output.")
+    public boolean dex = true;
 
-    @Option(
-        name = "debug",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Print debug information.")
+    @Parameter(names = "--debug", arity = 1, description = "Print debug information.")
     public boolean debug;
 
-    @Option(
-        name = "verbose",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Print verbose information.")
+    @Parameter(names = "--verbose", arity = 1, description = "Print verbose information.")
     public boolean verbose;
 
-    @Option(
-        name = "positions",
-        defaultValue = "lines",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        converter = StringConverter.class,
-        help = "What source-position information to keep. One of: none, lines, important.")
-    public String positions;
+    @Parameter(
+        names = "--positions",
+        description = "What source-position information to keep. One of: none, lines, important.")
+    public String positions = "lines";
 
-    @Option(
-        name = "no-locals",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Don't keep local variable information.")
+    @Parameter(
+        names = "--no-locals",
+        arity = 1,
+        description = "Don't keep local variable information.")
     public boolean noLocals;
 
-    @Option(
-        name = "statistics",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Print statistics information.")
+    @Parameter(names = "--statistics", arity = 1, description = "Print statistics information.")
     public boolean statistics;
 
-    @Option(
-        name = "no-optimize",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Don't optimize.")
+    @Parameter(names = "--no-optimize", arity = 1, description = "Don't optimize.")
     public boolean noOptimize;
 
-    @Option(
-        name = "optimize-list",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        converter = StringConverter.class,
-        help = "File listing methods to optimize.")
+    @Parameter(names = "--optimize-list", description = "File listing methods to optimize.")
     public String optimizeList;
 
-    @Option(
-        name = "no-optimize-list",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        converter = StringConverter.class,
-        help = "File listing methods not to optimize.")
+    @Parameter(names = "--no-optimize-list", description = "File listing methods not to optimize.")
     public String noOptimizeList;
 
-    @Option(
-        name = "no-strict",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Disable strict file/class name checks.")
+    @Parameter(
+        names = "--no-strict",
+        arity = 1,
+        description = "Disable strict file/class name checks.")
     public boolean noStrict;
 
-    @Option(
-        name = "keep-classes",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Keep input class files in in output jar.")
+    @Parameter(
+        names = "--keep-classes",
+        arity = 1,
+        description = "Keep input class files in output jar.")
     public boolean keepClasses;
 
-    @Option(
-        name = "output",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        converter = StringConverter.class,
-        help = "Output file or directory.")
+    @Parameter(names = "--output", description = "Output file or directory.")
     public String output;
 
-    @Option(
-        name = "dump-to",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        converter = StringConverter.class,
-        help = "File to dump information to.")
+    @Parameter(names = "--dump-to", description = "File to dump information to.")
     public String dumpTo;
 
-    @Option(
-        name = "dump-width",
-        defaultValue = "8",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Max width for columns in dump output.")
-    public int dumpWidth;
+    @Parameter(names = "--dump-width", description = "Max width for columns in dump output.")
+    public int dumpWidth = 8;
 
-    @Option(
-        name = "dump-method",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        converter = StringConverter.class,
-        help = "Method to dump information for.")
+    @Parameter(names = "--dump-method", description = "Method to dump information for.")
     public String methodToDump;
 
-    @Option(
-        name = "dump",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Dump information.")
+    @Parameter(names = "--dump", arity = 1, description = "Dump information.")
     public boolean dump;
 
-    @Option(
-        name = "verbose-dump",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Dump verbose information.")
+    @Parameter(names = "--verbose-dump", arity = 1, description = "Dump verbose information.")
     public boolean verboseDump;
 
-    @Option(
-        name = "no-files",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Don't fail if given no files.")
+    @Parameter(names = "--no-files", arity = 1, description = "Don't fail if given no files.")
     public boolean noFiles;
 
-    @Option(
-        name = "core-library",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Construct a core library.")
+    @Parameter(names = "--core-library", arity = 1, description = "Construct a core library.")
     public boolean coreLibrary;
 
-    @Option(
-        name = "num-threads",
-        defaultValue = "1",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Number of threads to run with.")
-    public int numThreads;
+    @Parameter(names = "--num-threads", description = "Number of threads to run with.")
+    public int numThreads = 1;
 
-    @Option(
-        name = "incremental",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Merge result with the output if it exists.")
+    @Parameter(
+        names = "--incremental",
+        arity = 1,
+        description = "Merge result with the output if it exists.")
     public boolean incremental;
 
-    @Option(
-        name = "force-jumbo",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Force use of string-jumbo instructions.")
+    @Parameter(
+        names = "--force-jumbo",
+        arity = 1,
+        description = "Force use of string-jumbo instructions.")
     public boolean forceJumbo;
 
-    @Option(
-        name = "no-warning",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Suppress warnings.")
+    @Parameter(names = "--no-warning", arity = 1, description = "Suppress warnings.")
     public boolean noWarning;
 
-    @Option(
-        name = "set-max-idx-number",
-        defaultValue = "0",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Undocumented: Set maximal index number to use in a dex file.")
-    public int maxIndexNumber;
+    @Parameter(
+        names = "--set-max-idx-number",
+        description = "Undocumented: Set maximal index number to use in a dex file.")
+    public int maxIndexNumber = 0;
 
-    @Option(
-        name = "main-dex-list",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        converter = StringConverter.class,
-        help = "File listing classes that must be in the main dex file.")
+    @Parameter(
+        names = "--main-dex-list",
+        description = "File listing classes that must be in the main dex file.")
     public String mainDexList;
 
-    @Option(
-        name = "multi-dex",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Allow generation of multi-dex.")
+    @Parameter(names = "--multi-dex", arity = 1, description = "Allow generation of multi-dex.")
     public boolean multiDex;
 
-    @Option(
-        name = "min-sdk-version",
-        defaultValue = "19", // Same as Constants.MIN_API_LEVEL.
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Minimum Android API level compatibility.")
-    public int minApiLevel;
+    @Parameter(
+        names = "--min-sdk-version",
+        description = "Minimum Android API level compatibility.")
+    public int minApiLevel = 19; // Same as Constants.MIN_API_LEVEL.
 
-    @Option(
-        name = "input-list",
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = StringConverter.class,
-        help = "File listing input files.")
+    @Parameter(names = "--input-list", description = "File listing input files.")
     public String inputList;
 
-    @Option(
-        name = "version",
-        defaultValue = "false", // dx's default
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Print the version of this tool.")
-    public boolean version;
+    @Parameter(names = "--version", arity = 1, description = "Print the version of this tool.")
+    public boolean version = false; // dx's default
+
+    @Parameter() public List<String> residue;
   }
 
   /** Compatibility options parsing for the DX --dex sub-command. */
@@ -449,10 +295,14 @@ public class CompatDx {
     }
 
     public static DxCompatOptions parse(String[] args) {
-      OptionsParser optionsParser = OptionsParser.builder().optionsClasses(Options.class).build();
-      optionsParser.parseAndExitUponError(args);
-      Options options = optionsParser.getOptions(Options.class);
-      return new DxCompatOptions(options, optionsParser.getResidue());
+      Options options = new Options();
+      String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(args);
+      String[] normalizedArgs =
+          AndroidOptionsUtils.normalizeBooleanOptions(options, preprocessedArgs);
+      JCommander.newBuilder().addObject(options).build().parse(normalizedArgs);
+
+      return new DxCompatOptions(
+          options, options.residue != null ? options.residue : ImmutableList.of());
     }
   }
 

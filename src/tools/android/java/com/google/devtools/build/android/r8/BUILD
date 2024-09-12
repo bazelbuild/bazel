@@ -44,10 +44,12 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/worker:work_request_handlers",
         "//src/main/java/com/google/devtools/common/options",
+        "//src/tools/android/java/com/google/devtools/build/android:android_options_utils",
         "//third_party:asm",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/java/jcommander",
         "@android_gmaven_r8//jar",
     ],
 )

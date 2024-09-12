@@ -14,6 +14,7 @@
 package com.google.devtools.build.android;
 
 import com.beust.jcommander.JCommander;
+import com.beust.jcommander.ParameterException;
 import com.beust.jcommander.Parameters;
 import com.beust.jcommander.ParametersDelegate;
 import com.google.common.collect.ImmutableList;
@@ -52,7 +53,7 @@ class Aapt2OptimizeAction {
         new ResourceProcessorCommonOptions();
   }
 
-  private static List<String> buildCommand(String... args) throws CompatOptionsParsingException {
+  private static List<String> buildCommand(String... args) throws ParameterException {
     Options options = new Options();
     JCommander jc = new JCommander(options);
     String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);

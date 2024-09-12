@@ -26,8 +26,10 @@ java_library(
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/protobuf:java_compilation_java_proto",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//src/tools/android/java/com/google/devtools/build/android:android_options_utils",
         "//third_party:guava",
         "//third_party:jsr305",
+        "//third_party/java/jcommander",
     ],
 )
 

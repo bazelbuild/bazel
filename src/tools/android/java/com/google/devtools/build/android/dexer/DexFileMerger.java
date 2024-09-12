@@ -21,9 +21,13 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import com.android.dex.Dex;
 import com.android.dex.DexFormat;
 import com.android.dx.command.dexer.DxContext;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Iterators;
@@ -31,20 +35,14 @@ import com.google.common.collect.Lists;
 import com.google.common.io.ByteStreams;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.AndroidOptionsUtils;
+import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
 import com.google.devtools.common.options.EnumConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -71,121 +69,69 @@ class DexFileMerger {
   /** File name prefix of a {@code .dex} file automatically loaded in an archive. */
   private static final String DEX_PREFIX = "classes";
 
-  /**
-   * Commandline options.
-   */
-  public static class Options extends OptionsBase {
-    @Option(
-        name = "input",
-        allowMultiple = true,
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        abbrev = 'i',
-        help =
+  /** Commandline options. */
+  @Parameters(separators = "= ")
+  public static class Options {
+    @Parameter(
+        names = {"--input", "-i"},
+        converter = CompatExistingPathConverter.class,
+        description =
             "Input archives with .dex files to merge.  Inputs are processed in given order, so"
                 + " classes from later inputs will be added after earlier inputs.  Duplicate"
                 + " classes are dropped.")
-    public List<Path> inputArchives;
+    public List<Path> inputArchives = ImmutableList.of();
 
-    @Option(
-      name = "output",
-      defaultValue = "classes.dex.jar",
-      category = "output",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = PathConverter.class,
-      abbrev = 'o',
-      help = "Output archive to write."
-    )
+    @Parameter(
+        names = {"--output", "-o"},
+        converter = CompatPathConverter.class,
+        description = "Output archive to write.")
     public Path outputArchive;
 
-    @Option(
-      name = "multidex",
-      defaultValue = "off",
-      category = "multidex",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = MultidexStrategyConverter.class,
-      help = "Allow more than one .dex file in the output."
-    )
-    public MultidexStrategy multidexMode;
+    @Parameter(names = "--multidex", description = "Allow more than one .dex file in the output.")
+    public MultidexStrategy multidexMode = MultidexStrategy.OFF;
 
-    @Option(
-      name = "main-dex-list",
-      defaultValue = "null",
-      category = "multidex",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = ExistingPathConverter.class,
-      help = "List of classes to be placed into \"main\" classes.dex file."
-    )
+    @Parameter(
+        names = "--main-dex-list",
+        converter = CompatExistingPathConverter.class,
+        description = "List of classes to be placed into \"main\" classes.dex file.")
     public Path mainDexListFile;
 
-    @Option(
-      name = "minimal-main-dex",
-      defaultValue = "false",
-      category = "multidex",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If true, *only* classes listed in --main_dex_list file are placed into \"main\" "
-              + "classes.dex file."
-    )
+    @Parameter(
+        names = "--minimal-main-dex",
+        arity = 1,
+        description =
+            "If true, *only* classes listed in --main_dex_list file are placed into \"main\" "
+                + "classes.dex file.")
     public boolean minimalMainDex;
 
-    @Option(
-      name = "verbose",
-      defaultValue = "false",
-      category = "misc",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "If true, print information about the merged files and resulting files to stdout."
-    )
+    @Parameter(
+        names = "--verbose",
+        arity = 1,
+        description =
+            "If true, print information about the merged files and resulting files to stdout.")
     public boolean verbose;
 
-    @Option(
-      name = "max-bytes-wasted-per-file",
-      defaultValue = "0",
-      category = "misc",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Limit on conservatively allocated but unused bytes per dex file, which can enable "
-              + "faster merging."
-    )
+    @Parameter(
+        names = "--max-bytes-wasted-per-file",
+        description =
+            "Limit on conservatively allocated but unused bytes per dex file, which can enable "
+                + "faster merging.")
     public int wasteThresholdPerDex;
 
     // Undocumented dx option for testing multidex logic
-    @Option(
-      name = "set-max-idx-number",
-      defaultValue = "" + DexFormat.MAX_MEMBER_IDX,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Limit on fields and methods in a single dex file."
-    )
-    public int maxNumberOfIdxPerDex;
+    @Parameter(
+        names = "--set-max-idx-number",
+        description = "Limit on fields and methods in a single dex file.")
+    public int maxNumberOfIdxPerDex = DexFormat.MAX_MEMBER_IDX;
 
-    @Option(
-      name = "forceJumbo",
-      defaultValue = "false", // dx's default
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Typically not needed flag intended to imitate dx's --forceJumbo."
-    )
-    public boolean forceJumbo;
+    @Parameter(
+        names = "--forceJumbo",
+        arity = 1,
+        description = "Typically not needed flag intended to imitate dx's --forceJumbo.")
+    public boolean forceJumbo = false; // dx's default
 
-    @Option(
-      name = "dex_prefix",
-      defaultValue = DEX_PREFIX, // dx's default
-      category = "misc",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Dex file output prefix."
-    )
-    public String dexPrefix;
+    @Parameter(names = "--dex_prefix", description = "Dex file output prefix.")
+    public String dexPrefix = DEX_PREFIX; // dx's default
   }
 
   public static class MultidexStrategyConverter extends EnumConverter<MultidexStrategy> {
@@ -195,14 +141,13 @@ class DexFileMerger {
   }
 
   public static void main(String[] args) throws Exception {
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(Options.class)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parseAndExitUponError(args);
+    Options options = new Options();
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(options, preprocessedArgs);
+    JCommander.newBuilder().addObject(options).build().parse(normalizedArgs);
 
-    buildMergedDexFiles(optionsParser.getOptions(Options.class));
+    buildMergedDexFiles(options);
   }
 
   @VisibleForTesting

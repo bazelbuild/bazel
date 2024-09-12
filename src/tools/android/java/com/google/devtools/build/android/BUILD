@@ -64,7 +64,11 @@ java_library(
             "xml/*.java",
             "aapt2/*.java",
         ],
-        exclude = ["DependencyInfo.java"],
+        exclude = [
+            "AndroidOptionsUtils.java",
+            "DependencyInfo.java",
+            "CompatShellQuotedParamsFileProcessor.java",
+        ],
     ),
     javacopts = [
         "--add-exports=java.xml/com.sun.org.apache.xerces.internal.dom=ALL-UNNAMED",
@@ -75,6 +79,7 @@ java_library(
     ],
     deps = [
         ":android_common_30_1_3",
+        ":android_options_utils",
         ":dependency_info",
         "//src/java_tools/singlejar/java/com/google/devtools/build/singlejar:libSingleJar",
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
@@ -153,5 +158,26 @@ java_import(
     deps = [
         "@maven_android//:org_glassfish_jaxb_jaxb_runtime",
         "@maven_android//:org_jetbrains_kotlin_kotlin_stdlib_jdk7",
+    ],
+)
+
+java_library(
+    name = "android_options_utils",
+    srcs = [
+        "AndroidOptionsUtils.java",
+        "CompatShellQuotedParamsFilePreProcessor.java",
+    ],
+    visibility = [
+        "//src/test/java/com/google/devtools/build/android:__pkg__",
+        "//src/tools/android/java/com/google/devtools/build/android/desugar/scan:__pkg__",
+        "//src/tools/android/java/com/google/devtools/build/android/dexer:__pkg__",
+        "//src/tools/android/java/com/google/devtools/build/android/idlclass:__pkg__",
+        "//src/tools/android/java/com/google/devtools/build/android/r8:__pkg__",
+        "//src/tools/android/java/com/google/devtools/build/android/ziputils:__pkg__",
+    ],
+    deps = [
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "//third_party/java/jcommander",
     ],
 )

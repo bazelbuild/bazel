@@ -23,20 +23,18 @@ import com.android.tools.r8.origin.Origin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.utils.ExceptionDiagnostic;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.beust.jcommander.IStringConverter;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.android.r8.OptionsConverters.ExistingPathConverter;
-import com.google.devtools.build.android.r8.OptionsConverters.PathConverter;
-import com.google.devtools.common.options.EnumConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
+import com.google.devtools.build.android.AndroidOptionsUtils;
+import com.google.devtools.build.android.r8.CompatOptionsConverters.CompatExistingPathConverter;
+import com.google.devtools.build.android.r8.CompatOptionsConverters.CompatPathConverter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -102,100 +100,68 @@ public class DexFileMerger {
   }
 
   /** Option converter for {@link MultidexStrategy}. */
-  public static class MultidexStrategyConverter extends EnumConverter<MultidexStrategy> {
-    public MultidexStrategyConverter() {
-      super(MultidexStrategy.class, "multidex strategy");
+  public static class MultidexStrategyConverter implements IStringConverter<MultidexStrategy> {
+    public MultidexStrategy convert(String value) {
+      return MultidexStrategy.valueOf(value.toUpperCase());
     }
   }
 
   /** Commandline options. */
-  public static class Options extends OptionsBase {
-    @Option(
-        name = "input",
-        allowMultiple = true,
-        defaultValue = "null",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        abbrev = 'i',
-        help =
+  @Parameters(separators = "= ")
+  public static class Options {
+    private final CompatPathConverter pathConverter = new CompatPathConverter();
+
+    @Parameter(
+        names = {"--input", "-i"},
+        converter = CompatExistingPathConverter.class,
+        description =
             "Input archives with .dex files to merge.  Inputs are processed in given order, so"
                 + " classes from later inputs will be added after earlier inputs.  Duplicate"
                 + " classes are dropped.")
-    public List<Path> inputArchives;
+    public List<Path> inputArchives = ImmutableList.of();
 
-    @Option(
-        name = "output",
-        defaultValue = DEFAULT_OUTPUT_ARCHIVE_FILENAME,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = PathConverter.class,
-        abbrev = 'o',
-        help = "Output archive to write.")
-    public Path outputArchive;
+    @Parameter(
+        names = {"--output", "-o"},
+        converter = CompatPathConverter.class,
+        description = "Output archive to write.")
+    public Path outputArchive = pathConverter.convert(DEFAULT_OUTPUT_ARCHIVE_FILENAME);
 
-    @Option(
-        name = "multidex",
-        defaultValue = "off",
-        category = "multidex",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = MultidexStrategyConverter.class,
-        help = "Allow more than one .dex file in the output.")
-    public MultidexStrategy multidexMode;
+    @Parameter(names = "--multidex", description = "Allow more than one .dex file in the output.")
+    public MultidexStrategy multidexMode = MultidexStrategy.OFF;
 
-    @Option(
-        name = "main-dex-list",
-        defaultValue = "null",
-        category = "multidex",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        help = "List of classes to be placed into \"main\" classes.dex file.")
+    @Parameter(
+        names = "--main-dex-list",
+        converter = CompatExistingPathConverter.class,
+        description = "List of classes to be placed into \"main\" classes.dex file.")
     public Path mainDexListFile;
 
-    @Option(
-        name = "verbose",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "If true, print information about the merged files and resulting files to stdout.")
+    @Parameter(
+        names = "--verbose",
+        arity = 1,
+        description =
+            "If true, print information about the merged files and resulting files to stdout.")
     public boolean verbose;
 
-    @Option(
-        name = "dex_prefix",
-        defaultValue = DEX_PREFIX,
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Dex file output prefix.")
-    public String dexPrefix;
+    @Parameter(names = "--dex_prefix", description = "Dex file output prefix.")
+    public String dexPrefix = DEX_PREFIX;
 
-    @Option(
-        name = "min_sdk_version",
-        defaultValue = "",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "minSdkVersion to use when merging")
-    public String minSdkVersion;
+    @Parameter(names = "--min_sdk_version", description = "minSdkVersion to use when merging")
+    public String minSdkVersion = "";
 
-    @Option(
-        name = "global_synthetics_path",
-        defaultValue = "",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Path to global desugaring synthetics file.")
-    public String desugarGlobals;
+    @Parameter(
+        names = "--global_synthetics_path",
+        description = "Path to global desugaring synthetics file.")
+    public String desugarGlobals = "";
   }
 
   private static Options parseArguments(String[] args) throws IOException {
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(Options.class)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parseAndExitUponError(args);
+    Options options = new Options();
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(options, preprocessedArgs);
+    JCommander.newBuilder().addObject(options).build().parse(normalizedArgs);
 
-    return optionsParser.getOptions(Options.class);
+    return options;
   }
 
   /**
