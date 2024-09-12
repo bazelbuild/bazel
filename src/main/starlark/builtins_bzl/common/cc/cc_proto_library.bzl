@@ -66,12 +66,12 @@ def _aspect_impl(target, ctx):
             sources = _get_output_files(
                 ctx.actions,
                 proto_info,
-                proto_configuration.cc_proto_library_source_suffixes(),
+                proto_configuration.cc_proto_library_source_suffixes,
             )
             headers = _get_output_files(
                 ctx.actions,
                 proto_info,
-                proto_configuration.cc_proto_library_header_suffixes(),
+                proto_configuration.cc_proto_library_header_suffixes,
             )
             header_provider = _ProtoCcHeaderInfo(headers = depset(headers))
         else:

@@ -66,7 +66,12 @@ public final class BuiltinRestriction {
               BuiltinRestriction.allowlistEntry("", "tools/build_defs/packaging"),
 
               // Go rules
-              BuiltinRestriction.allowlistEntry("", "tools/build_defs/go"));
+              BuiltinRestriction.allowlistEntry("", "tools/build_defs/go"),
+
+              // Proto rules
+              BuiltinRestriction.allowlistEntry("", "third_party/protobuf"),
+              BuiltinRestriction.allowlistEntry("protobuf", ""),
+              BuiltinRestriction.allowlistEntry("com_google_protobuf", ""));
 
   private BuiltinRestriction() {}
 
