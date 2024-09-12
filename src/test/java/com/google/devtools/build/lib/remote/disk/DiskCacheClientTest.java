@@ -30,6 +30,7 @@ import build.bazel.remote.execution.v2.OutputFile;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
@@ -89,7 +90,8 @@ public class DiskCacheClientTest {
             client.downloadActionResult(
                 context,
                 DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
-                /* inlineOutErr= */ false));
+                /* inlineOutErr= */ false,
+                /* inlineOutputFiles= */ ImmutableSet.of()));
 
     verify(context.getSpawnExecutionContext()).report(SpawnCheckingCacheEvent.create("disk-cache"));
   }
@@ -274,7 +276,12 @@ public class DiskCacheClientTest {
     Path path = populateAc(actionKey, actionResult);
 
     CachedActionResult result =
-        getFromFuture(client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false));
+        getFromFuture(
+            client.downloadActionResult(
+                context,
+                actionKey,
+                /* inlineOutErr= */ false,
+                /* inlineOutputFiles= */ ImmutableSet.of()));
 
     assertThat(result).isEqualTo(CachedActionResult.disk(actionResult));
     assertThat(path.getLastModifiedTime()).isNotEqualTo(0);
@@ -285,7 +292,12 @@ public class DiskCacheClientTest {
     ActionKey actionKey = new ActionKey(getDigest("key"));
 
     CachedActionResult result =
-        getFromFuture(client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false));
+        getFromFuture(
+            client.downloadActionResult(
+                context,
+                actionKey,
+                /* inlineOutErr= */ false,
+                /* inlineOutputFiles= */ ImmutableSet.of()));
 
     assertThat(result).isNull();
   }
@@ -316,7 +328,12 @@ public class DiskCacheClientTest {
     Path treeFileCasPath = populateCas(treeFileDigest, "tree file contents");
 
     CachedActionResult result =
-        getFromFuture(client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false));
+        getFromFuture(
+            client.downloadActionResult(
+                context,
+                actionKey,
+                /* inlineOutErr= */ false,
+                /* inlineOutputFiles= */ ImmutableSet.of()));
 
     assertThat(result).isEqualTo(CachedActionResult.disk(actionResult));
     assertThat(acPath.getLastModifiedTime()).isNotEqualTo(0);
@@ -339,7 +356,12 @@ public class DiskCacheClientTest {
     populateAc(actionKey, actionResult);
 
     CachedActionResult result =
-        getFromFuture(client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false));
+        getFromFuture(
+            client.downloadActionResult(
+                context,
+                actionKey,
+                /* inlineOutErr= */ false,
+                /* inlineOutputFiles= */ ImmutableSet.of()));
 
     assertThat(result).isNull();
   }
@@ -359,7 +381,12 @@ public class DiskCacheClientTest {
     populateCas(fileDigest, "contents");
 
     CachedActionResult result =
-        getFromFuture(client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false));
+        getFromFuture(
+            client.downloadActionResult(
+                context,
+                actionKey,
+                /* inlineOutErr= */ false,
+                /* inlineOutputFiles= */ ImmutableSet.of()));
 
     assertThat(result).isNull();
   }
@@ -379,7 +406,12 @@ public class DiskCacheClientTest {
     populateCas(treeDigest, tree);
 
     CachedActionResult result =
-        getFromFuture(client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false));
+        getFromFuture(
+            client.downloadActionResult(
+                context,
+                actionKey,
+                /* inlineOutErr= */ false,
+                /* inlineOutputFiles= */ ImmutableSet.of()));
 
     assertThat(result).isNull();
   }
