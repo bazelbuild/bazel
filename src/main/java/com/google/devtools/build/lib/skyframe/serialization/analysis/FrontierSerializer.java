@@ -134,6 +134,13 @@ public final class FrontierSerializer {
               writeStatuses.add(writeStatusFuture);
             }
 
+            // Associates the SkyKey to the SkyValue.
+            //
+            // TODO: b/364831651 - determine the version metadata that should also be part
+            // of this key.
+            writeStatuses.add(
+                fingerprintValueService.put(
+                    keyBytes.getObject(), valueBytes.getObject().toByteArray()));
             frontierValueCount.getAndIncrement();
             eventBus.post(new SerializedNodeEvent(key));
           } catch (SerializationException e) {
