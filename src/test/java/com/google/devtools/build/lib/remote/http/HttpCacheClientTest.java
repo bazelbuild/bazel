@@ -36,7 +36,6 @@ import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.Retrier;
@@ -350,32 +349,6 @@ public class HttpCacheClientTest {
             mock(SpawnExecutionContext.class),
             TracingMetadataUtils.buildMetadata(
                 "none", "none", Digest.getDefaultInstance().getHash(), null));
-  }
-
-  @Test
-  public void testSpawnCheckingCacheEvent() throws Exception {
-    ServerChannel server = null;
-    try {
-      ConcurrentHashMap<String, byte[]> cacheContents = new ConcurrentHashMap<>();
-      server = testServer.start(new InMemoryHttpCacheServerHandler(cacheContents));
-
-      HttpCacheClient blobStore =
-          createHttpBlobStore(
-              server, /* timeoutSeconds= */ 1, /* creds= */ null, new AuthAndTLSOptions());
-
-      var unused =
-          getFromFuture(
-              blobStore.downloadActionResult(
-                  remoteActionExecutionContext,
-                  DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
-                  /* inlineOutErr= */ false));
-
-      verify(remoteActionExecutionContext.getSpawnExecutionContext())
-          .report(SpawnCheckingCacheEvent.create("remote-cache"));
-
-    } finally {
-      testServer.stop(server);
-    }
   }
 
   @Test
@@ -729,11 +702,11 @@ public class HttpCacheClientTest {
               authAndTlsOptions,
               Optional.of(retrier));
 
-      RemoteCacheClient.CachedActionResult download =
+      var actionResult =
           getFromFuture(
               blobStore.downloadActionResult(
                   remoteActionExecutionContext, new RemoteCacheClient.ActionKey(DIGEST), false));
-      assertThat(download.actionResult()).isEqualTo(action2);
+      assertThat(actionResult).isEqualTo(action2);
     } finally {
       testServer.stop(server);
     }

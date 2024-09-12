@@ -18,8 +18,6 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assume.assumeNotNull;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
@@ -27,20 +25,14 @@ import build.bazel.remote.execution.v2.Directory;
 import build.bazel.remote.execution.v2.FileNode;
 import build.bazel.remote.execution.v2.OutputDirectory;
 import build.bazel.remote.execution.v2.OutputFile;
-import build.bazel.remote.execution.v2.RequestMetadata;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.actions.Spawn;
-import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
-import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.disk.Sqlite.Connection;
 import com.google.devtools.build.lib.remote.disk.Sqlite.Result;
 import com.google.devtools.build.lib.remote.disk.Sqlite.Statement;
@@ -75,7 +67,6 @@ public class DiskCacheClientTest {
   private Path tmpDir;
   private Path root;
   private DiskCacheClient client;
-  private RemoteActionExecutionContext context;
 
   @Before
   public void setUp() throws Exception {
@@ -84,11 +75,6 @@ public class DiskCacheClientTest {
     client =
         new DiskCacheClient(
             root, /* maxSizeBytes= */ 0, DIGEST_UTIL, executorService, /* verifyDownloads= */ true);
-    context =
-        RemoteActionExecutionContext.create(
-            mock(Spawn.class),
-            mock(SpawnExecutionContext.class),
-            RequestMetadata.getDefaultInstance());
   }
 
   @After
@@ -97,22 +83,10 @@ public class DiskCacheClientTest {
   }
 
   @Test
-  public void downloadActionResult_reportsSpawnCheckingCacheEvent() throws Exception {
-    var unused =
-        getFromFuture(
-            client.downloadActionResult(
-                context,
-                DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
-                /* inlineOutErr= */ false));
-
-    verify(context.getSpawnExecutionContext()).report(SpawnCheckingCacheEvent.create("disk-cache"));
-  }
-
-  @Test
   public void findMissingDigests_returnsAllDigests() throws Exception {
     ImmutableList<Digest> digests =
         ImmutableList.of(getDigest("foo"), getDigest("bar"), getDigest("baz"));
-    assertThat(getFromFuture(client.findMissingDigests(context, digests)))
+    assertThat(getFromFuture(client.findMissingDigests(digests)))
         .containsExactlyElementsIn(digests);
   }
 
@@ -175,7 +149,7 @@ public class DiskCacheClientTest {
     FileSystemUtils.writeContent(file, UTF_8, "contents");
     Digest digest = getDigest("contents");
 
-    var unused = getFromFuture(client.uploadFile(context, digest, file));
+    var unused = getFromFuture(client.uploadFile(digest, file));
 
     assertThat(FileSystemUtils.readContent(getCasPath(digest), UTF_8)).isEqualTo("contents");
   }
@@ -190,7 +164,7 @@ public class DiskCacheClientTest {
     // unnecessarily overwrite the file.
     Path path = populateCas(digest, "existing contents");
 
-    var unused = getFromFuture(client.uploadFile(context, digest, file));
+    var unused = getFromFuture(client.uploadFile(digest, file));
 
     assertThat(FileSystemUtils.readContent(path, UTF_8)).isEqualTo("existing contents");
     assertThat(path.getLastModifiedTime()).isNotEqualTo(0);
@@ -201,7 +175,7 @@ public class DiskCacheClientTest {
     ByteString blob = ByteString.copyFromUtf8("contents");
     Digest digest = getDigest("contents");
 
-    var unused = getFromFuture(client.uploadBlob(context, digest, blob));
+    var unused = getFromFuture(client.uploadBlob(digest, blob));
 
     assertThat(FileSystemUtils.readContent(getCasPath(digest), UTF_8)).isEqualTo("contents");
   }
@@ -215,7 +189,7 @@ public class DiskCacheClientTest {
     // unnecessarily overwrite the file.
     Path path = populateCas(digest, "existing contents");
 
-    var unused = getFromFuture(client.uploadBlob(context, digest, blob));
+    var unused = getFromFuture(client.uploadBlob(digest, blob));
 
     assertThat(FileSystemUtils.readContent(path, UTF_8)).isEqualTo("existing contents");
     assertThat(path.getLastModifiedTime()).isNotEqualTo(0);
@@ -227,7 +201,7 @@ public class DiskCacheClientTest {
     ActionResult actionResult = ActionResult.newBuilder().setExitCode(42).build();
     Path path = getAcPath(actionKey);
 
-    var unused = getFromFuture(client.uploadActionResult(context, actionKey, actionResult));
+    var unused = getFromFuture(client.uploadActionResult(actionKey, actionResult));
 
     assertThat(FileSystemUtils.readContent(path)).isEqualTo(actionResult.toByteArray());
   }
@@ -242,8 +216,7 @@ public class DiskCacheClientTest {
     // The contents would match under normal operation. This serves to check that we don't
     // unnecessarily overwrite the file.
     var unused =
-        getFromFuture(
-            client.uploadActionResult(context, actionKey, ActionResult.getDefaultInstance()));
+        getFromFuture(client.uploadActionResult(actionKey, ActionResult.getDefaultInstance()));
 
     assertThat(FileSystemUtils.readContent(path)).isEqualTo(actionResult.toByteArray());
     assertThat(path.getLastModifiedTime()).isNotEqualTo(0);
@@ -255,7 +228,7 @@ public class DiskCacheClientTest {
     populateCas(digest, "contents");
     Path out = tmpDir.getChild("out");
 
-    var unused = getFromFuture(client.downloadBlob(context, digest, out.getOutputStream()));
+    var unused = getFromFuture(client.downloadBlob(digest, out.getOutputStream()));
 
     assertThat(FileSystemUtils.readContent(out, UTF_8)).isEqualTo("contents");
   }
@@ -266,9 +239,7 @@ public class DiskCacheClientTest {
 
     assertThrows(
         CacheNotFoundException.class,
-        () ->
-            getFromFuture(
-                client.downloadBlob(context, getDigest("contents"), out.getOutputStream())));
+        () -> getFromFuture(client.downloadBlob(getDigest("contents"), out.getOutputStream())));
   }
 
   @Test
@@ -279,7 +250,7 @@ public class DiskCacheClientTest {
 
     assertThrows(
         OutputDigestMismatchException.class,
-        () -> getFromFuture(client.downloadBlob(context, digest, out.getOutputStream())));
+        () -> getFromFuture(client.downloadBlob(digest, out.getOutputStream())));
   }
 
   @Test
@@ -289,10 +260,9 @@ public class DiskCacheClientTest {
 
     Path path = populateAc(actionKey, actionResult);
 
-    CachedActionResult result =
-        getFromFuture(client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false));
+    var result = getFromFuture(client.downloadActionResult(actionKey));
 
-    assertThat(result).isEqualTo(CachedActionResult.disk(actionResult));
+    assertThat(result).isEqualTo(actionResult);
     assertThat(path.getLastModifiedTime()).isNotEqualTo(0);
   }
 
@@ -300,8 +270,7 @@ public class DiskCacheClientTest {
   public void downloadActionResult_whenMissing_returnsNull() throws Exception {
     ActionKey actionKey = new ActionKey(getDigest("key"));
 
-    CachedActionResult result =
-        getFromFuture(client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false));
+    var result = getFromFuture(client.downloadActionResult(actionKey));
 
     assertThat(result).isNull();
   }
@@ -331,10 +300,9 @@ public class DiskCacheClientTest {
     Path treeCasPath = populateCas(treeDigest, tree);
     Path treeFileCasPath = populateCas(treeFileDigest, "tree file contents");
 
-    CachedActionResult result =
-        getFromFuture(client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false));
+    var result = getFromFuture(client.downloadActionResult(actionKey));
 
-    assertThat(result).isEqualTo(CachedActionResult.disk(actionResult));
+    assertThat(result).isEqualTo(actionResult);
     assertThat(acPath.getLastModifiedTime()).isNotEqualTo(0);
     assertThat(stdoutCasPath.getLastModifiedTime()).isNotEqualTo(0);
     assertThat(stderrCasPath.getLastModifiedTime()).isNotEqualTo(0);
@@ -354,8 +322,7 @@ public class DiskCacheClientTest {
 
     populateAc(actionKey, actionResult);
 
-    CachedActionResult result =
-        getFromFuture(client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false));
+    var result = getFromFuture(client.downloadActionResult(actionKey));
 
     assertThat(result).isNull();
   }
@@ -374,8 +341,7 @@ public class DiskCacheClientTest {
     populateAc(actionKey, actionResult);
     populateCas(fileDigest, "contents");
 
-    CachedActionResult result =
-        getFromFuture(client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false));
+    var result = getFromFuture(client.downloadActionResult(actionKey));
 
     assertThat(result).isNull();
   }
@@ -394,8 +360,7 @@ public class DiskCacheClientTest {
     populateAc(actionKey, actionResult);
     populateCas(treeDigest, tree);
 
-    CachedActionResult result =
-        getFromFuture(client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false));
+    var result = getFromFuture(client.downloadActionResult(actionKey));
 
     assertThat(result).isNull();
   }

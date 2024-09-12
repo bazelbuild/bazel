@@ -28,7 +28,6 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.protobuf.ExtensionRegistry;
@@ -54,8 +53,7 @@ final class ActionCacheServer extends ActionCacheImplBase {
       RemoteActionExecutionContext context = RemoteActionExecutionContext.create(requestMetadata);
 
       ActionKey actionKey = digestUtil.asActionKey(request.getActionDigest());
-      CachedActionResult result =
-          cache.downloadActionResult(context, actionKey, /* inlineOutErr= */ false);
+      var result = cache.downloadActionResult(context, actionKey, /* inlineOutErr= */ false);
 
       if (result == null) {
         responseObserver.onError(StatusUtils.notFoundError(request.getActionDigest()));

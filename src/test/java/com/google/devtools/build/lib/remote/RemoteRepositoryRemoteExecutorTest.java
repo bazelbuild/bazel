@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
+import com.google.devtools.build.lib.remote.RemoteCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;

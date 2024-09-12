@@ -32,6 +32,7 @@ import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnProgressEvent;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LazyFileOutputStream;
@@ -40,7 +41,6 @@ import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.AsyncTaskCache;
@@ -83,6 +83,10 @@ public class RemoteCache extends AbstractReferenceCounted {
 
   private static final ListenableFuture<Void> COMPLETED_SUCCESS = immediateFuture(null);
   private static final ListenableFuture<byte[]> EMPTY_BYTES = immediateFuture(new byte[0]);
+  private static final SpawnCheckingCacheEvent SPAWN_CHECKING_DISK_CACHE_EVENT =
+      SpawnCheckingCacheEvent.create("disk-cache");
+  private static final SpawnCheckingCacheEvent SPAWN_CHECKING_REMOTE_CACHE_EVENT =
+      SpawnCheckingCacheEvent.create("remote-cache");
 
   private final CountDownLatch closeCountDownLatch = new CountDownLatch(1);
   protected final AsyncTaskCache.NoResult<Digest> casUploadCache = AsyncTaskCache.NoResult.create();
@@ -120,9 +124,32 @@ public class RemoteCache extends AbstractReferenceCounted {
     return remoteCacheClient.getAuthority();
   }
 
+  /**
+   * Class to keep track of which cache (disk or remote) a given [cached] ActionResult comes from.
+   */
+  public record CachedActionResult(ActionResult actionResult, String cacheName) {
+    @Nullable
+    public static CachedActionResult remote(ActionResult actionResult) {
+      if (actionResult == null) {
+        return null;
+      }
+      return new CachedActionResult(actionResult, "remote");
+    }
+
+    @Nullable
+    public static CachedActionResult disk(ActionResult actionResult) {
+      if (actionResult == null) {
+        return null;
+      }
+      return new CachedActionResult(actionResult, "disk");
+    }
+  }
+
   public CachedActionResult downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr)
       throws IOException, InterruptedException {
+    var spawnExecutionContext = context.getSpawnExecutionContext();
+
     ListenableFuture<CachedActionResult> future = immediateFuture(null);
 
     if (diskCacheClient != null && context.getReadCachePolicy().allowDiskCache()) {
@@ -133,7 +160,14 @@ public class RemoteCache extends AbstractReferenceCounted {
       // TODO(chiwang): With lease service, instead of doing the integrity check against local
       // filesystem, we can check whether referenced blobs are alive in the lease service to
       // increase the cache-hit rate for disk cache.
-      future = diskCacheClient.downloadActionResult(context, actionKey, inlineOutErr);
+      if (spawnExecutionContext != null) {
+        spawnExecutionContext.report(SPAWN_CHECKING_DISK_CACHE_EVENT);
+      }
+      future =
+          Futures.transform(
+              diskCacheClient.downloadActionResult(actionKey),
+              CachedActionResult::disk,
+              directExecutor());
     }
 
     if (remoteCacheClient != null && context.getReadCachePolicy().allowRemoteCache()) {
@@ -142,7 +176,13 @@ public class RemoteCache extends AbstractReferenceCounted {
               future,
               (result) -> {
                 if (result == null) {
-                  return downloadActionResultFromRemote(context, actionKey, inlineOutErr);
+                  if (spawnExecutionContext != null) {
+                    spawnExecutionContext.report(SPAWN_CHECKING_REMOTE_CACHE_EVENT);
+                  }
+                  return Futures.transform(
+                      downloadActionResultFromRemote(context, actionKey, inlineOutErr),
+                      CachedActionResult::remote,
+                      directExecutor());
                 } else {
                   return immediateFuture(result);
                 }
@@ -153,25 +193,24 @@ public class RemoteCache extends AbstractReferenceCounted {
     return getFromFuture(future);
   }
 
-  private ListenableFuture<CachedActionResult> downloadActionResultFromRemote(
+  private ListenableFuture<ActionResult> downloadActionResultFromRemote(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
     checkState(remoteCacheClient != null && context.getReadCachePolicy().allowRemoteCache());
     return Futures.transformAsync(
         remoteCacheClient.downloadActionResult(context, actionKey, inlineOutErr),
-        (cachedActionResult) -> {
-          if (cachedActionResult == null) {
+        (actionResult) -> {
+          if (actionResult == null) {
             return immediateFuture(null);
           }
 
           if (diskCacheClient != null && context.getWriteCachePolicy().allowDiskCache()) {
             return Futures.transform(
-                diskCacheClient.uploadActionResult(
-                    context, actionKey, cachedActionResult.actionResult()),
-                v -> cachedActionResult,
+                diskCacheClient.uploadActionResult(actionKey, actionResult),
+                v -> actionResult,
                 directExecutor());
           }
 
-          return immediateFuture(cachedActionResult);
+          return immediateFuture(actionResult);
         },
         directExecutor());
   }
@@ -188,7 +227,7 @@ public class RemoteCache extends AbstractReferenceCounted {
 
     ListenableFuture<ImmutableSet<Digest>> diskQuery = immediateFuture(ImmutableSet.of());
     if (diskCacheClient != null && context.getWriteCachePolicy().allowDiskCache()) {
-      diskQuery = diskCacheClient.findMissingDigests(context, digests);
+      diskQuery = diskCacheClient.findMissingDigests(digests);
     }
 
     ListenableFuture<ImmutableSet<Digest>> remoteQuery = immediateFuture(ImmutableSet.of());
@@ -223,7 +262,7 @@ public class RemoteCache extends AbstractReferenceCounted {
       RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
     ListenableFuture<Void> diskCacheFuture = Futures.immediateVoidFuture();
     if (diskCacheClient != null && context.getWriteCachePolicy().allowDiskCache()) {
-      diskCacheFuture = diskCacheClient.uploadActionResult(context, actionKey, actionResult);
+      diskCacheFuture = diskCacheClient.uploadActionResult(actionKey, actionResult);
     }
 
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
@@ -258,7 +297,7 @@ public class RemoteCache extends AbstractReferenceCounted {
 
     ListenableFuture<Void> diskCacheFuture = Futures.immediateVoidFuture();
     if (diskCacheClient != null && context.getWriteCachePolicy().allowDiskCache()) {
-      diskCacheFuture = diskCacheClient.uploadFile(context, digest, file);
+      diskCacheFuture = diskCacheClient.uploadFile(digest, file);
     }
 
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
@@ -299,7 +338,7 @@ public class RemoteCache extends AbstractReferenceCounted {
 
     ListenableFuture<Void> diskCacheFuture = Futures.immediateVoidFuture();
     if (diskCacheClient != null && context.getWriteCachePolicy().allowDiskCache()) {
-      diskCacheFuture = diskCacheClient.uploadBlob(context, digest, data);
+      diskCacheFuture = diskCacheClient.uploadBlob(digest, data);
     }
 
     ListenableFuture<Void> remoteCacheFuture = Futures.immediateVoidFuture();
@@ -360,7 +399,7 @@ public class RemoteCache extends AbstractReferenceCounted {
     ListenableFuture<Void> future = immediateFailedFuture(new CacheNotFoundException(digest));
 
     if (diskCacheClient != null && context.getReadCachePolicy().allowDiskCache()) {
-      future = diskCacheClient.downloadBlob(context, digest, out);
+      future = diskCacheClient.downloadBlob(digest, out);
     }
 
     if (remoteCacheClient != null && context.getReadCachePolicy().allowRemoteCache()) {
@@ -396,7 +435,7 @@ public class RemoteCache extends AbstractReferenceCounted {
                 } catch (IOException e) {
                   return immediateFailedFuture(e);
                 }
-                return diskCacheClient.downloadBlob(context, digest, out);
+                return diskCacheClient.downloadBlob(digest, out);
               },
               directExecutor()),
           tempPath,

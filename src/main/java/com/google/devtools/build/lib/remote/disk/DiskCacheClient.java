@@ -17,12 +17,9 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.remote.util.DigestUtil.isOldStyleDigestFunction;
 
-import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.ActionResult;
-import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
-import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import build.bazel.remote.execution.v2.Tree;
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableMap;
@@ -32,11 +29,9 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.remote.Store;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
-import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
 import com.google.devtools.build.lib.remote.util.DigestOutputStream;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -63,7 +58,7 @@ import javax.annotation.Nullable;
  * property may be used to trim the disk cache to the most recently used entries. However, it's not
  * safe to trim the cache at the same time a Bazel process is accessing it.
  */
-public class DiskCacheClient implements RemoteCacheClient {
+public class DiskCacheClient {
 
   private static final String AC_DIR = "ac";
   private static final String CAS_DIR = "cas";
@@ -72,9 +67,6 @@ public class DiskCacheClient implements RemoteCacheClient {
 
   // Subdirectories excluded from garbage collection.
   private static final ImmutableSet<String> EXCLUDED_DIRS = ImmutableSet.of(TMP_DIR, GC_DIR);
-
-  private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
-      SpawnCheckingCacheEvent.create("disk-cache");
 
   private final ImmutableMap<Store, Path> storeRootMap;
   private final Path tmpRoot;
@@ -172,9 +164,7 @@ public class DiskCacheClient implements RemoteCacheClient {
         });
   }
 
-  @Override
-  public ListenableFuture<Void> downloadBlob(
-      RemoteActionExecutionContext context, Digest digest, OutputStream out) {
+  public ListenableFuture<Void> downloadBlob(Digest digest, OutputStream out) {
     @Nullable
     DigestOutputStream digestOut = verifyDownloads ? digestUtil.newDigestOutputStream(out) : null;
     return Futures.transformAsync(
@@ -244,27 +234,7 @@ public class DiskCacheClient implements RemoteCacheClient {
     }
   }
 
-  @Override
-  public CacheCapabilities getCacheCapabilities() {
-    return CacheCapabilities.newBuilder()
-        .setActionCacheUpdateCapabilities(
-            ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
-        .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
-        .build();
-  }
-
-  @Override
-  public ListenableFuture<String> getAuthority() {
-    return immediateFuture("");
-  }
-
-  @Override
-  public ListenableFuture<CachedActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
-    if (context.getSpawnExecutionContext() != null) {
-      context.getSpawnExecutionContext().report(SPAWN_CHECKING_CACHE_EVENT);
-    }
-
+  public ListenableFuture<ActionResult> downloadActionResult(ActionKey actionKey) {
     return Futures.transformAsync(
         // Update the mtime on the action result itself before any of the blobs it references.
         // This ensures that the blobs are always newer than the action result, so that trimming the
@@ -286,14 +256,12 @@ public class DiskCacheClient implements RemoteCacheClient {
             return immediateFuture(null);
           }
 
-          return immediateFuture(CachedActionResult.disk(actionResult));
+          return immediateFuture(actionResult);
         },
         directExecutor());
   }
 
-  @Override
-  public ListenableFuture<Void> uploadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, ActionResult actionResult) {
+  public ListenableFuture<Void> uploadActionResult(ActionKey actionKey, ActionResult actionResult) {
     return executorService.submit(
         () -> {
           try (InputStream data = actionResult.toByteString().newInput()) {
@@ -303,7 +271,6 @@ public class DiskCacheClient implements RemoteCacheClient {
         });
   }
 
-  @Override
   public void close() {
     if (!closed) {
       if (gc != null) {
@@ -313,9 +280,7 @@ public class DiskCacheClient implements RemoteCacheClient {
     }
   }
 
-  @Override
-  public ListenableFuture<Void> uploadFile(
-      RemoteActionExecutionContext context, Digest digest, Path file) {
+  public ListenableFuture<Void> uploadFile(Digest digest, Path file) {
     return executorService.submit(
         () -> {
           try (InputStream in = file.getInputStream()) {
@@ -325,9 +290,7 @@ public class DiskCacheClient implements RemoteCacheClient {
         });
   }
 
-  @Override
-  public ListenableFuture<Void> uploadBlob(
-      RemoteActionExecutionContext context, Digest digest, ByteString data) {
+  public ListenableFuture<Void> uploadBlob(Digest digest, ByteString data) {
     return executorService.submit(
         () -> {
           try (InputStream in = data.newInput()) {
@@ -337,9 +300,7 @@ public class DiskCacheClient implements RemoteCacheClient {
         });
   }
 
-  @Override
-  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
-      RemoteActionExecutionContext context, Iterable<Digest> digests) {
+  public ListenableFuture<ImmutableSet<Digest>> findMissingDigests(Iterable<Digest> digests) {
     // Both upload and download check if the file exists before doing I/O. So we don't
     // have to do it here.
     return immediateFuture(ImmutableSet.copyOf(digests));

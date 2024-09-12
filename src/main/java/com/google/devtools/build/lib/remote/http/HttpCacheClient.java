@@ -28,7 +28,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.AuthAndTLSOptions;
-import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.remote.RemoteRetrier;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.LazyFileInputStream;
@@ -123,9 +122,6 @@ import javax.net.ssl.SSLEngine;
  */
 public final class HttpCacheClient implements RemoteCacheClient {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
-  private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
-      SpawnCheckingCacheEvent.create("remote-cache");
 
   public static final String AC_PREFIX = "ac/";
   public static final String CAS_PREFIX = "cas/";
@@ -620,20 +616,13 @@ public final class HttpCacheClient implements RemoteCacheClient {
   }
 
   @Override
-  public ListenableFuture<CachedActionResult> downloadActionResult(
+  public ListenableFuture<ActionResult> downloadActionResult(
       RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
-    if (context.getSpawnExecutionContext() != null) {
-      context.getSpawnExecutionContext().report(SPAWN_CHECKING_CACHE_EVENT);
-    }
-
-    return Futures.transform(
-        retrier.executeAsync(
-            () ->
-                Utils.downloadAsActionResult(
-                    actionKey,
-                    (digest, out) -> get(digest, out, /* casBytesDownloaded= */ Optional.empty()))),
-        CachedActionResult::remote,
-        MoreExecutors.directExecutor());
+    return retrier.executeAsync(
+        () ->
+            Utils.downloadAsActionResult(
+                actionKey,
+                (digest, out) -> get(digest, out, /* casBytesDownloaded= */ Optional.empty())));
   }
 
   @SuppressWarnings("FutureReturnValueIgnored")

@@ -21,6 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.Digest;
@@ -48,6 +49,7 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.events.Reporter;
+import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.exec.SpawnRunner.SpawnExecutionContext;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.remote.common.LostInputsEvent;
@@ -163,6 +165,19 @@ public class RemoteCacheTest {
     }
     assertThat(file.exists()).isTrue();
     assertThat(file.getFileSize()).isEqualTo(0);
+  }
+
+  @Test
+  public void downloadActionResult_reportsSpawnCheckingCacheEvent() throws Exception {
+    var remoteCache = newRemoteCache();
+    var unused =
+        remoteCache.downloadActionResult(
+            remoteActionExecutionContext,
+            digestUtil.asActionKey(digestUtil.computeAsUtf8("key")),
+            /* inlineOutErr= */ false);
+
+    verify(remoteActionExecutionContext.getSpawnExecutionContext())
+        .report(SpawnCheckingCacheEvent.create("remote-cache"));
   }
 
   @Test
