@@ -21,6 +21,7 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.io.ByteStreams;
+import org.objectweb.asm.Opcodes;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -57,7 +58,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
-import org.objectweb.asm.Opcodes;
 
 /** JUnit tests for ijar tool. */
 @RunWith(JUnit4.class)
@@ -271,14 +271,14 @@ public class IjarTests {
     final Map<String, String> innerClasses = new HashMap<>();
     new ClassReader(bytes)
         .accept(
-            new ClassVisitor(Opcodes.ASM7) {
+            new ClassVisitor(Opcodes.ASM9) {
               @Override
               public void visitInnerClass(
                   String name, String outerName, String innerName, int access) {
                 innerClasses.put(name, String.valueOf(outerName));
               }
             },
-            /*flags=*/ 0);
+            /* parsingOptions= */ 0);
     return innerClasses;
   }
 
