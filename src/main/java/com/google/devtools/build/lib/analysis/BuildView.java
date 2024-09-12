@@ -54,7 +54,6 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
@@ -230,8 +229,7 @@ public class BuildView {
       @Nullable ExecutionSetup executionSetupCallback,
       @Nullable BuildConfigurationsCreated buildConfigurationsCreatedCallback,
       @Nullable BuildDriverKeyTestContext buildDriverKeyTestContext,
-      Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent,
-      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
+      Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent)
       throws ViewCreationFailedException,
           InvalidConfigurationException,
           InterruptedException,
@@ -415,8 +413,7 @@ public class BuildView {
               skyframeAnalysisResult,
               /* targetsToSkip= */ ImmutableSet.of(),
               labelToTargetMap,
-              /* includeExecutionPhase= */ true,
-              activeDirectoriesMatcher);
+              /* includeExecutionPhase= */ true);
     } else {
       ImmutableSet<ConfiguredTarget> targetsToSkip = ImmutableSet.of();
       if (reportIncompatibleTargets) {
@@ -461,8 +458,7 @@ public class BuildView {
               skyframeAnalysisResult,
               targetsToSkip,
               labelToTargetMap,
-              /* includeExecutionPhase= */ false,
-              activeDirectoriesMatcher);
+              /* includeExecutionPhase= */ false);
     }
     logger.atInfo().log("Finished analysis");
     return result;
@@ -570,8 +566,7 @@ public class BuildView {
       SkyframeAnalysisResult skyframeAnalysisResult,
       Set<ConfiguredTarget> targetsToSkip,
       ImmutableMap<Label, Target> labelToTargetMap,
-      boolean includeExecutionPhase,
-      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
+      boolean includeExecutionPhase)
       throws InterruptedException {
     ImmutableSet<Label> testsToRun = loadingResult.getTestsToRunLabels();
     Set<ConfiguredTarget> configuredTargets =
@@ -650,8 +645,7 @@ public class BuildView {
           exclusiveIfLocalTests,
           topLevelOptions,
           loadingResult.getWorkspaceName(),
-          skyframeAnalysisResult.getTargetsWithConfiguration(),
-          activeDirectoriesMatcher);
+          skyframeAnalysisResult.getTargetsWithConfiguration());
     }
 
     WalkableGraph graph = skyframeAnalysisResult.getWalkableGraph();
@@ -695,8 +689,7 @@ public class BuildView {
         topLevelOptions,
         skyframeAnalysisResult.getPackageRoots(),
         loadingResult.getWorkspaceName(),
-        skyframeAnalysisResult.getTargetsWithConfiguration(),
-        activeDirectoriesMatcher);
+        skyframeAnalysisResult.getTargetsWithConfiguration());
   }
 
   /**

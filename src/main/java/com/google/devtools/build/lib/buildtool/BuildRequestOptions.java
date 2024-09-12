@@ -459,7 +459,7 @@ public class BuildRequestOptions extends OptionsBase {
               + " requested with --experimental_aquery_dump_after_build_output_file.  Does not"
               + " honor aquery flags for --include_*, but uses the same defaults, except for"
               + " --include_commandline=false. Possible output formats:"
-              + " proto|streamed_proto|textproto|jsonproto.")
+              + " proto|streamed_proto|textproto|jsonproto. Using this will disable Skymeld.")
   @Nullable
   public String aqueryDumpAfterBuildFormat;
 
@@ -476,7 +476,8 @@ public class BuildRequestOptions extends OptionsBase {
       help =
           "Specify the output file for the aquery dump after a build. Use in conjunction with"
               + " --experimental_aquery_dump_after_build_format. The path provided is relative to"
-              + " Bazel's output base, unless it's an absolute path.")
+              + " Bazel's output base, unless it's an absolute path. Using this will disable"
+              + " Skymeld.")
   @Nullable
   public PathFragment aqueryDumpAfterBuildOutputFile;
 

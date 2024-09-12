@@ -211,7 +211,7 @@ public class BuildTool {
       initializeOutputFilter(request);
 
       // --------------------------------
-      // Target pattern evaluation phase.
+      // Target pattern and Project file evaluation phase.
       // --------------------------------
 
       TargetPatternPhaseValue targetPatternPhaseValue;
@@ -220,6 +220,9 @@ public class BuildTool {
         targetPatternPhaseValue = evaluateTargetPatterns(env, request, validator);
       }
       env.setWorkspaceName(targetPatternPhaseValue.getWorkspaceName());
+
+      ProjectEvaluationResult projectEvaluationResult =
+          evaluateProjectFile(request, buildOptions, targetPatternPhaseValue, env);
 
       // ------------------------------------
       // Analysis/Execution phases (Skymeld).
@@ -231,7 +234,8 @@ public class BuildTool {
       if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
         // Skymeld is useful only for commands that perform execution.
         buildTargetsWithMergedAnalysisExecution(
-            request, result, targetPatternPhaseValue, buildOptions);
+            request, result, targetPatternPhaseValue, projectEvaluationResult.buildOptions());
+        serializeFrontier(request, projectEvaluationResult.activeDirectoriesMatcher());
         return;
       }
 
@@ -240,7 +244,8 @@ public class BuildTool {
       // -----------------------------
 
       AnalysisResult analysisResult =
-          AnalysisPhaseRunner.execute(env, request, targetPatternPhaseValue, buildOptions);
+          AnalysisPhaseRunner.execute(
+              env, request, targetPatternPhaseValue, projectEvaluationResult.buildOptions());
 
       // We cannot move the executionTool down to the execution phase part since it does set up the
       // symlinks for tools.
@@ -298,16 +303,11 @@ public class BuildTool {
               delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
         }
 
-        // Only run these post-build steps for builds with SequencedSkyframeExecutor.
-        if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor) {
-          try (SilentCloseable closeable =
-              Profiler.instance().profile("serializeAndUploadFrontier")) {
-            // TODO: b/365667094 - deduplicate Skymeld and non-Skymeld paths.
-            serializeFrontier(
-                request.getOptions(RemoteAnalysisCachingOptions.class),
-                analysisResult.getActiveDirectoriesMatcher());
-          }
+        serializeFrontier(request, projectEvaluationResult.activeDirectoriesMatcher());
 
+        // Only run this post-build step for builds with SequencedSkyframeExecutor.
+        if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor) {
+          // Enabling this feature will disable Skymeld, so it only runs in the non-Skymeld path.
           if (request.getBuildOptions().aqueryDumpAfterBuildFormat != null) {
             try (SilentCloseable c = Profiler.instance().profile("postExecutionDumpSkyframe")) {
               dumpSkyframeStateAfterBuild(
@@ -399,18 +399,14 @@ public class BuildTool {
       BuildRequest request,
       BuildResult result,
       TargetPatternPhaseValue targetPatternPhaseValue,
-      BuildOptions buildOptionsBeforeFlagSets)
+      BuildOptions buildOptions)
       throws InterruptedException,
-          LoadingFailedException,
           AbruptExitException,
           ViewCreationFailedException,
           BuildFailedException,
           TestExecException,
           InvalidConfigurationException,
           RepositoryMappingResolutionException {
-    ProjectEvaluationResult projectEvaluationResult =
-        evaluateProjectFile(request, buildOptionsBeforeFlagSets, targetPatternPhaseValue, env);
-
     // See https://github.com/bazelbuild/rules_nodejs/issues/3693.
     env.getSkyframeExecutor().clearSyscallCache();
 
@@ -428,7 +424,7 @@ public class BuildTool {
           AnalysisAndExecutionPhaseRunner.execute(
               env,
               request,
-              projectEvaluationResult.buildOptions(),
+              buildOptions,
               targetPatternPhaseValue,
               () -> executionTool.prepareForExecution(executionTimer),
               result::setBuildConfiguration,
@@ -449,20 +445,12 @@ public class BuildTool {
                       .getTestActionContext()
                       .forceExclusiveIfLocalTestsInParallel();
                 }
-              },
-              projectEvaluationResult.activeDirectoriesMatcher());
+              });
       buildCompleted = true;
 
       // This value is null when there's no analysis.
       if (analysisAndExecutionResult == null) {
         return;
-      }
-
-      try (SilentCloseable closeable = Profiler.instance().profile("serializeAndUploadFrontier")) {
-        // TODO: b/365667094 - deduplicate Skymeld and non-Skymeld paths.
-        serializeFrontier(
-            request.getOptions(RemoteAnalysisCachingOptions.class),
-            analysisAndExecutionResult.getActiveDirectoriesMatcher());
       }
     } catch (InvalidConfigurationException
         | RepositoryMappingResolutionException
@@ -817,31 +805,38 @@ public class BuildTool {
     return result;
   }
 
+  /** Frontier serialization is common to both Skymeld and non-Skymeld builds. */
   private void serializeFrontier(
-      @Nullable RemoteAnalysisCachingOptions options,
-      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
+      BuildRequest request, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
       throws InterruptedException, AbruptExitException {
+    if (!(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor)) {
+      return;
+    }
+
+    RemoteAnalysisCachingOptions options = request.getOptions(RemoteAnalysisCachingOptions.class);
     if (options == null || options.mode != UPLOAD) {
       return;
     }
 
-    // TODO: b/353233779 - consider falling back on full serialization when there is
-    // no project matcher.
-    Preconditions.checkState(
-        activeDirectoriesMatcher.isPresent(),
-        "the PROJECT.scl active_directories matcher is missing, was it initialized correctly?");
+    try (SilentCloseable closeable = Profiler.instance().profile("serializeAndUploadFrontier")) {
+      // TODO: b/353233779 - consider falling back on full serialization when there is
+      // no project matcher.
+      Preconditions.checkState(
+          activeDirectoriesMatcher.isPresent(),
+          "the PROJECT.scl active_directories matcher is missing, was it initialized correctly?");
 
-    Optional<FailureDetail> maybeFailureDetail =
-        FrontierSerializer.serializeAndUploadFrontier(
-            requireNonNull(env.getAnalysisObjectCodecsSupplier()),
-            env.getSkyframeExecutor(),
-            activeDirectoriesMatcher.get(),
-            requireNonNull(env.getFingerprintValueService()),
-            env.getReporter(),
-            env.getEventBus(),
-            options.serializedFrontierProfile);
-    if (maybeFailureDetail.isPresent()) {
-      throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));
+      Optional<FailureDetail> maybeFailureDetail =
+          FrontierSerializer.serializeAndUploadFrontier(
+              requireNonNull(env.getAnalysisObjectCodecsSupplier()),
+              env.getSkyframeExecutor(),
+              activeDirectoriesMatcher.get(),
+              requireNonNull(env.getFingerprintValueService()),
+              env.getReporter(),
+              env.getEventBus(),
+              options.serializedFrontierProfile);
+      if (maybeFailureDetail.isPresent()) {
+        throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));
+      }
     }
   }
 

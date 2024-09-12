@@ -21,11 +21,9 @@ import com.google.devtools.build.lib.actions.ActionGraph;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.PackageRoots;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import java.util.Collection;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /** Return value for {@link com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner}. */
@@ -45,7 +43,6 @@ public class AnalysisResult {
   private final PackageRoots packageRoots;
   private final String workspaceName;
   private final Collection<TargetAndConfiguration> topLevelTargetsWithConfigs;
-  private final Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher;
 
   AnalysisResult(
       BuildConfigurationValue configuration,
@@ -62,8 +59,7 @@ public class AnalysisResult {
       TopLevelArtifactContext topLevelContext,
       PackageRoots packageRoots,
       String workspaceName,
-      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs,
-      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher) {
+      Collection<TargetAndConfiguration> topLevelTargetsWithConfigs) {
     this.configuration = configuration;
     this.targetsToBuild = targetsToBuild;
     this.aspects = aspects;
@@ -79,7 +75,6 @@ public class AnalysisResult {
     this.packageRoots = packageRoots;
     this.workspaceName = workspaceName;
     this.topLevelTargetsWithConfigs = topLevelTargetsWithConfigs;
-    this.activeDirectoriesMatcher = activeDirectoriesMatcher;
   }
 
   public BuildConfigurationValue getConfiguration() {
@@ -163,10 +158,6 @@ public class AnalysisResult {
     return topLevelTargetsWithConfigs;
   }
 
-  public Optional<PathFragmentPrefixTrie> getActiveDirectoriesMatcher() {
-    return activeDirectoriesMatcher;
-  }
-
   /**
    * Returns an equivalent {@link AnalysisResult}, except with exclusive tests treated as parallel
    * tests.
@@ -187,8 +178,7 @@ public class AnalysisResult {
         topLevelContext,
         packageRoots,
         workspaceName,
-        topLevelTargetsWithConfigs,
-        activeDirectoriesMatcher);
+        topLevelTargetsWithConfigs);
   }
 
   /**
@@ -211,7 +201,6 @@ public class AnalysisResult {
         topLevelContext,
         packageRoots,
         workspaceName,
-        topLevelTargetsWithConfigs,
-        activeDirectoriesMatcher);
+        topLevelTargetsWithConfigs);
   }
 }

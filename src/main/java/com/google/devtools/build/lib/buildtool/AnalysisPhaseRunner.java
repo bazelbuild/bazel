@@ -90,7 +90,7 @@ public final class AnalysisPhaseRunner {
       CommandEnvironment env,
       BuildRequest request,
       TargetPatternPhaseValue targetPatternPhaseValue,
-      BuildOptions buildOptionsBeforeFlagSets)
+      BuildOptions buildOptions)
       throws BuildFailedException,
           InterruptedException,
           ViewCreationFailedException,
@@ -100,9 +100,6 @@ public final class AnalysisPhaseRunner {
           InvalidConfigurationException,
           RepositoryMappingResolutionException {
 
-    ProjectEvaluationResult projectEvaluationResult =
-        evaluateProjectFile(request, buildOptionsBeforeFlagSets, targetPatternPhaseValue, env);
-    BuildOptions postFlagsetsBuildOptions = projectEvaluationResult.buildOptions();
     // Compute the heuristic instrumentation filter if needed.
     if (request.needsInstrumentationFilter()) {
       try (SilentCloseable c = Profiler.instance().profile("Compute instrumentation filter")) {
@@ -116,7 +113,7 @@ public final class AnalysisPhaseRunner {
           // We're modifying the buildOptions in place, which is not ideal, but we also don't want
           // to pay the price for making a copy. Maybe reconsider later if this turns out to be a
           // problem (and the performance loss may not be a big deal).
-          projectEvaluationResult.buildOptions().get(CoreOptions.class).instrumentationFilter =
+          buildOptions.get(CoreOptions.class).instrumentationFilter =
               new RegexFilter.RegexFilterConverter().convert(instrumentationFilter);
         } catch (OptionsParsingException e) {
           throw new InvalidConfigurationException(Code.HEURISTIC_INSTRUMENTATION_FILTER_INVALID, e);
@@ -132,17 +129,11 @@ public final class AnalysisPhaseRunner {
       Profiler.instance().markPhase(ProfilePhase.ANALYZE);
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
-        analysisResult =
-            runAnalysisPhase(
-                env,
-                request,
-                targetPatternPhaseValue,
-                projectEvaluationResult.buildOptions,
-                projectEvaluationResult.activeDirectoriesMatcher());
+        analysisResult = runAnalysisPhase(env, request, targetPatternPhaseValue, buildOptions);
       }
 
       for (BlazeModule module : env.getRuntime().getBlazeModules()) {
-        module.afterAnalysis(env, request, postFlagsetsBuildOptions, analysisResult);
+        module.afterAnalysis(env, request, buildOptions, analysisResult);
       }
 
       if (request.shouldRunTests()) {
@@ -284,8 +275,7 @@ public final class AnalysisPhaseRunner {
       CommandEnvironment env,
       BuildRequest request,
       TargetPatternPhaseValue loadingResult,
-      BuildOptions targetOptions,
-      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
+      BuildOptions targetOptions)
       throws InterruptedException,
           InvalidConfigurationException,
           RepositoryMappingResolutionException,
@@ -332,8 +322,7 @@ public final class AnalysisPhaseRunner {
               /* executionSetupCallback= */ null,
               /* buildConfigurationsCreatedCallback= */ null,
               /* buildDriverKeyTestContext= */ null,
-              env.getAdditionalConfigurationChangeEvent(),
-              activeDirectoriesMatcher);
+              env.getAdditionalConfigurationChangeEvent());
     } catch (BuildFailedException | TestExecException | AbruptExitException unexpected) {
       throw new IllegalStateException("Unexpected execution exception type: ", unexpected);
     }

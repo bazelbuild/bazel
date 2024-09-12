@@ -34,7 +34,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.cmdline.TargetPattern.Parser;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -55,7 +54,6 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
-import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -79,8 +77,7 @@ public final class AnalysisAndExecutionPhaseRunner {
       TargetPatternPhaseValue loadingResult,
       ExecutionSetup executionSetupCallback,
       BuildConfigurationsCreated buildConfigurationCreatedCallback,
-      BuildDriverKeyTestContext buildDriverKeyTestContext,
-      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
+      BuildDriverKeyTestContext buildDriverKeyTestContext)
       throws BuildFailedException,
           InterruptedException,
           ViewCreationFailedException,
@@ -129,8 +126,7 @@ public final class AnalysisAndExecutionPhaseRunner {
                 buildOptions,
                 executionSetupCallback,
                 buildConfigurationCreatedCallback,
-                buildDriverKeyTestContext,
-                activeDirectoriesMatcher);
+                buildDriverKeyTestContext);
       }
 
       BuildResultListener buildResultListener = env.getBuildResultListener();
@@ -178,8 +174,7 @@ public final class AnalysisAndExecutionPhaseRunner {
       BuildOptions targetOptions,
       ExecutionSetup executionSetupCallback,
       BuildConfigurationsCreated buildConfigurationCreatedCallback,
-      BuildDriverKeyTestContext buildDriverKeyTestContext,
-      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
+      BuildDriverKeyTestContext buildDriverKeyTestContext)
       throws InterruptedException,
           InvalidConfigurationException,
           ViewCreationFailedException,
@@ -227,8 +222,7 @@ public final class AnalysisAndExecutionPhaseRunner {
             executionSetupCallback,
             buildConfigurationCreatedCallback,
             buildDriverKeyTestContext,
-            env.getAdditionalConfigurationChangeEvent(),
-            activeDirectoriesMatcher);
+            env.getAdditionalConfigurationChangeEvent());
   }
 
   /**
