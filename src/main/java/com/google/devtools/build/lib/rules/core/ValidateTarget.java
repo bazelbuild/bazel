@@ -35,7 +35,7 @@ import com.google.devtools.build.lib.packages.NativeAspectClass;
  *
  * <p>Name is chosen to make for semi-sensible "ValidateTarget" aspect events.
  */
-public class ValidateTarget extends NativeAspectClass implements ConfiguredAspectFactory {
+class ValidateTarget extends NativeAspectClass implements ConfiguredAspectFactory {
 
   @Override
   public AspectDefinition getDefinition(AspectParameters aspectParameters) {
