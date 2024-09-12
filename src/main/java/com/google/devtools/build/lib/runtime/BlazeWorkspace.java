@@ -76,6 +76,11 @@ public final class BlazeWorkspace {
   private final SyscallCache syscallCache;
   private final QuiescingExecutorsImpl quiescingExecutors;
   @Nullable private final Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier;
+
+  /**
+   * Null only during tests; should be created by a BlazeModule#workspaceInit hook for regular
+   * operations.
+   */
   @Nullable private final FingerprintValueService.Factory fingerprintValueServiceFactory;
 
   /**
@@ -101,7 +106,7 @@ public final class BlazeWorkspace {
       @Nullable AllocationTracker allocationTracker,
       SyscallCache syscallCache,
       Supplier<ObjectCodecRegistry> analysisCodecRegistrySupplier,
-      FingerprintValueService.Factory fingerprintValueServiceFactory,
+      @Nullable FingerprintValueService.Factory fingerprintValueServiceFactory,
       boolean allowExternalRepositories) {
     this.runtime = runtime;
     this.eventBusExceptionHandler = Preconditions.checkNotNull(eventBusExceptionHandler);
@@ -369,8 +374,10 @@ public final class BlazeWorkspace {
     return analysisCodecRegistrySupplier;
   }
 
-  @Nullable
   public FingerprintValueService.Factory getFingerprintValueServiceFactory() {
+    if (fingerprintValueServiceFactory == null) {
+      return (unused) -> FingerprintValueService.createForTesting();
+    }
     return fingerprintValueServiceFactory;
   }
 

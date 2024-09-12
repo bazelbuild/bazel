@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -168,14 +169,15 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
       assertThat(key).isInstanceOf(AspectBaseKey.class);
     }
 
+    var matcher =
+        BuildTool.getWorkingSetMatcherForSkyfocus(
+            // We know exactly which PROJECT file is used, so inject it here.
+            Label.parseCanonicalUnchecked("//bar:PROJECT.scl"),
+            getSkyframeExecutor(),
+            getCommandEnvironment().getReporter());
     Map<ActionLookupKey, SelectionMarking> selection =
         FrontierSerializer.computeSelection(
-            graph,
-            BuildTool.getWorkingSetMatcherForSkyfocus(
-                // We know exactly which PROJECT file is used, so inject it here.
-                Label.parseCanonicalUnchecked("//bar:PROJECT.scl"),
-                getSkyframeExecutor(),
-                getCommandEnvironment().getReporter()));
+            graph, (PackageIdentifier pkgId) -> matcher.includes(pkgId.getPackageFragment()));
 
     ImmutableSet<ActionLookupKey> activeKeys =
         selection.entrySet().stream()

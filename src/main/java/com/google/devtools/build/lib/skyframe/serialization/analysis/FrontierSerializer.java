@@ -27,7 +27,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.server.FailureDetails;
@@ -35,7 +35,6 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.ProfileCollector;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
@@ -55,7 +54,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
+import java.util.function.Predicate;
 
 /**
  * Implements frontier serialization with pprof dumping using {@code
@@ -72,23 +71,21 @@ public final class FrontierSerializer {
    * @return empty if successful, otherwise a result containing the appropriate error
    */
   public static Optional<FailureDetail> serializeAndUploadFrontier(
-      Supplier<ObjectCodecs> codecsSupplier,
+      RemoteAnalysisCachingDependenciesProvider dependenciesProvider,
       SkyframeExecutor skyframeExecutor,
-      PathFragmentPrefixTrie matcher,
-      FingerprintValueService fingerprintValueService,
       Reporter reporter,
       EventBus eventBus,
       String profilePath)
       throws InterruptedException {
     // Starts initializing ObjectCodecs in a background thread as it can take some time.
-    var futureCodecs = new FutureTask<>(codecsSupplier::get);
+    var futureCodecs = new FutureTask<>(dependenciesProvider::getObjectCodecs);
     commonPool().execute(futureCodecs);
 
     var stopwatch = new ResettingStopwatch(Stopwatch.createStarted());
     InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
 
     ConcurrentHashMap<ActionLookupKey, SelectionMarking> selection =
-        computeSelection(graph, matcher);
+        computeSelection(graph, dependenciesProvider::withinActiveDirectories);
     reporter.handle(
         Event.info(
             String.format("Found %d active or frontier keys in %s", selection.size(), stopwatch)));
@@ -111,6 +108,7 @@ public final class FrontierSerializer {
 
     var writeStatuses = Collections.synchronizedList(new ArrayList<ListenableFuture<Void>>());
     AtomicInteger frontierValueCount = new AtomicInteger();
+    var fingerprintValueService = dependenciesProvider.getFingerprintValueService();
     selection.forEach(
         /* parallelismThreshold= */ 0,
         (key, marking) -> {
@@ -197,7 +195,7 @@ public final class FrontierSerializer {
 
   @VisibleForTesting
   static ConcurrentHashMap<ActionLookupKey, SelectionMarking> computeSelection(
-      InMemoryGraph graph, PathFragmentPrefixTrie matcher) {
+      InMemoryGraph graph, Predicate<PackageIdentifier> matcher) {
     var selection = new ConcurrentHashMap<ActionLookupKey, SelectionMarking>();
     graph.parallelForEach(
         node -> {
@@ -208,7 +206,7 @@ public final class FrontierSerializer {
           if (label == null) {
             return;
           }
-          if (!matcher.includes(label.getPackageFragment())) {
+          if (!matcher.test(label.getPackageIdentifier())) {
             return;
           }
           markActiveAndTraverseEdges(graph, actionLookupKey, selection);

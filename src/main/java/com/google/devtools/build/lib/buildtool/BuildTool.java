@@ -23,7 +23,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.base.Throwables;
+import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -32,6 +35,7 @@ import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.TestExecException;
@@ -43,6 +47,8 @@ import com.google.devtools.build.lib.analysis.Project.ProjectParseException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
+import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
@@ -56,6 +62,7 @@ import com.google.devtools.build.lib.buildtool.buildevent.BuildStartingEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.NoExecutionEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.StartingAqueryDumpAfterBuildEvent;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.collect.PathFragmentPrefixTrie;
 import com.google.devtools.build.lib.events.Event;
@@ -63,6 +70,7 @@ import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.OutputFilter;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
+import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.profiler.ProfilePhase;
@@ -75,6 +83,7 @@ import com.google.devtools.build.lib.server.FailureDetails.ActionQuery;
 import com.google.devtools.build.lib.server.FailureDetails.BuildConfiguration.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
+import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
 import com.google.devtools.build.lib.skyframe.SequencedSkyframeExecutor;
@@ -86,7 +95,11 @@ import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.AqueryOutputHandler.OutputType;
 import com.google.devtools.build.lib.skyframe.actiongraph.v2.InvalidAqueryOutputFormatException;
 import com.google.devtools.build.lib.skyframe.config.FlagSetValue;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.CrashFailureDetails;
@@ -95,6 +108,7 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.EvaluationResult;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.RegexPatternOption;
@@ -224,6 +238,10 @@ public class BuildTool {
       ProjectEvaluationResult projectEvaluationResult =
           evaluateProjectFile(request, buildOptions, targetPatternPhaseValue, env);
 
+      var remoteAnalysisCachingDependenciesProvider =
+          new RemoteAnalysisCachingDependenciesProviderImpl(
+              env, projectEvaluationResult.activeDirectoriesMatcher());
+
       // ------------------------------------
       // Analysis/Execution phases (Skymeld).
       // ------------------------------------
@@ -235,7 +253,7 @@ public class BuildTool {
         // Skymeld is useful only for commands that perform execution.
         buildTargetsWithMergedAnalysisExecution(
             request, result, targetPatternPhaseValue, projectEvaluationResult.buildOptions());
-        serializeFrontier(request, projectEvaluationResult.activeDirectoriesMatcher());
+        serializeFrontier(request, remoteAnalysisCachingDependenciesProvider);
         return;
       }
 
@@ -303,7 +321,7 @@ public class BuildTool {
               delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
         }
 
-        serializeFrontier(request, projectEvaluationResult.activeDirectoriesMatcher());
+        serializeFrontier(request, remoteAnalysisCachingDependenciesProvider);
 
         // Only run this post-build step for builds with SequencedSkyframeExecutor.
         if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor) {
@@ -807,7 +825,8 @@ public class BuildTool {
 
   /** Frontier serialization is common to both Skymeld and non-Skymeld builds. */
   private void serializeFrontier(
-      BuildRequest request, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
+      BuildRequest request,
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider)
       throws InterruptedException, AbruptExitException {
     if (!(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor)) {
       return;
@@ -819,18 +838,10 @@ public class BuildTool {
     }
 
     try (SilentCloseable closeable = Profiler.instance().profile("serializeAndUploadFrontier")) {
-      // TODO: b/353233779 - consider falling back on full serialization when there is
-      // no project matcher.
-      Preconditions.checkState(
-          activeDirectoriesMatcher.isPresent(),
-          "the PROJECT.scl active_directories matcher is missing, was it initialized correctly?");
-
       Optional<FailureDetail> maybeFailureDetail =
           FrontierSerializer.serializeAndUploadFrontier(
-              requireNonNull(env.getAnalysisObjectCodecsSupplier()),
+              remoteAnalysisCachingDependenciesProvider,
               env.getSkyframeExecutor(),
-              activeDirectoriesMatcher.get(),
-              requireNonNull(env.getFingerprintValueService()),
               env.getReporter(),
               env.getEventBus(),
               options.serializedFrontierProfile);
@@ -1060,6 +1071,63 @@ public class BuildTool {
 
     DetailedExitCode getDetailedExitCode() {
       return detailedExitCode;
+    }
+  }
+
+  static class RemoteAnalysisCachingDependenciesProviderImpl
+      implements RemoteAnalysisCachingDependenciesProvider {
+    private final Supplier<ObjectCodecs> analysisObjectCodecsSupplier;
+    private final FingerprintValueService fingerprintValueService;
+    private final Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher;
+
+    public RemoteAnalysisCachingDependenciesProviderImpl(
+        CommandEnvironment env, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher) {
+      this.analysisObjectCodecsSupplier =
+          Suppliers.memoize(
+              () ->
+                  initAnalysisObjectCodecs(
+                      requireNonNull(
+                              env.getBlazeWorkspace().getAnalysisObjectCodecRegistrySupplier())
+                          .get(),
+                      env.getRuntime().getRuleClassProvider(),
+                      env.getBlazeWorkspace().getSkyframeExecutor()));
+      this.fingerprintValueService =
+          env.getBlazeWorkspace().getFingerprintValueServiceFactory().create(env.getOptions());
+      this.activeDirectoriesMatcher = activeDirectoriesMatcher;
+    }
+
+    private static ObjectCodecs initAnalysisObjectCodecs(
+        ObjectCodecRegistry registry,
+        RuleClassProvider ruleClassProvider,
+        SkyframeExecutor skyframeExecutor) {
+      ImmutableClassToInstanceMap.Builder<Object> serializationDeps =
+          ImmutableClassToInstanceMap.builder()
+              .put(
+                  ArtifactSerializationContext.class,
+                  skyframeExecutor.getSkyframeBuildView().getArtifactFactory()::getSourceArtifact)
+              .put(OptionsChecksumCache.class, new MapBackedChecksumCache())
+              .put(RuleClassProvider.class, ruleClassProvider)
+              // We need a RootCodecDependencies but don't care about the likely roots.
+              .put(Root.RootCodecDependencies.class, new Root.RootCodecDependencies())
+              // This is needed to determine TargetData for a ConfiguredTarget during serialization.
+              .put(PrerequisitePackageFunction.class, skyframeExecutor::getExistingPackage);
+
+      return new ObjectCodecs(registry, serializationDeps.build());
+    }
+
+    @Override
+    public boolean withinActiveDirectories(PackageIdentifier pkg) {
+      return activeDirectoriesMatcher.get().includes(pkg.getPackageFragment());
+    }
+
+    @Override
+    public ObjectCodecs getObjectCodecs() {
+      return analysisObjectCodecsSupplier.get();
+    }
+
+    @Override
+    public FingerprintValueService getFingerprintValueService() {
+      return fingerprintValueService;
     }
   }
 }

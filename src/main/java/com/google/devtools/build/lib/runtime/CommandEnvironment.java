@@ -17,26 +17,20 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.OFF;
-import static java.util.Objects.requireNonNull;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.actions.ActionOutputDirectoryHelper;
-import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ResourceManager;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.BuildInfoEvent;
 import com.google.devtools.build.lib.analysis.config.AdditionalConfigurationChangeEvent;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.bazel.repository.downloader.DelegatingDownloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HttpDownloader;
@@ -47,7 +41,6 @@ import com.google.devtools.build.lib.concurrent.QuiescingExecutors;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.exec.SingleBuildFileCache;
-import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.pkgcache.PackageManager;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.profiler.Profiler;
@@ -60,16 +53,11 @@ import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository.Co
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Skyfocus;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
-import com.google.devtools.build.lib.skyframe.PrerequisitePackageFunction;
 import com.google.devtools.build.lib.skyframe.SkyfocusOptions;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.WorkspaceInfoFromDiff;
-import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
-import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingEventListener;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
@@ -80,7 +68,6 @@ import com.google.devtools.build.lib.vfs.LocalOutputService;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.lib.vfs.XattrProvider;
 import com.google.devtools.common.options.OptionAndRawValue;
@@ -99,7 +86,6 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 import javax.annotation.Nullable;
 import javax.annotation.concurrent.GuardedBy;
 
@@ -145,8 +131,6 @@ public class CommandEnvironment {
   private final int attemptNumber;
   private final HttpDownloader httpDownloader;
   private final DelegatingDownloader delegatingDownloader;
-  @Nullable private final Supplier<ObjectCodecs> analysisObjectCodecsSupplier;
-  @Nullable private final FingerprintValueService fingerprintValueService;
   private final RemoteAnalysisCachingEventListener remoteAnalysisCachingEventListener;
 
   private boolean mergedAnalysisAndExecution;
@@ -367,42 +351,8 @@ public class CommandEnvironment {
     this.commandLinePathFactory =
         CommandLinePathFactory.create(runtime.getFileSystem(), directories);
 
-    var remoteAnalysisCachingOptions = options.getOptions(RemoteAnalysisCachingOptions.class);
-    if (remoteAnalysisCachingOptions != null && remoteAnalysisCachingOptions.mode != OFF) {
-      this.analysisObjectCodecsSupplier =
-          () ->
-              initAnalysisObjectCodecs(
-                  requireNonNull(workspace.getAnalysisObjectCodecRegistrySupplier()).get(),
-                  runtime.getRuleClassProvider(),
-                  workspace.getSkyframeExecutor());
-      this.fingerprintValueService =
-          requireNonNull(workspace.getFingerprintValueServiceFactory()).create(options);
-    } else {
-      this.analysisObjectCodecsSupplier = null;
-      this.fingerprintValueService = null;
-    }
     this.remoteAnalysisCachingEventListener = new RemoteAnalysisCachingEventListener();
     this.eventBus.register(remoteAnalysisCachingEventListener);
-  }
-
-  private static ObjectCodecs initAnalysisObjectCodecs(
-      ObjectCodecRegistry registry,
-      RuleClassProvider ruleClassProvider,
-      SkyframeExecutor skyframeExecutor) {
-
-    ImmutableClassToInstanceMap.Builder<Object> serializationDeps =
-        ImmutableClassToInstanceMap.builder()
-            .put(
-                ArtifactSerializationContext.class,
-                skyframeExecutor.getSkyframeBuildView().getArtifactFactory()::getSourceArtifact)
-            .put(OptionsChecksumCache.class, new MapBackedChecksumCache())
-            .put(RuleClassProvider.class, ruleClassProvider)
-            // We need a RootCodecDependencies but don't care about the likely roots.
-            .put(Root.RootCodecDependencies.class, new Root.RootCodecDependencies())
-            // This is needed to determine TargetData for a ConfiguredTarget during serialization.
-            .put(PrerequisitePackageFunction.class, skyframeExecutor::getExistingPackage);
-
-    return new ObjectCodecs(registry, serializationDeps.build());
   }
 
   private Path computeWorkingDirectory(CommonCommandOptions commandOptions)
@@ -1076,21 +1026,5 @@ public class CommandEnvironment {
 
   public DelegatingDownloader getDownloaderDelegate() {
     return delegatingDownloader;
-  }
-
-  /**
-   * Returns the {@link ObjectCodecs} supplier for remote analysis caching.
-   *
-   * <p>Calling #get on this can be an expensive process as the codec registry will be constructed.
-   * Callers are advised to get the object asynchronously.
-   */
-  @Nullable
-  public Supplier<ObjectCodecs> getAnalysisObjectCodecsSupplier() {
-    return analysisObjectCodecsSupplier;
-  }
-
-  @Nullable
-  public FingerprintValueService getFingerprintValueService() {
-    return fingerprintValueService;
   }
 }

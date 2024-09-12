@@ -22,13 +22,22 @@ java_library(
 )
 
 java_library(
+    name = "dependencies_provider",
+    srcs = ["RemoteAnalysisCachingDependenciesProvider.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+    ],
+)
+
+java_library(
     name = "frontier_serializer",
     srcs = ["FrontierSerializer.java"],
     deps = [
+        ":dependencies_provider",
         ":event_listener",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect",
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:aspect_key_creator",
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
