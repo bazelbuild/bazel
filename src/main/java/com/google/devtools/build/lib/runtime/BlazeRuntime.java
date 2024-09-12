@@ -363,11 +363,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           format = Format.JSON_TRACE_FILE_COMPRESSED_FORMAT;
           if (bepOptions != null && bepOptions.streamingLogFileUploads) {
             profile =
-                instrumentationOutputFactory
-                    .createBuildEventArtifactInstrumentationOutputBuilder()
-                    .setName(profileName)
-                    .setUploader(newUploader(env, bepOptions.buildEventUploadStrategy))
-                    .build();
+                instrumentationOutputFactory.createBuildEventArtifactInstrumentationOutput(
+                    profileName, newUploader(env, bepOptions.buildEventUploadStrategy));
           } else {
             var profilePath =
                 manageProfiles(
@@ -375,14 +372,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                     env.getCommandId().toString(),
                     commandOptions.profilesToRetain);
             profile =
-                instrumentationOutputFactory
-                    .createLocalInstrumentationOutputBuilder()
-                    .setName(profileName)
-                    .setPath(profilePath)
-                    .setConvenienceName(profileName)
-                    .build();
+                instrumentationOutputFactory.createLocalInstrumentationOutput(
+                    profileName,
+                    profilePath,
+                    /* convenienceName= */ profileName,
+                    /* append= */ null,
+                    /* internal= */ null);
           }
-          out = profile.createOutputStream();
         } else {
           format =
               commandOptions.profilePath.toString().endsWith(".gz")
@@ -390,18 +386,16 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                   : Format.JSON_TRACE_FILE_FORMAT;
           var profilePath = workspace.getWorkspace().getRelative(commandOptions.profilePath);
           profile =
-              instrumentationOutputFactory
-                  .createLocalInstrumentationOutputBuilder()
-                  .setName(
-                      (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT)
-                          ? "command.profile.gz"
-                          : "command.profile.json")
-                  .setPath(profilePath)
-                  .build();
-          out =
-              ((LocalInstrumentationOutput) profile)
-                  .createOutputStream(/* append= */ false, /* internal= */ true);
+              instrumentationOutputFactory.createLocalInstrumentationOutput(
+                  (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT)
+                      ? "command.profile.gz"
+                      : "command.profile.json",
+                  profilePath,
+                  /* convenienceName= */ null,
+                  /* append= */ false,
+                  /* internal= */ true);
         }
+        out = profile.createOutputStream();
         for (ProfilerTask profilerTask : ProfilerTask.values()) {
           if (!profilerTask.isVfs()
               // CRITICAL_PATH corresponds to writing the file.

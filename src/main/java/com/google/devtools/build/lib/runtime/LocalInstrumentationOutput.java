@@ -28,11 +28,20 @@ final class LocalInstrumentationOutput implements InstrumentationOutput {
   private final Path path;
   private final String name;
   @Nullable private final String convenienceName;
+  @Nullable private final Boolean append;
+  @Nullable private final Boolean internal;
 
-  LocalInstrumentationOutput(String name, Path path, String convenienceName) {
+  LocalInstrumentationOutput(
+      String name,
+      Path path,
+      @Nullable String convenienceName,
+      @Nullable Boolean append,
+      @Nullable Boolean internal) {
     this.name = name;
     this.path = path;
     this.convenienceName = convenienceName;
+    this.append = append;
+    this.internal = internal;
   }
 
   @Override
@@ -50,18 +59,22 @@ final class LocalInstrumentationOutput implements InstrumentationOutput {
 
   @Override
   public OutputStream createOutputStream() throws IOException {
+    if (append != null && internal != null) {
+      return path.getOutputStream(append, internal);
+    }
+    if (append != null) {
+      return path.getOutputStream(append);
+    }
     return path.getOutputStream();
-  }
-
-  public OutputStream createOutputStream(boolean append, boolean internal) throws IOException {
-    return path.getOutputStream(append, internal);
   }
 
   /** Builder for {@link LocalInstrumentationOutput}. */
   public static class Builder implements InstrumentationOutputBuilder {
     private String name;
     private Path path;
-    private String convenienceName;
+    @Nullable private String convenienceName;
+    @Nullable private Boolean append;
+    @Nullable private Boolean internal;
 
     @CanIgnoreReturnValue
     @Override
@@ -88,12 +101,26 @@ final class LocalInstrumentationOutput implements InstrumentationOutput {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setAppend(@Nullable Boolean append) {
+      this.append = append;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder setInternal(@Nullable Boolean internal) {
+      this.internal = internal;
+      return this;
+    }
+
     @Override
-    public InstrumentationOutput build() {
+    public LocalInstrumentationOutput build() {
       return new LocalInstrumentationOutput(
           checkNotNull(name, "Cannot create LocalInstrumentationOutputBuilder without name"),
           checkNotNull(path, "Cannot create LocalInstrumentationOutputBuilder without path"),
-          convenienceName);
+          convenienceName,
+          append,
+          internal);
     }
   }
 }

@@ -69,7 +69,7 @@ public final class BuildEventArtifactInstrumentationOutput implements Instrument
     }
 
     @Override
-    public InstrumentationOutput build() {
+    public BuildEventArtifactInstrumentationOutput build() {
       return new BuildEventArtifactInstrumentationOutput(
           checkNotNull(name, "Cannot create BuildEventArtifactInstrumentationOutput without name"),
           checkNotNull(

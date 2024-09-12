@@ -15,7 +15,11 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.Mockito.mock;
 
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -57,9 +61,18 @@ public class InstrumentationOutputFactoryTest {
     factoryBuilder.setBuildEventArtifactInstrumentationOutputBuilderSupplier(
         BuildEventArtifactInstrumentationOutput.Builder::new);
 
-    InstrumentationOutputFactory factory = factoryBuilder.build();
-
-    assertThat(factory.createLocalInstrumentationOutputBuilder()).isNotNull();
-    assertThat(factory.createBuildEventArtifactInstrumentationOutputBuilder()).isNotNull();
+    InstrumentationOutputFactory outputFactory = factoryBuilder.build();
+    assertThat(
+            outputFactory.createLocalInstrumentationOutput(
+                /* name= */ "local",
+                new InMemoryFileSystem(DigestHashFunction.SHA256).getPath("/file"),
+                /* convenienceName= */ null,
+                /* append= */ null,
+                /* internal= */ null))
+        .isNotNull();
+    assertThat(
+            outputFactory.createBuildEventArtifactInstrumentationOutput(
+                /* name= */ "bep", mock(BuildEventArtifactUploader.class)))
+        .isNotNull();
   }
 }

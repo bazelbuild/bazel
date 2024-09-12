@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.runtime;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
+import com.google.devtools.build.lib.vfs.Path;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -36,13 +38,43 @@ public final class InstrumentationOutputFactory {
         buildEventArtifactInstrumentationOutputBuilderSupplier;
   }
 
-  public LocalInstrumentationOutput.Builder createLocalInstrumentationOutputBuilder() {
-    return localInstrumentationOutputBuilderSupplier.get();
+  /**
+   * Creates {@link LocalInstrumentationOutput} with given parameters.
+   *
+   * <p>{@code name} and {@code path} are required since they indicate what the output is and where
+   * it is stored.
+   *
+   * <p>When the name of the instrumentation output is complicated, an optional {@code
+   * convenienceName} parameter can be passed in so that a symlink pointing to the output with such
+   * a simpler name is created. See {@link LocalInstrumentationOutput.Builder#setConvenienceName}.
+   *
+   * <p>User can also pass in the optional {@code append} and {@code internal} {@code Boolean}s to
+   * control how {@code path} creates the {@link OutputStream}. See {@link
+   * LocalInstrumentationOutput#createOutputStream()} for more details.
+   */
+  public LocalInstrumentationOutput createLocalInstrumentationOutput(
+      String name,
+      Path path,
+      @Nullable String convenienceName,
+      @Nullable Boolean append,
+      @Nullable Boolean internal) {
+    return localInstrumentationOutputBuilderSupplier
+        .get()
+        .setName(name)
+        .setPath(path)
+        .setConvenienceName(convenienceName)
+        .setAppend(append)
+        .setInternal(internal)
+        .build();
   }
 
-  public BuildEventArtifactInstrumentationOutput.Builder
-      createBuildEventArtifactInstrumentationOutputBuilder() {
-    return buildEventArtifactInstrumentationOutputBuilderSupplier.get();
+  public BuildEventArtifactInstrumentationOutput createBuildEventArtifactInstrumentationOutput(
+      String name, BuildEventArtifactUploader uploader) {
+    return buildEventArtifactInstrumentationOutputBuilderSupplier
+        .get()
+        .setName(name)
+        .setUploader(uploader)
+        .build();
   }
 
   /** Builder for {@link InstrumentationOutputFactory}. */
