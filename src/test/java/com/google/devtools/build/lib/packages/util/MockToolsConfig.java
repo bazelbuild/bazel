@@ -168,7 +168,17 @@ public final class MockToolsConfig {
     Path source =
         FileSystems.getNativeFileSystem()
             .getPath(runfiles.rlocation(rlocationPath.getPathString()));
-    create(dest, FileSystemUtils.readLinesAsLatin1(source).toArray(String[]::new));
+    overwrite(dest, FileSystemUtils.readLinesAsLatin1(source).toArray(String[]::new));
+  }
+
+  /**
+   * Convenience method to copy multiple tools. Same as calling {@link #copyTool(String)} for each
+   * parameter.
+   */
+  public void copyTools(String... tools) throws IOException {
+    for (String tool : tools) {
+      copyTool(tool);
+    }
   }
 
   /**

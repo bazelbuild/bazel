@@ -209,7 +209,8 @@ public abstract class MockCcSupport {
       throws IOException {
     if (config.isRealFileSystem() && shouldUseRealFileSystemCrosstool()) {
       String crosstoolTopPath = getRealFilesystemCrosstoolTopPath();
-      config.linkTools(getRealFilesystemTools(crosstoolTopPath));
+      config.linkTools(getRealFilesystemToolsToLink(crosstoolTopPath));
+      config.copyTools(getRealFilesystemToolsToCopy(crosstoolTopPath));
       writeToolchainsForRealFilesystemTools(config, crosstoolTopPath);
     } else {
       new Crosstool(config, getMockCrosstoolPath(), getMockCrosstoolLabel())
@@ -346,7 +347,9 @@ public abstract class MockCcSupport {
 
   protected abstract ImmutableList<String> getCrosstoolArchs();
 
-  protected abstract String[] getRealFilesystemTools(String crosstoolTop);
+  protected abstract String[] getRealFilesystemToolsToLink(String crosstoolTop);
+
+  protected abstract String[] getRealFilesystemToolsToCopy(String crosstoolTop);
 
   protected abstract String getRealFilesystemCrosstoolTopPath();
 
