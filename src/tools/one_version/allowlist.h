@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "absl/container/flat_hash_set.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "src/tools/one_version/duplicate_class_collector.h"
@@ -48,6 +49,8 @@ class MapAllowlist : public Allowlist {
 
   absl::flat_hash_set<std::string> AllLabels(
       absl::string_view package_name) override;
+
+  static std::unique_ptr<Allowlist> Parse(std::istream& in);
 
  private:
   absl::flat_hash_map<std::string, absl::flat_hash_set<std::string>> allowlist_;

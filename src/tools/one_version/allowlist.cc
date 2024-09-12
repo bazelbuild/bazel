@@ -67,4 +67,14 @@ absl::flat_hash_set<std::string> MapAllowlist::AllLabels(
   return allowlist_[package_name];
 }
 
+std::unique_ptr<Allowlist> MapAllowlist::Parse(std::istream& in) {
+  absl::flat_hash_map<std::string, absl::flat_hash_set<std::string>> map;
+  std::string line;
+  while (std::getline(in, line)) {
+    std::vector<std::string> parts = absl::StrSplit(line, absl::MaxSplits(' ', 1));
+    map[parts[0]].insert(parts[1]);
+  }
+  return std::make_unique<MapAllowlist>(std::move(map));
+}
+
 }  // namespace one_version

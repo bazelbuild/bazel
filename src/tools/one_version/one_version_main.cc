@@ -38,12 +38,14 @@
 int main(int argc, char *argv[]) {
   std::string output_file;
   bool succeed_on_found_violations = false;
+  std::string allowlist_file;
   std::vector<std::string> inputs;
   ArgTokenStream tokens(argc - 1, argv + 1);
   while (!tokens.AtEnd()) {
     if (tokens.MatchAndSet("--output", &output_file) ||
         tokens.MatchAndSet("--succeed_on_found_violations",
                            &succeed_on_found_violations) ||
+        tokens.MatchAndSet("--whitelist", &allowlist_file) ||
         tokens.MatchAndSet("--inputs", &inputs)) {
     } else {
       std::cerr << "error: bad command line argument " << tokens.token()
@@ -52,11 +54,20 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // TODO(cushon): support customizing the allowlist
-  one_version::OneVersion one_version(
-      std::make_unique<one_version::MapAllowlist>(
-          absl::flat_hash_map<std::string,
-                              absl::flat_hash_set<std::string>>()));
+  std::unique_ptr<one_version::Allowlist> allowlist;
+  if (allowlist_file.empty()) {
+    allowlist = std::make_unique<one_version::MapAllowlist>(
+        absl::flat_hash_map<std::string, absl::flat_hash_set<std::string>>());
+  } else {
+    std::ifstream in(allowlist_file);
+    if (!in) {
+      std::cerr << "error: unable to open allowlist file: " << allowlist_file
+                << std::endl;
+      return 1;
+    }
+    allowlist = one_version::MapAllowlist::Parse(in);
+  }
+  one_version::OneVersion one_version(std::move(allowlist));
 
   for (const std::string &input : inputs) {
     std::vector<std::string> pieces = absl::StrSplit(input, ',');
