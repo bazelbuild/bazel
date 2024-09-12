@@ -102,6 +102,7 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
@@ -114,12 +115,14 @@ import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.Keep;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
@@ -172,6 +175,21 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                       "target_compatible_with exists for constraint checking, not to create an"
                           + " actual dependency")
                   .allowedFileTypes(FileTypeSet.NO_FILE))
+          .build();
+
+  public static final RuleClass dependencyResolutionBaseRule =
+      new RuleClass.Builder(
+              "$dependency_resolution_base_rule", RuleClassType.ABSTRACT, true, baseRule)
+          .setDependencyResolutionRule()
+          .removeAttribute(":action_listener")
+          .removeAttribute("aspect_hints")
+          .removeAttribute("toolchains")
+          .removeAttribute("exec_compatible_with")
+          .removeAttribute("target_compatible_with")
+          .removeAttribute("compatible_with")
+          .removeAttribute("restricted_to")
+          .removeAttribute("$config_dependencies")
+          .removeAttribute("package_metadata")
           .build();
 
   /** Parent rule class for executable non-test Starlark rules. */
@@ -412,6 +430,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       boolean useToolchainTransition,
       Object doc,
       Sequence<?> providesArg,
+      boolean dependencyResolutionRule,
       Sequence<?> execCompatibleWith,
       boolean analysisTest,
       Object buildSetting,
@@ -495,6 +514,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         toolchains,
         doc,
         providesArg,
+        dependencyResolutionRule,
         execCompatibleWith,
         analysisTest,
         buildSetting,
@@ -535,6 +555,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       Sequence<?> toolchains,
       Object doc,
       Sequence<?> providesArg,
+      boolean dependencyResolutionRule,
       Sequence<?> execCompatibleWith,
       Object analysisTest,
       Object buildSetting,
@@ -549,7 +570,13 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     RuleClassType type = test ? RuleClassType.TEST : RuleClassType.NORMAL;
 
     final RuleClass.Builder builder;
-    if (parent != null) {
+    if (dependencyResolutionRule) {
+      if (parent != null) {
+        throw Starlark.errorf("rules used in dependency resolution cannot have a parent");
+      }
+
+      builder = new RuleClass.Builder("", type, true, dependencyResolutionBaseRule);
+    } else if (parent != null) {
       // We'll set the name later, pass the empty string for now.
       builder = new RuleClass.Builder("", type, true, parent);
     } else {
@@ -674,11 +701,30 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     boolean hasStarlarkDefinedTransition = false;
+    boolean propagatesAspects = false;
+    List<String> dormantAttributes = new ArrayList<>();
+
     for (Pair<String, StarlarkAttrModule.Descriptor> attribute : attributes) {
       String name = attribute.getFirst();
       StarlarkAttrModule.Descriptor descriptor = attribute.getSecond();
 
       Attribute attr = descriptor.build(name);
+      boolean isDependency = attr.getType().getLabelClass() == LabelClass.DEPENDENCY;
+
+      if (dependencyResolutionRule && isDependency) {
+        if (!attr.isForDependencyResolution() && attr.forDependencyResolutionExplicitlySet()) {
+          throw Starlark.errorf(
+              "attribute '%s' is explicitly marked as not for dependency"
+                  + " resolution, which is disallowed on rules for dependency resolution",
+              name);
+        }
+
+        attr =
+            attr.cloneBuilder()
+                .setPropertyFlag("FOR_DEPENDENCY_RESOLUTION")
+                .nonconfigurable("On a rule used in materializers")
+                .build();
+      }
 
       // "configurable" may only be user-set for symbolic macros, not rules.
       if (attr.configurableAttrWasUserSet()) {
@@ -703,6 +749,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         }
       }
 
+      if (attr.getAspectsList().hasAspects()) {
+        propagatesAspects = true;
+      }
+
       hasStarlarkDefinedTransition |= attr.hasStarlarkDefinedTransition();
       if (attr.hasAnalysisTestTransition()) {
         if (!builder.isAnalysisTest()) {
@@ -711,6 +761,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
                   + " analysis_test_transition transitions");
         }
         builder.setHasAnalysisTestTransition();
+      }
+
+      if (attr.getType() == BuildType.DORMANT_LABEL
+          || attr.getType() == BuildType.DORMANT_LABEL_LIST) {
+        dormantAttributes.add(name);
       }
 
       try {
@@ -864,6 +919,29 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             Starlark.type(o));
       }
     }
+
+    if (dependencyResolutionRule) {
+      if (!subrules.isEmpty()) {
+        throw Starlark.errorf("Rules that can be required for materializers cannot have subrules");
+      }
+
+      if (!toolchains.isEmpty()) {
+        throw Starlark.errorf(
+            "Rules that can be required for materializers cannot depend on toolchains");
+      }
+
+      if (propagatesAspects) {
+        throw Starlark.errorf(
+            "Rules that can be required for materializes cannot propagate aspects");
+      }
+    }
+
+    if (!dormantAttributes.isEmpty() && !dependencyResolutionRule) {
+      throw Starlark.errorf(
+          "Has dormant attributes (%s) but is not marked as allowed in materializers",
+          dormantAttributes.stream().map(n -> "'" + n + "'").collect(Collectors.joining(", ")));
+    }
+
     for (StarlarkProviderIdentifier starlarkProvider :
         StarlarkAttrModule.getStarlarkProviderIdentifiers(providesArg)) {
       builder.advertiseStarlarkProvider(starlarkProvider);
@@ -1024,6 +1102,19 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             "attribute '%s' has the 'configurable' argument set, which is not allowed in aspect"
                 + " definitions",
             nativeName);
+      }
+
+      if (attribute.isLateBound()
+          && attribute.getLateBoundDefault() instanceof StarlarkMaterializingLateBoundDefault<?>) {
+        throw Starlark.errorf(
+            "attribute '%s' has a materializer, which is not allowed on aspects", nativeName);
+      }
+
+      if (attribute.getType() == BuildType.DORMANT_LABEL
+          || attribute.getType() == BuildType.DORMANT_LABEL_LIST) {
+        throw Starlark.errorf(
+            "attribute '%s' has a dormant label type, which is not allowed on aspects",
+            attribute.getPublicName());
       }
 
       if (!Attribute.isImplicit(nativeName) && !Attribute.isLateBound(nativeName)) {

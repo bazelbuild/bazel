@@ -482,6 +482,10 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   }
 
   private void validateActionCreation() throws EvalException {
+    if (getRuleContext().getRule().getRuleClassObject().isDependencyResolutionRule()) {
+      throw Starlark.errorf("rules that can be required for materializers shouldn't have actions");
+    }
+
     if (getRuleContext().getRule().isAnalysisTest()) {
       throw Starlark.errorf(
           "implementation function of a rule with "

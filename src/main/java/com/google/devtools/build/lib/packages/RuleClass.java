@@ -671,7 +671,7 @@ public class RuleClass implements RuleClassData {
     private boolean documented;
     private boolean outputsToBindir = true;
     private boolean workspaceOnly = false;
-    private boolean isForDependencyResolution = false;
+    private boolean dependencyResolutionRule = false;
     private boolean isExecutableStarlark = false;
     private boolean isAnalysisTest = false;
     private boolean hasAnalysisTestTransition = false;
@@ -747,6 +747,13 @@ public class RuleClass implements RuleClassData {
         Preconditions.checkArgument(starlarkParent.isExtendable());
       }
       for (RuleClass parent : parents) {
+        if (parent.dependencyResolutionRule) {
+          dependencyResolutionRule = true;
+        } else if (dependencyResolutionRule) {
+          throw new IllegalArgumentException(
+              "Inconsistent value of dependencyResolutionRule among parents");
+        }
+
         configurationFragmentPolicy.includeConfigurationFragmentsFrom(
             parent.getConfigurationFragmentPolicy());
         supportsConstraintChecking = parent.supportsConstraintChecking;
@@ -887,7 +894,7 @@ public class RuleClass implements RuleClassData {
           documented,
           outputsToBindir,
           workspaceOnly,
-          isForDependencyResolution,
+          dependencyResolutionRule,
           isExecutableStarlark,
           isAnalysisTest,
           hasAnalysisTestTransition,
@@ -941,7 +948,7 @@ public class RuleClass implements RuleClassData {
             attributeName.length(),
             MAX_ATTRIBUTE_NAME_LENGTH);
 
-        if (isForDependencyResolution) {
+        if (dependencyResolutionRule) {
           if (attribute.getType().getLabelClass() == LabelClass.DEPENDENCY
               && !attribute.isForDependencyResolution()) {
             attributesNotForDependencyResolutionBuilder.add(attributeName);
@@ -1373,8 +1380,8 @@ public class RuleClass implements RuleClassData {
      * also marked as such.
      */
     @CanIgnoreReturnValue
-    public Builder setForDependencyResolution() {
-      this.isForDependencyResolution = true;
+    public Builder setDependencyResolutionRule() {
+      this.dependencyResolutionRule = true;
       return this;
     }
 
@@ -1634,7 +1641,7 @@ public class RuleClass implements RuleClassData {
   private final boolean documented;
   private final boolean outputsToBindir;
   private final boolean workspaceOnly;
-  private final boolean isForDependencyResolution;
+  private final boolean dependencyResolutionRule;
   private final boolean isExecutableStarlark;
   private final boolean isAnalysisTest;
   private final boolean hasAnalysisTestTransition;
@@ -1765,7 +1772,7 @@ public class RuleClass implements RuleClassData {
       boolean documented,
       boolean outputsToBindir,
       boolean workspaceOnly,
-      boolean isForDependencyResolution,
+      boolean dependencyResolutionRule,
       boolean isExecutableStarlark,
       boolean isAnalysisTest,
       boolean hasAnalysisTestTransition,
@@ -1821,7 +1828,7 @@ public class RuleClass implements RuleClassData {
     this.outputFileKind = outputFileKind;
     this.attributes = attributes;
     this.workspaceOnly = workspaceOnly;
-    this.isForDependencyResolution = isForDependencyResolution;
+    this.dependencyResolutionRule = dependencyResolutionRule;
     this.isExecutableStarlark = isExecutableStarlark;
     this.isAnalysisTest = isAnalysisTest;
     this.hasAnalysisTestTransition = hasAnalysisTestTransition;
@@ -2601,8 +2608,8 @@ public class RuleClass implements RuleClassData {
 
   /** Returns true if rules of this class can be made available for dependency resolution. */
   @Override
-  public boolean isForDependencyResolution() {
-    return isForDependencyResolution;
+  public boolean isDependencyResolutionRule() {
+    return dependencyResolutionRule;
   }
 
   /** Returns true if this rule class outputs a default executable for every rule. */

@@ -158,6 +158,11 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
   String ALLOW_EMPTY_ARG = "allow_empty";
   String ALLOW_EMPTY_DOC = "True if the attribute can be empty.";
 
+  String FOR_DEPENDENCY_RESOLUTION_ARG = "for_dependency_resolution";
+  String FOR_DEPENDENCY_RESOLUTION_DOC =
+      "If this is set, the attribute is available for materializers. Only rules marked with the"
+          + " flag of the same name are allowed to be referenced through such attributes.";
+
   String PROVIDERS_ARG = "providers";
   String PROVIDERS_DOC =
       "The providers that must be given by any dependency appearing in this attribute.<p>The format"
@@ -399,6 +404,12 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc = PROVIDERS_DOC),
         @Param(
+            name = FOR_DEPENDENCY_RESOLUTION_ARG,
+            defaultValue = "unbound",
+            named = true,
+            positional = false,
+            doc = FOR_DEPENDENCY_RESOLUTION_DOC),
+        @Param(
             name = ALLOW_RULES_ARG,
             allowedTypes = {
               @ParamType(type = Sequence.class, generic1 = String.class),
@@ -447,6 +458,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Boolean mandatory,
       Boolean skipValidations,
       Sequence<?> providers,
+      Object forDependencyResolution,
       Object allowRules,
       Object cfg,
       Sequence<?> aspects,
@@ -660,6 +672,12 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc = PROVIDERS_DOC),
         @Param(
+            name = FOR_DEPENDENCY_RESOLUTION_ARG,
+            defaultValue = "unbound",
+            named = true,
+            positional = false,
+            doc = FOR_DEPENDENCY_RESOLUTION_DOC),
+        @Param(
             name = FLAGS_ARG,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             defaultValue = "[]",
@@ -702,6 +720,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Object allowFiles,
       Object allowRules,
       Sequence<?> providers,
+      Object forDependencyResolution,
       Sequence<?> flags,
       Boolean mandatory,
       Boolean skipValidations,
@@ -813,6 +832,12 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             positional = false,
             doc = PROVIDERS_DOC),
         @Param(
+            name = FOR_DEPENDENCY_RESOLUTION_ARG,
+            defaultValue = "unbound",
+            named = true,
+            positional = false,
+            doc = FOR_DEPENDENCY_RESOLUTION_DOC),
+        @Param(
             name = FLAGS_ARG,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             defaultValue = "[]",
@@ -848,6 +873,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Object allowFiles,
       Object allowRules,
       Sequence<?> providers,
+      Object forDependencyResolution,
       Sequence<?> flags,
       Boolean mandatory,
       Object cfg,

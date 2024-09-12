@@ -188,10 +188,19 @@ public final class Attribute implements Comparable<Attribute> {
     SKIP_VALIDATIONS,
 
     /**
-     * Whether the attribute is available during dependency resolution. If set, only rules also m
-     * arked as such can be referenced through this attribute.
+     * Whether the attribute is available during dependency resolution. If set, only rules also
+     * marked as such can be referenced through this attribute.
      */
     FOR_DEPENDENCY_RESOLUTION,
+
+    /**
+     * Whether {@code FOR_DEPENDENCY_RESOLUTION} was explicitly set.
+     *
+     * <p>This is because for rules for dependency resolution, we should error out if an attribute
+     * has this value explicitly set to false and it has a different value depending on the rule is
+     * on is for dependency resolution or not.
+     */
+    FOR_DEPENDENCY_RESOLUTION_EXPLICITLY_SET,
   }
 
   /** A predicate class to check if the value of the attribute comes from a predefined set. */
@@ -408,7 +417,7 @@ public final class Attribute implements Comparable<Attribute> {
     private Object value;
     private String doc;
     private AttributeValueSource valueSource = AttributeValueSource.DIRECT;
-    private boolean valueSet;
+    private boolean valueSet = false;
     private Set<PropertyFlag> propertyFlags = EnumSet.noneOf(PropertyFlag.class);
     private PredicateWithMessage<Object> allowedValues = null;
     private RequiredProviders.Builder requiredProvidersBuilder =
@@ -434,10 +443,17 @@ public final class Attribute implements Comparable<Attribute> {
 
     @CanIgnoreReturnValue
     private Builder<TYPE> setPropertyFlag(PropertyFlag flag, String propertyName) {
-      Preconditions.checkState(
-          !propertyFlags.contains(flag), "'%s' flag is already set", propertyName);
       propertyFlags.add(flag);
       return this;
+    }
+
+    private static PropertyFlag resolvePropertyFlagByName(String propertyName)
+        throws EvalException {
+      try {
+        return PropertyFlag.valueOf(propertyName);
+      } catch (IllegalArgumentException e) {
+        throw Starlark.errorf("unknown attribute flag '%s'", propertyName);
+      }
     }
 
     /**
@@ -449,17 +465,15 @@ public final class Attribute implements Comparable<Attribute> {
      */
     @CanIgnoreReturnValue
     public Builder<TYPE> setPropertyFlag(String propertyName) throws EvalException {
-      PropertyFlag flag;
-      try {
-        flag = PropertyFlag.valueOf(propertyName);
-      } catch (IllegalArgumentException e) {
-        throw Starlark.errorf("unknown attribute flag '%s'", propertyName);
-      }
-      try {
-        setPropertyFlag(flag, propertyName);
-      } catch (IllegalStateException e) {
-        throw new EvalException(e);
-      }
+      PropertyFlag flag = resolvePropertyFlagByName(propertyName);
+      setPropertyFlag(flag, propertyName);
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder<TYPE> removePropertyFlag(String propertyName) throws EvalException {
+      PropertyFlag flag = resolvePropertyFlagByName(propertyName);
+      propertyFlags.remove(flag);
       return this;
     }
 
@@ -594,7 +608,6 @@ public final class Attribute implements Comparable<Attribute> {
      */
     @CanIgnoreReturnValue
     public Builder<TYPE> value(TYPE defaultValue) {
-      Preconditions.checkState(!valueSet, "the default value is already set");
       value = defaultValue;
       valueSet = true;
       return this;
@@ -612,7 +625,6 @@ public final class Attribute implements Comparable<Attribute> {
      */
     @CanIgnoreReturnValue
     public Builder<TYPE> value(ComputedDefault defaultValue) {
-      Preconditions.checkState(!valueSet, "the default value is already set");
       value = defaultValue;
       valueSource = AttributeValueSource.COMPUTED_DEFAULT;
       valueSet = true;
@@ -622,7 +634,6 @@ public final class Attribute implements Comparable<Attribute> {
     /** Used for b/200065655#comment3. */
     @CanIgnoreReturnValue
     public Builder<TYPE> value(NativeComputedDefaultApi defaultValue) {
-      Preconditions.checkState(!valueSet, "the default value is already set");
       value = defaultValue;
       valueSource = AttributeValueSource.NATIVE_COMPUTED_DEFAULT;
       valueSet = true;
@@ -645,7 +656,6 @@ public final class Attribute implements Comparable<Attribute> {
      */
     @CanIgnoreReturnValue
     public Builder<TYPE> value(StarlarkComputedDefaultTemplate starlarkComputedDefaultTemplate) {
-      Preconditions.checkState(!valueSet, "the default value is already set");
       value = starlarkComputedDefaultTemplate;
       valueSource = AttributeValueSource.COMPUTED_DEFAULT;
       valueSet = true;
@@ -658,7 +668,6 @@ public final class Attribute implements Comparable<Attribute> {
      */
     @CanIgnoreReturnValue
     public Builder<TYPE> value(LateBoundDefault<?, ? extends TYPE> defaultValue) {
-      Preconditions.checkState(!valueSet, "the default value is already set");
       value = defaultValue;
       valueSource = AttributeValueSource.LATE_BOUND;
       valueSet = true;
@@ -676,7 +685,6 @@ public final class Attribute implements Comparable<Attribute> {
     public Builder<TYPE> defaultValue(
         Object defaultValue, LabelConverter labelConverter, @Nullable String parameterName)
         throws ConversionException {
-      Preconditions.checkState(!valueSet, "the default value is already set");
       value =
           type.convert(
               defaultValue,
@@ -1950,6 +1958,10 @@ public final class Attribute implements Comparable<Attribute> {
     return getPropertyFlag(PropertyFlag.FOR_DEPENDENCY_RESOLUTION);
   }
 
+  public boolean forDependencyResolutionExplicitlySet() {
+    return getPropertyFlag(PropertyFlag.FOR_DEPENDENCY_RESOLUTION_EXPLICITLY_SET);
+  }
+
   public boolean skipValidations() {
     return getPropertyFlag(PropertyFlag.SKIP_VALIDATIONS);
   }
@@ -2337,7 +2349,7 @@ public final class Attribute implements Comparable<Attribute> {
     builder.transitionFactory = transitionFactory;
     builder.propertyFlags = newEnumSet(propertyFlags, PropertyFlag.class);
     builder.value = defaultValue;
-    builder.valueSet = false;
+    builder.valueSet = true;
     builder.allowedValues = allowedValues;
     builder.aspectsListBuilder = new AspectsList.Builder(aspects);
 

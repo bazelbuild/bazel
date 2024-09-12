@@ -1743,6 +1743,17 @@ public class RuleContext extends TargetContext
             }
             mapBuilder.put(entry.getKey(), configuredTarget);
           }
+
+          if (attribute.isForDependencyResolution()) {
+            if (!configuredTarget.isForDependencyResolution()) {
+              attributeError(
+                  attribute.getName(),
+                  String.format(
+                      "attribute marked as available in materializers but prerequisite %s isn't",
+                      AliasProvider.describeTargetWithAliases(
+                          configuredTarget, TargetMode.WITH_KIND)));
+            }
+          }
         }
       }
       return mapBuilder.build();

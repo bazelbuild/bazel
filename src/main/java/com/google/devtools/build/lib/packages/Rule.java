@@ -1252,7 +1252,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
   @Override
   public boolean isForDependencyResolution() {
-    return getRuleClassObject().isForDependencyResolution();
+    return getRuleClassObject().isDependencyResolutionRule();
   }
 
   @Override
@@ -1405,7 +1405,7 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
 
     @Override
     public boolean isForDependencyResolution() {
-      return ruleClassData.isForDependencyResolution();
+      return ruleClassData.isDependencyResolutionRule();
     }
 
     @Override

@@ -242,6 +242,16 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       builder.setPropertyFlag("MANDATORY");
     }
 
+    if (arguments.containsKey(FOR_DEPENDENCY_RESOLUTION_ARG)
+        && arguments.get(FOR_DEPENDENCY_RESOLUTION_ARG) != Starlark.UNBOUND) {
+      builder.setPropertyFlag("FOR_DEPENDENCY_RESOLUTION_EXPLICITLY_SET");
+      if (arguments.get(FOR_DEPENDENCY_RESOLUTION_ARG) == Boolean.TRUE) {
+        builder.setPropertyFlag("FOR_DEPENDENCY_RESOLUTION");
+      } else {
+        builder.removePropertyFlag("FOR_DEPENDENCY_RESOLUTION");
+      }
+    }
+
     if (configurableParamSet) {
       builder.configurableAttrWasUserSet();
       if (!((Boolean) arguments.get(CONFIGURABLE_ARG))) {
@@ -605,6 +615,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Boolean mandatory,
       Boolean skipValidations,
       Sequence<?> providers,
+      Object forDependencyResolution,
       Object allowRules,
       Object cfg,
       Sequence<?> aspects,
@@ -636,6 +647,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
                 skipValidations,
                 PROVIDERS_ARG,
                 providers,
+                FOR_DEPENDENCY_RESOLUTION_ARG,
+                forDependencyResolution,
                 ALLOW_RULES_ARG,
                 allowRules,
                 CONFIGURATION_ARG,
@@ -711,6 +724,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Object allowFiles,
       Object allowRules,
       Sequence<?> providers,
+      Object forDependencyResolution,
       Sequence<?> flags,
       Boolean mandatory,
       Boolean skipValidations,
@@ -733,6 +747,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             allowRules,
             PROVIDERS_ARG,
             providers,
+            FOR_DEPENDENCY_RESOLUTION_ARG,
+            forDependencyResolution,
             FLAGS_ARG,
             flags,
             MANDATORY_ARG,
@@ -797,6 +813,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       Object allowFiles,
       Object allowRules,
       Sequence<?> providers,
+      Object forDependencyResolution,
       Sequence<?> flags,
       Boolean mandatory,
       Object cfg,
@@ -816,6 +833,8 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             allowRules,
             PROVIDERS_ARG,
             providers,
+            FOR_DEPENDENCY_RESOLUTION_ARG,
+            forDependencyResolution,
             FLAGS_ARG,
             flags,
             MANDATORY_ARG,

@@ -57,6 +57,12 @@ public interface StarlarkRuleFunctionsApi {
           + " field of an <a href='../globals/bzl.html#aspect'>aspect</a> does, however, require"
           + " that providers are specified here.";
 
+  String DEPENDENCY_RESOLUTION_RULE_DOC =
+      "If set, the rule can be a dependency through attributes also marked as available in"
+          + " materializers. Every attribute of rules with this flag set must be marked as "
+          + " available in materializers also. This is so that rules so marked cannot depend on"
+          + " rules that are not so marked.";
+
   @StarlarkMethod(
       name = "provider",
       doc =
@@ -491,6 +497,12 @@ targets defined by any rule finalizer, including this one.
             defaultValue = "[]",
             doc = PROVIDES_DOC),
         @Param(
+            name = "dependency_resolution_rule",
+            named = true,
+            positional = false,
+            defaultValue = "False",
+            doc = DEPENDENCY_RESOLUTION_RULE_DOC),
+        @Param(
             name = EXEC_COMPATIBLE_WITH_PARAM,
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
             named = true,
@@ -638,6 +650,7 @@ targets defined by any rule finalizer, including this one.
       boolean useToolchainTransition,
       Object doc,
       Sequence<?> providesArg,
+      boolean dependencyResolutionRule,
       Sequence<?> execCompatibleWith,
       boolean analysisTest,
       Object buildSetting,
