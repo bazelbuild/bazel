@@ -473,6 +473,12 @@ public class IjarTests {
     assertThat(original).isEqualTo(stripped);
   }
 
+  @Test
+  public void metaInfTtransitive() throws Exception {
+    Map<String, byte[]> lib = readJar("third_party/ijar/test/meta_inf_transitive-interface.jar");
+    assertThat(lib.keySet()).containsExactly("java/lang/String.class");
+  }
+
   private static void assertNonManifestFilesBitIdentical(JarFile original, JarFile stripped)
       throws IOException {
     // Make sure that all other files came across bitwise equal
