@@ -120,6 +120,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/custom_command_line",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/deterministic_writer",
         "//src/main/java/com/google/devtools/build/lib/analysis:actions/lazy_write_paths_file_action",
+        "//src/main/java/com/google/devtools/build/lib/analysis:actions/path_mappers",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:build_info",
         "//src/main/java/com/google/devtools/build/lib/analysis:buildinfo/build_info_collection",

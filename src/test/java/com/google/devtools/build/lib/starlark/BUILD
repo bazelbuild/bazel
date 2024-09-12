@@ -42,6 +42,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/analysis:actions_provider",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/starlark_defined_config_transition",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/no_transition",

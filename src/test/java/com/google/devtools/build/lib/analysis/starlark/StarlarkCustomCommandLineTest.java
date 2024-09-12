@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkCustomCommandLine.VectorArg;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -75,7 +76,8 @@ public class StarlarkCustomCommandLineTest {
     Fingerprint fingerprint = new Fingerprint();
 
     // TODO(b/167696101): Fail arguments computation when we are missing the directory from inputs.
-    commandLine.addToFingerprint(actionKeyContext, EMPTY_EXPANDER, fingerprint);
+    commandLine.addToFingerprint(
+        actionKeyContext, EMPTY_EXPANDER, CoreOptions.OutputPathsMode.OFF, fingerprint);
 
     assertThat(fingerprint.digestAndReset()).isNotEmpty();
   }
@@ -95,7 +97,8 @@ public class StarlarkCustomCommandLineTest {
             /*treeExpansions=*/ ImmutableMap.of(),
             ImmutableMap.of(fileset, ImmutableList.of(symlink1, symlink2)));
 
-    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+    commandLine.addToFingerprint(
+        actionKeyContext, artifactExpander, CoreOptions.OutputPathsMode.OFF, fingerprint);
 
     assertThat(fingerprint.digestAndReset()).isNotEmpty();
   }
@@ -113,7 +116,8 @@ public class StarlarkCustomCommandLineTest {
             ImmutableMap.of(tree, ImmutableList.of(child)),
             /*filesetExpansions*/ ImmutableMap.of());
 
-    commandLine.addToFingerprint(actionKeyContext, artifactExpander, fingerprint);
+    commandLine.addToFingerprint(
+        actionKeyContext, artifactExpander, CoreOptions.OutputPathsMode.OFF, fingerprint);
 
     assertThat(fingerprint.digestAndReset()).isNotEmpty();
   }
@@ -129,7 +133,9 @@ public class StarlarkCustomCommandLineTest {
 
     assertThrows(
         CommandLineExpansionException.class,
-        () -> commandLine.addToFingerprint(actionKeyContext, EMPTY_EXPANDER, fingerprint));
+        () ->
+            commandLine.addToFingerprint(
+                actionKeyContext, EMPTY_EXPANDER, CoreOptions.OutputPathsMode.OFF, fingerprint));
   }
 
   @Test
