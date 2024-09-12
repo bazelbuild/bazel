@@ -38,6 +38,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.GuardedValue;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkSemantics;
 
@@ -232,10 +233,14 @@ public class AutoloadSymbols {
       ImmutableMap<String, Object> originalEnv,
       ImmutableMap<String, Object> newSymbols) {
     if (isWithAutoloads) {
-      return modifyBuildBzlEnv(originalEnv, /* add= */ newSymbols, /* remove= */ removedSymbols);
+      return modifyBuildBzlEnv(
+          originalEnv, /* add= */ newSymbols, /* remove= */ removedSymbols, isWithAutoloads);
     } else {
       return modifyBuildBzlEnv(
-          originalEnv, /* add= */ ImmutableMap.of(), /* remove= */ partiallyRemovedSymbols);
+          originalEnv,
+          /* add= */ ImmutableMap.of(),
+          /* remove= */ partiallyRemovedSymbols,
+          isWithAutoloads);
     }
   }
 
@@ -247,7 +252,8 @@ public class AutoloadSymbols {
   private ImmutableMap<String, Object> modifyBuildBzlEnv(
       ImmutableMap<String, Object> originalEnv,
       ImmutableMap<String, Object> add,
-      ImmutableList<String> remove) {
+      ImmutableList<String> remove,
+      boolean isWithAutoloads) {
     Map<String, Object> envBuilder = new LinkedHashMap<>(originalEnv);
     Map<String, Object> nativeBindings =
         convertNativeStructToMap((StarlarkInfo) envBuilder.remove("native"));
@@ -266,6 +272,30 @@ public class AutoloadSymbols {
         envBuilder.remove(symbol);
       }
     }
+
+    if (!isWithAutoloads) {
+      // In the repositories that don't have autoloads we also expose native.legacy_symbols.
+      // Those can be used to fallback to the native symbol, whenever it's still available in Bazel.
+      // Fallback using a top-level symbol doesn't work, because BzlCompileFunction would throw an
+      // error when it's mentioned.
+      // legacy_symbols aren't available when autoloads are not enabled. The feature is intended to
+      // be use with bazel_features repository, which can correctly report native symbols on all
+      // versions of Bazel.
+      ImmutableMap<String, Object> legacySymbols =
+          envBuilder.entrySet().stream()
+              .filter(entry -> AUTOLOAD_CONFIG.containsKey(entry.getKey()))
+              .collect(
+                  toImmutableMap(
+                      e -> e.getKey(),
+                      // Drop GuardedValue - it doesn't work on non-toplevel symbols
+                      e ->
+                          e.getValue() instanceof GuardedValue
+                              ? ((GuardedValue) e.getValue()).getObject()
+                              : e.getValue()));
+      nativeBindings.put(
+          "legacy_symbols", StructProvider.STRUCT.create(legacySymbols, "no native symbol '%s'"));
+    }
+
     envBuilder.put(
         "native", StructProvider.STRUCT.create(nativeBindings, "no native function or rule '%s'"));
     return ImmutableMap.copyOf(envBuilder);
@@ -485,7 +515,8 @@ public class AutoloadSymbols {
           "rules_sh",
           "apple_common",
           "bazel_skylib",
-          "bazel_tools");
+          "bazel_tools",
+          "bazel_features");
 
   private static final ImmutableMap<String, SymbolRedirect> AUTOLOAD_CONFIG =
       ImmutableMap.<String, SymbolRedirect>builder()
