@@ -32,6 +32,7 @@ import build.bazel.remote.execution.v2.Digest;
 import com.google.auth.Credentials;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.actions.Spawn;
@@ -705,7 +706,10 @@ public class HttpCacheClientTest {
       var actionResult =
           getFromFuture(
               blobStore.downloadActionResult(
-                  remoteActionExecutionContext, new RemoteCacheClient.ActionKey(DIGEST), false));
+                  remoteActionExecutionContext,
+                  new RemoteCacheClient.ActionKey(DIGEST),
+                  /* inlineOutErr= */ false,
+                  /* inlineOutputFiles= */ ImmutableSet.of()));
       assertThat(actionResult).isEqualTo(action2);
     } finally {
       testServer.stop(server);

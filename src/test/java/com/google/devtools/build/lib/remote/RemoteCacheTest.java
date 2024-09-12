@@ -174,7 +174,8 @@ public class RemoteCacheTest {
         remoteCache.downloadActionResult(
             remoteActionExecutionContext,
             digestUtil.asActionKey(digestUtil.computeAsUtf8("key")),
-            /* inlineOutErr= */ false);
+            /* inlineOutErr= */ false,
+            /* inlineOutputFiles= */ ImmutableSet.of());
 
     verify(remoteActionExecutionContext.getSpawnExecutionContext())
         .report(SpawnCheckingCacheEvent.create("remote-cache"));

@@ -71,6 +71,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -270,7 +271,10 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
 
   @Override
   public ListenableFuture<ActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      Set<String> inlineOutputFiles) {
     GetActionResultRequest request =
         GetActionResultRequest.newBuilder()
             .setInstanceName(options.remoteInstanceName)
@@ -278,6 +282,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             .setActionDigest(actionKey.getDigest())
             .setInlineStderr(inlineOutErr)
             .setInlineStdout(inlineOutErr)
+            .addAllInlineOutputFiles(inlineOutputFiles)
             .build();
     return Utils.refreshIfUnauthenticatedAsync(
         () ->

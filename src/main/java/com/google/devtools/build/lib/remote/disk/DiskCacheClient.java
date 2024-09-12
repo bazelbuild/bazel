@@ -122,9 +122,8 @@ public class DiskCacheClient {
    * deliberately use the mtime because the atime is more likely to be externally modified and may
    * be unavailable on some filesystems.
    *
-   * <p>Prefer calling {@link #downloadBlob} or {@link #downloadActionResult} instead, which will
-   * automatically update the mtime. This method should only be called by the remote worker
-   * implementation.
+   * <p>Prefer calling {@link #downloadBlob} instead, which will automatically update the mtime.
+   * This method should only be called by the remote worker implementation.
    *
    * @throws IOException if an I/O error other than a missing file occurs.
    */

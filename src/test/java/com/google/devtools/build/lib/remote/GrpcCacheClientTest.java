@@ -52,6 +52,7 @@ import com.google.bytestream.ByteStreamProto.WriteRequest;
 import com.google.bytestream.ByteStreamProto.WriteResponse;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.eventbus.EventBus;
@@ -779,10 +780,12 @@ public class GrpcCacheClientTest {
     GrpcCacheClient client = newClient(remoteOptions);
     RemoteCache remoteCache =
         new RemoteCache(client, /* diskCacheClient= */ null, remoteOptions, DIGEST_UTIL);
-    remoteCache.downloadActionResult(
-        context,
-        DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
-        /* inlineOutErr= */ false);
+    var unused =
+        remoteCache.downloadActionResult(
+            context,
+            DIGEST_UTIL.asActionKey(DIGEST_UTIL.computeAsUtf8("key")),
+            /* inlineOutErr= */ false,
+            /* inlineOutputFiles= */ ImmutableSet.of());
   }
 
   @Test
@@ -1099,7 +1102,11 @@ public class GrpcCacheClientTest {
         });
     assertThat(
             getFromFuture(
-                client.downloadActionResult(context, actionKey, /* inlineOutErr= */ false)))
+                client.downloadActionResult(
+                    context,
+                    actionKey,
+                    /* inlineOutErr= */ false,
+                    /* inlineOutputFiles= */ ImmutableSet.of())))
         .isNull();
   }
 
