@@ -65,7 +65,18 @@ int main(int argc, char *argv[]) {
                 << std::endl;
       return 1;
     }
-    allowlist = one_version::MapAllowlist::Parse(in);
+    absl::flat_hash_map<std::string, absl::flat_hash_set<std::string>> map;
+    std::string line;
+    while (std::getline(in, line)) {
+        std::vector<std::string> parts = absl::StrSplit(line, absl::MaxSplits(' ', 1));
+        if (parts.size() != 2) {
+          std::cerr << "error: expected <package> <label>, got: " << line
+                    << std::endl;
+          return 1;
+        }
+        map[parts[0]].insert(parts[1]);
+    }
+    allowlist = std::make_unique<one_version::MapAllowlist>(std::move(map));
   }
   one_version::OneVersion one_version(std::move(allowlist));
 
