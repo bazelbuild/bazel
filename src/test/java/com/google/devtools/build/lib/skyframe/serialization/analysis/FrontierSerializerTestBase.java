@@ -144,9 +144,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
 
   @Test
   public void activeAspect_activatesBaseConfiguredTarget() throws Exception {
-    setupScenarioWithAspects(
-        "--experimental_remote_analysis_cache_mode=upload",
-        "--serialized_frontier_profile=/tmp/unused");
+    setupScenarioWithAspects("--experimental_remote_analysis_cache_mode=upload");
     InMemoryGraph graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
 
     ConfiguredTargetKey generateYKey =
