@@ -952,11 +952,12 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           parseLabels(execCompatibleWith, labelConverter, "exec_compatible_with"));
     }
 
+    Starlark.toJavaOptional(doc, String.class)
+        .map(Starlark::trimDocString)
+        .ifPresent(builder::setStarlarkDocumentation);
+
     return new StarlarkRuleFunction(
-        builder,
-        thread.getCallerLocation(),
-        Starlark.toJavaOptional(doc, String.class).map(Starlark::trimDocString),
-        thread.getNextIdentityToken());
+        builder, thread.getCallerLocation(), thread.getNextIdentityToken());
   }
 
   private static TransitionFactory<RuleTransitionData> convertConfig(@Nullable Object cfg)
@@ -1437,7 +1438,6 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     @Nullable private RuleClass ruleClass;
 
     private final Location definitionLocation;
-    @Nullable private final String documentation;
 
     /**
      * A token representing the identity of this function.
@@ -1461,42 +1461,15 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     // principle evaluate a BUILD file without loading and digesting .bzls that are only used by the
     // implementation function.]
     public StarlarkRuleFunction(
-        RuleClass.Builder builder,
-        Location definitionLocation,
-        Optional<String> documentation,
-        Symbol<?> identityToken) {
+        RuleClass.Builder builder, Location definitionLocation, Symbol<?> identityToken) {
       this.builder = builder;
       this.definitionLocation = definitionLocation;
-      this.documentation = documentation.orElse(null);
       this.identityToken = identityToken;
     }
 
     @Override
     public String getName() {
       return ruleClass != null ? ruleClass.getName() : "unexported rule";
-    }
-
-    /**
-     * Returns the value of the doc parameter passed to {@code rule()} in Starlark, or an empty
-     * Optional if a doc string was not provided.
-     */
-    public Optional<String> getDocumentation() {
-      return Optional.ofNullable(documentation);
-    }
-
-    /**
-     * Returns the label of the .bzl module where rule() was called, or null if the rule has not
-     * been exported yet.
-     */
-    @Nullable
-    public Label getExtensionLabel() {
-      if (identityToken instanceof Symbol<?> symbol) {
-        if (!symbol.isGlobal()) {
-          return null; // not yet exported
-        }
-        return ((BzlLoadValue.Key) symbol.getOwner()).getLabel();
-      }
-      return ((AnalysisTestKey) identityToken).getLabel();
     }
 
     @Override
@@ -1701,7 +1674,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
 
       try {
-        this.ruleClass = builder.build(ruleClassName, starlarkLabel + "%" + ruleClassName);
+        this.ruleClass = builder.buildStarlark(ruleClassName, starlarkLabel);
       } catch (IllegalArgumentException | IllegalStateException ex) {
         // TODO(adonovan): this catch statement is an abuse of exceptions. Be more specific.
         String msg = ex.getMessage();

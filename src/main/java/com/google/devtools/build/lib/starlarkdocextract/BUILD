@@ -52,7 +52,6 @@ java_library(
     deps = [
         ":extractionexception",
         ":labelrenderer",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/protobuf:stardoc_output_java_proto",

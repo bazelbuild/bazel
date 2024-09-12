@@ -253,7 +253,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
         throws EvalException, InterruptedException {
       String ruleClassName = getRuleClassName();
       try {
-        RuleClass ruleClass = builder.build(ruleClassName, ruleClassName);
+        RuleClass ruleClass = builder.buildStarlark(ruleClassName, extensionLabel);
         Package.Builder pkgBuilder =
             Package.Builder.fromOrFailAllowWorkspaceOnly(thread, "repository rules");
 
@@ -279,7 +279,7 @@ public class StarlarkRepositoryModule implements RepositoryModuleApi {
     @Override
     public RuleClass getRuleClass() {
       String name = getRuleClassName();
-      return builder.build(name, name);
+      return builder.buildStarlark(name, extensionLabel);
     }
   }
 

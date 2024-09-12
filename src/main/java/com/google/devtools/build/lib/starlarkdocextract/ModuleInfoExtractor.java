@@ -327,7 +327,7 @@ public final class ModuleInfoExtractor {
     protected void visitRule(String qualifiedName, StarlarkRuleFunction ruleFunction)
         throws ExtractionException {
       moduleInfoBuilder.addRuleInfo(
-          RuleInfoExtractor.buildRuleInfo(context, qualifiedName, ruleFunction));
+          RuleInfoExtractor.buildRuleInfo(context, qualifiedName, ruleFunction.getRuleClass()));
     }
 
     @Override

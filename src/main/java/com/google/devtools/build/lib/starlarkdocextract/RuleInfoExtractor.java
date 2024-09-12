@@ -15,7 +15,6 @@
 package com.google.devtools.build.lib.starlarkdocextract;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleClassFunctions.StarlarkRuleFunction;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
@@ -24,24 +23,50 @@ import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.OriginKey;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
 
-/** API documentation extractor for a Starlark rule. */
+/** API documentation extractor for a rule. */
 public final class RuleInfoExtractor {
 
+  /**
+   * Extracts API documentation for a rule in the form of a {@link RuleInfo} proto.
+   *
+   * @param qualifiedName a human-readable name for the rule to use in documentation output; for a
+   *     Starlark rule defined in a .bzl file, this would typically be the name under which users of
+   *     the module would use the rule
+   * @param ruleClass a rule class; if it is a repository rule class, it must be an exported one
+   * @throws ExtractionException if extraction failed
+   */
   public static RuleInfo buildRuleInfo(
-      ExtractorContext context, String qualifiedName, StarlarkRuleFunction ruleFunction)
+      ExtractorContext context, String qualifiedName, RuleClass ruleClass)
       throws ExtractionException {
     RuleInfo.Builder ruleInfoBuilder = RuleInfo.newBuilder();
     // Record the name under which this symbol is made accessible, which may differ from the
     // symbol's exported name
     ruleInfoBuilder.setRuleName(qualifiedName);
     // ... but record the origin rule key for cross references.
-    ruleInfoBuilder.setOriginKey(
-        OriginKey.newBuilder()
-            .setName(ruleFunction.getName())
-            .setFile(context.getLabelRenderer().render(ruleFunction.getExtensionLabel())));
-    ruleFunction.getDocumentation().ifPresent(ruleInfoBuilder::setDocString);
+    OriginKey.Builder originKeyBuilder = OriginKey.newBuilder().setName(ruleClass.getName());
+    if (ruleClass.isStarlark()) {
+      if (ruleClass.getStarlarkExtensionLabel() != null) {
+        // Most common case: exported Starlark-defined rule class
+        originKeyBuilder.setFile(
+            context.getLabelRenderer().render(ruleClass.getStarlarkExtensionLabel()));
+      } else {
+        // Unexported Starlark-defined rule class; this only possible for a repository rule. Fall
+        // back to the rule definition environment label. (Note that we cannot unconditionally call
+        // getRuleDefinitionEnvironmentLabel() because for an analysis test rule class, the rule
+        // definition environment label is a dummy value; see b/366027483.)
+        originKeyBuilder.setFile(
+            context.getLabelRenderer().render(ruleClass.getRuleDefinitionEnvironmentLabel()));
+      }
+    } else {
+      // Non-Starlark-defined rule class
+      originKeyBuilder.setFile("<native>");
+    }
+    ruleInfoBuilder.setOriginKey(originKeyBuilder.build());
 
-    RuleClass ruleClass = ruleFunction.getRuleClass();
+    if (ruleClass.getStarlarkDocumentation() != null) {
+      ruleInfoBuilder.setDocString(ruleClass.getStarlarkDocumentation());
+    }
+
     if (ruleClass.getRuleClassType() == RuleClassType.TEST) {
       ruleInfoBuilder.setTest(true);
     }
