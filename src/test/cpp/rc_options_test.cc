@@ -31,7 +31,18 @@
 namespace blaze {
 namespace {
 
+using ::testing::_;
+using ::testing::DoAll;
+using ::testing::ElementsAre;
+using ::testing::Field;
+using ::testing::IsEmpty;
 using ::testing::MatchesRegex;
+using ::testing::MockFunction;
+using ::testing::Pair;
+using ::testing::Property;
+using ::testing::Return;
+using ::testing::SetArgPointee;
+using ::testing::UnorderedElementsAre;
 
 #if _WIN32
 constexpr bool kIsWindows = true;
@@ -520,6 +531,40 @@ TEST_F(RcOptionsTest, BadStartupLineContinuation_InterpretsNextLineAsNewline) {
       // and the bar on the next line treated as its own command, instead of as
       // a "startup" args.
       {{"startup", {"foo", " "}}, {"bar", {"baz"}}});
+}
+
+TEST(RemoteFileTest, ParsingRemoteFiles) {
+  WorkspaceLayout workspace_layout;
+  RcFile::ParseError error;
+  std::string error_text;
+
+  MockFunction<bool(const std::string&, std::string*, std::string*)> read_file;
+  EXPECT_CALL(read_file, Call("the base file", _, _))
+      .WillOnce(DoAll(SetArgPointee<1>("import second.bazelrc"), Return(true)));
+  EXPECT_CALL(read_file, Call("second.bazelrc", _, _))
+      .WillOnce(
+          DoAll(SetArgPointee<1>("startup --max_idle_secs=123"), Return(true)));
+
+  MockFunction<std::string(const std::string&)> canonicalize_path;
+  EXPECT_CALL(canonicalize_path, Call("the base file"))
+      .WillOnce(Return("the base file"));
+  EXPECT_CALL(canonicalize_path, Call("second.bazelrc"))
+      .WillOnce(Return("second.bazelrc"));
+
+  std::unique_ptr<RcFile> rcfile = RcFile::Parse(
+      "the base file", &workspace_layout, "my workspace", &error, &error_text,
+      read_file.AsStdFunction(), canonicalize_path.AsStdFunction());
+  EXPECT_THAT(error_text, IsEmpty());
+  ASSERT_EQ(error, RcFile::ParseError::NONE);
+  EXPECT_THAT(rcfile, Pointee(Property(
+                          &RcFile::canonical_source_paths,
+                          ElementsAre("the base file", "second.bazelrc"))));
+  EXPECT_THAT(rcfile,
+              Pointee(Property(
+                  &RcFile::options,
+                  UnorderedElementsAre(Pair(
+                      "startup", ElementsAre(Field(&RcOption::option,
+                                                   "--max_idle_secs=123")))))));
 }
 
 }  // namespace

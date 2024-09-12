@@ -26,6 +26,7 @@
 #include "src/main/cpp/util/strings.h"
 #include "src/main/cpp/workspace_layout.h"
 #include "absl/algorithm/container.h"
+#include "absl/functional/function_ref.h"
 #include "absl/memory/memory.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
@@ -41,29 +42,31 @@ static constexpr absl::string_view kCommandTryImport = "try-import";
 
 /*static*/ std::unique_ptr<RcFile> RcFile::Parse(
     const std::string& filename, const WorkspaceLayout* workspace_layout,
-    const std::string& workspace, ParseError* error, std::string* error_text) {
+    const std::string& workspace, ParseError* error, std::string* error_text,
+    ReadFileFn read_file, CanonicalizePathFn canonicalize_path) {
   auto rcfile = absl::WrapUnique(new RcFile());
   std::vector<std::string> initial_import_stack = {filename};
-  *error = rcfile->ParseFile(filename, workspace, *workspace_layout,
-                             initial_import_stack, error_text);
+  *error = rcfile->ParseFile(filename, workspace, *workspace_layout, read_file,
+                             canonicalize_path, initial_import_stack,
+                             error_text);
   return (*error == ParseError::NONE) ? std::move(rcfile) : nullptr;
 }
 
 RcFile::ParseError RcFile::ParseFile(const std::string& filename,
                                      const std::string& workspace,
                                      const WorkspaceLayout& workspace_layout,
+                                     ReadFileFn read_file,
+                                     CanonicalizePathFn canonicalize_path,
                                      std::vector<std::string>& import_stack,
                                      std::string* error_text) {
   BAZEL_LOG(INFO) << "Parsing the RcFile " << filename;
   std::string contents;
-  if (std::string error_msg;
-      !blaze_util::ReadFile(filename, &contents, &error_msg)) {
+  if (std::string error_msg; !read_file(filename, &contents, &error_msg)) {
     *error_text = absl::StrFormat(
         "Unexpected error reading config file '%s': %s", filename, error_msg);
     return ParseError::UNREADABLE_FILE;
   }
-  const std::string canonical_filename =
-      blaze_util::MakeCanonical(filename.c_str());
+  const std::string canonical_filename = canonicalize_path(filename);
   const absl::string_view workspace_prefix(
       workspace_layout.WorkspacePrefix, workspace_layout.WorkspacePrefixLength);
 
@@ -134,8 +137,8 @@ RcFile::ParseError RcFile::ParseFile(const std::string& filename,
 
     import_stack.push_back(import_filename);
     if (ParseError parse_error =
-            ParseFile(import_filename, workspace, workspace_layout,
-                      import_stack, error_text);
+            ParseFile(import_filename, workspace, workspace_layout, read_file,
+                      canonicalize_path, import_stack, error_text);
         parse_error != ParseError::NONE) {
       if (parse_error == ParseError::UNREADABLE_FILE &&
           command == kCommandTryImport) {
@@ -155,6 +158,15 @@ RcFile::ParseError RcFile::ParseFile(const std::string& filename,
   }
 
   return ParseError::NONE;
+}
+
+bool RcFile::ReadFileDefault(const std::string& filename, std::string* contents,
+                             std::string* error_msg) {
+  return blaze_util::ReadFile(filename, contents, error_msg);
+}
+
+std::string RcFile::CanonicalizePathDefault(const std::string& filename) {
+  return blaze_util::MakeCanonical(filename.c_str());
 }
 
 }  // namespace blaze
