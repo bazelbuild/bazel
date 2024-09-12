@@ -53,7 +53,6 @@ public class ValidateTarget extends NativeAspectClass implements ConfiguredAspec
       RepositoryName toolsRepository)
       throws ActionConflictException, InterruptedException {
     OutputGroupInfo outputGroupInfo = OutputGroupInfo.get(ct);
-    System.err.println(ct + ": " + outputGroupInfo);
     if (outputGroupInfo != null) {
       NestedSet<Artifact> validations = outputGroupInfo.getOutputGroup(OutputGroupInfo.VALIDATION);
       if (!validations.isEmpty()) {
