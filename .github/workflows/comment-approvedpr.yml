@@ -15,6 +15,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            import { Octokit } from "@octokit/rest";
             const octokit = new Octokit({
               auth: context.token
             });
