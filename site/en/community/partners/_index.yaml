@@ -95,3 +95,12 @@ landing_page:
       - label: Learn more
         path:  https://www.nativelink.com/
         classname: button
+    # Item 8
+    - image_path: /community/images/virtuslab.svg
+      heading: VirtusLab
+      description: >
+        VirtusLab specializes in managing monorepos and migrating codebases to Bazel. We offer a smooth transition that enhances your software’s creation, testing, and release processes. Our engineers will assist you in adopting industry-standard tooling and practices, including top-tier security measures. We believe that a seamless Developer Experience requires great tooling. By partnering with us, you will optimize build times, reduce costs, and empower your development teams to reach their peak performance.
+      buttons:
+      - label: Learn more
+        path:  https://virtuslab.com/expertise/monorepo-expertise-with-bazel/
+        classname: button
