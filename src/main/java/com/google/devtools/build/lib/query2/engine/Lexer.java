@@ -167,8 +167,10 @@ public final class Lexer {
     return kind == null ? TokenKind.WORD : kind;
   }
 
-  private String scanWord() {
+  private String scanWord(char firstChar) {
     int oldPos = pos - 1;
+    boolean startsWithDoubleAt =
+        firstChar == '@' && pos < input.length() && input.charAt(pos) == '@';
     while (pos < input.length()) {
       switch (input.charAt(pos)) {
         case 'a',
@@ -245,6 +247,17 @@ public final class Lexer {
                 '[',
                 ']' ->
             pos++;
+        case '+' -> {
+          if (startsWithDoubleAt) {
+            // Allow unquoted canonical labels such as
+            // @@rules_jvm_external++maven+maven//:bar, but still parse @foo+@bar as two separate
+            // labels (here @foo refers to the @foo//:foo target).
+            // If @@foo+bar is intended to mean @@foo + bar, it can be written as such with spaces.
+            pos++;
+          } else {
+            return bufferSlice(oldPos, pos);
+          }
+        }
         default -> {
           return bufferSlice(oldPos, pos);
         }
@@ -256,13 +269,13 @@ public final class Lexer {
   /**
    * Scans a word or keyword.
    *
-   * ON ENTRY: 'pos' is 1 + the index of the first char in the word.
-   * ON EXIT: 'pos' is 1 + the index of the last char in the word.
+   * <p>ON ENTRY: 'pos' is 1 + the index of the first char in the word. ON EXIT: 'pos' is 1 + the
+   * index of the last char in the word.
    *
    * @return the word or keyword token.
    */
-  private Token wordOrKeyword() {
-    String word = scanWord();
+  private Token wordOrKeyword(char firstChar) {
+    String word = scanWord(firstChar);
     TokenKind kind = getTokenKindForWord(word);
     return kind == TokenKind.WORD ? new Token(word) : new Token(kind);
   }
@@ -284,7 +297,7 @@ public final class Lexer {
           /* ignore */
         }
         case '\'', '\"' -> addToken(quotedWord(c));
-        default -> addToken(wordOrKeyword());
+        default -> addToken(wordOrKeyword(c));
       }
     }
 
