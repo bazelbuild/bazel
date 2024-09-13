@@ -1,0 +1,47 @@
+name: Comment on Approved PRs
+
+on:
+  schedule:
+    - cron: "*/2 * * * *"  # Run daily at midnight
+
+jobs:
+  comment-on-approved-prs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script:   
+ |
+            const octokit = new Octokit({
+              auth: context.token
+            });
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            const query = `repo:${owner}/${repo} is:pr state:closed`;
+            const prs = await octokit.rest.pulls.list({
+              query: query
+            });
+
+            for (const pr of prs) {
+              const reviews = await octokit.rest.pulls.listReviews({
+                owner,
+                repo,
+                pull_number: pr.number
+              });
+
+              const approved = reviews.data.some(review => review.state === 'APPROVED');
+
+              if (approved) {
+                const commentBody = "This PR has been approved and is ready for merging.";
+                await octokit.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  body: commentBody
+                });
+              }
+            }
