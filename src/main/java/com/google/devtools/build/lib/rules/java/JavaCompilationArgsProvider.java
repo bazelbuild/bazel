@@ -215,24 +215,6 @@ public abstract class JavaCompilationArgsProvider implements JavaInfoInternalPro
     /** Use {@code TransitiveJavaCompilationArgs#builder()} to instantiate the builder. */
     private Builder() {}
 
-    /**
-     * Legacy method for dealing with objects which construct {@link JavaCompilationArtifacts}
-     * objects.
-     */
-    // TODO(bazel-team): Remove when we get rid of JavaCompilationArtifacts.
-    @CanIgnoreReturnValue
-    public Builder merge(JavaCompilationArtifacts other, boolean isNeverLink) {
-      if (!isNeverLink) {
-        addRuntimeJars(NestedSetBuilder.wrap(Order.NAIVE_LINK_ORDER, other.getRuntimeJars()));
-      }
-      addDirectCompileTimeJars(
-          /* interfaceJars= */ NestedSetBuilder.wrap(
-              Order.NAIVE_LINK_ORDER, other.getCompileTimeJars()),
-          /* fullJars= */ NestedSetBuilder.wrap(
-              Order.NAIVE_LINK_ORDER, other.getFullCompileTimeJars()));
-      return this;
-    }
-
     @CanIgnoreReturnValue
     public Builder addRuntimeJar(Artifact runtimeJar) {
       this.runtimeJarsBuilder.add(runtimeJar);
@@ -304,17 +286,6 @@ public abstract class JavaCompilationArgsProvider implements JavaInfoInternalPro
      */
     public Builder addExports(JavaCompilationArgsProvider args, ClasspathType type) {
       return addArgs(args, type, true);
-    }
-
-    /*
-    * Add the {@link JavaCompilationArgsProvider} for a dependency with dep-like semantics:
-    * direct jars of the input are <em>not</em> direct jars of the output.
-
-    * @param type of jars to collect; use {@link ClasspathType#RUNTIME} for neverlink
-    */
-
-    public Builder addDeps(JavaCompilationArgsProvider args, ClasspathType type) {
-      return addArgs(args, type, false);
     }
 
     /**

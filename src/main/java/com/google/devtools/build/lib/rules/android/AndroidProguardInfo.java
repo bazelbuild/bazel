@@ -18,14 +18,12 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.BuiltinProvider;
 import com.google.devtools.build.lib.packages.NativeInfo;
-import com.google.devtools.build.lib.rules.java.ProguardLibrary;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidProguardInfoApi;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 
 /**
- * A target that can provide local proguard specifications, returned by the {@link
- * ProguardLibrary#collectLocalProguardSpecs()} method.
+ * A target that can provide local proguard specifications.
  *
  * <p>This class provides additional data, not available in the pure native {@link
  * com.google.devtools.build.lib.rules.java.ProguardSpecProvider} provider.

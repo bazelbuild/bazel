@@ -84,11 +84,6 @@ public final class JavaInfo extends NativeInfo
     return transformStarlarkDepsetApi(target, JavaInfo::getTransitiveRuntimeJars);
   }
 
-  public static NestedSet<Artifact> transitiveCompileTimeJars(TransitiveInfoCollection target)
-      throws RuleErrorException {
-    return transformStarlarkDepsetApi(target, JavaInfo::getTransitiveCompileTimeJars);
-  }
-
   private static NestedSet<Artifact> transformStarlarkDepsetApi(
       TransitiveInfoCollection target, Function<JavaInfo, Depset> api) throws RuleErrorException {
     JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
@@ -98,15 +93,6 @@ public final class JavaInfo extends NativeInfo
       } catch (TypeException e) {
         throw new RuleErrorException(e.getMessage());
       }
-    }
-    return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  }
-
-  public static NestedSet<Artifact> bootClasspath(TransitiveInfoCollection target)
-      throws RuleErrorException {
-    JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
-    if (javaInfo != null && javaInfo.providerJavaCompilationInfo != null) {
-      return javaInfo.providerJavaCompilationInfo.bootClasspath();
     }
     return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   }
@@ -123,20 +109,6 @@ public final class JavaInfo extends NativeInfo
       return javaInfo.providerJavaCcInfo.getCcInfo();
     }
     return CcInfo.EMPTY;
-  }
-
-  public static NestedSet<Artifact> transitiveSourceJars(TransitiveInfoCollection target)
-      throws RuleErrorException {
-    return transformStarlarkDepsetApi(target, JavaInfo::getTransitiveSourceJars);
-  }
-
-  public static JavaGenJarsProvider genJarsProvider(TransitiveInfoCollection target)
-      throws RuleErrorException {
-    JavaInfo javaInfo = JavaInfo.getJavaInfo(target);
-    if (javaInfo != null && javaInfo.providerJavaGenJars != null) {
-      return javaInfo.providerJavaGenJars;
-    }
-    return JavaGenJarsProvider.EMPTY;
   }
 
   public static ImmutableList<CcInfo> ccInfos(Iterable<? extends TransitiveInfoCollection> targets)
@@ -551,12 +523,8 @@ public final class JavaInfo extends NativeInfo
   /** A Builder for {@link JavaInfo}. */
   public static class Builder {
 
-    private JavaCcInfoProvider providerJavaCcInfo;
     private JavaCompilationArgsProvider providerJavaCompilationArgs;
     private JavaCompilationInfoProvider providerJavaCompilationInfo;
-    private JavaGenJarsProvider providerJavaGenJars;
-    private JavaModuleFlagsProvider providerModuleFlags;
-    private JavaPluginInfo providerJavaPlugin;
     private JavaRuleOutputJarsProvider providerJavaRuleOutputJars;
     private JavaSourceJarsProvider providerJavaSourceJars;
     private ImmutableList<Artifact> runtimeJars;
@@ -597,12 +565,6 @@ public final class JavaInfo extends NativeInfo
     }
 
     @CanIgnoreReturnValue
-    public Builder javaCcInfo(JavaCcInfoProvider provider) {
-      this.providerJavaCcInfo = provider;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
     public Builder javaCompilationArgs(JavaCompilationArgsProvider provider) {
       this.providerJavaCompilationArgs = provider;
       return this;
@@ -611,18 +573,6 @@ public final class JavaInfo extends NativeInfo
     @CanIgnoreReturnValue
     public Builder javaCompilationInfo(JavaCompilationInfoProvider provider) {
       this.providerJavaCompilationInfo = provider;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder javaGenJars(JavaGenJarsProvider provider) {
-      this.providerJavaGenJars = provider;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder javaModuleFlags(JavaModuleFlagsProvider provider) {
-      this.providerModuleFlags = provider;
       return this;
     }
 
@@ -638,20 +588,14 @@ public final class JavaInfo extends NativeInfo
       return this;
     }
 
-    @CanIgnoreReturnValue
-    public Builder javaPluginInfo(JavaPluginInfo javaPluginInfo) {
-      this.providerJavaPlugin = javaPluginInfo;
-      return this;
-    }
-
     public JavaInfo build() {
       return new JavaInfo(
-          providerJavaCcInfo,
+          /* javaCcInfoProvider= */ null,
           providerJavaCompilationArgs,
           providerJavaCompilationInfo,
-          providerJavaGenJars,
-          providerModuleFlags,
-          providerJavaPlugin,
+          /* javaGenJarsProvider= */ null,
+          /* javaModuleFlagsProvider= */ null,
+          /* javaPluginInfo= */ null,
           providerJavaRuleOutputJars,
           providerJavaSourceJars,
           runtimeJars,

@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.analysis.AnalysisUtils;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
-import com.google.devtools.build.lib.analysis.test.InstrumentedFilesCollector.InstrumentationSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -39,14 +38,11 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
-import com.google.devtools.build.lib.rules.android.databinding.DataBindingContext;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext;
 import com.google.devtools.build.lib.rules.cpp.CcLinkingContext.LinkOptions;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -63,16 +59,6 @@ import net.starlark.java.eval.SymbolGenerator;
  * artifacts to the other rules.
  */
 public class AndroidCommon {
-
-  public static final InstrumentationSpec ANDROID_COLLECTION_SPEC =
-      JavaCommon.JAVA_COLLECTION_SPEC.withDependencyAttributes(
-          "application_resources",
-          "deps",
-          "data",
-          "exports",
-          "instruments",
-          "runtime_deps",
-          "binary_under_test");
 
   private static final ImmutableSet<String> TRANSITIVE_ATTRIBUTES =
       ImmutableSet.of("application_resources", "deps", "exports");
@@ -92,30 +78,9 @@ public class AndroidCommon {
     return Iterables.concat(builder.build());
   }
 
-  private final RuleContext ruleContext;
-  private final JavaCommon javaCommon;
-  private final boolean asNeverLink;
-
   private NestedSet<Artifact> transitiveNeverlinkLibraries =
       NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-  private Artifact classJar;
 
-  public AndroidCommon(JavaCommon javaCommon) {
-    this(javaCommon, JavaCommon.isNeverLink(javaCommon.getRuleContext()));
-  }
-
-  /**
-   * Creates a new AndroidCommon.
-   *
-   * @param common the JavaCommon instance
-   * @param asNeverLink Boolean to indicate if this rule should be treated as a compile time dep by
-   *     consuming rules.
-   */
-  public AndroidCommon(JavaCommon common, boolean asNeverLink) {
-    this.ruleContext = common.getRuleContext();
-    this.asNeverLink = asNeverLink;
-    this.javaCommon = common;
-  }
 
   /**
    * Collects the transitive neverlink dependencies.
@@ -274,32 +239,8 @@ public class AndroidCommon {
     return ImmutableList.of(ruleContext.getPrerequisiteArtifact("debug_key"));
   }
 
-  public ImmutableList<String> getJavacOpts() {
-    return javaCommon.getJavacOpts();
-  }
-
-  public ImmutableList<Artifact> getRuntimeJars() {
-    return javaCommon.getJavaCompilationArtifacts().getRuntimeJars();
-  }
-
-  public Artifact getClassJar() {
-    return classJar;
-  }
-
   public NestedSet<Artifact> getTransitiveNeverLinkLibraries() {
     return transitiveNeverlinkLibraries;
-  }
-
-  public boolean isNeverLink() {
-    return asNeverLink;
-  }
-
-  CcInfo getCcInfo() throws RuleErrorException {
-    return getCcInfo(
-        javaCommon.targetsTreatedAsDeps(ClasspathType.BOTH),
-        ImmutableList.of(),
-        ruleContext.getLabel(),
-        ruleContext.getSymbolGenerator());
   }
 
   static CcInfo getCcInfo(
@@ -333,69 +274,6 @@ public class AndroidCommon {
   /** Returns {@link AndroidConfiguration} in given context. */
   public static AndroidConfiguration getAndroidConfig(RuleContext context) {
     return context.getConfiguration().getFragment(AndroidConfiguration.class);
-  }
-
-  /**
-   * Returns a {@link JavaCommon} instance with Android data binding support.
-   *
-   * <p>Binaries need both compile-time and runtime support, while libraries only need compile-time
-   * support.
-   *
-   * <p>No rule needs <i>any</i> support if data binding is disabled.
-   */
-  static JavaCommon createJavaCommonWithAndroidDataBinding(
-      RuleContext ruleContext,
-      JavaSemantics semantics,
-      DataBindingContext dataBindingContext,
-      boolean isLibrary,
-      boolean shouldCompileJavaSrcs)
-      throws RuleErrorException {
-
-    ImmutableList<Artifact> ruleSources = ruleContext.getPrerequisiteArtifacts("srcs").list();
-
-    /**
-     * When within the context of an android_binary rule and shouldCompileJavaSrcs is False, the
-     * Java compilation happens within the Starlark rule. We still list the srcs to know if the
-     * class jar has content and should be included.
-     */
-    if (!isLibrary && !shouldCompileJavaSrcs) {
-      ImmutableList<TransitiveInfoCollection> runtimeDeps =
-          ImmutableList.copyOf(ruleContext.getPrerequisites("application_resources"));
-      return new JavaCommon(
-          ruleContext,
-          semantics,
-          ruleSources,
-          runtimeDeps, /* compileDeps */
-          runtimeDeps,
-          runtimeDeps); /* bothDeps */
-    }
-
-    ImmutableList<Artifact> dataBindingSources =
-        dataBindingContext.getAnnotationSourceFiles(ruleContext);
-    ImmutableList<Artifact> srcs =
-        ImmutableList.<Artifact>builder().addAll(ruleSources).addAll(dataBindingSources).build();
-
-    ImmutableList<TransitiveInfoCollection> compileDeps;
-    ImmutableList<TransitiveInfoCollection> runtimeDeps;
-    ImmutableList<TransitiveInfoCollection> bothDeps;
-
-    if (isLibrary) {
-      compileDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.COMPILE_ONLY);
-      compileDeps = AndroidIdlHelper.maybeAddSupportLibs(ruleContext, compileDeps);
-      runtimeDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.RUNTIME_ONLY);
-      bothDeps = JavaCommon.defaultDeps(ruleContext, semantics, ClasspathType.BOTH);
-    } else {
-      // Binary:
-      compileDeps =
-          ImmutableList.<TransitiveInfoCollection>builder()
-              .addAll(ruleContext.getPrerequisites("application_resources"))
-              .addAll(ruleContext.getPrerequisites("deps"))
-              .build();
-      runtimeDeps = compileDeps;
-      bothDeps = compileDeps;
-    }
-
-    return new JavaCommon(ruleContext, semantics, srcs, compileDeps, runtimeDeps, bothDeps);
   }
 
   /**
