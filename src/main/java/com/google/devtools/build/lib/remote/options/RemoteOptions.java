@@ -148,6 +148,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public boolean remoteDownloaderLocalFallback;
 
   @Option(
+      name = "experimental_remote_downloader_propagate_credentials",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to propagate credentials from netrc and credential helper to the remote"
+              + " downloader server. The server implementation needs to support the new"
+              + " `http_header_url:<url-index>:<header-key>` qualifier where the `<url-index>` is a"
+              + " 0-based position of the URL inside the FetchBlobRequest's `uris` field.")
+  public boolean remoteDownloaderPropagateCredentials;
+
+  @Option(
       name = "remote_header",
       converter = Converters.AssignmentConverter.class,
       defaultValue = "null",
