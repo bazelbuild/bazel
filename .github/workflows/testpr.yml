@@ -10,28 +10,29 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Set up Node.js
-      uses: actions/setup-node@v2
+      uses: actions/setup-node@v4
       with:
-        node-version: '14'
+        node-version: '20'
 
     - name: Install dependencies
-      run: npm install @octokit/rest
+      run: npm install @octokit/action
 
     - name: Comment on stale approved PRs
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         node -e "
-        const { Octokit } = require('@octokit/rest');
-        const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+        import { Octokit } from "@octokit/action";
+        const octokit = new Octokit();
+        const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
 
         (async () => {
           const { data: pullRequests } = await octokit.pulls.list({
-            owner: 'sgowroji',
-            repo: 'bazel',
+            owner,
+            repo,
             state: 'open',
             labels: 'awaiting-review'
           });
@@ -41,8 +42,8 @@ jobs:
 
           for (const pr of pullRequests) {
             const { data: reviews } = await octokit.pulls.listReviews({
-              owner: 'sgowroji',
-              repo: 'bazel',
+              owner,
+              repo,
               pull_number: pr.number
             });
 
@@ -53,8 +54,8 @@ jobs:
 
               if (lastApprovedDate < fiveDaysAgo) {
                 const { data: comments } = await octokit.issues.listComments({
-                  owner: 'your-org',
-                  repo: 'your-repo',
+                  owner,
+                  repo,
                   issue_number: pr.number
                 });
 
@@ -62,8 +63,8 @@ jobs:
 
                 if (!commentExists) {
                   await octokit.issues.createComment({
-                    owner: 'sgowroji',
-                    repo: 'bazel',
+                    owner,
+                    repo,
                     issue_number: pr.number,
                     body: 'Since we can see that this PR has been approved before 5 days, Please let us know whether gTech team should proceed with importing it internally. Thanks!'
                   });
