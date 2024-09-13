@@ -14,8 +14,8 @@
 
 """Attributes common to Objc rules"""
 
-load("@_builtins//:common/objc/semantics.bzl", "semantics")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/objc/semantics.bzl", "semantics")
 
 # TODO(b/288421584): necessary because IDE aspect can't see toolchains
 _CC_TOOLCHAIN_RULE = {
