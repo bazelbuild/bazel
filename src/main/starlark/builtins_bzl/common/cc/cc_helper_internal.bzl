@@ -33,6 +33,8 @@ PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("rules_rust", "rust/private"),
     ("", "third_party/gpus/cuda"),
     ("", "tools/build_defs/go"),
+    ("", "third_party/bazel_rules/rules_cc"),
+    ("rules_cc", ""),
     ("", "third_party/bazel_rules/rules_java"),
     ("rules_java", ""),
     ("", "third_party/protobuf"),
