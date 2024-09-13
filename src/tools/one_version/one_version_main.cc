@@ -45,7 +45,9 @@ int main(int argc, char *argv[]) {
     if (tokens.MatchAndSet("--output", &output_file) ||
         tokens.MatchAndSet("--succeed_on_found_violations",
                            &succeed_on_found_violations) ||
+        // TODO(b/366268295): remove once the flag is no longer used
         tokens.MatchAndSet("--whitelist", &allowlist_file) ||
+        tokens.MatchAndSet("--allowlist", &allowlist_file) ||
         tokens.MatchAndSet("--inputs", &inputs)) {
     } else {
       std::cerr << "error: bad command line argument " << tokens.token()
