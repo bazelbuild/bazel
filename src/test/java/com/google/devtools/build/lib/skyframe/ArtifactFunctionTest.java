@@ -345,10 +345,12 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
   }
 
   private DerivedArtifact createMiddlemanArtifact(String path) {
-    ArtifactRoot middlemanRoot =
-        ArtifactRoot.asDerivedRoot(middlemanPath, RootType.Middleman, PathFragment.create("out"));
-    return DerivedArtifact.create(
-        middlemanRoot, middlemanRoot.getExecPath().getRelative(path), ALL_OWNER);
+    PathFragment execPath = PathFragment.create("out").getRelative(path);
+    return SpecialArtifact.create(
+        ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+        execPath,
+        ALL_OWNER,
+        SpecialArtifactType.RUNFILES);
   }
 
   private SpecialArtifact createDerivedTreeArtifactWithAction(String path) {
