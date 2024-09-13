@@ -25,52 +25,52 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         node -e "
-        import { Octokit } from "@octokit/action";
-        const octokit = new Octokit();
-        const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
-
-        (async () => {
-          const { data: pullRequests } = await octokit.pulls.list({
-            owner,
-            repo,
-            state: 'open',
-            labels: 'awaiting-review'
-          });
-
-          const fiveDaysAgo = new Date();
-          fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-
-          for (const pr of pullRequests) {
-            const { data: reviews } = await octokit.pulls.listReviews({
+          import { Octokit } from "@octokit/action";
+          const octokit = new Octokit();
+          const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
+  
+          (async () => {
+            const { data: pullRequests } = await octokit.pulls.list({
               owner,
               repo,
-              pull_number: pr.number
+              state: 'open',
+              labels: 'awaiting-review'
             });
-
-            const approvedReviews = reviews.filter(review => review.state === 'APPROVED');
-            if (approvedReviews.length > 0) {
-              const lastApprovedReview = approvedReviews[approvedReviews.length - 1];
-              const lastApprovedDate = new Date(lastApprovedReview.submitted_at);
-
-              if (lastApprovedDate < fiveDaysAgo) {
-                const { data: comments } = await octokit.issues.listComments({
-                  owner,
-                  repo,
-                  issue_number: pr.number
-                });
-
-                const commentExists = comments.some(comment => comment.body.includes('Since we can see that this PR has been approved before 5 days'));
-
-                if (!commentExists) {
-                  await octokit.issues.createComment({
+  
+            const fiveDaysAgo = new Date();
+            fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+  
+            for (const pr of pullRequests) {
+              const { data: reviews } = await octokit.pulls.listReviews({
+                owner,
+                repo,
+                pull_number: pr.number
+              });
+  
+              const approvedReviews = reviews.filter(review => review.state === 'APPROVED');
+              if (approvedReviews.length > 0) {
+                const lastApprovedReview = approvedReviews[approvedReviews.length - 1];
+                const lastApprovedDate = new Date(lastApprovedReview.submitted_at);
+  
+                if (lastApprovedDate < fiveDaysAgo) {
+                  const { data: comments } = await octokit.issues.listComments({
                     owner,
                     repo,
-                    issue_number: pr.number,
-                    body: 'Since we can see that this PR has been approved before 5 days, Please let us know whether gTech team should proceed with importing it internally. Thanks!'
+                    issue_number: pr.number
                   });
+  
+                  const commentExists = comments.some(comment => comment.body.includes('Since we can see that this PR has been approved before 5 days'));
+  
+                  if (!commentExists) {
+                    await octokit.issues.createComment({
+                      owner,
+                      repo,
+                      issue_number: pr.number,
+                      body: 'Since we can see that this PR has been approved before 5 days, Please let us know whether gTech team should proceed with importing it internally. Thanks!'
+                    });
+                  }
                 }
               }
             }
-          }
-        })();
+          })();
         "
