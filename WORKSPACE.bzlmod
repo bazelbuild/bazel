@@ -38,11 +38,3 @@ bind(
     actual = "@bazel_tools//tools/android:always_false",
 )
 
-# To run the Android integration tests in //src/test/shell/bazel/android:all or
-# build the Android sample app in //examples/android/java/bazel:hello_world
-#
-#   1. Install an Android SDK from https://developer.android.com
-#   2. Set the $ANDROID_HOME environment variables
-#   3. Uncomment the line below
-#
-# android_sdk_repository(name = "androidsdk")

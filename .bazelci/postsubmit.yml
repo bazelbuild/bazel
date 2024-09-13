@@ -3,8 +3,6 @@
 tasks:
   centos7:
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
@@ -28,6 +26,7 @@ tasks:
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
@@ -41,13 +40,14 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_cc_released_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
+      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
+      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
+      - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
       - test
   fedora39:
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
@@ -61,8 +61,6 @@ tasks:
       - test
   ubuntu2204:
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
@@ -80,6 +78,7 @@ tasks:
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
@@ -87,6 +86,9 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
+      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
+      - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
       - test
@@ -97,8 +99,6 @@ tasks:
       CC_CONFIGURE_DEBUG: 1
     name: "Clang"
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
@@ -117,8 +117,6 @@ tasks:
       - test
   ubuntu2004:
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
     build_flags:
@@ -136,6 +134,7 @@ tasks:
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
@@ -143,14 +142,15 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
+      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
+      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
+      - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
       - test
   macos:
     shards: 5
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
@@ -169,6 +169,7 @@ tasks:
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
@@ -181,9 +182,10 @@ tasks:
       - "-//src/test/py/..."
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
-      # Disable android tests since we are moving Android rules out of Bazel repo.
+      # Disable android tests since we are moving Android rules out of the Bazel repo.
       - "-//src/tools/android/java/com/google/devtools/build/android/..."
       - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
+      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
       # ServerTests frequently runs into deadlocks on Intel Macs
       - "-//src/test/java/com/google/devtools/build/lib/server:ServerTests"
       # Add back a few Apple specific tests
@@ -196,8 +198,6 @@ tasks:
   macos_arm64:
     shards: 5
     shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - ln -sf $OUTPUT_BASE/external $HOME/bazeltest/external
@@ -214,6 +214,7 @@ tasks:
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
@@ -227,6 +228,8 @@ tasks:
       - "-//src/test/shell/bazel/android/..."
       - "-//src/tools/android/java/com/google/devtools/build/android/..."
       - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
+      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
+      - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
       - test
@@ -234,8 +237,6 @@ tasks:
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
-    batch_commands:
-      - powershell -Command "(Get-Content WORKSPACE.bzlmod) -Replace '# android_', 'android_' | Set-Content WORKSPACE.bzlmod"
     build_flags:
       - "--config=ci-windows"
     build_targets:
@@ -258,6 +259,7 @@ tasks:
       - "//src/test/res/..."
       - "//src/test/shell/..."
       - "//src/tools/launcher/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//third_party/def_parser/..."
       - "//tools/android/..."
@@ -279,8 +281,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/remote:RemoteTests"
       - "-//src/test/shell/bazel/remote/..."
       - "-//tools/python:pywrapper_test"
-      # https://github.com/bazelbuild/bazel/issues/21593
-      - "-//src/test/java/com/google/devtools/build/lib/bazel/repository/downloader:DownloaderTestSuite"
     include_json_profile:
       - build
       - test
@@ -290,8 +290,6 @@ tasks:
     setup:
       - mkdir C:\b
       - mklink /J C:\b\bazeltest_external %OUTPUT_BASE:/=\%\external
-    batch_commands:
-      - powershell -Command "(Get-Content WORKSPACE.bzlmod) -Replace '# android_', 'android_' | Set-Content WORKSPACE.bzlmod"
     build_flags:
       - "--config=ci-windows"
       - "--config=windows_arm64"
@@ -303,9 +301,6 @@ tasks:
   rbe_ubuntu2004:
     platform: ubuntu2004
     name: "RBE"
-    shell_commands:
-      - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
-      - rm -f WORKSPACE.bzlmod.bak
     build_flags:
       - "--config=remote"
       - "--remote_executor=grpcs://remotebuildexecution.googleapis.com"
@@ -332,6 +327,7 @@ tasks:
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/..."
       - "//src/tools/execlog/..."
+      - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
@@ -355,13 +351,14 @@ tasks:
       - "-//src/test/py/bazel:mod_command_test"
       - "-//src/test/shell/bazel:starlark_repository_test"
       - "-//src/test/shell/bazel:verify_workspace"
+      # Disable some Android tests since we are moving Android rules out of the Bazel repo.
+      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
+      - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
       - test
   kythe_ubuntu2204:
     shell_commands:
-    - sed -i.bak -e 's/^# android_sdk_repository/android_sdk_repository/' WORKSPACE.bzlmod
-    - rm -f WORKSPACE.bzlmod.bak
     # Remove _nowkt suffix because it's only available in newer protobuf releases. See b/329055020.
     # TODO(chiwang): Remove this once we have upgraded to protobuf 25+.
     - sed -i -e 's/protobuf_nowkt/protobuf/' /usr/local/kythe/BUILD
