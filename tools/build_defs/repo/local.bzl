@@ -66,7 +66,7 @@ local_repository = repository_rule(
     attrs = {
         "path": attr.string(
             doc =
-                "The path to the directory to make available as a repo. <p>The path can be " +
+                "The path to the directory to make available as a repo.\n\nThe path can be " +
                 "either absolute, or relative to the workspace root.",
             mandatory = True,
         ),
@@ -74,8 +74,8 @@ local_repository = repository_rule(
     doc =
         "Makes a local directory that already contains Bazel files available as a repo. This " +
         "directory should contain Bazel BUILD files and a repo boundary file already. If it " +
-        "doesn't contain these files, consider using <a " +
-        "href=\"#new_local_repository\"><code>new_local_repository</code></a> instead.",
+        "doesn't contain these files, consider using " +
+        "[`new_local_repository`](#new_local_repository) instead.",
     local = True,
 )
 
@@ -105,22 +105,21 @@ new_local_repository = repository_rule(
     attrs = {
         "path": attr.string(
             doc =
-                "The path to the directory to make available as a repo. <p>The path can be " +
+                "The path to the directory to make available as a repo.\n\nThe path can be " +
                 "either absolute, or relative to the workspace root.",
             mandatory = True,
         ),
         "build_file": attr.label(
             doc =
-                "A file to use as a BUILD file for this repo. <p>Exactly one of " +
-                "<code>build_file</code> and <code>build_file_content</code> must be specified. " +
-                "<p>The file addressed by this label does not need to be named BUILD, but can " +
-                "be. Something like <code>BUILD.new-repo-name</code> may work well to " +
-                "distinguish it from actual BUILD files.",
+                "A file to use as a BUILD file for this repo.\n\nExactly one of `build_file` and " +
+                "`build_file_content` must be specified.\n\nThe file addressed by this label " +
+                "does not need to be named BUILD, but can be. Something like " +
+                "`BUILD.new-repo-name` may work well to distinguish it from actual BUILD files.",
         ),
         "build_file_content": attr.string(
             doc =
-                "The content of the BUILD file to be created for this repo. <p>Exactly one of " +
-                "<code>build_file</code> and <code>build_file_content</code> must be specified.",
+                "The content of the BUILD file to be created for this repo.\n\nExactly one of " +
+                "`build_file` and `build_file_content` must be specified.",
             default = _UNSET,
         ),
     },
@@ -128,6 +127,6 @@ new_local_repository = repository_rule(
         "Makes a local directory that doesn't contain Bazel files available as a repo. This " +
         "directory need not contain Bazel BUILD files or a repo boundary file; they will be " +
         "created by this repo rule. If the directory already contains Bazel files, consider " +
-        "using <a href=\"#local_repository\"><code>local_repository</code></a> instead.",
+        "using [`local_repository`](#local_repository) instead.",
     local = True,
 )
