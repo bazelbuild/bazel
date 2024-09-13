@@ -20,6 +20,7 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 import com.android.dx.command.dexer.DxContext;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 import com.beust.jcommander.Parameters;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
@@ -33,7 +34,6 @@ import com.google.devtools.build.android.dexer.Dexing.DexingKey;
 import com.google.devtools.build.android.dexer.Dexing.DexingOptions;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -193,7 +193,7 @@ class DexBuilder {
       Cache<DexingKey, byte[]> dexCache,
       DxContext context,
       List<String> args)
-      throws OptionsParsingException, IOException, InterruptedException, ExecutionException {
+      throws ParameterException, IOException, InterruptedException, ExecutionException {
     Options options = new Options();
     DexingOptions dexingOptions = new DexingOptions();
     String[] preprocessedArgs =

@@ -29,7 +29,6 @@ import com.beust.jcommander.Parameters;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.io.PrintStream;
 import java.lang.reflect.Field;
 
@@ -138,11 +137,11 @@ class Dexing {
   private final DexOptions dexOptions;
   private final CfOptions cfOptions;
 
-  public Dexing(DexingOptions options) throws OptionsParsingException {
+  public Dexing(DexingOptions options) throws ParameterException {
     this(new DxContext(), options);
   }
 
-  public Dexing(DxContext context, DexingOptions options) throws OptionsParsingException {
+  public Dexing(DxContext context, DexingOptions options) throws ParameterException {
     this(context, options.toDexOptions(), options.toCfOptions(context));
   }
 

@@ -38,7 +38,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.android.AndroidOptionsUtils;
 import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
 import com.google.devtools.build.android.Converters.CompatPathConverter;
-import com.google.devtools.common.options.EnumConverter;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -132,12 +131,6 @@ class DexFileMerger {
 
     @Parameter(names = "--dex_prefix", description = "Dex file output prefix.")
     public String dexPrefix = DEX_PREFIX; // dx's default
-  }
-
-  public static class MultidexStrategyConverter extends EnumConverter<MultidexStrategy> {
-    public MultidexStrategyConverter() {
-      super(MultidexStrategy.class, "multidex strategy");
-    }
   }
 
   public static void main(String[] args) throws Exception {

@@ -19,8 +19,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import com.android.tools.r8.D8;
 import com.android.tools.r8.D8Command;
 import com.android.tools.r8.OutputMode;
+import com.beust.jcommander.ParameterException;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -44,7 +44,7 @@ public class CompatDexBuilderTest {
 
   @Test
   public void compileManyClasses()
-      throws IOException, InterruptedException, ExecutionException, OptionsParsingException {
+      throws IOException, InterruptedException, ExecutionException, ParameterException {
     // Random set of classes from the R8 example test directory naming001.
     final String inputJar = System.getProperty("CompatDexBuilderTests.naming001");
     final ImmutableList<String> classNames =

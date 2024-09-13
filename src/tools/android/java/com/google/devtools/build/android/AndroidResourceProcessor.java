@@ -38,7 +38,6 @@ import com.google.devtools.build.android.junctions.JunctionCreator;
 import com.google.devtools.build.android.junctions.NoopJunctionCreator;
 import com.google.devtools.build.android.junctions.WindowsJunctionCreator;
 import com.google.devtools.build.android.resources.ResourceSymbols;
-import com.google.devtools.common.options.TriState;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.io.Closeable;
 import java.io.IOException;

@@ -32,6 +32,7 @@ import com.android.tools.r8.origin.ArchiveEntryOrigin;
 import com.android.tools.r8.origin.PathOrigin;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.beust.jcommander.ParameterException;
 import com.google.auto.value.AutoValue;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
@@ -40,7 +41,6 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.worker.ProtoWorkerMessageProcessor;
 import com.google.devtools.build.lib.worker.WorkRequestHandler;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.io.BufferedOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -145,7 +145,7 @@ public class CompatDexBuilder {
   }
 
   public static void main(String[] args)
-      throws IOException, InterruptedException, ExecutionException, OptionsParsingException {
+      throws IOException, InterruptedException, ExecutionException, ParameterException {
     CompatDexBuilder compatDexBuilder = new CompatDexBuilder();
     if (ImmutableSet.copyOf(args).contains("--persistent_worker")) {
       PrintStream realStdErr = System.err;
@@ -197,8 +197,8 @@ public class CompatDexBuilder {
     try {
       dexEntries(dexCache, args, diagnosticsHandler);
       return 0;
-    } catch (OptionsParsingException e) {
-      pw.println("CompatDexBuilder raised OptionsParsingException: " + e.getMessage());
+    } catch (ParameterException e) {
+      pw.println("CompatDexBuilder raised ParameterException: " + e.getMessage());
       return 1;
     } catch (IOException | InterruptedException | ExecutionException e) {
       e.printStackTrace();
@@ -211,7 +211,7 @@ public class CompatDexBuilder {
       @Nullable Cache<DexingKeyR8, byte[]> dexCache,
       List<String> args,
       DiagnosticsHandler dexDiagnosticsHandler)
-      throws IOException, InterruptedException, ExecutionException, OptionsParsingException {
+      throws IOException, InterruptedException, ExecutionException, ParameterException {
     List<String> flags = new ArrayList<>();
     String input = null;
     String output = null;
@@ -262,16 +262,16 @@ public class CompatDexBuilder {
           minSdkVersionFlag = flags.get(++i);
           break;
         default:
-          throw new OptionsParsingException("Unsupported option: " + flag);
+          throw new ParameterException("Unsupported option: " + flag);
       }
     }
 
     if (input == null) {
-      throw new OptionsParsingException("No input jar specified");
+      throw new ParameterException("No input jar specified");
     }
 
     if (output == null) {
-      throw new OptionsParsingException("No output jar specified");
+      throw new ParameterException("No output jar specified");
     }
 
     ExecutorService executor = Executors.newWorkStealingPool(numberOfThreads);
