@@ -33,12 +33,10 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
-import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /** Pluggable Java compilation semantics. */
 public interface JavaSemantics {
@@ -204,18 +202,4 @@ public interface JavaSemantics {
    *     if no Java root relative path can be determined.
    */
   PathFragment getDefaultJavaResourcePath(PathFragment path);
-
-  /**
-   * Produces the proto generated extension registry artifacts, or <tt>null</tt> if no registry
-   * needs to be generated for the provided <tt>ruleContext</tt>.
-   */
-  @Nullable
-  GeneratedExtensionRegistryProvider createGeneratedExtensionRegistry(
-      RuleContext ruleContext,
-      JavaCommon common,
-      NestedSetBuilder<Artifact> filesBuilder,
-      JavaCompilationArtifacts.Builder javaCompilationArtifactsBuilder,
-      JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder,
-      JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder)
-      throws InterruptedException, RuleErrorException;
 }

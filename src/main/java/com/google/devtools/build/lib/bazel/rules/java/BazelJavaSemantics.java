@@ -39,16 +39,12 @@ import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder;
 import com.google.devtools.build.lib.rules.java.DeployArchiveBuilder.Compression;
 import com.google.devtools.build.lib.rules.java.JavaCommon;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider.ClasspathType;
-import com.google.devtools.build.lib.rules.java.JavaCompilationArtifacts;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration;
 import com.google.devtools.build.lib.rules.java.JavaConfiguration.OneVersionEnforcementLevel;
-import com.google.devtools.build.lib.rules.java.JavaRuleOutputJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
-import com.google.devtools.build.lib.rules.java.JavaSourceJarsProvider;
 import com.google.devtools.build.lib.rules.java.JavaTargetAttributes;
 import com.google.devtools.build.lib.rules.java.JavaToolchainProvider;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
-import com.google.devtools.build.lib.rules.java.proto.GeneratedExtensionRegistryProvider;
 import com.google.devtools.build.lib.shell.ShellUtils;
 import com.google.devtools.build.lib.shell.ShellUtils.TokenizationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
@@ -58,7 +54,6 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import javax.annotation.Nullable;
 
 /**
  * Semantics for Bazel Java rules
@@ -391,19 +386,6 @@ public class BazelJavaSemantics implements JavaSemantics {
     }
     PathFragment javaPath = JavaUtil.getJavaPath(path);
     return javaPath == null ? path : javaPath;
-  }
-
-  @Nullable
-  @Override
-  public GeneratedExtensionRegistryProvider createGeneratedExtensionRegistry(
-      RuleContext ruleContext,
-      JavaCommon common,
-      NestedSetBuilder<Artifact> filesBuilder,
-      JavaCompilationArtifacts.Builder javaCompilationArtifactsBuilder,
-      JavaRuleOutputJarsProvider.Builder javaRuleOutputJarsProviderBuilder,
-      JavaSourceJarsProvider.Builder javaSourceJarsProviderBuilder)
-    throws InterruptedException {
-    return null;
   }
 }
 

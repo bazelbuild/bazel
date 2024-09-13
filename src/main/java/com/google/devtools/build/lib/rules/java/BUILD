@@ -97,7 +97,6 @@ java_library(
         "ResourceJarActionBuilder.java",
         "SingleJarActionBuilder.java",
         "StarlarkInfoWrapper.java",
-        "proto/GeneratedExtensionRegistryProvider.java",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
