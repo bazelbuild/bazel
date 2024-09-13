@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.ActionLookupValue;
+import com.google.devtools.build.lib.actions.Actions;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
@@ -409,30 +410,40 @@ public final class IncrementalArtifactConflictFinder {
 
       if (existingPathIsPrefixOfNew || newPathIsPrefixOfExisting) {
         Artifact conflictingExistingArtifact = getOwningArtifactFromTrie(matchingChildNode);
-        ActionAnalysisMetadata priorAction =
-            Preconditions.checkNotNull(
-                actionGraph.getGeneratingAction(conflictingExistingArtifact),
-                conflictingExistingArtifact);
-        ActionAnalysisMetadata currentAction =
-            Preconditions.checkNotNull(actionGraph.getGeneratingAction(newArtifact), newArtifact);
-        ActionConflictException exception =
-            ActionConflictException.createPrefix(
-                conflictingExistingArtifact, newArtifact, priorAction, currentAction);
+
         // If 2 paths collide, we need to update the Trie to contain only the shorter one.
         // This is required for correctness: the set of subsequent paths that could conflict with
         // the longer path is a subset of that of the shorter path.
+        Artifact prefix;
+        Artifact child;
         if (newPathIsPrefixOfExisting) {
           existingNonLeafNode.put(newSegment, newArtifact);
+          prefix = newArtifact;
+          child = conflictingExistingArtifact;
+        } else {
+          prefix = conflictingExistingArtifact;
+          child = newArtifact;
         }
 
-        if (badActionMap == null) {
-          throw exception;
+        if (!Actions.isRunfilesArtifactPair(prefix, child)) {
+          ActionAnalysisMetadata priorAction =
+              Preconditions.checkNotNull(
+                  actionGraph.getGeneratingAction(conflictingExistingArtifact),
+                  conflictingExistingArtifact);
+          ActionAnalysisMetadata currentAction =
+              Preconditions.checkNotNull(actionGraph.getGeneratingAction(newArtifact), newArtifact);
+          ActionConflictException exception =
+              ActionConflictException.createPrefix(
+                  conflictingExistingArtifact, newArtifact, priorAction, currentAction);
+          if (badActionMap == null) {
+            throw exception;
+          }
+
+          badActionMap.put(priorAction, exception);
+          badActionMap.put(currentAction, exception);
+
+          break;
         }
-
-        badActionMap.put(priorAction, exception);
-        badActionMap.put(currentAction, exception);
-
-        break;
       }
       existingTrieNode = matchingChildNode;
     }
