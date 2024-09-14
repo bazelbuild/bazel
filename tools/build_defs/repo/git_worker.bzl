@@ -180,14 +180,14 @@ def _get_head_date(ctx, git_repo):
     return _git(ctx, git_repo, "log", "-n", "1", "--pretty=format:%cd", "--date=raw")
 
 def _git(ctx, git_repo, command, *args):
-    start = ["git", command]
+    start = [command]
     st = _execute(ctx, git_repo, start + list(args))
     if st.return_code != 0:
-        _error(ctx.name, start + list(args), st.stderr)
+        _error(ctx.name, ["git"] + start + list(args), st.stderr)
     return st.stdout
 
 def _git_maybe_shallow(ctx, git_repo, command, *args):
-    start = ["git", command]
+    start = [command]
     args_list = list(args)
     if git_repo.shallow:
         st = _execute(ctx, git_repo, start + [git_repo.shallow] + args_list)
@@ -196,8 +196,11 @@ def _git_maybe_shallow(ctx, git_repo, command, *args):
     return _execute(ctx, git_repo, start + args_list)
 
 def _execute(ctx, git_repo, args):
+    # "core.fsmonitor=false" disables git from spawning a file system monitor which can cause hangs when cloning a lot.
+    # See https://github.com/bazelbuild/bazel/issues/21438
+    start = ["git", "-c", "core.fsmonitor=false"]
     return ctx.execute(
-        args,
+        start + args,
         environment = ctx.os.environ,
         working_directory = str(git_repo.directory),
     )
