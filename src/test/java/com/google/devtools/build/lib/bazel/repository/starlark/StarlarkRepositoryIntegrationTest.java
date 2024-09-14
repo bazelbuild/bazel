@@ -431,6 +431,13 @@ public class StarlarkRepositoryIntegrationTest extends BuildViewTestCase {
   @Test
   public void testMultipleLoadSameExtension() throws Exception {
     setBuildLanguageOptions("--enable_workspace");
+    // certain prelude files require access to APIs that are allowlisted in the main repository
+    if (ruleClassProvider.getPreludeLabel() != null) {
+      scratch.overwriteFile(
+          rootDirectory
+              .getRelative(ruleClassProvider.getPreludeLabel().toPathFragment())
+              .getPathString());
+    }
     scratch.overwriteFile(
         rootDirectory.getRelative("WORKSPACE").getPathString(),
         new ImmutableList.Builder<String>()

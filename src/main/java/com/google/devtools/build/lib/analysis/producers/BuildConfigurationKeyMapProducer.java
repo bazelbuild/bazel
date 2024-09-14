@@ -14,13 +14,13 @@
 package com.google.devtools.build.lib.analysis.producers;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingException;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
 import com.google.devtools.build.skyframe.state.StateMachine;
 import com.google.devtools.common.options.OptionsParsingException;
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -49,23 +49,17 @@ public class BuildConfigurationKeyMapProducer
   // -------------------- Input --------------------
   private final ResultSink sink;
   private final StateMachine runAfter;
-  private final BuildConfigurationKeyCache buildConfigurationKeyCache;
   private final Map<String, BuildOptions> options;
 
   // -------------------- Internal State --------------------
-  // There is only ever a single PlatformMappingValue in use, as the `--platform_mappings` flag
-  // can not be changed in a transition.
-  private final Map<String, BuildConfigurationKey> results = new HashMap<>();
+  private final Map<String, BuildConfigurationKey> results;
 
   public BuildConfigurationKeyMapProducer(
-      ResultSink sink,
-      StateMachine runAfter,
-      BuildConfigurationKeyCache buildConfigurationKeyCache,
-      Map<String, BuildOptions> options) {
+      ResultSink sink, StateMachine runAfter, Map<String, BuildOptions> options) {
     this.sink = sink;
-    this.buildConfigurationKeyCache = buildConfigurationKeyCache;
     this.runAfter = runAfter;
     this.options = options;
+    this.results = Maps.newHashMapWithExpectedSize(options.size());
   }
 
   @Override
@@ -76,7 +70,6 @@ public class BuildConfigurationKeyMapProducer
                 new BuildConfigurationKeyProducer<>(
                     (BuildConfigurationKeyProducer.ResultSink<String>) this,
                     StateMachine.DONE,
-                    buildConfigurationKeyCache,
                     entry.getKey(),
                     entry.getValue()))
         .forEach(tasks::enqueue);
@@ -84,17 +77,14 @@ public class BuildConfigurationKeyMapProducer
   }
 
   private StateMachine combineResults(Tasks tasks) {
-    boolean allPresent =
-        this.options.keySet().stream()
-            .map(this.results::containsKey)
-            .allMatch(contains -> contains);
-    if (!allPresent) {
+    if (this.results.size() != this.options.size()) {
       // An error occurred while processing at least one set of options.
       return StateMachine.DONE;
     }
 
     // Ensure that the result keys are in the same order as the original.
-    ImmutableMap.Builder<String, BuildConfigurationKey> output = new ImmutableMap.Builder<>();
+    ImmutableMap.Builder<String, BuildConfigurationKey> output =
+        ImmutableMap.builderWithExpectedSize(this.options.size());
     for (String transitionKey : this.options.keySet()) {
       BuildConfigurationKey resultKey = this.results.get(transitionKey);
       output.put(transitionKey, resultKey);

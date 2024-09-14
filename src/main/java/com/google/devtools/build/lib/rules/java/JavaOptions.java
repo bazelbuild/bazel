@@ -415,9 +415,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      help =
-          "Flag to help transition from allowing to disallowing runtime_deps on neverlink"
-              + " Java archives. The depot needs to be cleaned up to roll this out by default.")
+      help = "No-op, kept only for backwards compatibility")
   public boolean allowRuntimeDepsOnNeverLink;
 
   @Option(
@@ -474,8 +472,7 @@ public class JavaOptions extends FragmentOptions {
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "Disables the resource_jars attribute; use java_import and deps or runtime_deps instead.")
+      help = "No-op, kept only for backwards compatibility")
   public boolean disallowResourceJars;
 
   @Option(
@@ -483,7 +480,7 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      help = "If enabled, header compilation actions support --java_classpath=bazel")
+      help = "No-op, kept only for backwards compatibility")
   public boolean experimentalJavaHeaderInputPruning;
 
   @Option(

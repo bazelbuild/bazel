@@ -24,11 +24,11 @@ import static com.google.devtools.build.android.ziputils.DirectoryEntry.CENTIM;
 import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCFLG;
 import static com.google.devtools.build.android.ziputils.LocalFileHeader.LOCTIM;
 
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.Options;
-import com.google.devtools.common.options.OptionsBase;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.AndroidOptionsUtils;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -73,9 +73,11 @@ public class DexReducer implements EntryHandler {
   }
 
   private void parseArguments(String[] args) {
-    DexReducerOptions options =
-        Options.parseAndExitUponError(DexReducerOptions.class, /*allowResidue=*/ true, args)
-            .getOptions();
+    DexReducerOptions options = new DexReducerOptions();
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(options, preprocessedArgs);
+    JCommander.newBuilder().addObject(options).build().parse(normalizedArgs);
     paths = options.inputZips;
     outFile = options.outputZip;
   }
@@ -113,28 +115,18 @@ public class DexReducer implements EntryHandler {
   }
 
   /** Commandline options. */
-  public static class DexReducerOptions extends OptionsBase {
-    @Option(
-      name = "input_zip",
-      defaultValue = "null",
-      category = "input",
-      allowMultiple = true,
-      abbrev = 'i',
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Input zip file containing entries to collect and enumerate."
-    )
-    public List<String> inputZips;
+  @Parameters(separators = "= ")
+  public static class DexReducerOptions {
+    @Parameter(
+        names = {"--input_zip", "-i"},
+        description = "Input zip file containing entries to collect and enumerate.")
+    public List<String> inputZips = ImmutableList.of();
 
-    @Option(
-      name = "output_zip",
-      defaultValue = "null",
-      category = "output",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      abbrev = 'o',
-      help = "Output zip file, containing enumerated entries."
-    )
+    @Parameter(
+        names = {"--output_zip", "-o"},
+        description = "Output zip file, containing enumerated entries.")
     public String outputZip;
+
+    @Parameter() public List<String> residue;
   }
 }

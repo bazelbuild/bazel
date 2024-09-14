@@ -247,7 +247,7 @@ final class RuleDataCodec extends DeferredObjectCodec<RuleData> {
         new AutoValue_RuleDataCodec_StarlarkRuleClassData(
             obj.getName(),
             obj.getTargetKind(),
-            obj.isForDependencyResolution(),
+            obj.isDependencyResolutionRule(),
             obj.getAdvertisedProviders()),
         codedOut);
   }

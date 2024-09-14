@@ -68,9 +68,7 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
     assertThat(result).isNotNull();
     assertThat(result).isNotSameInstanceAs(options);
 
-    assertThat(result.contains(CoreOptions.class)).isTrue();
     assertThat(result.get(CoreOptions.class).isExec).isTrue();
-    assertThat(result.contains(PlatformOptions.class)).isTrue();
     assertThat(result.get(PlatformOptions.class).platforms).containsExactly(EXECUTION_PLATFORM);
   }
 

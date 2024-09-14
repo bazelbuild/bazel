@@ -24,7 +24,7 @@ bazel_dep(name = "blake3", version = "1.5.1.bcr.1")
 bazel_dep(name = "sqlite3", version = "3.42.0.bcr.1")
 bazel_dep(name = "zlib", version = "1.3.1.bcr.3")
 bazel_dep(name = "rules_cc", version = "0.0.9")
-bazel_dep(name = "rules_java", version = "7.9.0")
+bazel_dep(name = "rules_java", version = "7.11.1")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
 bazel_dep(name = "rules_proto", version = "6.0.0")
 bazel_dep(name = "rules_jvm_external", version = "6.0")
@@ -106,11 +106,11 @@ maven.install(
         "com.google.code.findbugs:jsr305:3.0.2",
         "com.google.code.gson:gson:2.10.1",
         "com.google.code.java-allocation-instrumenter:java-allocation-instrumenter:3.3.0",
-        "com.google.errorprone:error_prone_annotation:2.23.0",
-        "com.google.errorprone:error_prone_annotations:2.23.0",
-        "com.google.errorprone:error_prone_check_api:2.23.0",
-        "com.google.errorprone:error_prone_core:2.23.0",
-        "com.google.errorprone:error_prone_type_annotations:2.23.0",
+        "com.google.errorprone:error_prone_annotation:2.32.0",
+        "com.google.errorprone:error_prone_annotations:2.32.0",
+        "com.google.errorprone:error_prone_check_api:2.32.0",
+        "com.google.errorprone:error_prone_core:2.32.0",
+        "com.google.errorprone:error_prone_type_annotations:2.32.0",
         "com.google.flogger:flogger:0.5.1",
         "com.google.flogger:flogger-system-backend:0.5.1",
         "com.google.flogger:google-extensions:0.5.1",

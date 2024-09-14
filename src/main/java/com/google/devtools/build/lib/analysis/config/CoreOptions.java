@@ -526,7 +526,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
 
   @Option(
       name = "legacy_external_runfiles",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =

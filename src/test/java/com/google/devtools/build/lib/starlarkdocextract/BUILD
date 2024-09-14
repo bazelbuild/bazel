@@ -45,6 +45,21 @@ java_test(
 )
 
 java_test(
+    name = "RuleInfoExtractorTest",
+    srcs = ["RuleInfoExtractorTest.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:labelrenderer",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:ruleinfoextractor",
+        "//src/main/protobuf:stardoc_output_java_proto",
+        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
+        "//third_party:guava",
+        "//third_party:junit4",
+        "//third_party:truth",
+    ],
+)
+
+java_test(
     name = "ModuleInfoExtractorTest",
     srcs = ["ModuleInfoExtractorTest.java"],
     deps = [
@@ -53,6 +68,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:skyframe_cluster",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:labelrenderer",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:moduleinfoextractor",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:ruleinfoextractor",
         "//src/main/java/net/starlark/java/eval",
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:stardoc_output_java_proto",

@@ -1287,7 +1287,7 @@ EOF
 
   # The same value of --remote_default_platform_properties should NOT invalidate SkyFrames on-disk cache
   #  and the action should not be re-run.
-  expect_log "1 process: 1 internal"
+  expect_log "1 process: .*1 internal"
 
   bazel build \
     --remote_executor=grpc://localhost:${worker_port} \
@@ -1337,7 +1337,7 @@ EOF
 
   # Changing --remote_default_platform_properties value does not invalidate SkyFrames
   # given its is superseded by the platform exec_properties.
-  expect_log "1 process: 1 internal."
+  expect_log "1 process: .*1 internal."
 }
 
 function test_platform_default_properties_invalidation_with_platform_remote_execution_properties() {
@@ -3551,6 +3551,155 @@ EOF
     --remote_executor=grpc://localhost:${worker_port} \
     //a:test2 >& $TEST_log || fail "Failed to test //a:test2"
   expect_log "2 remote cache hit"
+}
+
+function setup_inlined_outputs() {
+  mkdir -p a
+  cat > a/input.txt <<'EOF'
+input
+EOF
+  cat > a/script.sh <<'EOF'
+#!/bin/sh
+cat $1 $1 > $2
+echo "$1" > $3
+EOF
+  chmod +x a/script.sh
+  cat > a/defs.bzl <<EOF
+def _my_rule_impl(ctx):
+  out = ctx.actions.declare_file(ctx.label.name)
+  unused = ctx.actions.declare_file(ctx.label.name + ".unused")
+  args = ctx.actions.args()
+  args.add(ctx.file.input)
+  args.add(out)
+  args.add(unused)
+  ctx.actions.run(
+    executable = ctx.executable._script,
+    inputs = [ctx.file.input],
+    outputs = [out, unused],
+    arguments = [args],
+    unused_inputs_list = unused,
+    execution_requirements = {
+      "supports-path-mapping": "",
+    },
+  )
+  return [DefaultInfo(files = depset([out]))]
+
+my_rule = rule(
+  implementation = _my_rule_impl,
+  attrs = {
+    "input": attr.label(allow_single_file = True),
+    "_script": attr.label(cfg = "exec", executable = True, default = ":script"),
+  },
+)
+EOF
+  cat > a/BUILD <<'EOF'
+load("//a:defs.bzl", "my_rule")
+
+my_rule(
+  name = "my_rule",
+  input = "input.txt",
+)
+
+sh_binary(
+  name = "script",
+  srcs = ["script.sh"],
+)
+EOF
+}
+
+function test_remote_cache_inlined_output() {
+  setup_inlined_outputs
+
+  # Populate the cache.
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
+  expect_not_log "WARNING: Remote Cache:"
+  bazel clean --expunge
+  bazel shutdown
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --remote_grpc_log=grpc.log \
+    //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
+  expect_log "1 remote cache hit"
+  expect_not_log "WARNING: Remote Cache:"
+  assert_contains "input
+input" bazel-bin/a/my_rule
+
+  cat grpc.log > $TEST_log
+  # Assert that only the output is download as the unused_inputs_list is inlined.
+  # sha256 of "input\ninput\n"
+  expect_log "blobs/c88bd120ac840aa8d8a8fcedb6d620cd49c013730d387eb52be0c113bbcab640/12"
+  expect_log_n "google.bytestream.ByteStream/Read" 1
+
+  # Verify that the unused_inputs_list content is correct.
+  cat > a/input.txt <<'EOF'
+modified
+EOF
+
+  bazel build \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
+  assert_contains "input" bazel-bin/a/my_rule
+}
+
+function test_remote_execution_inlined_output() {
+  setup_inlined_outputs
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_grpc_log=grpc.log \
+    //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
+  expect_log "1 remote"
+  assert_contains "input
+input" bazel-bin/a/my_rule
+
+  cat grpc.log > $TEST_log
+  # Assert that only the output is download as the unused_inputs_list is inlined.
+  # sha256 of "input\ninput\n"
+  expect_log "blobs/c88bd120ac840aa8d8a8fcedb6d620cd49c013730d387eb52be0c113bbcab640/12"
+  expect_log_n "google.bytestream.ByteStream/Read" 1
+
+  # Verify that the unused_inputs_list content is correct.
+  cat > a/input.txt <<'EOF'
+modified
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
+  assert_contains "input" bazel-bin/a/my_rule
+}
+
+function test_remote_execution_inlined_output_with_path_mapping() {
+  setup_inlined_outputs
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_grpc_log=grpc.log \
+    --experimental_output_paths=strip \
+    //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
+  expect_log "1 remote"
+  assert_contains "input
+input" bazel-bin/a/my_rule
+
+  cat grpc.log > $TEST_log
+  # Assert that only the output is download as the unused_inputs_list is inlined.
+  # sha256 of "input\ninput\n"
+  expect_log "blobs/c88bd120ac840aa8d8a8fcedb6d620cd49c013730d387eb52be0c113bbcab640/12"
+  expect_log_n "google.bytestream.ByteStream/Read" 1
+
+  # Verify that the unused_inputs_list content is correct.
+  cat > a/input.txt <<'EOF'
+modified
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --experimental_output_paths=strip \
+    //a:my_rule >& $TEST_log || fail "Failed to build //a:my_rule"
+  assert_contains "input" bazel-bin/a/my_rule
 }
 
 run_suite "Remote execution and remote cache tests"

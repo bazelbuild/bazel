@@ -35,6 +35,8 @@ bool StripClass(u1 *&classdata_out, const u1 *classdata_in, size_t in_length);
 
 const char *CLASS_EXTENSION = ".class";
 const size_t CLASS_EXTENSION_LENGTH = strlen(CLASS_EXTENSION);
+const char *TRANSITIVE_PREFIX = "META-INF/TRANSITIVE/";
+const size_t TRANSITIVE_PREFIX_LENGTH = strlen(TRANSITIVE_PREFIX);
 const char *KOTLIN_BUILTINS_EXTENSION = ".kotlin_builtins";
 const size_t KOTLIN_BUILTINS_EXTENSION_LENGTH =
     strlen(KOTLIN_BUILTINS_EXTENSION);
@@ -131,6 +133,10 @@ bool JarStripperProcessor::Accept(const char *filename, const u4 /*attr*/) {
   if (filename_len < CLASS_EXTENSION_LENGTH ||
       strcmp(filename + filename_len - CLASS_EXTENSION_LENGTH,
              CLASS_EXTENSION) != 0) {
+    return false;
+  }
+  if (StartsWith(filename, filename_len, TRANSITIVE_PREFIX,
+                 TRANSITIVE_PREFIX_LENGTH)) {
     return false;
   }
   return true;

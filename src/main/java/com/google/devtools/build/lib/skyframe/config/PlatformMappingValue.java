@@ -30,20 +30,13 @@ import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.concurrent.ThreadSafety;
-import com.google.devtools.build.lib.skyframe.SkyFunctions;
-import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
-import com.google.devtools.build.lib.vfs.PathFragment;
-import com.google.devtools.build.skyframe.SkyFunctionName;
-import com.google.devtools.build.skyframe.SkyKey;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletionException;
-import javax.annotation.Nullable;
 
 /**
  * Stores contents of a platforms/flags mapping file for transforming one {@link BuildOptions} into
@@ -56,99 +49,10 @@ import javax.annotation.Nullable;
 @AutoCodec
 public final class PlatformMappingValue implements SkyValue {
 
-  /** Key for {@link PlatformMappingValue} based on the location of the mapping file. */
-  @ThreadSafety.Immutable
-  @AutoCodec
-  public static final class Key implements SkyKey {
-    private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
-
-    /**
-     * Creates a new platform mappings key with the given, main workspace-relative path to the
-     * mappings file, typically derived from the {@code --platform_mappings} flag.
-     *
-     * <p>If the path is {@code null} the {@link PlatformOptions#DEFAULT_PLATFORM_MAPPINGS default
-     * path} will be used and the key marked as not having been set by a user.
-     *
-     * @param workspaceRelativeMappingPath main workspace relative path to the mappings file or
-     *     {@code null} if the default location should be used
-     */
-    public static Key create(@Nullable PathFragment workspaceRelativeMappingPath) {
-      if (workspaceRelativeMappingPath == null) {
-        return create(PlatformOptions.DEFAULT_PLATFORM_MAPPINGS, false);
-      } else {
-        return create(workspaceRelativeMappingPath, true);
-      }
-    }
-
-    private static Key create(
-        PathFragment workspaceRelativeMappingPath, boolean wasExplicitlySetByUser) {
-      return interner.intern(new Key(workspaceRelativeMappingPath, wasExplicitlySetByUser));
-    }
-
-    @VisibleForSerialization
-    @AutoCodec.Interner
-    static Key intern(Key key) {
-      return interner.intern(key);
-    }
-
-    private final PathFragment path;
-    private final boolean wasExplicitlySetByUser;
-
-    private Key(PathFragment path, boolean wasExplicitlySetByUser) {
-      this.path = path;
-      this.wasExplicitlySetByUser = wasExplicitlySetByUser;
-    }
-
-    /** Returns the main-workspace relative path this mapping's mapping file can be found at. */
-    public PathFragment getWorkspaceRelativeMappingPath() {
-      return path;
-    }
-
-    boolean wasExplicitlySetByUser() {
-      return wasExplicitlySetByUser;
-    }
-
-    @Override
-    public SkyFunctionName functionName() {
-      return SkyFunctions.PLATFORM_MAPPING;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      Key key = (Key) o;
-      return Objects.equals(path, key.path) && wasExplicitlySetByUser == key.wasExplicitlySetByUser;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(path, wasExplicitlySetByUser);
-    }
-
-    @Override
-    public String toString() {
-      return "PlatformMappingValue.Key{path="
-          + path
-          + ", wasExplicitlySetByUser="
-          + wasExplicitlySetByUser
-          + "}";
-    }
-
-    @Override
-    public SkyKeyInterner<Key> getSkyKeyInterner() {
-      return interner;
-    }
-  }
-
-  private final ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags;
-  private final ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms;
+  private final ImmutableMap<Label, ParsedFlagsValue> platformsToFlags;
+  private final ImmutableMap<ParsedFlagsValue, Label> flagsToPlatforms;
   private final ImmutableSet<Class<? extends FragmentOptions>> optionsClasses;
-  private final LoadingCache<BuildOptions, BuildOptions> mappingCache;
+  private final LoadingCache<BuildOptions, BuildConfigurationKey> mappingCache;
 
   /**
    * Creates a new mapping value which will match on the given platforms (if a target platform is
@@ -161,8 +65,8 @@ public final class PlatformMappingValue implements SkyValue {
    * @param optionsClasses default options classes that should be used for options parsing
    */
   PlatformMappingValue(
-      ImmutableMap<Label, NativeAndStarlarkFlags> platformsToFlags,
-      ImmutableMap<NativeAndStarlarkFlags, Label> flagsToPlatforms,
+      ImmutableMap<Label, ParsedFlagsValue> platformsToFlags,
+      ImmutableMap<ParsedFlagsValue, Label> flagsToPlatforms,
       ImmutableSet<Class<? extends FragmentOptions>> optionsClasses) {
     this.platformsToFlags = checkNotNull(platformsToFlags);
     this.flagsToPlatforms = checkNotNull(flagsToPlatforms);
@@ -171,7 +75,12 @@ public final class PlatformMappingValue implements SkyValue {
   }
 
   /**
-   * Maps one {@link BuildOptions} to another by way of mappings provided in a file.
+   * Maps one {@link BuildOptions} to another's {@link BuildConfigurationKey} by way of mappings
+   * provided in a file.
+   *
+   * <p>Returns a {@link BuildConfigurationKey} instead of just {@link BuildOptions} so that caching
+   * of mappings also saves the CPU cost of interning {@link BuildConfigurationKey} (which is what
+   * callers typically need).
    *
    * <p>The <a href=https://docs.google.com/document/d/1Vg_tPgiZbSrvXcJ403vZVAGlsWhH9BUDrAxMOYnO0Ls>
    * full design</a> contains the details for the mapping logic but in short:
@@ -185,12 +94,12 @@ public final class PlatformMappingValue implements SkyValue {
    * </ol>
    *
    * @param original the key representing the configuration to be mapped
-   * @return the mapped key if any mapping matched the original or else the original
+   * @return a {@link BuildConfigurationKey} to request the mapped configuration
    * @throws OptionsParsingException if any of the user configured flags cannot be parsed
    * @throws IllegalArgumentException if the original does not contain a {@link PlatformOptions}
    *     fragment
    */
-  public BuildOptions map(BuildOptions original) throws OptionsParsingException {
+  public BuildConfigurationKey map(BuildOptions original) throws OptionsParsingException {
     try {
       return mappingCache.get(original);
     } catch (CompletionException e) {
@@ -200,53 +109,48 @@ public final class PlatformMappingValue implements SkyValue {
     }
   }
 
-  private BuildOptions computeMapping(BuildOptions originalOptions) throws OptionsParsingException {
-
+  private BuildConfigurationKey computeMapping(BuildOptions originalOptions)
+      throws OptionsParsingException {
     if (originalOptions.hasNoConfig()) {
       // The empty configuration (produced by NoConfigTransition) is terminal: it'll never change.
-      return originalOptions;
+      return BuildConfigurationKey.create(originalOptions);
     }
 
+    var platformOptions = originalOptions.get(PlatformOptions.class);
     checkArgument(
-        originalOptions.contains(PlatformOptions.class),
+        platformOptions != null,
         "When using platform mappings, all configurations must contain platform options");
 
-    BuildOptions modifiedOptions = null;
-
-    if (!originalOptions.get(PlatformOptions.class).platforms.isEmpty()) {
-      List<Label> platforms = originalOptions.get(PlatformOptions.class).platforms;
+    if (!platformOptions.platforms.isEmpty()) {
+      List<Label> platforms = platformOptions.platforms;
 
       // Platform mapping only supports a single target platform, others are ignored.
       Label targetPlatform = Iterables.getFirst(platforms, null);
       if (!platformsToFlags.containsKey(targetPlatform)) {
         // This can happen if the user has set the platform and any other flags that would normally
         // be mapped from it on the command line instead of relying on the mapping.
-        return originalOptions;
+        return BuildConfigurationKey.create(originalOptions);
       }
 
-      NativeAndStarlarkFlags args = platformsToFlags.get(targetPlatform);
-      modifiedOptions = args.mergeWith(originalOptions);
-    } else {
-      boolean mappingFound = false;
-      for (Map.Entry<NativeAndStarlarkFlags, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {
-        NativeAndStarlarkFlags flags = flagsToPlatform.getKey();
-        Label platformLabel = flagsToPlatform.getValue();
-        if (originalOptions.matches(flags.parse())) {
-          modifiedOptions = originalOptions.clone();
-          modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(platformLabel);
-          mappingFound = true;
-          break;
-        }
-      }
+      ParsedFlagsValue parsedFlags = platformsToFlags.get(targetPlatform);
+      return parsedFlags.mergeWith(originalOptions);
+    }
 
-      if (!mappingFound) {
-        Label targetPlatform = originalOptions.get(PlatformOptions.class).computeTargetPlatform();
-        modifiedOptions = originalOptions.clone();
-        modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(targetPlatform);
+    for (Map.Entry<ParsedFlagsValue, Label> flagsToPlatform : flagsToPlatforms.entrySet()) {
+      ParsedFlagsValue parsedFlags = flagsToPlatform.getKey();
+      Label platformLabel = flagsToPlatform.getValue();
+      if (originalOptions.matches(parsedFlags.parsingResult())) {
+        BuildOptions modifiedOptions = originalOptions.clone();
+        modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(platformLabel);
+        return BuildConfigurationKey.create(modifiedOptions);
       }
     }
 
-    return modifiedOptions;
+    // No mapping found.
+    Label targetPlatform = platformOptions.computeTargetPlatform();
+    BuildOptions modifiedOptions = originalOptions.clone();
+    modifiedOptions.get(PlatformOptions.class).platforms = ImmutableList.of(targetPlatform);
+    return BuildConfigurationKey.create(modifiedOptions);
   }
 
   @Override
@@ -264,7 +168,7 @@ public final class PlatformMappingValue implements SkyValue {
 
   @Override
   public int hashCode() {
-    return Objects.hash(flagsToPlatforms, platformsToFlags, optionsClasses);
+    return HashCodes.hashObjects(flagsToPlatforms, platformsToFlags, optionsClasses);
   }
 
   @Override

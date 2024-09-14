@@ -540,12 +540,13 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
         )
 
         def _rule_impl(ctx):
-          pass
+          return [MyProvider()]
 
         r1 = rule(
           implementation = _rule_impl,
           toolchains = ['//rule:toolchain_type_1'],
           exec_groups = {"gp": exec_group(toolchains = ['//rule:toolchain_type_2'])},
+          provides = [MyProvider],
         )
         """);
     scratch.file(

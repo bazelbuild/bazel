@@ -259,15 +259,11 @@ public class BuildConfigurationValue
     this.buildOptions = buildOptions;
     this.mnemonic = mnemonic;
     this.options = buildOptions.get(CoreOptions.class);
-    PlatformOptions platformOptions = null;
-    if (buildOptions.contains(PlatformOptions.class)) {
-      platformOptions = buildOptions.get(PlatformOptions.class);
-    }
     this.outputDirectories =
         new OutputDirectories(
             directories,
             options,
-            platformOptions,
+            buildOptions.get(PlatformOptions.class),
             mnemonic,
             workspaceName,
             siblingRepositoryLayout);
@@ -474,16 +470,6 @@ public class BuildConfigurationValue
   @Override
   public String getHostPathSeparator() {
     return outputDirectories.getHostPathSeparator();
-  }
-
-  /**
-   * Returns the internal directory (used for middlemen) for this build configuration.
-   *
-   * @deprecated Use {@code RuleContext#getMiddlemanDirectory} instead whenever possible.
-   */
-  @Deprecated
-  public ArtifactRoot getMiddlemanDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getMiddlemanDirectory(repositoryName);
   }
 
   public boolean isStrictFilesets() {

@@ -32,7 +32,7 @@ interface RuleClassData {
   String getTargetKind();
 
   /** Returns whether rules of this class can be made available during dependency resolution. */
-  boolean isForDependencyResolution();
+  boolean isDependencyResolutionRule();
 
   /** Returns the set of advertised transitive info providers. */
   AdvertisedProviderSet getAdvertisedProviders();

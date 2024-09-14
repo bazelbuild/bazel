@@ -25,19 +25,16 @@ import com.android.tools.r8.DiagnosticsHandler;
 import com.android.tools.r8.L8;
 import com.android.tools.r8.L8Command;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.android.r8.OptionsConverters.ExistingPathConverter;
-import com.google.devtools.build.android.r8.OptionsConverters.PathConverter;
+import com.google.devtools.build.android.AndroidOptionsUtils;
+import com.google.devtools.build.android.r8.CompatOptionsConverters.CompatExistingPathConverter;
+import com.google.devtools.build.android.r8.CompatOptionsConverters.CompatPathConverter;
 import com.google.devtools.build.android.r8.desugar.OrderedClassFileResourceProvider;
 import com.google.devtools.build.android.r8.desugar.OutputConsumer;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -46,83 +43,54 @@ import java.util.List;
 public class CoreLibraryDesugar {
 
   /** Commandline options for {@link CoreLibraryDesugar}. */
-  public static class DesugarOptions extends OptionsBase {
+  @Parameters(separators = "= ")
+  public static class DesugarOptions {
 
-    @Option(
-        name = "input",
-        allowMultiple = false,
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        abbrev = 'i',
-        help = "Input jar with classes to desugar.")
+    @Parameter(
+        names = {"--input", "-i"},
+        converter = CompatExistingPathConverter.class,
+        description = "Input jar with classes to desugar.")
     public Path inputJar;
 
-    @Option(
-        name = "classpath_entry",
-        allowMultiple = true,
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        help =
+    @Parameter(
+        names = "--classpath_entry",
+        converter = CompatExistingPathConverter.class,
+        description =
             "Ordered classpath (Jar or directory) to resolve symbols in the --input Jar, like "
                 + "javac's -cp flag.")
-    public List<Path> classpath;
+    public List<Path> classpath = ImmutableList.of();
 
-    @Option(
-        name = "bootclasspath_entry",
-        allowMultiple = true,
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        help =
+    @Parameter(
+        names = "--bootclasspath_entry",
+        converter = CompatExistingPathConverter.class,
+        description =
             "Bootclasspath that was used to compile the --input jars with, like javac's "
                 + "-bootclasspath flag (required).")
-    public List<Path> bootclasspath;
+    public List<Path> bootclasspath = ImmutableList.of();
 
-    @Option(
-        name = "output",
-        allowMultiple = false,
-        defaultValue = "null",
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = PathConverter.class,
-        abbrev = 'o',
-        help = "Output jar to write desugared classes into.")
+    @Parameter(
+        names = {"--output", "-o"},
+        converter = CompatPathConverter.class,
+        description = "Output jar to write desugared classes into.")
     public Path outputJar;
 
-    @Option(
-        name = "min_sdk_version",
-        defaultValue = Constants.MIN_API_LEVEL,
-        category = "misc",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Minimum targeted sdk version.  If >= 24, enables default methods in interfaces.")
-    public int minSdkVersion;
+    @Parameter(
+        names = "--min_sdk_version",
+        description =
+            "Minimum targeted sdk version.  If >= 24, enables default methods in interfaces.")
+    public int minSdkVersion = Integer.parseInt(Constants.MIN_API_LEVEL);
 
-    @Option(
-        name = "desugar_supported_core_libs",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Enable core library desugaring, which requires configuration with related flags.")
+    @Parameter(
+        names = "--desugar_supported_core_libs",
+        arity = 1,
+        description =
+            "Enable core library desugaring, which requires configuration with related flags.")
     public boolean desugarCoreLibs;
 
-    @Option(
-        name = "desugared_lib_config",
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        help =
+    @Parameter(
+        names = "--desugared_lib_config",
+        converter = CompatExistingPathConverter.class,
+        description =
             "Specify desugared library configuration. "
                 + "The input file is a desugared library configuration (json)")
     public Path desugaredLibConfig;
@@ -135,14 +103,12 @@ public class CoreLibraryDesugar {
   }
 
   private static DesugarOptions parseCommandLineOptions(String[] args) {
-    OptionsParser parser =
-        OptionsParser.builder()
-            .optionsClasses(DesugarOptions.class)
-            .allowResidue(false)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    parser.parseAndExitUponError(args);
-    return parser.getOptions(DesugarOptions.class);
+    DesugarOptions options = new DesugarOptions();
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(options, preprocessedArgs);
+    JCommander.newBuilder().addObject(options).build().parse(normalizedArgs);
+    return options;
   }
 
   private class DesugarDiagnosticsHandler implements DiagnosticsHandler {

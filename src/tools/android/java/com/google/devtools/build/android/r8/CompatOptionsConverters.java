@@ -1,4 +1,4 @@
-// Copyright 2023 The Bazel Authors. All rights reserved.
+// Copyright 2024 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,58 +13,56 @@
 // limitations under the License.
 package com.google.devtools.build.android.r8;
 
-import com.google.devtools.common.options.Converter;
-import com.google.devtools.common.options.OptionsParsingException;
+import com.beust.jcommander.IStringConverter;
+import com.beust.jcommander.ParameterException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 
-/** Options converters used by R8. */
-public class OptionsConverters {
-
-  /** Validating converter for Paths. A Path is considered valid if it resolves to a file. */
-  public static class PathConverter extends Converter.Contextless<Path> {
+/** JCommander-compatible options converters compatible with R8 */
+final class CompatOptionsConverters {
+  /**
+   * Validating converter for Paths. A Path is considered valid if it resolves to a file. Compatible
+   * with R8.
+   */
+  public static class CompatPathConverter implements IStringConverter<Path> {
 
     private final boolean mustExist;
 
-    public PathConverter() {
+    public CompatPathConverter() {
       this.mustExist = false;
     }
 
-    protected PathConverter(boolean mustExist) {
+    protected CompatPathConverter(boolean mustExist) {
       this.mustExist = mustExist;
     }
 
     @Override
-    public Path convert(String input) throws OptionsParsingException {
+    public Path convert(String input) throws ParameterException {
       try {
         Path path = FileSystems.getDefault().getPath(input);
         if (mustExist && !Files.exists(path)) {
-          throw new OptionsParsingException(
+          throw new ParameterException(
               String.format("%s is not a valid path: it does not exist.", input));
         }
         return path;
       } catch (InvalidPathException e) {
-        throw new OptionsParsingException(
+        throw new ParameterException(
             String.format("%s is not a valid path: %s.", input, e.getMessage()), e);
       }
-    }
-
-    @Override
-    public String getTypeDescription() {
-      return "a valid filesystem path";
     }
   }
 
   /**
    * Validating converter for Paths. A Path is considered valid if it resolves to a file and exists.
+   * Compatible with R8.
    */
-  public static class ExistingPathConverter extends PathConverter {
-    public ExistingPathConverter() {
+  public static class CompatExistingPathConverter extends CompatPathConverter {
+    public CompatExistingPathConverter() {
       super(true);
     }
   }
 
-  private OptionsConverters() {}
+  private CompatOptionsConverters() {}
 }

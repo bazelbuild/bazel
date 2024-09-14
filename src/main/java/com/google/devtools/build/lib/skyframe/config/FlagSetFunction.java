@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe.config;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
+import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -23,13 +24,11 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.skyframe.ProjectValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
-import com.google.devtools.build.lib.skyframe.config.ParsedFlagsFunction.ParsedFlagsFunctionException;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.Nullable;
@@ -39,16 +38,16 @@ import net.starlark.java.eval.Dict;
  * A SkyFunction that, given an scl file path and the name of scl configs, does the following:
  *
  * <ol>
- *   <li>calls {@link ProjectFunction} to load the content of scl files given the provided scl
- *       config name
+ *   <li>calls {@link com.google.devtools.build.lib.skyframe.ProjectFunction} to load the content of
+ *       scl files given the provided scl config name
  *   <li>calls {@link ParsedFlagsFunction} to parse the list of options
  *   <li>defines a patch transition and applies the transition to the input {@link BuildOptions}
  * </ol>
  *
- * <p>If given an unknown {@link CoreOptions.sclConfig}, {@link FlagSetFunction} returns the
+ * <p>If given an unknown {@link CoreOptions#sclConfig}, {@link FlagSetFunction} returns the
  * original {@link BuildOptions} and doesn't error out.
  */
-public class FlagSetFunction implements SkyFunction {
+public final class FlagSetFunction implements SkyFunction {
   private static final String CONFIGS = "configs";
 
   private static final String SUPPORTED_CONFIGS = "supported_configs";
@@ -59,7 +58,7 @@ public class FlagSetFunction implements SkyFunction {
   @SuppressWarnings("unchecked")
   @Nullable
   public SkyValue compute(SkyKey skyKey, Environment env)
-      throws FlagSetFunctionException, ParsedFlagsFunctionException, InterruptedException {
+      throws FlagSetFunctionException, InterruptedException {
     FlagSetValue.Key key = (FlagSetValue.Key) skyKey.argument();
     if (key.getSclConfig().isEmpty() && !key.enforceCanonical()) {
       // No special config specified. Nothing to do.
@@ -89,7 +88,8 @@ public class FlagSetFunction implements SkyFunction {
     if (parsedFlags == null) {
       return null;
     }
-    return FlagSetValue.create(changeOptions(key.getTargetOptions(), parsedFlags));
+    BuildOptions mergedOptions = parsedFlags.mergeWith(key.getTargetOptions()).getOptions();
+    return FlagSetValue.create(mergedOptions);
   }
 
   /**
@@ -148,7 +148,7 @@ public class FlagSetFunction implements SkyFunction {
                   "--scl_config=%s is not a valid configuration for this project.%s",
                   sclConfigName, supportedConfigsDesc(projectFile, supportedConfigs))),
           Transience.PERSISTENT);
-      }
+    }
 
     return ImmutableList.copyOf(sclConfigValue);
   }
@@ -191,8 +191,8 @@ public class FlagSetFunction implements SkyFunction {
    * Converts a list of flags in string form to a set of actual flags parsed by the options parser.
    */
   @Nullable
-  private ParsedFlagsValue parseFlags(Collection<String> flagsAsStarlarkList, Environment env)
-      throws FlagSetFunctionException, InterruptedException {
+  private static ParsedFlagsValue parseFlags(
+      Collection<String> flagsAsStarlarkList, Environment env) throws InterruptedException {
     RepositoryMappingValue mainRepositoryMappingValue =
         (RepositoryMappingValue) env.getValue(RepositoryMappingValue.key(RepositoryName.MAIN));
     if (mainRepositoryMappingValue == null) {
@@ -200,25 +200,10 @@ public class FlagSetFunction implements SkyFunction {
     }
     RepoContext mainRepoContext =
         RepoContext.of(RepositoryName.MAIN, mainRepositoryMappingValue.getRepositoryMapping());
-    try {
-      return (ParsedFlagsValue)
-          env.getValueOrThrow(
-              ParsedFlagsValue.Key.create(
-                  ImmutableList.copyOf(flagsAsStarlarkList), mainRepoContext.rootPackage()),
-              ParsedFlagsFunctionException.class);
-    } catch (ParsedFlagsFunctionException e) {
-      throw new FlagSetFunctionException(e, Transience.PERSISTENT);
-    }
-  }
-
-  /** Modifies input build options with the desired flag set and returns the result. */
-  private BuildOptions changeOptions(BuildOptions fromOptions, ParsedFlagsValue parsedFlags)
-      throws FlagSetFunctionException {
-    try {
-      return parsedFlags.flags().mergeWith(fromOptions);
-    } catch (OptionsParsingException e) {
-      throw new FlagSetFunctionException(e, Transience.PERSISTENT);
-    }
+    return (ParsedFlagsValue)
+        env.getValue(
+            ParsedFlagsValue.Key.create(
+                ImmutableList.copyOf(flagsAsStarlarkList), mainRepoContext.rootPackage()));
   }
 
   private static final class FlagSetFunctionException extends SkyFunctionException {

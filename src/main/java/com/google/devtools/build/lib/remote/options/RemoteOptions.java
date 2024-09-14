@@ -102,13 +102,16 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public PathFragment remoteCaptureCorruptedOutputs;
 
   @Option(
-      name = "experimental_remote_cache_async",
-      defaultValue = "false",
+      name = "remote_cache_async",
+      oldName = "experimental_remote_cache_async",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.UNKNOWN},
       help =
-          "If true, remote cache I/O will happen in the background instead of taking place as the"
-              + " part of a spawn.")
+          "If true, uploading of action results to a disk or remote cache will happen in the"
+              + " background instead of blocking the completion of an action. Some actions are"
+              + " incompatible with background uploads, and may still block even when this flag is"
+              + " set.")
   public boolean remoteCacheAsync;
 
   @Option(
@@ -143,6 +146,18 @@ public final class RemoteOptions extends CommonRemoteOptions {
       effectTags = {OptionEffectTag.UNKNOWN},
       help = "Whether to fall back to the local downloader if remote downloader fails.")
   public boolean remoteDownloaderLocalFallback;
+
+  @Option(
+      name = "experimental_remote_downloader_propagate_credentials",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.REMOTE,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      help =
+          "Whether to propagate credentials from netrc and credential helper to the remote"
+              + " downloader server. The server implementation needs to support the new"
+              + " `http_header_url:<url-index>:<header-key>` qualifier where the `<url-index>` is a"
+              + " 0-based position of the URL inside the FetchBlobRequest's `uris` field.")
+  public boolean remoteDownloaderPropagateCredentials;
 
   @Option(
       name = "remote_header",

@@ -449,7 +449,12 @@ function assert_equals() {
     local expected=$1 actual=$2
     [[ "$expected" == "$actual" ]] && return 0
 
-    fail "Expected '$expected', was '$actual'"
+    local context=""
+    if [[ "$#" -eq "3" ]]
+    then
+      context="${3}: "
+    fi
+    fail "${context}Expected '$expected', was '$actual'"
     return 1
 }
 

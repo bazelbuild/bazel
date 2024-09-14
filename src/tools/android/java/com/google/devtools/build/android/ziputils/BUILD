@@ -23,9 +23,10 @@ java_library(
     name = "ziputils_lib",
     srcs = glob(["*.java"]),
     deps = [
-        "//src/main/java/com/google/devtools/common/options",
+        "//src/tools/android/java/com/google/devtools/build/android:android_options_utils",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@maven//:com_beust_jcommander",
     ],
 )
 

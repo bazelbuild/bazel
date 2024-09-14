@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.concurrent;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.addCallback;
+import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.devtools.build.lib.concurrent.PaddedAddresses.createPaddedBaseAddress;
 import static com.google.devtools.build.lib.concurrent.PaddedAddresses.getAlignedAddress;
 import static java.lang.Math.min;
@@ -23,7 +24,6 @@ import static java.lang.Math.min;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Lists;
-import com.google.common.flogger.GoogleLogger;
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -46,7 +46,7 @@ import sun.misc.Unsafe;
 public final class RequestBatcher<RequestT, ResponseT> {
   /* This class employs concurrent workers that perform the following cycle:
    *
-   *   1. Collect as many request-response pairs from the queue as possible.
+   *   1. Collect all available request-response pairs from the queue up to `BATCH_SIZE`.
    *   2. Execute the collected pairs as a batch.
    *
    * We guarantee that every submitted request is handled. The following traces all possible paths a
@@ -54,7 +54,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
    *
    * Possible Paths:
    *
-   *   1. The pair is present in some `submit` call. A special case is when the queue is full.
+   *   1. The pair is present in some `submit` call.
    *   2. The pair is enqueued, but not yet reflected in the request-responses count.
    *   3. The pair is enqueued, and request-responses count has been incremented.
    *
@@ -63,19 +63,17 @@ public final class RequestBatcher<RequestT, ResponseT> {
    * A. We check the active-workers count. If it's less than `targetWorkerCount`, a new worker is
    *    started and the pair is directly assigned to it.
    *
-   * B. Otherwise, we attempt to enqueue the pair and if enqueuing succeeds, we proceed to Step 2.
+   * B. Otherwise, we enqueue the pair. When the queue is full, we sleep and try again until
+   *    enqueuing succeeds. After enqueuing, we proceed to Step 2.
    *
-   * C. If the queue is full, we start a new worker even if active-workers count is at the target,
-   *    and assign the rejected pair to this new worker.
-   *
-   * In both cases (A, C) that bypass Step 2, the pair is immediately assigned a worker.
+   * Case A bypasses Step 2, and the pair is immediately assigned a worker.
    *
    * Step 2: Request-response Enqueued
    *
    * Step 2 is not atomic with Step 1, so the counters might have changed. We re-check
    * active-workers count.
    *
-   * A. If it's at `targetWorkerCount` or higher, we attempt to increment request-responses count
+   * A. If it's already at `targetWorkerCount`, we attempt to increment request-responses count
    *    atomically, ensuring active-workers count remains unchanged during the increment. Success
    *    leads to Step 3.
    *
@@ -88,12 +86,10 @@ public final class RequestBatcher<RequestT, ResponseT> {
    * Step 3: Request-response Enqueued and request-responses count Incremented
    *
    * The atomic request-responses count increment only happens in Step 2 if active-workers count is
-   * at or above the target. Workers only stop if active-workers count exceeds the target or
-   * request-responses count is 0. Since `targetWorkerCount` > 0, there's always at least one
-   * active worker to handle the request-response.
+   * already at the target. Workers only stop if request-responses count is 0. Since
+   * `targetWorkerCount` > 0, there's always at least one active worker to handle the
+   * request-response.
    */
-
-  private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   /**
    * A common cleaner shared by all instances.
@@ -102,13 +98,15 @@ public final class RequestBatcher<RequestT, ResponseT> {
    */
   private static final Cleaner cleaner = Cleaner.create();
 
+  private static final long QUEUE_FULL_SLEEP_MS = 100;
+
   /**
-   * Reads this many at a time when taking queue elements.
+   * Reads this many at a time when constructing a batch.
    *
-   * <p>Reading requires a {@link #countersAddress} CAS operation so it's better to read many at
-   * once. On the other hand, reading too many at once could decrease concurrency or lead to stalls.
+   * <p>Note that since {@link #populateBatch} always begins with 1 pair, the resulting batch size
+   * is one more than this.
    */
-  private static final int BATCH_READ_STRIDE = 128;
+  @VisibleForTesting static final int BATCH_SIZE = 4095;
 
   private final Executor executor;
   private final Multiplexer<RequestT, ResponseT> multiplexer;
@@ -204,7 +202,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
    * expensive to avoid delaying work pending other responses in the batch.
    */
   public ListenableFuture<ResponseT> submit(RequestT request) {
-    RequestResponse<RequestT, ResponseT> requestResponse = new RequestResponse<>(request);
+    var requestResponse = new RequestResponse<RequestT, ResponseT>(request);
 
     // Tries to start a worker as long as the active worker count is less than `targetWorkerCount`.
     while (true) {
@@ -215,16 +213,21 @@ public final class RequestBatcher<RequestT, ResponseT> {
       }
       if (UNSAFE.compareAndSwapInt(null, countersAddress, snapshot, snapshot + ONE_ACTIVE_WORKER)) {
         // An active worker was reserved. Starts the worker by executing a batch.
-        executeBatch(requestResponse, /* ownsPermit= */ true);
+        executeBatch(requestResponse);
         return requestResponse;
       }
     }
 
-    if (!queue.tryAppend(requestResponse)) {
-      // The queue rejected it. Since there's nowhere else for the request to go, unconditionally
-      // starts a worker, disregarding `targetWorkerCount`.
-      unconditionallyStartWorker(requestResponse);
-      return requestResponse;
+    while (!queue.tryAppend(requestResponse)) {
+      // As of 09/11/2024, this class is only used for remote cache interactions (see
+      // b/358347099#comment18). Here, the queue filling up is primarily caused by insufficient
+      // network bandwidth. Experiments show that sleeping here improves overall system throughput,
+      // even more than increasing the buffer size.
+      try {
+        Thread.sleep(QUEUE_FULL_SLEEP_MS);
+      } catch (InterruptedException e) {
+        return immediateFailedFuture(e);
+      }
     }
     // Enqueuing succeeded.
 
@@ -244,7 +247,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
             null, countersAddress, snapshot, snapshot + ONE_ACTIVE_WORKER)) {
           // Usually, decrementing the request-responses count must precede taking from the queue.
           // Here, a request-response was just enqueued and the count has not yet been incremented.
-          executeBatch(queue.take(), /* ownsPermit= */ true);
+          executeBatch(queue.take());
           return requestResponse;
         }
       }
@@ -260,50 +263,20 @@ public final class RequestBatcher<RequestT, ResponseT> {
   }
 
   /**
-   * Executes a batch without regard for {@link #targetWorkerCount}.
-   *
-   * <p>This method handles queue overflows.
-   */
-  private void unconditionallyStartWorker(RequestResponse<RequestT, ResponseT> requestResponse) {
-    while (true) {
-      int snapshot = UNSAFE.getIntVolatile(null, countersAddress);
-      int activeWorkers = snapshot >>> ACTIVE_WORKERS_COUNT_BIT_OFFSET;
-      if (activeWorkers >= ACTIVE_WORKERS_COUNT_MAX) {
-        // Permits have overflowed. This should be unlikely to occur in practice. Just executes a
-        // batch, marked without ownership.
-        logger.atWarning().log(
-            "activeWorkers have overflowed: %d >= %d", activeWorkers, ACTIVE_WORKERS_COUNT_MAX);
-        executeBatch(requestResponse, /* ownsPermit= */ false);
-        return;
-      }
-      if (UNSAFE.compareAndSwapInt(null, countersAddress, snapshot, snapshot + ONE_ACTIVE_WORKER)) {
-        executeBatch(requestResponse, /* ownsPermit= */ true);
-        return;
-      }
-    }
-  }
-
-  /**
    * Constructs a batch by polling elements from the queue until it is empty, then executes it.
    *
-   * <p>After the batch is executed, if {@code ownsPermit} is true, arranges follow-up work by
-   * calling {@code #continueToNextBatchOrBecomeIdle}.
+   * <p>After the batch is executed, arranges follow-up work by calling {@code
+   * #continueToNextBatchOrBecomeIdle}.
    *
    * @param requestResponse a single element to be included in the batch. This ensures the batch is
    *     non-empty.
-   * @param ownsPermit true if the current worker has an associated increment in the active-workers
-   *     count in {@link #countersAddress}. Notably, this is false when workers overflow that
-   *     counter.
    */
-  private void executeBatch(
-      RequestResponse<RequestT, ResponseT> requestResponse, boolean ownsPermit) {
+  private void executeBatch(RequestResponse<RequestT, ResponseT> requestResponse) {
     ImmutableList<RequestResponse<RequestT, ResponseT>> batch = populateBatch(requestResponse);
     ListenableFuture<List<ResponseT>> futureResponses =
         multiplexer.execute(Lists.transform(batch, RequestResponse::request));
 
-    if (ownsPermit) {
-      futureResponses.addListener(this::continueToNextBatchOrBecomeIdle, executor);
-    }
+    futureResponses.addListener(this::continueToNextBatchOrBecomeIdle, executor);
 
     addCallback(
         futureResponses,
@@ -335,7 +308,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
   }
 
   /**
-   * Polls everything available in {@link #queue} and creates a batch.
+   * Polls at most {@link #BATCH_SIZE} elements from the {@link #queue} and creates a batch.
    *
    * @param requestResponse an element to add to the batch.
    */
@@ -349,16 +322,14 @@ public final class RequestBatcher<RequestT, ResponseT> {
       if (requestCount == 0) {
         break;
       }
-      int toRead = min(BATCH_READ_STRIDE, requestCount);
+      int toRead = min(BATCH_SIZE, requestCount);
       if (!UNSAFE.compareAndSwapInt(null, countersAddress, snapshot, snapshot - toRead)) {
         continue;
       }
       for (int i = 0; i < toRead; i++) {
         accumulator.add(queue.take());
       }
-      if (toRead == requestCount) {
-        break; // the queue is drained
-      }
+      break;
     }
     return accumulator.build();
   }
@@ -366,16 +337,14 @@ public final class RequestBatcher<RequestT, ResponseT> {
   /**
    * Either processes the next batch or releases the held token.
    *
-   * <p>Tries to process the next batch if enqueued requests are available and there are not too
-   * many active workers already. Otherwise, stops working and decrements the active worker count.
+   * <p>Tries to process the next batch if enqueued requests are available. Otherwise, stops working
+   * and decrements the active worker count.
    */
   private void continueToNextBatchOrBecomeIdle() {
     while (true) {
       int snapshot = UNSAFE.getIntVolatile(null, countersAddress);
-      int activeWorkers = snapshot >> ACTIVE_WORKERS_COUNT_BIT_OFFSET;
-      if (activeWorkers > targetWorkerCount || (snapshot & REQUEST_COUNT_MASK) == 0) {
-        // Either the active workers count is above target or there are no enqueued requests. Tries
-        // to become idle.
+      if ((snapshot & REQUEST_COUNT_MASK) == 0) {
+        // There are no enqueued requests. Tries to become idle.
         if (UNSAFE.compareAndSwapInt(
             null, countersAddress, snapshot, snapshot - ONE_ACTIVE_WORKER)) {
           return;
@@ -383,7 +352,7 @@ public final class RequestBatcher<RequestT, ResponseT> {
       } else {
         // Tries to reserve an enqueued request-response to begin another batch.
         if (UNSAFE.compareAndSwapInt(null, countersAddress, snapshot, snapshot - ONE_REQUEST)) {
-          executeBatch(queue.take(), /* ownsPermit= */ true);
+          executeBatch(queue.take());
           return;
         }
       }

@@ -327,11 +327,6 @@ public class RuleContext extends TargetContext
     return getConfiguration().getGenfilesFragment(getLabel().getRepository());
   }
 
-  @Override
-  public ArtifactRoot getMiddlemanDirectory() {
-    return getConfiguration().getMiddlemanDirectory(getLabel().getRepository());
-  }
-
   public Rule getRule() {
     return rule;
   }
@@ -1742,6 +1737,17 @@ public class RuleContext extends TargetContext
               validateDirectPrerequisite(attribute, configuredTarget);
             }
             mapBuilder.put(entry.getKey(), configuredTarget);
+          }
+
+          if (attribute.isForDependencyResolution()) {
+            if (!configuredTarget.isForDependencyResolution()) {
+              attributeError(
+                  attribute.getName(),
+                  String.format(
+                      "attribute marked as available in materializers but prerequisite %s isn't",
+                      AliasProvider.describeTargetWithAliases(
+                          configuredTarget, TargetMode.WITH_KIND)));
+            }
           }
         }
       }

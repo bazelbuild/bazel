@@ -23,10 +23,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -60,7 +64,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         """
         package_group(name = "empty")
         """);
-    addOptions("--serialized_frontier_profile=/tmp/anything");
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
     LoadingFailedException exception =
         assertThrows(LoadingFailedException.class, () -> buildTarget("//foo:empty"));
     assertThat(exception).hasMessageThat().contains("Failed to find PROJECT.scl file");
@@ -78,7 +82,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         """
         active_directories = {"default": ["foo"] }
         """);
-    addOptions("--serialized_frontier_profile=/tmp/anything");
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
     assertThat(buildTarget("//foo:empty").getSuccess()).isTrue();
   }
 
@@ -106,7 +110,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         active_directories = {"default": ["bar"] }
         """);
 
-    addOptions("--serialized_frontier_profile=/tmp/anything");
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
     LoadingFailedException exception =
         assertThrows(LoadingFailedException.class, () -> buildTarget("//foo:empty", "//bar:empty"));
     assertThat(exception)
@@ -135,13 +139,13 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         active_directories = {"default": ["foo"] }
         """);
 
-    addOptions("--serialized_frontier_profile=/tmp/anything");
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
     assertThat(buildTarget("//foo:empty", "//foo/bar:empty").getSuccess()).isTrue();
   }
 
   @Test
   public void activeAspect_activatesBaseConfiguredTarget() throws Exception {
-    setupScenarioWithAspects("--serialized_frontier_profile=/tmp/anything");
+    setupScenarioWithAspects("--experimental_remote_analysis_cache_mode=upload");
     InMemoryGraph graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
 
     ConfiguredTargetKey generateYKey =
@@ -165,9 +169,15 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
       assertThat(key).isInstanceOf(AspectBaseKey.class);
     }
 
+    var matcher =
+        BuildTool.getWorkingSetMatcherForSkyfocus(
+            // We know exactly which PROJECT file is used, so inject it here.
+            Label.parseCanonicalUnchecked("//bar:PROJECT.scl"),
+            getSkyframeExecutor(),
+            getCommandEnvironment().getReporter());
     Map<ActionLookupKey, SelectionMarking> selection =
         FrontierSerializer.computeSelection(
-            graph, getCommandEnvironment().getRuntime().getActiveDirectoriesPrefixTrie());
+            graph, (PackageIdentifier pkgId) -> matcher.includes(pkgId.getPackageFragment()));
 
     ImmutableSet<ActionLookupKey> activeKeys =
         selection.entrySet().stream()
@@ -201,11 +211,48 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
   }
 
   @Test
+  public void buildCommandWithSkymeld_uploadsFrontierBytesWithUploadMode() throws Exception {
+    write(
+        "foo/PROJECT.scl",
+        """
+        active_directories = {"default": ["foo"] }
+        """);
+    write(
+        "foo/BUILD",
+        """
+        genrule(name = "g", srcs = ["//bar"], outs = ["g.out"], cmd = "cp $< $@")
+        genrule(name = "h", srcs = ["//bar"], outs = ["h.out"], cmd = "cp $< $@")
+        """);
+    write(
+        "bar/BUILD",
+        """
+        genrule(name = "bar", outs = ["out"], cmd = "touch $@")
+        """);
+    addOptions(
+        "--experimental_remote_analysis_cache_mode=upload",
+        "--build", // overrides --nobuild in setup step.
+        "--experimental_merged_skyframe_analysis_execution" // forces Skymeld.
+        );
+    assertThat(buildTarget("//foo:all").getSuccess()).isTrue();
+
+    // Validate that Skymeld did run.
+    assertThat(getCommandEnvironment().withMergedAnalysisAndExecutionSourceOfTruth()).isTrue();
+
+    var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
+    assertThat(listener.getSerializedKeysCount()).isAtLeast(1);
+    assertThat(listener.getSkyfunctionCounts().count(SkyFunctions.CONFIGURED_TARGET)).isAtLeast(1);
+
+    assertContainsEvent("Waiting for write futures took an additional");
+  }
+
+  @Test
   public void buildCommand_serializedFrontierProfileContainsExpectedClasses() throws Exception {
     @SuppressWarnings("UnnecessarilyFullyQualified") // to avoid confusion with vfs Paths
     Path profilePath = Files.createTempFile(null, "profile");
 
-    setupScenarioWithAspects("--serialized_frontier_profile=" + profilePath);
+    setupScenarioWithAspects(
+        "--experimental_remote_analysis_cache_mode=upload",
+        "--serialized_frontier_profile=" + profilePath);
 
     // The proto parses successfully from the file.
     var proto =
@@ -259,7 +306,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
         .doesNotContain("com.google.devtools.build.lib.skyframe.NonRuleConfiguredTargetValue");
   }
 
-  private void setupScenarioWithAspects(String... options) throws Exception {
+  protected final void setupScenarioWithAspects(String... options) throws Exception {
     write(
         "foo/provider.bzl",
         """

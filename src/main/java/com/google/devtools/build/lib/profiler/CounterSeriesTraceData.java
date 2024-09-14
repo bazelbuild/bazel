@@ -13,16 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import static java.util.Map.entry;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.gson.stream.JsonWriter;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
@@ -33,7 +29,7 @@ import javax.annotation.Nullable;
  */
 final class CounterSeriesTraceData implements TraceData {
   @VisibleForTesting static final long PROCESS_ID = 1;
-  private final Map<ProfilerTask, double[]> counterSeriesMap;
+  private final Map<CounterSeriesTask, double[]> counterSeriesMap;
   private final Duration profileStart;
   private final Duration bucketDuration;
   private final int len;
@@ -48,25 +44,17 @@ final class CounterSeriesTraceData implements TraceData {
    * map. However, colors the remaining series are picked arbitrarily by the Trace renderer.
    */
   CounterSeriesTraceData(
-      Map<ProfilerTask, double[]> counterSeriesMap,
+      Map<CounterSeriesTask, double[]> counterSeriesMap,
       Duration profileStart,
       Duration bucketDuration) {
     int len = -1;
-    for (Entry<ProfilerTask, double[]> entry : counterSeriesMap.entrySet()) {
-      ProfilerTask profilerTask = entry.getKey();
-      Preconditions.checkState(
-          COUNTER_TASK_TO_SERIES_NAME.containsKey(profilerTask),
-          "COUNTER_TASK_TO_SERIES_NAME does not contain %s",
-          profilerTask);
+    for (var entry : counterSeriesMap.entrySet()) {
+      var task = entry.getKey();
       if (len == -1) {
         len = entry.getValue().length;
 
-        this.displayName = profilerTask.description;
-
-        // Pick acceptable counter colors manually, unfortunately we have to pick from these
-        // weird reserved names from
-        // https://github.com/catapult-project/catapult/blob/master/tracing/tracing/base/color_scheme.html
-        this.colorName = COUNTER_TASK_TO_COLOR.get(profilerTask);
+        this.displayName = task.laneName();
+        this.colorName = task.colorName();
       } else {
         // Check that second and subsequent series have the same length as the first.
         Preconditions.checkState(len == entry.getValue().length);
@@ -78,63 +66,6 @@ final class CounterSeriesTraceData implements TraceData {
     this.profileStart = profileStart;
     this.bucketDuration = bucketDuration;
   }
-
-  // Pick acceptable counter colors manually, unfortunately we have to pick from these
-  // weird reserved names from
-  // https://github.com/catapult-project/catapult/blob/master/tracing/tracing/base/color_scheme.html
-  private static final ImmutableMap<ProfilerTask, String> COUNTER_TASK_TO_COLOR =
-      ImmutableMap.ofEntries(
-          entry(ProfilerTask.LOCAL_ACTION_COUNTS, "detailed_memory_dump"),
-          entry(ProfilerTask.LOCAL_CPU_USAGE, "good"),
-          entry(ProfilerTask.SYSTEM_CPU_USAGE, "rail_load"),
-          entry(ProfilerTask.LOCAL_MEMORY_USAGE, "olive"),
-          entry(ProfilerTask.SYSTEM_MEMORY_USAGE, "bad"),
-          entry(ProfilerTask.SYSTEM_NETWORK_UP_USAGE, "rail_response"),
-          entry(ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE, "rail_response"),
-          entry(ProfilerTask.WORKERS_MEMORY_USAGE, "rail_animation"),
-          entry(ProfilerTask.SYSTEM_LOAD_AVERAGE, "generic_work"),
-          entry(ProfilerTask.MEMORY_USAGE_ESTIMATION, "rail_idle"),
-          entry(ProfilerTask.CPU_USAGE_ESTIMATION, "cq_build_attempt_passed"),
-          entry(ProfilerTask.PRESSURE_STALL_FULL_IO, "rail_animation"),
-          entry(ProfilerTask.PRESSURE_STALL_SOME_IO, "cq_build_attempt_failed"),
-          entry(ProfilerTask.PRESSURE_STALL_FULL_MEMORY, "thread_state_unknown"),
-          entry(ProfilerTask.PRESSURE_STALL_SOME_MEMORY, "rail_idle"),
-          entry(ProfilerTask.PRESSURE_STALL_SOME_CPU, "thread_state_running"));
-
-  private static final ImmutableMap<ProfilerTask, String> COUNTER_TASK_TO_SERIES_NAME =
-      ImmutableMap.ofEntries(
-          entry(ProfilerTask.ACTION_COUNTS, "action"),
-          entry(ProfilerTask.ACTION_CACHE_COUNTS, "local action cache"),
-          entry(ProfilerTask.LOCAL_ACTION_COUNTS, "local action"),
-          entry(ProfilerTask.LOCAL_CPU_USAGE, "cpu"),
-          entry(ProfilerTask.SYSTEM_CPU_USAGE, "system cpu"),
-          entry(ProfilerTask.LOCAL_MEMORY_USAGE, "memory"),
-          entry(ProfilerTask.SYSTEM_MEMORY_USAGE, "system memory"),
-          entry(ProfilerTask.SYSTEM_NETWORK_UP_USAGE, "system network up (Mbps)"),
-          entry(ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE, "system network down (Mbps)"),
-          entry(ProfilerTask.WORKERS_MEMORY_USAGE, "workers memory"),
-          entry(ProfilerTask.SYSTEM_LOAD_AVERAGE, "load"),
-          entry(ProfilerTask.MEMORY_USAGE_ESTIMATION, "estimated memory"),
-          entry(ProfilerTask.CPU_USAGE_ESTIMATION, "estimated cpu"),
-          entry(ProfilerTask.PRESSURE_STALL_FULL_IO, "i/o pressure (full)"),
-          entry(ProfilerTask.PRESSURE_STALL_FULL_MEMORY, "memory pressure (full)"),
-          entry(ProfilerTask.PRESSURE_STALL_SOME_IO, "i/o pressure (some)"),
-          entry(ProfilerTask.PRESSURE_STALL_SOME_MEMORY, "memory pressure (some)"),
-          entry(ProfilerTask.PRESSURE_STALL_SOME_CPU, "cpu pressure (some)"),
-          entry(ProfilerTask.ACTION_EXECUTION_SKYFUNCTION, "action execution (total)"),
-          entry(ProfilerTask.ACTION_EXECUTION_SKYFUNCTION_DONE, "action execution (done)"),
-          entry(ProfilerTask.CONFIGURED_TARGET_SKYFUNCTION, "configured target (total)"),
-          entry(ProfilerTask.CONFIGURED_TARGET_SKYFUNCTION_DONE, "configured target (done)"),
-          entry(ProfilerTask.ASPECT_SKYFUNCTION, "aspect (total)"),
-          entry(ProfilerTask.ASPECT_SKYFUNCTION_DONE, "aspect (done)"),
-          entry(ProfilerTask.PACKAGE_SKYFUNCTION, "package (total)"),
-          entry(ProfilerTask.PACKAGE_SKYFUNCTION_DONE, "package (done)"),
-          entry(ProfilerTask.BZL_LOAD_SKYFUNCTION, "bzl_load (total)"),
-          entry(ProfilerTask.BZL_LOAD_SKYFUNCTION_DONE, "bzl_load (done)"),
-          entry(ProfilerTask.GLOB_SKYFUNCTION, "glob (total)"),
-          entry(ProfilerTask.GLOB_SKYFUNCTION_DONE, "glob (done)"),
-          entry(ProfilerTask.GLOBS_SKYFUNCTION, "globs (total)"),
-          entry(ProfilerTask.GLOBS_SKYFUNCTION_DONE, "globs (done)"));
 
   @Override
   public void writeTraceData(JsonWriter jsonWriter, long profileStartTimeNanos) throws IOException {
@@ -158,12 +89,12 @@ final class CounterSeriesTraceData implements TraceData {
       jsonWriter.name("args");
 
       jsonWriter.beginObject();
-      for (ProfilerTask profilerTask : counterSeriesMap.keySet()) {
-        double value = counterSeriesMap.get(profilerTask)[i];
+      for (var task : counterSeriesMap.keySet()) {
+        double value = counterSeriesMap.get(task)[i];
         // Skip counts equal to zero. They will show up as a thin line in the profile. Once we
         // record the profile task we need to post it until the end.
         if (Math.abs(value) > 0.00001 || recorded) {
-          jsonWriter.name(COUNTER_TASK_TO_SERIES_NAME.get(profilerTask)).value(value);
+          jsonWriter.name(task.seriesName()).value(value);
           recorded = true;
         }
       }

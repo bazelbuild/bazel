@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
@@ -25,8 +26,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
+import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
-import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
@@ -48,6 +49,7 @@ import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
+import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Utility methods for Objc rules in Starlark Builtins */
@@ -283,16 +285,50 @@ public class ObjcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "get_split_target_triplet",
+      name = "get_split_prerequisites",
       documented = false,
-      parameters = {@Param(name = "ctx", named = true)})
-  public Dict<String, StructImpl> getSplitTargetTriplet(StarlarkRuleContext starlarkRuleContext)
-      throws EvalException {
-    return MultiArchBinarySupport.getSplitTargetTripletFromCtads(
+      parameters = {@Param(name = "ctx", named = true)},
+      useStarlarkThread = true)
+  public ImmutableMap<String, BuildConfigurationValue> getSplitPrerequisites(
+      StarlarkRuleContext starlarkRuleContext, StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    Map<Optional<String>, List<ConfiguredTargetAndData>> ctads =
         starlarkRuleContext
             .getRuleContext()
             .getRulePrerequisitesCollection()
-            .getSplitPrerequisites(ObjcRuleClasses.CHILD_CONFIG_ATTR));
+            .getSplitPrerequisites(ObjcRuleClasses.CHILD_CONFIG_ATTR);
+    ImmutableMap.Builder<String, BuildConfigurationValue> result = ImmutableMap.builder();
+    for (Optional<String> splitTransitionKey : ctads.keySet()) {
+      if (!splitTransitionKey.isPresent()) {
+        throw new EvalException("unexpected empty key in split transition");
+      }
+      result.put(
+          splitTransitionKey.get(),
+          Iterables.getOnlyElement(ctads.get(splitTransitionKey)).getConfiguration());
+    }
+    return result.buildOrThrow();
+  }
+
+  @StarlarkMethod(
+      name = "get_apple_config",
+      documented = false,
+      parameters = {@Param(name = "build_config", named = true)},
+      useStarlarkThread = true)
+  public AppleConfiguration getAppleConfig(
+      BuildConfigurationValue buildConfiguration, StarlarkThread thread) throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    return buildConfiguration.getFragment(AppleConfiguration.class);
+  }
+
+  @StarlarkMethod(
+      name = "get_cpu",
+      documented = false,
+      parameters = {@Param(name = "build_config", named = true)},
+      useStarlarkThread = true)
+  public String getCpu(BuildConfigurationValue buildConfiguration, StarlarkThread thread)
+      throws EvalException {
+    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+    return buildConfiguration.getCpu();
   }
 
   @StarlarkMethod(

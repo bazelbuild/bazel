@@ -53,6 +53,7 @@ import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
@@ -86,11 +87,11 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
+import com.google.devtools.build.lib.remote.RemoteCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.RemoteScrubbing.Config;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver.DefaultRemotePathResolver;
@@ -156,7 +157,6 @@ public class RemoteExecutionServiceTest {
   private FileSystem fs;
   private Path execRoot;
   private ArtifactRoot artifactRoot;
-  private ArtifactRoot middlemanRoot;
   private TempPathGenerator tempPathGenerator;
   private FakeActionInputFileCache fakeFileCache;
   private RemotePathResolver remotePathResolver;
@@ -177,8 +177,6 @@ public class RemoteExecutionServiceTest {
     execRoot.createDirectoryAndParents();
 
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
-    middlemanRoot =
-        ArtifactRoot.asDerivedRoot(execRoot, RootType.Middleman, PathFragment.create("out"));
 
     checkNotNull(artifactRoot.getRoot().asPath()).createDirectoryAndParents();
 
@@ -1648,7 +1646,7 @@ public class RemoteExecutionServiceTest {
 
     // act
     UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
-    service.uploadOutputs(action, spawnResult, () -> {});
+    uploadOutputsAndWait(service, action, spawnResult);
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -1695,7 +1693,7 @@ public class RemoteExecutionServiceTest {
 
     // act
     UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
-    service.uploadOutputs(action, spawnResult, () -> {});
+    uploadOutputsAndWait(service, action, spawnResult);
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -1769,7 +1767,7 @@ public class RemoteExecutionServiceTest {
 
     // act
     UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
-    service.uploadOutputs(action, spawnResult, () -> {});
+    uploadOutputsAndWait(service, action, spawnResult);
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -1805,7 +1803,7 @@ public class RemoteExecutionServiceTest {
 
     // act
     UploadManifest manifest = service.buildUploadManifest(action, spawnResult);
-    service.uploadOutputs(action, spawnResult, () -> {});
+    uploadOutputsAndWait(service, action, spawnResult);
 
     // assert
     ActionResult.Builder expectedResult = ActionResult.newBuilder();
@@ -1851,7 +1849,7 @@ public class RemoteExecutionServiceTest {
             .build();
 
     // act
-    service.uploadOutputs(action, spawnResult, () -> {});
+    uploadOutputsAndWait(service, action, spawnResult);
 
     // assert
     assertThat(
@@ -1877,7 +1875,7 @@ public class RemoteExecutionServiceTest {
         .when(cache)
         .uploadActionResult(any(), any(), any());
 
-    service.uploadOutputs(action, spawnResult, () -> {});
+    uploadOutputsAndWait(service, action, spawnResult);
 
     assertThat(eventHandler.getEvents()).hasSize(1);
     Event evt = eventHandler.getEvents().get(0);
@@ -1902,7 +1900,7 @@ public class RemoteExecutionServiceTest {
             .setRunnerName("test")
             .build();
 
-    service.uploadOutputs(action, spawnResult, () -> {});
+    uploadOutputsAndWait(service, action, spawnResult);
 
     assertThat(eventHandler.getPosts())
         .containsAtLeast(
@@ -1929,7 +1927,7 @@ public class RemoteExecutionServiceTest {
             .setRunnerName("test")
             .build();
 
-    service.uploadOutputs(action, spawnResult, () -> {});
+    uploadOutputsAndWait(service, action, spawnResult);
 
     // assert
     assertThat(cache.getNumFindMissingDigests()).isEmpty();
@@ -2091,7 +2089,8 @@ public class RemoteExecutionServiceTest {
         NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, foo2File);
     fakeFileCache.createScratchInput(foo2File, "foo2");
 
-    ActionInput runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanRoot, "runfiles");
+    ActionInput runfilesMiddleman =
+        ActionsTestUtil.createRunfilesArtifact(artifactRoot, "tools/tool.runfiles");
 
     NestedSet<ActionInput> nodeRoot1 =
         new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
@@ -2524,7 +2523,8 @@ public class RemoteExecutionServiceTest {
         tempPathGenerator,
         null,
         remoteOutputChecker,
-        outputService);
+        outputService,
+        Sets.newConcurrentHashSet());
   }
 
   private RunfilesTree createRunfilesTree(String root, Collection<Artifact> artifacts) {
@@ -2569,5 +2569,12 @@ public class RemoteExecutionServiceTest {
       }
       dir.createDirectoryAndParents();
     }
+  }
+
+  private static void uploadOutputsAndWait(
+      RemoteExecutionService service, RemoteAction action, SpawnResult result) throws Exception {
+    SettableFuture<Void> future = SettableFuture.create();
+    service.uploadOutputs(action, result, () -> future.set(null));
+    future.get();
   }
 }

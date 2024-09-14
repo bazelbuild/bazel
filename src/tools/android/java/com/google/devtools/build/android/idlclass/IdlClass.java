@@ -14,15 +14,16 @@
 
 package com.google.devtools.build.android.idlclass;
 
+import com.beust.jcommander.JCommander;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
+import com.google.devtools.build.android.AndroidOptionsUtils;
 import com.google.devtools.build.buildjar.jarhelper.JarCreator;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.CompilationUnit;
 import com.google.devtools.build.buildjar.proto.JavaCompilation.Manifest;
-import com.google.devtools.common.options.Options;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -42,10 +43,11 @@ import java.util.jar.JarFile;
 public class IdlClass {
 
   public static void main(String[] args) throws IOException {
-    Options<IdlClassOptions> options =
-        Options.parseAndExitUponError(IdlClassOptions.class, /*allowResidue=*/ true, args);
-
-    IdlClassOptions idlClassOptions = options.getOptions();
+    IdlClassOptions idlClassOptions = new IdlClassOptions();
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(idlClassOptions, preprocessedArgs);
+    JCommander.newBuilder().addObject(idlClassOptions).build().parse(normalizedArgs);
     Preconditions.checkNotNull(idlClassOptions.manifestProto);
     Preconditions.checkNotNull(idlClassOptions.classJar);
     Preconditions.checkNotNull(idlClassOptions.outputClassJar);
@@ -53,7 +55,7 @@ public class IdlClass {
     Preconditions.checkNotNull(idlClassOptions.tempDir);
 
     List<Path> idlSources = Lists.newArrayList();
-    for (String idlSource : options.getRemainingArgs()) {
+    for (String idlSource : idlClassOptions.residue) {
       idlSources.add(Paths.get(idlSource));
     }
 

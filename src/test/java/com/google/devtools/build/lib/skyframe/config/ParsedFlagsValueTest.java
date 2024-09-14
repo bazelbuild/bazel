@@ -33,12 +33,12 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for {@link NativeAndStarlarkFlags}. */
+/** Unit tests for {@link ParsedFlagsValue}. */
 @RunWith(JUnit4.class)
-public class NativeAndStarlarkFlagsTest {
+public final class ParsedFlagsValueTest {
+
   /** Extra options for this test. */
-  public static class DummyTestOptions extends FragmentOptions {
-    public DummyTestOptions() {}
+  public static final class DummyTestOptions extends FragmentOptions {
 
     @Option(
         name = "str_option",
@@ -101,11 +101,7 @@ public class NativeAndStarlarkFlagsTest {
   }
 
   private static final ImmutableSet<Class<? extends FragmentOptions>> BUILD_CONFIG_OPTIONS =
-      ImmutableSet.of(BuildOptionsTest.DummyTestOptions.class);
-
-  private static ImmutableSet.Builder<Class<? extends FragmentOptions>> makeOptionsClassBuilder() {
-    return ImmutableSet.<Class<? extends FragmentOptions>>builder().addAll(BUILD_CONFIG_OPTIONS);
-  }
+      ImmutableSet.of(DummyTestOptions.class);
 
   @Test
   public void parse() throws Exception {
@@ -117,10 +113,11 @@ public class NativeAndStarlarkFlagsTest {
             .starlarkFlagDefaults(ImmutableMap.of("//custom:flag", "default"))
             .build();
 
-    OptionsParsingResult result = flags.parse();
-    assertThat(result.getOptions(BuildOptionsTest.DummyTestOptions.class).strOption)
-        .isEqualTo("bar");
-    assertThat(result.getOptions(BuildOptionsTest.DummyTestOptions.class).boolOption).isFalse();
+    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
+
+    OptionsParsingResult result = parsedFlags.parsingResult();
+    assertThat(result.getOptions(DummyTestOptions.class).strOption).isEqualTo("bar");
+    assertThat(result.getOptions(DummyTestOptions.class).boolOption).isFalse();
     assertThat(result.getStarlarkOptions()).containsAtLeast("//custom:flag", "hello");
   }
 
@@ -136,16 +133,17 @@ public class NativeAndStarlarkFlagsTest {
             .starlarkFlags(ImmutableMap.of("//custom:flag", "hello"))
             .starlarkFlagDefaults(ImmutableMap.of("//custom:flag", "default"))
             .build();
+    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
-    BuildOptions modified = flags.mergeWith(original);
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
     // Ensure the original wasn't modified.
-    assertThat(original.get(BuildOptionsTest.DummyTestOptions.class))
-        .isNotEqualTo(modified.get(BuildOptionsTest.DummyTestOptions.class));
+    assertThat(original.get(DummyTestOptions.class))
+        .isNotEqualTo(modified.get(DummyTestOptions.class));
 
     // Check the modified values.
-    assertThat(modified.get(BuildOptionsTest.DummyTestOptions.class).strOption).isEqualTo("bar");
-    assertThat(modified.get(BuildOptionsTest.DummyTestOptions.class).boolOption).isFalse();
+    assertThat(modified.get(DummyTestOptions.class).strOption).isEqualTo("bar");
+    assertThat(modified.get(DummyTestOptions.class).boolOption).isFalse();
     assertThat(modified.getStarlarkOptions())
         .containsAtLeast(Label.parseCanonicalUnchecked("//custom:flag"), "hello");
   }
@@ -153,20 +151,22 @@ public class NativeAndStarlarkFlagsTest {
   @Test
   public void mergeWith_unknownNativeFragment() throws Exception {
     // Only use the basic flags.
-    BuildOptions original = BuildOptions.of(makeOptionsClassBuilder().build());
+    BuildOptions original = BuildOptions.of(BUILD_CONFIG_OPTIONS);
 
     // Add another fragment with different flags.
     NativeAndStarlarkFlags flags =
         NativeAndStarlarkFlags.builder()
             .optionsClasses(
-                makeOptionsClassBuilder()
+                ImmutableSet.<Class<? extends FragmentOptions>>builder()
+                    .addAll(BUILD_CONFIG_OPTIONS)
                     .add(BuildOptionsTest.SecondDummyTestOptions.class)
                     .build())
             .nativeFlags(ImmutableList.of("--second_str_option=bar"))
             .build();
+    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
     // The native flags that are unknown to the original options should not be present.
-    BuildOptions modified = flags.mergeWith(original);
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
     assertThat(modified.contains(BuildOptionsTest.SecondDummyTestOptions.class)).isFalse();
   }
 
@@ -179,10 +179,11 @@ public class NativeAndStarlarkFlagsTest {
             .optionsClasses(BUILD_CONFIG_OPTIONS)
             .starlarkFlags(ImmutableMap.of("@@@", "hello"))
             .build();
+    ParsedFlagsValue parsedFlagsValue = ParsedFlagsValue.parseAndCreate(flags);
 
     // BuildOptions, unlike OptionsParser, uses a Label for the key, so this is the only code path
     // that validates that a starlark flag is actually a Label.
-    assertThrows(IllegalArgumentException.class, () -> flags.mergeWith(original));
+    assertThrows(IllegalArgumentException.class, () -> parsedFlagsValue.mergeWith(original));
   }
 
   @Test
@@ -194,10 +195,11 @@ public class NativeAndStarlarkFlagsTest {
             .optionsClasses(BUILD_CONFIG_OPTIONS)
             .nativeFlags(ImmutableList.of("--list_option=foo,bar"))
             .build();
+    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
-    BuildOptions modified = flags.mergeWith(original);
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
-    assertThat(modified.get(BuildOptionsTest.DummyTestOptions.class).listOption)
+    assertThat(modified.get(DummyTestOptions.class).listOption)
         // Because this flag does not allow multiple values the list simply overwrites the previous
         // value.
         .containsExactly("foo", "bar")
@@ -213,13 +215,12 @@ public class NativeAndStarlarkFlagsTest {
             .optionsClasses(BUILD_CONFIG_OPTIONS)
             .nativeFlags(ImmutableList.of("--dummy_option=direct"))
             .build();
+    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
-    BuildOptions modified = flags.mergeWith(original);
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
-    assertThat(modified.get(BuildOptionsTest.DummyTestOptions.class).dummyOption)
-        .isEqualTo("direct");
-    assertThat(modified.get(BuildOptionsTest.DummyTestOptions.class).implicitOption)
-        .isEqualTo("set_implicitly");
+    assertThat(modified.get(DummyTestOptions.class).dummyOption).isEqualTo("direct");
+    assertThat(modified.get(DummyTestOptions.class).implicitOption).isEqualTo("set_implicitly");
   }
 
   @Test
@@ -231,10 +232,11 @@ public class NativeAndStarlarkFlagsTest {
             .optionsClasses(BUILD_CONFIG_OPTIONS)
             .nativeFlags(ImmutableList.of("--accumulating_option=foo", "--accumulating_option=bar"))
             .build();
+    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
-    BuildOptions modified = flags.mergeWith(original);
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
-    assertThat(modified.get(BuildOptionsTest.DummyTestOptions.class).accumulatingOption)
+    assertThat(modified.get(DummyTestOptions.class).accumulatingOption)
         .containsExactly("foo", "bar")
         .inOrder();
   }
@@ -255,8 +257,9 @@ public class NativeAndStarlarkFlagsTest {
             .starlarkFlags(ImmutableMap.of("//custom:flag", "override"))
             .starlarkFlagDefaults(ImmutableMap.of("//custom:flag", "default"))
             .build();
+    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
-    BuildOptions modified = flags.mergeWith(original);
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
     // Check the modified values.
     assertThat(modified.getStarlarkOptions())
@@ -276,8 +279,9 @@ public class NativeAndStarlarkFlagsTest {
             .starlarkFlags(ImmutableMap.of("//custom:flag", "default"))
             .starlarkFlagDefaults(ImmutableMap.of("//custom:flag", "default"))
             .build();
+    ParsedFlagsValue parsedFlags = ParsedFlagsValue.parseAndCreate(flags);
 
-    BuildOptions modified = flags.mergeWith(original);
+    BuildOptions modified = parsedFlags.mergeWith(original).getOptions();
 
     // The Starlark flag should not be present since it was reset to the default value
     assertThat(modified.getStarlarkOptions())

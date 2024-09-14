@@ -458,15 +458,18 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
         continue;
       }
       profiler.logCounters(
-          ImmutableMap.ofEntries(Map.entry(task, timeSeries.get(task).toDoubleArray(len))),
+          ImmutableMap.ofEntries(
+              Map.entry(
+                  CounterSeriesTask.ofProfilerTask(task), timeSeries.get(task).toDoubleArray(len))),
           profileStart,
           BUCKET_DURATION);
     }
 
     for (List<ProfilerTask> taskGroup : stackedTaskGroups) {
-      ImmutableMap.Builder<ProfilerTask, double[]> stackedCounters = ImmutableMap.builder();
+      ImmutableMap.Builder<CounterSeriesTask, double[]> stackedCounters = ImmutableMap.builder();
       for (ProfilerTask task : taskGroup) {
-        stackedCounters.put(task, timeSeries.get(task).toDoubleArray(len));
+        stackedCounters.put(
+            CounterSeriesTask.ofProfilerTask(task), timeSeries.get(task).toDoubleArray(len));
       }
       profiler.logCounters(stackedCounters.buildOrThrow(), profileStart, BUCKET_DURATION);
     }

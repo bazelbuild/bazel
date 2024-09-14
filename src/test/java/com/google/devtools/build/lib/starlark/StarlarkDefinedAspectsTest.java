@@ -5767,6 +5767,7 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
           attrs = {
             'deps': attr.label_list(),
           },
+          provides = [rule_prov_a, rule_prov_b],
         )
 
         def _rule_with_prov_a_impl(ctx):

@@ -246,8 +246,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "duplicaterulename/BUILD",
         """
         proto_library(name = 'spellcheck_proto',
-                 srcs = ['spellcheck.proto'],
-                 cc_api_version = 2)
+                 srcs = ['spellcheck.proto'])
         cc_library(name = 'spellcheck_proto')  # conflict error stops execution
         x = 1//0  # not reached
         """);
@@ -327,8 +326,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "dup/BUILD",
         """
         proto_library(name = 'dup_proto',
-                      srcs  = ['dup.proto'],
-                      cc_api_version = 2)
+                      srcs  = ['dup.proto'])
 
         cc_library(name = 'dup_proto',
                    srcs = ['dup.pb.cc', 'dup.pb.h'])

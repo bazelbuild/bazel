@@ -35,12 +35,12 @@ public class BuildEventProtocolOptions extends OptionsBase {
 
   @Option(
       name = "legacy_important_outputs",
-      defaultValue = "true",
+      defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "Use this to suppress generation of the legacy important_outputs field in the "
-              + "TargetComplete event. important_outputs are required for Bazel to ResultStore "
+              + "TargetComplete event. important_outputs are required for Bazel to ResultStore/BTX "
               + "integration.")
   public boolean legacyImportantOutputs;
 

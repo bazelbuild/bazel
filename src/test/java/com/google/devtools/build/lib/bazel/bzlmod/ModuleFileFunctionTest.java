@@ -336,6 +336,25 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
   }
 
   @Test
+  public void testRootModule_overridesIgnoredWithIgnoreDevDependency() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        "bazel_dep(name='aaa')",
+        "single_version_override(module_name='ddd',version='18')",
+        "local_path_override(module_name='eee',path='somewhere/else')",
+        "multiple_version_override(module_name='fff',versions=['1.0','2.0'])",
+        "archive_override(module_name='ggg',urls=['https://hello.com/world.zip'])");
+    FakeRegistry registry = registryFactory.newFakeRegistry("/foo");
+    ModuleFileFunction.REGISTRIES.set(differencer, ImmutableSet.of(registry.getUrl()));
+    ModuleFileFunction.IGNORE_DEV_DEPS.set(differencer, true);
+
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.get(ModuleFileValue.KEY_FOR_ROOT_MODULE).getOverrides()).isEmpty();
+  }
+
+  @Test
   public void testRootModule_include_good() throws Exception {
     scratch.overwriteFile(
         rootDirectory.getRelative("MODULE.bazel").getPathString(),

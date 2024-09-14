@@ -96,21 +96,15 @@ public final class AttributeTest {
   }
 
   @Test
-  public void testDoublePropertySet() {
+  public void testSettingConfigurationTwiceDisallowed() {
     Attribute.Builder<String> builder =
         attr("x", STRING)
             .mandatory()
             .cfg(ExecutionTransitionFactory.createFactory())
             .undocumented("")
             .value("y");
-    assertThrows(IllegalStateException.class, builder::mandatory);
     assertThrows(
         IllegalStateException.class, () -> builder.cfg(ExecutionTransitionFactory.createFactory()));
-    assertThrows(IllegalStateException.class, () -> builder.undocumented(""));
-    assertThrows(IllegalStateException.class, () -> builder.value("z"));
-
-    Attribute.Builder<String> builder2 = attr("$x", STRING);
-    assertThrows(IllegalStateException.class, () -> builder2.undocumented(""));
   }
 
   /**

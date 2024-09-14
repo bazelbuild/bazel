@@ -766,7 +766,10 @@ sh_test(
     size = "medium",
     srcs = ["load_removed_symbols_test.sh"],
     data = [":test-deps"],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",
+    ],
 )
 
 sh_test(

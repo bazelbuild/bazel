@@ -18,14 +18,15 @@ java_library(
         "//src/tools/android/java/com/google/devtools/build/android:__pkg__",
     ],
     deps = [
-        "//src/main/java/com/google/devtools/common/options",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//src/tools/android/java/com/google/devtools/build/android:android_options_utils",
         "//src/tools/android/java/com/google/devtools/build/android/desugar/io",
         "//third_party:asm",
         "//third_party:asm-commons",
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
+        "@maven//:com_beust_jcommander",
     ],
 )
 

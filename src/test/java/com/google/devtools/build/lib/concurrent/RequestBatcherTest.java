@@ -59,8 +59,8 @@ public final class RequestBatcherTest {
   }
 
   @Test
-  public void queueOverflow_startsNewBatch() throws Exception {
-    // This covers Step 1C of the documentation.
+  public void queueOverflow_sleeps() throws Exception {
+    // This covers the overflow case of Step 1B in the documentation.
 
     var multiplexer = new SettableMultiplexer();
     var batcher =
@@ -76,25 +76,42 @@ public final class RequestBatcherTest {
       responses.add(batcher.submit(new Request(i + 1)));
     }
 
-    // The next request triggers a queue overflow and causes a worker to be started unconditionally.
-    responses.add(batcher.submit(new Request(ConcurrentFifo.MAX_ELEMENTS + 1)));
+    // The next request triggers a queue overflow. Since this ends up blocking, we do it in another
+    // thread.
+    var overflowStarting = new CountDownLatch(1);
+    var overflowAdded = new CountDownLatch(1);
+    // A new thread needs must used here instead of commonPool because there are test environments
+    // where commonPool has only a single thread.
+    new Thread(
+            () -> {
+              overflowStarting.countDown();
+              responses.add(batcher.submit(new Request(ConcurrentFifo.MAX_ELEMENTS + 1)));
+              overflowAdded.countDown();
+            })
+        .start();
+
+    // The following assertion will occasionally fail if the overflow submit above does not block.
+    overflowStarting.await();
+    assertThat(responses).hasSize(ConcurrentFifo.MAX_ELEMENTS);
+
+    // Responding to the first batch enables the overflowing element to enter the queue.
+    requestResponses0.setSimpleResponses();
+    assertThat(response0.get()).isEqualTo(new Response(0));
+    overflowAdded.await();
     assertThat(responses).hasSize(ConcurrentFifo.MAX_ELEMENTS + 1);
 
-    BatchedRequestResponses requestResponsesOverflow = multiplexer.queue.take();
-    assertThat(requestResponsesOverflow.requests()).hasSize(ConcurrentFifo.MAX_ELEMENTS + 1);
-    requestResponsesOverflow.setSimpleResponses();
+    // Responds to all remaining batches.
+    int batchSize = RequestBatcher.BATCH_SIZE + 1;
+    int batchCount = responses.size() / batchSize;
+    assertThat(responses).hasSize(batchCount * batchSize);
+
+    for (int i = 0; i < batchCount; i++) {
+      multiplexer.queue.take().setSimpleResponses();
+    }
 
     for (int i = 0; i < ConcurrentFifo.MAX_ELEMENTS + 1; i++) {
       assertThat(responses.get(i).get()).isEqualTo(new Response(i + 1));
     }
-
-    // response0 is still not done, despite the overflow batch being done. This demonstrates that
-    // the overflow batch is processed on an independent worker.
-    assertThat(response0.isDone()).isFalse();
-
-    // Completes response0.
-    requestResponses0.setSimpleResponses();
-    assertThat(response0.get()).isEqualTo(new Response(0));
   }
 
   @Test

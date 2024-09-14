@@ -59,7 +59,8 @@ public final class PlatformProducerTest extends ProducerTestCase {
 
     assertThat(result).isNotNull();
     assertThat(result.platformInfo().label()).isEqualTo(platformLabel);
-    assertThat(result.parsedFlags().nativeFlags()).containsExactly("--cpu=fast");
+    assertThat(result.parsedFlags().get().parsingResult().canonicalize())
+        .containsExactly("--cpu=fast");
   }
 
   @Test
@@ -92,7 +93,8 @@ public final class PlatformProducerTest extends ProducerTestCase {
     assertThat(result).isNotNull();
     assertThat(result.platformInfo().label())
         .isEqualTo(Label.parseCanonicalUnchecked("//lookup:basic"));
-    assertThat(result.parsedFlags().nativeFlags()).containsExactly("--cpu=fast");
+    assertThat(result.parsedFlags().get().parsingResult().canonicalize())
+        .containsExactly("--cpu=fast");
   }
 
   @Test

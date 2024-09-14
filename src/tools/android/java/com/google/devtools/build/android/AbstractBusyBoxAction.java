@@ -17,7 +17,6 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.ParameterException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Stopwatch;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.nio.file.Path;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -36,7 +35,7 @@ public abstract class AbstractBusyBoxAction {
   public void invoke(String[] args) throws Exception {
     try {
       invokeWithoutExit(args);
-    } catch (UserException | OptionsParsingException | ParameterException e) {
+    } catch (UserException | ParameterException e) {
       getLogger().severe(e.getMessage());
       // In Bazel, users tend to assume that a stack trace indicates a bug in underlying Bazel code
       // and ignore the content of the exception. If we know that the exception was actually their

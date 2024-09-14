@@ -647,6 +647,7 @@ public final class SkyframeActionExecutor {
       Action action,
       InputMetadataProvider inputMetadataProvider,
       OutputMetadataStore outputMetadataStore,
+      ArtifactPathResolver artifactPathResolver,
       ArtifactExpander artifactExpander,
       long actionStartTime,
       List<Artifact> resolvedCacheArtifacts,
@@ -707,6 +708,11 @@ public final class SkyframeActionExecutor {
                 @Override
                 public Path getExecRoot() {
                   return executorEngine.getExecRoot();
+                }
+
+                @Override
+                public ArtifactPathResolver getPathResolver() {
+                  return artifactPathResolver;
                 }
 
                 @Override

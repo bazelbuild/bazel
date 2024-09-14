@@ -30,12 +30,12 @@ java_library(
         "//conditions:default": ["NoAndroidSdkStubTest.java"],
     }),
     deps = [
-        "//src/main/java/com/google/devtools/common/options:options_internal",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
         "//src/tools/android/java/com/google/devtools/build/android/r8",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "//third_party/java:jcommander",
         "@android_gmaven_r8//jar",
         "@bazel_tools//tools/java/runfiles",
     ],

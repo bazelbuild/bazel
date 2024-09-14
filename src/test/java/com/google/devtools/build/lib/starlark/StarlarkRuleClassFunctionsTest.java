@@ -1569,9 +1569,51 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     StarlarkRuleFunction longDocumentedRule =
         (StarlarkRuleFunction) ev.lookup("long_documented_rule");
     StarlarkRuleFunction undocumentedRule = (StarlarkRuleFunction) ev.lookup("undocumented_rule");
-    assertThat(documentedRule.getDocumentation()).hasValue("My doc string");
-    assertThat(longDocumentedRule.getDocumentation()).hasValue("Long doc\n\nWith details");
-    assertThat(undocumentedRule.getDocumentation()).isEmpty();
+    assertThat(documentedRule.getRuleClass().getStarlarkDocumentation()).isEqualTo("My doc string");
+    assertThat(longDocumentedRule.getRuleClass().getStarlarkDocumentation())
+        .isEqualTo("Long doc\n\nWith details");
+    assertThat(undocumentedRule.getRuleClass().getStarlarkDocumentation()).isNull();
+  }
+
+  @Test
+  public void testStarlarkLabelAndName() throws Exception {
+    scratch.file(
+        "p/rule_meta_constructor.bzl",
+        """
+        def rule_meta_constructor(impl):
+            return rule(impl)
+        """);
+    scratch.file(
+        "p/rule_definition.bzl",
+        """
+        load("rule_meta_constructor.bzl", "rule_meta_constructor")
+
+        def _impl(ctx):
+            pass
+
+        original_rule_symbol = rule_meta_constructor(_impl)
+        """);
+    scratch.file(
+        "p/rule_alias.bzl",
+        """
+        load("rule_definition.bzl", "original_rule_symbol")
+
+        aliased_rule_symbol = original_rule_symbol
+        """);
+    scratch.file(
+        "p/BUILD",
+        """
+        load("rule_alias.bzl", "aliased_rule_symbol")
+
+        aliased_rule_symbol(name = "p")
+        """);
+
+    RuleClass ruleClass = createRuleContext("//p").getRuleClassUnderEvaluation();
+    assertThat(ruleClass.getRuleDefinitionEnvironmentLabel())
+        .isEqualTo(Label.parseCanonicalUnchecked("//p:rule_definition.bzl"));
+    assertThat(ruleClass.getStarlarkExtensionLabel())
+        .isEqualTo(Label.parseCanonicalUnchecked("//p:rule_definition.bzl"));
+    assertThat(ruleClass.getName()).isEqualTo("original_rule_symbol");
   }
 
   @Test
@@ -1695,17 +1737,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "def _impl(ctx): return None",
         "r1 = rule(_impl, attrs = { 'srcs': attr.label_list(flags = ['NO-SUCH-FLAG']) })");
     ev.assertContainsError("unknown attribute flag 'NO-SUCH-FLAG'");
-  }
-
-  @Test
-  public void duplicateRuleAttributeFlags_forbidden() throws Exception {
-    ev.setFailFast(false);
-    evalAndExport(
-        ev,
-        "def _impl(ctx): return None",
-        "r1 = rule(_impl, attrs = { 'srcs': attr.label_list(mandatory = True,",
-        "                                                   flags = ['MANDATORY']) })");
-    ev.assertContainsError("'MANDATORY' flag is already set");
   }
 
   @Test

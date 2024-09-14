@@ -384,7 +384,6 @@ final class AspectFunction implements SkyFunction {
               ConfiguredTargetKey.fromConfiguredTarget(associatedTarget),
               topologicalAspectPath,
               buildViewProvider.getSkyframeBuildView().getStarlarkTransitionCache(),
-              buildViewProvider.getSkyframeBuildView().getBuildConfigurationKeyCache(),
               starlarkExecTransition.orElse(null),
               env,
               env.getListener(),
@@ -892,10 +891,7 @@ final class AspectFunction implements SkyFunction {
                 .build()
             : null;
     return AspectValue.create(
-        originalKey,
-        aspect,
-        ConfiguredAspect.forAlias(real),
-        transitivePackages);
+        originalKey, aspect, ConfiguredAspect.forAlias(real), transitivePackages);
   }
 
   private static AspectKey buildAliasAspectKey(
@@ -996,8 +992,8 @@ final class AspectFunction implements SkyFunction {
       throw new AspectFunctionException(
           new AspectCreationException(msg, key.getLabel(), configuration));
     }
-    Preconditions.checkState(!analysisEnvironment.hasErrors(),
-        "Analysis environment hasError() but no errors reported");
+    Preconditions.checkState(
+        !analysisEnvironment.hasErrors(), "Analysis environment hasError() but no errors reported");
 
     if (env.valuesMissing()) {
       return null;
@@ -1006,11 +1002,7 @@ final class AspectFunction implements SkyFunction {
     analysisEnvironment.disable(associatedTarget);
     Preconditions.checkNotNull(configuredAspect);
 
-    return AspectValue.create(
-        key,
-        aspect,
-        configuredAspect,
-        transitiveState.transitivePackages());
+    return AspectValue.create(key, aspect, configuredAspect, transitiveState.transitivePackages());
   }
 
   private static boolean aspectMatchesConfiguredTarget(

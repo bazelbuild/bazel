@@ -23,14 +23,12 @@ import com.android.dx.dex.code.PositionList;
 import com.android.dx.dex.file.ClassDefItem;
 import com.android.dx.dex.file.DexFile;
 import com.android.dx.util.ByteArray;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
+import com.beust.jcommander.Parameters;
 import com.google.auto.value.AutoValue;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.io.ByteStreams;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.io.PrintStream;
 import java.lang.reflect.Field;
 
@@ -41,78 +39,45 @@ class Dexing {
 
   static final PrintStream nullout = new PrintStream(ByteStreams.nullOutputStream());
 
-  private static int convertPositions(String input) throws OptionsParsingException {
+  private static int convertPositions(String input) throws ParameterException {
     for (Field field : PositionList.class.getFields()) {
       if (field.getName().equalsIgnoreCase(input)) {
         try {
           return field.getInt(null);
         } catch (RuntimeException | IllegalAccessException e) {
-          throw new OptionsParsingException("Can't parse positions option", input, e);
+          throw new ParameterException("Can't parse positions option " + input + e.toString());
         }
       }
     }
-    throw new OptionsParsingException("Unknown positions option", input);
+    throw new ParameterException("Unknown positions option " + input);
   }
 
-  /**
-   * Common command line options for use with {@link Dexing}.
-   */
-  public static class DexingOptions extends OptionsBase {
+  /** Common command line options for use with {@link Dexing}. */
+  @Parameters(separators = "= ")
+  public static class DexingOptions {
 
-    @Option(
-      name = "locals",
-      defaultValue = "true", // dx's default
-      category = "semantics",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      allowMultiple = false,
-      help = "Whether to include local variable tables (useful for debugging)."
-    )
-    public boolean localInfo;
+    @Parameter(
+        names = "--locals",
+        arity = 1,
+        description = "Whether to include local variable tables (useful for debugging).")
+    public boolean localInfo = true; // dx's default
 
-    @Option(
-      name = "optimize",
-      defaultValue = "true", // dx's default
-      category = "semantics",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      allowMultiple = false,
-      help = "Whether to do SSA/register optimization."
-    )
-    public boolean optimize;
+    @Parameter(
+        names = "--optimize",
+        arity = 1,
+        description = "Whether to do SSA/register optimization.")
+    public boolean optimize = true; // dx's default
 
-    @Option(
-        name = "positions",
-        defaultValue = "lines", // dx's default
-        category = "semantics",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "How densely to emit line number information.")
-    public String positionInfo;
+    @Parameter(names = "--positions", description = "How densely to emit line number information.")
+    public String positionInfo = "lines"; // dx's default
 
-    @Option(
-      name = "warning",
-      defaultValue = "true", // dx's default
-      category = "misc",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      allowMultiple = false,
-      help = "Whether to print warnings."
-    )
-    public boolean printWarnings;
+    @Parameter(names = "--warning", arity = 1, description = "Whether to print warnings.")
+    public boolean printWarnings = true; // dx's default
 
-    @Option(
-        name = "min_sdk_version",
-        defaultValue = "13", // dx's default is DexFormat.API_NO_EXTENDED_OPCODES = 13
-        category = "misc",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        allowMultiple = false,
-        help = "Min sdk version.")
-    public int minSdkVersion;
+    @Parameter(names = "--min_sdk_version", description = "Min sdk version.")
+    public int minSdkVersion = 13; // dx's default is DexFormat.API_NO_EXTENDED_OPCODES = 13
 
-    public CfOptions toCfOptions(DxContext context) throws OptionsParsingException {
+    public CfOptions toCfOptions(DxContext context) throws ParameterException {
       CfOptions result = new CfOptions();
       result.localInfo = this.localInfo;
       result.optimize = this.optimize;
@@ -172,11 +137,11 @@ class Dexing {
   private final DexOptions dexOptions;
   private final CfOptions cfOptions;
 
-  public Dexing(DexingOptions options) throws OptionsParsingException {
+  public Dexing(DexingOptions options) throws ParameterException {
     this(new DxContext(), options);
   }
 
-  public Dexing(DxContext context, DexingOptions options) throws OptionsParsingException {
+  public Dexing(DxContext context, DexingOptions options) throws ParameterException {
     this(context, options.toDexOptions(), options.toCfOptions(context));
   }
 

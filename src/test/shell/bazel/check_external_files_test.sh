@@ -56,9 +56,6 @@ if "$is_windows"; then
   export MSYS2_ARG_CONV_EXCL="*"
 fi
 
-# TODO: https://github.com/bazelbuild/bazel/issues/23241
-disable_bzlmod
-
 function get_extrepourl() {
   if $is_windows; then
     echo "file:///$(cygpath -m $1)"
@@ -81,8 +78,8 @@ setup_remote() {
 
   mkdir main
   cd main
-  cat >> "WORKSPACE" <<EOF
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+  cat > $(setup_module_dot_bazel) <<EOF
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 http_archive(
   name="remote",
   strip_prefix="remote",
@@ -98,14 +95,14 @@ setup_local() {
   mkdir local_rep
   (
     cd local_rep
-    touch WORKSPACE
+    touch REPO.bazel
     echo 'genrule(name="g", outs=["go"], cmd="echo GO > $@")' > BUILD
   )
 
   mkdir main
   cd main
-  cat >> "WORKSPACE" <<EOF
-load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+  cat > $(setup_module_dot_bazel) <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 local_repository(
   name="local_rep",
   path="../local_rep",
@@ -117,12 +114,12 @@ test_check_external_files() {
   setup_remote
   bazel build @remote//:g >& "$TEST_log" || fail "Expected build to succeed"
 
-  echo "broken file" > bazel-main/external/remote/BUILD
+  echo "broken file" > bazel-main/external/+_repo_rules+remote/BUILD
   # The --noexperimental_check_external_repository_files flag doesn't notice the file is broken
   bazel build --noexperimental_check_external_repository_files @remote//:g >& "$TEST_log" || fail "Expected build to succeed"
 
   bazel build @remote//:g >& "$TEST_log" && fail "Expected build to fail" || true
-  expect_log "no such target '@@remote//:g'"
+  expect_log "no such target '@@+_repo_rules+remote//:g'"
 }
 
 test_check_all_flags_fast() {
@@ -133,7 +130,7 @@ test_check_all_flags_fast() {
   instances=$(grep -c "$msg" "$(bazel info server_log)")
   [[ $instances -eq 1 ]] || fail "Should have only been 1 instance, got $instances"
 
-  echo "broken file" > bazel-main/external/remote/BUILD
+  echo "broken file" > bazel-main/external/+_repo_rules+remote/BUILD
 
   bazel build \
     --noexperimental_check_external_repository_files \
@@ -159,7 +156,7 @@ run_local_repository_isnt_affected() {
     $extra_args \
     @local_rep//:g >& "$TEST_log" && fail "Expected build to fail" || true
   bazel build --noexperimental_check_external_repository_files @local_rep//:g >& "$TEST_log" && fail "Expected build to fail" || true
-  expect_log "no such target '@@local_rep//:g'"
+  expect_log "no such target '@@+_repo_rules+local_rep//:g'"
 }
 
 test_local_repository_isnt_affected() {
@@ -175,11 +172,18 @@ run_override_repository_isnt_affected() {
   shift
 
   setup_local
-  echo > WORKSPACE
+  # intentionally put a wrong path in MODULE.bazel
+  cat > "MODULE.bazel" <<EOF
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+  name="local_rep",
+  path="../local_repkasjdf",
+)
+EOF
   bazel build @local_rep//:g >& "$TEST_log" && fail "Expected build to fail" || true
-  expect_log "no such package '@@local_rep//'"
+  expect_log "but it does not exist or is not a directory"
 
-  argv="--override_repository=local_rep=$(pwd)/../local_rep"
+  argv="--override_repository=+_repo_rules+local_rep=$(pwd)/../local_rep"
   bazel build "$argv" $extra_args @local_rep//:g >& "$TEST_log" || fail "Expected build to succeed"
 
   echo "broken file" > ../local_rep/BUILD
@@ -189,7 +193,7 @@ run_override_repository_isnt_affected() {
     "$argv" \
     $extra_args \
     @local_rep//:g >& "$TEST_log" && fail "Expected build to fail" || true
-  expect_log "no such target '@@local_rep//:g'"
+  expect_log "no such target '@@+_repo_rules+local_rep//:g'"
 }
 
 test_override_repository_isnt_affected() {
@@ -207,7 +211,6 @@ test_no_fetch_then_fetch() {
     --noexperimental_check_output_files \
     --watchfs \
     @remote//:g >& "$TEST_log" && fail "Expected build to fail" || true
-  expect_log "no such package"
   expect_log "fetching repositories is disabled"
   bazel build \
     --fetch \
@@ -225,7 +228,7 @@ test_no_build_doesnt_break_the_cache() {
     --noexperimental_check_output_files \
     --watchfs \
     @remote//:g >& "$TEST_log" || fail "Expected build to pass"
-  [[ ! -f bazel-main/external/remote/BUILD ]] || fail "external files shouldn't have been made"
+  [[ ! -f bazel-main/external/+_repo_rules+remote/BUILD ]] || fail "external files shouldn't have been made"
   bazel build \
     --noexperimental_check_external_repository_files \
     --noexperimental_check_output_files \
@@ -236,7 +239,7 @@ test_no_build_doesnt_break_the_cache() {
 test_symlink_outside_still_checked() {
   mkdir main
   cd main
-  touch WORKSPACE
+  setup_module_dot_bazel
   echo 'sh_test(name = "symlink", srcs = ["symlink.sh"])' > BUILD
 
   mkdir ../foo

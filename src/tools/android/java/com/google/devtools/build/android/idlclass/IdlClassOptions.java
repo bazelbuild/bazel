@@ -14,79 +14,52 @@
 
 package com.google.devtools.build.android.idlclass;
 
-import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
+import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
 import java.nio.file.Path;
+import java.util.List;
 
 /** The options for a {@link IdlClass} action. */
-public final class IdlClassOptions extends OptionsBase {
-  @Option(
-    name = "manifest_proto",
-    defaultValue = "null",
-    converter = ExistingPathConverter.class,
-    category = "input",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The path to the manifest file output by the Java compiler."
-  )
+@Parameters(separators = "= ")
+public final class IdlClassOptions {
+  @Parameter(
+      names = "--manifest_proto",
+      converter = CompatExistingPathConverter.class,
+      description = "The path to the manifest file output by the Java compiler.")
   public Path manifestProto;
 
-  @Option(
-    name = "class_jar",
-    defaultValue = "null",
-    converter = ExistingPathConverter.class,
-    category = "input",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The path to the class jar output by the Java compiler."
-  )
+  @Parameter(
+      names = "--class_jar",
+      converter = CompatExistingPathConverter.class,
+      description = "The path to the class jar output by the Java compiler.")
   public Path classJar;
 
-  @Option(
-    name = "output_class_jar",
-    defaultValue = "null",
-    converter = PathConverter.class,
-    category = "output",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The path to write the class jar output to."
-  )
+  @Parameter(
+      names = "--output_class_jar",
+      converter = CompatPathConverter.class,
+      description = "The path to write the class jar output to.")
   public Path outputClassJar;
 
-  @Option(
-    name = "output_source_jar",
-    defaultValue = "null",
-    converter = PathConverter.class,
-    category = "output",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The path to write the source jar output to."
-  )
+  @Parameter(
+      names = "--output_source_jar",
+      converter = CompatPathConverter.class,
+      description = "The path to write the source jar output to.")
   public Path outputSourceJar;
 
-  @Option(
-    name = "temp_dir",
-    defaultValue = "null",
-    converter = PathConverter.class,
-    category = "input",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The path to a temp directory."
-  )
+  @Parameter(
+      names = "--temp_dir",
+      converter = CompatPathConverter.class,
+      description = "The path to a temp directory.")
   public Path tempDir;
 
-  @Option(
-    name = "idl_source_base_dir",
-    defaultValue = "null",
-    converter = PathConverter.class,
-    category = "input",
-    documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-    effectTags = {OptionEffectTag.UNKNOWN},
-    help = "The path to the base directory of the idl sources. Optional; Used for testing."
-  )
+  @Parameter(
+      names = "--idl_source_base_dir",
+      converter = CompatPathConverter.class,
+      description =
+          "The path to the base directory of the idl sources. Optional; Used for testing.")
   public Path idlSourceBaseDir;
+
+  @Parameter() public List<String> residue;
 }

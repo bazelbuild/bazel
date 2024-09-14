@@ -241,8 +241,7 @@ public class ResourceProcessorBusyBox {
       // AndroidDataMerger.MergeConflictException.
       logger.log(Level.SEVERE, e.getMessage());
       return 1;
-    } catch (CompatOptionsParsingException // thrown by CompatShellQuotedParamsFilePreProcessor
-        | ParameterException // thrown by JCommander
+    } catch (ParameterException // thrown by CompatShellQuotedParamsFilePreProcessor and JCommander.
         | IOException
         | Aapt2Exception
         | InvalidJavaIdentifier e) {

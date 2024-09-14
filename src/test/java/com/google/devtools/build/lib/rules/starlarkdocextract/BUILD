@@ -25,6 +25,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi/repository",
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:moduleinfoextractor",
+        "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:ruleinfoextractor",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/protobuf:stardoc_output_java_proto",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",

@@ -13,8 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.android;
 
+
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import java.lang.annotation.Annotation;
@@ -32,9 +34,14 @@ public class AndroidOptionsUtils {
 
   /** Run the CompatShellQuotedParamsFilePreProcessor on a list of args. */
   public static String[] runArgFilePreprocessor(JCommander jc, String[] argsAsArray)
-      throws CompatOptionsParsingException {
-    List<String> args = ImmutableList.copyOf(argsAsArray);
+      throws ParameterException {
     jc.setExpandAtSign(false);
+    return runArgFilePreprocessor(argsAsArray);
+  }
+
+  /** Run the CompatShellQuotedParamsFilePreProcessor on a list of args. */
+  public static String[] runArgFilePreprocessor(String[] argsAsArray) throws ParameterException {
+    List<String> args = ImmutableList.copyOf(argsAsArray);
     if (args.size() == 1 && args.get(0).startsWith("@")) {
       // Use CompatShellQuotedParamsFilePreProcessor to handle the arg file.
       FileSystem fs = FileSystems.getDefault();
@@ -50,12 +57,24 @@ public class AndroidOptionsUtils {
    * Same as AndroidOptionsUtils#normalizeBooleanOptions, but accepts an array of option classes
    * instead.
    */
-  public static String[] normalizeBooleanOptions(Object[] options, String[] args) {
+  public static String[] normalizeBooleanOptions(Object[] options, String[] args)
+      throws ParameterException {
     String[] normalizedArgs = args;
     for (Object optionsObject : options) {
       normalizedArgs = normalizeBooleanOptions(optionsObject, normalizedArgs);
     }
     return normalizedArgs;
+  }
+
+  private static int countLeadingChars(String s, char c) {
+    int count = 0;
+    for (int i = 0; i < s.length(); i++) {
+      if (s.charAt(i) != c) {
+        break;
+      }
+      count++;
+    }
+    return count;
   }
 
   /**
@@ -77,8 +96,16 @@ public class AndroidOptionsUtils {
             Parameter parameter = (Parameter) annotation;
             for (String name : parameter.names()) {
               // Strip leading dashes from the name and assert that the name starts with --.
-              Preconditions.checkState(name.startsWith("--"));
-              booleanOptions.add(name.substring(2));
+              try {
+                Preconditions.checkState(name.startsWith("--") || name.startsWith("-"));
+                booleanOptions.add(name.substring(countLeadingChars(name, '-')));
+              } catch (IllegalStateException e) {
+                throw new ParameterException(
+                    "ParameterException in args: Found an arg not prefixed with '--' or '-': '"
+                        + name
+                        + "'. Exception message: "
+                        + e.getMessage());
+              }
             }
           }
         }

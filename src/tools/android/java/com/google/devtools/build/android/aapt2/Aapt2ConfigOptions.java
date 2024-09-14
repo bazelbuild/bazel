@@ -20,7 +20,7 @@ import com.beust.jcommander.Parameters;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
 import com.google.devtools.build.android.Converters.CompatRevisionConverter;
-import com.google.devtools.common.options.TriState;
+import com.google.devtools.build.android.TriState;
 import java.nio.file.Path;
 import java.util.List;
 

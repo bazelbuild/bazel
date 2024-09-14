@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.rules.android;
 
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -59,16 +58,6 @@ public interface AndroidSemantics {
 
   /** Returns the name of the file in which the file names of native dependencies are listed. */
   String getNativeDepsFileName();
-
-  /**
-   * Returns the command line options to be used when compiling Java code for {@code android_*}
-   * rules.
-   *
-   * <p>These will come after the default options specified by the toolchain, and before the ones in
-   * the {@code javacopts} attribute.
-   */
-  ImmutableList<String> getCompatibleJavacOptions(RuleContext ruleContext)
-      throws RuleErrorException;
 
   default AndroidDataContext makeContextForNative(RuleContext ruleContext)
       throws RuleErrorException {

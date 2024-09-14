@@ -27,7 +27,6 @@ import com.google.devtools.build.lib.skyframe.ConfiguredValueCreationException;
 import com.google.devtools.build.lib.skyframe.PackageValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
-import com.google.devtools.build.lib.skyframe.config.NativeAndStarlarkFlags;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil;
 import com.google.devtools.build.lib.skyframe.toolchains.PlatformLookupUtil.InvalidPlatformException;
@@ -100,7 +99,7 @@ public final class PlatformFunction implements SkyFunction {
     }
 
     if (platformInfo.flags().isEmpty()) {
-      return PlatformValue.of(platformInfo, NativeAndStarlarkFlags.EMPTY);
+      return PlatformValue.noFlags(platformInfo);
     }
 
     var repoMappingValue =
@@ -121,7 +120,7 @@ public final class PlatformFunction implements SkyFunction {
       return null;
     }
 
-    return PlatformValue.of(platformInfo, parsedFlagsValue.flags());
+    return PlatformValue.withFlags(platformInfo, parsedFlagsValue);
   }
 
   private static final class PlatformFunctionException extends SkyFunctionException {

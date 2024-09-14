@@ -225,8 +225,12 @@ public class BuildViewForTesting {
       TopLevelArtifactContext topLevelOptions,
       ExtendedEventHandler eventHandler,
       EventBus eventBus)
-      throws ViewCreationFailedException, InterruptedException, InvalidConfigurationException,
-          BuildFailedException, TestExecException, AbruptExitException {
+      throws ViewCreationFailedException,
+          InterruptedException,
+          InvalidConfigurationException,
+          BuildFailedException,
+          TestExecException,
+          AbruptExitException {
     populateActionLookupKeyMapAndGetDiff();
     return buildView.update(
         loadingResult,
@@ -434,7 +438,6 @@ public class BuildViewForTesting {
           ConfiguredTargetKey.fromConfiguredTarget(configuredTarget),
           ruleClassProvider,
           skyframeBuildView.getStarlarkTransitionCache(),
-          skyframeBuildView.getBuildConfigurationKeyCache(),
           /* semaphoreLocker= */ () -> {},
           new SkyFunctionEnvironmentForTesting(eventHandler, skyframeExecutor),
           eventHandler)) {

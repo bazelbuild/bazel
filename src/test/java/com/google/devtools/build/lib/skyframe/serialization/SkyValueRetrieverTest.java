@@ -101,12 +101,13 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             key,
             (SerializationStateProvider) this);
 
-    assertThat(state).isInstanceOf(WaitingForFutureValueBytes.class);
 
     if (testCase.equals(InitialQueryCases.FUTURE_VALUE)) {
+      assertThat(state).isInstanceOf(WaitingForFutureValueBytes.class);
       assertThat(result).isEqualTo(RESTART);
     } else {
-      assertThat(result).isEqualTo(NO_CACHED_DATA);
+      assertThat(state).isSameInstanceAs(NO_CACHED_DATA);
+      assertThat(result).isSameInstanceAs(NO_CACHED_DATA);
     }
   }
 
@@ -129,6 +130,22 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             (SerializationStateProvider) this);
 
     assertThat(((RetrievedValue) result).value()).isEqualTo(value);
+    assertThat(state).isInstanceOf(RetrievedValue.class);
+  }
+
+  @Test
+  public void waitingForFutureValueBytes_missingFingerprintReturnsNoCachedData() throws Exception {
+    RetrievalResult result =
+        SkyValueRetriever.tryRetrieve(
+            NO_LOOKUP_ENVIRONMENT,
+            SkyValueRetrieverTest::dependOnFutureImpl,
+            codecs,
+            FingerprintValueService.createForTesting(),
+            new TrivialKey("a"), // nothing is uploaded to the service
+            (SerializationStateProvider) this);
+
+    assertThat(result).isSameInstanceAs(NO_CACHED_DATA);
+    assertThat(state).isSameInstanceAs(NO_CACHED_DATA);
   }
 
   @Test

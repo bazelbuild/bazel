@@ -120,7 +120,7 @@ import com.google.errorprone.bugpatterns.RandomModInteger;
 import com.google.errorprone.bugpatterns.RequiredModifiersChecker;
 import com.google.errorprone.bugpatterns.RestrictedApiChecker;
 import com.google.errorprone.bugpatterns.ReturnValueIgnored;
-import com.google.errorprone.bugpatterns.TruthSelfEquals;
+import com.google.errorprone.bugpatterns.SelfAssertion;
 import com.google.errorprone.bugpatterns.SelfAssignment;
 import com.google.errorprone.bugpatterns.SelfComparison;
 import com.google.errorprone.bugpatterns.SelfEquals;
@@ -358,7 +358,7 @@ final class BazelScannerSuppliers {
           ReturnValueIgnored.class,
           // If you got a build error here, remove the rewrite in
           // devtools/blaze/bazel/admin/copybara/copy.bara.sky.
-          TruthSelfEquals.class,
+          SelfAssertion.class,
           SelfAssignment.class,
           SelfComparison.class,
           SelfEquals.class,

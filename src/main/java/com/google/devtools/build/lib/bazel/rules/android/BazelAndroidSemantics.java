@@ -13,12 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.bazel.rules.android;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
-import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
 import com.google.devtools.build.lib.rules.android.AndroidSemantics;
 
 /**
@@ -39,15 +37,6 @@ public class BazelAndroidSemantics implements AndroidSemantics {
   @Override
   public String getNativeDepsFileName() {
     return "nativedeps";
-  }
-
-  @Override
-  public ImmutableList<String> getCompatibleJavacOptions(RuleContext ruleContext) {
-    ImmutableList.Builder<String> javacArgs = new ImmutableList.Builder<>();
-    if (!ruleContext.getFragment(AndroidConfiguration.class).desugarJava8()) {
-      javacArgs.add("-source", "7", "-target", "7");
-    }
-    return javacArgs.build();
   }
 
   @Override

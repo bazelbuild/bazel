@@ -25,9 +25,6 @@ def _get_proto_aspects():
 def _should_create_empty_archive():
     return False
 
-def _validate_deps(ctx):
-    pass
-
 def _validate_attributes(ctx):
     pass
 
@@ -162,7 +159,6 @@ semantics = struct(
         ".ldscript",
     ],
     ALLOWED_RULES_WITH_WARNINGS_IN_DEPS = [],
-    validate_deps = _validate_deps,
     validate_attributes = _validate_attributes,
     get_semantics = _get_semantics,
     get_repo = _get_repo,

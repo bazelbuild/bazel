@@ -137,7 +137,7 @@ public class JavaStarlarkCommon
           InterruptedException {
     checkJavaToolchainIsDeclaredOnRule(ctx.getRuleContext());
     JavaTargetAttributes.Builder attributesBuilder =
-        new JavaTargetAttributes.Builder(javaSemantics)
+        new JavaTargetAttributes.Builder()
             .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
             .addSourceFiles(sourceFiles.toList(Artifact.class))
             .addDirectJars(directJars.getSet(Artifact.class))
@@ -215,7 +215,7 @@ public class JavaStarlarkCommon
             .manifestProto(manifestProto)
             .build();
     JavaTargetAttributes.Builder attributesBuilder =
-        new JavaTargetAttributes.Builder(javaSemantics)
+        new JavaTargetAttributes.Builder()
             .addSourceJars(Sequence.cast(sourceJars, Artifact.class, "source_jars"))
             .addSourceFiles(Depset.noneableCast(sourceFiles, Artifact.class, "sources").toList())
             .addDirectJars(directJars.getSet(Artifact.class))

@@ -525,29 +525,34 @@ public final class Profiler {
   private void collectActionCounts() {
     Duration endTime = Duration.ofNanos(clock.nanoTime());
     int len = (int) endTime.minus(actionCountStartTime).dividedBy(ACTION_COUNT_BUCKET_DURATION) + 1;
-    Map<ProfilerTask, double[]> counterSeriesMap = new LinkedHashMap<>();
+    Map<CounterSeriesTask, double[]> counterSeriesMap = new LinkedHashMap<>();
     TimeSeries actionCountTimeSeries = actionCountTimeSeriesRef.get();
     if (actionCountTimeSeries != null) {
       double[] actionCountValues = actionCountTimeSeries.toDoubleArray(len);
       actionCountTimeSeriesRef.set(null);
-      counterSeriesMap.put(ProfilerTask.ACTION_COUNTS, actionCountValues);
+      counterSeriesMap.put(
+          CounterSeriesTask.ofProfilerTask(ProfilerTask.ACTION_COUNTS), actionCountValues);
     }
     TimeSeries actionCacheCountTimeSeries = actionCacheCountTimeSeriesRef.get();
     if (actionCacheCountTimeSeries != null) {
       double[] actionCacheCountValues = actionCacheCountTimeSeries.toDoubleArray(len);
       actionCacheCountTimeSeriesRef.set(null);
-      counterSeriesMap.put(ProfilerTask.ACTION_CACHE_COUNTS, actionCacheCountValues);
+      counterSeriesMap.put(
+          CounterSeriesTask.ofProfilerTask(ProfilerTask.ACTION_CACHE_COUNTS),
+          actionCacheCountValues);
     }
     if (!counterSeriesMap.isEmpty()) {
       instance.logCounters(counterSeriesMap, actionCountStartTime, ACTION_COUNT_BUCKET_DURATION);
     }
 
-    Map<ProfilerTask, double[]> localCounterSeriesMap = new LinkedHashMap<>();
+    Map<CounterSeriesTask, double[]> localCounterSeriesMap = new LinkedHashMap<>();
     TimeSeries localActionCountTimeSeries = localActionCountTimeSeriesRef.get();
     if (localActionCountTimeSeries != null) {
       double[] localActionCountValues = localActionCountTimeSeries.toDoubleArray(len);
       localActionCountTimeSeriesRef.set(null);
-      localCounterSeriesMap.put(ProfilerTask.LOCAL_ACTION_COUNTS, localActionCountValues);
+      localCounterSeriesMap.put(
+          CounterSeriesTask.ofProfilerTask(ProfilerTask.LOCAL_ACTION_COUNTS),
+          localActionCountValues);
     }
     if (hasNonZeroValues(localCounterSeriesMap)) {
       instance.logCounters(
@@ -555,7 +560,7 @@ public final class Profiler {
     }
   }
 
-  private boolean hasNonZeroValues(Map<ProfilerTask, double[]> countersSeriesMap) {
+  private boolean hasNonZeroValues(Map<CounterSeriesTask, double[]> countersSeriesMap) {
     return countersSeriesMap.values().stream()
         .flatMapToDouble(Arrays::stream)
         .anyMatch(v -> v != 0);
@@ -630,7 +635,7 @@ public final class Profiler {
 
   /** Adds a whole action count series to the writer bypassing histogram and subtask creation. */
   public void logCounters(
-      Map<ProfilerTask, double[]> counterSeriesMap,
+      Map<CounterSeriesTask, double[]> counterSeriesMap,
       Duration profileStart,
       Duration bucketDuration) {
     JsonTraceFileWriter currentWriter = writerRef.get();

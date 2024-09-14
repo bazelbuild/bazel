@@ -18,14 +18,13 @@ import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.io.OutputStream;
-import javax.annotation.Nullable;
+import java.util.Set;
 
 /**
  * An interface for a remote caching protocol.
@@ -72,45 +71,22 @@ public interface RemoteCacheClient extends MissingDigestsFinder {
   }
 
   /**
-   * Class to keep track of which cache (disk or remote) a given [cached] ActionResult comes from.
-   */
-  @AutoValue
-  abstract class CachedActionResult {
-    @Nullable
-    public static CachedActionResult remote(ActionResult actionResult) {
-      if (actionResult == null) {
-        return null;
-      }
-      return new AutoValue_RemoteCacheClient_CachedActionResult(actionResult, "remote");
-    }
-
-    @Nullable
-    public static CachedActionResult disk(ActionResult actionResult) {
-      if (actionResult == null) {
-        return null;
-      }
-      return new AutoValue_RemoteCacheClient_CachedActionResult(actionResult, "disk");
-    }
-
-    /** A actionResult can have a cache name ascribed to it. */
-    public abstract ActionResult actionResult();
-
-    /** Indicates which cache the {@link #actionResult} came from (disk/remote) */
-    public abstract String cacheName();
-  }
-
-  /**
    * Downloads an action result for the {@code actionKey}.
    *
    * @param context the context for the action.
    * @param actionKey The digest of the {@link Action} that generated the action result.
    * @param inlineOutErr A hint to the server to inline the stdout and stderr in the {@code
    *     ActionResult} message.
+   * @param inlineOutputFiles A hint to the server to inline the specified output files in the
+   *     {@code ActionResult} message.
    * @return A Future representing pending download of an action result. If an action result for
    *     {@code actionKey} cannot be found the result of the Future is {@code null}.
    */
-  ListenableFuture<CachedActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr);
+  ListenableFuture<ActionResult> downloadActionResult(
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      Set<String> inlineOutputFiles);
 
   /**
    * Uploads an action result for the {@code actionKey}.

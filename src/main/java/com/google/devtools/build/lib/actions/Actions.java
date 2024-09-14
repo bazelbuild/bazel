@@ -298,6 +298,16 @@ public final class Actions {
         return len1 - len2;
       };
 
+  public static boolean isRunfilesArtifactPair(Artifact runfilesTree, Artifact runfilesManifest) {
+    if (!runfilesTree.isMiddlemanArtifact()) {
+      return false;
+    }
+
+    return runfilesManifest
+        .getExecPathString()
+        .equals(runfilesTree.getExecPath().getRelative("MANIFEST").getPathString());
+  }
+
   /**
    * Finds Artifact prefix conflicts between generated artifacts. An artifact prefix conflict
    * happens if one action generates an artifact whose path is a strict prefix of another artifact's
@@ -341,7 +351,8 @@ public final class Actions {
         // Check length first so that we only detect strict prefix conflicts. Equal exec paths are
         // possible from shared actions.
         if (pathJ.getPathString().length() > pathI.getPathString().length()
-            && pathJ.startsWith(pathI)) {
+            && pathJ.startsWith(pathI)
+            && !isRunfilesArtifactPair(artifactI, artifactJ)) {
           ActionAnalysisMetadata actionI =
               Preconditions.checkNotNull(actionGraph.getGeneratingAction(artifactI), artifactI);
           ActionAnalysisMetadata actionJ =

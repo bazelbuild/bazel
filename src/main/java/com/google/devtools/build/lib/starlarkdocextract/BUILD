@@ -21,12 +21,15 @@ java_library(
 )
 
 java_library(
+    name = "extractionexception",
+    srcs = ["ExtractionException.java"],
+)
+
+java_library(
     name = "starlarkfunctioninfoextractor",
-    srcs = [
-        "DocstringParseException.java",
-        "StarlarkFunctionInfoExtractor.java",
-    ],
+    srcs = ["StarlarkFunctionInfoExtractor.java"],
     deps = [
+        ":extractionexception",
         ":labelrenderer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/net/starlark/java/eval",
@@ -39,10 +42,32 @@ java_library(
 )
 
 java_library(
-    name = "moduleinfoextractor",
-    srcs = ["ModuleInfoExtractor.java"],
+    name = "ruleinfoextractor",
+    srcs = [
+        "AttributeInfoExtractor.java",
+        "ExtractorContext.java",
+        "ProviderNameGroupExtractor.java",
+        "RuleInfoExtractor.java",
+    ],
     deps = [
+        ":extractionexception",
         ":labelrenderer",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/protobuf:stardoc_output_java_proto",
+        "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "moduleinfoextractor",
+    srcs = [
+        "ModuleInfoExtractor.java",
+    ],
+    deps = [
+        ":extractionexception",
+        ":labelrenderer",
+        ":ruleinfoextractor",
         ":starlarkfunctioninfoextractor",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:module_extension",

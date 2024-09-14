@@ -90,20 +90,8 @@ java_library(
         "//src/main/java/net/starlark/java/syntax",
         "//src/main/protobuf:failure_details_java_proto",
         "//third_party:auto_value",
-        "//third_party:caffeine",
         "//third_party:error_prone_annotations",
         "//third_party:guava",
-        "//third_party:jsr305",
-    ],
-)
-
-java_library(
-    name = "build_configuration_key_cache",
-    srcs = ["BuildConfigurationKeyCache.java"],
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/config",
-        "//third_party:caffeine",
         "//third_party:jsr305",
     ],
 )
@@ -115,7 +103,6 @@ java_library(
         "BuildConfigurationKeyProducer.java",
     ],
     deps = [
-        ":build_configuration_key_cache",
         ":platform_producer",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:platform_options",
@@ -124,7 +111,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config:exceptions",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:platform_lookup_util",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",

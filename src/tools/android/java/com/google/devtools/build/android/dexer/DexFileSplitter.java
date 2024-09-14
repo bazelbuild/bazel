@@ -20,24 +20,22 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.android.dex.Dex;
 import com.android.dex.DexFormat;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.TreeMultimap;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
-import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
+import com.google.devtools.build.android.AndroidOptionsUtils;
+import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -60,89 +58,56 @@ import javax.annotation.Nullable;
  */
 class DexFileSplitter implements Closeable {
 
-  /**
-   * Commandline options.
-   */
-  public static class Options extends OptionsBase {
-    @Option(
-        name = "input",
-        allowMultiple = true,
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        abbrev = 'i',
-        help = "Input dex archive.")
-    public List<Path> inputArchives;
+  /** Commandline options. */
+  @Parameters(separators = "= ")
+  public static class Options {
+    @Parameter(
+        names = {"--input", "-i"},
+        converter = CompatExistingPathConverter.class,
+        description = "Input dex archive.")
+    public List<Path> inputArchives = ImmutableList.of();
 
-    @Option(
-      name = "output",
-      defaultValue = ".",
-      category = "output",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = PathConverter.class,
-      abbrev = 'o',
-      help = "Directory to write dex archives to merge."
-    )
-    public Path outputDirectory;
+    @Parameter(
+        names = {"--output", "-o"},
+        converter = CompatPathConverter.class,
+        description = "Directory to write dex archives to merge.")
+    public Path outputDirectory = new CompatPathConverter().convert(".");
 
-    @Option(
-      name = "main-dex-list",
-      defaultValue = "null",
-      category = "multidex",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = ExistingPathConverter.class,
-      help = "List of classes to be placed into \"main\" classes.dex file."
-    )
+    @Parameter(
+        names = "--main-dex-list",
+        converter = CompatExistingPathConverter.class,
+        description = "List of classes to be placed into \"main\" classes.dex file.")
     public Path mainDexListFile;
 
-    @Option(
-      name = "minimal-main-dex",
-      defaultValue = "false",
-      category = "multidex",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If true, *only* classes listed in --main_dex_list file are placed into \"main\" "
-              + "classes.dex file."
-    )
+    @Parameter(
+        names = "--minimal-main-dex",
+        arity = 1,
+        description =
+            "If true, *only* classes listed in --main_dex_list file are placed into \"main\" "
+                + "classes.dex file.")
     public boolean minimalMainDex;
 
     // Undocumented dx option for testing multidex logic
-    @Option(
-      name = "set-max-idx-number",
-      defaultValue = "" + DexFormat.MAX_MEMBER_IDX,
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Limit on fields and methods in a single dex file."
-    )
-    public int maxNumberOfIdxPerDex;
+    @Parameter(
+        names = "--set-max-idx-number",
+        description = "Limit on fields and methods in a single dex file.")
+    public int maxNumberOfIdxPerDex = DexFormat.MAX_MEMBER_IDX;
 
-    @Option(
-      name = "inclusion_filter_jar",
-      defaultValue = "null",
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = ExistingPathConverter.class,
-      help = "If given, only classes in the given Jar are included in outputs."
-    )
+    @Parameter(
+        names = "--inclusion_filter_jar",
+        converter = CompatExistingPathConverter.class,
+        description = "If given, only classes in the given Jar are included in outputs.")
     public Path inclusionFilterJar;
   }
 
   public static void main(String[] args) throws Exception {
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(Options.class)
-            .allowResidue(false)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    optionsParser.parseAndExitUponError(args);
+    Options options = new Options();
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(options, preprocessedArgs);
+    JCommander.newBuilder().addObject(options).build().parse(normalizedArgs);
 
-    splitIntoShards(optionsParser.getOptions(Options.class));
+    splitIntoShards(options);
   }
 
   @VisibleForTesting

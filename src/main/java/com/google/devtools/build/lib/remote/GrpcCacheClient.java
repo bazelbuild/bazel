@@ -48,7 +48,6 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.authandtls.CallCredentialsProvider;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.exec.SpawnCheckingCacheEvent;
 import com.google.devtools.build.lib.remote.RemoteRetrier.ProgressiveBackoff;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.MissingDigestsFinder;
@@ -72,6 +71,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -81,9 +81,6 @@ import javax.annotation.Nullable;
 @ThreadSafe
 public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
-
-  private static final SpawnCheckingCacheEvent SPAWN_CHECKING_CACHE_EVENT =
-      SpawnCheckingCacheEvent.create("remote-cache");
 
   private final CallCredentialsProvider callCredentialsProvider;
   private final ReferenceCountedChannel channel;
@@ -250,12 +247,9 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
         callCredentialsProvider);
   }
 
-  private ListenableFuture<CachedActionResult> handleStatus(
-      ListenableFuture<ActionResult> download) {
-    ListenableFuture<CachedActionResult> cachedActionResult =
-        Futures.transform(download, CachedActionResult::remote, MoreExecutors.directExecutor());
+  private ListenableFuture<ActionResult> handleStatus(ListenableFuture<ActionResult> download) {
     return Futures.catchingAsync(
-        cachedActionResult,
+        download,
         StatusRuntimeException.class,
         (sre) ->
             sre.getStatus().getCode() == Code.NOT_FOUND
@@ -276,12 +270,11 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
   }
 
   @Override
-  public ListenableFuture<CachedActionResult> downloadActionResult(
-      RemoteActionExecutionContext context, ActionKey actionKey, boolean inlineOutErr) {
-    if (context.getSpawnExecutionContext() != null) {
-      context.getSpawnExecutionContext().report(SPAWN_CHECKING_CACHE_EVENT);
-    }
-
+  public ListenableFuture<ActionResult> downloadActionResult(
+      RemoteActionExecutionContext context,
+      ActionKey actionKey,
+      boolean inlineOutErr,
+      Set<String> inlineOutputFiles) {
     GetActionResultRequest request =
         GetActionResultRequest.newBuilder()
             .setInstanceName(options.remoteInstanceName)
@@ -289,6 +282,7 @@ public class GrpcCacheClient implements RemoteCacheClient, MissingDigestsFinder 
             .setActionDigest(actionKey.getDigest())
             .setInlineStderr(inlineOutErr)
             .setInlineStdout(inlineOutErr)
+            .addAllInlineOutputFiles(inlineOutputFiles)
             .build();
     return Utils.refreshIfUnauthenticatedAsync(
         () ->

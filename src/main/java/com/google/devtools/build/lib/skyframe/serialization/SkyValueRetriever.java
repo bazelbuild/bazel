@@ -119,19 +119,23 @@ public final class SkyValueRetriever {
    *   <li>{@link WaitingForFutureResult}: waits for remaining futures needed to complete
    *       deserialization. This includes: any required <i>unowned</i> shared values; a small amount
    *       of work to set values in parents; and propagating the corresponding futures.
+   *   <li>{@link NoCachedData}: a sentinel state representing a known cache miss. This is a
+   *       terminal serialization state so that Skyframe restarts during the fallback local
+   *       evaluation will not try to fetch the non-existent value again and waste computation.
    *   <li>{@link RetrievedValue}: returns the retrieved value, idempotently.
    * </ol>
    */
-  public static sealed interface SerializationState
+  public sealed interface SerializationState
       permits SkyValueRetriever.InitialQuery,
           SkyValueRetriever.WaitingForFutureValueBytes,
           SkyValueRetriever.WaitingForFutureLookupContinuation,
           SkyValueRetriever.WaitingForLookupContinuation,
           SkyValueRetriever.WaitingForFutureResult,
+          SkyValueRetriever.NoCachedData,
           SkyValueRetriever.RetrievedValue {}
 
   /** Return value of {@link #tryRetrieve}. */
-  public static sealed interface RetrievalResult
+  public sealed interface RetrievalResult
       permits SkyValueRetriever.Restart,
           SkyValueRetriever.NoCachedData,
           SkyValueRetriever.RetrievedValue {}
@@ -152,7 +156,7 @@ public final class SkyValueRetriever {
    *
    * <p>A typical client falls back on local computation upon seeing this.
    */
-  public enum NoCachedData implements RetrievalResult {
+  public enum NoCachedData implements SerializationState, RetrievalResult {
     NO_CACHED_DATA;
   }
 
@@ -211,14 +215,16 @@ public final class SkyValueRetriever {
                 valueBytes = getDone(futureValueBytes);
               } catch (ExecutionException e) {
                 if (getRootCause(e) instanceof MissingFingerprintValueException) {
-                  return NoCachedData.NO_CACHED_DATA;
+                  nextState = NoCachedData.NO_CACHED_DATA;
+                  break;
                 }
                 throw new SerializationException("getting value bytes for " + key, e);
               }
               if (valueBytes.length == 0) {
                 // Serialized representations are never empty in this protocol. Some implementations
                 // use empty bytes to indicate missing data.
-                return NoCachedData.NO_CACHED_DATA;
+                nextState = NoCachedData.NO_CACHED_DATA;
+                break;
               }
               Object value =
                   codecs.deserializeWithSkyframe(
@@ -280,6 +286,8 @@ public final class SkyValueRetriever {
             break;
           case RetrievedValue value:
             return value;
+          case NoCachedData unused:
+            return NoCachedData.NO_CACHED_DATA;
         }
       }
     } finally {

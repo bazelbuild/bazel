@@ -35,6 +35,7 @@ java_library(
     srcs = ["LostInputsEvent.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/events",
+        "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )
 

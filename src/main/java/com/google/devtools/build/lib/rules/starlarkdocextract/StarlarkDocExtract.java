@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue.RepositoryMappingResolutionException;
+import com.google.devtools.build.lib.starlarkdocextract.ExtractionException;
 import com.google.devtools.build.lib.starlarkdocextract.LabelRenderer;
 import com.google.devtools.build.lib.starlarkdocextract.ModuleInfoExtractor;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.ModuleInfo;
@@ -305,7 +306,7 @@ public class StarlarkDocExtract implements RuleConfiguredTargetFactory {
       moduleInfo =
           new ModuleInfoExtractor(getWantedSymbolPredicate(ruleContext), labelRenderer)
               .extractFrom(module);
-    } catch (ModuleInfoExtractor.ExtractionException e) {
+    } catch (ExtractionException e) {
       ruleContext.ruleError(e.getMessage());
       throw new RuleErrorException(e);
     }

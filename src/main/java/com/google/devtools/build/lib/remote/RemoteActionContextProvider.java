@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
+import build.bazel.remote.execution.v2.Digest;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListeningScheduledExecutorService;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
@@ -33,6 +34,7 @@ import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.vfs.OutputService;
 import com.google.devtools.build.lib.vfs.Path;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import javax.annotation.Nullable;
 
@@ -51,6 +53,7 @@ final class RemoteActionContextProvider {
   @Nullable private RemoteActionInputFetcher actionInputFetcher;
   @Nullable private final RemoteOutputChecker remoteOutputChecker;
   @Nullable private final OutputService outputService;
+  private final Set<Digest> knownMissingCasDigests;
 
   private RemoteActionContextProvider(
       Executor executor,
@@ -61,7 +64,8 @@ final class RemoteActionContextProvider {
       DigestUtil digestUtil,
       @Nullable Path logDir,
       @Nullable RemoteOutputChecker remoteOutputChecker,
-      @Nullable OutputService outputService) {
+      @Nullable OutputService outputService,
+      Set<Digest> knownMissingCasDigests) {
     this.executor = executor;
     this.env = Preconditions.checkNotNull(env, "env");
     this.remoteCache = remoteCache;
@@ -71,12 +75,14 @@ final class RemoteActionContextProvider {
     this.logDir = logDir;
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputService = outputService;
+    this.knownMissingCasDigests = knownMissingCasDigests;
   }
 
   public static RemoteActionContextProvider createForPlaceholder(
       CommandEnvironment env,
       ListeningScheduledExecutorService retryScheduler,
-      DigestUtil digestUtil) {
+      DigestUtil digestUtil,
+      Set<Digest> knownMissingCasDigests) {
     return new RemoteActionContextProvider(
         directExecutor(),
         env,
@@ -86,7 +92,8 @@ final class RemoteActionContextProvider {
         digestUtil,
         /* logDir= */ null,
         /* remoteOutputChecker= */ null,
-        /* outputService= */ null);
+        /* outputService= */ null,
+        knownMissingCasDigests);
   }
 
   public static RemoteActionContextProvider createForRemoteCaching(
@@ -96,7 +103,8 @@ final class RemoteActionContextProvider {
       ListeningScheduledExecutorService retryScheduler,
       DigestUtil digestUtil,
       @Nullable RemoteOutputChecker remoteOutputChecker,
-      OutputService outputService) {
+      OutputService outputService,
+      Set<Digest> knownMissingCasDigests) {
     return new RemoteActionContextProvider(
         executor,
         env,
@@ -106,7 +114,8 @@ final class RemoteActionContextProvider {
         digestUtil,
         /* logDir= */ null,
         remoteOutputChecker,
-        checkNotNull(outputService));
+        checkNotNull(outputService),
+        knownMissingCasDigests);
   }
 
   public static RemoteActionContextProvider createForRemoteExecution(
@@ -118,7 +127,8 @@ final class RemoteActionContextProvider {
       DigestUtil digestUtil,
       Path logDir,
       @Nullable RemoteOutputChecker remoteOutputChecker,
-      OutputService outputService) {
+      OutputService outputService,
+      Set<Digest> knownMissingCasDigests) {
     return new RemoteActionContextProvider(
         executor,
         env,
@@ -128,7 +138,8 @@ final class RemoteActionContextProvider {
         digestUtil,
         logDir,
         remoteOutputChecker,
-        checkNotNull(outputService));
+        checkNotNull(outputService),
+        knownMissingCasDigests);
   }
 
   private RemotePathResolver createRemotePathResolver() {
@@ -177,7 +188,8 @@ final class RemoteActionContextProvider {
               tempPathGenerator,
               captureCorruptedOutputsDir,
               remoteOutputChecker,
-              outputService);
+              outputService,
+              knownMissingCasDigests);
       env.getEventBus().register(remoteExecutionService);
     }
 

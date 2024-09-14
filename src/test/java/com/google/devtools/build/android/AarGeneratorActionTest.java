@@ -309,8 +309,7 @@ public class AarGeneratorActionTest {
 
   }
 
-  private AarGeneratorOptions parseFlags(String[] args)
-      throws CompatOptionsParsingException, ParameterException {
+  private AarGeneratorOptions parseFlags(String[] args) throws ParameterException {
     AarGeneratorOptions options = new AarGeneratorOptions();
     JCommander jc = new JCommander(options);
     String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(jc, args);
@@ -321,8 +320,7 @@ public class AarGeneratorActionTest {
   }
 
   @Test
-  public void testCheckFlags()
-      throws CompatOptionsParsingException, IOException, ParameterException {
+  public void testCheckFlags() throws IOException, ParameterException {
     Path manifest = tempDir.resolve("AndroidManifest.xml");
     Files.createFile(manifest);
     Path rtxt = tempDir.resolve("R.txt");
@@ -337,8 +335,7 @@ public class AarGeneratorActionTest {
   }
 
   @Test
-  public void testCheckFlags_MissingClasses()
-      throws CompatOptionsParsingException, IOException, ParameterException {
+  public void testCheckFlags_MissingClasses() throws IOException, ParameterException {
     Path manifest = tempDir.resolve("AndroidManifest.xml");
     Files.createFile(manifest);
     Path rtxt = tempDir.resolve("R.txt");
@@ -353,8 +350,7 @@ public class AarGeneratorActionTest {
   }
 
   @Test
-  public void testCheckFlags_MissingMultiple()
-      throws CompatOptionsParsingException, IOException, ParameterException {
+  public void testCheckFlags_MissingMultiple() throws IOException, ParameterException {
     Path manifest = tempDir.resolve("AndroidManifest.xml");
     Files.createFile(manifest);
     String[] args = new String[] {"--manifest", manifest.toString()};

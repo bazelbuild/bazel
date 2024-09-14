@@ -31,24 +31,20 @@ import com.android.tools.r8.errors.DexFileOverflowDiagnostic;
 import com.android.tools.r8.errors.InterfaceDesugarMissingTypeDiagnostic;
 import com.android.tools.r8.references.ClassReference;
 import com.android.tools.r8.utils.StringDiagnostic;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.android.r8.OptionsConverters.ExistingPathConverter;
-import com.google.devtools.build.android.r8.OptionsConverters.PathConverter;
+import com.google.devtools.build.android.AndroidOptionsUtils;
+import com.google.devtools.build.android.r8.CompatOptionsConverters.CompatExistingPathConverter;
+import com.google.devtools.build.android.r8.CompatOptionsConverters.CompatPathConverter;
 import com.google.devtools.build.android.r8.desugar.OrderedClassFileResourceProvider;
 import com.google.devtools.build.android.r8.desugar.OutputConsumer;
 import com.google.devtools.build.lib.worker.ProtoWorkerMessageProcessor;
 import com.google.devtools.build.lib.worker.WorkRequestHandler;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
-import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -65,309 +61,219 @@ public class Desugar {
   private static final Logger logger = Logger.getLogger(Desugar.class.getName());
 
   /** Commandline options for {@link com.google.devtools.build.android.r8.Desugar}. */
-  public static class DesugarOptions extends OptionsBase {
+  @Parameters(separators = "= ")
+  public static class DesugarOptions {
 
-    @Option(
-        name = "input",
-        allowMultiple = true,
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        abbrev = 'i',
-        help =
+    @Parameter(
+        names = {"--input", "-i"},
+        converter = CompatExistingPathConverter.class,
+        description =
             "Input jars with classes to desugar (required, the n-th input is paired"
                 + " with the n-th output).")
-    public List<Path> inputJars;
+    public List<Path> inputJars = ImmutableList.of();
 
-    @Option(
-        name = "classpath_entry",
-        allowMultiple = true,
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        help =
+    @Parameter(
+        names = "--classpath_entry",
+        converter = CompatExistingPathConverter.class,
+        description =
             "Ordered classpath jars to resolve symbols in the --input jars, like "
                 + "javac's -cp flag.")
-    public List<Path> classpath;
+    public List<Path> classpath = ImmutableList.of();
 
-    @Option(
-        name = "bootclasspath_entry",
-        allowMultiple = true,
-        defaultValue = "null",
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        help =
+    @Parameter(
+        names = "--bootclasspath_entry",
+        converter = CompatExistingPathConverter.class,
+        description =
             "Bootclasspath that was used to compile the --input jars with, like javac's "
                 + "-bootclasspath flag (required).")
-    public List<Path> bootclasspath;
+    public List<Path> bootclasspath = ImmutableList.of();
 
-    @Option(
-        name = "allow_empty_bootclasspath",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN})
+    @Parameter(names = "--allow_empty_bootclasspath", arity = 1)
     public boolean allowEmptyBootclasspath;
 
-    @Option(
-        name = "only_desugar_javac9_for_lint",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--only_desugar_javac9_for_lint",
+        arity = 1,
+        description =
             "A temporary flag specifically for android lint, subject to removal anytime (DO NOT"
                 + " USE)")
     public boolean onlyDesugarJavac9ForLint;
 
-    @Option(
-        name = "rewrite_calls_to_long_compare",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--rewrite_calls_to_long_compare",
+        arity = 1,
+        description =
             "Rewrite calls to Long.compare(long, long) to the JVM instruction lcmp "
-                + "regardless of --min_sdk_version.",
-        category = "misc")
+                + "regardless of --min_sdk_version.")
     public boolean alwaysRewriteLongCompare;
 
-    @Option(
-        name = "output",
-        allowMultiple = true,
-        defaultValue = "null",
-        category = "output",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = PathConverter.class,
-        abbrev = 'o',
-        help =
+    @Parameter(
+        names = {"--output", "-o"},
+        converter = CompatPathConverter.class,
+        description =
             "Output Jar or directory to write desugared classes into (required, the n-th output is "
                 + "paired with the n-th input, output must be a Jar if input is a Jar).")
-    public List<Path> outputJars;
+    public List<Path> outputJars = ImmutableList.of();
 
-    @Option(
-        name = "verbose",
-        defaultValue = "false",
-        category = "misc",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        abbrev = 'v',
-        help = "Enables verbose debugging output.")
+    @Parameter(
+        names = {"--verbose", "-v"},
+        arity = 1,
+        description = "Enables verbose debugging output.")
     public boolean verbose;
 
-    @Option(
-        name = "min_sdk_version",
-        defaultValue = Constants.MIN_API_LEVEL,
-        category = "misc",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Minimum targeted sdk version.  If >= 24, enables default methods in interfaces.")
-    public int minSdkVersion;
+    @Parameter(
+        names = "--min_sdk_version",
+        description =
+            "Minimum targeted sdk version.  If >= 24, enables default methods in interfaces.")
+    public int minSdkVersion = Integer.parseInt(Constants.MIN_API_LEVEL);
 
-    @Option(
-        name = "emit_dependency_metadata_as_needed",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Whether to emit META-INF/desugar_deps as needed for later consistency checking.")
+    @Parameter(
+        names = "--emit_dependency_metadata_as_needed",
+        arity = 1,
+        description =
+            "Whether to emit META-INF/desugar_deps as needed for later consistency checking.")
     public boolean emitDependencyMetadata;
 
-    @Option(
-        name = "best_effort_tolerate_missing_deps",
-        defaultValue = "true",
-        category = "misc",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--best_effort_tolerate_missing_deps",
+        arity = 1,
+        description =
             "Whether to tolerate missing dependencies on the classpath in some cases.  You should "
                 + "strive to set this flag to false.")
-    public boolean tolerateMissingDependencies;
+    public boolean tolerateMissingDependencies = true;
 
-    @Option(
-        name = "desugar_supported_core_libs",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Enable core library desugaring, which requires configuration with related flags.")
+    @Parameter(
+        names = "--desugar_supported_core_libs",
+        arity = 1,
+        description =
+            "Enable core library desugaring, which requires configuration with related flags.")
     public boolean desugarCoreLibs;
 
-    @Option(
-        name = "desugar_interface_method_bodies_if_needed",
-        defaultValue = "true",
-        category = "misc",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--desugar_interface_method_bodies_if_needed",
+        arity = 1,
+        description =
             "Rewrites default and static methods in interfaces if --min_sdk_version < 24. This "
                 + "only works correctly if subclasses of rewritten interfaces as well as uses of "
                 + "static interface methods are run through this tool as well.")
-    public boolean desugarInterfaceMethodBodiesIfNeeded;
+    public boolean desugarInterfaceMethodBodiesIfNeeded = true;
 
-    @Option(
-        name = "desugar_try_with_resources_if_needed",
-        defaultValue = "true",
-        category = "misc",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Rewrites try-with-resources statements if --min_sdk_version < 19.")
-    public boolean desugarTryWithResourcesIfNeeded;
+    @Parameter(
+        names = "--desugar_try_with_resources_if_needed",
+        arity = 1,
+        description = "Rewrites try-with-resources statements if --min_sdk_version < 19.")
+    public boolean desugarTryWithResourcesIfNeeded = true;
 
-    @Option(
-        name = "desugar_try_with_resources_omit_runtime_classes",
-        defaultValue = "false",
-        category = "misc",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--desugar_try_with_resources_omit_runtime_classes",
+        arity = 1,
+        description =
             "Omits the runtime classes necessary to support try-with-resources from the output."
                 + " This property has effect only if --desugar_try_with_resources_if_needed is"
                 + " used.")
     public boolean desugarTryWithResourcesOmitRuntimeClasses;
 
-    @Option(
-        name = "generate_base_classes_for_default_methods",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--generate_base_classes_for_default_methods",
+        arity = 1,
+        description =
             "If desugaring default methods, generate abstract base classes for them. "
                 + "This reduces default method stubs in hand-written subclasses.")
     public boolean generateBaseClassesForDefaultMethods;
 
-    @Option(
-        name = "copy_bridges_from_classpath",
-        defaultValue = "false",
-        category = "misc",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Copy bridges from classpath to desugared classes.")
+    @Parameter(
+        names = "--copy_bridges_from_classpath",
+        arity = 1,
+        description = "Copy bridges from classpath to desugared classes.")
     public boolean copyBridgesFromClasspath;
 
-    @Option(
-        name = "core_library",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Enables rewriting to desugar java.* classes.")
+    @Parameter(
+        names = "--core_library",
+        arity = 1,
+        description = "Enables rewriting to desugar java.* classes.")
     public boolean coreLibrary;
 
     /** Type prefixes that we'll move to a custom package. */
-    @Option(
-        name = "rewrite_core_library_prefix",
-        defaultValue = "null",
-        allowMultiple = true,
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Assume the given java.* prefixes are desugared.")
-    public List<String> rewriteCoreLibraryPrefixes;
+    @Parameter(
+        names = "--rewrite_core_library_prefix",
+        description = "Assume the given java.* prefixes are desugared.")
+    public List<String> rewriteCoreLibraryPrefixes = ImmutableList.of();
 
     /** Interfaces whose default and static interface methods we'll emulate. */
-    @Option(
-        name = "emulate_core_library_interface",
-        defaultValue = "null",
-        allowMultiple = true,
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Assume the given java.* interfaces are emulated.")
-    public List<String> emulateCoreLibraryInterfaces;
+    @Parameter(
+        names = "--emulate_core_library_interface",
+        description = "Assume the given java.* interfaces are emulated.")
+    public List<String> emulateCoreLibraryInterfaces = ImmutableList.of();
 
     /** Members that we will retarget to the given new owner. */
-    @Option(
-        name = "retarget_core_library_member",
-        defaultValue = "null",
-        allowMultiple = true,
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--retarget_core_library_member",
+        description =
             "Method invocations to retarget, given as \"class/Name#member->new/class/Name\".  "
                 + "The new owner is blindly assumed to exist.")
-    public List<String> retargetCoreLibraryMembers;
+    public List<String> retargetCoreLibraryMembers = ImmutableList.of();
 
     /** Members not to rewrite. */
-    @Option(
-        name = "dont_rewrite_core_library_invocation",
-        defaultValue = "null",
-        allowMultiple = true,
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help = "Method invocations not to rewrite, given as \"class/Name#method\".")
-    public List<String> dontTouchCoreLibraryMembers;
+    @Parameter(
+        names = "--dont_rewrite_core_library_invocation",
+        description = "Method invocations not to rewrite, given as \"class/Name#method\".")
+    public List<String> dontTouchCoreLibraryMembers = ImmutableList.of();
 
-    @Option(
-        name = "preserve_core_library_override",
-        defaultValue = "null",
-        allowMultiple = true,
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    ;
+
+    @Parameter(
+        names = "--preserve_core_library_override",
+        description =
             "Core library methods given as \"class/Name#method\" whose overrides should be"
                 + " preserved.  Typically this is useful when the given class itself isn't"
                 + " desugared.")
-    public List<String> preserveCoreLibraryOverrides;
+    public List<String> preserveCoreLibraryOverrides = ImmutableList.of();
 
     /** Set to work around b/62623509 with JaCoCo versions prior to 0.7.9. */
     // TODO(kmb): Remove when Android Studio doesn't need it anymore (see b/37116789)
-    @Option(
-        name = "legacy_jacoco_fix",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--legacy_jacoco_fix",
+        arity = 1,
+        description =
             "Consider setting this flag if you're using JaCoCo versions prior to 0.7.9 to work"
                 + " around issues with coverage instrumentation in default and static interface"
                 + " methods. This flag may be removed when no longer needed.")
     public boolean legacyJacocoFix;
 
     /** Convert Java 11 nest-based access control to bridge-based access control. */
-    @Option(
-        name = "desugar_nest_based_private_access",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--desugar_nest_based_private_access",
+        arity = 1,
+        description =
             "Desugar JVM 11 native supported accessing private nest members with bridge method"
                 + " based accessors. This flag includes desugaring private interface methods.")
-    public boolean desugarNestBasedPrivateAccess;
+    public boolean desugarNestBasedPrivateAccess = true;
 
     /**
      * Convert Java 9 invokedynamic-based string concatenations to StringBuilder-based
      * concatenations. @see https://openjdk.java.net/jeps/280
      */
-    @Option(
-        name = "desugar_indy_string_concat",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        help =
+    @Parameter(
+        names = "--desugar_indy_string_concat",
+        arity = 1,
+        description =
             "Desugar JVM 9 string concatenation operations to string builder based"
                 + " implementations.")
-    public boolean desugarIndifyStringConcat;
+    public boolean desugarIndifyStringConcat = true;
 
-    @Option(
-        name = "persistent_worker",
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        metadataTags = {OptionMetadataTag.HIDDEN},
-        help = "Run as a Bazel persistent worker.")
+    @Parameter(
+        names = "--persistent_worker",
+        arity = 1,
+        description = "Run as a Bazel persistent worker.")
     public boolean persistentWorker;
 
-    @Option(
-        name = "desugared_lib_config",
-        defaultValue = "null",
-        allowMultiple = true,
-        category = "input",
-        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-        effectTags = {OptionEffectTag.UNKNOWN},
-        converter = ExistingPathConverter.class,
-        help =
+    @Parameter(
+        names = "--desugared_lib_config",
+        converter = CompatExistingPathConverter.class,
+        description =
             "Specify desugared library configuration. "
                 + "The input file is a desugared library configuration (json)")
-    public List<Path> desugaredLibConfig;
+    public List<Path> desugaredLibConfig = ImmutableList.of();
   }
 
   private final DesugarOptions options;
@@ -379,14 +285,11 @@ public class Desugar {
   }
 
   private static DesugarOptions parseCommandLineOptions(String[] args) {
-    OptionsParser parser =
-        OptionsParser.builder()
-            .optionsClasses(DesugarOptions.class)
-            .allowResidue(false)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    parser.parseAndExitUponError(args);
-    DesugarOptions options = parser.getOptions(DesugarOptions.class);
+    DesugarOptions options = new DesugarOptions();
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(options, preprocessedArgs);
+    JCommander.newBuilder().addObject(options).build().parse(normalizedArgs);
 
     return options;
   }

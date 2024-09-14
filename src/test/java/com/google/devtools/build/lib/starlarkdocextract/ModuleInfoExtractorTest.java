@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.starlarkdocextract;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.extensions.proto.ProtoTruth.assertThat;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
+import static com.google.devtools.build.lib.starlarkdocextract.AttributeInfoExtractor.IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO;
+import static com.google.devtools.build.lib.starlarkdocextract.AttributeInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_KWARGS;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_ORDINARY;
 import static com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.FunctionParamRole.PARAM_ROLE_VARARGS;
@@ -711,7 +713,7 @@ public final class ModuleInfoExtractorTest {
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getRuleInfoList().get(0).getAttributeList())
         .containsExactly(
-            ModuleInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO,
+            IMPLICIT_NAME_ATTRIBUTE_INFO,
             AttributeInfo.newBuilder()
                 .setName("a")
                 .setType(AttributeType.STRING)
@@ -816,7 +818,7 @@ public final class ModuleInfoExtractorTest {
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getRuleInfoList().get(0).getAttributeList())
         .containsExactly(
-            ModuleInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO,
+            IMPLICIT_NAME_ATTRIBUTE_INFO,
             AttributeInfo.newBuilder()
                 .setName("a")
                 .setType(AttributeType.INT)
@@ -925,13 +927,13 @@ public final class ModuleInfoExtractorTest {
                 .setDocString("My doc")
                 .setOriginKey(
                     OriginKey.newBuilder().setName("documented_macro").setFile(fakeLabelString))
-                .addAttribute(ModuleInfoExtractor.IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO)
+                .addAttribute(IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO)
                 .build(),
             MacroInfo.newBuilder()
                 .setMacroName("undocumented_macro")
                 .setOriginKey(
                     OriginKey.newBuilder().setName("undocumented_macro").setFile(fakeLabelString))
-                .addAttribute(ModuleInfoExtractor.IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO)
+                .addAttribute(IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO)
                 .build());
   }
 
@@ -956,7 +958,7 @@ public final class ModuleInfoExtractorTest {
     ModuleInfo moduleInfo = getExtractor().extractFrom(module);
     assertThat(moduleInfo.getMacroInfoList().get(0).getAttributeList())
         .containsExactly(
-            ModuleInfoExtractor.IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO, // name comes first
+            IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO, // name comes first
             AttributeInfo.newBuilder()
                 .setName("some_attr")
                 .setType(AttributeType.LABEL)
@@ -1059,7 +1061,7 @@ public final class ModuleInfoExtractorTest {
     ModuleInfo moduleInfo = getExtractor(repositoryMapping, "my_repo").extractFrom(module);
     assertThat(
             moduleInfo.getRuleInfoList().get(0).getAttributeList().stream()
-                .filter(attr -> !attr.equals(ModuleInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO))
+                .filter(attr -> !attr.equals(IMPLICIT_NAME_ATTRIBUTE_INFO))
                 .map(AttributeInfo::getDefaultValue))
         .containsExactly(
             "\"@my_repo//test:foo\"",
@@ -1121,7 +1123,7 @@ public final class ModuleInfoExtractorTest {
                 .setOriginKey(OriginKey.newBuilder().setName("my_aspect").setFile(fakeLabelString))
                 .addAspectAttribute("deps")
                 .addAspectAttribute("srcs")
-                .addAttribute(ModuleInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO)
+                .addAttribute(IMPLICIT_NAME_ATTRIBUTE_INFO)
                 .addAttribute(
                     AttributeInfo.newBuilder()
                         .setName("a")

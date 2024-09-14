@@ -38,12 +38,16 @@
 int main(int argc, char *argv[]) {
   std::string output_file;
   bool succeed_on_found_violations = false;
+  std::string allowlist_file;
   std::vector<std::string> inputs;
   ArgTokenStream tokens(argc - 1, argv + 1);
   while (!tokens.AtEnd()) {
     if (tokens.MatchAndSet("--output", &output_file) ||
         tokens.MatchAndSet("--succeed_on_found_violations",
                            &succeed_on_found_violations) ||
+        // TODO(b/366268295): remove once the flag is no longer used
+        tokens.MatchAndSet("--whitelist", &allowlist_file) ||
+        tokens.MatchAndSet("--allowlist", &allowlist_file) ||
         tokens.MatchAndSet("--inputs", &inputs)) {
     } else {
       std::cerr << "error: bad command line argument " << tokens.token()
@@ -52,11 +56,32 @@ int main(int argc, char *argv[]) {
     }
   }
 
-  // TODO(cushon): support customizing the allowlist
-  one_version::OneVersion one_version(
-      std::make_unique<one_version::MapAllowlist>(
-          absl::flat_hash_map<std::string,
-                              absl::flat_hash_set<std::string>>()));
+  std::unique_ptr<one_version::Allowlist> allowlist;
+  if (allowlist_file.empty()) {
+    allowlist = std::make_unique<one_version::MapAllowlist>(
+        absl::flat_hash_map<std::string, absl::flat_hash_set<std::string>>());
+  } else {
+    std::ifstream in(allowlist_file);
+    if (!in) {
+      std::cerr << "error: unable to open allowlist file: " << allowlist_file
+                << std::endl;
+      return 1;
+    }
+    absl::flat_hash_map<std::string, absl::flat_hash_set<std::string>> map;
+    std::string line;
+    while (std::getline(in, line)) {
+      std::vector<std::string> parts =
+          absl::StrSplit(line, absl::MaxSplits(' ', 1));
+      if (parts.size() != 2) {
+        std::cerr << "error: expected <package> <label>, got: " << line
+                  << std::endl;
+        return 1;
+      }
+      map[parts[0]].insert(parts[1]);
+    }
+    allowlist = std::make_unique<one_version::MapAllowlist>(std::move(map));
+  }
+  one_version::OneVersion one_version(std::move(allowlist));
 
   for (const std::string &input : inputs) {
     std::vector<std::string> pieces = absl::StrSplit(input, ',');

@@ -1,7 +1,7 @@
 name: update-lockfiles
 
 on:
-  pull_request_target:
+  pull_request:
     branches:
       - "release-**"
     types:
@@ -22,7 +22,7 @@ jobs:
         with:
           egress-policy: audit
       - name: Update lockfile(s) on closed PR
-        uses: bazelbuild/continuous-integration/actions/update-lockfile@47d1cea8c6888d505a288065e067a03032d7aaac
+        uses: bazelbuild/continuous-integration/actions/update-lockfile@40accd1e24b7d296e87b573002ed0903828c0cf0
         with:
           release-branch: ${{ github.base_ref }}
           is-prod: True

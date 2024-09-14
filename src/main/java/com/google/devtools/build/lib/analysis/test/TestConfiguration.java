@@ -334,10 +334,9 @@ public class TestConfiguration extends Fragment {
   private final ImmutableMap<TestSize, ImmutableMap<String, Double>> testResources;
 
   public TestConfiguration(BuildOptions buildOptions) {
-    this.shouldInclude = buildOptions.contains(TestOptions.class);
-    if (shouldInclude) {
-      TestOptions options = buildOptions.get(TestOptions.class);
-      this.options = options;
+    this.options = buildOptions.get(TestOptions.class);
+    if (options != null) {
+      this.shouldInclude = true;
       this.testTimeout = ImmutableMap.copyOf(options.testTimeout);
       ImmutableMap.Builder<TestSize, ImmutableMap<String, Double>> testResources =
           ImmutableMap.builderWithExpectedSize(TestSize.values().length);
@@ -350,7 +349,7 @@ public class TestConfiguration extends Fragment {
       }
       this.testResources = testResources.buildOrThrow();
     } else {
-      this.options = null;
+      this.shouldInclude = false;
       this.testTimeout = null;
       this.testResources = ImmutableMap.of();
     }

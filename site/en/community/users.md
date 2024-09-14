@@ -170,6 +170,15 @@ Java/JavaScript services and client libraries and to generate Java and Ruby
 code from protobuf definitions.
 [Read about how we run individual JUnit 5 tests in isolation with Bazel.](https://flexport.engineering/connecting-bazel-and-junit5-by-transforming-arguments-46440c6ea068)
 
+### [Foursquare](https://foursquare.com){: .external}
+<img src="https://upload.wikimedia.org/wikipedia/commons/9/99/FSQ_logo.png" width="150" align="right">
+
+Foursquare's mission is to create technology that constructs meaningful
+bridges between digital spaces and physical places. We manage millions of
+lines of primarily Scala and Python code powering data-intensive
+applications, including complex codegen and container build processes, with
+Bazel.
+
 ### [Google](https://google.com){: .external}
 <img src="https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg" width="150" align="right">
 

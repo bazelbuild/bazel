@@ -671,7 +671,7 @@ public class RuleClass implements RuleClassData {
     private boolean documented;
     private boolean outputsToBindir = true;
     private boolean workspaceOnly = false;
-    private boolean isForDependencyResolution = false;
+    private boolean dependencyResolutionRule = false;
     private boolean isExecutableStarlark = false;
     private boolean isAnalysisTest = false;
     private boolean hasAnalysisTestTransition = false;
@@ -694,10 +694,17 @@ public class RuleClass implements RuleClassData {
     private Function<? super Rule, ? extends Set<String>> optionReferenceFunction =
         NO_OPTION_REFERENCE;
 
-    /** This field and the next are null iff the rule is native. */
+    /** The following 3 fields are null iff the rule is native. */
     @Nullable private Label ruleDefinitionEnvironmentLabel;
 
     @Nullable private byte[] ruleDefinitionEnvironmentDigest = null;
+
+    // TODO(b/366027483): in theory, ruleDefinitionEnvironmentLabel ought to equal
+    // starlarkExtensionLabel, and we ought to get rid of one of them.
+    @Nullable private Label starlarkExtensionLabel = null;
+
+    // May be non-null only if the rule is Starlark-defined.
+    @Nullable private String starlarkDocumentation = null;
 
     /** This field is non-null iff the rule is a Starlark repo rule. */
     @Nullable
@@ -747,6 +754,13 @@ public class RuleClass implements RuleClassData {
         Preconditions.checkArgument(starlarkParent.isExtendable());
       }
       for (RuleClass parent : parents) {
+        if (parent.dependencyResolutionRule) {
+          dependencyResolutionRule = true;
+        } else if (dependencyResolutionRule) {
+          throw new IllegalArgumentException(
+              "Inconsistent value of dependencyResolutionRule among parents");
+        }
+
         configurationFragmentPolicy.includeConfigurationFragmentsFrom(
             parent.getConfigurationFragmentPolicy());
         supportsConstraintChecking = parent.supportsConstraintChecking;
@@ -800,8 +814,29 @@ public class RuleClass implements RuleClassData {
     }
 
     /**
-     * Checks that required attributes for test rules are present, creates the {@link RuleClass}
-     * object and returns it.
+     * Same as {@link #build}, except for a Starlark-defined rule class; the rule class's key will
+     * be derived from the Starlark file label (falling back to the rule definition environment
+     * label if null) and the name.
+     *
+     * @param name rule class name; if the builder was initialized with an empty name, this value
+     *     will override it.
+     * @param starlarkExtensionLabel the label of the Starlark file where the rule class was
+     *     exported. Permitted to be null only as a workaround for unexported repository rules in
+     *     legacy code - see https://github.com/bazelbuild/bazel/issues/10441 and b/111199163.
+     */
+    public RuleClass buildStarlark(String name, @Nullable Label starlarkExtensionLabel) {
+      Preconditions.checkState(starlark);
+      this.starlarkExtensionLabel = starlarkExtensionLabel;
+      Label keyLabel =
+          this.starlarkExtensionLabel != null
+              ? this.starlarkExtensionLabel
+              : ruleDefinitionEnvironmentLabel;
+      return build(name, keyLabel + "%" + name);
+    }
+
+    /**
+     * For a native rule, checks that required attributes for test rules are present, creates the
+     * {@link RuleClass} object and returns it.
      *
      * @throws IllegalStateException if any of the required attributes is missing
      */
@@ -811,7 +846,7 @@ public class RuleClass implements RuleClassData {
     }
 
     /** Same as {@link #build} except with setting the name and key parameters. */
-    public RuleClass build(String name, String key) {
+    private RuleClass build(String name, String key) {
       Preconditions.checkArgument(this.name.isEmpty() || this.name.equals(name));
       type.checkName(name);
 
@@ -881,13 +916,15 @@ public class RuleClass implements RuleClassData {
           initializer,
           labelConverterForInitializer,
           starlark,
+          starlarkExtensionLabel,
+          starlarkDocumentation,
           extendable,
           extendableAllowlist,
           starlarkTestable,
           documented,
           outputsToBindir,
           workspaceOnly,
-          isForDependencyResolution,
+          dependencyResolutionRule,
           isExecutableStarlark,
           isAnalysisTest,
           hasAnalysisTestTransition,
@@ -941,7 +978,7 @@ public class RuleClass implements RuleClassData {
             attributeName.length(),
             MAX_ATTRIBUTE_NAME_LENGTH);
 
-        if (isForDependencyResolution) {
+        if (dependencyResolutionRule) {
           if (attribute.getType().getLabelClass() == LabelClass.DEPENDENCY
               && !attribute.isForDependencyResolution()) {
             attributesNotForDependencyResolutionBuilder.add(attributeName);
@@ -1344,6 +1381,26 @@ public class RuleClass implements RuleClassData {
       return this;
     }
 
+    /**
+     * Sets the Starlark documentation string, if one was provided, for a Starlark-defined rule
+     * class. Cannot be set for a non-Starlark-defined rule class.
+     */
+    @CanIgnoreReturnValue
+    public Builder setStarlarkDocumentation(String starlarkDocumentation) {
+      Preconditions.checkState(starlark, this.name);
+      this.starlarkDocumentation = Preconditions.checkNotNull(starlarkDocumentation, this.name);
+      return this;
+    }
+
+    /**
+     * Returns the Starlark documentation string, if one was provided, for a Starlark-defined rule
+     * class.
+     */
+    @Nullable
+    public String getStarlarkDocumentation() {
+      return this.starlarkDocumentation;
+    }
+
     public Label getRuleDefinitionEnvironmentLabel() {
       return this.ruleDefinitionEnvironmentLabel;
     }
@@ -1373,8 +1430,8 @@ public class RuleClass implements RuleClassData {
      * also marked as such.
      */
     @CanIgnoreReturnValue
-    public Builder setForDependencyResolution() {
-      this.isForDependencyResolution = true;
+    public Builder setDependencyResolutionRule() {
+      this.dependencyResolutionRule = true;
       return this;
     }
 
@@ -1629,12 +1686,15 @@ public class RuleClass implements RuleClassData {
   @Nullable private final LabelConverter labelConverterForInitializer;
   private final boolean isStarlark;
   private final boolean extendable;
+  // The following 2 fields may be non-null only if the rule is Starlark-defined.
+  @Nullable private Label starlarkExtensionLabel;
+  @Nullable private String starlarkDocumentation;
   @Nullable private final Label extendableAllowlist;
   private final boolean starlarkTestable;
   private final boolean documented;
   private final boolean outputsToBindir;
   private final boolean workspaceOnly;
-  private final boolean isForDependencyResolution;
+  private final boolean dependencyResolutionRule;
   private final boolean isExecutableStarlark;
   private final boolean isAnalysisTest;
   private final boolean hasAnalysisTestTransition;
@@ -1759,13 +1819,15 @@ public class RuleClass implements RuleClassData {
       @Nullable StarlarkFunction initializer,
       @Nullable LabelConverter labelConverterForInitializer,
       boolean isStarlark,
+      @Nullable Label starlarkExtensionLabel,
+      @Nullable String starlarkDocumentation,
       boolean extendable,
       @Nullable Label extendableAllowlist,
       boolean starlarkTestable,
       boolean documented,
       boolean outputsToBindir,
       boolean workspaceOnly,
-      boolean isForDependencyResolution,
+      boolean dependencyResolutionRule,
       boolean isExecutableStarlark,
       boolean isAnalysisTest,
       boolean hasAnalysisTestTransition,
@@ -1801,6 +1863,8 @@ public class RuleClass implements RuleClassData {
     this.initializer = initializer;
     this.labelConverterForInitializer = labelConverterForInitializer;
     this.isStarlark = isStarlark;
+    this.starlarkExtensionLabel = starlarkExtensionLabel;
+    this.starlarkDocumentation = starlarkDocumentation;
     this.extendable = extendable;
     this.extendableAllowlist = extendableAllowlist;
     this.targetKind = name + Rule.targetKindSuffix();
@@ -1821,7 +1885,7 @@ public class RuleClass implements RuleClassData {
     this.outputFileKind = outputFileKind;
     this.attributes = attributes;
     this.workspaceOnly = workspaceOnly;
-    this.isForDependencyResolution = isForDependencyResolution;
+    this.dependencyResolutionRule = dependencyResolutionRule;
     this.isExecutableStarlark = isExecutableStarlark;
     this.isAnalysisTest = isAnalysisTest;
     this.hasAnalysisTestTransition = hasAnalysisTestTransition;
@@ -2543,7 +2607,12 @@ public class RuleClass implements RuleClassData {
   /**
    * For Starlark rule classes, returns this RuleClass's rule definition environment's label, which
    * is never null. Is null for native rules' RuleClass objects.
+   *
+   * <p>In certain unusual cases (for example, unexported repository rules or analysis test rule
+   * classes), the values of {@link #getRuleDefinitionEnvironmentLabel()} and {@link
+   * #getStarlarkExtensionLabel()} may differ.
    */
+  // TODO(b/366027483): unify starlarkExtensionLabel and ruleDefinitionEnvironmentLabel.
   @Nullable
   public Label getRuleDefinitionEnvironmentLabel() {
     return ruleDefinitionEnvironmentLabel;
@@ -2584,6 +2653,34 @@ public class RuleClass implements RuleClassData {
     return isStarlark;
   }
 
+  /**
+   * If this is a Starlark-defined rule class which had been exported, returns the label of the
+   * Starlark file (typically a .bzl file, except for analysis test rule classes where it is a BUILD
+   * file) where the rule definition was exported, or null otherwise.
+   *
+   * <p>If a Starlark rule class has been exported, the tuple (rule name, starlark extension label)
+   * uniquely identifies it.
+   *
+   * <p>In certain unusual cases (for example, unexported repository rules or analysis test rule
+   * classes), the values of {@link #getRuleDefinitionEnvironmentLabel()} and {@link
+   * #getStarlarkExtensionLabel()} may differ.
+   */
+  // TODO(b/111199163): prohibit use of unexported repository rules.
+  // TODO(b/366027483): unify starlarkExtensionLabel and ruleDefinitionEnvironmentLabel.
+  @Nullable
+  public Label getStarlarkExtensionLabel() {
+    return starlarkExtensionLabel;
+  }
+
+  /**
+   * If this is a Starlark-defined rule class which had been defined with a documentation string,
+   * i.e. via {@code rule(doc = "...")}), returns that documentation string, or null otherwise.
+   */
+  @Nullable
+  public String getStarlarkDocumentation() {
+    return starlarkDocumentation;
+  }
+
   /** Returns true if this RuleClass can be extended. */
   public boolean isExtendable() {
     return extendable;
@@ -2601,8 +2698,8 @@ public class RuleClass implements RuleClassData {
 
   /** Returns true if rules of this class can be made available for dependency resolution. */
   @Override
-  public boolean isForDependencyResolution() {
-    return isForDependencyResolution;
+  public boolean isDependencyResolutionRule() {
+    return dependencyResolutionRule;
   }
 
   /** Returns true if this rule class outputs a default executable for every rule. */

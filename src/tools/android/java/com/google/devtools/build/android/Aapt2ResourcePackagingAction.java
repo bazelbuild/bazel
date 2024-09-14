@@ -38,7 +38,6 @@ import com.google.devtools.build.android.aapt2.ProtoApk;
 import com.google.devtools.build.android.aapt2.ResourceCompiler;
 import com.google.devtools.build.android.aapt2.ResourceLinker;
 import com.google.devtools.build.android.aapt2.StaticLibrary;
-import com.google.devtools.common.options.TriState;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;

@@ -23,9 +23,9 @@ java_test(
     deps = [
         ":test_utils",
         "//src/java_tools/singlejar/java/com/google/devtools/build/zip",
-        "//src/main/java/com/google/devtools/common/options",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//src/tools/android/java/com/google/devtools/build/android:android_common_30_1_3",
+        "//src/tools/android/java/com/google/devtools/build/android:android_options_utils",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
@@ -143,7 +143,7 @@ java_test(
     srcs = ["AndroidOptionsUtilsTest.java"],
     deps = [
         ":test_options",
-        "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
+        "//src/tools/android/java/com/google/devtools/build/android:android_options_utils",
         "//third_party:junit4",
         "//third_party:truth",
         "@maven//:com_beust_jcommander",
@@ -170,11 +170,11 @@ java_test(
     size = "small",
     srcs = ["ConvertersTest.java"],
     deps = [
-        "//src/main/java/com/google/devtools/common/options",
         "//src/tools/android/java/com/google/devtools/build/android:android_builder_lib",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
+        "//third_party/java/jcommander",
     ],
 )
 

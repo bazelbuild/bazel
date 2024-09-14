@@ -18,24 +18,22 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 
 import com.android.dx.command.dexer.DxContext;
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
+import com.beust.jcommander.Parameters;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.Weigher;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
+import com.google.devtools.build.android.AndroidOptionsUtils;
+import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
 import com.google.devtools.build.android.dexer.Dexing.DexingKey;
 import com.google.devtools.build.android.dexer.Dexing.DexingOptions;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkRequest;
 import com.google.devtools.build.lib.worker.WorkerProtocol.WorkResponse;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionMetadataTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.OptionsParsingException;
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -59,52 +57,31 @@ class DexBuilder {
 
   private static final long ONE_MEG = 1_000_000L;
 
-  /**
-   * Commandline options.
-   */
-  public static class Options extends OptionsBase {
-    @Option(
-      name = "input_jar",
-      defaultValue = "null",
-      category = "input",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = ExistingPathConverter.class,
-      abbrev = 'i',
-      help = "Input file to read classes and jars from."
-    )
+  /** Commandline options. */
+  @Parameters(separators = "= ")
+  public static class Options {
+    @Parameter(
+        names = {"--input_jar", "-i"},
+        converter = CompatExistingPathConverter.class,
+        description = "Input file to read classes and jars from.")
     public Path inputJar;
 
-    @Option(
-      name = "output_zip",
-      defaultValue = "null",
-      category = "output",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      converter = PathConverter.class,
-      abbrev = 'o',
-      help = "Output file to write."
-    )
+    @Parameter(
+        names = {"--output_zip", "-o"},
+        converter = CompatPathConverter.class,
+        description = "Output file to write.")
     public Path outputZip;
 
-    @Option(
-      name = "max_threads",
-      defaultValue = "8",
-      category = "misc",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "How many threads (besides the main thread) to use at most."
-    )
-    public int maxThreads;
+    @Parameter(
+        names = "--max_threads",
+        arity = 1,
+        description = "How many threads (besides the main thread) to use at most.")
+    public int maxThreads = 8;
 
-    @Option(
-      name = "persistent_worker",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.HIDDEN},
-      help = "Run as a Bazel persistent worker."
-    )
+    @Parameter(
+        names = "--persistent_worker",
+        arity = 1,
+        description = "Run as a Bazel persistent worker.")
     public boolean persistentWorker;
   }
 
@@ -113,14 +90,22 @@ class DexBuilder {
       args = Files.readAllLines(Paths.get(args[0].substring(1)), ISO_8859_1).toArray(new String[0]);
     }
 
-    OptionsParser optionsParser =
-        OptionsParser.builder().optionsClasses(Options.class, DexingOptions.class).build();
-    optionsParser.parseAndExitUponError(args);
-    Options options = optionsParser.getOptions(Options.class);
+    Options options = new Options();
+    DexingOptions dexingOptions = new DexingOptions();
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(
+            new Object[] {options, dexingOptions}, preprocessedArgs);
+    JCommander.newBuilder()
+        .addObject(dexingOptions)
+        .addObject(options)
+        .build()
+        .parse(normalizedArgs);
+
     if (options.persistentWorker) {
       runPersistentWorker();
     } else {
-      buildDexArchive(options, new Dexing(optionsParser.getOptions(DexingOptions.class)));
+      buildDexArchive(options, new Dexing(dexingOptions));
     }
   }
 
@@ -208,14 +193,20 @@ class DexBuilder {
       Cache<DexingKey, byte[]> dexCache,
       DxContext context,
       List<String> args)
-      throws OptionsParsingException, IOException, InterruptedException, ExecutionException {
-    OptionsParser optionsParser =
-        OptionsParser.builder()
-            .optionsClasses(Options.class, DexingOptions.class)
-            .allowResidue(false)
-            .build();
-    optionsParser.parse(args);
-    Options options = optionsParser.getOptions(Options.class);
+      throws ParameterException, IOException, InterruptedException, ExecutionException {
+    Options options = new Options();
+    DexingOptions dexingOptions = new DexingOptions();
+    String[] preprocessedArgs =
+        AndroidOptionsUtils.runArgFilePreprocessor(args.toArray(new String[0]));
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(
+            new Object[] {options, dexingOptions}, preprocessedArgs);
+    JCommander.newBuilder()
+        .addObject(options)
+        .addObject(dexingOptions)
+        .build()
+        .parse(normalizedArgs);
+
     try (ZipFile in = new ZipFile(options.inputJar.toFile());
         ZipOutputStream out = createZipOutputStream(options.outputZip)) {
       produceDexArchive(
@@ -223,7 +214,7 @@ class DexBuilder {
           out,
           executor,
           /*convertOnReaderThread*/ false,
-          new Dexing(context, optionsParser.getOptions(DexingOptions.class)),
+          new Dexing(context, dexingOptions),
           dexCache);
     }
   }

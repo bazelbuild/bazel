@@ -434,7 +434,6 @@ def cc_binary_impl(ctx, additional_linkopts, force_linkstatic = False):
       Appropriate providers for cc_binary/cc_test.
     """
     cc_helper.check_srcs_extensions(ctx, ALLOWED_SRC_FILES, "cc_binary", True)
-    semantics.validate_deps(ctx)
 
     if len(ctx.attr.dynamic_deps) > 0:
         cc_common.check_experimental_cc_shared_library()

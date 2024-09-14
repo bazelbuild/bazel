@@ -17,6 +17,7 @@
 load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
+load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/objc/attrs.bzl", "common_attrs")
 load(":common/objc/compilation_support.bzl", "compilation_support")
 
@@ -96,5 +97,5 @@ depend on this target."""),
         common_attrs.SDK_FRAMEWORK_DEPENDER_RULE,
     ),
     fragments = ["objc", "apple", "cpp"],
-    toolchains = cc_helper.use_cpp_toolchain(),
+    toolchains = cc_helper.use_cpp_toolchain() + cc_semantics.get_runtimes_toolchain(),
 )

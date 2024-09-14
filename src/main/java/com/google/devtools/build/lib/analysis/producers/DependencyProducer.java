@@ -183,7 +183,6 @@ final class DependencyProducer
         configurationKey,
         attributeTransition,
         parameters.transitionCache(),
-        parameters.buildConfigurationKeyCache(),
         (TransitionApplier.ResultSink) this,
         parameters.eventHandler(),
         /* runAfter= */ this::processTransitionResult);

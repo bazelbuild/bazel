@@ -14,15 +14,13 @@
 
 package com.google.devtools.build.android.ziputils;
 
+import com.beust.jcommander.JCommander;
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
-import com.google.devtools.common.options.Option;
-import com.google.devtools.common.options.OptionDocumentationCategory;
-import com.google.devtools.common.options.OptionEffectTag;
-import com.google.devtools.common.options.OptionsBase;
-import com.google.devtools.common.options.OptionsParser;
-import com.google.devtools.common.options.ShellQuotedParamsFilePreProcessor;
-import java.nio.file.FileSystems;
+import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.android.AndroidOptionsUtils;
 import java.util.List;
 
 /**
@@ -38,15 +36,11 @@ public class DexMapper {
    * @param args the command line arguments
    */
   public static void main(String[] args) {
-
-    OptionsParser parser =
-        OptionsParser.builder()
-            .optionsClasses(DexMapperOptions.class)
-            .allowResidue(true)
-            .argsPreProcessor(new ShellQuotedParamsFilePreProcessor(FileSystems.getDefault()))
-            .build();
-    parser.parseAndExitUponError(args);
-    DexMapperOptions options = parser.getOptions(DexMapperOptions.class);
+    DexMapperOptions options = new DexMapperOptions();
+    String[] preprocessedArgs = AndroidOptionsUtils.runArgFilePreprocessor(args);
+    String[] normalizedArgs =
+        AndroidOptionsUtils.normalizeBooleanOptions(options, preprocessedArgs);
+    JCommander.newBuilder().addObject(options).build().parse(normalizedArgs);
 
     List<String> inputs = options.inputJars;
     List<String> outputs = options.outputJars;
@@ -80,75 +74,43 @@ public class DexMapper {
   }
 
   /** Commandline options. */
-  public static class DexMapperOptions extends OptionsBase {
-    @Option(
-      name = "input_jar",
-      defaultValue = "null",
-      category = "input",
-      allowMultiple = true,
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      abbrev = 'i',
-      help =
-          "Input file to read classes and jars from. Classes in "
-              + " earlier files override those in later ones."
-    )
-    public List<String> inputJars;
+  @Parameters(separators = "= ")
+  public static class DexMapperOptions {
+    @Parameter(
+        names = {"--input_jar", "-i"},
+        description =
+            "Input file to read classes and jars from. Classes in "
+                + " earlier files override those in later ones.")
+    public List<String> inputJars = ImmutableList.of();
 
-    @Option(
-      name = "output_jar",
-      defaultValue = "null",
-      category = "output",
-      allowMultiple = true,
-      abbrev = 'o',
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Output file to write. Each argument is one shard. "
-              + "Output files are filled in the order specified."
-    )
-    public List<String> outputJars;
+    @Parameter(
+        names = {"--output_jar", "-o"},
+        description =
+            "Output file to write. Each argument is one shard. "
+                + "Output files are filled in the order specified.")
+    public List<String> outputJars = ImmutableList.of();
 
-    @Option(
-      name = "main_dex_filter",
-      defaultValue = "null",
-      category = "input",
-      abbrev = 'f',
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "List of classes to include in the first output file."
-    )
+    @Parameter(
+        names = {"--main_dex_filter", "-f"},
+        description = "List of classes to include in the first output file.")
     public String mainDexFilter;
 
-    @Option(
-      name = "output_resources",
-      defaultValue = "null",
-      category = "output",
-      abbrev = 'r',
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "File to write the Java resources to."
-    )
+    @Parameter(
+        names = {"--output_resources", "-r"},
+        description = "File to write the Java resources to.")
     public String outputResources;
 
-    @Option(
-      name = "split_dexed_classes",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "Split X.class.dex like X.class if true.  Treated as resources if false."
-    )
+    @Parameter(
+        names = "--split_dexed_classes",
+        arity = 1,
+        description = "Split X.class.dex like X.class if true.  Treated as resources if false.")
     public boolean splitDexedClasses;
 
-    @Option(
-      name = "inclusion_filter_jar",
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Only copy entries that are listed in the given Jar file.  By default, all entries "
-              + "are copied over."
-    )
+    @Parameter(
+        names = "--inclusion_filter_jar",
+        description =
+            "Only copy entries that are listed in the given Jar file.  By default, all entries "
+                + "are copied over.")
     public String inclusionFilterJar;
   }
 }

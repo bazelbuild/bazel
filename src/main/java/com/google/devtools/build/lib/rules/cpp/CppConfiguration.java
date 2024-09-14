@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
-import com.google.devtools.build.lib.rules.apple.AppleCommandLineOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.cpp.CppConfigurationApi;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -48,7 +47,7 @@ import net.starlark.java.eval.StarlarkValue;
  * architecture, target architecture, compiler version, and a standard library version.
  */
 @Immutable
-@RequiresOptions(options = {AppleCommandLineOptions.class, CppOptions.class})
+@RequiresOptions(options = {CppOptions.class})
 public final class CppConfiguration extends Fragment
     implements CppConfigurationApi<InvalidConfigurationException> {
   private static final String BAZEL_TOOLS_REPO = "@bazel_tools";

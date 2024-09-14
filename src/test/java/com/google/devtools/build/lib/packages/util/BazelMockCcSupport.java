@@ -44,7 +44,13 @@ public final class BazelMockCcSupport extends MockCcSupport {
   }
 
   @Override
-  protected String[] getRealFilesystemTools(String crosstoolTop) {
+  protected String[] getRealFilesystemToolsToLink(String crosstoolTop) {
+    // TODO(b/195425240): Make real-filesystem mode work.
+    return new String[0];
+  }
+
+  @Override
+  protected String[] getRealFilesystemToolsToCopy(String crosstoolTop) {
     // TODO(b/195425240): Make real-filesystem mode work.
     return new String[0];
   }

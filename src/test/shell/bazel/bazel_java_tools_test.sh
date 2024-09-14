@@ -84,7 +84,7 @@ http_archive(
     name = "local_java_tools_prebuilt",
     urls = ["${java_tools_prebuilt_zip_file_url}"]
 )
-bazel_dep(name = "abseil-cpp", version = "20240116.2", repo_name = "com_google_absl")
+bazel_dep(name = "abseil-cpp", version = "20230802.1", repo_name = "com_google_absl")
 EOF
   # Dependencies of java_tools
   add_platforms "MODULE.bazel"

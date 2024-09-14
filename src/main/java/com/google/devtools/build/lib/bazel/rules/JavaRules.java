@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.rules.java.JavaPluginsFlagAliasRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaRuntimeBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaRuleClasses.JavaToolchainBaseRule;
 import com.google.devtools.build.lib.rules.java.JavaStarlarkCommon;
-import com.google.devtools.build.lib.rules.java.ProguardLibraryRule;
 import com.google.devtools.build.lib.rules.java.ProguardSpecProvider;
 import com.google.devtools.build.lib.starlarkbuildapi.java.JavaBootstrap;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
@@ -54,7 +53,6 @@ public class JavaRules implements RuleSet {
     builder.addRuleDefinition(new JavaToolchainBaseRule());
     builder.addRuleDefinition(new JavaRuntimeBaseRule());
     builder.addRuleDefinition(new BazelJavaRuleClasses.JavaBaseRule());
-    builder.addRuleDefinition(new ProguardLibraryRule());
     builder.addRuleDefinition(new BazelJavaRuleClasses.JavaRule());
     builder.addRuleDefinition(new BazelJavaBinaryRule());
     builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("java_library") {});

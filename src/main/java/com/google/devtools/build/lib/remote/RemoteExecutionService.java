@@ -74,6 +74,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
+import com.google.devtools.build.lib.buildtool.buildevent.BuildCompleteEvent;
 import com.google.devtools.build.lib.buildtool.buildevent.BuildInterruptedEvent;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
@@ -83,18 +84,19 @@ import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.RemoteCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.DirectoryMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.FileMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.SymlinkMetadata;
 import com.google.devtools.build.lib.remote.Scrubber.SpawnScrubber;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
+import com.google.devtools.build.lib.remote.common.LostInputsEvent;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.ProgressStatusListener;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext.CachePolicy;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
@@ -192,6 +194,7 @@ public class RemoteExecutionService {
   private final OutputService outputService;
 
   @Nullable private final Scrubber scrubber;
+  private final Set<Digest> knownMissingCasDigests;
 
   public RemoteExecutionService(
       Executor executor,
@@ -208,7 +211,8 @@ public class RemoteExecutionService {
       TempPathGenerator tempPathGenerator,
       @Nullable Path captureCorruptedOutputsDir,
       @Nullable RemoteOutputChecker remoteOutputChecker,
-      OutputService outputService) {
+      OutputService outputService,
+      Set<Digest> knownMissingCasDigests) {
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
     this.execRoot = execRoot;
@@ -234,6 +238,7 @@ public class RemoteExecutionService {
     this.scheduler = Schedulers.from(executor, /* interruptibleWorker= */ true);
     this.remoteOutputChecker = remoteOutputChecker;
     this.outputService = outputService;
+    this.knownMissingCasDigests = knownMissingCasDigests;
   }
 
   private Command buildCommand(
@@ -626,6 +631,7 @@ public class RemoteExecutionService {
     private final ActionResult actionResult;
     @Nullable private final ExecuteResponse executeResponse;
     @Nullable private final String cacheName;
+    @Nullable private ActionResultMetadata metadata;
 
     /** Creates a new {@link RemoteActionResult} instance from a cached result. */
     public static RemoteActionResult createFromCache(CachedActionResult cachedActionResult) {
@@ -666,8 +672,20 @@ public class RemoteExecutionService {
       return actionResult.getOutputDirectoriesList();
     }
 
-    public int getOutputDirectoriesCount() {
-      return actionResult.getOutputDirectoriesCount();
+    public ActionResultMetadata getOrParseActionResultMetadata(
+        RemoteCache remoteCache,
+        DigestUtil digestUtil,
+        RemoteActionExecutionContext context,
+        RemotePathResolver remotePathResolver)
+        throws IOException, InterruptedException {
+      if (metadata == null) {
+        try (SilentCloseable c = Profiler.instance().profile("Remote.parseActionResultMetadata")) {
+          metadata =
+              parseActionResultMetadata(
+                  remoteCache, digestUtil, context, actionResult, remotePathResolver);
+        }
+      }
+      return metadata;
     }
 
     public List<OutputSymlink> getOutputDirectorySymlinks() {
@@ -750,17 +768,71 @@ public class RemoteExecutionService {
         action.getRemoteActionExecutionContext().getReadCachePolicy().allowAnyCache(),
         "spawn doesn't accept cached result");
 
+    ImmutableSet<String> inlineOutputFiles = ImmutableSet.of();
+    PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
+    if (inMemoryOutputPath != null) {
+      inlineOutputFiles =
+          ImmutableSet.of(action.getRemotePathResolver().localPathToOutputPath(inMemoryOutputPath));
+    }
+
     CachedActionResult cachedActionResult =
         remoteCache.downloadActionResult(
             action.getRemoteActionExecutionContext(),
             action.getActionKey(),
-            /* inlineOutErr= */ false);
+            /* inlineOutErr= */ false,
+            inlineOutputFiles);
 
     if (cachedActionResult == null) {
       return null;
     }
 
-    return RemoteActionResult.createFromCache(cachedActionResult);
+    var result = RemoteActionResult.createFromCache(cachedActionResult);
+
+    // We only add digests to `knownMissingCasDigests` when LostInputsEvent occurs which will cause
+    // the build to abort and rewind, so there is no data race here. This allows us to avoid the
+    // check until cache eviction happens.
+    if (!knownMissingCasDigests.isEmpty()) {
+      var metadata =
+          result.getOrParseActionResultMetadata(
+              remoteCache,
+              digestUtil,
+              action.getRemoteActionExecutionContext(),
+              action.getRemotePathResolver());
+
+      // If we already know digests referenced by this AC is missing from remote cache, ignore it so
+      // that we can fall back to execution. This could happen when the remote cache is an HTTP
+      // cache, or doesn't implement AC integrity check.
+      //
+      // See https://github.com/bazelbuild/bazel/issues/18696.
+      if (updateKnownMissingCasDigests(knownMissingCasDigests, metadata)) {
+        return null;
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Removes digests referenced by {@code metadata} from {@code knownMissingCasDigests} and returns
+   * whether any were removed
+   */
+  private static boolean updateKnownMissingCasDigests(
+      Set<Digest> knownMissingCasDigests, ActionResultMetadata metadata) {
+    // Using `remove` below because we assume the missing blob will be uploaded afterwards.
+    var result = false;
+    for (var file : metadata.files()) {
+      if (knownMissingCasDigests.remove(file.digest())) {
+        result = true;
+      }
+    }
+    for (var entry : metadata.directories()) {
+      for (var file : entry.getValue().files()) {
+        if (knownMissingCasDigests.remove(file.digest())) {
+          result = true;
+        }
+      }
+    }
+    return result;
   }
 
   private ListenableFuture<FileMetadata> downloadFile(
@@ -894,11 +966,13 @@ public class RemoteExecutionService {
       private final Path path;
       private final Digest digest;
       private final boolean isExecutable;
+      private final ByteString contents;
 
-      private FileMetadata(Path path, Digest digest, boolean isExecutable) {
+      private FileMetadata(Path path, Digest digest, boolean isExecutable, ByteString contents) {
         this.path = path;
         this.digest = digest;
         this.isExecutable = isExecutable;
+        this.contents = contents;
       }
 
       public Path path() {
@@ -911,6 +985,10 @@ public class RemoteExecutionService {
 
       public boolean isExecutable() {
         return isExecutable;
+      }
+
+      public ByteString content() {
+        return contents;
       }
     }
 
@@ -969,13 +1047,16 @@ public class RemoteExecutionService {
     }
   }
 
-  private DirectoryMetadata parseDirectory(
+  private static DirectoryMetadata parseDirectory(
       Path parent, Directory dir, Map<Digest, Directory> childDirectoriesMap) {
     ImmutableList.Builder<FileMetadata> filesBuilder = ImmutableList.builder();
     for (FileNode file : dir.getFilesList()) {
       filesBuilder.add(
           new FileMetadata(
-              parent.getRelative(file.getName()), file.getDigest(), file.getIsExecutable()));
+              parent.getRelative(file.getName()),
+              file.getDigest(),
+              file.getIsExecutable(),
+              ByteString.EMPTY));
     }
 
     ImmutableList.Builder<SymlinkMetadata> symlinksBuilder = ImmutableList.builder();
@@ -997,16 +1078,18 @@ public class RemoteExecutionService {
     return new DirectoryMetadata(filesBuilder.build(), symlinksBuilder.build());
   }
 
-  ActionResultMetadata parseActionResultMetadata(
+  static ActionResultMetadata parseActionResultMetadata(
+      RemoteCache remoteCache,
+      DigestUtil digestUtil,
       RemoteActionExecutionContext context,
-      RemoteActionResult result,
+      ActionResult result,
       RemotePathResolver remotePathResolver)
       throws IOException, InterruptedException {
     checkNotNull(remoteCache, "remoteCache can't be null");
 
     Map<Path, ListenableFuture<Tree>> dirMetadataDownloads =
         Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
-    for (OutputDirectory dir : result.getOutputDirectories()) {
+    for (OutputDirectory dir : result.getOutputDirectoriesList()) {
       var outputPath = dir.getPath();
       dirMetadataDownloads.put(
           remotePathResolver.outputPathToLocalPath(reencodeExternalToInternal(outputPath)),
@@ -1033,21 +1116,25 @@ public class RemoteExecutionService {
     }
 
     ImmutableMap.Builder<Path, FileMetadata> files = ImmutableMap.builder();
-    for (OutputFile outputFile : result.getOutputFiles()) {
+    for (OutputFile outputFile : result.getOutputFilesList()) {
       Path localPath =
           remotePathResolver.outputPathToLocalPath(
               reencodeExternalToInternal(outputFile.getPath()));
       files.put(
           localPath,
-          new FileMetadata(localPath, outputFile.getDigest(), outputFile.getIsExecutable()));
+          new FileMetadata(
+              localPath,
+              outputFile.getDigest(),
+              outputFile.getIsExecutable(),
+              outputFile.getContents()));
     }
 
     var symlinkMap = new HashMap<Path, SymlinkMetadata>();
     var outputSymlinks =
         Iterables.concat(
-            result.getOutputFileSymlinks(),
-            result.getOutputDirectorySymlinks(),
-            result.getOutputSymlinks());
+            result.getOutputFileSymlinksList(),
+            result.getOutputDirectorySymlinksList(),
+            result.getOutputSymlinksList());
     for (var symlink : outputSymlinks) {
       var localPath =
           remotePathResolver.outputPathToLocalPath(reencodeExternalToInternal(symlink.getPath()));
@@ -1107,16 +1194,15 @@ public class RemoteExecutionService {
       context = context.withReadCachePolicy(context.getReadCachePolicy().addRemoteCache());
     }
 
-    ActionResultMetadata metadata;
-    try (SilentCloseable c = Profiler.instance().profile("Remote.parseActionResultMetadata")) {
-      metadata = parseActionResultMetadata(context, result, action.getRemotePathResolver());
-    }
+    ActionResultMetadata metadata =
+        result.getOrParseActionResultMetadata(
+            remoteCache, digestUtil, context, action.getRemotePathResolver());
 
     // The expiration time for remote cache entries.
     var expireAtEpochMilli = Instant.now().plus(remoteOptions.remoteCacheTtl).toEpochMilli();
 
     ActionInput inMemoryOutput = null;
-    AtomicReference<byte[]> inMemoryOutputData = new AtomicReference<>(null);
+    AtomicReference<ByteString> inMemoryOutputData = new AtomicReference<>(null);
     PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
     if (inMemoryOutputPath != null) {
       for (ActionInput output : action.getSpawn().getOutputFiles()) {
@@ -1162,15 +1248,25 @@ public class RemoteExecutionService {
         }
 
         if (isInMemoryOutputFile) {
-          downloadsBuilder.add(
-              transform(
-                  remoteCache.downloadBlob(
-                      context, inMemoryOutputPath.getPathString(), file.digest()),
-                  data -> {
-                    inMemoryOutputData.set(data);
-                    return null;
-                  },
-                  directExecutor()));
+          if (file.contents.isEmpty()) {
+            // As the contents field doesn't have presence information, we use the digest size to
+            // distinguish between an empty file and one that wasn't inlined.
+            if (file.digest.getSizeBytes() == 0) {
+              inMemoryOutputData.set(ByteString.EMPTY);
+            } else {
+              downloadsBuilder.add(
+                  transform(
+                      remoteCache.downloadBlob(
+                          context, inMemoryOutputPath.getPathString(), file.digest()),
+                      data -> {
+                        inMemoryOutputData.set(ByteString.copyFrom(data));
+                        return null;
+                      },
+                      directExecutor()));
+            }
+          } else {
+            inMemoryOutputData.set(file.contents);
+          }
         }
       }
     }
@@ -1180,6 +1276,7 @@ public class RemoteExecutionService {
         if (realToTmpPath.containsKey(file.path)) {
           continue;
         }
+
         if (shouldDownload(result, file.path.relativeTo(execRoot))) {
           Path tmpPath = tempPathGenerator.generateTempPath();
           realToTmpPath.put(file.path, tmpPath);
@@ -1284,6 +1381,12 @@ public class RemoteExecutionService {
         }
       }
 
+      if (result.executeResponse != null && !knownMissingCasDigests.isEmpty()) {
+        // A succeeded execution uploads outputs to CAS. Refresh our knowledge about missing
+        // digests.
+        var unused = updateKnownMissingCasDigests(knownMissingCasDigests, metadata);
+      }
+
       // When downloading outputs from just remotely executed action, the action result comes from
       // Execution response which means, if disk cache is enabled, action result hasn't been
       // uploaded to it. Upload action result to disk cache here so next build could hit it.
@@ -1297,7 +1400,7 @@ public class RemoteExecutionService {
     }
 
     if (inMemoryOutput != null && inMemoryOutputData.get() != null) {
-      return new InMemoryOutput(inMemoryOutput, ByteString.copyFrom(inMemoryOutputData.get()));
+      return new InMemoryOutput(inMemoryOutput, inMemoryOutputData.get());
     }
 
     return null;
@@ -1739,6 +1842,12 @@ public class RemoteExecutionService {
     if (remoteOptions.remoteExecutionPriority != 0) {
       requestBuilder.getExecutionPolicyBuilder().setPriority(remoteOptions.remoteExecutionPriority);
     }
+    PathFragment inMemoryOutputPath = getInMemoryOutputPath(action.getSpawn());
+    if (inMemoryOutputPath != null) {
+      requestBuilder.addInlineOutputFiles(
+          reencodeInternalToExternal(
+              action.getRemotePathResolver().localPathToOutputPath(inMemoryOutputPath)));
+    }
 
     ExecuteRequest request = requestBuilder.build();
 
@@ -1787,6 +1896,20 @@ public class RemoteExecutionService {
     buildInterrupted.set(true);
   }
 
+  @Subscribe
+  public void onBuildComplete(BuildCompleteEvent event) {
+    if (event.getResult().getSuccess()) {
+      // If build succeeded, clear knownMissingCasDigests in case there are missing digests from
+      // other targets from previous builds which are not relevant anymore.
+      knownMissingCasDigests.clear();
+    }
+  }
+
+  @Subscribe
+  public void onLostInputs(LostInputsEvent event) {
+    knownMissingCasDigests.add(event.getMissingDigest());
+  }
+
   /**
    * Shuts the service down. Wait for active network I/O to finish but new requests are rejected.
    */
@@ -1821,7 +1944,6 @@ public class RemoteExecutionService {
   }
 
   void report(Event evt) {
-
     synchronized (this) {
       if (reportedErrors.contains(evt.getMessage())) {
         return;

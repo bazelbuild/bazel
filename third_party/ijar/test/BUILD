@@ -372,6 +372,31 @@ genrule(
     tools = [":GenJarWithManifestSections"],
 )
 
+java_binary(
+    name = "GenMetaInfTransitive",
+    testonly = 1,
+    srcs = ["GenMetaInfTransitive.java"],
+    main_class = "GenMetaInfTransitive",
+    deps = ["//third_party:guava"],
+)
+
+genrule(
+    name = "meta_inf_transitive",
+    testonly = 1,
+    outs = ["meta_inf_transitive.jar"],
+    cmd = "$(location :GenMetaInfTransitive) $@",
+    tools = [":GenMetaInfTransitive"],
+)
+
+genrule(
+    name = "meta_inf_transitive-interface",
+    testonly = 1,
+    srcs = [":meta_inf_transitive.jar"],
+    outs = ["meta_inf_transitive-interface.jar"],
+    cmd = "$(location //third_party/ijar) $< $@",
+    tools = ["//third_party/ijar"],
+)
+
 java_test(
     name = "IjarTests",
     size = "small",
@@ -402,6 +427,7 @@ java_test(
         ":kotlin_module-interface.jar",
         ":liblocal_and_anonymous_lib.jar",
         ":local_and_anonymous-interface.jar",
+        ":meta_inf_transitive-interface",
         ":module_info-interface.jar",
         ":scala_tasty-interface.jar",
     ],

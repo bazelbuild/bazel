@@ -25,6 +25,7 @@ import build.bazel.remote.execution.v2.Platform;
 import build.bazel.remote.execution.v2.RequestMetadata;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.platform.PlatformUtils;
@@ -32,10 +33,10 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
+import com.google.devtools.build.lib.remote.RemoteCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
 import com.google.devtools.build.lib.remote.common.RemoteActionExecutionContext;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
-import com.google.devtools.build.lib.remote.common.RemoteCacheClient.CachedActionResult;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
@@ -153,7 +154,11 @@ public class RemoteRepositoryRemoteExecutor implements RepositoryRemoteExecutor 
     try (SilentCloseable c =
         Profiler.instance().profile(ProfilerTask.REMOTE_CACHE_CHECK, "check cache hit")) {
       cachedActionResult =
-          remoteCache.downloadActionResult(context, actionKey, /* inlineOutErr= */ true);
+          remoteCache.downloadActionResult(
+              context,
+              actionKey,
+              /* inlineOutErr= */ true,
+              /* inlineOutputFiles= */ ImmutableSet.of());
     }
     ActionResult actionResult = null;
     if (cachedActionResult != null) {

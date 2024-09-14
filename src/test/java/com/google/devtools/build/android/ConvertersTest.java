@@ -15,12 +15,12 @@ package com.google.devtools.build.android;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.devtools.build.android.Converters.ExistingPathConverter;
-import com.google.devtools.build.android.Converters.ExistingPathStringDictionaryConverter;
-import com.google.devtools.build.android.Converters.PathConverter;
-import com.google.devtools.build.android.Converters.PathListConverter;
-import com.google.devtools.build.android.Converters.StringDictionaryConverter;
-import com.google.devtools.common.options.OptionsParsingException;
+import com.beust.jcommander.ParameterException;
+import com.google.devtools.build.android.Converters.CompatExistingPathConverter;
+import com.google.devtools.build.android.Converters.CompatExistingPathStringDictionaryConverter;
+import com.google.devtools.build.android.Converters.CompatPathConverter;
+import com.google.devtools.build.android.Converters.CompatPathListConverter;
+import com.google.devtools.build.android.Converters.CompatStringDictionaryConverter;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
@@ -44,7 +44,7 @@ public final class ConvertersTest {
 
   @Test
   public void testPathConverter_empty() throws Exception {
-    PathConverter converter = new PathConverter();
+    CompatPathConverter converter = new CompatPathConverter();
     Path result = converter.convert("");
     assertThat((Object) result).isEqualTo(Paths.get(""));
   }
@@ -52,15 +52,15 @@ public final class ConvertersTest {
   @Test
   public void testPathConverter_invalid() throws Exception {
     String arg = "\u0000";
-    PathConverter converter = new PathConverter();
-    expected.expect(OptionsParsingException.class);
+    CompatPathConverter converter = new CompatPathConverter();
+    expected.expect(ParameterException.class);
     expected.expectMessage(String.format("%s is not a valid path:", arg));
     converter.convert(arg);
   }
 
   @Test
   public void testPathConverter_valid() throws Exception {
-    PathConverter converter = new PathConverter();
+    CompatPathConverter converter = new CompatPathConverter();
     Path result = converter.convert("test_file");
     assertThat((Object) result).isEqualTo(Paths.get("test_file"));
   }
@@ -68,8 +68,8 @@ public final class ConvertersTest {
   @Test
   public void testExistingPathConverter_nonExisting() throws Exception {
     String arg = "test_file";
-    ExistingPathConverter converter = new ExistingPathConverter();
-    expected.expect(OptionsParsingException.class);
+    CompatExistingPathConverter converter = new CompatExistingPathConverter();
+    expected.expect(ParameterException.class);
     expected.expectMessage(String.format("%s is not a valid path: it does not exist.", arg));
     converter.convert(arg);
   }
@@ -77,14 +77,14 @@ public final class ConvertersTest {
   @Test
   public void testExistingPathConverter_existing() throws Exception {
     Path testFile = tmp.newFile("test_file").toPath();
-    ExistingPathConverter converter = new ExistingPathConverter();
+    CompatExistingPathConverter converter = new CompatExistingPathConverter();
     Path result = converter.convert(testFile.toString());
     assertThat((Object) result).isEqualTo(testFile);
   }
 
   @Test
   public void testPathListConverter() throws Exception {
-    PathListConverter converter = new PathListConverter();
+    CompatPathListConverter converter = new CompatPathListConverter();
     assertThat(converter.convert("foo:bar::baz:"))
         .containsAtLeast(Paths.get("foo"), Paths.get("bar"), Paths.get("baz"))
         .inOrder();
@@ -92,60 +92,58 @@ public final class ConvertersTest {
 
   @Test
   public void testStringDictionaryConverter_emptyEntry() throws Exception {
-    StringDictionaryConverter converter = new StringDictionaryConverter();
-    expected.expect(OptionsParsingException.class);
+    CompatStringDictionaryConverter converter = new CompatStringDictionaryConverter();
+    expected.expect(ParameterException.class);
     expected.expectMessage("Dictionary entry [] does not contain both a key and a value.");
-    converter.convert("foo:bar,,baz:bar", /*conversionContext=*/ null);
+    converter.convert("foo:bar,,baz:bar");
   }
 
   @Test
   public void testStringDictionaryConverter_missingKeyOrValue() throws Exception {
     String badEntry = "foo";
-    StringDictionaryConverter converter = new StringDictionaryConverter();
-    expected.expect(OptionsParsingException.class);
+    CompatStringDictionaryConverter converter = new CompatStringDictionaryConverter();
+    expected.expect(ParameterException.class);
     expected.expectMessage(String.format(
         "Dictionary entry [%s] does not contain both a key and a value.", badEntry));
-    converter.convert(badEntry, /*conversionContext=*/ null);
+    converter.convert(badEntry);
   }
 
   @Test
   public void testStringDictionaryConverter_extraFields() throws Exception {
     String badEntry = "foo:bar:baz";
-    StringDictionaryConverter converter = new StringDictionaryConverter();
-    expected.expect(OptionsParsingException.class);
+    CompatStringDictionaryConverter converter = new CompatStringDictionaryConverter();
+    expected.expect(ParameterException.class);
     expected.expectMessage(String.format(
         "Dictionary entry [%s] contains too many fields.", badEntry));
-    converter.convert(badEntry, /*conversionContext=*/ null);
+    converter.convert(badEntry);
   }
 
   @Test
   public void testStringDictionaryConverter_duplicateKey() throws Exception {
     String key = "foo";
     String arg = String.format("%s:%s,%s:%s", key, "bar", key, "baz");
-    StringDictionaryConverter converter = new StringDictionaryConverter();
-    expected.expect(OptionsParsingException.class);
+    CompatStringDictionaryConverter converter = new CompatStringDictionaryConverter();
+    expected.expect(ParameterException.class);
     expected.expectMessage(String.format(
         "Dictionary already contains the key [%s].", key));
-    converter.convert(arg, /*conversionContext=*/ null);
+    converter.convert(arg);
   }
 
   @Test
   public void testStringDictionaryConverter() throws Exception {
-    StringDictionaryConverter converter = new StringDictionaryConverter();
-    Map<String, String> result =
-        converter.convert("foo:bar,baz:messy\\:stri\\,ng", /*conversionContext=*/ null);
+    CompatStringDictionaryConverter converter = new CompatStringDictionaryConverter();
+    Map<String, String> result = converter.convert("foo:bar,baz:messy\\:stri\\,ng");
     assertThat(result).containsExactly("foo", "bar", "baz", "messy:stri,ng");
   }
 
   @Test
   public void testExistingPathStringDictionaryConverter() throws Exception {
     Path existingFile = tmp.newFile("existing").toPath();
-    ExistingPathStringDictionaryConverter converter = new ExistingPathStringDictionaryConverter();
+    CompatExistingPathStringDictionaryConverter converter =
+        new CompatExistingPathStringDictionaryConverter();
     // On Windows, the path starts like C:\foo\bar\..., we need to escape the colon.
     Map<Path, String> result =
-        converter.convert(
-            String.format("%s:string", existingFile.toString().replace(":", "\\:")),
-            /*conversionContext=*/ null);
+        converter.convert(String.format("%s:string", existingFile.toString().replace(":", "\\:")));
     assertThat(result).containsExactly(existingFile, "string");
   }
 }
