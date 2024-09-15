@@ -1726,6 +1726,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         """
             ERROR /workspace/MODULE.bazel:3:14: Traceback (most recent call last):
             \tFile "/workspace/MODULE.bazel", line 3, column 14, in <toplevel>
+            \t\toverride_repo(ext, 'foo')
             Error in override_repo: The repo exported as 'foo' by module extension 'ext' is overridden with 'foo', but no repo is visible under this name""");
   }
 
@@ -1752,6 +1753,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         """
             ERROR /workspace/MODULE.bazel:6:14: Traceback (most recent call last):
             \tFile "/workspace/MODULE.bazel", line 6, column 14, in <toplevel>
+            \t\toverride_repo(ext, foo = "override2")
             Error in override_repo: The repo exported as 'foo' by module extension 'ext' is already overridden with 'override1' at /workspace/MODULE.bazel:5:14""");
   }
 
@@ -1778,6 +1780,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         """
             ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
             \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
+            \t\toverride_repo(ext, baz = "bar")
             Error in override_repo: The repo 'bar' used as an override for 'baz' in module extension 'ext' is itself overridden with 'override' at /workspace/MODULE.bazel:6:14, which is not supported. Please directly override 'baz' with 'override' instead.""");
   }
 
@@ -1805,6 +1808,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         """
             ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
             \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
+            \t\toverride_repo(ext1, baz = "bar")
             Error in override_repo: The repo 'bar' used as an override for 'baz' in module extension 'ext1' is itself overridden with 'override' at /workspace/MODULE.bazel:6:14, which is not supported. Please directly override 'baz' with 'override' instead.""");
   }
 
@@ -1830,6 +1834,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         """
             ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
             \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
+            \t\toverride_repo(ext, foo = "my_bar", bar = "my_foo")
             Error in override_repo: The repo 'my_foo' used as an override for 'bar' in module extension 'ext' is itself overridden with 'my_bar' at /workspace/MODULE.bazel:5:14, which forms a cycle.""");
   }
 
@@ -1857,6 +1862,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         """
             ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
             \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
+            \t\toverride_repo(ext2, bar = "my_foo")
             Error in override_repo: The repo 'my_foo' used as an override for 'bar' in module extension 'ext2' is itself overridden with 'my_bar' at /workspace/MODULE.bazel:4:14, which forms a cycle.""");
   }
 }
