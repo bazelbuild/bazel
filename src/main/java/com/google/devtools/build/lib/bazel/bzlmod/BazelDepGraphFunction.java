@@ -226,7 +226,9 @@ public class BazelDepGraphFunction implements SkyFunction {
       if (rootUsage != null) {
         for (var override : rootUsage.getRepoOverrides().entrySet()) {
           repoOverridesBuilder.put(
-              extensionId, override.getKey(), rootModuleMapping.get(override.getValue()));
+              extensionId,
+              override.getKey(),
+              rootModuleMapping.get(override.getValue().overridingRepoName()));
         }
       }
     }

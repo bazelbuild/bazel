@@ -131,14 +131,21 @@ public abstract class ModuleExtensionUsage {
     return getProxies().stream().anyMatch(p -> !p.isDevDependency());
   }
 
+  @GenerateTypeAdapter
+  public record RepoOverride(
+      // The apparent name of the overriding repo in the root module.
+      String overridingRepoName,
+      // Whether this override should apply to an existing repo.
+      boolean mustExist,
+      Location location) {}
+
   /**
-   * Maps repo names local to the extension to the apparent name in the using module of the repo
-   * they are overridden with.
+   * Maps repo names local to the extension to repo they are overridden by.
    *
    * <p>This is only non-empty for root module usages and repos that override other repos are not
    * themselves overridden.
    */
-  public abstract ImmutableMap<String, String> getRepoOverrides();
+  public abstract ImmutableMap<String, RepoOverride> getRepoOverrides();
 
   public abstract Builder toBuilder();
 
@@ -163,6 +170,9 @@ public abstract class ModuleExtensionUsage {
         // against the set of generated repos in a validation step that comes afterward.
         .setProxies(ImmutableList.of())
         // Tracked in SingleExtensionUsagesValue instead, using canonical instead of apparent names.
+        // Whether this override must apply to an existing repo as well as its source location also
+        // don't influence the evaluation of the extension as they are checked in
+        // SingleExtensionFunction.
         .setRepoOverrides(ImmutableMap.of())
         .build();
   }
@@ -199,7 +209,7 @@ public abstract class ModuleExtensionUsage {
 
     @CanIgnoreReturnValue
     public abstract Builder setRepoOverrides(
-        ImmutableMap<String, String> extensionLocalToApparentName);
+        ImmutableMap<String, RepoOverride> extensionLocalToApparentName);
 
     public abstract ModuleExtensionUsage build();
   }

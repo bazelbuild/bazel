@@ -82,6 +82,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   record RepoOverride(
       String overriddenRepoName,
       String overridingRepoName,
+      boolean mustExist,
       ModuleExtensionUsageBuilder extensionUsageBuilder,
       ImmutableList<StarlarkThread.CallStackEntry> stack) {
     Location location() {
@@ -192,6 +193,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     public void addRepoOverride(
         String overriddenRepoName,
         String overridingRepoName,
+        boolean mustExist,
         ImmutableList<StarlarkThread.CallStackEntry> stack)
         throws EvalException {
       RepositoryName.validateUserProvidedRepoName(overriddenRepoName);
@@ -200,7 +202,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
           repoOverrides.put(
               overriddenRepoName,
               new ModuleThreadContext.RepoOverride(
-                  overriddenRepoName, overridingRepoName, this, stack));
+                  overriddenRepoName, overridingRepoName, mustExist, this, stack));
       if (collision != null) {
         throw Starlark.errorf(
             "The repo exported as '%s' by module extension '%s' is already overridden with '%s' at"
@@ -253,7 +255,12 @@ public class ModuleThreadContext extends StarlarkThreadContext {
         context.overridingRepos.put(localRepoName, override.getValue());
       }
       builder.setRepoOverrides(
-          ImmutableMap.copyOf(Maps.transformValues(repoOverrides, v -> v.overridingRepoName)));
+          ImmutableMap.copyOf(
+              Maps.transformValues(
+                  repoOverrides,
+                  v ->
+                      new ModuleExtensionUsage.RepoOverride(
+                          v.overridingRepoName, v.mustExist, v.location()))));
 
       return builder.build();
     }
