@@ -190,8 +190,24 @@ public final class RunfilesSupport {
     }
 
     @Override
-    public NestedSet<String> getEmptyFilenamesForLogging() {
+    public Iterable<PathFragment> getEmptyFilenamesForLogging() {
       return runfiles.getEmptyFilenames();
+    }
+
+    @Override
+    public NestedSet<SymlinkEntry> getSymlinksForLogging() {
+      return runfiles.getSymlinks();
+    }
+
+    @Override
+    public NestedSet<SymlinkEntry> getRootSymlinksForLogging() {
+      return runfiles.getRootSymlinks();
+    }
+
+    @Nullable
+    @Override
+    public Artifact getRepoMappingManifestForLogging() {
+      return repoMappingManifest;
     }
 
     @Override

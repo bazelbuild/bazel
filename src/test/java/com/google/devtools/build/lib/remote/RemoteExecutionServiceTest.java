@@ -2696,7 +2696,7 @@ public class RemoteExecutionServiceTest {
       }
 
       @Override
-      public NestedSet<String> getEmptyFilenamesForLogging() {
+      public Iterable<PathFragment> getEmptyFilenamesForLogging() {
         return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
       }
 

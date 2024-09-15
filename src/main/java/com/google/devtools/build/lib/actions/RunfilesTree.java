@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Lazy wrapper for a single runfiles tree. */
 // TODO(bazel-team): Ideally we could refer to Runfiles objects directly here, but current package
@@ -65,7 +67,14 @@ public interface RunfilesTree {
    * <p>If this runfiles tree does not implicitly add empty files, implementations should have a
    * dedicated fast path that returns an empty set without traversing the tree.
    */
-  NestedSet<String> getEmptyFilenamesForLogging();
+  Iterable<PathFragment> getEmptyFilenamesForLogging();
+
+  NestedSet<SymlinkEntry> getSymlinksForLogging();
+
+  NestedSet<SymlinkEntry> getRootSymlinksForLogging();
+
+  @Nullable
+  Artifact getRepoMappingManifestForLogging();
 
   /** Whether this runfiles tree materializes external runfiles also at their legacy locations. */
   boolean isLegacyExternalRunfiles();

@@ -1032,22 +1032,13 @@ public abstract class SpawnLogContextTestBase {
         defaultTimeout(),
         defaultSpawnResult());
 
-    // Compact and expanded spawn logs differ in this case, which is deemed acceptable as the build
-    // at least emits a warning. Starlark rules aren't allowed to register conflicting runfiles with
-    // root symlinks in the first place.
-    var expectedContent =
-        switch (context) {
-          case ExpandedSpawnLogContext ignored -> "symlink_source";
-          case CompactSpawnLogContext ignored -> "source";
-          default -> throw new AssertionError("Unexpected context type: " + context);
-        };
     closeAndAssertLog(
         context,
         defaultSpawnExecBuilder()
             .addInputs(
                 File.newBuilder()
                     .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/pkg/source.txt")
-                    .setDigest(getDigest(expectedContent)))
+                    .setDigest(getDigest("symlink_source")))
             .build());
   }
 

@@ -246,7 +246,7 @@ message ExecLogEntry {
   }
 
   // An input or output directory.
-  // May be a source directory, a runfiles or fileset tree, or a tree artifact.
+  // May be a source directory, a fileset tree, or a tree artifact.
   message Directory {
     // The directory path.
     string path = 1;
@@ -260,6 +260,24 @@ message ExecLogEntry {
     string path = 1;
     // The path the symlink points to.
     string target_path = 2;
+  }
+
+  // A set of spawn inputs.
+  // The contents of the set are the directly referenced files, directories and
+  // symlinks in addition to the contents of all transitively referenced sets.
+  // Sets are not canonical: two sets with different structure may yield the
+  // same contents.
+  message InputSet {
+    // Entry IDs of files, directories, unresolved symlinks or runfiles trees
+    // belonging to this set.
+    repeated uint32 input_ids = 1;
+    // Entry IDs of other sets contained in this set.
+    repeated uint32 transitive_set_ids = 2;
+  }
+
+  message SymlinkEntrySet {
+    map<string, uint32> direct_entries = 1;
+    repeated uint32 transitive_set_ids = 2;
   }
 
   message RunfilesTree {
@@ -284,23 +302,14 @@ message ExecLogEntry {
     //  reconstructor.
     // TODO: If flattening the symlinks and root symlinks turns out to be too
     //  costly, consider logging them as nested sets.
-    map<string, uint32> symlink_target_id = 3;
+    uint32 symlinks_id = 3;
+    uint32 root_symlinks_id = 4;
+    repeated string empty_files = 5;
+    File repo_mapping_manifest = 6;
+
     // Whether the runfiles tree contains external runfiles at their legacy
     // locations (e.g. _main/external/bazel_tools/tools/bash/runfiles.bash).
-    bool legacy_external_runfiles = 4;
-  }
-
-  // A set of spawn inputs.
-  // The contents of the set are the directly referenced files, directories and
-  // symlinks in addition to the contents of all transitively referenced sets.
-  // Sets are not canonical: two sets with different structure may yield the
-  // same contents.
-  message InputSet {
-    // Entry IDs of files, directories, unresolved symlinks or runfiles trees
-    // belonging to this set.
-    repeated uint32 input_ids = 1;
-    // Entry IDs of other sets contained in this set.
-    repeated uint32 transitive_set_ids = 2;
+    bool legacy_external_runfiles = 7;
   }
 
   // A spawn output.
@@ -404,6 +413,7 @@ message ExecLogEntry {
     InputSet input_set = 6;
     Spawn spawn = 7;
     SymlinkAction symlink_action = 8;
-    RunfilesTree runfiles_tree = 9;
+    SymlinkEntrySet symlink_entries = 9;
+    RunfilesTree runfiles_tree = 10;
   }
 }
