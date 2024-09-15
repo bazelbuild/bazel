@@ -1726,7 +1726,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         """
             ERROR /workspace/MODULE.bazel:3:14: Traceback (most recent call last):
             \tFile "/workspace/MODULE.bazel", line 3, column 14, in <toplevel>
-            Error in override_repo: The repo exported as 'foo' by module extension 'ext' is overridden with 'foo', but no repo is imported under this name""");
+            Error in override_repo: The repo exported as 'foo' by module extension 'ext' is overridden with 'foo', but no repo is visible under this name""");
   }
 
   @Test

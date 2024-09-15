@@ -55,10 +55,8 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   private final Map<String, ModuleOverride> overrides = new LinkedHashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
 
-  private final Map<String, ModuleExtensionUsageBuilder.RepoOverride> reposSubjectToRepoOverride =
-      new HashMap<>();
-  private final Map<String, ModuleExtensionUsageBuilder.RepoOverride> reposUsedAsRepoOverride =
-      new HashMap<>();
+  private final Map<String, RepoOverride> overriddenRepos = new HashMap<>();
+  private final Map<String, RepoOverride> overridingRepos = new HashMap<>();
 
   public static ModuleThreadContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
@@ -79,6 +77,17 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     this.ignoreDevDeps = ignoreDevDeps;
     this.builtinModules = builtinModules;
     this.includeLabelToCompiledModuleFile = includeLabelToCompiledModuleFile;
+  }
+
+  record RepoOverride(
+      String overriddenRepoName,
+      String overridingRepoName,
+      ModuleExtensionUsageBuilder extensionUsageBuilder,
+      ImmutableList<StarlarkThread.CallStackEntry> stack) {
+    Location location() {
+      // Skip over the override_repo builtin frame.
+      return stack.reverse().get(1).location;
+    }
   }
 
   record RepoNameUsage(String how, Location where) {}
@@ -128,24 +137,13 @@ public class ModuleThreadContext extends StarlarkThreadContext {
 
   static class ModuleExtensionUsageBuilder {
 
-    private record RepoOverride(
-        String exportedName,
-        String localRepoName,
-        ModuleExtensionUsageBuilder extensionUsageBuilder,
-        ImmutableList<StarlarkThread.CallStackEntry> stack) {
-      Location location() {
-        // Skip over the override_repo builtin frame.
-        return stack.reverse().get(1).location;
-      }
-    }
-
     private final ModuleThreadContext context;
     private final String extensionBzlFile;
     private final String extensionName;
     private final boolean isolate;
     private final ArrayList<ModuleExtensionUsage.Proxy.Builder> proxyBuilders;
     private final HashBiMap<String, String> imports;
-    private final Map<String, RepoOverride> repoOverrides;
+    private final Map<String, ModuleThreadContext.RepoOverride> repoOverrides;
     private final ImmutableList.Builder<Tag> tags;
 
     ModuleExtensionUsageBuilder(
@@ -192,20 +190,23 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     }
 
     public void addRepoOverride(
-        String exportedName,
-        String localRepoName,
+        String overriddenRepoName,
+        String overridingRepoName,
         ImmutableList<StarlarkThread.CallStackEntry> stack)
         throws EvalException {
-      RepositoryName.validateUserProvidedRepoName(exportedName);
-      RepositoryName.validateUserProvidedRepoName(localRepoName);
-      if (repoOverrides.containsKey(exportedName)) {
-        var collision = repoOverrides.get(exportedName);
+      RepositoryName.validateUserProvidedRepoName(overriddenRepoName);
+      RepositoryName.validateUserProvidedRepoName(overridingRepoName);
+      RepoOverride collision =
+          repoOverrides.put(
+              overriddenRepoName,
+              new ModuleThreadContext.RepoOverride(
+                  overriddenRepoName, overridingRepoName, this, stack));
+      if (collision != null) {
         throw Starlark.errorf(
             "The repo exported as '%s' by module extension '%s' is already overridden with '%s' at"
                 + " %s",
-            exportedName, extensionName, collision.localRepoName, collision.location());
+            overriddenRepoName, extensionName, collision.overridingRepoName, collision.location());
       }
-      repoOverrides.put(exportedName, new RepoOverride(exportedName, localRepoName, this, stack));
     }
 
     void addTag(Tag tag) {
@@ -237,22 +238,22 @@ public class ModuleThreadContext extends StarlarkThreadContext {
 
       for (var override : repoOverrides.entrySet()) {
         String exportedName = override.getKey();
-        String localRepoName = override.getValue().localRepoName;
+        String localRepoName = override.getValue().overridingRepoName;
         if (!context.repoNameUsages.containsKey(localRepoName)) {
           throw Starlark.errorf(
                   "The repo exported as '%s' by module extension '%s' is overridden with '%s', but"
-                      + " no repo is imported under this name",
+                      + " no repo is visible under this name",
                   exportedName, extensionName, localRepoName)
               .withCallStack(override.getValue().stack);
         }
         String importedAs = imports.inverse().get(exportedName);
         if (importedAs != null) {
-          context.reposSubjectToRepoOverride.put(importedAs, override.getValue());
+          context.overriddenRepos.put(importedAs, override.getValue());
         }
-        context.reposUsedAsRepoOverride.put(localRepoName, override.getValue());
+        context.overridingRepos.put(localRepoName, override.getValue());
       }
       builder.setRepoOverrides(
-          ImmutableMap.copyOf(Maps.transformValues(repoOverrides, v -> v.localRepoName)));
+          ImmutableMap.copyOf(Maps.transformValues(repoOverrides, v -> v.overridingRepoName)));
 
       return builder.build();
     }
@@ -320,25 +321,22 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       }
       extensionUsages.add(extensionUsageBuilder.buildUsage());
     }
-    // Check for chains in repo overrides: If A is overridden with B, and B is overridden with C,
-    // raise an error and suggest to directly override A with C. This ensures that repo overrides
-    // can be applied to repo mappings in a single step (and also prevents cycles).
-    Optional<String> repoOverrideChainLink =
-        reposUsedAsRepoOverride.keySet().stream()
-            .filter(reposSubjectToRepoOverride::containsKey)
-            .findFirst();
-    if (repoOverrideChainLink.isPresent()) {
-      var override = reposUsedAsRepoOverride.get(repoOverrideChainLink.get());
-      var overrideOnOverride = reposSubjectToRepoOverride.get(repoOverrideChainLink.get());
-      if (override.exportedName.equals(
-          override.extensionUsageBuilder.imports.get(overrideOnOverride.localRepoName))) {
+    // A repo cannot be both overriding and overridden. This ensures that repo overrides can be
+    // applied to repo mappings in a single step (and also prevents cycles).
+    Optional<String> overridingAndOverridden =
+        overridingRepos.keySet().stream().filter(overriddenRepos::containsKey).findFirst();
+    if (overridingAndOverridden.isPresent()) {
+      var override = overridingRepos.get(overridingAndOverridden.get());
+      var overrideOnOverride = overriddenRepos.get(overridingAndOverridden.get());
+      if (override.overriddenRepoName.equals(
+          override.extensionUsageBuilder.imports.get(overrideOnOverride.overridingRepoName))) {
         throw Starlark.errorf(
                 "The repo '%s' used as an override for '%s' in module extension '%s' is itself"
                     + " overridden with '%s' at %s, which forms a cycle.",
-                override.localRepoName,
-                override.exportedName,
+                override.overridingRepoName,
+                override.overriddenRepoName,
                 override.extensionUsageBuilder.extensionName,
-                overrideOnOverride.localRepoName,
+                overrideOnOverride.overridingRepoName,
                 overrideOnOverride.location())
             .withCallStack(override.stack);
       } else {
@@ -346,13 +344,13 @@ public class ModuleThreadContext extends StarlarkThreadContext {
                 "The repo '%s' used as an override for '%s' in module extension '%s' is itself"
                     + " overridden with '%s' at %s, which is not supported. Please directly"
                     + " override '%s' with '%s' instead.",
-                override.localRepoName,
-                override.exportedName,
+                override.overridingRepoName,
+                override.overriddenRepoName,
                 override.extensionUsageBuilder.extensionName,
-                overrideOnOverride.localRepoName,
+                overrideOnOverride.overridingRepoName,
                 overrideOnOverride.location(),
-                override.exportedName,
-                overrideOnOverride.localRepoName)
+                override.overriddenRepoName,
+                overrideOnOverride.overridingRepoName)
             .withCallStack(override.stack);
       }
     }
