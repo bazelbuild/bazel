@@ -831,7 +831,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         .add("package_group(name = 'export_deps_allowlist', packages = ['public'])")
         .add("package_group(name = 'allow_android_library_deps_without_srcs_allowlist',")
         .add("    packages=['public'])")
-        .add("android_tools_defaults_jar(name = 'android_jar')")
         .add("sh_binary(name = 'dex_list_obfuscator', srcs = ['empty.sh'])");
 
     return androidBuildContents.build();

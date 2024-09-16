@@ -11,8 +11,6 @@ alias(
     actual = "//external:android/sdk",
 )
 
-android_tools_defaults_jar(name = "android_jar")
-
 alias(
     name = "busybox",
     actual = "//src/tools/android/java/com/google/devtools/build/android:ResourceProcessorBusyBox",

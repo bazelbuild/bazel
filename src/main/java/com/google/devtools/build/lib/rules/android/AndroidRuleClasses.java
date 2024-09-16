@@ -13,19 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.rules.android;
 
-import static com.google.devtools.build.lib.packages.Attribute.attr;
-import static com.google.devtools.build.lib.packages.BuildType.LABEL;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.RuleDefinition;
-import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
-import com.google.devtools.build.lib.packages.RuleClass;
-import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.util.FileType;
@@ -159,28 +152,4 @@ public final class AndroidRuleClasses {
   }
 
   public static final FileType ANDROID_IDL = FileType.of(".aidl");
-
-  /** Definition of the {@code android_tools_defaults_jar} rule. */
-  public static final class AndroidBaseToolsDefaultsJarRule implements RuleDefinition {
-
-    @Override
-    public RuleClass build(RuleClass.Builder builder, RuleDefinitionEnvironment environment) {
-      builder
-          .setUndocumented()
-          .add(
-              attr(":android_sdk", LABEL)
-                  .allowedRuleClasses("android_sdk")
-                  .value(getAndroidSdkLabel(environment.getToolsLabel(DEFAULT_SDK))));
-      return builder.build();
-    }
-
-    @Override
-    public Metadata getMetadata() {
-      return Metadata.builder()
-          .name("$android_base_tools_defaults_jar")
-          .type(RuleClassType.ABSTRACT)
-          .ancestors(BaseRuleClasses.NativeBuildRule.class)
-          .build();
-    }
-  }
 }
