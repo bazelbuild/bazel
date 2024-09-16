@@ -1431,6 +1431,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         """
         ERROR /ws/defs.bzl:9:12: Traceback (most recent call last):
         \tFile "/ws/defs.bzl", line 9, column 12, in _ext_impl
+        \t\tdata_repo(name='ext',data='@not_other_repo//:foo')
         Error in repository_rule: no repository visible as '@not_other_repo' in \
         the extension '@@//:defs.bzl%ext', but referenced by label \
         '@not_other_repo//:foo' in attribute 'data' of data_repo 'ext'.""");
@@ -1475,6 +1476,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         Traceback (most recent call last):
         \tFile "/usr/local/google/_blaze_jrluser/FAKEMD5/external/ext_module+/defs.bzl", \
         line 9, column 12, in _ext_impl
+        \t\tdata_repo(name='ext',data='@not_other_repo//:foo')
         Error in repository_rule: no repository visible as '@not_other_repo' in the extension \
         '@@ext_module+//:defs.bzl%ext', but referenced by label '@not_other_repo//:foo' in \
         attribute 'data' of data_repo 'ext'.""");
@@ -1553,6 +1555,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         """
         ERROR /ws/defs.bzl:9:12: Traceback (most recent call last):
         \tFile "/ws/defs.bzl", line 9, column 12, in _ext_impl
+        \t\tdata_repo(name='ext',data=['@not_other_repo//:foo'])
         Error in repository_rule: no repository visible as '@not_other_repo' \
         in the extension '@@//:defs.bzl%ext', but referenced by label \
         '@not_other_repo//:foo' in attribute 'data' of data_repo 'ext'.""");
@@ -1589,6 +1592,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         """
         ERROR /ws/defs.bzl:9:12: Traceback (most recent call last):
         \tFile "/ws/defs.bzl", line 9, column 12, in _ext_impl
+        \t\tdata_repo(name='ext',data={'@not_other_repo//:foo':'bar'})
         Error in repository_rule: no repository visible as '@not_other_repo' \
         in the extension '@@//:defs.bzl%ext', but referenced by label \
         '@not_other_repo//:foo' in attribute 'data' of data_repo 'ext'.""");
