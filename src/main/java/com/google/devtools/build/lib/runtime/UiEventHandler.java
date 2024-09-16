@@ -37,6 +37,8 @@ import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
 import com.google.devtools.build.lib.analysis.NoBuildEvent;
 import com.google.devtools.build.lib.analysis.NoBuildRequestFinishedEvent;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.bugreport.Crash;
+import com.google.devtools.build.lib.bugreport.CrashContext;
 import com.google.devtools.build.lib.buildeventstream.AnnounceBuildEventTransportsEvent;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransport;
 import com.google.devtools.build.lib.buildeventstream.BuildEventTransportClosedEvent;
@@ -965,7 +967,6 @@ public final class UiEventHandler implements EventHandler {
     // arise if the completion of the build is reported (shortly) before the completion of
     // the last action is reported.
     if (buildRunning && updateThread.get() == null) {
-      final UiEventHandler eventHandler = this;
       Thread threadToStart =
           new Thread(
               () -> {
@@ -976,10 +977,16 @@ public final class UiEventHandler implements EventHandler {
                         && mustRefreshAfterMillis < clock.currentTimeMillis()) {
                       progressBarNeedsRefresh = true;
                     }
-                    eventHandler.doRefresh(/*fromUpdateThread=*/ true);
+                    doRefresh(/* fromUpdateThread= */ true);
                   }
                 } catch (InterruptedException e) {
                   // Ignore
+                } catch (Throwable t) {
+                  // Do not block if a crash is already in progress. The thread that wins the crash
+                  // reporting race needs to display a FATAL exception message, which waits for this
+                  // thread to terminate in stopUpdateThread(). Blocking can lead to a deadlock.
+                  BugReport.handleCrash(
+                      Crash.from(t), CrashContext.haltOrReturnIfCrashInProgress());
                 }
               },
               "cli-update-thread");
