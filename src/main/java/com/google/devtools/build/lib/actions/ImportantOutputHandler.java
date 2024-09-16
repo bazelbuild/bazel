@@ -99,7 +99,7 @@ public interface ImportantOutputHandler extends ActionContext {
    * just-executed action.
    */
   void processWorkspaceStatusOutputs(Path stableOutput, Path volatileOutput)
-      throws ImportantOutputException;
+      throws ImportantOutputException, InterruptedException;
 
   /**
    * A threshold to pass to {@link
