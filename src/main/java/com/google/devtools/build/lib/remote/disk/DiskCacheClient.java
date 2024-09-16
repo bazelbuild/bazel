@@ -144,6 +144,12 @@ public class DiskCacheClient {
    */
   public void captureFile(Path src, Digest digest, Store store) throws IOException {
     Path target = toPath(digest, store);
+
+    if (refresh(target)) {
+      src.delete();
+      return;
+    }
+
     target.getParentDirectory().createDirectoryAndParents();
     src.renameTo(target);
     var unused = refresh(target);
