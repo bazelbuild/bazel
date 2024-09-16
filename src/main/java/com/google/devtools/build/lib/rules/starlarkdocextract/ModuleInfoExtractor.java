@@ -55,6 +55,7 @@ import java.util.function.Consumer;
 import java.util.function.Predicate;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.Starlark.InvalidStarlarkValueException;
 import net.starlark.java.eval.StarlarkFunction;
 import net.starlark.java.eval.Structure;
 
@@ -511,9 +512,11 @@ final class ModuleInfoExtractor {
       Type<?> type = attribute.getType();
       if (type.equals(Type.INTEGER)) {
         return AttributeType.INT;
-      } else if (type.equals(BuildType.LABEL)) {
+      } else if (type.equals(BuildType.LABEL)
+          || type.equals(BuildType.NODEP_LABEL)
+          || type.equals(BuildType.GENQUERY_SCOPE_TYPE)) {
         return AttributeType.LABEL;
-      } else if (type.equals(Type.STRING)) {
+      } else if (type.equals(Type.STRING) || type.equals(Type.STRING_NO_INTERN)) {
         if (attribute.getPublicName().equals("name")) {
           return AttributeType.NAME;
         } else {
@@ -523,12 +526,16 @@ final class ModuleInfoExtractor {
         return AttributeType.STRING_LIST;
       } else if (type.equals(Type.INTEGER_LIST)) {
         return AttributeType.INT_LIST;
-      } else if (type.equals(BuildType.LABEL_LIST)) {
+      } else if (type.equals(BuildType.LABEL_LIST)
+          || type.equals(BuildType.NODEP_LABEL_LIST)
+          || type.equals(BuildType.GENQUERY_SCOPE_TYPE_LIST)) {
         return AttributeType.LABEL_LIST;
       } else if (type.equals(Type.BOOLEAN)) {
         return AttributeType.BOOLEAN;
       } else if (type.equals(BuildType.LABEL_KEYED_STRING_DICT)) {
         return AttributeType.LABEL_STRING_DICT;
+      } else if (type.equals(BuildType.LABEL_DICT_UNARY)) {
+        return AttributeType.LABEL_DICT_UNARY;
       } else if (type.equals(Type.STRING_DICT)) {
         return AttributeType.STRING_DICT;
       } else if (type.equals(Type.STRING_LIST_DICT)) {
@@ -537,12 +544,16 @@ final class ModuleInfoExtractor {
         return AttributeType.OUTPUT;
       } else if (type.equals(BuildType.OUTPUT_LIST)) {
         return AttributeType.OUTPUT_LIST;
-      } else if (type.equals(BuildType.LICENSE)) {
+      } else if (type.equals(BuildType.LICENSE) || type.equals(BuildType.DISTRIBUTIONS)) {
         // TODO(https://github.com/bazelbuild/bazel/issues/6420): deprecated, disabled in Bazel by
         // default, broken and with almost no remaining users, so we don't have an AttributeType for
         // it. Until this type is removed, following the example of legacy Stardoc, pretend it's a
         // list of strings.
         return AttributeType.STRING_LIST;
+      } else if (type.equals(BuildType.TRISTATE)) {
+        // Given that the native TRISTATE type is not exposed to Starlark attr API, let's treat it
+        // as an integer.
+        return AttributeType.INT;
       }
 
       throw new ExtractionException(
@@ -569,8 +580,16 @@ final class ModuleInfoExtractor {
       }
 
       if (!attribute.isMandatory()) {
-        Object defaultValue = Attribute.valueToStarlark(attribute.getDefaultValueUnchecked());
-        builder.setDefaultValue(labelRenderer.reprWithoutLabelConstructor(defaultValue));
+        try {
+          Object defaultValue = Attribute.valueToStarlark(attribute.getDefaultValueUnchecked());
+          builder.setDefaultValue(labelRenderer.reprWithoutLabelConstructor(defaultValue));
+        } catch (InvalidStarlarkValueException e) {
+          throw new ExtractionException(
+              String.format(
+                  "in %s attribute %s: failed to convert default value to Starlark: %s",
+                  where, attribute.getPublicName(), e.getMessage()),
+              e);
+        }
       }
       return builder.build();
     }

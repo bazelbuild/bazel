@@ -61,6 +61,7 @@ import javax.annotation.concurrent.Immutable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
 
@@ -1439,7 +1440,7 @@ public final class Attribute implements Comparable<Attribute> {
           if (!Starlark.isNullOrNone(value)) {
             // Some attribute values are not valid Starlark values:
             // visibility is an ImmutableList, for example.
-            attrValues.put(attr.getName(), Starlark.fromJava(value, /*mutability=*/ null));
+            attrValues.put(attr.getName(), Starlark.fromJava(value, /* mutability= */ null));
           }
         }
       }
@@ -1732,7 +1733,6 @@ public final class Attribute implements Comparable<Attribute> {
               + "configuration.");
       return new LabelLateBoundDefault<>(fragmentClass, defaultValueEvaluator, resolver);
     }
-
   }
 
   /** A {@link LateBoundDefault} for a {@link List} of {@link Label} objects. */
@@ -2364,8 +2364,8 @@ public final class Attribute implements Comparable<Attribute> {
    * </ol>
    */
   public static Object valueToStarlark(Object x) {
-    // Is x a non-empty string_list_dict?
     if (x instanceof Map) {
+      // Is x a non-empty string_list_dict?
       Map<?, ?> map = (Map<?, ?>) x;
       if (!map.isEmpty() && map.values().iterator().next() instanceof List) {
         // Recursively convert subelements.
@@ -2375,6 +2375,15 @@ public final class Attribute implements Comparable<Attribute> {
         }
         return dict.buildImmutable();
       }
+    } else if (x instanceof Set) {
+      // Until Starlark gains a set data type, shallow-convert Java sets (e.g. DISTRIBUTION values)
+      // to Starlark lists.
+      Set<?> set = (Set<?>) x;
+      return StarlarkList.immutableCopyOf(set);
+    } else if (x instanceof TriState) {
+      // Convert TriState to integer (same as in query output and native.existing_rules())
+      TriState triState = (TriState) x;
+      return triState.toInt();
     }
 
     // For all other attribute values, shallow conversion is safe.
