@@ -291,7 +291,7 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
             targetConfig.getOptions().getFragmentClasses());
     ImmutableMap<String, OptionInfo> optionInfoMap = OptionInfo.buildMapFrom(defaultOptions);
 
-    // Find all options with the EXPERIMENTAL metadata tag or start with "--experimental_".
+    // Find all options with the EXPERIMENTAL metadata tag or that start with "--experimental_".
     ImmutableMap<String, OptionInfo> experimentalOptions =
         optionInfoMap.entrySet().stream()
             .filter(
@@ -306,7 +306,7 @@ public class ExecutionTransitionFactoryTest extends BuildViewTestCase {
                 o -> !o.getKey().equals("experimental_local_java_optimizations"))
             .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    // Verify all "--experimental_*" options also have the INCOMPATIBLE_CHANGE metadata tag.
+    // Verify all "--experimental_*" options also have the EXPERIMENTAL metadata tag.
     ImmutableList<String> missingMetadataTagOptions =
         experimentalOptions.values().stream()
             .filter(o -> !o.hasOptionMetadataTag(OptionMetadataTag.EXPERIMENTAL))
