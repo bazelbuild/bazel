@@ -18,6 +18,7 @@ load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
+load(":common/objc/apple_configuration.bzl", "apple_configuration")
 load(":common/objc/apple_env.bzl", "apple_host_system_env", "target_apple_env")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
@@ -716,7 +717,9 @@ def _register_binary_strip_action(
     args.add("-o", stripped_binary)
     args.add(binary)
     xcode_config = ctx.attr._xcode_config[XcodeVersionInfo]
-    platform = _builtins.internal.objc_internal.get_target_platform(build_config = build_config)
+    apple_config = _builtins.internal.objc_internal.get_apple_config(build_config = build_config)
+    platform = apple_configuration.get_single_arch_platform(apple_config)
+
     ctx.actions.run(
         mnemonic = "ObjcBinarySymbolStrip",
         executable = "/usr/bin/xcrun",

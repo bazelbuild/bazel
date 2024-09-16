@@ -29,14 +29,21 @@ import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.analysis.starlark.annotations.StarlarkConfigurationField;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
+import com.google.devtools.build.lib.packages.StructProvider;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform.PlatformType;
 import com.google.devtools.build.lib.starlarkbuildapi.apple.AppleConfigurationApi;
+import com.google.devtools.build.lib.starlarkbuildapi.core.StructApi;
 import com.google.devtools.build.lib.util.CPU;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.StarlarkValue;
+import net.starlark.java.eval.Tuple;
+
+// LINT.IfChange
 
 /** A configuration containing flags required for Apple platforms and tools. */
 @Immutable
@@ -164,6 +171,24 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     abstract ImmutableList<String> catalystCpus();
   }
 
+  @Override
+  public StructApi getAppleCpusForStarlark() throws EvalException {
+    Map<String, Object> fields = new HashMap<>();
+    fields.put("apple_split_cpu", appleCpus.appleSplitCpu());
+    fields.put("ios_multi_cpus", Tuple.copyOf(appleCpus.iosMultiCpus()));
+    fields.put("visionos_cpus", Tuple.copyOf(appleCpus.visionosCpus()));
+    fields.put("watchos_cpus", Tuple.copyOf(appleCpus.watchosCpus()));
+    fields.put("tvos_cpus", Tuple.copyOf(appleCpus.tvosCpus()));
+    fields.put("macos_cpus", Tuple.copyOf(appleCpus.macosCpus()));
+    fields.put("catalyst_cpus", Tuple.copyOf(appleCpus.catalystCpus()));
+    return StructProvider.STRUCT.create(fields, "");
+  }
+
+  @Override
+  public String getApplePlatformType() {
+    return applePlatformType;
+  }
+
   public AppleCommandLineOptions getOptions() {
     return options;
   }
@@ -255,7 +280,8 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     if (!Strings.isNullOrEmpty(appleCpus.appleSplitCpu())) {
       if (!applePlatformType.equals(platformType)) {
         throw new IllegalArgumentException(
-            String.format("Expected post-split-transition platform type %s to match input %s ",
+            String.format(
+                "Expected post-split-transition platform type %s to match input %s ",
                 applePlatformType, platformType));
       }
       return ImmutableList.of(appleCpus.appleSplitCpu());
@@ -465,9 +491,8 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
     APPLEBIN_CATALYST("applebin_catalyst"),
 
     /**
-     * Distinguisher for the apple crosstool configuration.  We use "apl" for output directory
-     * names instead of "apple_crosstool" to avoid oversized path names, which can be problematic
-     * on OSX.
+     * Distinguisher for the apple crosstool configuration. We use "apl" for output directory names
+     * instead of "apple_crosstool" to avoid oversized path names, which can be problematic on OSX.
      */
     APPLE_CROSSTOOL("apl");
 
@@ -485,4 +510,5 @@ public class AppleConfiguration extends Fragment implements AppleConfigurationAp
       return fileSystemName;
     }
   }
+  // LINT.ThenChange(//src/main/starlark/builtins_bzl/common/objc/apple_configuration.bzl)
 }

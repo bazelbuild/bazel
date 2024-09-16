@@ -15,8 +15,7 @@
 """Apple platform definitions."""
 
 # LINT.IfChange
-# This struct retains a duplicate list in ApplePlatform.PlatformType during the migration.
-# TODO(b/331163027): Remove the IfChange clause once the duplicate is removed.
+# This file contains ported code from ApplePlatform.java during the migration.
 
 # Describes an Apple "platform type", such as iOS, macOS, tvOS, visionOS, or watchOS. This
 # is distinct from a "platform", which is the platform type combined with one or
@@ -127,6 +126,22 @@ def _for_target_cpu(target_cpu):
             return getattr(PLATFORM, platform)
     fail("No platform found for target CPU %s" % target_cpu)
 
+def _cpu_string_for_target(platform_type, arch):
+    if platform_type == PLATFORM_TYPE.macos:
+        return "darwin_%s" % arch
+    return "%s_%s" % (platform_type, arch)
+
+def _for_target(platform_type, arch):
+    """Returns the platform for the given target cpu and platform type.
+
+    Args:
+      platform_type: platform type that the given cpu value is implied for
+      arch: architecture representation, such as 'arm64'
+    Returns:
+      a PLATFORM struct
+    """
+    return _for_target_cpu(_cpu_string_for_target(platform_type, arch))
+
 def _get_target_platform(platform):
     """Returns the target platform as it would be represented in a target triple.
 
@@ -153,6 +168,7 @@ def _get_target_environment(platform):
 # LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/rules/apple/ApplePlatform.java)
 
 apple_platform = struct(
+    for_target = _for_target,
     for_target_cpu = _for_target_cpu,
     get_target_platform = _get_target_platform,
     get_target_environment = _get_target_environment,

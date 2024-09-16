@@ -30,7 +30,6 @@ import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.rules.objc.IntermediateArtifacts.AlwaysLink;
@@ -352,14 +351,5 @@ public class ObjcStarlarkInternal implements StarlarkValue {
           Iterables.getOnlyElement(ctads.get(splitTransitionKey)).getConfiguration());
     }
     return result.buildImmutable();
-  }
-
-  @StarlarkMethod(
-      name = "get_target_platform",
-      documented = false,
-      parameters = {@Param(name = "build_config", positional = true, named = true)})
-  public ApplePlatform getTargetPlatform(BuildConfigurationValue buildConfiguration)
-      throws EvalException {
-    return buildConfiguration.getFragment(AppleConfiguration.class).getSingleArchPlatform();
   }
 }
