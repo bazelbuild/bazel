@@ -178,6 +178,44 @@ function test_credential_helper_clear_cache() {
   expect_credential_helper_calls 10
 }
 
+function test_remote_grpc_cache_with_legacy_api() {
+  stop_worker
+  start_worker --legacy_api
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "touch \$@",
+)
+EOF
+
+  bazel build \
+      --remote_cache=grpc://localhost:${worker_port} \
+      //a:foo \
+      || fail "Failed to build //a:foo with legacy api Remote Cache"
+}
+
+function test_remote_executor_with_legacy_api() {
+  stop_worker
+  start_worker --legacy_api
+
+  mkdir -p a
+  cat > a/BUILD <<EOF
+genrule(
+  name = 'foo',
+  outs = ["foo.txt"],
+  cmd = "touch \$@",
+)
+EOF
+
+  bazel build \
+      --remote_executor=grpc://localhost:${worker_port} \
+      //a:foo \
+      || fail "Failed to build //a:foo with legacy api Remote Executor"
+}
+
 function test_remote_grpc_cache_with_protocol() {
   # Test that if 'grpc' is provided as a scheme for --remote_cache flag, remote cache works.
   mkdir -p a

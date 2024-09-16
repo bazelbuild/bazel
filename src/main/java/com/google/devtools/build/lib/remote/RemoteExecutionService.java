@@ -29,6 +29,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalR
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
 import static com.google.devtools.build.lib.util.StringUtil.reencodeExternalToInternal;
 import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToExternal;
+import static java.util.Collections.min;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
@@ -156,6 +157,7 @@ import java.util.concurrent.Phaser;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 /**
@@ -195,6 +197,8 @@ public class RemoteExecutionService {
 
   @Nullable private final Scrubber scrubber;
   private final Set<Digest> knownMissingCasDigests;
+
+  private Boolean useOutputPaths;
 
   public RemoteExecutionService(
       Executor executor,
@@ -242,6 +246,7 @@ public class RemoteExecutionService {
   }
 
   private Command buildCommand(
+      boolean useOutputPaths,
       Collection<? extends ActionInput> outputs,
       List<String> arguments,
       ImmutableMap<String, String> env,
@@ -249,25 +254,31 @@ public class RemoteExecutionService {
       RemotePathResolver remotePathResolver,
       @Nullable SpawnScrubber spawnScrubber) {
     Command.Builder command = Command.newBuilder();
-    ArrayList<String> outputFiles = new ArrayList<>();
-    ArrayList<String> outputDirectories = new ArrayList<>();
-    ArrayList<String> outputPaths = new ArrayList<>();
-    for (ActionInput output : outputs) {
-      String pathString =
-          reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(output));
-      if (output.isDirectory()) {
-        outputDirectories.add(pathString);
-      } else {
-        outputFiles.add(pathString);
+    if (useOutputPaths) {
+      var outputPaths = new ArrayList<String>();
+      for (ActionInput output : outputs) {
+        String pathString =
+            reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(output));
+        outputPaths.add(pathString);
       }
-      outputPaths.add(pathString);
+      Collections.sort(outputPaths);
+      command.addAllOutputPaths(outputPaths);
+    } else {
+      var outputFiles = new ArrayList<String>();
+      var outputDirectories = new ArrayList<String>();
+      for (ActionInput output : outputs) {
+        String pathString =
+            reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(output));
+        if (output.isDirectory()) {
+          outputDirectories.add(pathString);
+        } else {
+          outputFiles.add(pathString);
+        }
+      }
+      Collections.sort(outputFiles);
+      Collections.sort(outputDirectories);
+      command.addAllOutputFiles(outputFiles).addAllOutputDirectories(outputDirectories);
     }
-    Collections.sort(outputFiles);
-    Collections.sort(outputDirectories);
-    Collections.sort(outputPaths);
-    command.addAllOutputFiles(outputFiles);
-    command.addAllOutputDirectories(outputDirectories);
-    command.addAllOutputPaths(outputPaths);
 
     if (platform != null) {
       command.setPlatform(platform);
@@ -542,6 +553,65 @@ public class RemoteExecutionService {
     remoteActionBuildingSemaphore.release();
   }
 
+  private boolean useOutputPaths() {
+    if (this.useOutputPaths == null) {
+      initUseOutputPaths();
+    }
+    return this.useOutputPaths;
+  }
+
+  private synchronized void initUseOutputPaths() {
+    // If this has already been initialized, return
+    if (this.useOutputPaths != null) {
+      return;
+    }
+    ApiVersion serverHighestVersion = null;
+    try {
+      // If both Remote Executor and Remote Cache are configured,
+      // use the highest version supported by both.
+
+      ClientApiVersion.ServerSupportedStatus executorSupportStatus = null;
+      if (remoteExecutor != null) {
+        var serverCapabilities = remoteExecutor.getServerCapabilities();
+        if (serverCapabilities != null) {
+          executorSupportStatus =
+              ClientApiVersion.current.checkServerSupportedVersions(serverCapabilities);
+        }
+      }
+
+      ClientApiVersion.ServerSupportedStatus cacheSupportStatus = null;
+      if (remoteCache != null) {
+        var serverCapabilities = remoteCache.getRemoteServerCapabilities();
+        if (serverCapabilities != null) {
+          cacheSupportStatus =
+              ClientApiVersion.current.checkServerSupportedVersions(serverCapabilities);
+        }
+      }
+
+      ApiVersion executorHighestVersion = null;
+      if (executorSupportStatus != null && executorSupportStatus.isSupported()) {
+        executorHighestVersion = executorSupportStatus.getHighestSupportedVersion();
+      }
+
+      ApiVersion cacheHighestVersion = null;
+      if (cacheSupportStatus != null && cacheSupportStatus.isSupported()) {
+        cacheHighestVersion = cacheSupportStatus.getHighestSupportedVersion();
+      }
+
+      if (executorHighestVersion != null && cacheHighestVersion != null) {
+        serverHighestVersion = min(ImmutableList.of(executorHighestVersion, cacheHighestVersion));
+      } else if (executorHighestVersion != null) {
+        serverHighestVersion = executorHighestVersion;
+      } else if (cacheHighestVersion != null) {
+        serverHighestVersion = cacheHighestVersion;
+      }
+    } catch (IOException e) {
+      // Intentionally ignored.
+    }
+    this.useOutputPaths =
+        serverHighestVersion == null || serverHighestVersion.compareTo(ApiVersion.twoPointOne) >= 0;
+  }
+
   /** Creates a new {@link RemoteAction} instance from spawn. */
   public RemoteAction buildRemoteAction(Spawn spawn, SpawnExecutionContext context)
       throws IOException, ExecException, ForbiddenActionInputException, InterruptedException {
@@ -570,6 +640,7 @@ public class RemoteExecutionService {
 
       Command command =
           buildCommand(
+              useOutputPaths(),
               spawn.getOutputFiles(),
               spawn.getArguments(),
               spawn.getEnvironment(),
@@ -1540,8 +1611,15 @@ public class RemoteExecutionService {
     Map<Path, Path> realToTmpPath = new HashMap<>();
     ByteString inMemoryOutputContent = null;
     String inMemoryOutputPath = null;
+    var outputPathsList =
+        useOutputPaths()
+            ? action.getCommand().getOutputPathsList()
+            : Stream.concat(
+                    action.getCommand().getOutputFilesList().stream(),
+                    action.getCommand().getOutputDirectoriesList().stream())
+                .toList();
     try {
-      for (String output : action.getCommand().getOutputPathsList()) {
+      for (String output : outputPathsList) {
         String reencodedOutput = reencodeExternalToInternal(output);
         Path sourcePath =
             previousExecution.action.getRemotePathResolver().outputPathToLocalPath(reencodedOutput);

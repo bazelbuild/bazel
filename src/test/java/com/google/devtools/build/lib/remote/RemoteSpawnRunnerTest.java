@@ -40,8 +40,10 @@ import build.bazel.remote.execution.v2.ExecuteOperationMetadata;
 import build.bazel.remote.execution.v2.ExecuteRequest;
 import build.bazel.remote.execution.v2.ExecuteResponse;
 import build.bazel.remote.execution.v2.ExecutedActionMetadata;
+import build.bazel.remote.execution.v2.ExecutionCapabilities;
 import build.bazel.remote.execution.v2.ExecutionStage.Value;
 import build.bazel.remote.execution.v2.LogFile;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.collect.ClassToInstanceMap;
 import com.google.common.collect.ImmutableClassToInstanceMap;
 import com.google.common.collect.ImmutableList;
@@ -172,6 +174,13 @@ public class RemoteSpawnRunnerTest {
   private static final String SIMPLE_ACTION_ID =
       "31aea267dc597b047a9b6993100415b6406f82822318dc8988e4164a535b51ee";
 
+  private final ServerCapabilities remoteExecutorCapabilities =
+      ServerCapabilities.newBuilder()
+          .setLowApiVersion(ApiVersion.low.toSemVer())
+          .setHighApiVersion(ApiVersion.high.toSemVer())
+          .setExecutionCapabilities(ExecutionCapabilities.newBuilder().setExecEnabled(true).build())
+          .build();
+
   @Before
   public final void setUp() throws Exception {
     MockitoAnnotations.initMocks(this);
@@ -194,8 +203,9 @@ public class RemoteSpawnRunnerTest {
     remoteOptions = Options.getDefaults(RemoteOptions.class);
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
-
     when(cache.hasRemoteCache()).thenReturn(true);
+    doReturn(remoteExecutorCapabilities).when(cache).getRemoteServerCapabilities();
+    when(executor.getServerCapabilities()).thenReturn(remoteExecutorCapabilities);
     when(cache.remoteActionCacheSupportsUpdate()).thenReturn(true);
   }
 
@@ -307,6 +317,7 @@ public class RemoteSpawnRunnerTest {
     runner.exec(spawn, policy);
 
     verify(localRunner).exec(spawn, policy);
+    verify(cache).getRemoteServerCapabilities();
     verify(cache).ensureInputsPresent(any(), any(), any(), anyBoolean(), any());
     verify(cache, atLeastOnce()).hasRemoteCache();
     verify(cache, atLeastOnce()).hasDiskCache();

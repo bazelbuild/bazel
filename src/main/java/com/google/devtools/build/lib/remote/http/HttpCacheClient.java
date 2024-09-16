@@ -17,6 +17,7 @@ import build.bazel.remote.execution.v2.ActionCacheUpdateCapabilities;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import build.bazel.remote.execution.v2.SymlinkAbsolutePathStrategy;
 import com.google.auth.Credentials;
 import com.google.common.collect.ImmutableList;
@@ -609,6 +610,11 @@ public final class HttpCacheClient implements RemoteCacheClient {
             ActionCacheUpdateCapabilities.newBuilder().setUpdateEnabled(true).build())
         .setSymlinkAbsolutePathStrategy(SymlinkAbsolutePathStrategy.Value.ALLOWED)
         .build();
+  }
+
+  @Override
+  public ServerCapabilities getServerCapabilities() {
+    return ServerCapabilities.newBuilder().setCacheCapabilities(getCacheCapabilities()).build();
   }
 
   @Override

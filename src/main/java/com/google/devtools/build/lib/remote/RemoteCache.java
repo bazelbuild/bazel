@@ -26,6 +26,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import build.bazel.remote.execution.v2.ActionResult;
 import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
+import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.flogger.GoogleLogger;
@@ -123,6 +124,13 @@ public class RemoteCache extends AbstractReferenceCounted {
       return immediateFuture("");
     }
     return remoteCacheClient.getAuthority();
+  }
+
+  public ServerCapabilities getRemoteServerCapabilities() throws IOException {
+    if (remoteCacheClient == null) {
+      return ServerCapabilities.getDefaultInstance();
+    }
+    return remoteCacheClient.getServerCapabilities();
   }
 
   /**
