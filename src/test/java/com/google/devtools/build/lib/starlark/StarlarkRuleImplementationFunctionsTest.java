@@ -748,7 +748,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         "   tools=ruleContext.attr.tools)");
     @SuppressWarnings("unchecked")
     List<Artifact> inputs = (List<Artifact>) (List<?>) (StarlarkList) ev.lookup("inputs");
-    assertArtifactFilenames(inputs, "mytool.sh", "mytool", "mytool.runfiles", "t.exe");
+    assertArtifactFilenames(inputs, "mytool.sh", "mytool", "foo_Smytool-runfiles", "t.exe");
   }
 
   @Test
@@ -868,7 +868,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         ((Depset) ev.lookup("inputs")).getSet(Artifact.class).toList(),
         "mytool.sh",
         "mytool",
-        "mytool.runfiles",
+        "foo_Smytool-runfiles",
         "t.exe");
 
     SpawnAction action =
@@ -876,7 +876,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
             Iterables.getOnlyElement(
                 ruleContext.getRuleContext().getAnalysisEnvironment().getRegisteredActions());
     assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs()))
-        .containsAtLeast("mytool.sh", "mytool", "mytool.runfiles", "t.exe");
+        .containsAtLeast("mytool.sh", "mytool", "foo_Smytool-runfiles", "t.exe");
   }
 
   @Test
@@ -3061,7 +3061,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
         getGeneratingAction(r.getProvider(FileProvider.class).getFilesToBuild().getSingleton());
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs())).contains("tool.runfiles");
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs())).contains("a_Stool-runfiles");
   }
 
   @Test
@@ -3093,7 +3093,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     ConfiguredTarget r = getConfiguredTarget("//a:r");
     Action action =
         getGeneratingAction(r.getProvider(FileProvider.class).getFilesToBuild().getSingleton());
-    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs())).contains("tool.runfiles");
+    assertThat(ActionsTestUtil.baseArtifactNames(action.getInputs())).contains("a_Stool-runfiles");
   }
 
   // Verifies that configuration_field can only be used on 'label' attributes.

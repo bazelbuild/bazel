@@ -250,18 +250,6 @@ public class ArtifactFactory implements ArtifactResolver {
             /*contentBasedPath=*/ false);
   }
 
-  public Artifact.DerivedArtifact getRunfilesArtifact(
-      PathFragment rootRelativePath, ArtifactRoot root, ArtifactOwner owner) {
-    validatePath(rootRelativePath, root);
-    return (Artifact.DerivedArtifact)
-        getArtifact(
-            root,
-            root.getExecPath().getRelative(rootRelativePath),
-            owner,
-            SpecialArtifactType.RUNFILES,
-            /* contentBasedPath= */ false);
-  }
-
   /**
    * Returns an artifact that represents a TreeArtifact; that is, a directory containing some tree
    * of ArtifactFiles unknown at analysis time.

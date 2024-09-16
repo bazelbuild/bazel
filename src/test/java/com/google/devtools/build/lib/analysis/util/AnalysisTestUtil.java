@@ -511,6 +511,9 @@ public final class AnalysisTestUtil {
     computeRootPaths(
         targetConfiguration.getGenfilesDirectory(RepositoryName.MAIN),
         path -> rootMap.put(path, "bin"));
+    computeRootPaths(
+        targetConfiguration.getMiddlemanDirectory(RepositoryName.MAIN),
+        path -> rootMap.put(path, "internal"));
 
     Set<String> files = new LinkedHashSet<>();
     for (Artifact artifact : artifacts) {

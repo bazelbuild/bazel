@@ -327,6 +327,11 @@ public class RuleContext extends TargetContext
     return getConfiguration().getGenfilesFragment(getLabel().getRepository());
   }
 
+  @Override
+  public ArtifactRoot getMiddlemanDirectory() {
+    return getConfiguration().getMiddlemanDirectory(getLabel().getRepository());
+  }
+
   public Rule getRule() {
     return rule;
   }

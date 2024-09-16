@@ -175,6 +175,7 @@ public class RemoteExecutionServiceTest {
   private FileSystem fs;
   private Path execRoot;
   private ArtifactRoot artifactRoot;
+  private ArtifactRoot middlemanRoot;
   private TempPathGenerator tempPathGenerator;
   private FakeActionInputFileCache fakeFileCache;
   private RemotePathResolver remotePathResolver;
@@ -195,6 +196,8 @@ public class RemoteExecutionServiceTest {
     execRoot.createDirectoryAndParents();
 
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
+    middlemanRoot =
+        ArtifactRoot.asDerivedRoot(execRoot, RootType.Middleman, PathFragment.create("out"));
 
     checkNotNull(artifactRoot.getRoot().asPath()).createDirectoryAndParents();
 
@@ -2204,8 +2207,7 @@ public class RemoteExecutionServiceTest {
         NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, foo2File);
     fakeFileCache.createScratchInput(foo2File, "foo2");
 
-    ActionInput runfilesMiddleman =
-        ActionsTestUtil.createRunfilesArtifact(artifactRoot, "tools/tool.runfiles");
+    ActionInput runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanRoot, "runfiles");
 
     NestedSet<ActionInput> nodeRoot1 =
         new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)

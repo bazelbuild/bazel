@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.actions;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -51,16 +52,17 @@ public final class MiddlemanFactory {
    * @param runfilesTree the runfiles tree for which the middleman being created for
    * @param runfilesManifest the runfiles manifest for the runfiles tree
    * @param repoMappingManifest the repo mapping manifest for the runfiles tree
-   * @param rootRelativePath the root relative path of the runfiles tree
-   * @param root the root where the runfiles three is located
+   * @param middlemanDir the directory in which to place the middleman.
    */
   public Artifact createRunfilesMiddleman(
       ActionOwner owner,
+      @Nullable Artifact owningArtifact,
       RunfilesTree runfilesTree,
       @Nullable Artifact runfilesManifest,
       @Nullable Artifact repoMappingManifest,
-      PathFragment rootRelativePath,
-      ArtifactRoot root) {
+      ArtifactRoot middlemanDir) {
+    Preconditions.checkArgument(middlemanDir.isMiddlemanRoot());
+
     NestedSetBuilder<Artifact> depsBuilder = NestedSetBuilder.stableOrder();
     depsBuilder.addTransitive(runfilesTree.getArtifacts());
     if (runfilesManifest != null) {
@@ -71,12 +73,17 @@ public final class MiddlemanFactory {
     }
 
     NestedSet<Artifact> deps = depsBuilder.build();
-    Artifact.DerivedArtifact middlemanArtifact =
-        artifactFactory.getRunfilesArtifact(rootRelativePath, root, actionRegistry.getOwner());
+    String middlemanPath = owningArtifact == null
+       ? Label.print(owner.getLabel())
+       : owningArtifact.getRootRelativePath().getPathString();
+    String escapedFilename = Actions.escapedPath(middlemanPath);
+    PathFragment stampName = PathFragment.create("_middlemen/" + escapedFilename + "-runfiles");
+    Artifact.DerivedArtifact stampFile =
+        artifactFactory.getDerivedArtifact(stampName, middlemanDir, actionRegistry.getOwner());
     MiddlemanAction middlemanAction =
-        new MiddlemanAction(owner, runfilesTree, deps, ImmutableSet.of(middlemanArtifact));
+        new MiddlemanAction(owner, runfilesTree, deps, ImmutableSet.of(stampFile));
     actionRegistry.registerAction(middlemanAction);
-    return middlemanArtifact;
+    return stampFile;
   }
 
 }

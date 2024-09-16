@@ -80,6 +80,8 @@ public abstract class SpawnLogContextTestBase {
   protected final ArtifactRoot rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
   protected final ArtifactRoot outputDir =
       ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "out");
+  protected final ArtifactRoot middlemanDir =
+      ArtifactRoot.asDerivedRoot(execRoot, RootType.Middleman, "middlemen");
 
   // A fake action filesystem that provides a fast digest, but refuses to compute it from the
   // file contents (which won't be available when building without the bytes).
@@ -331,7 +333,7 @@ public abstract class SpawnLogContextTestBase {
   @Test
   public void testRunfilesFileInput() throws Exception {
     Artifact runfilesInput = ActionsTestUtil.createArtifact(rootDir, "data.txt");
-    Artifact runfilesMiddleman = ActionsTestUtil.createRunfilesArtifact(outputDir, "foo.runfiles");
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     writeFile(runfilesInput, "abc");
 
@@ -365,7 +367,7 @@ public abstract class SpawnLogContextTestBase {
 
   @Test
   public void testRunfilesDirectoryInput(@TestParameter DirContents dirContents) throws Exception {
-    Artifact runfilesMiddleman = ActionsTestUtil.createRunfilesArtifact(outputDir, "foo.runfiles");
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
     Artifact runfilesInput = ActionsTestUtil.createArtifact(rootDir, "dir");
 
     runfilesInput.getPath().createDirectoryAndParents();
@@ -409,7 +411,7 @@ public abstract class SpawnLogContextTestBase {
 
   @Test
   public void testRunfilesEmptyInput() throws Exception {
-    Artifact runfilesMiddleman = ActionsTestUtil.createRunfilesArtifact(outputDir, "foo.runfiles");
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
     HashMap<String, Artifact> mapping = new HashMap<>();
     mapping.put("__init__.py", null);

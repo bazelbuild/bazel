@@ -1831,7 +1831,7 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 3);
-      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
+      assertArtifactKey(rewoundKeys.get(i), "_middlemen/middle_Stool-runfiles");
     } else {
       assertThat(rewoundKeys).hasSize(5);
       HashSet<String> expectedRewoundGenrules =
@@ -1850,7 +1850,7 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 1);
-      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
+      assertArtifactKey(rewoundKeys.get(i), "_middlemen/middle_Stool-runfiles");
     }
   }
 
@@ -2010,7 +2010,7 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//test:tool", /* index= */ 3);
-      assertArtifactKey(rewoundKeys.get(i), "test/tool.runfiles");
+      assertArtifactKey(rewoundKeys.get(i), "_middlemen/test_Stool-runfiles");
     } else {
       assertThat(rewoundKeys).hasSize(4);
       int i = 0;
@@ -2027,7 +2027,7 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//test:tool", /* index= */ 1);
-      assertArtifactKey(rewoundKeys.get(i), "test/tool.runfiles");
+      assertArtifactKey(rewoundKeys.get(i), "_middlemen/test_Stool-runfiles");
     }
   }
 
@@ -2163,7 +2163,7 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 3);
-      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
+      assertArtifactKey(rewoundKeys.get(i), "_middlemen/middle_Stool-runfiles");
     } else {
       assertThat(rewoundKeys).hasSize(5);
       int i = 0;
@@ -2182,7 +2182,7 @@ public class RewindingTestsHelper {
       }
 
       assertActionKey(rewoundKeys.get(i++), "//middle:tool", /* index= */ 1);
-      assertArtifactKey(rewoundKeys.get(i), "middle/tool.runfiles");
+      assertArtifactKey(rewoundKeys.get(i), "_middlemen/middle_Stool-runfiles");
     }
   }
 

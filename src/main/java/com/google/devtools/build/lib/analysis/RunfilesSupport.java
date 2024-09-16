@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
@@ -258,12 +257,6 @@ public final class RunfilesSupport {
       runfilesManifest = null;
     }
 
-    ArtifactRoot root = executable.getRoot();
-    PathFragment executableRootRelativePath = executable.getRootRelativePath();
-    PathFragment runfilesRootRelativePath =
-        executableRootRelativePath.replaceName(
-            executableRootRelativePath.getBaseName() + RUNFILES_DIR_EXT);
-
     RunfilesTreeImpl runfilesTree =
         new RunfilesTreeImpl(
             runfilesDirExecPath(executable),
@@ -275,12 +268,7 @@ public final class RunfilesSupport {
 
     Artifact runfilesMiddleman =
         createRunfilesMiddleman(
-            ruleContext,
-            runfilesTree,
-            runfilesManifest,
-            repoMappingManifest,
-            runfilesRootRelativePath,
-            root);
+            ruleContext, executable, runfilesTree, runfilesManifest, repoMappingManifest);
 
     return new RunfilesSupport(
         runfilesTree,
@@ -430,21 +418,20 @@ public final class RunfilesSupport {
 
   private static Artifact createRunfilesMiddleman(
       ActionConstructionContext context,
+      Artifact owningExecutable,
       RunfilesTree runfilesTree,
       @Nullable Artifact runfilesManifest,
-      Artifact repoMappingManifest,
-      PathFragment rootRelativePath,
-      ArtifactRoot root) {
+      Artifact repoMappingManifest) {
     return context
         .getAnalysisEnvironment()
         .getMiddlemanFactory()
         .createRunfilesMiddleman(
             context.getActionOwner(),
+            owningExecutable,
             runfilesTree,
             runfilesManifest,
             repoMappingManifest,
-            rootRelativePath,
-            root);
+            context.getMiddlemanDirectory());
   }
 
   /**
