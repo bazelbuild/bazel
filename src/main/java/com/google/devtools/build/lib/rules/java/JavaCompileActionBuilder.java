@@ -53,7 +53,7 @@ public final class JavaCompileActionBuilder {
 
   /** Environment variable that sets the UTF-8 charset. */
   static final ImmutableMap<String, String> UTF8_ENVIRONMENT =
-      ImmutableMap.of("LC_CTYPE", "en_US.UTF-8");
+      ImmutableMap.of("LC_CTYPE", "C.UTF-8");
 
   static final String MNEMONIC = "Javac";
 
