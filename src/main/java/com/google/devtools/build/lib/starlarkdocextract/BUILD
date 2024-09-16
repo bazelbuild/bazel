@@ -54,7 +54,9 @@ java_library(
         ":labelrenderer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/net/starlark/java/eval",
         "//src/main/protobuf:stardoc_output_java_proto",
+        "//third_party:auto_value",
         "//third_party:guava",
     ],
 )

@@ -48,14 +48,14 @@ public final class RuleInfoExtractor {
       if (ruleClass.getStarlarkExtensionLabel() != null) {
         // Most common case: exported Starlark-defined rule class
         originKeyBuilder.setFile(
-            context.getLabelRenderer().render(ruleClass.getStarlarkExtensionLabel()));
+            context.labelRenderer().render(ruleClass.getStarlarkExtensionLabel()));
       } else {
         // Unexported Starlark-defined rule class; this only possible for a repository rule. Fall
         // back to the rule definition environment label. (Note that we cannot unconditionally call
         // getRuleDefinitionEnvironmentLabel() because for an analysis test rule class, the rule
         // definition environment label is a dummy value; see b/366027483.)
         originKeyBuilder.setFile(
-            context.getLabelRenderer().render(ruleClass.getRuleDefinitionEnvironmentLabel()));
+            context.labelRenderer().render(ruleClass.getRuleDefinitionEnvironmentLabel()));
       }
     } else {
       // Non-Starlark-defined rule class

@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.Attr
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeType;
 import java.util.Optional;
 import java.util.function.Consumer;
+import net.starlark.java.eval.Starlark.InvalidStarlarkValueException;
 
 /** Starlark API documentation extractor for a rule, macro, or aspect attribute. */
 @VisibleForTesting
@@ -71,8 +72,16 @@ public final class AttributeInfoExtractor {
     }
 
     if (!attribute.isMandatory()) {
-      Object defaultValue = Attribute.valueToStarlark(attribute.getDefaultValueUnchecked());
-      builder.setDefaultValue(context.getLabelRenderer().reprWithoutLabelConstructor(defaultValue));
+      try {
+        Object defaultValue = Attribute.valueToStarlark(attribute.getDefaultValueUnchecked());
+        builder.setDefaultValue(context.labelRenderer().reprWithoutLabelConstructor(defaultValue));
+      } catch (InvalidStarlarkValueException e) {
+        throw new ExtractionException(
+            String.format(
+                "in %s attribute %s: failed to convert default value to Starlark: %s",
+                where, attribute.getPublicName(), e.getMessage()),
+            e);
+      }
     }
     return builder.build();
   }
@@ -84,7 +93,11 @@ public final class AttributeInfoExtractor {
       String where)
       throws ExtractionException {
     for (Attribute attribute : attributes) {
-      if (attribute.starlarkDefined()
+      if (attribute.getName().equals(IMPLICIT_NAME_ATTRIBUTE_INFO.getName())) {
+        // We inject our own IMPLICIT_NAME_ATTRIBUTE_INFO with better documentation.
+        continue;
+      }
+      if ((attribute.starlarkDefined() || context.extractNonStarlarkAttrs())
           && attribute.isDocumented()
           && ExtractorContext.isPublicName(attribute.getPublicName())) {
         builder.accept(buildAttributeInfo(context, attribute, where));
@@ -97,9 +110,12 @@ public final class AttributeInfoExtractor {
     Type<?> type = attribute.getType();
     if (type.equals(Type.INTEGER)) {
       return AttributeType.INT;
-    } else if (type.equals(BuildType.LABEL)) {
+    } else if (type.equals(BuildType.LABEL)
+        || type.equals(BuildType.NODEP_LABEL)
+        || type.equals(BuildType.GENQUERY_SCOPE_TYPE)
+        || type.equals(BuildType.DORMANT_LABEL)) {
       return AttributeType.LABEL;
-    } else if (type.equals(Type.STRING)) {
+    } else if (type.equals(Type.STRING) || type.equals(Type.STRING_NO_INTERN)) {
       if (attribute.getPublicName().equals("name")) {
         return AttributeType.NAME;
       } else {
@@ -109,7 +125,10 @@ public final class AttributeInfoExtractor {
       return AttributeType.STRING_LIST;
     } else if (type.equals(Types.INTEGER_LIST)) {
       return AttributeType.INT_LIST;
-    } else if (type.equals(BuildType.LABEL_LIST)) {
+    } else if (type.equals(BuildType.LABEL_LIST)
+        || type.equals(BuildType.NODEP_LABEL_LIST)
+        || type.equals(BuildType.GENQUERY_SCOPE_TYPE_LIST)
+        || type.equals(BuildType.DORMANT_LABEL_LIST)) {
       return AttributeType.LABEL_LIST;
     } else if (type.equals(Type.BOOLEAN)) {
       return AttributeType.BOOLEAN;
@@ -119,16 +138,22 @@ public final class AttributeInfoExtractor {
       return AttributeType.STRING_DICT;
     } else if (type.equals(Types.STRING_LIST_DICT)) {
       return AttributeType.STRING_LIST_DICT;
+    } else if (type.equals(BuildType.LABEL_DICT_UNARY)) {
+      return AttributeType.LABEL_DICT_UNARY;
     } else if (type.equals(BuildType.OUTPUT)) {
       return AttributeType.OUTPUT;
     } else if (type.equals(BuildType.OUTPUT_LIST)) {
       return AttributeType.OUTPUT_LIST;
-    } else if (type.equals(BuildType.LICENSE)) {
+    } else if (type.equals(BuildType.LICENSE) || type.equals(BuildType.DISTRIBUTIONS)) {
       // TODO(https://github.com/bazelbuild/bazel/issues/6420): deprecated, disabled in Bazel by
       // default, broken and with almost no remaining users, so we don't have an AttributeType for
       // it. Until this type is removed, following the example of legacy Stardoc, pretend it's a
       // list of strings.
       return AttributeType.STRING_LIST;
+    } else if (type.equals(BuildType.TRISTATE)) {
+      // Given that the native TRISTATE type is not exposed to Starlark attr API, let's treat it as
+      // an integer.
+      return AttributeType.INT;
     }
 
     throw new ExtractionException(

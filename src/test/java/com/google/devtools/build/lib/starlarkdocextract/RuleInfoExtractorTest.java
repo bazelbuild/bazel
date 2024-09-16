@@ -17,9 +17,10 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
+import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeType;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.OriginKey;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.RuleInfo;
 import org.junit.Test;
@@ -46,7 +47,10 @@ public final class RuleInfoExtractorTest extends PackageLoadingTestCase {
             .add(attr("tags", STRING_LIST))
             .build();
     ExtractorContext extractorContext =
-        new ExtractorContext(LabelRenderer.DEFAULT, ImmutableMap.of());
+        ExtractorContext.builder()
+            .labelRenderer(LabelRenderer.DEFAULT)
+            .extractNonStarlarkAttrs(true)
+            .build();
     RuleInfo ruleInfo =
         RuleInfoExtractor.buildRuleInfo(extractorContext, "namespace.test_rule", ruleClass);
     assertThat(ruleInfo)
@@ -55,18 +59,32 @@ public final class RuleInfoExtractorTest extends PackageLoadingTestCase {
                 .setRuleName("namespace.test_rule")
                 .setOriginKey(OriginKey.newBuilder().setName("test_rule").setFile("<native>"))
                 .addAttribute(AttributeInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO)
-                // TODO(b/78473365): emit docs for non-Starlark-defined attrs (like "tags" here)
+                .addAttribute(
+                    AttributeInfo.newBuilder()
+                        .setName("tags")
+                        .setType(AttributeType.STRING_LIST)
+                        .setDefaultValue("[]")
+                        .setMandatory(false))
                 .build());
   }
 
   @Test
-  public void allStandardRulesAreSupported() throws Exception {
+  public void allNativeRulesAreSupported() throws Exception {
     ExtractorContext extractorContext =
-        new ExtractorContext(LabelRenderer.DEFAULT, ImmutableMap.of());
+        ExtractorContext.builder()
+            .labelRenderer(LabelRenderer.DEFAULT)
+            .extractNonStarlarkAttrs(true)
+            .build();
     for (RuleClass ruleClass : ruleClassProvider.getRuleClassMap().values()) {
       RuleInfo ruleInfo =
           RuleInfoExtractor.buildRuleInfo(extractorContext, ruleClass.getName(), ruleClass);
       assertThat(ruleInfo.getRuleName()).isEqualTo(ruleClass.getName());
+      assertThat(ruleInfo.getOriginKey().getName()).isEqualTo(ruleClass.getName());
+      assertThat(ruleInfo.getOriginKey().getFile()).isEqualTo("<native>");
+      assertThat(ruleInfo.getAttributeList().getFirst())
+          .isEqualTo(AttributeInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO);
+      assertThat(ruleInfo.getAttributeList().stream().map(AttributeInfo::getName))
+          .containsNoDuplicates();
     }
   }
 }

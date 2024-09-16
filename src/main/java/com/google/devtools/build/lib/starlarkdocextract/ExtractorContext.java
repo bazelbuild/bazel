@@ -14,6 +14,9 @@
 
 package com.google.devtools.build.lib.starlarkdocextract;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
+import com.google.auto.value.AutoBuilder;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
@@ -22,19 +25,34 @@ import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
  * Shared settings used by documentation extractors for transforming Starlark data structures into
  * StardocOutputProtos.* protos.
  */
-public final class ExtractorContext {
-  private final LabelRenderer labelRenderer;
-  private final ImmutableMap<StarlarkProvider.Key, String> providerQualifiedNames;
+public record ExtractorContext(
+    LabelRenderer labelRenderer,
+    ImmutableMap<StarlarkProvider.Key, String> providerQualifiedNames,
+    boolean extractNonStarlarkAttrs) {
 
-  public ExtractorContext(
-      LabelRenderer labelRenderer,
-      ImmutableMap<StarlarkProvider.Key, String> providerQualifiedNames) {
-    this.labelRenderer = labelRenderer;
-    this.providerQualifiedNames = providerQualifiedNames;
+  public ExtractorContext {
+    checkNotNull(labelRenderer, "labelRenderer cannot be null.");
+    checkNotNull(providerQualifiedNames, "providerQualifiedNames cannot be null.");
   }
 
-  LabelRenderer getLabelRenderer() {
-    return labelRenderer;
+  /** Returns a new {@link Builder} instance. */
+  public static Builder builder() {
+    return new AutoBuilder_ExtractorContext_Builder()
+        .providerQualifiedNames(ImmutableMap.of())
+        .extractNonStarlarkAttrs(false);
+  }
+
+  /** Builder for {@link ExtractorContext}. */
+  @AutoBuilder
+  public interface Builder {
+    Builder labelRenderer(LabelRenderer labelRenderer);
+
+    Builder providerQualifiedNames(
+        ImmutableMap<StarlarkProvider.Key, String> providerQualifiedNames);
+
+    Builder extractNonStarlarkAttrs(boolean extractNonStarlarkAttrs);
+
+    ExtractorContext build();
   }
 
   /**

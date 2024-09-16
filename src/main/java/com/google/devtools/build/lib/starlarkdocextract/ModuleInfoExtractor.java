@@ -113,8 +113,10 @@ public final class ModuleInfoExtractor {
         new DocumentationExtractor(
             builder,
             isWantedQualifiedName,
-            new ExtractorContext(
-                labelRenderer, providerQualifiedNameCollector.buildQualifiedNames()));
+            ExtractorContext.builder()
+                .labelRenderer(labelRenderer)
+                .providerQualifiedNames(providerQualifiedNameCollector.buildQualifiedNames())
+                .build());
     documentationExtractor.traverse(module);
     return builder.build();
   }
@@ -320,7 +322,7 @@ public final class ModuleInfoExtractor {
         throws ExtractionException {
       moduleInfoBuilder.addFuncInfo(
           StarlarkFunctionInfoExtractor.fromNameAndFunction(
-              qualifiedName, function, context.getLabelRenderer()));
+              qualifiedName, function, context.labelRenderer()));
     }
 
     @Override
@@ -341,7 +343,7 @@ public final class ModuleInfoExtractor {
       macroInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
               .setName(macroFunction.getName())
-              .setFile(context.getLabelRenderer().render(macroFunction.getExtensionLabel())));
+              .setFile(context.labelRenderer().render(macroFunction.getExtensionLabel())));
       macroFunction.getDocumentation().ifPresent(macroInfoBuilder::setDocString);
 
       MacroClass macroClass = macroFunction.getMacroClass();
@@ -377,7 +379,7 @@ public final class ModuleInfoExtractor {
       providerInfoBuilder.setOriginKey(
           OriginKey.newBuilder()
               .setName(provider.getName())
-              .setFile(context.getLabelRenderer().render(provider.getKey().getExtensionLabel())));
+              .setFile(context.labelRenderer().render(provider.getKey().getExtensionLabel())));
       provider.getDocumentation().ifPresent(providerInfoBuilder::setDocString);
       ImmutableMap<String, Optional<String>> schema = provider.getSchema();
       if (schema != null) {
@@ -396,7 +398,7 @@ public final class ModuleInfoExtractor {
       if (provider.getInit() instanceof StarlarkFunction) {
         providerInfoBuilder.setInit(
             StarlarkFunctionInfoExtractor.fromNameAndFunction(
-                qualifiedName, (StarlarkFunction) provider.getInit(), context.getLabelRenderer()));
+                qualifiedName, (StarlarkFunction) provider.getInit(), context.labelRenderer()));
       }
 
       moduleInfoBuilder.addProviderInfo(providerInfoBuilder);
@@ -414,7 +416,7 @@ public final class ModuleInfoExtractor {
           OriginKey.newBuilder()
               .setName(aspect.getAspectClass().getExportedName())
               .setFile(
-                  context.getLabelRenderer().render(aspect.getAspectClass().getExtensionLabel())));
+                  context.labelRenderer().render(aspect.getAspectClass().getExtensionLabel())));
       aspect.getDocumentation().ifPresent(aspectInfoBuilder::setDocString);
       for (String aspectAttribute : aspect.getAttributeAspects()) {
         if (ExtractorContext.isPublicName(aspectAttribute)) {
@@ -443,8 +445,7 @@ public final class ModuleInfoExtractor {
               // make ModuleExtension a StarlarkExportable (partially reverting cl/513213080).
               // Alternatively, we'd need to search the defining module's globals, similarly to what
               // we do in FunctionUtil#getFunctionOriginKey.
-              .setFile(
-                  context.getLabelRenderer().render(moduleExtension.getDefiningBzlFileLabel())));
+              .setFile(context.labelRenderer().render(moduleExtension.getDefiningBzlFileLabel())));
       moduleExtension.getDoc().ifPresent(moduleExtensionInfoBuilder::setDocString);
       for (Map.Entry<String, TagClass> entry : moduleExtension.getTagClasses().entrySet()) {
         ModuleExtensionTagClassInfo.Builder tagClassInfoBuilder =
@@ -469,13 +470,13 @@ public final class ModuleInfoExtractor {
       repositoryRuleInfoBuilder.setRuleName(qualifiedName);
       repositoryRuleFunction.getDocumentation().ifPresent(repositoryRuleInfoBuilder::setDocString);
       RuleClass ruleClass = repositoryRuleFunction.getRuleClass();
-      repositoryRuleInfoBuilder.setOriginKey(
-          OriginKey.newBuilder()
-              .setName(ruleClass.getName())
-              .setFile(
-                  context.getLabelRenderer().render(repositoryRuleFunction.getExtensionLabel())));
-
-      repositoryRuleInfoBuilder.addAllAttribute(IMPLICIT_REPOSITORY_RULE_ATTRIBUTES);
+      repositoryRuleInfoBuilder
+          .setOriginKey(
+              OriginKey.newBuilder()
+                  .setName(ruleClass.getName())
+                  .setFile(
+                      context.labelRenderer().render(repositoryRuleFunction.getExtensionLabel())))
+          .addAllAttribute(IMPLICIT_REPOSITORY_RULE_ATTRIBUTES);
       AttributeInfoExtractor.addDocumentableAttributes(
           context,
           ruleClass.getAttributes(),

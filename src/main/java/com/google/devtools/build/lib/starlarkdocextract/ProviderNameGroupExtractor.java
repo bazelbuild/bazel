@@ -36,7 +36,7 @@ final class ProviderNameGroupExtractor {
       if (!provider.isLegacy()) {
         if (provider.getKey() instanceof StarlarkProvider.Key) {
           Label definingModule = ((StarlarkProvider.Key) provider.getKey()).getExtensionLabel();
-          providerKeyBuilder.setFile(context.getLabelRenderer().render(definingModule));
+          providerKeyBuilder.setFile(context.labelRenderer().render(definingModule));
         } else if (provider.getKey() instanceof BuiltinProvider.Key) {
           providerKeyBuilder.setFile("<native>");
         }

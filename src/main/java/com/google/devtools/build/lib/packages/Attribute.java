@@ -61,6 +61,7 @@ import javax.annotation.concurrent.Immutable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
+import net.starlark.java.eval.StarlarkList;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
 
@@ -2382,9 +2383,8 @@ public final class Attribute implements Comparable<Attribute> {
    * </ol>
    */
   public static Object valueToStarlark(Object x) {
-    // Is x a non-empty string_list_dict?
-    if (x instanceof Map) {
-      Map<?, ?> map = (Map<?, ?>) x;
+    if (x instanceof Map<?, ?> map) {
+      // Is x a non-empty string_list_dict?
       if (!map.isEmpty() && map.values().iterator().next() instanceof List) {
         // Recursively convert subelements.
         Dict.Builder<Object, Object> dict = Dict.builder();
@@ -2393,6 +2393,13 @@ public final class Attribute implements Comparable<Attribute> {
         }
         return dict.buildImmutable();
       }
+    } else if (x instanceof Set<?> set) {
+      // Until Starlark gains a set data type, shallow-convert Java sets (e.g. DISTRIBUTION values)
+      // to Starlark lists.
+      return StarlarkList.immutableCopyOf(set);
+    } else if (x instanceof TriState triState) {
+      // Convert TriState to integer (same as in query output and native.existing_rules())
+      return triState.toInt();
     }
 
     // For all other attribute values, shallow conversion is safe.

@@ -53,7 +53,6 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/starlarkdocextract:ruleinfoextractor",
         "//src/main/protobuf:stardoc_output_java_proto",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//third_party:guava",
         "//third_party:junit4",
         "//third_party:truth",
     ],
