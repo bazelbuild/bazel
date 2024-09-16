@@ -51,7 +51,9 @@ public interface AppleCommonApi<
   @StarlarkMethod(
       name = "apple_toolchain",
       doc = "Utilities for resolving items from the apple toolchain.")
-  Object getAppleToolchain();
+  default Object getAppleToolchain() {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "platform_type",
@@ -71,7 +73,9 @@ public interface AppleCommonApi<
               + "ctx.fragments.apple.multi_arch_platform(apple_common.platform_type.ios)\n"
               + "</pre>",
       structField = true)
-  StructApi getPlatformTypeStruct();
+  default StructApi getPlatformTypeStruct() {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "platform",
@@ -105,13 +109,17 @@ public interface AppleCommonApi<
               + "p = dep[apple_common.XcodeVersionProperties]\n"
               + "</pre>",
       structField = true)
-  ProviderApi getXcodeVersionPropertiesConstructor();
+  default ProviderApi getXcodeVersionPropertiesConstructor() {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "XcodeVersionConfig",
       doc = "The constructor/key for the <code>XcodeVersionConfig</code> provider.",
       structField = true)
-  ProviderApi getXcodeVersionConfigConstructor();
+  default ProviderApi getXcodeVersionConfigConstructor() {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "AppleDynamicFramework",
@@ -124,7 +132,9 @@ public interface AppleCommonApi<
               + "p = dep[apple_common.AppleDynamicFramework]\n"
               + "</pre>",
       structField = true)
-  ProviderApi getAppleDynamicFrameworkConstructor();
+  default ProviderApi getAppleDynamicFrameworkConstructor() {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "AppleExecutableBinary",
@@ -137,7 +147,9 @@ public interface AppleCommonApi<
               + "p = dep[apple_common.AppleExecutableBinary]\n"
               + "</pre>",
       structField = true)
-  ProviderApi getAppleExecutableBinaryConstructor();
+  default ProviderApi getAppleExecutableBinaryConstructor() {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "AppleDebugOutputs",
@@ -167,7 +179,9 @@ public interface AppleCommonApi<
             named = false,
             doc = "A provider containing information about the Xcode configuration."),
       })
-  ImmutableMap<String, String> getAppleHostSystemEnv(Object xcodeConfig);
+  default ImmutableMap<String, String> getAppleHostSystemEnv(Object xcodeConfig) {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "target_apple_env",
@@ -184,7 +198,10 @@ public interface AppleCommonApi<
             doc = "A provider containing information about the Xcode configuration."),
         @Param(name = "platform", positional = true, named = false, doc = "The apple platform."),
       })
-  ImmutableMap<String, String> getTargetAppleEnvironment(Object xcodeConfig, Object platform);
+  default ImmutableMap<String, String> getTargetAppleEnvironment(
+      Object xcodeConfig, Object platform) {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "new_dynamic_framework_provider",
@@ -233,13 +250,15 @@ public interface AppleCommonApi<
                     + "dynamic framework")
       },
       useStarlarkThread = true)
-  Object newDynamicFrameworkProvider(
+  default Object newDynamicFrameworkProvider(
       Object dylibBinary,
       CcInfoApiT depsCcInfo,
       Object dynamicFrameworkDirs,
       Object dynamicFrameworkFiles,
       StarlarkThread thread)
-      throws EvalException;
+      throws EvalException {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "new_executable_binary_provider",
@@ -264,8 +283,10 @@ public interface AppleCommonApi<
                     + "linked into the binary."),
       },
       useStarlarkThread = true)
-  Object newExecutableBinaryProvider(
-      Object executableBinary, CcInfoApiT depsCcInfo, StarlarkThread thread) throws EvalException;
+  default Object newExecutableBinaryProvider(
+      Object executableBinary, CcInfoApiT depsCcInfo, StarlarkThread thread) throws EvalException {
+    throw new UnsupportedOperationException(); // just for docs
+  }
 
   @StarlarkMethod(
       name = "link_multi_arch_binary",

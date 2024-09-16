@@ -15,10 +15,8 @@
 package com.google.devtools.build.lib.rules.objc;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.platform.ConstraintValueInfo;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.apple.ApplePlatform;
 import com.google.devtools.build.lib.rules.apple.DottedVersion;
@@ -26,7 +24,6 @@ import com.google.devtools.build.lib.rules.cpp.CcInfo;
 import com.google.devtools.build.lib.starlarkbuildapi.objc.AppleCommonApi;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.StarlarkThread;
 
 /** A class that exposes apple rule implementation internals to Starlark. */
 public class AppleStarlarkCommon
@@ -44,79 +41,11 @@ public class AppleStarlarkCommon
   public AppleStarlarkCommon() {}
 
   @Override
-  public Object getAppleToolchain() {
-    // Implemented in builtin Starlark; this is just for docs.
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public StructImpl getPlatformTypeStruct() {
-    // Implemented in builtin Starlark; this is just for docs.
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
   public StructImpl getPlatformStruct() {
     if (platform == null) {
       platform = ApplePlatform.getStarlarkStruct();
     }
     return platform;
-  }
-
-  @Override
-  public Provider getXcodeVersionPropertiesConstructor() {
-    // Implemented in builtin Starlark; this is just for docs.
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public Provider getXcodeVersionConfigConstructor() {
-    // Implemented in builtin Starlark; this is just for docs.
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public Provider getAppleDynamicFrameworkConstructor() {
-    // Implemented in builtin Starlark; this is just for docs.
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public Provider getAppleExecutableBinaryConstructor() {
-    // Implemented in builtin Starlark; this is just for docs.
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ImmutableMap<String, String> getAppleHostSystemEnv(Object xcodeConfig) {
-    // Implemented in builtin Starlark; this is just for docs.
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public ImmutableMap<String, String> getTargetAppleEnvironment(
-      Object xcodeConfigApi, Object platformApi) {
-    // Implemented in builtin Starlark; this is just for docs.
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public Object newDynamicFrameworkProvider(
-      Object dylibBinary,
-      CcInfo depsCcInfo,
-      Object dynamicFrameworkDirs,
-      Object dynamicFrameworkFiles,
-      StarlarkThread thread)
-      throws EvalException {
-    // Implemented in builtin Starlark; this is just for docs.
-    throw new UnsupportedOperationException();
-  }
-
-  @Override
-  public Object newExecutableBinaryProvider(
-      Object executableBinary, CcInfo depsCcInfo, StarlarkThread thread) throws EvalException {
-    // Implemented in builtin Starlark; this is just for docs.
-    throw new UnsupportedOperationException();
   }
 
   @Override
