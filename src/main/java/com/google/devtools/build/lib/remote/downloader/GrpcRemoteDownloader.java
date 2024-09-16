@@ -86,6 +86,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   private static final String QUALIFIER_HTTP_HEADER_PREFIX = "http_header:";
   // Same as HTTP_HEADER_PREFIX, but only apply for a specific URL.
   // The index starts from 0 and corresponds to the URL index in the request.
+  // Server should prefer using the URL-specific header value over the generic header
+  // value when both are present.
   private static final String QUALIFIER_HTTP_HEADER_URL_PREFIX = "http_header_url:";
 
   public GrpcRemoteDownloader(
