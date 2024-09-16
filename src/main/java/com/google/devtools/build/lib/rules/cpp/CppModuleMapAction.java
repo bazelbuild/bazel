@@ -16,15 +16,26 @@ package com.google.devtools.build.lib.rules.cpp;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
+import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.actions.ExecutionRequirements;
+import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.analysis.actions.AbstractFileWriteAction;
 import com.google.devtools.build.lib.analysis.actions.DeterministicWriter;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
+import com.google.devtools.build.lib.analysis.config.CoreOptions.OutputPathsMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
+import com.google.devtools.build.lib.concurrent.BlazeInterners;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -35,6 +46,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -43,8 +56,11 @@ import javax.annotation.Nullable;
  */
 @Immutable
 public final class CppModuleMapAction extends AbstractFileWriteAction {
+  public static final String MNEMONIC = "CppModuleMap";
 
   private static final String GUID = "4f407081-1951-40c1-befc-d6b4daff5de3";
+  private static final Interner<ImmutableSortedMap<String, String>> executionInfoInterner =
+      BlazeInterners.newWeakInterner();
 
   // C++ module map of the current target
   private final CppModuleMap cppModuleMap;
@@ -65,6 +81,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   private final boolean compiledModule;
   private final boolean generateSubmodules;
   private final boolean externDependencies;
+  private final ImmutableSortedMap<String, String> executionInfo;
 
   public CppModuleMapAction(
       ActionOwner owner,
@@ -77,7 +94,9 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
       boolean compiledModule,
       boolean moduleMapHomeIsCwd,
       boolean generateSubmodules,
-      boolean externDependencies) {
+      boolean externDependencies,
+      OutputPathsMode outputPathsMode,
+      ImmutableMap<String, String> executionInfo) {
     super(
         owner,
         NestedSetBuilder.<Artifact>stableOrder()
@@ -95,6 +114,22 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     this.compiledModule = compiledModule;
     this.generateSubmodules = generateSubmodules;
     this.externDependencies = externDependencies;
+    // Save memory by storing outputPathsMode implicitly via the presence of
+    // ExecutionRequirements.SUPPORTS_PATH_MAPPING in the key set. Path mapping is only effectively
+    // enabled if the key is present *and* the mode is set to STRIP, so if the latter is not the
+    // case, we can safely not store the key.
+    Map<String, String> storedExecutionInfo;
+    if (outputPathsMode == OutputPathsMode.STRIP) {
+      storedExecutionInfo = executionInfo;
+    } else {
+      storedExecutionInfo =
+          Maps.filterKeys(
+              executionInfo, k -> !k.equals(ExecutionRequirements.SUPPORTS_PATH_MAPPING));
+    }
+    this.executionInfo =
+        storedExecutionInfo.isEmpty()
+            ? ImmutableSortedMap.of()
+            : executionInfoInterner.intern(ImmutableSortedMap.copyOf(storedExecutionInfo));
   }
 
   @Override
@@ -110,9 +145,16 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
   @Override
   public DeterministicWriter newDeterministicWriter(ActionExecutionContext ctx) {
     final ArtifactExpander artifactExpander = ctx.getArtifactExpander();
+    // TODO: It is possible that compile actions consuming the module map have path mapping disabled
+    //  due to inputs conflicting across configurations. Since these inputs aren't inputs of the
+    //  module map action, the generated map still contains mapped paths, which then results in
+    //  compilation failures. This should be very rare as #include doesn't allow to disambiguate
+    //  between headers from different configurations but with identical root-relative paths.
+    final PathMapper pathMapper =
+        PathMappers.create(this, getOutputPathsMode(), /* isStarlarkAction= */ false);
     return out -> {
       OutputStreamWriter content = new OutputStreamWriter(out, StandardCharsets.ISO_8859_1);
-      PathFragment fragment = cppModuleMap.getArtifact().getExecPath();
+      PathFragment fragment = pathMapper.map(cppModuleMap.getArtifact().getExecPath());
       int segmentsToExecPath = fragment.segmentCount() - 1;
       Optional<Artifact> umbrellaHeader = cppModuleMap.getUmbrellaHeader();
       String leadingPeriods = moduleMapHomeIsCwd ? "" : "../".repeat(segmentsToExecPath);
@@ -134,7 +176,8 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
             leadingPeriods,
             /* canCompile= */ false,
             deduper,
-            /*isUmbrellaHeader*/ true);
+            /*isUmbrellaHeader*/ true,
+            pathMapper);
       } else {
         for (Artifact artifact : expandedHeaders(artifactExpander, publicHeaders)) {
           appendHeader(
@@ -144,7 +187,8 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
               leadingPeriods,
               /* canCompile= */ true,
               deduper,
-              /*isUmbrellaHeader*/ false);
+              /*isUmbrellaHeader*/ false,
+              pathMapper);
         }
         for (Artifact artifact : expandedHeaders(artifactExpander, privateHeaders)) {
           appendHeader(
@@ -154,7 +198,8 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
               leadingPeriods,
               /* canCompile= */ true,
               deduper,
-              /*isUmbrellaHeader*/ false);
+              /*isUmbrellaHeader*/ false,
+              pathMapper);
         }
         for (Artifact artifact : separateModuleHdrs) {
           appendHeader(
@@ -164,7 +209,8 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
               leadingPeriods,
               /* canCompile= */ false,
               deduper,
-              /*isUmbrellaHeader*/ false);
+              /*isUmbrellaHeader*/ false,
+              pathMapper);
         }
         for (PathFragment additionalExportedHeader : additionalExportedHeaders) {
           appendHeader(
@@ -174,7 +220,8 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
               leadingPeriods,
               /*canCompile*/ false,
               deduper,
-              /*isUmbrellaHeader*/ false);
+              /*isUmbrellaHeader*/ false,
+              pathMapper);
         }
       }
       for (CppModuleMap dep : dependencies) {
@@ -196,7 +243,8 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
               leadingPeriods,
               /* canCompile= */ true,
               deduper,
-              /*isUmbrellaHeader*/ false);
+              /*isUmbrellaHeader*/ false,
+              pathMapper);
         }
         for (CppModuleMap dep : dependencies) {
           content.append("  use \"").append(dep.getName()).append("\"\n");
@@ -211,7 +259,7 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
               .append(dep.getName())
               .append("\" \"")
               .append(leadingPeriods)
-              .append(dep.getArtifact().getExecPathString())
+              .append(pathMapper.getMappedExecPathString(dep.getArtifact()))
               .append("\"");
         }
       }
@@ -219,8 +267,8 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     };
   }
 
-  private static Iterable<Artifact> expandedHeaders(ArtifactExpander artifactExpander,
-      Iterable<Artifact> unexpandedHeaders) {
+  private static ImmutableList<Artifact> expandedHeaders(
+      ArtifactExpander artifactExpander, Iterable<Artifact> unexpandedHeaders) {
     List<Artifact> expandedHeaders = new ArrayList<>();
     for (Artifact unexpandedHeader : unexpandedHeaders) {
       if (unexpandedHeader.isTreeArtifact()) {
@@ -233,9 +281,17 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     return ImmutableList.copyOf(expandedHeaders);
   }
 
-  private void appendHeader(Appendable content, String visibilitySpecifier,
-      PathFragment path, String leadingPeriods, boolean canCompile, HashSet<PathFragment> deduper,
-      boolean isUmbrellaHeader) throws IOException {
+  private void appendHeader(
+      Appendable content,
+      String visibilitySpecifier,
+      PathFragment unmappedPath,
+      String leadingPeriods,
+      boolean canCompile,
+      Set<PathFragment> deduper,
+      boolean isUmbrellaHeader,
+      PathMapper pathMapper)
+      throws IOException {
+    PathFragment path = pathMapper.map(unmappedPath);
     if (deduper.contains(path)) {
       return;
     }
@@ -268,14 +324,15 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
 
   @Override
   public String getMnemonic() {
-    return "CppModuleMap";
+    return MNEMONIC;
   }
 
   @Override
   protected void computeKey(
       ActionKeyContext actionKeyContext,
       @Nullable ArtifactExpander artifactExpander,
-      Fingerprint fp) {
+      Fingerprint fp)
+      throws CommandLineExpansionException, InterruptedException {
     fp.addString(GUID);
     fp.addInt(privateHeaders.size());
     for (Artifact artifact : privateHeaders) {
@@ -308,6 +365,25 @@ public final class CppModuleMapAction extends AbstractFileWriteAction {
     fp.addBoolean(compiledModule);
     fp.addBoolean(generateSubmodules);
     fp.addBoolean(externDependencies);
+    PathMappers.addToFingerprint(
+        getMnemonic(),
+        getExecutionInfo(),
+        NestedSetBuilder.emptySet(Order.STABLE_ORDER),
+        actionKeyContext,
+        getOutputPathsMode(),
+        fp);
+  }
+
+  @Override
+  public ImmutableMap<String, String> getExecutionInfo() {
+    return executionInfo;
+  }
+
+  private OutputPathsMode getOutputPathsMode() {
+    // See comment in the constructor for how outputPathsMode is stored implicitly.
+    return executionInfo.containsKey(ExecutionRequirements.SUPPORTS_PATH_MAPPING)
+        ? OutputPathsMode.STRIP
+        : OutputPathsMode.OFF;
   }
 
   @VisibleForTesting

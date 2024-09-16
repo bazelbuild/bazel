@@ -175,11 +175,7 @@ final class ExecutionServer extends ExecutionImplBase {
       return;
     }
     ((ServerCallStreamObserver<Operation>) responseObserver)
-        .setOnCancelHandler(
-            () -> {
-              future.cancel(true);
-              operationsCache.remove(opName);
-            });
+        .setOnCancelHandler(() -> operationsCache.remove(opName));
     waitExecution(opName, future, responseObserver);
   }
 
@@ -241,11 +237,7 @@ final class ExecutionServer extends ExecutionImplBase {
         executorService.submit(() -> execute(context, request, opName));
     operationsCache.put(opName, future);
     ((ServerCallStreamObserver<Operation>) responseObserver)
-        .setOnCancelHandler(
-            () -> {
-              future.cancel(true);
-              operationsCache.remove(opName);
-            });
+        .setOnCancelHandler(() -> operationsCache.remove(opName));
     // Send the first operation.
     responseObserver.onNext(Operation.newBuilder().setName(opName).build());
     // When the operation completes, send the result.
