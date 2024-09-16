@@ -22,7 +22,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
+import com.google.devtools.build.lib.analysis.RuleContext;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
+import com.google.devtools.build.lib.analysis.actions.PathMappers;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkActionFactory;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
@@ -610,6 +612,7 @@ public class CcStarlarkInternal implements StarlarkValue {
       Boolean generateSubmodules,
       Boolean withoutExternDependencies)
       throws EvalException {
+    RuleContext ruleContext = actions.getRuleContext();
     ActionConstructionContext actionConstructionContext = actions.getActionConstructionContext();
     actions
         .asActionRegistry(actions)
@@ -629,6 +632,10 @@ public class CcStarlarkInternal implements StarlarkValue {
                 compiledModule,
                 moduleMapHomeIsCwd,
                 generateSubmodules,
-                withoutExternDependencies));
+                withoutExternDependencies,
+                PathMappers.getOutputPathsMode(ruleContext.getConfiguration()),
+                ruleContext
+                    .getConfiguration()
+                    .modifiedExecutionInfo(ImmutableMap.of(), CppModuleMapAction.MNEMONIC)));
   }
 }

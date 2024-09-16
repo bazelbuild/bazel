@@ -581,8 +581,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
     }
   }
 
-  /** @return modules maps from direct dependencies. */
-  public Iterable<Artifact> getDirectModuleMaps() {
+  /** Returns modules maps from direct dependencies. */
+  public ImmutableList<Artifact> getDirectModuleMaps() {
     return directModuleMaps;
   }
 
@@ -595,8 +595,8 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
   }
 
   /**
-   * @return all declared headers of the current module if the current target is compiled as a
-   *     module.
+   * Returns all declared headers of the current module if the current target is compiled as a
+   * module.
    */
   ImmutableList<Artifact> getHeaderModuleSrcs(boolean separateModule) {
     if (separateModule) {
@@ -651,7 +651,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
         headerTokens.build());
   }
 
-  /** @return the C++ module map of the owner. */
+  /** Returns the C++ module map of the owner. */
   public CppModuleMap getCppModuleMap() {
     return cppModuleMap;
   }
@@ -1154,7 +1154,7 @@ public final class CcCompilationContext implements CcCompilationContextApi<Artif
    * Gathers data about the PIC and no-PIC .pcm files belonging to this context and the associated
    * information about the headers, e.g. modular vs. textual headers and pre-grepped header files.
    *
-   * <p>This also implements a data structure very similar to NestedSet, but chosing slightly
+   * <p>This also implements a data structure very similar to NestedSet, but choosing slightly
    * different trade-offs to account for the specific data stored in here, specifically, we know
    * that there is going to be a single entry in every node of the DAG. Contrary to NestedSet, we
    * reuse memoization data from dependencies to conserve both runtime and memory. Experiments have
