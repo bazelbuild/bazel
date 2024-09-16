@@ -128,6 +128,13 @@ public interface PathMapper {
   }
 
   /**
+   * Heuristically maps all path-like strings in the given argument.
+   */
+  default String mapHeuristically(String arg) {
+    return arg;
+  }
+
+  /**
    * Returns a {@link FileRootApi} representing the new root of the given artifact after mapping.
    *
    * <p>All objects returned by this method must be {@link Comparable} among each other.

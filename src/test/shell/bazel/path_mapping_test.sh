@@ -530,6 +530,7 @@ cc_library(
     name = "utils",
     srcs = ["dir/utils.cc"],
     hdrs = ["dir/utils.h"],
+    defines = ["MY_FILE=\\\"+$(execpath dir/utils.cc)+\\\""],
     include_prefix = "other_dir",
     strip_include_prefix = "dir",
     visibility = ["//visibility:public"],
@@ -615,7 +616,13 @@ EOF
   cat > "$pkg/common/utils/utils.cc.tpl" <<'EOF'
 #include "utils.h"
 
+#include <cstdlib>
+#include <iostream>
+
 std::string AsGreeting(const std::string& name) {
+  if (std::string(MY_FILE).find("-out/cfg/") == std::string::npos) {
+    std::cerr << "Expected path to contain '-out/cfg/'" << std::endl;
+  }
   return "{GREETING}, " + name + "!";
 }
 EOF

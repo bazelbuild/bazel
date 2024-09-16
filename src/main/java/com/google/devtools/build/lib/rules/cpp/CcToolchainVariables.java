@@ -1043,7 +1043,7 @@ public abstract class CcToolchainVariables implements CcToolchainVariablesApi {
       ImmutableList.Builder<VariableValue> sequences =
           ImmutableList.builderWithExpectedSize(values.size());
       for (String value : values) {
-        sequences.add(new StringValue(value));
+        sequences.add(new StringValue(pathMapper.mapHeuristically(value)));
       }
       return sequences.build();
     }
