@@ -46,6 +46,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkActionFactoryApi;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
 import com.google.devtools.build.lib.util.Pair;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -77,6 +78,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
   private final ImmutableSet<StarlarkSubrule> subrules;
 
   // following fields are set on export
+  @Nullable private Label extensionLabel = null;
   @Nullable private String exportedName = null;
   private ImmutableList<SubruleAttribute> attributes;
 
@@ -105,6 +107,26 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
   @Override
   public void repr(Printer printer) {
     printer.append("<subrule ").append(getName()).append(">");
+  }
+
+  @Override
+  public boolean equals(Object other) {
+    if (!(other instanceof StarlarkSubrule)) {
+      return false;
+    }
+    if (isExported()) {
+      return this.extensionLabel.equals(((StarlarkSubrule) other).extensionLabel)
+          && this.exportedName.equals(((StarlarkSubrule) other).exportedName);
+    }
+    return this == other;
+  }
+
+  @Override
+  public int hashCode() {
+    if (isExported()) {
+      return Objects.hash(this.extensionLabel, this.exportedName);
+    }
+    return System.identityHashCode(this);
   }
 
   @Override
@@ -221,12 +243,13 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
 
   @Override
   public boolean isExported() {
-    return this.exportedName != null;
+    return this.extensionLabel != null && this.exportedName != null;
   }
 
   @Override
   public void export(EventHandler handler, Label extensionLabel, String exportedName) {
     Preconditions.checkState(!isExported());
+    this.extensionLabel = extensionLabel;
     this.exportedName = exportedName;
     this.attributes =
         SubruleAttribute.transformOnExport(attributes, extensionLabel, exportedName, handler);
@@ -343,7 +366,7 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       if (ruleContext.useAutoExecGroups()) {
         return StarlarkToolchainContext.create(
             /* targetDescription= */ ruleContext.getToolchainContext().targetDescription(),
-            /* resolveToolchainInfoFunc= */ ruleContext::getToolchainInfo,
+            /* resolveToolchainDataFunc= */ ruleContext::getToolchainInfo,
             /* resolvedToolchainTypeLabels= */ getAutomaticExecGroupLabels());
       } else {
         throw Starlark.errorf("subrules using toolchains must enable automatic exec-groups");
