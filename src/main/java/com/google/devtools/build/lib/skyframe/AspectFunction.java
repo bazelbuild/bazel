@@ -14,8 +14,10 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.maybeFetchSkyValueRemotely;
 import static com.google.devtools.build.lib.skyframe.DependencyResolver.createDefaultToolchainContextKey;
 import static com.google.devtools.build.lib.skyframe.DependencyResolver.getPrioritizedDetailedExitCode;
+import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -85,6 +87,11 @@ import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor.BuildViewProvider;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationState;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationStateProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -172,7 +179,10 @@ final class AspectFunction implements SkyFunction {
     this.baseTargetPrerequisitesSupplier = baseTargetPrerequisitesSupplier;
   }
 
-  static class State implements SkyKeyComputeState, UnloadedToolchainContextsProducer.ResultSink {
+  static class State
+      implements SkyKeyComputeState,
+          UnloadedToolchainContextsProducer.ResultSink,
+          SerializationStateProvider {
     @Nullable InitialValues initialValues;
 
     final DependencyResolver.State computeDependenciesState;
@@ -195,6 +205,8 @@ final class AspectFunction implements SkyFunction {
     // Will be true if the target doesn't require toolchain resolution.
     boolean baseTargetHasNoToolchains;
 
+    private SerializationState serializationState = INITIAL_STATE;
+
     private State(
         boolean storeTransitivePackages, PrerequisitePackageFunction prerequisitePackages) {
       this.computeDependenciesState =
@@ -213,6 +225,16 @@ final class AspectFunction implements SkyFunction {
     @Override
     public void acceptUnloadedToolchainContextsError(ToolchainException error) {
       this.baseTargetUnloadedToolchainContextsError = error;
+    }
+
+    @Override
+    public SerializationState getSerializationState() {
+      return serializationState;
+    }
+
+    @Override
+    public void setSerializationState(SerializationState state) {
+      this.serializationState = state;
     }
   }
 
@@ -237,6 +259,21 @@ final class AspectFunction implements SkyFunction {
       throws AspectFunctionException, InterruptedException {
     AspectKey key = (AspectKey) skyKey.argument();
     State state = env.getState(() -> new State(storeTransitivePackages, prerequisitePackages));
+
+    RemoteAnalysisCachingDependenciesProvider analysisCachingDeps =
+        buildViewProvider.getSkyframeBuildView().getRemoteAnalysisCachingDependenciesProvider();
+    if (analysisCachingDeps.enabled()) {
+      RetrievalResult retrievalResult =
+          maybeFetchSkyValueRemotely(key, env, analysisCachingDeps, state);
+      switch (retrievalResult) {
+        case SkyValueRetriever.Restart unused:
+          return null;
+        case SkyValueRetriever.RetrievedValue v:
+          return v.value();
+        case SkyValueRetriever.NoCachedData unused:
+          break;
+      }
+    }
 
     DependencyResolver.State computeDependenciesState = state.computeDependenciesState;
     if (state.initialValues == null) {

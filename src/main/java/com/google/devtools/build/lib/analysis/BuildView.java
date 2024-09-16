@@ -90,6 +90,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView.BuildDriverKeyTestContext;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -229,7 +230,8 @@ public class BuildView {
       @Nullable ExecutionSetup executionSetupCallback,
       @Nullable BuildConfigurationsCreated buildConfigurationsCreatedCallback,
       @Nullable BuildDriverKeyTestContext buildDriverKeyTestContext,
-      Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent)
+      Optional<AdditionalConfigurationChangeEvent> additionalConfigurationChangeEvent,
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider)
       throws ViewCreationFailedException,
           InvalidConfigurationException,
           InterruptedException,
@@ -331,6 +333,9 @@ public class BuildView {
     ImmutableList<TopLevelAspectsKey> aspectKeys =
         createTopLevelAspectKeys(
             aspects, aspectsParameters, labelToTargetMap.keySet(), topLevelConfig, eventHandler);
+
+    skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
+        remoteAnalysisCachingDependenciesProvider);
 
     getArtifactFactory().noteAnalysisStarting();
     SkyframeAnalysisResult skyframeAnalysisResult;

@@ -220,6 +220,7 @@ import com.google.devtools.build.lib.skyframe.config.ParsedFlagsFunction;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingFunction;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsCycleReporter;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredToolchainsFunction;
@@ -502,6 +503,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * details.
    */
   private final boolean globUnderSingleDep;
+
+  public void setRemoteAnalysisCachingDependenciesProvider(
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider) {
+    // TODO: b/356108550 - move this somewhere else when the deps are needed for the execution phase
+    // functions.
+    getSkyframeBuildView()
+        .setRemoteAnalysisCachingDependenciesProvider(remoteAnalysisCachingDependenciesProvider);
+  }
 
   final class PathResolverFactoryImpl implements PathResolverFactory {
     @Override

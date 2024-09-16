@@ -46,6 +46,11 @@ public final class ActionLookupValuesTraversal {
 
   @ThreadSafe
   void accumulate(ActionLookupKey key, SkyValue value) {
+    if (value instanceof RemoteConfiguredTargetValue) {
+      // Remotely fetched values do not have actions.
+      return;
+    }
+
     boolean isConfiguredTarget = value instanceof ConfiguredTargetValue;
     boolean isActionLookupValue = value instanceof ActionLookupValue;
     if (!isConfiguredTarget && !isActionLookupValue) {

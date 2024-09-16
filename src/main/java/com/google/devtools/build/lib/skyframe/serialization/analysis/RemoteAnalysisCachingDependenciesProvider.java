@@ -16,12 +16,18 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
+import com.google.devtools.build.skyframe.SkyKey;
 
 /**
  * An interface providing the functionalities used for analysis caching serialization and
  * deserialization.
  */
 public interface RemoteAnalysisCachingDependenciesProvider {
+
+  default boolean enabled() {
+    return true;
+  }
 
   /** Returns true if the {@link PackageIdentifier} is in the set of active directories. */
   boolean withinActiveDirectories(PackageIdentifier pkg);
@@ -35,4 +41,39 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   /** Returns the {@link FingerprintValueService} implementation. */
   FingerprintValueService getFingerprintValueService();
+
+  void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
+
+  /** A stub dependencies provider for when analysis caching is disabled. */
+  final class DisabledDependenciesProvider implements RemoteAnalysisCachingDependenciesProvider {
+
+    public static final DisabledDependenciesProvider INSTANCE = new DisabledDependenciesProvider();
+
+    private DisabledDependenciesProvider() {}
+
+    @Override
+    public boolean enabled() {
+      return false;
+    }
+
+    @Override
+    public boolean withinActiveDirectories(PackageIdentifier pkg) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public ObjectCodecs getObjectCodecs() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FingerprintValueService getFingerprintValueService() {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key) {
+      throw new UnsupportedOperationException();
+    }
+  }
 }

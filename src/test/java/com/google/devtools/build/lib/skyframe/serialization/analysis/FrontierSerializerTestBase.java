@@ -17,20 +17,25 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.devtools.build.lib.cmdline.Label.parseCanonicalUnchecked;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assume.assumeTrue;
 
+import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.buildtool.BuildTool;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
+import com.google.devtools.build.lib.skyframe.RemoteConfiguredTargetValue;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -42,10 +47,21 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import org.junit.Before;
 import org.junit.Test;
 
 public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCase {
+
+  protected FingerprintValueService service;
+
+  @Before
+  public void setup() {
+    // Give each test case a unique instance of the fingerprint value service, so that test cases
+    // don't share state. This instance will then last the lifetime of the test case, regardless
+    // of the number of command invocations.
+    service = FingerprintValueService.createForTesting();
+  }
 
   @Before
   public void setCommonConfiguration() {
@@ -172,7 +188,7 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
     var matcher =
         BuildTool.getWorkingSetMatcherForSkyfocus(
             // We know exactly which PROJECT file is used, so inject it here.
-            Label.parseCanonicalUnchecked("//bar:PROJECT.scl"),
+            parseCanonicalUnchecked("//bar:PROJECT.scl"),
             getSkyframeExecutor(),
             getCommandEnvironment().getReporter());
     Map<ActionLookupKey, SelectionMarking> selection =
@@ -393,5 +409,129 @@ genrule(
     assertThat(buildTarget("//bar:one").getSuccess()).isTrue();
   }
 
-}
+  @Test
+  public void buildCommand_downloadsFrontierBytesWithDownloadMode() throws Exception {
+    setupScenarioWithConfiguredTargets();
+    write(
+        "foo/PROJECT.scl",
+        """
+active_directories = { "default": ["foo"] }
+""");
+    // Cache-writing build.
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    buildTarget("//foo:A");
 
+    // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
+    // Bazel yet. Return early.
+    assumeTrue(
+        Ascii.equalsIgnoreCase(getCommandEnvironment().getRuntime().getProductName(), "blaze"));
+
+    // Reset the graph.
+    getCommandEnvironment().getSkyframeExecutor().resetEvaluator();
+
+    // Cache reading build.
+    addOptions("--experimental_remote_analysis_cache_mode=download");
+    buildTarget("//foo:A");
+
+    var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
+    // //bar:C, //bar:H, //bar:E
+    assertThat(listener.getCacheHits()).isEqualTo(3);
+    // //bar:F is not in the project boundary, but it's in the active set, so it wasn't cached.
+    assertThat(listener.getCacheMisses()).isAtLeast(1);
+  }
+
+  @Test
+  public void buildCommand_downloadedFrontierContainsRemoteConfiguredTargetValues()
+      throws Exception {
+    setupScenarioWithConfiguredTargets();
+    write(
+        "foo/PROJECT.scl",
+        """
+active_directories = { "default": ["foo"] }
+""");
+
+    // Cache-writing build.
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    buildTarget("//foo:A");
+
+    // TODO: b/367287783 - RemoteConfiguredTargetValue cannot be deserialized successfully with
+    // Bazel yet. Return early.
+    assumeTrue(
+        Ascii.equalsIgnoreCase(getCommandEnvironment().getRuntime().getProductName(), "blaze"));
+
+    // Reset the graph.
+    getCommandEnvironment().getSkyframeExecutor().resetEvaluator();
+
+    // Cache reading build.
+    addOptions("--experimental_remote_analysis_cache_mode=download");
+    buildTarget("//foo:A");
+
+    var graph = getSkyframeExecutor().getEvaluator().getInMemoryGraph();
+    Function<String, ConfiguredTargetKey> ctKeyOfLabel =
+        (String label) ->
+            ConfiguredTargetKey.builder()
+                .setLabel(parseCanonicalUnchecked(label))
+                .setConfiguration(getTargetConfiguration())
+                .build();
+
+    var expectedFrontier = ImmutableSet.of("//bar:C", "//bar:H", "//bar:E");
+    expectedFrontier.forEach(
+        label ->
+            assertThat(graph.getIfPresent(ctKeyOfLabel.apply(label)).getValue())
+                .isInstanceOf(RemoteConfiguredTargetValue.class));
+
+    var expectedActiveSet =
+        ImmutableSet.of(
+            // //bar:F is in the active set because it's an rdep of //foo:G.
+            "//bar:F", "//foo:G", "//foo:A", "//foo:B", "//foo:D");
+    expectedActiveSet.forEach(
+        label -> {
+          var skyValue = graph.getIfPresent(ctKeyOfLabel.apply(label)).getValue();
+          assertThat(skyValue).isInstanceOf(ConfiguredTargetValue.class);
+          assertThat(skyValue).isNotInstanceOf(RemoteConfiguredTargetValue.class);
+        });
+
+    assertThat(graph.getIfPresent(ctKeyOfLabel.apply("//bar:I"))).isNull();
+  }
+
+  private void setupScenarioWithConfiguredTargets() throws Exception {
+    // ┌───────┐     ┌───────┐
+    // │ bar:C │ ◀── │ foo:A │
+    // └───────┘     └───────┘
+    //                 │
+    //                 │
+    //                 ▼
+    // ┌───────┐     ┌───────┐     ┌───────┐
+    // │ bar:E │ ◀── │ foo:B │ ──▶ │ bar:F │
+    // └───────┘     └───────┘     └───────┘
+    //   │             │             │
+    //   │             │             │
+    //   ▼             ▼             ▼
+    // ┌───────┐     ┌───────┐     ┌───────┐
+    // │ bar:I │     │ foo:D │     │ foo:G │
+    // └───────┘     └───────┘     └───────┘
+    //                 │
+    //                 │
+    //                 ▼
+    //               ┌───────┐
+    //               │ bar:H │
+    //               └───────┘
+    write(
+        "foo/BUILD",
+        """
+filegroup(name = "A", srcs = [":B", "//bar:C"])
+filegroup(name = "B", srcs = [":D", "//bar:E", "//bar:F"])
+filegroup(name = "D", srcs = ["//bar:H"])
+filegroup(name = "G")
+""");
+    write(
+        "bar/BUILD",
+        """
+filegroup(name = "C")
+filegroup(name = "E", srcs = [":I"])
+filegroup(name = "F", srcs = ["//foo:G"])
+filegroup(name = "H")
+filegroup(name = "I")
+""");
+  }
+}

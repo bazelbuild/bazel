@@ -80,6 +80,7 @@ import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsValue;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider.DisabledDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.AbruptExitException;
@@ -255,7 +256,8 @@ public class BuildViewForTesting {
         /* executionSetupCallback= */ null,
         /* buildConfigurationsCreatedCallback= */ null,
         /* buildDriverKeyTestContext= */ null,
-        /* additionalConfigurationChangeEvent= */ Optional.empty());
+        /* additionalConfigurationChangeEvent= */ Optional.empty(),
+        /* remoteAnalysisCachingDependenciesProvider= */ DisabledDependenciesProvider.INSTANCE);
   }
 
   /** Sets the configuration. Not thread-safe. */

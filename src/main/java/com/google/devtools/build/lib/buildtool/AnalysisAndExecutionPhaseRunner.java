@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.AspectAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
@@ -77,7 +78,8 @@ public final class AnalysisAndExecutionPhaseRunner {
       TargetPatternPhaseValue loadingResult,
       ExecutionSetup executionSetupCallback,
       BuildConfigurationsCreated buildConfigurationCreatedCallback,
-      BuildDriverKeyTestContext buildDriverKeyTestContext)
+      BuildDriverKeyTestContext buildDriverKeyTestContext,
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider)
       throws BuildFailedException,
           InterruptedException,
           ViewCreationFailedException,
@@ -126,7 +128,8 @@ public final class AnalysisAndExecutionPhaseRunner {
                 buildOptions,
                 executionSetupCallback,
                 buildConfigurationCreatedCallback,
-                buildDriverKeyTestContext);
+                buildDriverKeyTestContext,
+                remoteAnalysisCachingDependenciesProvider);
       }
 
       BuildResultListener buildResultListener = env.getBuildResultListener();
@@ -174,7 +177,8 @@ public final class AnalysisAndExecutionPhaseRunner {
       BuildOptions targetOptions,
       ExecutionSetup executionSetupCallback,
       BuildConfigurationsCreated buildConfigurationCreatedCallback,
-      BuildDriverKeyTestContext buildDriverKeyTestContext)
+      BuildDriverKeyTestContext buildDriverKeyTestContext,
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider)
       throws InterruptedException,
           InvalidConfigurationException,
           ViewCreationFailedException,
@@ -222,7 +226,8 @@ public final class AnalysisAndExecutionPhaseRunner {
             executionSetupCallback,
             buildConfigurationCreatedCallback,
             buildDriverKeyTestContext,
-            env.getAdditionalConfigurationChangeEvent());
+            env.getAdditionalConfigurationChangeEvent(),
+            remoteAnalysisCachingDependenciesProvider);
   }
 
   /**

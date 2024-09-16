@@ -20,10 +20,16 @@ import com.google.common.collect.Multiset;
 import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
+import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Restart;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievedValue;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /** An {@link com.google.common.eventbus.EventBus} listener for remote analysis caching events. */
 @ThreadSafety.ThreadSafe
@@ -40,6 +46,8 @@ public class RemoteAnalysisCachingEventListener {
   }
 
   private final Set<SkyKey> serializedKeys = ConcurrentHashMap.newKeySet();
+  private final AtomicInteger skyValueRetrieverCacheHitCount = new AtomicInteger();
+  private final AtomicInteger skyValueRetrieverCacheMissCount = new AtomicInteger();
 
   @Subscribe
   @AllowConcurrentEvents
@@ -58,5 +66,31 @@ public class RemoteAnalysisCachingEventListener {
   /** Returns the count of serialized nodes of this invocation. */
   public int getSerializedKeysCount() {
     return serializedKeys.size();
+  }
+
+  @ThreadSafe
+  public void recordRetrievalResult(RetrievalResult result) {
+    // TODO: b/355405457 - maybe record the SkyKeys, too.
+    switch (result) {
+      case RetrievedValue unusedValue -> skyValueRetrieverCacheHitCount.incrementAndGet();
+      case NoCachedData unusedNoCachedData -> skyValueRetrieverCacheMissCount.incrementAndGet();
+      case Restart unusedRestart -> {} // restart counts are not useful (yet).
+    }
+  }
+
+  /**
+   * Returns the number of successful SkyValue retrievals from the {@link
+   * com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService} .
+   */
+  public int getCacheHits() {
+    return skyValueRetrieverCacheHitCount.get();
+  }
+
+  /**
+   * Returns the number of unsuccessful SkyValue retrievals from the {@link
+   * com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService} .
+   */
+  public int getCacheMisses() {
+    return skyValueRetrieverCacheMissCount.get();
   }
 }

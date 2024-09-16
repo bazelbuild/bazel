@@ -17,6 +17,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
+import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationModule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -24,10 +25,18 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public final class FrontierSerializerTest extends FrontierSerializerTestBase {
+  private class ModuleWithOverrides extends SerializationModule {
+
+    @Override
+    protected FingerprintValueService.Factory getFingerprintValueServiceFactory() {
+      // service is re-instantiated for each test case with a @Before setup step.
+      return (unused) -> service;
+    }
+  }
 
   @Override
   protected BlazeRuntime.Builder getRuntimeBuilder() throws Exception {
-    return super.getRuntimeBuilder().addBlazeModule(new SerializationModule());
+    return super.getRuntimeBuilder().addBlazeModule(new ModuleWithOverrides());
   }
 
   @Test

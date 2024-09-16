@@ -65,6 +65,7 @@ import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TestAnalyzedE
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetAnalyzedEvent;
 import com.google.devtools.build.lib.skyframe.TopLevelStatusEvents.TopLevelTargetSkippedEvent;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
@@ -90,7 +91,8 @@ public final class AnalysisPhaseRunner {
       CommandEnvironment env,
       BuildRequest request,
       TargetPatternPhaseValue targetPatternPhaseValue,
-      BuildOptions buildOptions)
+      BuildOptions buildOptions,
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider)
       throws BuildFailedException,
           InterruptedException,
           ViewCreationFailedException,
@@ -129,7 +131,13 @@ public final class AnalysisPhaseRunner {
       Profiler.instance().markPhase(ProfilePhase.ANALYZE);
 
       try (SilentCloseable c = Profiler.instance().profile("runAnalysisPhase")) {
-        analysisResult = runAnalysisPhase(env, request, targetPatternPhaseValue, buildOptions);
+        analysisResult =
+            runAnalysisPhase(
+                env,
+                request,
+                targetPatternPhaseValue,
+                buildOptions,
+                remoteAnalysisCachingDependenciesProvider);
       }
 
       for (BlazeModule module : env.getRuntime().getBlazeModules()) {
@@ -275,7 +283,8 @@ public final class AnalysisPhaseRunner {
       CommandEnvironment env,
       BuildRequest request,
       TargetPatternPhaseValue loadingResult,
-      BuildOptions targetOptions)
+      BuildOptions targetOptions,
+      RemoteAnalysisCachingDependenciesProvider remoteAnalysisCachingDependenciesProvider)
       throws InterruptedException,
           InvalidConfigurationException,
           RepositoryMappingResolutionException,
@@ -322,7 +331,8 @@ public final class AnalysisPhaseRunner {
               /* executionSetupCallback= */ null,
               /* buildConfigurationsCreatedCallback= */ null,
               /* buildDriverKeyTestContext= */ null,
-              env.getAdditionalConfigurationChangeEvent());
+              env.getAdditionalConfigurationChangeEvent(),
+              remoteAnalysisCachingDependenciesProvider);
     } catch (BuildFailedException | TestExecException | AbruptExitException unexpected) {
       throw new IllegalStateException("Unexpected execution exception type: ", unexpected);
     }
