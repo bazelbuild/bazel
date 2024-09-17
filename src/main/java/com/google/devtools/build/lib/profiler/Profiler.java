@@ -49,6 +49,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.zip.GZIPOutputStream;
 import javax.annotation.Nullable;
@@ -631,6 +632,15 @@ public final class Profiler {
    */
   private boolean wasTaskSlowEnoughToRecord(ProfilerTask type, long duration) {
     return (recordAllDurations || duration >= type.minDuration);
+  }
+
+  /** Interface for collecting counter series */
+  public interface CounterSeriesCollector {
+    void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer);
+
+    default List<List<CounterSeriesTask>> getStackedTaskGroups() {
+      return ImmutableList.of();
+    }
   }
 
   /** Adds a whole action count series to the writer bypassing histogram and subtask creation. */

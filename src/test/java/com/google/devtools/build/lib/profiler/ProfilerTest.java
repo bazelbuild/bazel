@@ -45,6 +45,8 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.junit.After;
@@ -327,7 +329,13 @@ public final class ProfilerTest {
         ImmutableList.of(workerMetric1, workerMetric2);
     WorkerProcessMetricsCollector workerProcessMetricsCollector =
         mock(WorkerProcessMetricsCollector.class);
-    when(workerProcessMetricsCollector.collectMetrics()).thenReturn(workerMetrics);
+    var metricsCollected = new CountDownLatch(1);
+    when(workerProcessMetricsCollector.getLiveWorkerProcessMetrics())
+        .thenAnswer(
+            unused -> {
+              metricsCollected.countDown();
+              return workerMetrics;
+            });
 
     ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     profiler.start(
@@ -355,7 +363,7 @@ public final class ProfilerTest {
             /* collectResourceManagerEstimation= */ false,
             /* collectPressureStallIndicators= */ false,
             /* collectSkyframeCounts= */ false));
-    Thread.sleep(400);
+    metricsCollected.await(10, TimeUnit.SECONDS);
     profiler.stop();
 
     JsonProfile jsonProfile = new JsonProfile(new ByteArrayInputStream(buffer.toByteArray()));
