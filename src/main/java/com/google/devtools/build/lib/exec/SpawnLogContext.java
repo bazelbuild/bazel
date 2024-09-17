@@ -21,7 +21,6 @@ import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionContext;
 import com.google.devtools.build.lib.actions.ActionInput;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
@@ -118,16 +117,6 @@ public abstract class SpawnLogContext implements ActionContext {
       builder.addPropertiesBuilder().setName(p.getName()).setValue(p.getValue());
     }
     return builder.build();
-  }
-
-  /**
-   * Determines whether an action input is a directory, avoiding I/O if possible.
-   *
-   * <p>Do not call for action outputs.
-   */
-  protected boolean isInputDirectory(Artifact input, InputMetadataProvider inputMetadataProvider)
-      throws IOException {
-    return isInputDirectory(input, input.getPath(), inputMetadataProvider);
   }
 
   /**
