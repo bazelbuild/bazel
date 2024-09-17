@@ -1,47 +1,73 @@
-name: Comment on Approved PRs
+name: Comment on Old PRs
 
 on:
   schedule:
-    - cron: "*/2 * * * *"  # Run daily at midnight
+    - cron: '0 0 * * *'  # Runs daily at midnight UTC
 
 jobs:
-  comment-on-approved-prs:
+  comment_on_old_prs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script:   
- |
-            const octokit = new Octokit({
-              auth: context.token
-            });
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
+      - name: Set up GitHub CLI
+        run: |
+          sudo apt-get update
+          sudo apt-get install gh -y
 
-            const query = `repo:${owner}/${repo} is:pr state:closed`;
-            const prs = await octokit.rest.pulls.list({
-              query: query
-            });
+      - name: Authenticate with GitHub CLI
+        run: gh auth login --with-token < ${{ secrets.GITHUB_TOKEN }}
 
-            for (const pr of prs) {
-              const reviews = await octokit.rest.pulls.listReviews({
-                owner,
-                repo,
-                pull_number: pr.number
-              });
+      - name: Fetch PRs with awaiting-review label
+        id: fetch_prs_with_label
+        run: |
+          gh pr list --label "awaiting-review" --json number --jq '.[].number' > awaiting_review_prs.txt
 
-              const approved = reviews.data.some(review => review.state === 'APPROVED');
+      - name: Fetch all PRs and filter approved ones older than 5 days
+        id: fetch_all_prs
+        run: |
+          # Get current date
+          CURRENT_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          COMMENT_TEXT="Since we can see that this PR has been approved before 5 days, Please let us know whether gTech team should proceed with importing it internally. Thanks!"
 
-              if (approved) {
-                const commentBody = "This PR has been approved and is ready for merging.";
-                await octokit.rest.issues.createComment({
-                  owner,
-                  repo,
-                  issue_number: pr.number,
-                  body: commentBody
-                });
-              }
-            }
+          # Fetch all PRs
+          gh pr list --state all --json number,createdAt --jq '.[] | {number: .number, createdAt: .createdAt}' > all_prs.json
+
+          # Fetch all approved PRs and their approval dates
+          for pr in $(jq -c '.[]' all_prs.json); do
+            PR_NUMBER=$(echo $pr | jq -r '.number')
+            PR_CREATED_AT=$(echo $pr | jq -r '.createdAt')
+
+            # Check if the PR is approved and find the earliest approval date
+            APPROVED_DATE=$(gh pr view $PR_NUMBER --json reviews --jq '.reviews[] | select(.state == "APPROVED") | .submittedAt' | sort | head -n 1)
+
+            if [[ $APPROVED_DATE ]]; then
+              APPROVED_DATE_TIMESTAMP=$(date -d "$APPROVED_DATE" +%s)
+              CURRENT_DATE_TIMESTAMP=$(date -d "$CURRENT_DATE" +%s)
+              let DAYS_SINCE_APPROVAL=($CURRENT_DATE_TIMESTAMP-$APPROVED_DATE_TIMESTAMP)/(60*60*24)
+
+              if [ $DAYS_SINCE_APPROVAL -gt 5 ]; then
+                # Add to final list if it has the awaiting-review label
+                if grep -q "$PR_NUMBER" awaiting_review_prs.txt; then
+                  echo $PR_NUMBER >> approved_older_than_5_days.txt
+                fi
+              fi
+            fi
+          done
+
+      - name: Comment on filtered PRs
+        run: |
+          COMMENT_TEXT="Since we can see that this PR has been approved before 5 days, Please let us know whether gTech team should proceed with importing it internally. Thanks!"
+
+          # Iterate over filtered PRs
+          for pr_number in $(cat approved_older_than_5_days.txt); do
+            # Check if the comment has already been made
+            COMMENT_EXISTS=$(gh pr view $pr_number --json comments --jq '.comments[] | select(.body == "'$COMMENT_TEXT'") | .id')
+            if [ -z "$COMMENT_EXISTS" ]; then
+              gh pr comment $pr_number --body "$COMMENT_TEXT"
+              echo "Commented on PR #$pr_number"
+            else
+              echo "Comment already exists on PR #$pr_number"
+            fi
+          done
