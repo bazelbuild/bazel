@@ -24,6 +24,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -42,7 +43,6 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
-import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -423,13 +423,9 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
 
-    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
-    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
-    inputMetadataProvider.put(runfilesInput, FileArtifactValue.createForTesting(runfilesInput));
-
     context.logSpawn(
         spawn,
-        inputMetadataProvider,
+        createInputMetadataProvider(runfilesMiddleman, runfilesTree, runfilesInput),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -462,13 +458,9 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
 
-    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
-    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
-    inputMetadataProvider.put(runfilesInput, FileArtifactValue.createForTesting(runfilesInput));
-
     context.logSpawn(
         spawn,
-        inputMetadataProvider,
+        createInputMetadataProvider(runfilesMiddleman, runfilesTree, runfilesInput),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -521,14 +513,14 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
 
-    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
-    inputMetadataProvider.put(
-        externalSourceArtifact, FileArtifactValue.createForTesting(externalSourceArtifact));
-    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
-
     context.logSpawn(
         spawn,
-        inputMetadataProvider,
+        createInputMetadataProvider(
+            runfilesMiddleman,
+            runfilesTree,
+            runfilesInput,
+            externalGenArtifact,
+            externalSourceArtifact),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -636,26 +628,19 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
 
-    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
-    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
-    inputMetadataProvider.put(sourceArtifact, FileArtifactValue.createForTesting(sourceArtifact));
-    inputMetadataProvider.put(genArtifact, FileArtifactValue.createForTesting(genArtifact));
-    inputMetadataProvider.put(
-        externalSourceArtifact, FileArtifactValue.createForTesting(externalSourceArtifact));
-    inputMetadataProvider.put(
-        externalGenArtifact, FileArtifactValue.createForTesting(externalGenArtifact));
-    inputMetadataProvider.put(
-        symlinkSourceTarget, FileArtifactValue.createForTesting(symlinkSourceTarget));
-    inputMetadataProvider.put(
-        symlinkGenTarget, FileArtifactValue.createForTesting(symlinkGenTarget));
-    inputMetadataProvider.put(
-        rootSymlinkSourceTarget, FileArtifactValue.createForTesting(rootSymlinkSourceTarget));
-    inputMetadataProvider.put(
-        rootSymlinkGenTarget, FileArtifactValue.createForTesting(rootSymlinkGenTarget));
-
     context.logSpawn(
         spawn,
-        inputMetadataProvider,
+        createInputMetadataProvider(
+            runfilesMiddleman,
+            runfilesTree,
+            sourceArtifact,
+            genArtifact,
+            externalSourceArtifact,
+            externalGenArtifact,
+            symlinkSourceTarget,
+            symlinkGenTarget,
+            rootSymlinkSourceTarget,
+            rootSymlinkGenTarget),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -762,19 +747,15 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
 
-    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
-    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
-    inputMetadataProvider.put(
-        externalSourceArtifact, FileArtifactValue.createForTesting(externalSourceArtifact));
-    inputMetadataProvider.put(
-        externalGenArtifact, FileArtifactValue.createForTesting(externalGenArtifact));
-    inputMetadataProvider.put(symlinkTarget, FileArtifactValue.createForTesting(symlinkTarget));
-    inputMetadataProvider.put(
-        rootSymlinkTarget, FileArtifactValue.createForTesting(rootSymlinkTarget));
-
     context.logSpawn(
         spawn,
-        inputMetadataProvider,
+        createInputMetadataProvider(
+            runfilesMiddleman,
+            runfilesTree,
+            externalSourceArtifact,
+            externalGenArtifact,
+            symlinkTarget,
+            rootSymlinkTarget),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -880,18 +861,15 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
 
-    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
-    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
-    inputMetadataProvider.put(sourceArtifact, FileArtifactValue.createForTesting(sourceArtifact));
-    inputMetadataProvider.put(genArtifact, FileArtifactValue.createForTesting(genArtifact));
-    inputMetadataProvider.put(
-        externalSourceArtifact, FileArtifactValue.createForTesting(externalSourceArtifact));
-    inputMetadataProvider.put(
-        externalGenArtifact, FileArtifactValue.createForTesting(externalGenArtifact));
-
     context.logSpawn(
         spawn,
-        inputMetadataProvider,
+        createInputMetadataProvider(
+            runfilesMiddleman,
+            runfilesTree,
+            sourceArtifact,
+            genArtifact,
+            externalSourceArtifact,
+            externalGenArtifact),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -980,27 +958,19 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
 
-    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
-    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
-    inputMetadataProvider.put(sourceArtifact, FileArtifactValue.createForTesting(sourceArtifact));
-    inputMetadataProvider.put(genArtifact, FileArtifactValue.createForTesting(genArtifact));
-    inputMetadataProvider.put(
-        externalSourceArtifact, FileArtifactValue.createForTesting(externalSourceArtifact));
-    inputMetadataProvider.put(
-        externalGenArtifact, FileArtifactValue.createForTesting(externalGenArtifact));
-    inputMetadataProvider.put(
-        symlinkSourceArtifact, FileArtifactValue.createForTesting(symlinkSourceArtifact));
-    inputMetadataProvider.put(
-        symlinkGenArtifact, FileArtifactValue.createForTesting(symlinkGenArtifact));
-    inputMetadataProvider.put(
-        symlinkExternalSourceArtifact,
-        FileArtifactValue.createForTesting(symlinkExternalSourceArtifact));
-    inputMetadataProvider.put(
-        symlinkExternalGenArtifact, FileArtifactValue.createForTesting(symlinkExternalGenArtifact));
-
     context.logSpawn(
         spawn,
-        inputMetadataProvider,
+        createInputMetadataProvider(
+            runfilesMiddleman,
+            runfilesTree,
+            sourceArtifact,
+            genArtifact,
+            externalSourceArtifact,
+            externalGenArtifact,
+            symlinkSourceArtifact,
+            symlinkGenArtifact,
+            symlinkExternalSourceArtifact,
+            symlinkExternalGenArtifact),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -1064,15 +1034,10 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
 
-    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
-    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
-    inputMetadataProvider.put(sourceArtifact, FileArtifactValue.createForTesting(sourceArtifact));
-    inputMetadataProvider.put(
-        symlinkSourceArtifact, FileArtifactValue.createForTesting(symlinkSourceArtifact));
-
     context.logSpawn(
         spawn,
-        inputMetadataProvider,
+        createInputMetadataProvider(
+            runfilesMiddleman, runfilesTree, sourceArtifact, symlinkSourceArtifact),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -1113,14 +1078,9 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
 
-    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
-    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
-    inputMetadataProvider.put(file, FileArtifactValue.createForTesting(file));
-    inputMetadataProvider.put(symlink, FileArtifactValue.createForUnresolvedSymlink(symlink));
-
     context.logSpawn(
         spawn,
-        inputMetadataProvider,
+        createInputMetadataProvider(runfilesMiddleman, runfilesTree, file, symlink),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -1186,16 +1146,10 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
 
-    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
-    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
-    inputMetadataProvider.put(sourceFile, FileArtifactValue.createForTesting(sourceFile));
-    inputMetadataProvider.put(genFile, FileArtifactValue.createForTesting(genFile));
-    inputMetadataProvider.put(otherSourceFile, FileArtifactValue.createForTesting(otherSourceFile));
-    inputMetadataProvider.put(otherGenFile, FileArtifactValue.createForTesting(otherGenFile));
-
     context.logSpawn(
         spawn,
-        inputMetadataProvider,
+        createInputMetadataProvider(
+            runfilesMiddleman, runfilesTree, sourceFile, genFile, otherSourceFile, otherGenFile),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -1259,16 +1213,10 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
 
-    FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
-    inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
-    inputMetadataProvider.put(sourceFile, FileArtifactValue.createForTesting(sourceFile));
-    inputMetadataProvider.put(sourceDir, FileArtifactValue.createForTesting(sourceDir));
-    inputMetadataProvider.put(genDir, FileArtifactValue.createForTesting(genDir));
-    inputMetadataProvider.put(symlink, FileArtifactValue.createForUnresolvedSymlink(symlink));
-
     context.logSpawn(
         spawn,
-        inputMetadataProvider,
+        createInputMetadataProvider(
+            runfilesMiddleman, runfilesTree, sourceFile, sourceDir, genDir, symlink),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -1898,8 +1846,19 @@ public abstract class SpawnLogContextTestBase {
 
   protected static InputMetadataProvider createInputMetadataProvider(Artifact... artifacts)
       throws Exception {
-    ImmutableMap.Builder<ActionInput, FileArtifactValue> builder = ImmutableMap.builder();
-    for (Artifact artifact : artifacts) {
+    return createInputMetadataProvider(null, null, artifacts);
+  }
+
+  protected static InputMetadataProvider createInputMetadataProvider(
+      Artifact runfilesMiddleman, RunfilesTree runfilesTree, Artifact... artifacts)
+      throws Exception {
+    Iterable<Artifact> allArtifacts = Arrays.asList(artifacts);
+    FakeActionInputFileCache builder = new FakeActionInputFileCache();
+    if (runfilesMiddleman != null) {
+      allArtifacts = Iterables.concat(allArtifacts, runfilesTree.getArtifacts().toList());
+      builder.putRunfilesTree(runfilesMiddleman, runfilesTree);
+    }
+    for (Artifact artifact : allArtifacts) {
       if (artifact.isTreeArtifact()) {
         // Emulate ActionInputMap: add both tree and children.
         TreeArtifactValue treeMetadata = createTreeArtifactValue(artifact);
@@ -1914,7 +1873,7 @@ public abstract class SpawnLogContextTestBase {
         builder.put(artifact, FileArtifactValue.createForTesting(artifact));
       }
     }
-    return new StaticInputMetadataProvider(builder.buildOrThrow());
+    return builder;
   }
 
   protected static SortedMap<PathFragment, ActionInput> createInputMap(ActionInput... actionInputs)
