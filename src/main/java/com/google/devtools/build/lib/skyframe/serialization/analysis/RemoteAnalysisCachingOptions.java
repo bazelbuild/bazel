@@ -44,11 +44,7 @@ public class RemoteAnalysisCachingOptions extends OptionsBase {
     /** Serializes and uploads Skyframe analysis nodes after the build command finishes. */
     UPLOAD,
 
-    /**
-     * Fetches and deserializes the Skyframe analysis nodes during the build.
-     *
-     * <p>TODO: b/358347258 - implement.
-     */
+    /** Fetches and deserializes the Skyframe analysis nodes during the build. */
     DOWNLOAD,
 
     /** Disabled. */

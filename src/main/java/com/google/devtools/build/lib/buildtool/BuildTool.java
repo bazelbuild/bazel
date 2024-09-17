@@ -47,8 +47,6 @@ import com.google.devtools.build.lib.analysis.Project.ProjectParseException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.MapBackedChecksumCache;
-import com.google.devtools.build.lib.analysis.config.BuildOptions.OptionsChecksumCache;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader.UploadContext;
@@ -1147,7 +1145,6 @@ public class BuildTool {
               .put(
                   ArtifactSerializationContext.class,
                   skyframeExecutor.getSkyframeBuildView().getArtifactFactory()::getSourceArtifact)
-              .put(OptionsChecksumCache.class, new MapBackedChecksumCache())
               .put(RuleClassProvider.class, ruleClassProvider)
               // We need a RootCodecDependencies but don't care about the likely roots.
               .put(Root.RootCodecDependencies.class, new Root.RootCodecDependencies())
