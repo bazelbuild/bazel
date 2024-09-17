@@ -491,17 +491,39 @@ public abstract class SpawnLogContextTestBase {
   @Test
   public void testRunfilesEmptyInput() throws Exception {
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
-    Artifact runfilesInput = ActionsTestUtil.createArtifact(rootDir, "sub/dir/script.py");
-    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
-    RunfilesTree runfilesTree = createRunfilesTree(runfilesRoot, runfilesInput);
 
+    Artifact runfilesInput = ActionsTestUtil.createArtifact(rootDir, "sub/dir/script.py");
     writeFile(runfilesInput, "abc");
+    PackageIdentifier someRepoPkg =
+        PackageIdentifier.create(externalRepo, PathFragment.create("pkg"));
+    Artifact externalSourceArtifact =
+        ActionsTestUtil.createArtifact(
+            externalSourceRoot,
+            someRepoPkg.getExecPath(siblingRepositoryLayout).getChild("lib.py").getPathString());
+    writeFile(externalSourceArtifact, "external_source");
+    PackageIdentifier someRepoOtherPkg =
+        PackageIdentifier.create(externalRepo, PathFragment.create("other/pkg"));
+    Artifact externalGenArtifact =
+        ActionsTestUtil.createArtifact(
+            externalOutputDir,
+            someRepoOtherPkg
+                .getPackagePath(siblingRepositoryLayout)
+                .getChild("gen.py")
+                .getPathString());
+    writeFile(externalGenArtifact, "external_gen");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
+    RunfilesTree runfilesTree =
+        createRunfilesTree(
+            runfilesRoot, runfilesInput, externalGenArtifact, externalSourceArtifact);
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
     SpawnLogContext context = createSpawnLogContext();
 
     FakeActionInputFileCache inputMetadataProvider = new FakeActionInputFileCache();
+    inputMetadataProvider.put(
+        externalSourceArtifact, FileArtifactValue.createForTesting(externalSourceArtifact));
     inputMetadataProvider.putRunfilesTree(runfilesMiddleman, runfilesTree);
 
     context.logSpawn(
@@ -517,6 +539,9 @@ public abstract class SpawnLogContextTestBase {
         defaultSpawnExecBuilder()
             .addInputs(
                 File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/foo.runfiles/__init__.py"))
+            .addInputs(
+                File.newBuilder()
                     .setPath("bazel-out/k8-fastbuild/bin/foo.runfiles/_main/sub/__init__.py"))
             .addInputs(
                 File.newBuilder()
@@ -525,6 +550,27 @@ public abstract class SpawnLogContextTestBase {
                 File.newBuilder()
                     .setPath("bazel-out/k8-fastbuild/bin/foo.runfiles/_main/sub/dir/script.py")
                     .setDigest(getDigest("abc")))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/foo.runfiles/some_repo/__init__.py"))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/foo.runfiles/some_repo/other/__init__.py"))
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        "bazel-out/k8-fastbuild/bin/foo.runfiles/some_repo/other/pkg/__init__.py"))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/foo.runfiles/some_repo/other/pkg/gen.py")
+                    .setDigest(getDigest("external_gen")))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/foo.runfiles/some_repo/pkg/__init__.py"))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/foo.runfiles/some_repo/pkg/lib.py")
+                    .setDigest(getDigest("external_source")))
             .build());
   }
 
