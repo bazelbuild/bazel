@@ -42,10 +42,10 @@ jobs:
             # Check if the PR is approved and find the earliest approval date
             APPROVED_DATE=$(gh pr view $PR_NUMBER --json reviews --jq '.reviews[] | select(.state == "APPROVED") | .submittedAt' | sort | head -n 1)
 
-            if [[ $APPROVED_DATE ]]; then
+            if [[ -n "$APPROVED_DATE" ]]; then
               APPROVED_DATE_TIMESTAMP=$(date -d "$APPROVED_DATE" +%s)
               CURRENT_DATE_TIMESTAMP=$(date -d "$CURRENT_DATE" +%s)
-              let DAYS_SINCE_APPROVAL=($CURRENT_DATE_TIMESTAMP-$APPROVED_DATE_TIMESTAMP)/(60*60*24)
+              DAYS_SINCE_APPROVAL=$(( (CURRENT_DATE_TIMESTAMP - APPROVED_DATE_TIMESTAMP) / (60 * 60 * 24) ))
 
               if [ $DAYS_SINCE_APPROVAL -gt 5 ]; then
                 # Add to final list if it has the awaiting-review label
