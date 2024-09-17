@@ -40,6 +40,8 @@ public final class ServerBuilder {
   private final ImmutableMap.Builder<String, AuthHeadersProvider> authHeadersProvidersMap =
       ImmutableMap.builder();
   private RepositoryRemoteExecutorFactory repositoryRemoteExecutorFactory;
+  private final InstrumentationOutputFactory.Builder instrumentationOutputFactoryBuilder =
+      new InstrumentationOutputFactory.Builder();
 
   @VisibleForTesting
   public ServerBuilder() {}
@@ -184,5 +186,21 @@ public final class ServerBuilder {
   /** Returns a map of all registered {@link AuthHeadersProvider}s. */
   public ImmutableMap<String, AuthHeadersProvider> getAuthHeadersProvidersMap() {
     return authHeadersProvidersMap.buildOrThrow();
+  }
+
+  /**
+   * Returns the builder for {@link InstrumentationOutputFactory} so that suppliers for different
+   * types of {@link InstrumentationOutputBuilder} can be added.
+   */
+  public InstrumentationOutputFactory.Builder getInstrumentationOutputFactoryBuilder() {
+    return instrumentationOutputFactoryBuilder;
+  }
+
+  /**
+   * Creates the {@link InstrumentationOutputFactory} so that user can choose to create the {@link
+   * InstrumentationOutputBuilder} object.
+   */
+  public InstrumentationOutputFactory createInstrumentationOutputFactory() {
+    return instrumentationOutputFactoryBuilder.build();
   }
 }

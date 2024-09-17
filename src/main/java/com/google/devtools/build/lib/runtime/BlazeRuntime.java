@@ -372,9 +372,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                     env.getCommandId().toString(),
                     commandOptions.profilesToRetain);
             profile =
-                instrumentationOutputFactory.createLocalInstrumentationOutput(
+                instrumentationOutputFactory.createInstrumentationOutput(
                     profileName,
                     profilePath,
+                    options,
+                    commandOptions.redirectLocalInstrumentationOutputWrites,
+                    eventHandler,
                     /* convenienceName= */ profileName,
                     /* append= */ null,
                     /* internal= */ null);
@@ -386,11 +389,14 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                   : Format.JSON_TRACE_FILE_FORMAT;
           var profilePath = workspace.getWorkspace().getRelative(commandOptions.profilePath);
           profile =
-              instrumentationOutputFactory.createLocalInstrumentationOutput(
+              instrumentationOutputFactory.createInstrumentationOutput(
                   (format == Format.JSON_TRACE_FILE_COMPRESSED_FORMAT)
                       ? "command.profile.gz"
                       : "command.profile.json",
                   profilePath,
+                  options,
+                  commandOptions.redirectLocalInstrumentationOutputWrites,
+                  eventHandler,
                   /* convenienceName= */ null,
                   /* append= */ false,
                   /* internal= */ true);
@@ -1561,6 +1567,13 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       }
       ServerBuilder serverBuilder = new ServerBuilder();
       serverBuilder.addQueryOutputFormatters(OutputFormatters.getDefaultFormatters());
+      serverBuilder
+          .getInstrumentationOutputFactoryBuilder()
+          .setLocalInstrumentationOutputBuilderSupplier(LocalInstrumentationOutput.Builder::new);
+      serverBuilder
+          .getInstrumentationOutputFactoryBuilder()
+          .setBuildEventArtifactInstrumentationOutputBuilderSupplier(
+              BuildEventArtifactInstrumentationOutput.Builder::new);
       for (BlazeModule module : blazeModules) {
         module.serverInit(startupOptionsProvider, serverBuilder);
       }
@@ -1632,12 +1645,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               serverBuilder.getBuildEventArtifactUploaderMap(),
               serverBuilder.getAuthHeadersProvidersMap(),
               serverBuilder.getRepositoryRemoteExecutorFactory(),
-              new InstrumentationOutputFactory.Builder()
-                  .setLocalInstrumentationOutputBuilderSupplier(
-                      LocalInstrumentationOutput.Builder::new)
-                  .setBuildEventArtifactInstrumentationOutputBuilderSupplier(
-                      BuildEventArtifactInstrumentationOutput.Builder::new)
-                  .build());
+              serverBuilder.createInstrumentationOutputFactory());
       AutoProfiler.setClock(runtime.getClock());
       BugReport.setRuntime(runtime);
       return runtime;

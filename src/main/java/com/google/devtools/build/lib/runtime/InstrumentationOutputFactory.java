@@ -16,7 +16,10 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.devtools.build.lib.buildeventstream.BuildEventArtifactUploader;
+import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.function.Supplier;
 import javax.annotation.Nullable;
@@ -29,35 +32,69 @@ public final class InstrumentationOutputFactory {
   private final Supplier<BuildEventArtifactInstrumentationOutput.Builder>
       buildEventArtifactInstrumentationOutputBuilderSupplier;
 
+  @Nullable
+  final Supplier<InstrumentationOutputBuilder> redirectInstrumentationOutputBuilderSupplier;
+
   private InstrumentationOutputFactory(
       Supplier<LocalInstrumentationOutput.Builder> localInstrumentationOutputBuilderSupplier,
       Supplier<BuildEventArtifactInstrumentationOutput.Builder>
-          buildEventArtifactInstrumentationOutputBuilderSupplier) {
+          buildEventArtifactInstrumentationOutputBuilderSupplier,
+      @Nullable
+          Supplier<InstrumentationOutputBuilder> redirectInstrumentationOutputBuilderSupplier) {
     this.localInstrumentationOutputBuilderSupplier = localInstrumentationOutputBuilderSupplier;
     this.buildEventArtifactInstrumentationOutputBuilderSupplier =
         buildEventArtifactInstrumentationOutputBuilderSupplier;
+    this.redirectInstrumentationOutputBuilderSupplier =
+        redirectInstrumentationOutputBuilderSupplier;
   }
 
   /**
-   * Creates {@link LocalInstrumentationOutput} with given parameters.
+   * Creates {@link LocalInstrumentationOutput} or an {@link InstrumentationOutput} object
+   * redirecting outputs to be written on a different machine.
+   *
+   * <p>If {@link #redirectInstrumentationOutputBuilderSupplier} is not provided but {@code
+   * isRedirect} is {@code true}, this method will default to return {@link
+   * LocalInstrumentationOutput}.
    *
    * <p>{@code name} and {@code path} are required since they indicate what the output is and where
-   * it is stored.
+   * it is stored. {@code options} might also be necessary for the redirect {@link
+   * InstrumentationOutput}.
    *
-   * <p>When the name of the instrumentation output is complicated, an optional {@code
-   * convenienceName} parameter can be passed in so that a symlink pointing to the output with such
-   * a simpler name is created. See {@link LocalInstrumentationOutput.Builder#setConvenienceName}.
+   * <p>For {@link LocalInstrumentationOutput}, there are two additional considerations:
    *
-   * <p>User can also pass in the optional {@code append} and {@code internal} {@code Boolean}s to
-   * control how {@code path} creates the {@link OutputStream}. See {@link
-   * LocalInstrumentationOutput#createOutputStream()} for more details.
+   * <ul>
+   *   <li>When the name of the instrumentation output is complicated, an optional {@code
+   *       convenienceName} parameter can be passed in so that a symlink pointing to the output with
+   *       such a simpler name is created. See {@link
+   *       LocalInstrumentationOutput.Builder#setConvenienceName}.
+   *   <li>User can also pass in the optional {@code append} and {@code internal} {@code Boolean}s
+   *       to control how {@code path} creates the {@link OutputStream}. See {@link
+   *       LocalInstrumentationOutput#createOutputStream} for more details.
+   * </ul>
    */
-  public LocalInstrumentationOutput createLocalInstrumentationOutput(
+  public InstrumentationOutput createInstrumentationOutput(
       String name,
       Path path,
+      OptionsProvider options,
+      boolean isRedirect,
+      EventHandler eventHandler,
       @Nullable String convenienceName,
       @Nullable Boolean append,
       @Nullable Boolean internal) {
+    if (isRedirect) {
+      if (redirectInstrumentationOutputBuilderSupplier != null) {
+        return redirectInstrumentationOutputBuilderSupplier
+            .get()
+            .setName(name)
+            .setPath(path)
+            .setOptions(options)
+            .build();
+      }
+      eventHandler.handle(
+          Event.warn(
+              "Redirecting to write Instrumentation Output on a different machine is not"
+                  + " supported. Defaulting to writing output locally."));
+    }
     return localInstrumentationOutputBuilderSupplier
         .get()
         .setName(name)
@@ -86,6 +123,9 @@ public final class InstrumentationOutputFactory {
     private Supplier<BuildEventArtifactInstrumentationOutput.Builder>
         buildEventArtifactInstrumentationOutputBuilderSupplier;
 
+    @Nullable
+    private Supplier<InstrumentationOutputBuilder> redirectInstrumentationOutputBuilderSupplier;
+
     @CanIgnoreReturnValue
     public Builder setLocalInstrumentationOutputBuilderSupplier(
         Supplier<LocalInstrumentationOutput.Builder> localInstrumentationOutputBuilderSupplier) {
@@ -102,6 +142,14 @@ public final class InstrumentationOutputFactory {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setRedirectInstrumentationOutputBuilderSupplier(
+        Supplier<InstrumentationOutputBuilder> redirectInstrumentationOutputBuilderSupplier) {
+      this.redirectInstrumentationOutputBuilderSupplier =
+          redirectInstrumentationOutputBuilderSupplier;
+      return this;
+    }
+
     public InstrumentationOutputFactory build() {
       return new InstrumentationOutputFactory(
           checkNotNull(
@@ -109,7 +157,8 @@ public final class InstrumentationOutputFactory {
               "Cannot create InstrumentationOutputFactory without localOutputBuilderSupplier"),
           checkNotNull(
               buildEventArtifactInstrumentationOutputBuilderSupplier,
-              "Cannot create InstrumentationOutputFactory without bepOutputBuilderSupplier"));
+              "Cannot create InstrumentationOutputFactory without bepOutputBuilderSupplier"),
+          redirectInstrumentationOutputBuilderSupplier);
     }
   }
 }

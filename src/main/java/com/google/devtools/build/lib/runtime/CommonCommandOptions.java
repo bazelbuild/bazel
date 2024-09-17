@@ -596,4 +596,14 @@ public class CommonCommandOptions extends OptionsBase {
       super(ProfilerTask.class, "profiler task");
     }
   }
+
+  @Option(
+      name = "redirect_local_instrumentation_output_writes",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.LOGGING,
+      effectTags = {OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "If true and supported, instrumentation output is redirected to be written locally on a"
+              + " different machine than where bazel is running on.")
+  public boolean redirectLocalInstrumentationOutputWrites;
 }

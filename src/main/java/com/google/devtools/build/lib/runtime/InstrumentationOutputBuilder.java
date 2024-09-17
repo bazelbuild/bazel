@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.runtime;
 
+import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.common.options.OptionsProvider;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 
 /** Builds different {@link InstrumentationOutput} objects with correct input parameters. */
@@ -20,6 +22,18 @@ public interface InstrumentationOutputBuilder {
   /** Sets the name of the {@link InstrumentationOutput}. */
   @CanIgnoreReturnValue
   InstrumentationOutputBuilder setName(String name);
+
+  /** Sets the path to write the {@link InstrumentationOutput}. */
+  @CanIgnoreReturnValue
+  default InstrumentationOutputBuilder setPath(Path path) {
+    return this;
+  }
+
+  /** Provides the options necessary for building the {@link InstrumentationOutput}. */
+  @CanIgnoreReturnValue
+  default InstrumentationOutputBuilder setOptions(OptionsProvider options) {
+    return this;
+  }
 
   /** Builds the {@link InstrumentationOutput} object. */
   InstrumentationOutput build();

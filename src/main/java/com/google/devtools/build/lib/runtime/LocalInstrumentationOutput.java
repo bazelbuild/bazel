@@ -85,6 +85,7 @@ final class LocalInstrumentationOutput implements InstrumentationOutput {
 
     /** Sets the path to the local {@link InstrumentationOutput}. */
     @CanIgnoreReturnValue
+    @Override
     public Builder setPath(Path path) {
       this.path = path;
       return this;
