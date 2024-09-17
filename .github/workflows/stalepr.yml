@@ -17,7 +17,7 @@ jobs:
           sudo apt-get install gh -y
 
       - name: Authenticate with GitHub CLI
-        run: gh auth login --with-token < ${{ secrets.GITHUB_TOKEN }}
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
 
       - name: Fetch PRs with awaiting-review label
         id: fetch_prs_with_label
