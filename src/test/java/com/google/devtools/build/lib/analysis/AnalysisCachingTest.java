@@ -1170,10 +1170,30 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     setupDiffResetTesting();
     scratch.file("test/BUILD", "load(':lib.bzl', 'normal_lib')", "normal_lib(name='top')");
     useConfiguration("--definitely_relevant=old");
-    update("//test:top");
-    useConfiguration("--noallow_analysis_cache_discard", "--definitely_relevant=new");
 
+    // Set up the analysis cache
+    update("//test:top");
+
+    // Check if things work if the build options are not changed
+    useConfiguration("--noallow_analysis_cache_discard", "--definitely_relevant=old");
+    update("//test:top");
+
+    // Check if an error is raised when the build options are changed. Do it twice because
+    // had already had a bug that the second invocation erroneously worked. See
+    // https://github.com/bazelbuild/bazel/issues/23491 .
+    useConfiguration("--noallow_analysis_cache_discard", "--definitely_relevant=new");
     Throwable t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
     assertThat(t.getMessage().contains("analysis cache would have been discarded")).isTrue();
+
+    t = assertThrows(InvalidConfigurationException.class, () -> update("//test:top"));
+    assertThat(t.getMessage()).contains("analysis cache would have been discarded");
+
+    // Check if going back to the original configuration works.
+    useConfiguration("--noallow_analysis_cache_discard", "--definitely_relevant=old");
+    update("//test:top");
+
+    // Now check if removing --noallow_analysis_cache_discard in fact allows discarding the cache.
+    useConfiguration("--definitely_relevant=new");
+    update("//test:top");
   }
 }

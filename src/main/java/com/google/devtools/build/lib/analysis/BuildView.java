@@ -243,10 +243,18 @@ public class BuildView {
 
     // Prepare the analysis phase
     BuildConfigurationValue topLevelConfig;
+    boolean shouldDiscardAnalysisCache;
+
     // Configuration creation.
     // TODO(gregce): Consider dropping this phase and passing on-the-fly target / exec configs as
     // needed. This requires cleaning up the invalidation in SkyframeBuildView.setConfigurations.
     try (SilentCloseable c = Profiler.instance().profile("createConfigurations")) {
+      shouldDiscardAnalysisCache =
+          skyframeBuildView.shouldDiscardAnalysisCache(
+              eventHandler,
+              targetOptions,
+              viewOptions.maxConfigChangesToShow,
+              viewOptions.allowAnalysisCacheDiscards);
       topLevelConfig = skyframeExecutor.createConfiguration(eventHandler, targetOptions, keepGoing);
       eventBus.post(new ConfigRequestedEvent(topLevelConfig, /* parentChecksum= */ null));
     }
@@ -254,11 +262,7 @@ public class BuildView {
       buildConfigurationsCreatedCallback.run(topLevelConfig);
     }
 
-    skyframeBuildView.setConfiguration(
-        eventHandler,
-        topLevelConfig,
-        viewOptions.maxConfigChangesToShow,
-        viewOptions.allowAnalysisCacheDiscards);
+    skyframeBuildView.setConfiguration(topLevelConfig, targetOptions, shouldDiscardAnalysisCache);
 
     eventBus.post(new MakeEnvironmentEvent(topLevelConfig.getMakeEnvironment()));
     eventBus.post(topLevelConfig.toBuildEvent());
