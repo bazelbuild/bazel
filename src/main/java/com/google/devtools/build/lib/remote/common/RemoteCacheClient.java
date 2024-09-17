@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.remote.common;
 
 import build.bazel.remote.execution.v2.Action;
 import build.bazel.remote.execution.v2.ActionResult;
-import build.bazel.remote.execution.v2.CacheCapabilities;
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.ServerCapabilities;
 import com.google.common.base.Preconditions;
@@ -33,8 +32,6 @@ import java.util.Set;
  * <p>Implementations must be thread-safe.
  */
 public interface RemoteCacheClient extends MissingDigestsFinder {
-  CacheCapabilities getCacheCapabilities() throws IOException;
-
   ServerCapabilities getServerCapabilities() throws IOException;
 
   ListenableFuture<String> getAuthority();
