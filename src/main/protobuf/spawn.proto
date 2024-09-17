@@ -273,8 +273,9 @@ message ExecLogEntry {
     // Entry IDs of files, directories, unresolved symlinks or runfiles trees
     // belonging to this set.
     repeated uint32 input_ids = 1;
+    reserved 2, 3;
     // Entry IDs of other input sets contained in this set.
-    repeated uint32 transitive_set_ids = 2;
+    repeated uint32 transitive_set_ids = 4;
   }
 
   // A collection of runfiles symlinked at custom locations.
@@ -343,6 +344,7 @@ message ExecLogEntry {
 
   // A spawn output.
   message Output {
+    reserved 2, 3;
     oneof type {
       // The ID of a file (ctx.actions.declare_file), directory
       // (ctx.actions.declare_directory) or unresolved symlink
@@ -350,7 +352,7 @@ message ExecLogEntry {
       uint32 output_id = 1;
       // A declared output that is either missing or has the wrong type
       // (e.g., a file where a directory was expected).
-      string invalid_output_path = 2;
+      string invalid_output_path = 4;
     }
   }
 
