@@ -292,6 +292,22 @@ message ExecLogEntry {
     repeated uint32 transitive_set_ids = 2;
   }
 
+  // A structured representation of the .runfiles directory of an executable.
+  //
+  // Instead of storing the directory directly, the tree is represented
+  // similarly to its in-memory representation in Bazel and needs to be
+  // reassembled from the following parts (in case of path collisions, later
+  // entries overwrite earlier ones):
+  //
+  // 1. symlinks (symlinks_id)
+  // 2. artifacts at canonical locations (input_set_id)
+  // 3. empty files (empty_files)
+  // 4. root symlinks (root_symlinks_id)
+  // 5. the _repo_mapping file with the repo mapping manifest (repo_mapping_manifest)
+  // 6. the <workspace runfiles directory>/.runfile file (if the workspace runfiles directory
+  //    wouldn't exist otherwise)
+  //
+  // See SpawnLogReconstructor#reconstructRunfilesDir for details.
   message RunfilesTree {
     // The runfiles tree path.
     string path = 1;

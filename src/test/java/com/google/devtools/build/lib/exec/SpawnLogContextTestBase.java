@@ -1247,6 +1247,45 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
+  public void testRunfileSymlinkFileWithDirectoryContents(
+      @TestParameter boolean rootSymlink, @TestParameter OutputsMode outputsMode) throws Exception {
+    Artifact genFile = ActionsTestUtil.createArtifact(outputDir, "pkg/file.txt");
+    genFile.getPath().createDirectoryAndParents();
+    writeFile(genFile.getPath().getChild("file"), "abc");
+
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
+    RunfilesTree runfilesTree =
+        createRunfilesTree(
+            runfilesRoot,
+            rootSymlink ? ImmutableMap.of() : ImmutableMap.of("pkg/symlink", genFile),
+            rootSymlink ? ImmutableMap.of("_main/pkg/symlink", genFile) : ImmutableMap.of(),
+            /* legacyExternalRunfiles= */ false);
+
+    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn,
+        createInputMetadataProvider(runfilesMiddleman, runfilesTree, genFile),
+        createInputMap(runfilesTree),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath("bazel-out/k8-fastbuild/bin/tools/foo.runfiles/_main/pkg/symlink/file")
+                    .setDigest(getDigest("abc")))
+            .build());
+  }
+
+  @Test
   public void testFilesetInput(@TestParameter DirContents dirContents) throws Exception {
     Artifact filesetInput =
         SpecialArtifact.create(
