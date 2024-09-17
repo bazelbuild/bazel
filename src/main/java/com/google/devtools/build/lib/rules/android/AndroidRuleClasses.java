@@ -16,8 +16,6 @@ package com.google.devtools.build.lib.rules.android;
 import static com.google.devtools.build.lib.packages.ImplicitOutputsFunction.fromTemplates;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.rules.cpp.CcInfo;
@@ -143,13 +141,6 @@ public final class AndroidRuleClasses {
   public static final ImmutableList<StarlarkProviderIdentifier> CONTAINS_CC_INFO_PARAMS =
       ImmutableList.of(StarlarkProviderIdentifier.forKey(CcInfo.PROVIDER.getKey()));
 
-  /** The default label of android_sdk option */
-  public static LabelLateBoundDefault<?> getAndroidSdkLabel(Label androidSdk) {
-    return LabelLateBoundDefault.fromTargetConfiguration(
-        AndroidConfiguration.class,
-        androidSdk,
-        (rule, attributes, configuration) -> configuration.getSdk());
-  }
 
   public static final FileType ANDROID_IDL = FileType.of(".aidl");
 }
