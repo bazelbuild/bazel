@@ -1,7 +1,7 @@
 name: Remove PR Labels
 
 on:
-  pull_request_target:
+  pull_request:
     types: ["closed"]
 
 permissions:
