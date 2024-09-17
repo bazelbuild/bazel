@@ -554,6 +554,37 @@ class BazelWindowsTest(test_base.TestBase):
         ['test', '--incompatible_check_sharding_support', '//:foo_test']
     )
 
+  def testTestPrematureExitFile(self):
+    self.ScratchFile(
+        'BUILD',
+        [
+            'sh_test(',
+            '  name = "foo_test",',
+            '  srcs = ["foo.sh"],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'foo.sh',
+        [
+            '#!/bin/sh',
+            'touch "$TEST_PREMATURE_EXIT_FILE"',
+            'echo "fake pass"',
+            'exit 0',
+        ],
+    )
+
+    exit_code, stdout, stderr = self.RunBazel(
+        ['test', '--test_output=errors', '//:foo_test'],
+        allow_failure=True,
+    )
+    # Check for "tests failed" exit code
+    self.AssertExitCode(exit_code, 3, stderr, stdout)
+    self.assertIn(
+        '-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --',
+        stdout,
+    )
+
   def testMakeVariableForDumpbinExecutable(self):
     if not self.IsWindows():
       return

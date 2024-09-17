@@ -1097,4 +1097,23 @@ EOF
       //:x  &> $TEST_log || fail "expected success"
 }
 
+function test_premature_exit_file_checked() {
+  cat <<'EOF' > BUILD
+sh_test(
+    name = 'x',
+    srcs = ['x.sh'],
+)
+EOF
+  cat <<'EOF' > x.sh
+#!/bin/sh
+touch "$TEST_PREMATURE_EXIT_FILE"
+echo "fake pass"
+exit 0
+EOF
+  chmod +x x.sh
+
+  bazel test //:x --test_output=errors &> $TEST_log && fail "expected failure"
+  expect_log "-- Test exited prematurely (TEST_PREMATURE_EXIT_FILE exists) --"
+}
+
 run_suite "bazel test tests"
