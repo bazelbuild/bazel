@@ -15,6 +15,8 @@ package com.google.devtools.build.lib.remote;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_DOWNLOAD;
+import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionForCredentialHelperException;
+import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionFromRemoteExecutionCapabilitiesException;
 import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -27,6 +29,7 @@ import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.exec.SpawnCache;
@@ -39,6 +42,7 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionR
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -165,6 +169,10 @@ final class RemoteSpawnCache implements SpawnCache {
           }
         } catch (CacheNotFoundException e) {
           // Intentionally left blank
+        } catch (CredentialHelperException e) {
+          throw createExecExceptionForCredentialHelperException(e);
+        } catch (RemoteExecutionCapabilitiesException e){
+          throw createExecExceptionFromRemoteExecutionCapabilitiesException(e);
         } catch (IOException e) {
           if (BulkTransferException.allCausedByCacheNotFoundException(e)) {
             // Intentionally left blank

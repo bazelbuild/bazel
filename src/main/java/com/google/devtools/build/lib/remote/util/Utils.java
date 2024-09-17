@@ -34,6 +34,8 @@ import com.google.common.util.concurrent.FluentFuture;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionInput;
+import com.google.devtools.build.lib.actions.EnvironmentalExecException;
+import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.ExecutionRequirements;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
@@ -46,9 +48,11 @@ import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.CacheNotFoundException;
 import com.google.devtools.build.lib.remote.common.OutputDigestMismatchException;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient.ActionKey;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteExecution;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.protobuf.Any;
 import com.google.protobuf.ByteString;
@@ -665,5 +669,31 @@ public final class Utils {
               return immediateVoidFuture();
             },
             directExecutor());
+  }
+
+  public static ExecException createExecExceptionForCredentialHelperException(
+      CredentialHelperException e) {
+    return new EnvironmentalExecException(
+        e,
+        FailureDetail.newBuilder()
+            .setRemoteOptions(
+                FailureDetails.RemoteOptions.newBuilder()
+                    .setCode(FailureDetails.RemoteOptions.Code.CREDENTIALS_READ_FAILURE)
+                    .build())
+            .setMessage("Exec failed due to CredentialHelperException")
+            .build());
+  }
+
+  public static ExecException createExecExceptionFromRemoteExecutionCapabilitiesException(
+      RemoteExecutionCapabilitiesException e) {
+    return new EnvironmentalExecException(
+        e.getCause(),
+        FailureDetail.newBuilder()
+            .setRemoteExecution(
+                RemoteExecution.newBuilder()
+                    .setCode(RemoteExecution.Code.CAPABILITIES_QUERY_FAILURE)
+                    .build())
+            .setMessage("Failed to query remote execution capabilities")
+            .build());
   }
 }
