@@ -107,7 +107,10 @@ public final class FetchCommand implements BlazeCommand {
           .injectExtraPrecomputedValues(
               ImmutableList.of(
                   PrecomputedValue.injected(
-                      RepositoryDelegatorFunction.FORCE_FETCH, env.getCommandId().toString())));
+                      fetchOptions.configure
+                          ? RepositoryDelegatorFunction.FORCE_FETCH_CONFIGURE
+                          : RepositoryDelegatorFunction.FORCE_FETCH,
+                      env.getCommandId().toString())));
     }
 
     BlazeCommandResult result;
@@ -117,7 +120,7 @@ public final class FetchCommand implements BlazeCommand {
         result = fetchTarget(env, options, options.getResidue());
       } else if (!fetchOptions.repos.isEmpty()) {
         result = fetchRepos(env, threadsOption, fetchOptions.repos);
-      } else { // --all, --configure, or just 'fetch'
+      } else { // --all or just 'fetch' (equivalent) or --configure
         result = fetchAll(env, threadsOption, fetchOptions.configure);
       }
     } catch (InterruptedException e) {
