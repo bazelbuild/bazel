@@ -54,7 +54,9 @@ final class CounterSeriesTraceData implements TraceData {
         len = entry.getValue().length;
 
         this.displayName = task.laneName();
-        this.colorName = task.colorName();
+        if (task.color() != null) {
+          this.colorName = task.color().value();
+        }
       } else {
         // Check that second and subsequent series have the same length as the first.
         Preconditions.checkState(len == entry.getValue().length);

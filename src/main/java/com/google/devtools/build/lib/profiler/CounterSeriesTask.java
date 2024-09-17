@@ -13,80 +13,66 @@
 // limitations under the License.
 package com.google.devtools.build.lib.profiler;
 
-import static com.google.common.base.Preconditions.checkState;
-import static java.util.Map.entry;
-
-import com.google.common.collect.ImmutableMap;
 import javax.annotation.Nullable;
 
-/** Describes counter series to be logged into profile. */
-public record CounterSeriesTask(String laneName, @Nullable String colorName, String seriesName) {
-  public static CounterSeriesTask ofProfilerTask(ProfilerTask profilerTask) {
-    checkState(
-        COUNTER_TASK_TO_SERIES_NAME.containsKey(profilerTask),
-        "COUNTER_TASK_TO_SERIES_NAME does not contain %s",
-        profilerTask);
+/**
+ * Describes counter series to be logged into profile.
+ *
+ * @param laneName The lane name for the counter series. Series with the same lane name should be
+ *     stacked when displaying.
+ * @param seriesName The name for the counter series.
+ * @param color The color for the counter series. If {@code null}, the profile viewer will pick a
+ *     color automatically.
+ */
+public record CounterSeriesTask(String laneName, String seriesName, @Nullable Color color) {
+  /** The revered color for rendering the bar chart. */
+  public enum Color {
+    // Pick acceptable counter colors manually, unfortunately we have to pick from these
+    // weird reserved names from
+    // https://github.com/catapult-project/catapult/blob/master/tracing/tracing/base/color_scheme.html
+    THREAD_STATE_UNINTERRUPTIBLE("thread_state_uninterruptible"),
+    THREAD_STATE_IOWAIT("thread_state_iowait"),
+    THREAD_STATE_RUNNING("thread_state_running"),
+    THREAD_STATE_RUNNABLE("thread_state_runnable"),
+    THREAD_STATE_SLEEPING("thread_state_sleeping"),
+    THREAD_STATE_UNKNOWN("thread_state_unknown"),
+    BACKGROUND_MEMORY_DUMP("background_memory_dump"),
+    LIGHT_MEMORY_DUMP("light_memory_dump"),
+    DETAILED_MEMORY_DUMP("detailed_memory_dump"),
+    VSYNC_HIGHLIGHT_COLOR("vsync_highlight_color"),
+    GENERIC_WORK("generic_work"),
+    GOOD("good"),
+    BAD("bad"),
+    TERRIBLE("terrible"),
+    BLACK("black"),
+    GREY("grey"),
+    WHITE("white"),
+    YELLOW("yellow"),
+    OLIVE("olive"),
+    RAIL_RESPONSE("rail_response"),
+    RAIL_ANIMATION("rail_animation"),
+    RAIL_IDLE("rail_idle"),
+    RAIL_LOAD("rail_load"),
+    STARTUP("startup"),
+    HEAP_DUMP_STACK_FRAME("heap_dump_stack_frame"),
+    HEAP_DUMP_OBJECT_TYPE("heap_dump_object_type"),
+    HEAP_DUMP_CHILD_NODE_ARROW("heap_dump_child_node_arrow"),
+    CQ_BUILD_RUNNING("cq_build_running"),
+    CQ_BUILD_PASSED("cq_build_passed"),
+    CQ_BUILD_FAILED("cq_build_failed"),
+    CQ_BUILD_ABANDONED("cq_build_abandoned"),
+    CQ_BUILD_ATTEMPT_RUNNIG("cq_build_attempt_runnig"),
+    CQ_BUILD_ATTEMPT_PASSED("cq_build_attempt_passed"),
+    CQ_BUILD_ATTEMPT_FAILED("cq_build_attempt_failed");
 
-    var laneName = profilerTask.description;
-    var seriesName = COUNTER_TASK_TO_SERIES_NAME.get(profilerTask);
-    var colorName = COUNTER_TASK_TO_COLOR.get(profilerTask);
-    return new CounterSeriesTask(laneName, colorName, seriesName);
+    private final String value;
+
+    private Color(String value) {
+      this.value = value;
+    }
+
+    public String value() {
+      return value;
+    }
   }
-
-  private static final ImmutableMap<ProfilerTask, String> COUNTER_TASK_TO_SERIES_NAME =
-      ImmutableMap.ofEntries(
-          entry(ProfilerTask.ACTION_COUNTS, "action"),
-          entry(ProfilerTask.ACTION_CACHE_COUNTS, "local action cache"),
-          entry(ProfilerTask.LOCAL_ACTION_COUNTS, "local action"),
-          entry(ProfilerTask.LOCAL_CPU_USAGE, "cpu"),
-          entry(ProfilerTask.SYSTEM_CPU_USAGE, "system cpu"),
-          entry(ProfilerTask.LOCAL_MEMORY_USAGE, "memory"),
-          entry(ProfilerTask.SYSTEM_MEMORY_USAGE, "system memory"),
-          entry(ProfilerTask.SYSTEM_NETWORK_UP_USAGE, "system network up (Mbps)"),
-          entry(ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE, "system network down (Mbps)"),
-          entry(ProfilerTask.WORKERS_MEMORY_USAGE, "workers memory"),
-          entry(ProfilerTask.SYSTEM_LOAD_AVERAGE, "load"),
-          entry(ProfilerTask.MEMORY_USAGE_ESTIMATION, "estimated memory"),
-          entry(ProfilerTask.CPU_USAGE_ESTIMATION, "estimated cpu"),
-          entry(ProfilerTask.PRESSURE_STALL_FULL_IO, "i/o pressure (full)"),
-          entry(ProfilerTask.PRESSURE_STALL_FULL_MEMORY, "memory pressure (full)"),
-          entry(ProfilerTask.PRESSURE_STALL_SOME_IO, "i/o pressure (some)"),
-          entry(ProfilerTask.PRESSURE_STALL_SOME_MEMORY, "memory pressure (some)"),
-          entry(ProfilerTask.PRESSURE_STALL_SOME_CPU, "cpu pressure (some)"),
-          entry(ProfilerTask.ACTION_EXECUTION_SKYFUNCTION, "action execution (total)"),
-          entry(ProfilerTask.ACTION_EXECUTION_SKYFUNCTION_DONE, "action execution (done)"),
-          entry(ProfilerTask.CONFIGURED_TARGET_SKYFUNCTION, "configured target (total)"),
-          entry(ProfilerTask.CONFIGURED_TARGET_SKYFUNCTION_DONE, "configured target (done)"),
-          entry(ProfilerTask.ASPECT_SKYFUNCTION, "aspect (total)"),
-          entry(ProfilerTask.ASPECT_SKYFUNCTION_DONE, "aspect (done)"),
-          entry(ProfilerTask.PACKAGE_SKYFUNCTION, "package (total)"),
-          entry(ProfilerTask.PACKAGE_SKYFUNCTION_DONE, "package (done)"),
-          entry(ProfilerTask.BZL_LOAD_SKYFUNCTION, "bzl_load (total)"),
-          entry(ProfilerTask.BZL_LOAD_SKYFUNCTION_DONE, "bzl_load (done)"),
-          entry(ProfilerTask.GLOB_SKYFUNCTION, "glob (total)"),
-          entry(ProfilerTask.GLOB_SKYFUNCTION_DONE, "glob (done)"),
-          entry(ProfilerTask.GLOBS_SKYFUNCTION, "globs (total)"),
-          entry(ProfilerTask.GLOBS_SKYFUNCTION_DONE, "globs (done)"));
-
-  // Pick acceptable counter colors manually, unfortunately we have to pick from these
-  // weird reserved names from
-  // https://github.com/catapult-project/catapult/blob/master/tracing/tracing/base/color_scheme.html
-  private static final ImmutableMap<ProfilerTask, String> COUNTER_TASK_TO_COLOR =
-      ImmutableMap.ofEntries(
-          entry(ProfilerTask.LOCAL_ACTION_COUNTS, "detailed_memory_dump"),
-          entry(ProfilerTask.LOCAL_CPU_USAGE, "good"),
-          entry(ProfilerTask.SYSTEM_CPU_USAGE, "rail_load"),
-          entry(ProfilerTask.LOCAL_MEMORY_USAGE, "olive"),
-          entry(ProfilerTask.SYSTEM_MEMORY_USAGE, "bad"),
-          entry(ProfilerTask.SYSTEM_NETWORK_UP_USAGE, "rail_response"),
-          entry(ProfilerTask.SYSTEM_NETWORK_DOWN_USAGE, "rail_response"),
-          entry(ProfilerTask.WORKERS_MEMORY_USAGE, "rail_animation"),
-          entry(ProfilerTask.SYSTEM_LOAD_AVERAGE, "generic_work"),
-          entry(ProfilerTask.MEMORY_USAGE_ESTIMATION, "rail_idle"),
-          entry(ProfilerTask.CPU_USAGE_ESTIMATION, "cq_build_attempt_passed"),
-          entry(ProfilerTask.PRESSURE_STALL_FULL_IO, "rail_animation"),
-          entry(ProfilerTask.PRESSURE_STALL_SOME_IO, "cq_build_attempt_failed"),
-          entry(ProfilerTask.PRESSURE_STALL_FULL_MEMORY, "thread_state_unknown"),
-          entry(ProfilerTask.PRESSURE_STALL_SOME_MEMORY, "rail_idle"),
-          entry(ProfilerTask.PRESSURE_STALL_SOME_CPU, "thread_state_running"));
 }

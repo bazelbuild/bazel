@@ -532,14 +532,14 @@ public final class Profiler {
       double[] actionCountValues = actionCountTimeSeries.toDoubleArray(len);
       actionCountTimeSeriesRef.set(null);
       counterSeriesMap.put(
-          CounterSeriesTask.ofProfilerTask(ProfilerTask.ACTION_COUNTS), actionCountValues);
+          new CounterSeriesTask("action count", "action", /* color= */ null), actionCountValues);
     }
     TimeSeries actionCacheCountTimeSeries = actionCacheCountTimeSeriesRef.get();
     if (actionCacheCountTimeSeries != null) {
       double[] actionCacheCountValues = actionCacheCountTimeSeries.toDoubleArray(len);
       actionCacheCountTimeSeriesRef.set(null);
       counterSeriesMap.put(
-          CounterSeriesTask.ofProfilerTask(ProfilerTask.ACTION_CACHE_COUNTS),
+          new CounterSeriesTask("action cache count", "local action cache", /* color= */ null),
           actionCacheCountValues);
     }
     if (!counterSeriesMap.isEmpty()) {
@@ -552,7 +552,8 @@ public final class Profiler {
       double[] localActionCountValues = localActionCountTimeSeries.toDoubleArray(len);
       localActionCountTimeSeriesRef.set(null);
       localCounterSeriesMap.put(
-          CounterSeriesTask.ofProfilerTask(ProfilerTask.LOCAL_ACTION_COUNTS),
+          new CounterSeriesTask(
+              "action count (local)", "local action", CounterSeriesTask.Color.DETAILED_MEMORY_DUMP),
           localActionCountValues);
     }
     if (hasNonZeroValues(localCounterSeriesMap)) {
