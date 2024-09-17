@@ -45,7 +45,9 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
   private final PathFragment execRoot;
 
   private final ActionInputMap inputArtifactData;
-  private final ImmutableMap<PathFragment, FileArtifactValue> filesetMapping;
+
+  /** Mapping from a fileset entry's target path to its metadata. */
+  private final ImmutableMap<String, FileArtifactValue> filesetMapping;
 
   ActionInputMetadataProvider(
       PathFragment execRoot,
@@ -56,18 +58,21 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
     this.filesetMapping = createFilesetMapping(filesets, execRoot);
   }
 
-  private static ImmutableMap<PathFragment, FileArtifactValue> createFilesetMapping(
+  private static ImmutableMap<String, FileArtifactValue> createFilesetMapping(
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets, PathFragment execRoot) {
-    Map<PathFragment, FileArtifactValue> filesetMap = new HashMap<>();
-    for (Map.Entry<Artifact, ImmutableList<FilesetOutputSymlink>> entry : filesets.entrySet()) {
-      FilesetManifest fileset =
+    Map<String, FileArtifactValue> filesetMap = new HashMap<>();
+    for (ImmutableList<FilesetOutputSymlink> links : filesets.values()) {
+      FilesetManifest manifest =
           FilesetManifest.constructFilesetManifestWithoutError(
-              entry.getValue(), execRoot, RelativeSymlinkBehaviorWithoutError.RESOLVE);
-      for (Map.Entry<String, FileArtifactValue> favEntry : fileset.getArtifactValues().entrySet()) {
-        if (favEntry.getValue().getDigest() != null) {
-          filesetMap.put(PathFragment.create(favEntry.getKey()), favEntry.getValue());
-        }
-      }
+              links, execRoot, RelativeSymlinkBehaviorWithoutError.RESOLVE);
+      manifest
+          .getArtifactValues()
+          .forEach(
+              (targetPath, metadata) -> {
+                if (metadata.getDigest() != null) {
+                  filesetMap.put(targetPath, metadata);
+                }
+              });
     }
     return ImmutableMap.copyOf(filesetMap);
   }
@@ -79,7 +84,7 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
       PathFragment inputPath = actionInput.getExecPath();
       PathFragment filesetKeyPath =
           inputPath.startsWith(execRoot) ? inputPath.relativeTo(execRoot) : inputPath;
-      return filesetMapping.get(filesetKeyPath);
+      return filesetMapping.get(filesetKeyPath.getPathString());
     }
 
     FileArtifactValue value;
