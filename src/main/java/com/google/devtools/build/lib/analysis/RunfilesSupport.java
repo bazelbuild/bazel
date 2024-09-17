@@ -23,7 +23,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
+import com.google.devtools.build.lib.actions.MiddlemanAction;
+import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
@@ -33,6 +36,7 @@ import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.Run
 import com.google.devtools.build.lib.analysis.config.RunUnder;
 import com.google.devtools.build.lib.analysis.test.TestActionBuilder;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
+import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Types;
@@ -422,16 +426,37 @@ public final class RunfilesSupport {
       RunfilesTree runfilesTree,
       @Nullable Artifact runfilesManifest,
       Artifact repoMappingManifest) {
-    return context
-        .getAnalysisEnvironment()
-        .getMiddlemanFactory()
-        .createRunfilesMiddleman(
-            context.getActionOwner(),
-            owningExecutable,
-            runfilesTree,
-            runfilesManifest,
-            repoMappingManifest,
-            context.getMiddlemanDirectory());
+
+    NestedSetBuilder<Artifact> contentsBuilder = NestedSetBuilder.stableOrder();
+    contentsBuilder.addTransitive(runfilesTree.getArtifacts());
+    if (runfilesManifest != null) {
+      contentsBuilder.add(runfilesManifest);
+    }
+    if (repoMappingManifest != null) {
+      contentsBuilder.add(repoMappingManifest);
+    }
+
+    NestedSet<Artifact> contents = contentsBuilder.build();
+    MiddlemanFactory middlemanFactory = context.getAnalysisEnvironment().getMiddlemanFactory();
+    Artifact middleman;
+    if (context.getConfiguration().correctRunfilesMiddlemanPaths()) {
+      ArtifactRoot root = owningExecutable.getRoot();
+      PathFragment executableRootRelativePath = owningExecutable.getRootRelativePath();
+      PathFragment runfilesRootRelativePath =
+          executableRootRelativePath.replaceName(
+              executableRootRelativePath.getBaseName() + RUNFILES_DIR_EXT);
+      middleman = middlemanFactory.createRunfilesMiddlemanNew(runfilesRootRelativePath, root);
+    } else {
+      middleman =
+          middlemanFactory.createRunfilesMiddlemanLegacy(
+              context.getActionOwner(), owningExecutable, context.getMiddlemanDirectory());
+    }
+
+    MiddlemanAction middlemanAction =
+        new MiddlemanAction(
+            context.getActionOwner(), runfilesTree, contents, ImmutableSet.of(middleman));
+    context.registerAction(middlemanAction);
+    return middleman;
   }
 
   /**

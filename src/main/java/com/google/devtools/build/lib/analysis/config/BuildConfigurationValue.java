@@ -672,6 +672,10 @@ public class BuildConfigurationValue
     return options.buildRunfileManifests && options.buildRunfileLinks;
   }
 
+  public boolean correctRunfilesMiddlemanPaths() {
+    return options.correctRunfilesMiddlemanPaths;
+  }
+
   /** Returns if we are building external runfiles symlinks using the old-style structure. */
   public boolean legacyExternalRunfiles() {
     return options.legacyExternalRunfiles;

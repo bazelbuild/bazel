@@ -639,7 +639,7 @@ public abstract sealed class Artifact
    *
    * <p>If true, this artifact is necessarily a {@link DerivedArtifact}.
    */
-  public final boolean isMiddlemanArtifact() {
+  public boolean isMiddlemanArtifact() {
     return root.isMiddlemanRoot();
   }
 
@@ -863,6 +863,9 @@ public abstract sealed class Artifact
    */
   @VisibleForTesting
   public enum SpecialArtifactType {
+    /** A runfiles tree ("runfiles middleman" in legacy parlance") */
+    RUNFILES,
+
     /** Google-specific legacy type. */
     FILESET,
 
@@ -900,6 +903,11 @@ public abstract sealed class Artifact
         ArtifactRoot root, PathFragment execPath, Object owner, SpecialArtifactType type) {
       super(root, execPath, owner);
       this.type = type;
+    }
+
+    @Override
+    public boolean isMiddlemanArtifact() {
+      return type == SpecialArtifactType.RUNFILES;
     }
 
     @Override
