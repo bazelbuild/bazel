@@ -213,7 +213,6 @@ public class BuildTool {
       buildOptions = runtime.createBuildOptions(request);
     }
 
-    ExecutionTool executionTool = null;
     boolean catastrophe = false;
     boolean hasAnyExceptionOrError = false;
     try {
@@ -226,10 +225,6 @@ public class BuildTool {
       env.throwPendingException();
 
       initializeOutputFilter(request);
-
-      // --------------------------------
-      // Target pattern and Project file evaluation phase.
-      // --------------------------------
 
       TargetPatternPhaseValue targetPatternPhaseValue;
       Profiler.instance().markPhase(ProfilePhase.TARGET_PATTERN_EVAL);
@@ -245,115 +240,24 @@ public class BuildTool {
           RemoteAnalysisCachingDependenciesProviderImpl.create(
               env, projectEvaluationResult.activeDirectoriesMatcher());
 
-      // ------------------------------------
-      // Analysis/Execution phases (Skymeld).
-      // ------------------------------------
-      //
-      // TODO: b/365667094: consider converging Skymeld and non-Skymeld code path as much as
-      // possible, so that it's simpler to incorporate features common to both paths without
-      // threading too much state into the respective analysis runners.
       if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
-        // Skymeld is useful only for commands that perform execution.
+        // a.k.a. Skymeld.
         buildTargetsWithMergedAnalysisExecution(
             request,
             result,
             targetPatternPhaseValue,
             projectEvaluationResult.buildOptions(),
             analysisCachingDeps);
-        logAnalysisCachingStatsAndMaybeUploadFrontier(request, analysisCachingDeps);
-        return;
+      } else {
+        buildTargetsWithoutMergedAnalysisExecution(
+            request,
+            result,
+            targetPatternPhaseValue,
+            projectEvaluationResult.buildOptions(),
+            analysisCachingDeps);
       }
 
-      // -----------------------------
-      // Analysis phase (non-Skymeld).
-      // -----------------------------
-
-      AnalysisResult analysisResult =
-          AnalysisPhaseRunner.execute(
-              env,
-              request,
-              targetPatternPhaseValue,
-              projectEvaluationResult.buildOptions(),
-              analysisCachingDeps);
-
-      // We cannot move the executionTool down to the execution phase part since it does set up the
-      // symlinks for tools.
-      // TODO(twerth): Extract embedded tool setup from execution tool and move object creation to
-      // execution phase.
-      executionTool = new ExecutionTool(env, request);
-      if (request.getBuildOptions().performAnalysisPhase) {
-
-        if (!analysisResult.getExclusiveTests().isEmpty()
-            && executionTool.getTestActionContext().forceExclusiveTestsInParallel()) {
-          String testStrategy = request.getOptions(ExecutionOptions.class).testStrategy;
-          for (ConfiguredTarget test : analysisResult.getExclusiveTests()) {
-            getReporter()
-                .handle(
-                    Event.warn(
-                        test.getLabel()
-                            + " is tagged exclusive, but --test_strategy="
-                            + testStrategy
-                            + " forces parallel test execution."));
-          }
-          analysisResult = analysisResult.withExclusiveTestsAsParallelTests();
-        }
-        if (!analysisResult.getExclusiveIfLocalTests().isEmpty()
-            && executionTool.getTestActionContext().forceExclusiveIfLocalTestsInParallel()) {
-          analysisResult = analysisResult.withExclusiveIfLocalTestsAsParallelTests();
-        }
-
-        result.setBuildConfiguration(analysisResult.getConfiguration());
-        result.setActualTargets(analysisResult.getTargetsToBuild());
-        result.setTestTargets(analysisResult.getTargetsToTest());
-
-        try (SilentCloseable c = Profiler.instance().profile("analysisPostProcessor.process")) {
-          analysisPostProcessor.process(request, env, runtime, analysisResult);
-        }
-
-        // ------------------------------
-        // Execution phase (non-Skymeld).
-        // ------------------------------
-        if (needsExecutionPhase(request.getBuildOptions())) {
-          try (SilentCloseable closeable = Profiler.instance().profile("ExecutionTool.init")) {
-            executionTool.init();
-          }
-          executionTool.executeBuild(
-              request.getId(),
-              analysisResult,
-              result,
-              analysisResult.getPackageRoots(),
-              request.getTopLevelArtifactContext());
-        } else {
-          env.getReporter().post(new NoExecutionEvent());
-        }
-        FailureDetail delayedFailureDetail = analysisResult.getFailureDetail();
-        if (delayedFailureDetail != null) {
-          throw new BuildFailedException(
-              delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
-        }
-
-        logAnalysisCachingStatsAndMaybeUploadFrontier(request, analysisCachingDeps);
-
-        // Only run this post-build step for builds with SequencedSkyframeExecutor.
-        if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor) {
-          // Enabling this feature will disable Skymeld, so it only runs in the non-Skymeld path.
-          if (request.getBuildOptions().aqueryDumpAfterBuildFormat != null) {
-            try (SilentCloseable c = Profiler.instance().profile("postExecutionDumpSkyframe")) {
-              dumpSkyframeStateAfterBuild(
-                  request.getOptions(BuildEventProtocolOptions.class),
-                  request.getBuildOptions().aqueryDumpAfterBuildFormat,
-                  request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
-            } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
-              throw new PostExecutionDumpException(e);
-            } catch (InvalidAqueryOutputFormatException e) {
-              throw new PostExecutionDumpException(
-                  "--skyframe_state must be used with "
-                      + "--output=proto|streamed_proto|textproto|jsonproto.",
-                  e);
-            }
-          }
-        }
-      }
+      logAnalysisCachingStatsAndMaybeUploadFrontier(request, analysisCachingDeps);
     } catch (Error | RuntimeException e) {
       // Don't handle the error here. We will do so in stopRequest.
       catastrophe = true;
@@ -363,9 +267,6 @@ public class BuildTool {
       hasAnyExceptionOrError = true;
       throw e;
     } finally {
-      if (executionTool != null) {
-        executionTool.shutdown();
-      }
       if (!catastrophe) {
         // Delete dirty nodes to ensure that they do not accumulate indefinitely.
         long versionWindow = request.getViewOptions().versionWindowForDirtyNodeGc;
@@ -421,6 +322,107 @@ public class BuildTool {
       validator.validateTargets(targets, keepGoing);
     }
     return result;
+  }
+
+  private void buildTargetsWithoutMergedAnalysisExecution(
+      BuildRequest request,
+      BuildResult result,
+      TargetPatternPhaseValue targetPatternPhaseValue,
+      BuildOptions buildOptions,
+      RemoteAnalysisCachingDependenciesProvider analysisCachingDeps)
+      throws BuildFailedException,
+          ViewCreationFailedException,
+          TargetParsingException,
+          LoadingFailedException,
+          AbruptExitException,
+          RepositoryMappingResolutionException,
+          InterruptedException,
+          InvalidConfigurationException,
+          TestExecException,
+          ExitException,
+          PostExecutionDumpException {
+    AnalysisResult analysisResult =
+        AnalysisPhaseRunner.execute(
+            env, request, targetPatternPhaseValue, buildOptions, analysisCachingDeps);
+    ExecutionTool executionTool = null;
+    try {
+      // We cannot move the executionTool down to the execution phase part since it does set up the
+      // symlinks for tools.
+      // TODO(twerth): Extract embedded tool setup from execution tool and move object creation to
+      // execution phase.
+      executionTool = new ExecutionTool(env, request);
+      if (request.getBuildOptions().performAnalysisPhase) {
+        if (!analysisResult.getExclusiveTests().isEmpty()
+            && executionTool.getTestActionContext().forceExclusiveTestsInParallel()) {
+          String testStrategy = request.getOptions(ExecutionOptions.class).testStrategy;
+          for (ConfiguredTarget test : analysisResult.getExclusiveTests()) {
+            getReporter()
+                .handle(
+                    Event.warn(
+                        test.getLabel()
+                            + " is tagged exclusive, but --test_strategy="
+                            + testStrategy
+                            + " forces parallel test execution."));
+          }
+          analysisResult = analysisResult.withExclusiveTestsAsParallelTests();
+        }
+        if (!analysisResult.getExclusiveIfLocalTests().isEmpty()
+            && executionTool.getTestActionContext().forceExclusiveIfLocalTestsInParallel()) {
+          analysisResult = analysisResult.withExclusiveIfLocalTestsAsParallelTests();
+        }
+
+        result.setBuildConfiguration(analysisResult.getConfiguration());
+        result.setActualTargets(analysisResult.getTargetsToBuild());
+        result.setTestTargets(analysisResult.getTargetsToTest());
+
+        try (SilentCloseable c = Profiler.instance().profile("analysisPostProcessor.process")) {
+          analysisPostProcessor.process(request, env, runtime, analysisResult);
+        }
+
+        if (needsExecutionPhase(request.getBuildOptions())) {
+          try (SilentCloseable closeable = Profiler.instance().profile("ExecutionTool.init")) {
+            executionTool.init();
+          }
+          executionTool.executeBuild(
+              request.getId(),
+              analysisResult,
+              result,
+              analysisResult.getPackageRoots(),
+              request.getTopLevelArtifactContext());
+        } else {
+          env.getReporter().post(new NoExecutionEvent());
+        }
+        FailureDetail delayedFailureDetail = analysisResult.getFailureDetail();
+        if (delayedFailureDetail != null) {
+          throw new BuildFailedException(
+              delayedFailureDetail.getMessage(), DetailedExitCode.of(delayedFailureDetail));
+        }
+
+        // Only run this post-build step for builds with SequencedSkyframeExecutor.
+        if (env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor) {
+          // Enabling this feature will disable Skymeld, so it only runs in the non-Skymeld path.
+          if (request.getBuildOptions().aqueryDumpAfterBuildFormat != null) {
+            try (SilentCloseable c = Profiler.instance().profile("postExecutionDumpSkyframe")) {
+              dumpSkyframeStateAfterBuild(
+                  request.getOptions(BuildEventProtocolOptions.class),
+                  request.getBuildOptions().aqueryDumpAfterBuildFormat,
+                  request.getBuildOptions().aqueryDumpAfterBuildOutputFile);
+            } catch (CommandLineExpansionException | IOException | TemplateExpansionException e) {
+              throw new PostExecutionDumpException(e);
+            } catch (InvalidAqueryOutputFormatException e) {
+              throw new PostExecutionDumpException(
+                  "--skyframe_state must be used with "
+                      + "--output=proto|streamed_proto|textproto|jsonproto.",
+                  e);
+            }
+          }
+        }
+      }
+    } finally {
+      if (executionTool != null) {
+        executionTool.shutdown();
+      }
+    }
   }
 
   /** Performs the merged analysis and execution phase. */
