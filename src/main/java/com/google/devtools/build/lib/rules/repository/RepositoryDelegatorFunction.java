@@ -685,39 +685,38 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       String content;
       try {
         content = FileSystemUtils.readContent(markerPath, UTF_8);
-        String markerRuleKey = readMarkerFile(content, recordedInputValues);
-        boolean verified = false;
-        if (Preconditions.checkNotNull(ruleKey).equals(markerRuleKey)) {
-          verified = handler.verifyRecordedInputs(rule, directories, recordedInputValues, env);
-          if (env.valuesMissing()) {
-            return null;
-          }
-        }
-
-        if (verified) {
-          return new Fingerprint().addString(content).digestAndReset();
-        } else {
+        if (!readMarkerFile(content, Preconditions.checkNotNull(ruleKey), recordedInputValues)) {
           return null;
         }
+        if (!handler.verifyRecordedInputs(rule, directories, recordedInputValues, env)) {
+          return null;
+        }
+        if (env.valuesMissing()) {
+          return null;
+        }
+        return new Fingerprint().addString(content).digestAndReset();
       } catch (IOException e) {
         throw new RepositoryFunctionException(e, Transience.TRANSIENT);
       }
     }
 
     @Nullable
-    private static String readMarkerFile(
-        String content, Map<RepoRecordedInput, String> recordedInputValues) {
-      String markerRuleKey = null;
+    private static boolean readMarkerFile(
+        String content, String expectedRuleKey, Map<RepoRecordedInput, String> recordedInputValues) {
       Iterable<String> lines = Splitter.on('\n').split(content);
 
-      boolean firstLine = true;
+      boolean firstLineVerified = false;
       for (String line : lines) {
         if (line.isEmpty()) {
           continue;
         }
-        if (firstLine) {
-          markerRuleKey = line;
-          firstLine = false;
+        if (!firstLineVerified) {
+          if (!line.equals(expectedRuleKey)) {
+            // Break early, need to reload anyway. This also detects marker file version changes
+            // so that unknown formats are not parsed.
+            return false;
+          }
+          firstLineVerified = true;
         } else {
           int sChar = line.indexOf(' ');
           if (sChar > 0) {
@@ -733,7 +732,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           break;
         }
       }
-      return markerRuleKey;
+      return firstLineVerified;
     }
 
     private String computeRuleKey(Rule rule, StarlarkSemantics starlarkSemantics) {
