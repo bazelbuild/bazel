@@ -263,20 +263,32 @@ message ExecLogEntry {
   }
 
   // A set of spawn inputs.
-  // The contents of the set are the directly referenced files, directories and
-  // symlinks in addition to the contents of all transitively referenced sets.
+  // The contents of the set are the directly contained entries in addition to
+  // the contents of all transitively referenced sets. When order matters,
+  // transitive sets come before direct entries and within a set, entries are
+  // considered in left-to-right order ("postorder").
   // Sets are not canonical: two sets with different structure may yield the
   // same contents.
   message InputSet {
     // Entry IDs of files, directories, unresolved symlinks or runfiles trees
     // belonging to this set.
     repeated uint32 input_ids = 1;
-    // Entry IDs of other sets contained in this set.
+    // Entry IDs of other input sets contained in this set.
     repeated uint32 transitive_set_ids = 2;
   }
 
+  // A collection of runfiles symlinked at custom locations.
+  // The contents of the set are the directly contained entries in addition to
+  // the contents of all transitively referenced sets. When order matters,
+  // transitive sets come before direct entries and within a set, entries are
+  // considered in left-to-right order ("postorder").
+  // Sets are not canonical: two sets with different structure may yield the
+  // same contents.
   message SymlinkEntrySet {
+    // A map from relative paths of runfiles symlinks to the entry IDs of the
+    // symlink target, which may be a file, directory, or unresolved symlink.
     map<string, uint32> direct_entries = 1;
+    // Entry IDs of other symlink entry sets transitively contained in this set.
     repeated uint32 transitive_set_ids = 2;
   }
 
@@ -293,22 +305,23 @@ message ExecLogEntry {
     //
     // The referenced set must not transitively contain any runfile trees.
     uint32 input_set_id = 2;
-    // The paths relative to the tree path that are symlinked to custom
-    // locations. The target of a symlink is either a file, a directory, an
-    // unresolved symlink (all referenced by ID), or an empty file (represented
-    // by an id of 0).
-    // TODO: If explicitly storing empty files turns out to be too costly,
-    //  consider implementing the logic of the empty file supplier in the
-    //  reconstructor.
-    // TODO: If flattening the symlinks and root symlinks turns out to be too
-    //  costly, consider logging them as nested sets.
+    // The entry ID of the set of symlink entries with paths relative to the
+    // subdirectory of the runfiles tree root corresponding to the main
+    // repository.
     uint32 symlinks_id = 3;
+    // The entry ID of the set of symlink entries with paths relative to the
+    // root of the runfiles tree.
     uint32 root_symlinks_id = 4;
+    // The paths of empty files relative to the subdirectory of the runfiles
+    // tree root corresponding to the main repository.
     repeated string empty_files = 5;
+    // The "_repo_mapping" file at the root of the runfiles tree, if it exists.
+    // Only the digest is stored as the relative path is fixed.
     File repo_mapping_manifest = 6;
-
     // Whether the runfiles tree contains external runfiles at their legacy
-    // locations (e.g. _main/external/bazel_tools/tools/bash/runfiles.bash).
+    // locations (e.g. _main/external/bazel_tools/tools/bash/runfiles.bash)
+    // in addition to the default locations (e.g.
+    // bazel_tools/tools/bash/runfiles.bash).
     bool legacy_external_runfiles = 7;
   }
 
@@ -400,8 +413,7 @@ message ExecLogEntry {
   }
 
   // If nonzero, then this entry may be referenced by later entries by this ID.
-  // Nonzero IDs must be strictly monotonically increasing within a log and
-  // should be consecutive to simplify bookkeeping for consumers.
+  // Nonzero IDs are unique within an execution log, but may not be contiguous.
   uint32 id = 1;
 
   // The entry payload.
