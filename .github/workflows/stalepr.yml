@@ -2,7 +2,7 @@ name: Comment on Old PRs
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # Runs daily at midnight UTC
+    - cron: '*/2 * * * *'  # Runs daily at midnight UTC
 
 jobs:
   comment_on_old_prs:
