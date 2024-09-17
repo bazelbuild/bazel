@@ -56,12 +56,6 @@ public interface RunfilesTree {
   NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging();
 
   /**
-   * Returns the mapping from the location in the runfiles tree to the artifact that's there for
-   * symlinks and root symlinks.
-   */
-  Map<PathFragment, Artifact> getAllSymlinksForLogging();
-
-  /**
    * Returns the set of names of implicit empty files to materialize.
    *
    * <p>If this runfiles tree does not implicitly add empty files, implementations should have a
@@ -69,10 +63,13 @@ public interface RunfilesTree {
    */
   Iterable<PathFragment> getEmptyFilenamesForLogging();
 
+  /** Returns the set of custom symlink entries. */
   NestedSet<SymlinkEntry> getSymlinksForLogging();
 
+  /** Returns the set of root symlinks. */
   NestedSet<SymlinkEntry> getRootSymlinksForLogging();
 
+  /** Returns the repo mapping manifest if it exists. */
   @Nullable
   Artifact getRepoMappingManifestForLogging();
 

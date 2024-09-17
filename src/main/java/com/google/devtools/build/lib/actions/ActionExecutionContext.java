@@ -96,11 +96,6 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     }
 
     @Override
-    public Map<PathFragment, Artifact> getAllSymlinksForLogging() {
-      return wrapped.getAllSymlinksForLogging();
-    }
-
-    @Override
     public Iterable<PathFragment> getEmptyFilenamesForLogging() {
       return wrapped.getEmptyFilenamesForLogging();
     }

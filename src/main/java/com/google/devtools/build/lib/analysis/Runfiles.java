@@ -384,21 +384,6 @@ public final class Runfiles implements RunfilesApi {
     return builder.build();
   }
 
-  public Map<PathFragment, Artifact> getAllSymlinksForLogging(
-      @Nullable Artifact repoMappingManifest) {
-    ManifestBuilder builder = new ManifestBuilder(suffix, legacyExternalRunfiles);
-    // Avoid creating the empty <workspace>/.runfile file as the workspace runfiles directory may
-    // be implicitly created by non-symlink runfiles.
-    builder.sawWorkspaceName = true;
-    ConflictChecker checker = ConflictChecker.IGNORE_CHECKER;
-    builder.addUnderWorkspace(getSymlinksAsMap(checker), checker);
-    builder.add(getRootSymlinksAsMap(checker), checker);
-    if (repoMappingManifest != null) {
-      checker.put(builder.manifest, REPO_MAPPING_MANIFEST_PATH, repoMappingManifest);
-    }
-    return builder.build();
-  }
-
   public boolean isLegacyExternalRunfiles() {
     return legacyExternalRunfiles;
   }

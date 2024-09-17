@@ -2693,11 +2693,6 @@ public class RemoteExecutionServiceTest {
       }
 
       @Override
-      public Map<PathFragment, Artifact> getAllSymlinksForLogging() {
-        return Map.of();
-      }
-
-      @Override
       public Iterable<PathFragment> getEmptyFilenamesForLogging() {
         return ImmutableList.of();
       }

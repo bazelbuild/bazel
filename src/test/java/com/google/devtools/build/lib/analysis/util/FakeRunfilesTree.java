@@ -98,11 +98,6 @@ public final class FakeRunfilesTree implements RunfilesTree {
   }
 
   @Override
-  public Map<PathFragment, Artifact> getAllSymlinksForLogging() {
-    return runfiles.getAllSymlinksForLogging(repoMappingManifest);
-  }
-
-  @Override
   public Iterable<PathFragment> getEmptyFilenamesForLogging() {
     return runfiles.getEmptyFilenames();
   }
