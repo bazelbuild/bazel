@@ -61,7 +61,6 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
@@ -261,21 +260,8 @@ public class BuildViewForTesting {
   }
 
   /** Sets the configuration. Not thread-safe. */
-  public void setConfigurationForTesting(
-      EventHandler eventHandler, BuildConfigurationValue configuration) {
-    try {
-      skyframeBuildView.setConfiguration(
-          eventHandler,
-          configuration,
-          /* maxDifferencesToShow= */ -1, /* allowAnalysisCacheDiscards */
-          true,
-          /* additionalConfigurationChangeEvent= */ Optional.empty());
-    } catch (InvalidConfigurationException e) {
-      throw new UnsupportedOperationException(
-          "InvalidConfigurationException was thrown and caught during a test, "
-              + "this case is not yet handled",
-          e);
-    }
+  public void setConfigurationForTesting(BuildConfigurationValue configuration) {
+    skyframeBuildView.setConfiguration(configuration, configuration.getOptions(), true);
   }
 
   public ArtifactFactory getArtifactFactory() {
