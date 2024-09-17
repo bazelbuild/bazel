@@ -19,7 +19,6 @@ import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.buildtool.BuildRequest;
@@ -244,7 +243,7 @@ public class TestCommand implements BlazeCommand {
     if (buildRequest.useValidationAspect()) {
       validatedTargets =
           buildResult.getSuccessfulAspects().stream()
-              .filter(key -> AspectCollection.VALIDATION_ASPECT_NAME.equals(key.getAspectName()))
+              .filter(key -> BuildRequest.VALIDATION_ASPECT_NAME.equals(key.getAspectName()))
               .map(AspectKey::getBaseConfiguredTargetKey)
               .collect(ImmutableSet.toImmutableSet());
     } else {
