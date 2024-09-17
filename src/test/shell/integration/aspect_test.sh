@@ -1923,4 +1923,52 @@ EOF
   expect_log 'in rule_impl of rule: @@\?//test:t1, toolchain_aspect on dep @@\?//test:t2 = \["toolchain_aspect on @@\?//test:t2", "toolchain_aspect on @@\?//test_toolchains:foo", "toolchain_aspect on @@\?//test_toolchains:toolchain_dep"\]'
 }
 
+function test_aspect_default_info_files_generated() {
+  local package="test"
+  mkdir -p "${package}"
+  cat > "${package}/defs.bzl" <<EOF
+
+def _aspect_impl(target, ctx):
+  files = []
+
+  if hasattr(ctx.rule.attr, 'dep') and ctx.rule.attr.dep:
+    files.append(ctx.rule.attr.dep[DefaultInfo].files)
+
+  f = ctx.actions.declare_file('from_aspect_on_{}'.format(target.label.name))
+  ctx.actions.write(f, 'hi')
+
+  return [DefaultInfo(files=depset(direct = [f], transitive = files))]
+
+my_aspect = aspect(implementation = _aspect_impl, attr_aspects = ['dep'])
+
+def _impl(ctx):
+  f = ctx.actions.declare_file('from_rule_{}'.format(ctx.label.name))
+  ctx.actions.write(f, 'hi')
+  return [DefaultInfo(files=depset([f]))]
+
+my_rule = rule(
+  implementation = _impl,
+  attrs = {
+      "dep": attr.label()
+  },
+)
+EOF
+
+  cat > "${package}/BUILD" <<EOF
+load("//${package}:defs.bzl", "my_rule")
+
+my_rule(name = 't1', dep = 't2')
+my_rule(name = 't2')
+EOF
+
+  bazel build "//${package}:t1" --aspects="//${package}:defs.bzl%my_aspect"\
+      &> $TEST_log || fail "Build failed"
+
+  assert_nonempty_file 'bazel-bin/test/from_aspect_on_t1'
+  assert_nonempty_file 'bazel-bin/test/from_rule_t1'
+
+  assert_nonempty_file 'bazel-bin/test/from_aspect_on_t2'
+  assert_nonempty_file 'bazel-bin/test/from_rule_t2'
+}
+
 run_suite "Tests for aspects"
