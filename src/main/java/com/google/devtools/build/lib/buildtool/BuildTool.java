@@ -214,7 +214,6 @@ public class BuildTool {
     }
 
     boolean catastrophe = false;
-    boolean hasAnyExceptionOrError = false;
     try {
       try (SilentCloseable c = Profiler.instance().profile("BuildStartingEvent")) {
         env.getEventBus().post(BuildStartingEvent.create(env, request));
@@ -258,13 +257,26 @@ public class BuildTool {
       }
 
       logAnalysisCachingStatsAndMaybeUploadFrontier(request, analysisCachingDeps);
+
+      if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
+        // Skyfocus only works at the end of a successful build.
+        ImmutableSet<Label> topLevelTargets =
+            result.getActualTargets().stream()
+                .map(ConfiguredTarget::getLabel)
+                .collect(toImmutableSet());
+        env.getSkyframeExecutor()
+            .runSkyfocus(
+                topLevelTargets,
+                projectEvaluationResult.activeDirectoriesMatcher(),
+                env.getReporter(),
+                env.getBlazeWorkspace().getPersistentActionCache(),
+                env.getOptions());
+      }
     } catch (Error | RuntimeException e) {
       // Don't handle the error here. We will do so in stopRequest.
       catastrophe = true;
-      hasAnyExceptionOrError = true;
       throw e;
     } catch (Exception e) {
-      hasAnyExceptionOrError = true;
       throw e;
     } finally {
       if (!catastrophe) {
@@ -276,28 +288,6 @@ public class BuildTool {
         // The workspace status actions will not run with certain flags, or if an error occurs early
         // in the build. Ensure that build info is posted on every build.
         env.ensureBuildInfoPosted();
-      }
-
-      if (!hasAnyExceptionOrError && env.getSkyframeExecutor().getSkyfocusState().enabled()) {
-        // Skyfocus only works at the end of a successful build.
-        ImmutableSet<Label> topLevelTargets =
-            result.getActualTargets().stream()
-                .map(ConfiguredTarget::getLabel)
-                .collect(toImmutableSet());
-        Label projectFile =
-            getProjectFile(topLevelTargets, env.getSkyframeExecutor(), env.getReporter());
-        PathFragmentPrefixTrie workingSetMatcher =
-            projectFile == null
-                ? null
-                : getWorkingSetMatcherForSkyfocus(
-                    projectFile, env.getSkyframeExecutor(), env.getReporter());
-        env.getSkyframeExecutor()
-            .runSkyfocus(
-                topLevelTargets,
-                workingSetMatcher,
-                env.getReporter(),
-                env.getBlazeWorkspace().getPersistentActionCache(),
-                env.getOptions());
       }
     }
   }
@@ -1114,7 +1104,7 @@ public class BuildTool {
     }
   }
 
-  static class RemoteAnalysisCachingDependenciesProviderImpl
+  private static final class RemoteAnalysisCachingDependenciesProviderImpl
       implements RemoteAnalysisCachingDependenciesProvider {
     private final Supplier<ObjectCodecs> analysisObjectCodecsSupplier;
     private final FingerprintValueService fingerprintValueService;

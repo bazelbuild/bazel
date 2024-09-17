@@ -66,7 +66,7 @@ public class SkyfocusExecutor {
    */
   public static Optional<SkyfocusState> prepareWorkingSet(
       Collection<Label> topLevelTargetLabels,
-      @Nullable PathFragmentPrefixTrie workingSetMatcher,
+      Optional<PathFragmentPrefixTrie> workingSetMatcher,
       InMemoryMemoizingEvaluator evaluator,
       SkyfocusState skyfocusState,
       PackageManager packageManager,
@@ -112,10 +112,11 @@ public class SkyfocusExecutor {
                       return;
                     }
 
-                    if (workingSetMatcher != null) {
+                    if (workingSetMatcher.isPresent()) {
                       // Check if the file belongs to the given working set prefixes.
-                      if (workingSetMatcher.includes(
-                          fileStateKey.argument().getRootRelativePath())) {
+                      if (workingSetMatcher
+                          .get()
+                          .includes(fileStateKey.argument().getRootRelativePath())) {
                         newWorkingSet.add(fileStateKey.argument());
                       }
                       return;

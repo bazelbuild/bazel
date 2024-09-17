@@ -4084,7 +4084,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    */
   public final void runSkyfocus(
       ImmutableSet<Label> topLevelTargets,
-      @Nullable PathFragmentPrefixTrie workingSetMatcher,
+      Optional<PathFragmentPrefixTrie> workingSetMatcher,
       Reporter reporter,
       @Nullable ActionCache actionCache,
       OptionsParsingResult options)

@@ -15,6 +15,9 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.configurationId;
+import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.ProjectFileFeature.ANALYSIS_CACHING;
+import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.ProjectFileFeature.SCL_CONFIG;
+import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.ProjectFileFeature.SKYFOCUS;
 import static com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code.PROJECT_FILE_NOT_FOUND;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.OFF;
 
@@ -72,6 +75,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.OptionsParsingException;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -180,6 +184,12 @@ public final class AnalysisPhaseRunner {
     }
   }
 
+  enum ProjectFileFeature {
+    ANALYSIS_CACHING,
+    SCL_CONFIG,
+    SKYFOCUS;
+  }
+
   /**
    * Evaluates the PROJECT.scl file and set corresponding options, if required by specific feature
    * flags (e.g. canonical configurations, remote analysis caching).
@@ -195,17 +205,24 @@ public final class AnalysisPhaseRunner {
       TargetPatternPhaseValue targetPatternPhaseValue,
       CommandEnvironment env)
       throws LoadingFailedException, InvalidConfigurationException {
-    // Remote analysis caching feature flag.
-    var analysisCachingOpts = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
-    boolean neededForAnalysisCaching =
-        analysisCachingOpts != null && analysisCachingOpts.mode != OFF;
+    EnumSet<ProjectFileFeature> featureFlags = EnumSet.noneOf(ProjectFileFeature.class);
 
-    // Canonical configurations feature flag.
-    String sclConfig = buildOptions.get(CoreOptions.class).sclConfig;
-    boolean neededForSclConfig =
-        !Strings.isNullOrEmpty(sclConfig) || request.getBuildOptions().enforceProjectConfigs;
+    if (env.getOptions().getOptions(RemoteAnalysisCachingOptions.class).mode != OFF) {
+      // RemoteAnalysisCachingOptions is never null because it's a build command flag, and this
+      // method only runs for build commands.
+      featureFlags.add(ANALYSIS_CACHING);
+    }
 
-    if (!(neededForSclConfig || neededForAnalysisCaching)) {
+    if (!Strings.isNullOrEmpty(buildOptions.get(CoreOptions.class).sclConfig)
+        || request.getBuildOptions().enforceProjectConfigs) {
+      featureFlags.add(SCL_CONFIG);
+    }
+
+    if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
+      featureFlags.add(SKYFOCUS);
+    }
+
+    if (featureFlags.isEmpty()) {
       // All feature flags disabled.
       return new ProjectEvaluationResult(buildOptions, Optional.empty());
     }
@@ -216,37 +233,40 @@ public final class AnalysisPhaseRunner {
             env.getSkyframeExecutor(),
             env.getReporter());
 
-    PathFragmentPrefixTrie projectMatcher = null;
-    if (neededForAnalysisCaching) {
-      if (projectFile == null) {
-        // TODO: b/353233779 - consider falling back on full serialization when there is no
-        // project matcher.
-        String message =
-            "Failed to find PROJECT.scl file for: " + targetPatternPhaseValue.getTargetLabels();
-        throw new LoadingFailedException(
-            message,
-            DetailedExitCode.of(
-                FailureDetail.newBuilder()
-                    .setMessage(message)
-                    .setRemoteAnalysisCaching(
-                        RemoteAnalysisCaching.newBuilder().setCode(PROJECT_FILE_NOT_FOUND))
-                    .build()));
-      }
-      projectMatcher =
-          BuildTool.getWorkingSetMatcherForSkyfocus(
-              projectFile, env.getSkyframeExecutor(), env.getReporter());
+    if (featureFlags.contains(ANALYSIS_CACHING) && projectFile == null) {
+      // TODO: b/353233779 - consider falling back on full serialization when there is no
+      // project matcher.
+      String message =
+          "Failed to find PROJECT.scl file for: " + targetPatternPhaseValue.getTargetLabels();
+      throw new LoadingFailedException(
+          message,
+          DetailedExitCode.of(
+              FailureDetail.newBuilder()
+                  .setMessage(message)
+                  .setRemoteAnalysisCaching(
+                      RemoteAnalysisCaching.newBuilder().setCode(PROJECT_FILE_NOT_FOUND))
+                  .build()));
     }
 
-    if (neededForSclConfig && projectFile != null) {
+    PathFragmentPrefixTrie projectMatcher = null;
+
+    if (featureFlags.contains(ANALYSIS_CACHING) || featureFlags.contains(SKYFOCUS)) {
+      projectMatcher =
+          projectFile == null
+              ? null // Skyfocus can work without a project directory matcher.
+              : BuildTool.getWorkingSetMatcherForSkyfocus(
+                  projectFile, env.getSkyframeExecutor(), env.getReporter());
+    }
+
+    if (featureFlags.contains(SCL_CONFIG) && projectFile != null) {
       // Do not apply canonical configurations if the project file doesn't exist.
-      return new ProjectEvaluationResult(
+      buildOptions =
           BuildTool.applySclConfigs(
               buildOptions,
               projectFile,
               request.getBuildOptions().enforceProjectConfigs,
               env.getSkyframeExecutor(),
-              env.getReporter()),
-          Optional.ofNullable(projectMatcher));
+              env.getReporter());
     }
 
     return new ProjectEvaluationResult(buildOptions, Optional.ofNullable(projectMatcher));
