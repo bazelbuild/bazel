@@ -37,6 +37,8 @@ _PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("rules_android", ""),
     ("", "rust/private"),
     ("rules_rust", "rust/private"),
+    ("", "third_party/bazel_rules/rules_cc"),
+    ("rules_cc", ""),
 ]
 
 _BUILTINS = [("_builtins", "")]
