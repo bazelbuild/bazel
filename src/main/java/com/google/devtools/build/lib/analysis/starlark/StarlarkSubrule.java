@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.starlarkbuildapi.StarlarkSubruleApi;
 import com.google.devtools.build.lib.starlarkbuildapi.platform.ToolchainContextApi;
 import com.google.devtools.build.lib.util.Pair;
 import java.util.Objects;
+import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
@@ -291,6 +292,18 @@ public class StarlarkSubrule implements StarlarkExportable, StarlarkCallable, St
       }
     }
     return uniqueSubrules.build();
+  }
+
+  @Override
+  public Optional<String> getUserDefinedNameIfSubruleAttr(String ruleAttrName) {
+    for (StarlarkSubrule subrule : getTransitiveSubrules(ImmutableList.of(this))) {
+      for (SubruleAttribute attr : subrule.attributes) {
+        if (ruleAttrName.equals(attr.ruleAttrName)) {
+          return Optional.of(attr.attrName);
+        }
+      }
+    }
+    return Optional.empty();
   }
 
   /**

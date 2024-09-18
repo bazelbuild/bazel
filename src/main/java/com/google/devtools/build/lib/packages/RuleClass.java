@@ -968,14 +968,19 @@ public class RuleClass implements RuleClassData {
         String attributeName = entry.getKey();
         Attribute attribute = entry.getValue();
 
+        int attributeNameLength =
+            StarlarkSubruleApi.getUserDefinedNameIfSubruleAttr(subrules, attributeName)
+                .map(String::length)
+                .orElse(attributeName.length());
+
         // TODO(b/151171037): This check would make more sense at Attribute creation time, but the
         // use of unchecked exceptions in these APIs makes it brittle.
         Preconditions.checkArgument(
-            attributeName.length() <= MAX_ATTRIBUTE_NAME_LENGTH,
+            attributeNameLength <= MAX_ATTRIBUTE_NAME_LENGTH,
             "Attribute %s.%s's name is too long (%s > %s)",
             ruleClassName,
             attributeName,
-            attributeName.length(),
+            attributeNameLength,
             MAX_ATTRIBUTE_NAME_LENGTH);
 
         if (dependencyResolutionRule) {
