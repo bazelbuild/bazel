@@ -27,6 +27,12 @@ import net.starlark.java.eval.StarlarkValue;
  * by rules in the reverse transitive closure.
  */
 public record DormantDependency(Label label) implements StarlarkValue {
+  public static final String NAME = "dormant_dependency";
+  public static final String ALLOWLIST_ATTRIBUTE_NAME = "$allowlist_dormant_dependency";
+  public static final String ALLOWLIST_LABEL_STR =
+      "//tools/allowlists/dormant_dependency_allowlist";
+  public static final Label ALLOWLIST_LABEL = Label.parseCanonicalUnchecked(ALLOWLIST_LABEL_STR);
+
   @Override
   public void repr(Printer printer) {
     printer.append("<dormant dependency label='");

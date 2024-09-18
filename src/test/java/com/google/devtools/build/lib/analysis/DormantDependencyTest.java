@@ -21,6 +21,7 @@ import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -607,5 +608,52 @@ public class DormantDependencyTest extends AnalysisTestCase {
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//a:r"));
     assertContainsEvent("shouldn't have actions");
+  }
+
+  @Test
+  public void testAllowlistForDormantAttributes() throws Exception {
+    scratch.overwriteFile(
+        TestConstants.TOOLS_REPOSITORY_SCRATCH
+            + "tools/allowlists/dormant_dependency_allowlist/BUILD",
+        """
+        package_group(
+        name = 'dormant_dependency_allowlist',
+          # This rule is in @bazel_tools but must reference a package in the main repository.
+          # (the value of packages= can't cross repositories at the moment)
+          includes = ['@@//pkg:pkg'])
+        """);
+
+    scratch.file(
+        "pkg/BUILD",
+        """
+        package_group(name='pkg', packages=['//ok/...'])
+        """);
+
+    String dormantRule =
+        """
+        def _impl(ctx):
+          return [DefaultInfo()]
+        r = rule(
+            implementation = _impl,
+            dependency_resolution_rule = True,
+            attrs={"dormant": attr.dormant_label()})
+        """;
+
+    String dormantBuildFile =
+        """
+        load(":r.bzl", "r")
+        filegroup(name="dep")
+        r(name="r", dormant=":dep")
+        """;
+    scratch.file("ok/r.bzl", dormantRule);
+    scratch.file("ok/BUILD", dormantBuildFile);
+    scratch.file("bad/r.bzl", dormantRule);
+    scratch.file("bad/BUILD", dormantBuildFile);
+
+    update("//ok:r");
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//bad:r"));
+    assertContainsEvent("Non-allowlisted use of dormant dependencies");
   }
 }

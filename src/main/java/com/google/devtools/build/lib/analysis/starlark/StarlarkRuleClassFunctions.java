@@ -41,6 +41,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.analysis.Allowlist;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
+import com.google.devtools.build.lib.analysis.DormantDependency;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
@@ -122,6 +123,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
@@ -702,6 +704,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     boolean hasStarlarkDefinedTransition = false;
     boolean propagatesAspects = false;
+    boolean hasMaterializers = false;
     List<String> dormantAttributes = new ArrayList<>();
 
     for (Pair<String, StarlarkAttrModule.Descriptor> attribute : attributes) {
@@ -766,6 +769,11 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       if (attr.getType() == BuildType.DORMANT_LABEL
           || attr.getType() == BuildType.DORMANT_LABEL_LIST) {
         dormantAttributes.add(name);
+      }
+
+      if (attr.isLateBound()
+          && attr.getLateBoundDefault() instanceof StarlarkMaterializingLateBoundDefault<?>) {
+        hasMaterializers = true;
       }
 
       try {
@@ -866,50 +874,27 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     hasStarlarkDefinedTransition |= visitor.hasStarlarkDefinedTransition;
     builder.cfg(transitionFactory);
 
-    boolean hasFunctionTransitionAllowlist = false;
-    // Check for existence of the function transition allowlist attribute.
-    if (builder.contains(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME)) {
-      Attribute attr = builder.getAttribute(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME);
-      if (!BuildType.isLabelType(attr.getType())) {
-        throw Starlark.errorf("_allowlist_function_transition attribute must be a label type");
-      }
-      if (attr.getDefaultValueUnchecked() == null) {
-        throw Starlark.errorf("_allowlist_function_transition attribute must have a default value");
-      }
-      Label defaultLabel = (Label) attr.getDefaultValueUnchecked();
-      // Check the label value for package and target name, to make sure this works properly
-      // in Bazel where it is expected to be found under @bazel_tools.
-      if (!(defaultLabel
-              .getPackageName()
-              .equals(FunctionSplitTransitionAllowlist.LABEL.getPackageName())
-          && defaultLabel.getName().equals(FunctionSplitTransitionAllowlist.LABEL.getName()))) {
-        throw Starlark.errorf(
-            "_allowlist_function_transition attribute (%s) does not have the expected value %s",
-            defaultLabel, FunctionSplitTransitionAllowlist.LABEL);
-      }
-      hasFunctionTransitionAllowlist = true;
-    }
-    if (hasStarlarkDefinedTransition) {
-      if (!bzlFile.getRepository().getName().equals("_builtins")) {
-        if (!hasFunctionTransitionAllowlist) {
-          // add the allowlist automatically
-          builder.add(
-              attr(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME, LABEL)
-                  .cfg(ExecutionTransitionFactory.createFactory())
-                  .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
-                  .value(
-                      ruleDefinitionEnvironment.getToolsLabel(
-                          FunctionSplitTransitionAllowlist.LABEL_STR)));
-        }
-        builder.addAllowlistChecker(FUNCTION_TRANSITION_ALLOWLIST_CHECKER);
-      }
-    } else {
-      if (hasFunctionTransitionAllowlist) {
-        throw Starlark.errorf(
-            "Unused function-based split transition allowlist: %s %s",
-            builder.getRuleDefinitionEnvironmentLabel(), builder.getType());
-      }
-    }
+    checkAndAddAllowlistIfNecessary(
+        builder,
+        ruleDefinitionEnvironment,
+        dependencyResolutionRule || hasMaterializers,
+        bzlFile,
+        DORMANT_DEPENDENCY_ALLOWLIST_CHECKER,
+        "dormant dependency",
+        StarlarkRuleClassFunctions::createDormantDependencyAllowlistAttribute,
+        DormantDependency.ALLOWLIST_ATTRIBUTE_NAME,
+        DormantDependency.ALLOWLIST_LABEL);
+
+    checkAndAddAllowlistIfNecessary(
+        builder,
+        ruleDefinitionEnvironment,
+        hasStarlarkDefinedTransition,
+        bzlFile,
+        FUNCTION_TRANSITION_ALLOWLIST_CHECKER,
+        "function-based split transition",
+        StarlarkRuleClassFunctions::createStarlarkFunctionTransitionAllowlistAttribute,
+        FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME,
+        FunctionSplitTransitionAllowlist.LABEL);
 
     for (Object o : providesArg) {
       if (!StarlarkAttrModule.isProvider(o)) {
@@ -958,6 +943,79 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
     return new StarlarkRuleFunction(
         builder, thread.getCallerLocation(), thread.getNextIdentityToken());
+  }
+
+  private static Attribute.Builder<Label> createStarlarkFunctionTransitionAllowlistAttribute(
+      RuleDefinitionEnvironment env) {
+    return attr(FunctionSplitTransitionAllowlist.ATTRIBUTE_NAME, LABEL)
+        .cfg(ExecutionTransitionFactory.createFactory())
+        .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
+        .value(env.getToolsLabel(FunctionSplitTransitionAllowlist.LABEL_STR));
+  }
+
+  private static Attribute.Builder<Label> createDormantDependencyAllowlistAttribute(
+      RuleDefinitionEnvironment env) {
+    try {
+      return attr(DormantDependency.ALLOWLIST_ATTRIBUTE_NAME, LABEL)
+          .cfg(ExecutionTransitionFactory.createFactory())
+          .mandatoryBuiltinProviders(ImmutableList.of(PackageSpecificationProvider.class))
+          .setPropertyFlag("FOR_DEPENDENCY_RESOLUTION")
+          .setPropertyFlag("FOR_DEPENDENCY_RESOLUTION_EXPLICITLY_SET")
+          .value(env.getToolsLabel(DormantDependency.ALLOWLIST_LABEL_STR));
+    } catch (EvalException e) {
+      throw new IllegalStateException(e);
+    }
+  }
+
+  private static void checkAndAddAllowlistIfNecessary(
+      RuleClass.Builder builder,
+      RuleDefinitionEnvironment ruleDefinitionEnvironment,
+      boolean usesFunctionality,
+      Label bzlFileLabel,
+      AllowlistChecker allowlistChecker,
+      String description,
+      Function<RuleDefinitionEnvironment, Attribute.Builder<Label>> attributeFactory,
+      String attributeName,
+      Label label)
+      throws EvalException {
+    boolean hasAllowlist = false;
+    // Check for existence of the allowlist attribute.
+    if (builder.contains(attributeName)) {
+      Attribute attr = builder.getAttribute(attributeName);
+      if (!BuildType.isLabelType(attr.getType())) {
+        throw Starlark.errorf(
+            "%s attribute must be a label type", Attribute.getStarlarkName(attributeName));
+      }
+      if (attr.getDefaultValueUnchecked() == null) {
+        throw Starlark.errorf(
+            "%s attribute must have a default value", Attribute.getStarlarkName(attributeName));
+      }
+      Label defaultLabel = (Label) attr.getDefaultValueUnchecked();
+      // Check the label value for package and target name, to make sure this works properly
+      // in Bazel where it is expected to be found under @bazel_tools.
+      if (!(defaultLabel.getPackageName().equals(label.getPackageName())
+          && defaultLabel.getName().equals(label.getName()))) {
+        throw Starlark.errorf(
+            "%s attribute (%s) does not have the expected value %s",
+            Attribute.getStarlarkName(attributeName), defaultLabel, label);
+      }
+      hasAllowlist = true;
+    }
+    if (usesFunctionality) {
+      if (!bzlFileLabel.getRepository().getName().equals("_builtins")) {
+        if (!hasAllowlist) {
+          // add the allowlist automatically
+          builder.add(attributeFactory.apply(ruleDefinitionEnvironment));
+        }
+        builder.addAllowlistChecker(allowlistChecker);
+      }
+    } else {
+      if (hasAllowlist) {
+        throw Starlark.errorf(
+            "Unused %s allowlist: %s %s",
+            description, builder.getRuleDefinitionEnvironmentLabel(), builder.getType());
+      }
+    }
   }
 
   private static TransitionFactory<RuleTransitionData> convertConfig(@Nullable Object cfg)
@@ -1761,6 +1819,14 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
           .setAllowlistAttr(FunctionSplitTransitionAllowlist.NAME)
           .setErrorMessage("Non-allowlisted use of Starlark transition")
           .setLocationCheck(AllowlistChecker.LocationCheck.INSTANCE_OR_DEFINITION)
+          .build();
+
+  @SerializationConstant
+  static final AllowlistChecker DORMANT_DEPENDENCY_ALLOWLIST_CHECKER =
+      AllowlistChecker.builder()
+          .setAllowlistAttr(DormantDependency.NAME)
+          .setErrorMessage("Non-allowlisted use of dormant dependencies")
+          .setLocationCheck(AllowlistChecker.LocationCheck.DEFINITION)
           .build();
 
   @SerializationConstant

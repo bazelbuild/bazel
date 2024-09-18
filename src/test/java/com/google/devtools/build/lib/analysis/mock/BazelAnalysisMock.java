@@ -734,6 +734,15 @@ public final class BazelAnalysisMock extends AnalysisMock {
         )
         """);
 
+    config.create(
+        "embedded_tools/tools/allowlists/dormant_dependency_allowlist/BUILD",
+        """
+        package_group(
+            name = "dormant_dependency_allowlist",
+            packages = ["public"],
+        )
+        """);
+
     MockPlatformSupport.setup(config);
     ccSupport().setup(config);
     javaSupport().setupRulesJava(config, runfiles::rlocation);
