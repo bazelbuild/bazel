@@ -224,7 +224,7 @@ public class RepositoryMappingFunction implements SkyFunction {
     }
     RepositoryMapping workspaceMapping =
         RepositoryMapping.createAllowingFallback(
-            externalPackage.getRepositoryMapping(repositoryName));
+            externalPackage.getExternalPackageRepositoryMapping(repositoryName));
     if (rootModuleRepoMapping == null) {
       // This means Bzlmod is disabled.
       return RepositoryMappingValue.createForWorkspaceRepo(workspaceMapping);
