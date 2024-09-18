@@ -159,6 +159,25 @@ public class Package {
 
   private final Metadata metadata;
 
+  // Can be changed during BUILD file evaluation due to exports_files() modifying its visibility.
+  private InputFile buildFile;
+
+  // Mutated during BUILD file evaluation (but not by symbolic macro evaluation).
+  private PackageArgs packageArgs = PackageArgs.DEFAULT;
+
+  // Mutated during BUILD file evaluation (but not by symbolic macro evaluation).
+  private ImmutableMap<String, String> makeEnv;
+
+  // Computed in finishInit.
+  // TODO(bazel-team): There's no real reason this can't be computed sooner, reducing the set of
+  // things determined during/after BUILD file evaluation.
+  private Optional<Root> sourceRoot;
+
+  // These two fields are mutually exclusive. Which one is set depends on
+  // PackageSettings#precomputeTransitiveLoads. See Package.Builder#setLoads.
+  @Nullable private ImmutableList<Module> directLoads;
+  @Nullable private ImmutableList<Label> transitiveLoads;
+
   /**
    * True iff this package's BUILD files contained lexical or grammatical errors, or experienced
    * errors during evaluation, or semantic errors during the construction of any rule.
@@ -298,17 +317,6 @@ public class Package {
     return metadata.packageDirectory;
   }
 
-  /**
-   * Returns the label of this package's BUILD file.
-   *
-   * <p>Typically <code>getBuildFileLabel().getName().equals("BUILD")</code> -- though not
-   * necessarily: data in a subdirectory of a test package may use a different filename to avoid
-   * inadvertently creating a new package.
-   */
-  public Label getBuildFileLabel() {
-    return metadata.buildFile.getLabel();
-  }
-
   /** Returns this package's workspace name. */
   public String getWorkspaceName() {
     return metadata.workspaceName;
@@ -327,29 +335,47 @@ public class Package {
     return metadata.configSettingVisibilityPolicy;
   }
 
-  public PackageArgs getPackageArgs() {
-    return metadata.packageArgs;
-  }
-
   /** Returns the InputFile target for this package's BUILD file. */
   public InputFile getBuildFile() {
-    return metadata.buildFile;
+    return buildFile;
   }
 
   /**
-   * Returns the source root (a directory) beneath which this package's BUILD file was found, or
-   * {@link Optional#empty} if this package was derived from a workspace file.
+   * Returns the label of this package's BUILD file.
+   *
+   * <p>Typically <code>getBuildFileLabel().getName().equals("BUILD")</code> -- though not
+   * necessarily: data in a subdirectory of a test package may use a different filename to avoid
+   * inadvertently creating a new package.
+   */
+  public Label getBuildFileLabel() {
+    return buildFile.getLabel();
+  }
+
+  /**
+   * Returns the collection of package-level attributes set by the {@code package()} callable and
+   * similar methods.
+   */
+  public PackageArgs getPackageArgs() {
+    return packageArgs;
+  }
+
+  /**
+   * Returns the "Make" environment of this package, containing package-local definitions of "Make"
+   * variables.
+   */
+  public ImmutableMap<String, String> getMakeEnvironment() {
+    return makeEnv;
+  }
+
+  /**
+   * Returns the root of the source tree beneath which this package's BUILD file was found, or
+   * {@link Optional#empty} if this package was derived from a WORKSPACE file.
    *
    * <p>Assumes invariant: If non-empty, {@code
    * getSourceRoot().get().getRelative(packageId.getSourceRoot()).equals(getPackageDirectory())}
    */
   public Optional<Root> getSourceRoot() {
-    return metadata.sourceRoot;
-  }
-
-  /** Returns all make variables for a given platform. */
-  public ImmutableMap<String, String> getMakeEnvironment() {
-    return metadata.makeEnv;
+    return sourceRoot;
   }
 
   /**
@@ -363,11 +389,7 @@ public class Package {
    * #visitLoadGraph}.
    */
   public ImmutableList<Label> getOrComputeTransitivelyLoadedStarlarkFiles() {
-    // TODO(bazel-team): Seems like a code smell that Metadata fields are being mutated here,
-    // possibly after package construction is complete.
-    return metadata.transitiveLoads != null
-        ? metadata.transitiveLoads
-        : computeTransitiveLoads(metadata.directLoads);
+    return transitiveLoads != null ? transitiveLoads : computeTransitiveLoads(directLoads);
   }
 
   /**
@@ -377,8 +399,8 @@ public class Package {
    * precomputed}, performs a traversal over the load graph to count them.
    */
   public int countTransitivelyLoadedStarlarkFiles() {
-    if (metadata.transitiveLoads != null) {
-      return metadata.transitiveLoads.size();
+    if (transitiveLoads != null) {
+      return transitiveLoads.size();
     }
     Set<Label> loads = new HashSet<>();
     visitLoadGraph(loads::add);
@@ -393,12 +415,12 @@ public class Package {
    */
   public <E1 extends Exception, E2 extends Exception> void visitLoadGraph(
       LoadGraphVisitor<E1, E2> visitor) throws E1, E2 {
-    if (metadata.transitiveLoads != null) {
-      for (Label load : metadata.transitiveLoads) {
+    if (transitiveLoads != null) {
+      for (Label load : transitiveLoads) {
         visitor.visit(load);
       }
     } else {
-      BazelModuleContext.visitLoadGraphRecursively(metadata.directLoads, visitor);
+      BazelModuleContext.visitLoadGraphRecursively(directLoads, visitor);
     }
   }
 
@@ -675,14 +697,14 @@ public class Package {
     String baseName = metadata.filename.getRootRelativePath().getBaseName();
 
     this.containsErrors |= builder.containsErrors;
-    if (metadata.directLoads == null && metadata.transitiveLoads == null) {
+    if (directLoads == null && transitiveLoads == null) {
       Preconditions.checkState(containsErrors, "Loads not set for error-free package");
       builder.setLoads(ImmutableList.of());
     }
 
     if (isWorkspaceFile(baseName) || isModuleDotBazelFile(baseName)) {
       Preconditions.checkState(isRepoRulePackage());
-      this.metadata.sourceRoot = Optional.empty();
+      this.sourceRoot = Optional.empty();
     } else {
       Root sourceRoot =
           computeSourceRoot(metadata.filename, metadata.packageIdentifier.getSourceRoot());
@@ -703,10 +725,10 @@ public class Package {
                 + metadata.packageIdentifier.getSourceRoot()
                 + ")");
       }
-      this.metadata.sourceRoot = Optional.of(sourceRoot);
+      this.sourceRoot = Optional.of(sourceRoot);
     }
 
-    this.metadata.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
+    this.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
     this.targets = ImmutableSortedMap.copyOf(builder.targets);
     this.macros = ImmutableSortedMap.copyOf(builder.macros);
     this.macroNamespaceViolatingTargets =
@@ -1009,6 +1031,8 @@ public class Package {
      */
     private final Package pkg;
 
+    private final Label buildFileLabel;
+
     private final boolean precomputeTransitiveLoads;
     private final boolean noImplicitFileExport;
 
@@ -1281,7 +1305,7 @@ public class Package {
       metadata.filename = filename;
       metadata.packageDirectory = filename.asPath().getParentDirectory();
       try {
-        metadata.buildFileLabel = Label.create(id, filename.getRootRelativePath().getBaseName());
+        buildFileLabel = Label.create(id, filename.getRootRelativePath().getBaseName());
       } catch (LabelSyntaxException e) {
         // This can't actually happen.
         throw new AssertionError("Package BUILD file has an illegal name: " + filename, e);
@@ -1310,8 +1334,7 @@ public class Package {
       // Add target for the BUILD file itself.
       // (This may be overridden by an exports_file declaration.)
       addInputFile(
-          new InputFile(
-              pkg, metadata.buildFileLabel, Location.fromFile(filename.asPath().toString())));
+          new InputFile(pkg, buildFileLabel, Location.fromFile(filename.asPath().toString())));
     }
 
     SymbolGenerator<?> getSymbolGenerator() {
@@ -1551,7 +1574,7 @@ public class Package {
     }
 
     public Label getBuildFileLabel() {
-      return pkg.metadata.buildFileLabel;
+      return buildFileLabel;
     }
 
     /**
@@ -1586,7 +1609,7 @@ public class Package {
 
     @CanIgnoreReturnValue
     public Builder mergePackageArgsFrom(PackageArgs packageArgs) {
-      pkg.metadata.packageArgs = pkg.metadata.packageArgs.mergeWith(packageArgs);
+      pkg.packageArgs = pkg.packageArgs.mergeWith(packageArgs);
       return this;
     }
 
@@ -1597,7 +1620,7 @@ public class Package {
 
     /** Called partial b/c in builder and thus subject to mutation and updates */
     public PackageArgs getPartialPackageArgs() {
-      return pkg.metadata.packageArgs;
+      return pkg.packageArgs;
     }
 
     /** Uses the workspace name from {@code //external} to set this package's workspace name. */
@@ -1693,9 +1716,9 @@ public class Package {
     public Builder setLoads(Iterable<Module> directLoads) {
       checkLoadsNotSet();
       if (precomputeTransitiveLoads) {
-        pkg.metadata.transitiveLoads = computeTransitiveLoads(directLoads);
+        pkg.transitiveLoads = computeTransitiveLoads(directLoads);
       } else {
-        pkg.metadata.directLoads = ImmutableList.copyOf(directLoads);
+        pkg.directLoads = ImmutableList.copyOf(directLoads);
       }
       return this;
     }
@@ -1703,19 +1726,15 @@ public class Package {
     @CanIgnoreReturnValue
     Builder setTransitiveLoadsForDeserialization(ImmutableList<Label> transitiveLoads) {
       checkLoadsNotSet();
-      pkg.metadata.transitiveLoads = Preconditions.checkNotNull(transitiveLoads);
+      pkg.transitiveLoads = Preconditions.checkNotNull(transitiveLoads);
       return this;
     }
 
     private void checkLoadsNotSet() {
       Preconditions.checkState(
-          pkg.metadata.directLoads == null,
-          "Direct loads already set: %s",
-          pkg.metadata.directLoads);
+          pkg.directLoads == null, "Direct loads already set: %s", pkg.directLoads);
       Preconditions.checkState(
-          pkg.metadata.transitiveLoads == null,
-          "Transitive loads already set: %s",
-          pkg.metadata.transitiveLoads);
+          pkg.transitiveLoads == null, "Transitive loads already set: %s", pkg.transitiveLoads);
     }
 
     /**
@@ -1888,6 +1907,9 @@ public class Package {
      * @throws IllegalArgumentException if the input file doesn't exist in this package's target
      *     map.
      */
+    // TODO: #19922 - Don't allow exports_files() to modify visibility of targets that the current
+    // symbolic macro did not create. Fun pathological example: exports_files() modifying the
+    // visibility of :BUILD inside a symbolic macro.
     void setVisibilityAndLicense(InputFile inputFile, RuleVisibility visibility, License license) {
       String filename = inputFile.getName();
       Target cacheInstance = targets.get(filename);
@@ -2289,9 +2311,7 @@ public class Package {
       // We create an InputFile corresponding to the BUILD file in Builder's constructor. However,
       // the visibility of this target may be overridden with an exports_files directive, so we wait
       // until now to obtain the current instance from the targets map.
-      pkg.metadata.buildFile =
-          (InputFile)
-              Preconditions.checkNotNull(targets.get(pkg.metadata.buildFileLabel.getName()));
+      pkg.buildFile = (InputFile) Preconditions.checkNotNull(targets.get(buildFileLabel.getName()));
 
       // TODO(bazel-team): We run testSuiteImplicitTestsAccumulator here in beforeBuild(), but what
       // if one of the accumulated tests is later removed in PackageFunction, between the call to
@@ -2705,20 +2725,10 @@ public class Package {
     }
   }
 
-  /**
-   * A collection of data about a package that does not require evaluating the whole package.
-   *
-   * <p>In particular, this does not contain any target information. It does contain data known
-   * prior to BUILD file evaluation, data mutated by BUILD file evaluation, and data computed
-   * immediately after BUILD file evaluation.
-   *
-   * <p>This object is supplied to symbolic macro expansion.
-   */
+  /** A collection of data that is known before BUILD file evaluation even begins. */
   public static final class Metadata {
 
     private Metadata() {}
-
-    // Fields that are known before the beginning of BUILD file execution
 
     private PackageIdentifier packageIdentifier;
 
@@ -2759,13 +2769,6 @@ public class Package {
      */
     public Path getPackageDirectory() {
       return packageDirectory;
-    }
-
-    private Label buildFileLabel;
-
-    /** Returns the label of this package's BUILD file. */
-    public Label getBuildFileLabel() {
-      return buildFileLabel;
     }
 
     private String workspaceName;
@@ -2809,63 +2812,11 @@ public class Package {
       return configSettingVisibilityPolicy;
     }
 
-    // These two fields are mutually exclusive. Which one is set depends on
-    // PackageSettings#precomputeTransitiveLoads.
-    @Nullable private ImmutableList<Module> directLoads;
-    @Nullable private ImmutableList<Label> transitiveLoads;
-
     /** Governs the error message behavior of {@link Package#getTarget}. */
     // TODO(bazel-team): Arguably, this could be replaced by a boolean param to getTarget(), or some
     // separate action taken by the caller. But there's a lot of call sites that would need
     // updating.
     private boolean succinctTargetNotFoundErrors;
-
-    // Fields that are updated during BUILD file execution.
-
-    private PackageArgs packageArgs = PackageArgs.DEFAULT;
-
-    /**
-     * Returns the collection of package-level attributes set by the {@code package()} callable and
-     * similar methods. May be modified during BUILD file execution.
-     */
-    public PackageArgs getPackageArgs() {
-      return packageArgs;
-    }
-
-    // Fields that are only set after BUILD file execution (but before symbolic macro expansion).
-
-    private InputFile buildFile;
-
-    /**
-     * Returns the InputFile target corresponding to this package's BUILD file.
-     *
-     * <p>This may change during BUILD file execution as a result of exports_files changing the
-     * BUILD file's visibility.
-     */
-    public InputFile getBuildFile() {
-      return buildFile;
-    }
-
-    private Optional<Root> sourceRoot;
-
-    /**
-     * Returns the root of the source tree in which this package was found. It is an invariant that
-     * {@code sourceRoot.getRelative(packageId.getSourceRoot()).equals(packageDirectory)}. Returns
-     * {@link Optional#empty} if this {@link Package} is derived from a WORKSPACE file.
-     */
-    public Optional<Root> getSourceRoot() {
-      return sourceRoot;
-    }
-
-    private ImmutableMap<String, String> makeEnv;
-
-    /**
-     * Returns the "Make" environment of this package, containing package-local definitions of
-     * "Make" variables.
-     */
-    public ImmutableMap<String, String> getMakeEnvironment() {
-      return makeEnv;
-    }
   }
 
   /** Package codec implementation. */
