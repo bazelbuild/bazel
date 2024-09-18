@@ -69,56 +69,55 @@ def embedded_jdk_repositories():
     """OpenJDK distributions used to create a version of Bazel bundled with the OpenJDK."""
     http_file(
         name = "openjdk_linux_vanilla",
-        sha256 = "0c0eadfbdc47a7ca64aeab51b9c061f71b6e4d25d2d87674512e9b6387e9e3a6",
+        integrity = "sha256-a1YPqBMaWkoruNFoSckLyx00LCOZNsowlSn2L3XCDJA=",
         downloaded_file_path = "zulu-linux-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-linux_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu23.28.85-ca-jdk23.0.0-linux_x64.tar.gz",
     )
     http_file(
         name = "openjdk_linux_aarch64_vanilla",
-        sha256 = "1fb64b8036c5d463d8ab59af06bf5b6b006811e6012e3b0eb6bccf57f1c55835",
+        integrity = "sha256-/i+ch7BMAwMQ1C4e3shp9BHuQ67vVXfmIK1YKs7L24M=",
         downloaded_file_path = "zulu-linux-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-linux_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu23.28.85-ca-jdk23.0.0-linux_aarch64.tar.gz",
     )
 
+    # Later versions of the JDK are not available for s390x and ppc64le from any vendor at this point.
     http_file(
         name = "openjdk_linux_s390x_vanilla",
-        sha256 = "0d5676c50821e0d0b951bf3ffd717e7a13be2a89d8848a5c13b4aedc6f982c78",
+        integrity = "sha256-RlJ8/FYFUvBcBGJSDWnUOPFEo9yCBmh5Ujh8kQzdTEA=",
         downloaded_file_path = "adoptopenjdk-s390x-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.2%2B13/OpenJDK21U-jdk_s390x_linux_hotspot_21.0.2_13.tar.gz",
+        url = "https://github.com/adoptium/temurin22-binaries/releases/download/jdk-22.0.2%2B9/OpenJDK22U-jdk_s390x_linux_hotspot_22.0.2_9.tar.gz",
     )
-
-    # JDK21 unavailable so use JDK19 instead for linux ppc64le.
     http_file(
         name = "openjdk_linux_ppc64le_vanilla",
-        sha256 = "d08de863499d8851811c893e8915828f2cd8eb67ed9e29432a6b4e222d80a12f",
+        integrity = "sha256-L1wZBZV6J4Iyu9w5vUCOe9FyyJRFSCSZYg0v6VEL1Po=",
         downloaded_file_path = "adoptopenjdk-ppc64le-vanilla.tar.gz",
-        url = "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.2%2B13/OpenJDK21U-jdk_ppc64le_linux_hotspot_21.0.2_13.tar.gz",
+        url = "https://github.com/adoptium/temurin22-binaries/releases/download/jdk-22.0.2%2B9/OpenJDK22U-jdk_ppc64_aix_hotspot_22.0.2_9.tar.gz",
     )
     http_file(
         name = "openjdk_macos_x86_64_vanilla",
-        sha256 = "9639b87db586d0c89f7a9892ae47f421e442c64b97baebdff31788fbe23265bd",
+        integrity = "sha256-rEr8M3KF9Z95gV8sHqi5lQD2RJjtssZx8Q8goy6danw=",
         downloaded_file_path = "zulu-macos-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-macosx_x64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu23.28.85-ca-jdk23.0.0-macosx_x64.tar.gz",
     )
     http_file(
         name = "openjdk_macos_aarch64_vanilla",
-        sha256 = "2a7a99a3ea263dbd8d32a67d1e6e363ba8b25c645c826f5e167a02bbafaff1fa",
+        integrity = "sha256-gFvfJL0RQgIOATLTMdfa+fStUCrdHYC3rxy0j5eNVDc=",
         downloaded_file_path = "zulu-macos-aarch64-vanilla.tar.gz",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-macosx_aarch64.tar.gz",
+        url = "https://cdn.azul.com/zulu/bin/zulu23.28.85-ca-jdk23.0.0-macosx_aarch64.tar.gz",
     )
     http_file(
         name = "openjdk_win_vanilla",
-        sha256 = "e9959d500a0d9a7694ac243baf657761479da132f0f94720cbffd092150bd802",
+        integrity = "sha256-V3ih8NqHAYijOFw+PKE86qnBEy+3ulGJhwjISgu4CJE=",
         downloaded_file_path = "zulu-win-vanilla.zip",
-        url = "https://cdn.azul.com/zulu/bin/zulu21.28.85-ca-jdk21.0.0-win_x64.zip",
+        url = "https://cdn.azul.com/zulu/bin/zulu23.28.85-ca-jdk23.0.0-win_x64.zip",
     )
 
-    # JDK21 unavailable from zulu, we'll use Microsoft's OpenJDK build instead.
+    # Later versions of the JDK are not available for Windows ARM64 from any vendor at this point.
     http_file(
         name = "openjdk_win_arm64_vanilla",
-        sha256 = "975603e684f2ec5a525b3b5336d6aa0b09b5b7d2d0d9e271bd6a9892ad550181",
+        integrity = "sha256-n4c+zPAwsdPch57B6w/14Rv3YALcgcXGRMNGK/bFFGs=",
         downloaded_file_path = "zulu-win-arm64.zip",
-        url = "https://aka.ms/download-jdk/microsoft-jdk-21.0.0-windows-aarch64.zip",
+        url = "https://cdn.azul.com/zulu/bin/zulu21.36.17-ca-jdk21.0.4-win_aarch64.zip",
     )
 
 def android_deps_repos():
