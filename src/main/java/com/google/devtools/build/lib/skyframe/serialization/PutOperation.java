@@ -13,20 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.protobuf.ByteString;
 
-/** Tuple representing a {@link FingerprintValueStore#put} operation. */
-@AutoValue
-public abstract class PutOperation {
-  public static PutOperation create(ByteString fingerprint, ListenableFuture<Void> writeStatus) {
-    return new AutoValue_PutOperation(fingerprint, writeStatus);
-  }
-
-  /** Key used to store the value. */
-  public abstract ByteString fingerprint();
-
-  /** The result of storing the value in the {@link FingerprintValueStore}. */
-  public abstract ListenableFuture<Void> writeStatus();
-}
+/**
+ * Tuple representing a {@link FingerprintValueStore#put} operation.
+ *
+ * @param fingerprint key used to store the value.
+ * @param writeStatus result of storing the value in the {@link FingerprintValueStore}.
+ */
+public record PutOperation(PackedFingerprint fingerprint, ListenableFuture<Void> writeStatus) {}

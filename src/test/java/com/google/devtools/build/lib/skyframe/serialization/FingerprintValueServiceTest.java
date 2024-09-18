@@ -14,18 +14,15 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.truth.Truth.assertThat;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
-import com.google.common.hash.HashFunction;
-import com.google.common.hash.Hashing;
-import com.google.protobuf.ByteString;
-import com.google.testing.junit.testparameterinjector.TestParameter;
-import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.concurrent.Executor;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-@RunWith(TestParameterInjector.class)
+@RunWith(JUnit4.class)
 public final class FingerprintValueServiceTest {
   // FingerprintValueService is a thin wrapper over a few loosely related objects. The contained
   // FingerprintValueCache is covered in FingerprintValueCacheTest.
@@ -36,7 +33,7 @@ public final class FingerprintValueServiceTest {
     // wiring.
 
     FingerprintValueService service = FingerprintValueService.createForTesting();
-    ByteString key = ByteString.copyFromUtf8("key");
+    PackedFingerprint key = service.fingerprint("key".getBytes(UTF_8));
     byte[] value = new byte[] {0, 1, 2};
 
     Void unused = service.put(key, value).get();
@@ -44,54 +41,34 @@ public final class FingerprintValueServiceTest {
     assertThat(service.get(key).get()).isSameInstanceAs(value);
   }
 
-  enum FingerprintFunction {
-    MURMUR3_64(Hashing.murmur3_32_fixed()),
-    MURMUR3_128(Hashing.murmur3_128()),
-    SHA_256(Hashing.sha256());
-
-    private final HashFunction hashFunction;
-
-    FingerprintFunction(HashFunction hashFunction) {
-      this.hashFunction = hashFunction;
-    }
-
-    HashFunction hashFunction() {
-      return hashFunction;
-    }
-
-    int expectedLength() {
-      return hashFunction.bits() / 8;
-    }
-  }
-
   @Test
-  public void fingerprintConsistent(@TestParameter FingerprintFunction fingerprinter) {
+  public void fingerprint_isConsistent() {
     FingerprintValueService service =
         new FingerprintValueService(
             newSingleThreadExecutor(),
             FingerprintValueStore.inMemoryStore(),
             new FingerprintValueCache(),
-            fingerprinter.hashFunction());
+            FingerprintValueService.NONPROD_FINGERPRINTER);
 
-    assertThat(service.fingerprintPlaceholder().size()).isEqualTo(fingerprinter.expectedLength());
-    assertThat(service.fingerprintLength()).isEqualTo(fingerprinter.expectedLength());
+    assertThat(service.fingerprintPlaceholder().toBytes().length).isEqualTo(16);
+    assertThat(service.fingerprintLength()).isEqualTo(16);
 
     byte[] testValue = new byte[] {0, 1, 2};
-    ByteString testFingerprint = service.fingerprint(testValue);
+    PackedFingerprint testFingerprint = service.fingerprint(testValue);
 
     assertThat(testFingerprint).isNotEqualTo(service.fingerprintPlaceholder());
-    assertThat(testFingerprint.size()).isEqualTo(fingerprinter.expectedLength());
+    assertThat(testFingerprint.toBytes().length).isEqualTo(16);
   }
 
   @Test
-  public void exectutor_passesThrough() {
+  public void executor_passesThrough() {
     Executor executor = newSingleThreadExecutor();
     FingerprintValueService service =
         new FingerprintValueService(
             executor,
             FingerprintValueStore.inMemoryStore(),
             new FingerprintValueCache(),
-            Hashing.murmur3_128());
+            FingerprintValueService.NONPROD_FINGERPRINTER);
     assertThat(service.getExecutor()).isSameInstanceAs(executor);
   }
 }

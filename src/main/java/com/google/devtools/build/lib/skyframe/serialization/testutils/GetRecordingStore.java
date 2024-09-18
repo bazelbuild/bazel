@@ -19,7 +19,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
-import com.google.protobuf.ByteString;
+import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import javax.annotation.Nullable;
@@ -29,19 +29,19 @@ import javax.annotation.Nullable;
  * operations and makes their completion controllable by the caller.
  */
 public final class GetRecordingStore implements FingerprintValueStore {
-  private final ConcurrentHashMap<ByteString, byte[]> fingerprintToContents =
+  private final ConcurrentHashMap<PackedFingerprint, byte[]> fingerprintToContents =
       new ConcurrentHashMap<>();
 
   private final LinkedBlockingQueue<GetRequest> requestQueue = new LinkedBlockingQueue<>();
 
   @Override
-  public ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
+  public ListenableFuture<Void> put(PackedFingerprint fingerprint, byte[] serializedBytes) {
     fingerprintToContents.put(fingerprint, serializedBytes);
     return immediateVoidFuture();
   }
 
   @Override
-  public ListenableFuture<byte[]> get(ByteString fingerprint) {
+  public ListenableFuture<byte[]> get(PackedFingerprint fingerprint) {
     SettableFuture<byte[]> response = SettableFuture.create();
     requestQueue.offer(new GetRequest(this, fingerprint, response));
     return response;
@@ -58,7 +58,7 @@ public final class GetRecordingStore implements FingerprintValueStore {
 
   /** Encapsulates a {@link #get} operation. */
   public record GetRequest(
-      GetRecordingStore parent, ByteString fingerprint, SettableFuture<byte[]> response) {
+      GetRecordingStore parent, PackedFingerprint fingerprint, SettableFuture<byte[]> response) {
     /**
      * Completes the {@link #response} by looking up the {@link #fingerprint} in the {@link
      * #parent}'s in-memory map.

@@ -138,7 +138,8 @@ public final class FrontierSerializer {
             // of this key.
             writeStatuses.add(
                 fingerprintValueService.put(
-                    keyBytes.getObject(), valueBytes.getObject().toByteArray()));
+                    fingerprintValueService.fingerprint(keyBytes.getObject()),
+                    valueBytes.getObject().toByteArray()));
             frontierValueCount.getAndIncrement();
             eventBus.post(new SerializedNodeEvent(key));
           } catch (SerializationException e) {

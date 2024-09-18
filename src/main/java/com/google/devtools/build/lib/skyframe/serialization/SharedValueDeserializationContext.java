@@ -274,8 +274,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
       T parent,
       FieldSetter<? super T> setter)
       throws IOException, SerializationException {
-    ByteString fingerprint =
-        ByteString.copyFrom(codedIn.readRawBytes(fingerprintValueService.fingerprintLength()));
+    PackedFingerprint fingerprint = PackedFingerprint.readFrom(codedIn);
     SettableFuture<Object> getOperation = SettableFuture.create();
     Object previous =
         fingerprintValueService.getOrClaimGetOperation(fingerprint, distinguisher, getOperation);
@@ -313,7 +312,7 @@ final class SharedValueDeserializationContext extends MemoizingDeserializationCo
   }
 
   private <T> void readValueForFingerprint(
-      ByteString fingerprint,
+      PackedFingerprint fingerprint,
       DeferredObjectCodec<?> codec,
       T parent,
       FieldSetter<? super T> setter,

@@ -18,7 +18,6 @@ import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nullable;
@@ -33,7 +32,7 @@ public interface FingerprintValueStore {
    *
    * @return a future that completes when the write completes
    */
-  ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes);
+  ListenableFuture<Void> put(PackedFingerprint fingerprint, byte[] serializedBytes);
 
   /**
    * Retrieves the serialized bytes associated with {@code fingerprint}.
@@ -44,7 +43,7 @@ public interface FingerprintValueStore {
    * <p>The caller should deduplicate {@code get} calls to avoid multiple fetches of the same
    * fingerprint.
    */
-  ListenableFuture<byte[]> get(ByteString fingerprint) throws IOException;
+  ListenableFuture<byte[]> get(PackedFingerprint fingerprint) throws IOException;
 
   /**
    * {@link FingerprintValueStore#get} was called with a fingerprint that does not exist in the
@@ -52,11 +51,12 @@ public interface FingerprintValueStore {
    */
   final class MissingFingerprintValueException extends Exception {
 
-    public MissingFingerprintValueException(ByteString fingerprint) {
+    public MissingFingerprintValueException(PackedFingerprint fingerprint) {
       this(fingerprint, /* cause= */ null);
     }
 
-    public MissingFingerprintValueException(ByteString fingerprint, @Nullable Throwable cause) {
+    public MissingFingerprintValueException(
+        PackedFingerprint fingerprint, @Nullable Throwable cause) {
       super("No remote value for " + fingerprint, cause);
     }
   }
@@ -67,17 +67,17 @@ public interface FingerprintValueStore {
 
   /** An in-memory {@link FingerprintValueStore} for testing. */
   static class InMemoryFingerprintValueStore implements FingerprintValueStore {
-    private final ConcurrentHashMap<ByteString, byte[]> fingerprintToContents =
+    private final ConcurrentHashMap<PackedFingerprint, byte[]> fingerprintToContents =
         new ConcurrentHashMap<>();
 
     @Override
-    public ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
+    public ListenableFuture<Void> put(PackedFingerprint fingerprint, byte[] serializedBytes) {
       fingerprintToContents.put(fingerprint, serializedBytes);
       return immediateVoidFuture();
     }
 
     @Override
-    public ListenableFuture<byte[]> get(ByteString fingerprint) {
+    public ListenableFuture<byte[]> get(PackedFingerprint fingerprint) {
       byte[] serializedBytes = fingerprintToContents.get(fingerprint);
       if (serializedBytes == null) {
         return immediateFailedFuture(new MissingFingerprintValueException(fingerprint));

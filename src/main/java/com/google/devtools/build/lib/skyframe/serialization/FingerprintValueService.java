@@ -13,11 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import static com.google.common.hash.Hashing.murmur3_128;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.hash.HashFunction;
-import com.google.common.hash.Hashing;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.ByteString;
@@ -38,6 +37,15 @@ public final class FingerprintValueService {
     FingerprintValueService create(OptionsParsingResult options);
   }
 
+  /** Injectable implementation of the fingerprint function. */
+  public interface Fingerprinter {
+    PackedFingerprint fingerprint(byte[] input);
+  }
+
+  /** A {@link Fingerprinter} implementation for non-production use. */
+  public static final Fingerprinter NONPROD_FINGERPRINTER =
+      input -> PackedFingerprint.fromBytes(murmur3_128().hashBytes(input).asBytes());
+
   private final Executor executor;
   private final FingerprintValueStore store;
   private final FingerprintValueCache cache;
@@ -47,9 +55,9 @@ public final class FingerprintValueService {
    *
    * <p>Used to derive {@link #fingerprintPlaceholder} and {@link #fingerprintLength}.
    */
-  private final HashFunction hashFunction;
+  private final Fingerprinter fingerprinter;
 
-  private final ByteString fingerprintPlaceholder;
+  private final PackedFingerprint fingerprintPlaceholder;
   private final int fingerprintLength;
 
   @VisibleForTesting
@@ -71,30 +79,30 @@ public final class FingerprintValueService {
   private static FingerprintValueService createForTesting(
       FingerprintValueStore store, FingerprintValueCache.SyncMode mode) {
     return new FingerprintValueService(
-        newSingleThreadExecutor(), store, new FingerprintValueCache(mode), Hashing.murmur3_128());
+        newSingleThreadExecutor(), store, new FingerprintValueCache(mode), NONPROD_FINGERPRINTER);
   }
 
   public FingerprintValueService(
       Executor executor,
       FingerprintValueStore store,
       FingerprintValueCache cache,
-      HashFunction hashFunction) {
+      Fingerprinter fingerprinter) {
     this.executor = executor;
     this.store = store;
     this.cache = cache;
-    this.hashFunction = hashFunction;
+    this.fingerprinter = fingerprinter;
 
     this.fingerprintPlaceholder = fingerprint(new byte[] {});
-    this.fingerprintLength = fingerprintPlaceholder.size();
+    this.fingerprintLength = fingerprintPlaceholder.toBytes().length;
   }
 
   /** Delegates to {@link FingerprintValueStore#put}. */
-  public ListenableFuture<Void> put(ByteString fingerprint, byte[] serializedBytes) {
+  public ListenableFuture<Void> put(PackedFingerprint fingerprint, byte[] serializedBytes) {
     return store.put(fingerprint, serializedBytes);
   }
 
   /** Delegates to {@link FingerprintValueStore#get}. */
-  ListenableFuture<byte[]> get(ByteString fingerprint) throws IOException {
+  ListenableFuture<byte[]> get(PackedFingerprint fingerprint) throws IOException {
     return store.get(fingerprint);
   }
 
@@ -108,15 +116,20 @@ public final class FingerprintValueService {
   /** Delegates to {@link FingerprintValueCache#getOrClaimGetOperation}. */
   @Nullable
   Object getOrClaimGetOperation(
-      ByteString fingerprint,
+      PackedFingerprint fingerprint,
       @Nullable Object distinguisher,
       ListenableFuture<Object> getOperation) {
     return cache.getOrClaimGetOperation(fingerprint, distinguisher, getOperation);
   }
 
   /** Computes the fingerprint of {@code bytes}. */
-  ByteString fingerprint(byte[] bytes) {
-    return ByteString.copyFrom(hashFunction.hashBytes(bytes).asBytes());
+  public PackedFingerprint fingerprint(byte[] bytes) {
+    return fingerprinter.fingerprint(bytes);
+  }
+
+  /** Convenience overload of {@link #fingerprint(byte[])}. */
+  public PackedFingerprint fingerprint(ByteString bytes) {
+    return fingerprint(bytes.toByteArray());
   }
 
   /**
@@ -125,7 +138,7 @@ public final class FingerprintValueService {
    * <p>The placeholder has the same length as the real fingerprint so the real fingerprint can
    * overwrite the placeholder when it becomes available.
    */
-  ByteString fingerprintPlaceholder() {
+  PackedFingerprint fingerprintPlaceholder() {
     return fingerprintPlaceholder;
   }
 

@@ -19,10 +19,10 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.PutOperation;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
@@ -86,7 +86,7 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
       PutOperation fingerprintComputationResult =
           nestedSetStore.computeFingerprintAndStore((Object[]) obj.getChildren(), context);
       context.addFutureToBlockWritingOn(fingerprintComputationResult.writeStatus());
-      codedOut.writeByteArrayNoTag(fingerprintComputationResult.fingerprint().toByteArray());
+      fingerprintComputationResult.fingerprint().writeTo(codedOut);
     }
     interner.put(new EqualsWrapper(obj), obj);
   }
@@ -106,7 +106,7 @@ public class NestedSetCodecWithStore implements ObjectCodec<NestedSet<?>> {
       }
       case NONLEAF -> {
         int depth = codedIn.readInt32();
-        ByteString fingerprint = ByteString.copyFrom(codedIn.readByteArray());
+        var fingerprint = PackedFingerprint.readFrom(codedIn);
         return intern(order, depth, nestedSetStore.getContentsAndDeserialize(fingerprint, context));
       }
     }

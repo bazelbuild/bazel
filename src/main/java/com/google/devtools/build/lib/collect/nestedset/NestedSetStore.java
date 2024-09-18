@@ -29,11 +29,11 @@ import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
+import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.PutOperation;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationDependencyProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.CodedInputStream;
 import com.google.protobuf.CodedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -182,8 +182,9 @@ public class NestedSetStore {
     }
 
     byte[] serializedBytes = byteArrayOutputStream.toByteArray();
-    ByteString fingerprint =
-        ByteString.copyFrom(Hashing.md5().hashBytes(serializedBytes).asBytes());
+    // TODO: b/368012715 - reconsider use of md5.
+    PackedFingerprint fingerprint =
+        PackedFingerprint.fromBytes(Hashing.md5().hashBytes(serializedBytes).asBytes());
     SettableFuture<Void> localWriteFuture = SettableFuture.create();
     futureBuilder.add(localWriteFuture);
 
@@ -196,7 +197,7 @@ public class NestedSetStore {
 
     ListenableFuture<Void> writeFuture =
         Futures.whenAllSucceed(futureBuilder.build()).call(() -> null, directExecutor());
-    PutOperation result = PutOperation.create(fingerprint, writeFuture);
+    var result = new PutOperation(fingerprint, writeFuture);
 
     PutOperation existingResult = nestedSetCache.putIfAbsent(contents, result, cacheContext);
     if (existingResult != null) {
@@ -228,7 +229,8 @@ public class NestedSetStore {
    * which may be completed with a {@link MissingFingerprintValueException}.
    */
   Object getContentsAndDeserialize(
-      ByteString fingerprint, DeserializationContext deserializationContext) throws IOException {
+      PackedFingerprint fingerprint, DeserializationContext deserializationContext)
+      throws IOException {
     return getContentsAndDeserialize(
         fingerprint, deserializationContext, cacheContextFn.apply(deserializationContext));
   }
@@ -236,7 +238,9 @@ public class NestedSetStore {
   // All callers will test on type and check return value if it's a future.
   @SuppressWarnings("FutureReturnValueIgnored")
   private Object getContentsAndDeserialize(
-      ByteString fingerprint, DeserializationContext deserializationContext, Object cacheContext)
+      PackedFingerprint fingerprint,
+      DeserializationContext deserializationContext,
+      Object cacheContext)
       throws IOException {
     SettableFuture<Object[]> future = SettableFuture.create();
     Object contents = nestedSetCache.putFutureIfAbsent(fingerprint, future, cacheContext);
@@ -273,10 +277,10 @@ public class NestedSetStore {
                   ImmutableList.builderWithExpectedSize(numberOfElements);
               for (int i = 0; i < numberOfElements; i++) {
                 Object deserializedElement = newDeserializationContext.deserialize(codedIn);
-                if (deserializedElement instanceof ByteString) {
+                if (deserializedElement instanceof PackedFingerprint transitiveFingerprint) {
                   Object innerContents =
                       getContentsAndDeserialize(
-                          (ByteString) deserializedElement, deserializationContext, cacheContext);
+                          transitiveFingerprint, deserializationContext, cacheContext);
                   deserializationFutures.add(maybeWrapInFuture(innerContents));
                 } else {
                   deserializationFutures.add(Futures.immediateFuture(deserializedElement));

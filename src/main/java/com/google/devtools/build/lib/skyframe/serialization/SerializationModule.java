@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe.serialization;
 
 import static java.util.concurrent.ForkJoinPool.commonPool;
 
-import com.google.common.hash.Hashing;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -75,7 +74,7 @@ public class SerializationModule extends BlazeModule {
             // TODO: b/358347099 - use a persistent store
             FingerprintValueStore.inMemoryStore(),
             new FingerprintValueCache(FingerprintValueCache.SyncMode.NOT_LINKED),
-            Hashing.murmur3_128());
+            FingerprintValueService.NONPROD_FINGERPRINTER);
 
     private InMemoryFingerprintValueServiceFactory() {}
 

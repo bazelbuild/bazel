@@ -89,7 +89,11 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
     assertThat(keyBytes.getFutureToBlockWritesOn()).isNull();
 
     if (testCase.equals(InitialQueryCases.IMMEDIATE_EMPTY_VALUE)) {
-      assertThat(fingerprintValueService.put(keyBytes.getObject(), new byte[0]).get()).isNull();
+      assertThat(
+              fingerprintValueService
+                  .put(fingerprintValueService.fingerprint(keyBytes.getObject()), new byte[0])
+                  .get())
+          .isNull();
     }
 
     RetrievalResult result =
@@ -497,7 +501,9 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
 
     var unused =
         fingerprintValueService
-            .put(keyBytes.getObject(), valueBytes.getObject().toByteArray())
+            .put(
+                fingerprintValueService.fingerprint(keyBytes.getObject()),
+                valueBytes.getObject().toByteArray())
             .get();
   }
 

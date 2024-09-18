@@ -132,7 +132,7 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
         recordFuturePut(inflight, codedOut);
         return;
       }
-      codedOut.writeRawBytes((ByteString) previous);
+      ((PackedFingerprint) previous).writeTo(codedOut);
       return;
     }
 
@@ -217,12 +217,12 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
 
     if (childDeferredBytes == null) {
       // There are no deferred bytes so `childBytes` is complete. Starts the upload.
-      ByteString fingerprint = fingerprintValueService.fingerprint(childBytes);
-      codedOut.writeRawBytes(fingerprint); // Writes only the fingerprint to the stream.
+      PackedFingerprint fingerprint = fingerprintValueService.fingerprint(childBytes);
+      fingerprint.writeTo(codedOut); // Writes only the fingerprint to the stream.
       childWriteStatuses.add(fingerprintValueService.put(fingerprint, childBytes));
 
       ListenableFuture<Void> writeStatus = aggregateStatusFutures(childWriteStatuses);
-      putOperation.set(PutOperation.create(fingerprint, writeStatus));
+      putOperation.set(new PutOperation(fingerprint, writeStatus));
       addFutureToBlockWritingOn(writeStatus);
       return;
     }
@@ -238,10 +238,9 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
                   fillPlaceholdersAndCollectWriteStatuses(
                       childDeferredBytes, childBytes, childWriteStatuses);
                   // All placeholders are filled-in. Starts the upload.
-                  ByteString fingerprint = fingerprintValueService.fingerprint(childBytes);
+                  PackedFingerprint fingerprint = fingerprintValueService.fingerprint(childBytes);
                   childWriteStatuses.add(fingerprintValueService.put(fingerprint, childBytes));
-                  return PutOperation.create(
-                      fingerprint, aggregateStatusFutures(childWriteStatuses));
+                  return new PutOperation(fingerprint, aggregateStatusFutures(childWriteStatuses));
                 },
                 directExecutor());
 
@@ -292,7 +291,7 @@ abstract class SharedValueSerializationContext extends MemoizingSerializationCon
     }
     futurePuts.add(new FuturePut(codedOut.getTotalBytesWritten(), futurePut));
     // Adds a placeholder for the real fingerprint to be filled in after the future completes.
-    codedOut.writeRawBytes(fingerprintValueService.fingerprintPlaceholder());
+    fingerprintValueService.fingerprintPlaceholder().writeTo(codedOut);
   }
 
   private final SerializationResult<ByteString> createResult(byte[] bytes)

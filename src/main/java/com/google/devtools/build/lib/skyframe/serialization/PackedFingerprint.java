@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.errorprone.annotations.Keep;
@@ -63,6 +64,16 @@ public record PackedFingerprint(long lo, long hi) {
         offsetZeros((long) LONG_ARRAY_HANDLE.get(bytes, 8)));
   }
 
+  /** Reads a fingerprint from {@code codedIn} that was written by {@link #writeTo}. */
+  public static PackedFingerprint readFrom(CodedInputStream codedIn) throws IOException {
+    return new PackedFingerprint(codedIn.readFixed64(), codedIn.readFixed64());
+  }
+
+  @VisibleForTesting
+  public static PackedFingerprint getFingerprintForTesting(String key) {
+    return FingerprintValueService.NONPROD_FINGERPRINTER.fingerprint(key.getBytes(UTF_8));
+  }
+
   /** Produces the {@code byte[]} representation of this fingerprint. */
   public byte[] toBytes() {
     byte[] result = new byte[BYTES];
@@ -82,6 +93,12 @@ public record PackedFingerprint(long lo, long hi) {
   public void copyTo(byte[] bytes, int offset) {
     LONG_ARRAY_HANDLE.set(bytes, offset, lo);
     LONG_ARRAY_HANDLE.set(bytes, offset + 8, hi);
+  }
+
+  /** Writes fingerprint data to {@code codedOut} such that it can be read by {@link #readFrom}. */
+  public void writeTo(CodedOutputStream codedOut) throws IOException {
+    codedOut.writeFixed64NoTag(lo);
+    codedOut.writeFixed64NoTag(hi);
   }
 
   @Override
@@ -130,14 +147,13 @@ public record PackedFingerprint(long lo, long hi) {
     public void serialize(
         LeafSerializationContext context, PackedFingerprint obj, CodedOutputStream codedOut)
         throws IOException {
-      codedOut.writeInt64NoTag(obj.lo());
-      codedOut.writeInt64NoTag(obj.hi());
+      obj.writeTo(codedOut);
     }
 
     @Override
     public PackedFingerprint deserialize(
         LeafDeserializationContext context, CodedInputStream codedIn) throws IOException {
-      return new PackedFingerprint(codedIn.readInt64(), codedIn.readInt64());
+      return PackedFingerprint.readFrom(codedIn);
     }
   }
 

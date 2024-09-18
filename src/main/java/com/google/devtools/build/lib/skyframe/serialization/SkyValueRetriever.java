@@ -195,7 +195,9 @@ public final class SkyValueRetriever {
               }
               ListenableFuture<byte[]> valueBytes;
               try {
-                valueBytes = fingerprintValueService.get(keyBytes.getObject());
+                valueBytes =
+                    fingerprintValueService.get(
+                        fingerprintValueService.fingerprint(keyBytes.getObject()));
               } catch (IOException e) {
                 throw new SerializationException("key lookup failed for " + key, e);
               }
