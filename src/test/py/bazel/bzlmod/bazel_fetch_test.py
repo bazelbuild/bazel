@@ -304,6 +304,44 @@ class BazelFetchTest(test_base.TestBase):
     _, stdout, _ = self.RunBazel(['run', '//:main', '--nofetch'])
     self.assertIn('Hello there! => aaa@1.0', stdout)
 
+  def testFetchWithTargetPatternFile(self):
+    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+        'bbb', '1.0', {'aaa': '1.0'}
+    )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "bbb", version = "1.0")',
+        ],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = [',
+            '    "@bbb//:lib_bbb",',
+            '  ],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main.cc',
+        [
+            '#include "aaa.h"',
+            'int main() {',
+            '    hello_aaa("Hello there!");',
+            '}',
+        ],
+    )
+    self.ScratchFile('targets.params', ['//:main'])
+    self.RunBazel(['fetch', '--target_pattern_file=targets.params'])
+    # If we can run the target with --nofetch, this means we successfully
+    # fetched all its needed repos
+    _, stdout, _ = self.RunBazel(['run', '//:main', '--nofetch'])
+    self.assertIn('Hello there! => aaa@1.0', stdout)
+
 
 if __name__ == '__main__':
   absltest.main()
