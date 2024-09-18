@@ -639,6 +639,37 @@ class BazelVendorTest(test_base.TestBase):
     self.assertIn('bbb+', os.listdir(self._test_cwd + '/vendor'))
     self.assertNotIn('ccc+', os.listdir(self._test_cwd + '/vendor'))
 
+  def testVendorWithTargetPatternFile(self):
+    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+        'bbb', '1.0'
+    ).createCcModule('ccc', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'bazel_dep(name = "bbb", version = "1.0")',
+            'bazel_dep(name = "ccc", version = "1.0")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'targets.params',
+        [
+            '@aaa//:lib_aaa',
+            '@bbb//:lib_bbb',
+        ],
+    )
+
+    self.RunBazel([
+        'vendor',
+        '--target_pattern_file=targets.params',
+        '--vendor_dir=vendor',
+    ])
+    # Assert aaa & bbb and are vendored
+    self.assertIn('aaa+', os.listdir(self._test_cwd + '/vendor'))
+    self.assertIn('bbb+', os.listdir(self._test_cwd + '/vendor'))
+    self.assertNotIn('ccc+', os.listdir(self._test_cwd + '/vendor'))
+
   def testBuildVendoredTargetOffline(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
