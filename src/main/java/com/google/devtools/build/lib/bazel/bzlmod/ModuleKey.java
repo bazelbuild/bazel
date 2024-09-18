@@ -15,17 +15,18 @@
 
 package com.google.devtools.build.lib.bazel.bzlmod;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
+import com.google.errorprone.annotations.InlineMe;
 import java.util.Comparator;
 import java.util.List;
 
 /** A module name, version pair that identifies a module in the external dependency graph. */
-@AutoValue
-public abstract class ModuleKey {
+@AutoCodec
+public record ModuleKey(String name, Version version) {
 
   /**
    * A mapping from module name to repository name for certain special "well-known" modules.
@@ -50,20 +51,31 @@ public abstract class ModuleKey {
           "platforms",
           RepositoryName.createUnvalidated("platforms"));
 
-  public static final ModuleKey ROOT = create("", Version.EMPTY);
+  public static final ModuleKey ROOT = new ModuleKey("", Version.EMPTY);
 
   public static final Comparator<ModuleKey> LEXICOGRAPHIC_COMPARATOR =
       Comparator.comparing(ModuleKey::getName).thenComparing(ModuleKey::getVersion);
 
+  /**
+   * @deprecated Call the constructor directly.
+   */
+  @InlineMe(
+      replacement = "new ModuleKey(name, version)",
+      imports = "com.google.devtools.build.lib.bazel.bzlmod.ModuleKey")
+  @Deprecated
   public static ModuleKey create(String name, Version version) {
-    return new AutoValue_ModuleKey(name, version);
+    return new ModuleKey(name, version);
   }
 
   /** The name of the module. Must be empty for the root module. */
-  public abstract String getName();
+  public String getName() {
+    return name();
+  }
 
   /** The version of the module. Must be empty iff the module has a {@link NonRegistryOverride}. */
-  public abstract Version getVersion();
+  public Version getVersion() {
+    return version();
+  }
 
   @Override
   public final String toString() {
@@ -139,10 +151,10 @@ public abstract class ModuleKey {
     }
     List<String> parts = Splitter.on('@').splitToList(s);
     if (parts.get(1).equals("_")) {
-      return ModuleKey.create(parts.get(0), Version.EMPTY);
+      return new ModuleKey(parts.get(0), Version.EMPTY);
     }
 
     Version version = Version.parse(parts.get(1));
-    return ModuleKey.create(parts.get(0), version);
+    return new ModuleKey(parts.get(0), version);
   }
 }
