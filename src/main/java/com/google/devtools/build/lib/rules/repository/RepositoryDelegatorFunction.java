@@ -621,6 +621,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
   }
 
   private static class DigestWriter {
+    // Input value map to force repo invalidation.
+    private static final ImmutableMap<RepoRecordedInput, String> NOT_UP_TO_DATE = ImmutableMap.of(
+        RepoRecordedInput.NEVER_UP_TO_DATE, "");
+
     private final BlazeDirectories directories;
     private final Path markerPath;
     private final Rule rule;
@@ -702,8 +706,6 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         String content, String expectedRuleKey) {
       Iterable<String> lines = Splitter.on('\n').split(content);
 
-      ImmutableMap<RepoRecordedInput, String> notUpToDate = ImmutableMap.of(
-          RepoRecordedInput.NEVER_UP_TO_DATE, "");
       @Nullable Map<RepoRecordedInput, String> recordedInputValues = null;
       boolean firstLineVerified = false;
       for (String line : lines) {
@@ -714,7 +716,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           if (!line.equals(expectedRuleKey)) {
             // Break early, need to reload anyway. This also detects marker file version changes
             // so that unknown formats are not parsed.
-            return notUpToDate;
+            return NOT_UP_TO_DATE;
           }
           firstLineVerified = true;
           recordedInputValues = new TreeMap<>();
@@ -728,11 +730,11 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
             }
           }
           // On parse failure, just forget everything else and mark the whole input out of date.
-          return notUpToDate;
+          return NOT_UP_TO_DATE;
         }
       }
       if (!firstLineVerified) {
-        return notUpToDate;
+        return NOT_UP_TO_DATE;
       }
       return Preconditions.checkNotNull(recordedInputValues);
     }
