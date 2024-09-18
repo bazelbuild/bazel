@@ -26,6 +26,7 @@ load("@_builtins//:common/python/py_library_macro.bzl", "py_library")
 load("@_builtins//:common/python/py_test_macro.bzl", "py_test")
 load(":bazel/java/bazel_java_binary.bzl", "java_test")
 load(":bazel/java/bazel_java_binary_wrapper.bzl", "java_binary")
+load(":bazel/sh/sh_library.bzl", "sh_library")
 load(":common/java/java_package_configuration.bzl", "java_package_configuration")
 load(":common/java/java_runtime.bzl", "java_runtime")
 load(":common/java/java_toolchain.bzl", "java_toolchain")
@@ -56,5 +57,6 @@ exported_rules = {
     "py_binary": py_binary,
     "py_test": py_test,
     "py_library": py_library,
+    "sh_library": sh_library,
 }
 exported_to_java = {}
