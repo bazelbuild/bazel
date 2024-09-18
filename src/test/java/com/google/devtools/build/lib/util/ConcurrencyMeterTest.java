@@ -31,6 +31,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.Future.State;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -46,30 +47,35 @@ public final class ConcurrencyMeterTest {
   @Test
   public void testGrant() throws Exception {
     ConcurrencyMeter scheduler = new ConcurrencyMeter("meter", 3, BlazeClock.instance());
+    AtomicBoolean isQueued = new AtomicBoolean(false);
 
-    ListenableFuture<Ticket> req1 = scheduler.request(2, 0);
+    ListenableFuture<Ticket> req1 = scheduler.request(2, 0, () -> isQueued.set(true));
     assertFutureIsSuccessful(req1);
     assertThat(scheduler.queueSize()).isEqualTo(0);
+    assertThat(isQueued.get()).isFalse();
     req1.get().done();
 
-    ListenableFuture<Ticket> req2 = scheduler.request(2, 0);
+    ListenableFuture<Ticket> req2 = scheduler.request(2, 0, () -> isQueued.set(true));
     assertFutureIsSuccessful(req2);
 
-    ListenableFuture<Ticket> req3 = scheduler.request(1, 0);
+    ListenableFuture<Ticket> req3 = scheduler.request(1, 0, () -> isQueued.set(true));
     assertFutureIsSuccessful(req3);
+    assertThat(isQueued.get()).isFalse();
     assertThat(scheduler.queueSize()).isEqualTo(0);
   }
 
   @Test
   public void testBlock() throws Exception {
     ConcurrencyMeter scheduler = new ConcurrencyMeter("meter", 3, BlazeClock.instance());
+    AtomicBoolean isQueued = new AtomicBoolean(false);
 
-    ListenableFuture<Ticket> req1 = scheduler.request(2, 0);
+    ListenableFuture<Ticket> req1 = scheduler.request(2, 0, () -> isQueued.set(true));
     assertFutureIsSuccessful(req1);
 
-    ListenableFuture<Ticket> req2 = scheduler.request(2, 0);
+    ListenableFuture<Ticket> req2 = scheduler.request(2, 0, () -> isQueued.set(true));
     assertThat(req2.isDone()).isFalse();
     assertThat(scheduler.queueSize()).isEqualTo(1);
+    assertThat(isQueued.get()).isTrue();
 
     req1.get().done();
     assertFutureIsSuccessful(req2);
