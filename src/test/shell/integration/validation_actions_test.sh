@@ -519,9 +519,7 @@ function test_validation_actions_flags() {
   expect_log "Target //validation_actions:foo0 up-to-date:"
 }
 
-function test_validation_actions_in_rule_and_aspect() {
-  setup_test_project
-
+function setup_validation_tool_aspect() {
   mkdir -p aspect
   cat > aspect/BUILD <<'EOF'
 exports_files(["aspect_validation_tool"])
@@ -553,10 +551,20 @@ EOF
 echo "aspect validation output" > $1
 EOF
   chmod +x aspect/aspect_validation_tool
+}
+
+function test_validation_actions_in_rule_and_aspect_no_use_validation_aspect() {
+  setup_test_project
+  setup_validation_tool_aspect
   setup_passing_validation_action
 
   bazel build --run_validations --aspects=//aspect:def.bzl%validation_aspect \
+      --noexperimental_use_validation_aspect \
       //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
+  expect_log "Target //validation_actions:foo0 up-to-date:"
+  expect_log "validation_actions/foo0.main"
+  assert_exists bazel-bin/validation_actions/foo0.validation
+  assert_exists bazel-bin/validation_actions/foo0.aspect_validation
 
   cat > aspect/aspect_validation_tool <<'EOF'
 #!/bin/bash
@@ -565,6 +573,32 @@ exit 1
 EOF
 
   bazel build --run_validations --aspects=//aspect:def.bzl%validation_aspect \
+      --noexperimental_use_validation_aspect \
+      //validation_actions:foo0 >& "$TEST_log" && fail "Expected build to fail"
+  expect_log "aspect validation failed!"
+}
+
+function test_validation_actions_in_rule_and_aspect_use_validation_aspect() {
+  setup_test_project
+  setup_validation_tool_aspect
+  setup_passing_validation_action
+
+  bazel build --run_validations --aspects=//aspect:def.bzl%validation_aspect \
+      --experimental_use_validation_aspect \
+      //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
+  expect_log "Target //validation_actions:foo0 up-to-date:"
+  expect_log "validation_actions/foo0.main"
+  assert_exists bazel-bin/validation_actions/foo0.validation
+  assert_exists bazel-bin/validation_actions/foo0.aspect_validation
+
+  cat > aspect/aspect_validation_tool <<'EOF'
+#!/bin/bash
+echo "aspect validation failed!"
+exit 1
+EOF
+
+  bazel build --run_validations --aspects=//aspect:def.bzl%validation_aspect \
+      --experimental_use_validation_aspect \
       //validation_actions:foo0 >& "$TEST_log" && fail "Expected build to fail"
   expect_log "aspect validation failed!"
 }
