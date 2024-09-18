@@ -681,13 +681,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
         return null;
       }
 
-      Map<RepoRecordedInput, String> recordedInputValues = new TreeMap<>();
-      String content;
       try {
-        content = FileSystemUtils.readContent(markerPath, UTF_8);
-        if (!readMarkerFile(content, Preconditions.checkNotNull(ruleKey), recordedInputValues)) {
-          return null;
-        }
+        String content = FileSystemUtils.readContent(markerPath, UTF_8);
+        Map<RepoRecordedInput, String> recordedInputValues = readMarkerFile(
+            content, Preconditions.checkNotNull(ruleKey));
         if (!handler.verifyRecordedInputs(rule, directories, recordedInputValues, env)) {
           return null;
         }
@@ -701,10 +698,13 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
     }
 
     @Nullable
-    private static boolean readMarkerFile(
-        String content, String expectedRuleKey, Map<RepoRecordedInput, String> recordedInputValues) {
+    private static Map<RepoRecordedInput, String> readMarkerFile(
+        String content, String expectedRuleKey) {
       Iterable<String> lines = Splitter.on('\n').split(content);
 
+      ImmutableMap<RepoRecordedInput, String> notUpToDate = ImmutableMap.of(
+          RepoRecordedInput.NEVER_UP_TO_DATE, "");
+      @Nullable Map<RepoRecordedInput, String> recordedInputValues = null;
       boolean firstLineVerified = false;
       for (String line : lines) {
         if (line.isEmpty()) {
@@ -714,9 +714,10 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
           if (!line.equals(expectedRuleKey)) {
             // Break early, need to reload anyway. This also detects marker file version changes
             // so that unknown formats are not parsed.
-            return false;
+            return notUpToDate;
           }
           firstLineVerified = true;
+          recordedInputValues = new TreeMap<>();
         } else {
           int sChar = line.indexOf(' ');
           if (sChar > 0) {
@@ -727,12 +728,13 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
             }
           }
           // On parse failure, just forget everything else and mark the whole input out of date.
-          recordedInputValues.clear();
-          recordedInputValues.put(RepoRecordedInput.NEVER_UP_TO_DATE, "");
-          break;
+          return notUpToDate;
         }
       }
-      return firstLineVerified;
+      if (!firstLineVerified) {
+        return notUpToDate;
+      }
+      return Preconditions.checkNotNull(recordedInputValues);
     }
 
     private String computeRuleKey(Rule rule, StarlarkSemantics starlarkSemantics) {
