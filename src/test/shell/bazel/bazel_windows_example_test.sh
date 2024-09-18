@@ -58,13 +58,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 if ! "$is_windows"; then
   echo "This test suite requires running on Windows. But now is ${PLATFORM}" >&2
   exit 0
@@ -75,8 +68,6 @@ setup_localjdk_javabase
 function set_up() {
   copy_examples
   setup_bazelrc
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
   add_platforms "MODULE.bazel"
   mkdir platforms
   cat >platforms/BUILD <<EOF

@@ -50,11 +50,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function test_rules_cc_can_be_overridden() {
   # The bazelrc file might contain an --override_repository flag for rules_cc,
   # which would cause this test to fail to override the repo via a WORKSPACE file.

@@ -49,13 +49,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function _create_pkg() {
   # Define dummy CPU and OS constraints (cpu1 and cpu2, and os1 and os2).
   # Also define platforms for each combination.

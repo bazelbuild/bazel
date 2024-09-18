@@ -56,13 +56,6 @@ msys*)
   ;;
 esac
 
-if "$is_windows"; then
-  # Disable MSYS path conversion that converts path-looking command arguments to
-  # Windows paths (even if they arguments are not in fact paths).
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
-fi
-
 function set_up() {
   local java_tools_rlocation=$(rlocation io_bazel/src/java_tools.zip)
   local java_tools_zip_file_url="file://${java_tools_rlocation}"

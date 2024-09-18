@@ -57,8 +57,6 @@ esac
 # counts and manifest checks in test_foo_runfiles.
 # TODO(#8169): Update this test and remove the toolchain opt-out.
 if "$is_windows"; then
-  export MSYS_NO_PATHCONV=1
-  export MSYS2_ARG_CONV_EXCL="*"
   export EXT=".exe"
   export EXTRA_STARTUP_FLAGS="--windows_enable_symlinks"
   export EXTRA_BUILD_FLAGS="--incompatible_use_python_toolchains=false \
