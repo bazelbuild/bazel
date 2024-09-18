@@ -667,9 +667,9 @@ class BazelVendorTest(test_base.TestBase):
         '--vendor_dir=vendor',
     ])
     # Assert aaa & bbb and are vendored
-    self.assertIn('aaa+', os.listdir(self._test_cwd + '/vendor'))
-    self.assertIn('bbb+', os.listdir(self._test_cwd + '/vendor'))
-    self.assertNotIn('ccc+', os.listdir(self._test_cwd + '/vendor'))
+    self.assertIn('aaa~', os.listdir(self._test_cwd + '/vendor'))
+    self.assertIn('bbb~', os.listdir(self._test_cwd + '/vendor'))
+    self.assertNotIn('ccc~', os.listdir(self._test_cwd + '/vendor'))
 
   def testBuildVendoredTargetOffline(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
