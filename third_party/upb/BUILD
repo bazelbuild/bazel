@@ -7,6 +7,5 @@ filegroup(
 )
 
 exports_files([
-    "BUILD",
     "00_remove_toolchain_transition.patch",
 ])

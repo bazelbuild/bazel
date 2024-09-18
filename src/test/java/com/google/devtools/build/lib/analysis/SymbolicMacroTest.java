@@ -19,12 +19,15 @@ import static com.google.common.truth.Truth.assertThat;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
+import java.util.ArrayList;
 import javax.annotation.Nullable;
 import org.junit.Assert;
 import org.junit.Before;
@@ -1001,6 +1004,74 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   }
 
   @Test
+  public void noneAttrValue_canAppearInSelects() throws Exception {
+    // None can appear as a value in a select() entry, and its meaning is "in this case, use
+    // whatever default would've been chosen if this attribute weren't specified" -- i.e. the same
+    // behavior as when None is used as the whole attribute value.
+    //
+    // The three cases for using a default value are 1) the attribute schema specifies a default, or
+    // else 2) the attribute type specifies a hardcoded default that is a valid value for the type
+    // (e.g. the empty string for StringType), or 3) the attribute type uses null as its hardcoded
+    // default, which we represent in Starlark as None at rule analysis time. We exercise all three
+    // cases here.
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, attr_using_schema_default, attr_using_hardcoded_nonnull_default,
+                  attr_using_hardcoded_null_default):
+            print("attr_using_schema_default is %s" % attr_using_schema_default)
+            print("attr_using_hardcoded_nonnull_default is %s"
+                      % attr_using_hardcoded_nonnull_default)
+            print("attr_using_hardcoded_null_default is %s" % attr_using_hardcoded_null_default)
+        my_macro = macro(
+            implementation=_impl,
+            attrs = {
+              "attr_using_schema_default": attr.string(default="some_default"),
+              "attr_using_hardcoded_nonnull_default": attr.string(),
+              "attr_using_hardcoded_null_default": attr.label(),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+            attr_using_schema_default = select({
+                "//common:some_configsetting": None,
+                "//conditions:default": None,
+            }),
+            attr_using_hardcoded_nonnull_default = select({
+                "//common:some_configsetting": None,
+                "//conditions:default": None,
+            }),
+            attr_using_hardcoded_null_default = select({
+                "//common:some_configsetting": None,
+                "//conditions:default": None,
+            }),
+        )
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    // From the macro implementation's point of view, the select() entries are still None,
+    // regardless of how they are represented and transformed internally.
+    assertContainsEvent(
+        """
+attr_using_schema_default is select({Label("//common:some_configsetting"): None, \
+Label("//conditions:default"): None})""");
+    assertContainsEvent(
+        """
+attr_using_hardcoded_nonnull_default is select({Label("//common:some_configsetting"): None, \
+Label("//conditions:default"): None})""");
+    assertContainsEvent(
+        """
+attr_using_hardcoded_null_default is select({Label("//common:some_configsetting"): None, \
+Label("//conditions:default"): None})""");
+  }
+
+  @Test
   public void configurableAttrValuesArePromotedToSelects() throws Exception {
     scratch.file("lib/BUILD");
     scratch.file(
@@ -1103,5 +1174,70 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     assertPackageNotInError(pkg);
     assertContainsEvent("xyz evaluates to True");
     assertDoesNotContainEvent("xyz evaluates to False");
+  }
+
+  @Test
+  public void labelVisitation() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _impl(name, **kwargs):
+            pass
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {
+              "singular": attr.label(configurable=False),
+              "list": attr.label_list(configurable=False),
+              "not_a_label": attr.string_list(configurable=False),
+              "output": attr.output(),  # (always nonconfigurable)
+              "configurable": attr.label(),
+              "configurable_withdefault": attr.label(default="//common:configurable_withdefault"),
+              # These are not passed in below.
+              "omitted": attr.label(configurable=False),
+              "_implicit_default": attr.label(default="//common:implicit_default"),
+              "explicit_default": attr.label(default="//common:explicit_default"),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(
+            name = "abc",
+            singular = "//A:A",
+            list = ["//A:A", "//B:B"], # duplicate with previous attr
+            not_a_label = ["qwerty"],
+            output = "out.txt",
+            configurable = select({
+                "//Q:cond1": "//C:C",
+                "//Q:cond2": None,
+                "//conditions:default": "//D:D",
+            }),
+            configurable_withdefault = select({"//conditions:default": None}),
+        )
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    MacroInstance macroInstance = pkg.getMacrosById().get("abc:1");
+    ArrayList<Label> labels = new ArrayList<>();
+    macroInstance.visitExplicitAttributeLabels(labels::add);
+    // Order is the same as the attribute definition order.
+    assertThat(labels.stream().map(Label::toString))
+        .containsExactly(
+            "//A:A",
+            "//A:A", // duplicate not pruned
+            "//B:B",
+            // `not_a_label` and `output` are skipped
+            "//C:C",
+            // //Q:cond2 maps to default, which doesn't exist for that attr
+            "//D:D",
+            "//common:configurable_withdefault", // from attr default
+            // `omitted` ignored, it has no default
+            // `_implicit_default` ignored because it's implicit
+            "//common:explicit_default" // from attr default
+            )
+        .inOrder();
   }
 }

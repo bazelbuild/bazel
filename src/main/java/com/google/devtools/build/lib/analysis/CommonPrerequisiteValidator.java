@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.FunctionSplitTransitionAllowlist;
 import com.google.devtools.build.lib.packages.InputFile;
 import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageSpecification.PackageGroupContents;
 import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
@@ -34,6 +35,7 @@ import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
+import javax.annotation.Nullable;
 
 /**
  * A base implementation of {@link PrerequisiteValidator} that performs common checks based on
@@ -109,6 +111,10 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
     // implicit attributes of Starlark-defined rules and aspects get validated primarily with
     // respect to the .bzl where the rule or aspect is exported, with the location of the target
     // serving only as a fallback for backwards compatibility purposes.
+    //
+    // (We don't do the same for default values of non-implicit attributes. That would introduce a
+    // semantic difference between omitting the attribute (allowing it to be populated by default),
+    // vs. explicitly passing in a value that happens to be the same as its default.)
     boolean validateWithRespectToAttributeDefinition =
         attribute.isImplicit() && context.isStarlarkRuleOrAspect();
     // Also, the special $config_dependencies attribute is always validated as a normal dependency
@@ -118,7 +124,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
 
     if (!validateWithRespectToAttributeDefinition) {
       // Normal case: The attribute must be visible from the target.
-      if (!isVisibleToRule(prerequisite, rule)) {
+      if (!isVisibleToDeclaration(prerequisite, rule)) {
         handleVisibilityConflict(context, prerequisite, rule.getLabel());
       }
     } else {
@@ -137,7 +143,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
       if (!isVisibleToLocation(prerequisite, implicitDefinition.getPackageIdentifier())) {
         // Failed. Validate with respect to the target anyway, for backwards compatibility.
         // TODO(bazel-team): When can this fallback be removed?
-        if (!isVisibleToRule(prerequisite, rule)) {
+        if (!isVisibleToDeclaration(prerequisite, rule)) {
           // True failure. In the error message, always suggest making the prerequisite visible from
           // the definition, not the target.
           handleVisibilityConflict(context, prerequisite, implicitDefinition);
@@ -147,24 +153,59 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
   }
 
   /**
-   * Returns whether {@code prerequisite} is visible to {@code ruleTarget}.
+   * Returns whether {@code prerequisite} is visible to {@code consumingDeclaration}, which can be
+   * either a {@link Rule} target or a {@link MacroInstance}.
    *
-   * <p>This passes if {@code ruleTarget}'s location is allowed by {@code prerequisite}'s visibility
-   * provider or the same-logical-package condition.
+   * <p>In general, this passes if {@code consumingDeclaration}'s location is allowed by {@code
+   * prerequisite}'s visibility provider or the same-logical-package condition.
    *
    * <p>In this context, the "location" of a target means the package containing the defining bzl
    * (i.e. export label) of the symbolic macro that directly declares the target; or the target's
    * package if it was not declared within any symbolic macro.
+   *
+   * <p>As a special case, if {@code consumingDeclaration} was directly created by a symbolic macro
+   * that takes in the {@code prerequisite}'s label (not following {@code alias}es), then before
+   * running the above logic we first substitute the symbolic macro for {@code
+   * consumingDeclaration}. This reflects how the usage of the prerequisite was not really by the
+   * given declaration but rather its parent.
    */
-  // TODO: #19922 - Implement the behavior of delegating the visibility check to the parent macro of
-  // ruleTarget if applicable, as per the Macro-Aware Visibility design. (At that point the
-  // signature of this method will have to be updated to accept either a rule target or a macro.)
-  private boolean isVisibleToRule(ConfiguredTargetAndData prerequisite, Rule ruleTarget) {
-    MacroInstance declaringMacro = ruleTarget.getDeclaringMacro();
+  // TODO: #19922 - Consider replacing use of Object with a new interface abstracting Rule and
+  // MacroInstance.
+  private boolean isVisibleToDeclaration(
+      ConfiguredTargetAndData prerequisite, Object consumingDeclaration) {
+    Package pkg;
+    @Nullable MacroInstance declaringMacro;
+    if (consumingDeclaration instanceof Rule target) {
+      pkg = target.getPackage();
+      declaringMacro = target.getDeclaringMacro();
+    } else if (consumingDeclaration instanceof MacroInstance macroInstance) {
+      pkg = macroInstance.getPackage();
+      declaringMacro = macroInstance.getParent();
+    } else {
+      throw new IllegalArgumentException(
+          "Expected a Rule or MacroInstance, got " + consumingDeclaration.getClass().getName());
+    }
+
+    // Visibility delegation: If we're directly declared by a macro that took this prereq as an
+    // argument from its own caller, then our location is moot, and it's the macro's usage that we
+    // have to validate instead.
+    if (declaringMacro != null) {
+      // Don't conflate an alias with its target.
+      Label prereqLabel = AliasProvider.getDependencyLabel(prerequisite.getConfiguredTarget());
+      boolean[] declaringMacroWasGivenPrereqByCaller = {false};
+      declaringMacro.visitExplicitAttributeLabels(
+          label -> declaringMacroWasGivenPrereqByCaller[0] |= label.equals(prereqLabel));
+      if (declaringMacroWasGivenPrereqByCaller[0]) {
+        return isVisibleToDeclaration(prerequisite, declaringMacro);
+      }
+    }
+
     PackageIdentifier ruleTargetLocation =
         declaringMacro != null
+            // Macro's location.
             ? declaringMacro.getMacroClass().getDefiningBzlLabel().getPackageIdentifier()
-            : ruleTarget.getPackage().getPackageIdentifier();
+            // BUILD file's location.
+            : pkg.getPackageIdentifier();
 
     return isVisibleToLocation(prerequisite, ruleTargetLocation);
   }

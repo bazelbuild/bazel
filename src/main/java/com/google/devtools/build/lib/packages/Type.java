@@ -36,7 +36,6 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Printer;
-import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkList;
@@ -170,7 +169,8 @@ public abstract class Type<T> {
     return convertOptional(x, what, null);
   }
 
-  public abstract T cast(Object value);
+  @Nullable
+  public abstract T cast(@Nullable Object value);
 
   @Override
   public abstract String toString();
@@ -323,31 +323,6 @@ public abstract class Type<T> {
    *                            Subclasses                            *
    *                                                                  *
    ********************************************************************/
-
-  private static final class ObjectType extends Type<Object> {
-    @Override
-    public Object cast(Object value) {
-      return value;
-    }
-
-    @Override
-    public String getDefaultValue() {
-      throw new UnsupportedOperationException("ObjectType has no default value");
-    }
-
-    @Override
-    public void visitLabels(LabelVisitor visitor, Object value, @Nullable Attribute context) {}
-
-    @Override
-    public String toString() {
-      return "object";
-    }
-
-    @Override
-    public Object convert(Object x, Object what, LabelConverter labelConverter) {
-      return Preconditions.checkNotNull(x);
-    }
-  }
 
   // A Starlark integer in the signed 32-bit range (like Java int).
   private static final class IntegerType extends Type<StarlarkInt> {
@@ -786,32 +761,6 @@ public abstract class Type<T> {
       @Override
       public String toString() {
         return "element " + index + " of " + what;
-      }
-    }
-  }
-
-  /** Type for lists of arbitrary objects */
-  public static class ObjectListType extends ListType<Object> {
-
-    private static final Type<Object> elemType = new ObjectType();
-
-    private ObjectListType() {
-      super(elemType);
-    }
-
-    @Override
-    @SuppressWarnings("unchecked")
-    public List<Object> convert(Object x, Object what, LabelConverter labelConverter)
-        throws ConversionException {
-      // TODO(adonovan): converge on Starlark.toIterable.
-      if (x instanceof Sequence) {
-        return ((Sequence<Object>) x).getImmutableList();
-      } else if (x instanceof List) {
-        return (List<Object>) x;
-      } else if (x instanceof Iterable) {
-        return ImmutableList.copyOf((Iterable<?>) x);
-      } else {
-        throw new ConversionException(this, x, what);
       }
     }
   }

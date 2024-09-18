@@ -16,14 +16,16 @@ package com.google.devtools.build.lib.analysis;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
+import com.google.testing.junit.testparameterinjector.TestParameters;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Tests for the how the visibility system works with respect to symbolic macros. */
-@RunWith(JUnit4.class)
+@RunWith(TestParameterInjector.class)
 public final class MacroVisibilityTest extends BuildViewTestCase {
 
   @Before
@@ -40,17 +42,33 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
 
   /**
    * Returns a substring expected to be in the error event reported for a visibility violation from
-   * {@code consumer} to {@code dependency} (expressed as label strings).
+   * {@code consumer} (expressed as a label string) to {@code dependency} (expressed as a label
+   * string, or for {@code alias} targets, the string returned by {@link
+   * AliasProvider#describeTargetWithAliases}).
+   */
+  private String visibilityErrorMessage(
+      String consumer, String dependency, boolean dependencyIsAlias) {
+    if (!dependencyIsAlias) {
+      dependency = String.format("target '%s'", dependency);
+    }
+    return String.format(
+        "Visibility error:\n%s is not visible from\ntarget '%s'", dependency, consumer);
+  }
+
+  /**
+   * Convenience wrapper for {@link #visibilityErrorMessage} for when {@code dependency} is not an
+   * {@code alias}.
    */
   private String visibilityErrorMessage(String consumer, String dependency) {
-    return String.format(
-        "Visibility error:\ntarget '%s' is not visible from\ntarget '%s'", dependency, consumer);
+    return visibilityErrorMessage(consumer, dependency, /* dependencyIsAlias= */ false);
   }
 
   /**
    * Requests the evaluation of the configured target identified by the label {@code consumer}, and
    * asserts that the target analyzes successfully and has a dependency on the target identified by
    * the label {@code dependency}.
+   *
+   * <p>Does not work when {@code dependency} is an {@code alias} target.
    */
   private void assertVisibilityPermits(String consumer, String dependency) throws Exception {
     ConfiguredTarget consumerTarget = getConfiguredTarget(consumer);
@@ -79,7 +97,8 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
    *
    * <p>Removes the {@code failFastHandler}.
    */
-  private void assertVisibilityDisallows(String consumer, String dependency) throws Exception {
+  private void assertVisibilityDisallows(
+      String consumer, String dependency, boolean dependencyIsAlias) throws Exception {
     reporter.removeHandler(failFastHandler);
     ConfiguredTarget consumerTarget = getConfiguredTarget(consumer);
     assertWithMessage(
@@ -88,7 +107,15 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
                 consumer, dependency))
         .that(consumerTarget)
         .isNull();
-    assertContainsEvent(visibilityErrorMessage(consumer, dependency));
+    assertContainsEvent(visibilityErrorMessage(consumer, dependency, dependencyIsAlias));
+  }
+
+  /**
+   * Convenience wrapper for {@link #assertVisibilityDisallows} for when {@code dependency} is not
+   * an {@code alias}.
+   */
+  private void assertVisibilityDisallows(String consumer, String dependency) throws Exception {
+    assertVisibilityDisallows(consumer, dependency, /* dependencyIsAlias= */ false);
   }
 
   /**
@@ -109,6 +136,36 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
             outputs = {"out": "%{name}.bin"},
         )
         """);
+  }
+
+  /**
+   * Creates a package {@code //common} defining several {@code simple_rule} targets with the given
+   * names and visibility declarations.
+   *
+   * <p>The argument list must have even length, and contains pairs of (unquoted) target names and
+   * Starlark expression strings that evaluate to visibility lists (e.g. pass the string {@code
+   * "[]"} for no visibility).
+   */
+  private void defineCommonPackageWithSimpleTargets(String... targetNamesAndVisibilities)
+      throws Exception {
+    Preconditions.checkArgument(targetNamesAndVisibilities.length % 2 == 0);
+    StringBuilder s = new StringBuilder();
+    s.append(
+        """
+        load("//rules:simple_rule.bzl", "simple_rule")
+        """);
+    for (int i = 0; i < targetNamesAndVisibilities.length; i += 2) {
+      s.append(
+          String.format(
+              """
+              simple_rule(
+                  name = "%s",
+                  visibility = %s,
+              )
+              """,
+              targetNamesAndVisibilities[i], targetNamesAndVisibilities[i + 1]));
+    }
+    scratch.file("common/BUILD", s.toString());
   }
 
   @Test
@@ -436,21 +493,8 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
     // macro. In //pkg, the outer macro is instantiated as "foo" and the inner as "foo_inner". We
     // check each combination of foo and foo_inner trying to access the two common targets.
     defineSimpleRule();
-    scratch.file(
-        "common/BUILD",
-        """
-        load("//rules:simple_rule.bzl", "simple_rule")
-
-        simple_rule(
-            name = "vis_to_inner",
-            visibility = ["//inner:__pkg__"],
-        )
-
-        simple_rule(
-            name = "vis_to_outer",
-            visibility = ["//outer:__pkg__"],
-        )
-        """);
+    defineCommonPackageWithSimpleTargets(
+        "vis_to_inner", "['//inner:__pkg__']", "vis_to_outer", "['//outer:__pkg__']");
     scratch.file("inner/BUILD");
     scratch.file(
         "inner/macro.bzl",
@@ -503,35 +547,387 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
     assertVisibilityPermits("//pkg:foo_wants_vis_to_outer", "//common:vis_to_outer");
   }
 
+  // This is the simplest version of the caller delegating visibility privileges to a macro.
+  // Subsequent test cases don't bother to test opting out of select() promotion by setting
+  // configurable=False.
+  @Test
+  @TestParameters({"{depIsConfigurable: false}", "{depIsConfigurable: true}"})
+  public void buildFileCanDelegateVisibilityPrivilegesToMacro(boolean depIsConfigurable)
+      throws Exception {
+    defineSimpleRule();
+    defineCommonPackageWithSimpleTargets("vis_to_pkg", "['//pkg:__pkg__']");
+    scratch.file("macros/BUILD");
+    scratch.file(
+        "macros/simple_rule_wrapper.bzl",
+        String.format(
+            """
+            load("//rules:simple_rule.bzl", "simple_rule")
+
+            def _impl(name, dep):
+                simple_rule(
+                    name = name,
+                    dep = dep,
+                )
+
+            simple_rule_wrapper = macro(
+                implementation = _impl,
+                attrs = {"dep": attr.label(configurable=%s)},
+            )
+            """,
+            depIsConfigurable ? "True" : "False"));
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//macros:simple_rule_wrapper.bzl", "simple_rule_wrapper")
+
+        simple_rule_wrapper(
+            name = "foo",
+            dep = "//common:vis_to_pkg",
+        )
+        """);
+
+    // Allowed, even though //pkg:foo's declaration location is not //pkg, because the macro that
+    // //pkg:foo is declared in is itself declared in //pkg and passes vis_to_pkg in as an
+    // attribute.
+    assertVisibilityPermits("//pkg:foo", "//common:vis_to_pkg");
+  }
+
+  /**
+   * Defines a macro {@code name} whose body calls symbol {@code wraps} to instantiate its main
+   * target or submacro, passing along {@code attrExpr}.
+   *
+   * <p>The new macro is declared in {@code //<name>:macro.bzl}. It takes an optional {@code dep}
+   * attribute.
+   *
+   * @param name the macro being introduced, e.g. "my_macro", which would be loaded from {@code
+   *     //my_macro:macro.bzl}
+   * @param wraps the rule or macro to be called by this macro, in {@code bzlLabel%symbol} form,
+   *     e.g. "//some_pkg:defs.bzl%my_rule"
+   * @param attrExpr an attribute argument expression for the call site of {@code wraps}, e.g.
+   *     "some_attr = dep"
+   */
+  private void defineWrappingMacro(String name, String wraps, String attrExpr) throws Exception {
+    int i = wraps.indexOf("%");
+    Preconditions.checkArgument(i != -1);
+    String bzlToLoad = wraps.substring(0, i);
+    String symbolName = wraps.substring(i + 1);
+
+    scratch.file(String.format("%s/BUILD", name));
+    scratch.file(
+        String.format("%s/macro.bzl", name),
+        String.format(
+            """
+            load("%2$s", "%3$s")
+
+            def _impl(name, dep):
+                %3$s(
+                    name = name,
+                    %4$s,
+                )
+
+            %1$s = macro(
+                implementation = _impl,
+                attrs = {"dep": attr.label(mandatory=False)},
+            )
+            """,
+            name, bzlToLoad, symbolName, attrExpr));
+  }
+
+  /**
+   * Defines a macro {@code name} whose body calls {@code wraps} to instantiate its main target or
+   * submacro, forwarding along the {@code dep} attribute (if supplied) unchanged.
+   *
+   * <p>The new macro is declared in {@code //<name>:macro.bzl}.
+   *
+   * @param name the macro being introduced, e.g. "my_macro", which would be loaded from {@code
+   *     //my_macro:macro.bzl}
+   * @param wraps the rule or macro to be called by this macro, in {@code bzlLabel%symbol} form,
+   *     e.g. "//some_pkg:defs.bzl%my_rule"
+   */
+  private void defineWrappingMacroWithSameDep(String name, String wraps) throws Exception {
+    defineWrappingMacro(name, wraps, "dep = dep");
+  }
+
+  /**
+   * Defines a macro {@code name} whose body calls {@code wraps} to instantiate its main target or
+   * submacro, passing {@code hardcodedDep} as the value of the {@code dep} attribute.
+   *
+   * <p>The new macro is declared in {@code //<name>:macro.bzl}. It takes an optional {@code dep}
+   * attribute itself, which gets ignored.
+   *
+   * @param name the macro being introduced, e.g. "my_macro", which would be loaded from {@code
+   *     //my_macro:macro.bzl}
+   * @param wraps the rule or macro to be called by this macro, in {@code bzlLabel%symbol} form,
+   *     e.g. "//some_pkg:defs.bzl%my_rule"
+   * @param hardcodedDep a label string to pass as {@code dep = <hardcodedDep>} at the call site of
+   *     {@code wraps}, e.g. "//some_pkg:my_target"
+   */
+  private void defineWrappingMacroWithHardcodedDep(String name, String wraps, String hardcodedDep)
+      throws Exception {
+    defineWrappingMacro(name, wraps, String.format("dep = \"%s\"", hardcodedDep));
+  }
+
+  @Test
+  public void outerMacroCanDelegateVisibilityPrivilegesToSubmacro() throws Exception {
+    defineSimpleRule();
+    defineCommonPackageWithSimpleTargets("vis_to_outer", "['//outer:__pkg__']");
+    defineWrappingMacroWithSameDep("inner", "//rules:simple_rule.bzl%simple_rule");
+    defineWrappingMacroWithHardcodedDep(
+        "outer", "//inner:macro.bzl%inner", "//common:vis_to_outer");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//outer:macro.bzl", "outer")
+
+        outer(name = "foo")
+        """);
+
+    // Allowed by same reasoning as buildFileCanDelegateVisibilityPrivilegesToMacro(), but with the
+    // privilege originating from an outer macro rather than from the BUILD file.
+    assertVisibilityPermits("//pkg:foo", "//common:vis_to_outer");
+  }
+
+  @Test
+  public void delegationCanBeTransitiveThroughAnIntermediaryMacro() throws Exception {
+    defineSimpleRule();
+    defineCommonPackageWithSimpleTargets("vis_to_pkg", "['//pkg:__pkg__']");
+    defineWrappingMacroWithSameDep("inner", "//rules:simple_rule.bzl%simple_rule");
+    defineWrappingMacroWithSameDep("outer", "//inner:macro.bzl%inner");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//outer:macro.bzl", "outer")
+
+        outer(
+            name = "foo",
+            dep = "//common:vis_to_pkg",
+        )
+        """);
+
+    // Allowed because the package delegates its privilege to the outer macro, which in turn
+    // delegates its privilege to the inner macro.
+    assertVisibilityPermits("//pkg:foo", "//common:vis_to_pkg");
+  }
+
+  @Test
+  public void callerPermissionIsCheckedEvenIfCalleeHasItsOwnPermission() throws Exception {
+    defineSimpleRule();
+    defineCommonPackageWithSimpleTargets("vis_to_macro", "['//macros:__pkg__']");
+    defineWrappingMacroWithSameDep("my_macro", "//rules:simple_rule.bzl%simple_rule");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//my_macro:macro.bzl", "my_macro")
+
+        my_macro(
+            name = "foo",
+            dep = "//common:vis_to_macro",
+        )
+        """);
+
+    // Even though the macro has visibility on the dep, we still fail because the caller tried to
+    // pass it in and the caller has no such permission.
+    assertVisibilityDisallows("//pkg:foo", "//common:vis_to_macro");
+  }
+
+  @Test
+  public void noDelegationIfCallerCannotSeeDep() throws Exception {
+    defineSimpleRule();
+    defineCommonPackageWithSimpleTargets("not_visible", "[]");
+    defineWrappingMacroWithSameDep("my_macro", "//rules:simple_rule.bzl%simple_rule");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//my_macro:macro.bzl", "my_macro")
+
+        my_macro(
+            name = "foo",
+            dep = "//common:not_visible",
+        )
+        """);
+
+    // Passed in from caller, but caller had no permission to delegate.
+    assertVisibilityDisallows("//pkg:foo", "//common:not_visible");
+  }
+
+  @Test
+  public void noDelegationIfCallerDoesNotPassInTarget() throws Exception {
+    defineSimpleRule();
+    defineCommonPackageWithSimpleTargets(
+        // Read: "v2[P|M]" -> "visible to [package|macro]"
+        "v2P_hardcoded",
+        "['//pkg:__pkg__']",
+        "v2P_implicitdep",
+        "['//pkg:__pkg__']",
+        "v2M_hardcoded",
+        "['//macros:__pkg__']",
+        "v2M_implicitdep",
+        "['//macros:__pkg__']");
+    scratch.file("macros/BUILD");
+    scratch.file(
+        "macros/my_macro.bzl",
+        """
+        load("//rules:simple_rule.bzl", "simple_rule")
+
+        def _impl(name, _v2P_implicitdep, _v2M_implicitdep):
+            simple_rule(
+                name = name + "_consumes_v2P_hardcoded",
+                dep = "//common:v2P_hardcoded",
+            )
+            simple_rule(
+                name = name + "_consumes_v2P_implicitdep",
+                dep = _v2P_implicitdep,
+            )
+            simple_rule(
+                name = name + "_consumes_v2M_hardcoded",
+                dep = "//common:v2M_hardcoded",
+            )
+            simple_rule(
+                name = name + "_consumes_v2M_implicitdep",
+                dep = _v2M_implicitdep,
+            )
+
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {
+                "_v2P_implicitdep": attr.label(
+                    default="//common:v2P_implicitdep"),
+                "_v2M_implicitdep": attr.label(
+                    default="//common:v2M_implicitdep"),
+            },
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//macros:my_macro.bzl", "my_macro")
+
+        my_macro(name = "foo")
+        """);
+
+    // Macro can't see it. Caller didn't pass it in, so caller's permission is not delegated to the
+    // macro.
+    assertVisibilityDisallows("//pkg:foo_consumes_v2P_hardcoded", "//common:v2P_hardcoded");
+    // Having an implicit dep doesn't count as the caller passing it in.
+    assertVisibilityDisallows("//pkg:foo_consumes_v2P_implicitdep", "//common:v2P_implicitdep");
+
+    // Macro can see it. Caller didn't pass it in, so it's fine that the caller can't see it.
+    assertVisibilityPermits("//pkg:foo_consumes_v2M_hardcoded", "//common:v2M_hardcoded");
+    // Having an implicit dep doesn't count as the caller passing it in.
+    assertVisibilityPermits("//pkg:foo_consumes_v2M_implicitdep", "//common:v2M_implicitdep");
+  }
+
+  @Test
+  public void delegationCannotSkipOverAGap() throws Exception {
+    // We have a chain of macro calls A -> B -> C -> D, with a target in D consuming a dep passed in
+    // by A. But the dep is not actually threaded all the way through; C hardcodes it, instead of
+    // taking it as an argument from B.
+    //
+    // In this case, when validating the dep's visibility w.r.t. D, we don't consider A at all, even
+    // though both A and D participate in passing or receiving this dep, respectively. In
+    // particular, 1) we don't get the benefit of A's privileges passed on to us, and 2) if A is
+    // violating the dep's visibility, we don't actually enforce that check (because macro
+    // visibility violations are only discovered when actually relying on them for visibility
+    // delegation).
+
+    defineSimpleRule();
+    defineCommonPackageWithSimpleTargets(
+        "some_dep", "['//A:__pkg__']", "irrelevant", "['//B:__pkg__']");
+    // D calls simple_rule with args unchanged.
+    defineWrappingMacroWithSameDep("D", "//rules:simple_rule.bzl%simple_rule");
+    // C calls D with hardcoded dep = "//common:some_dep".
+    defineWrappingMacroWithHardcodedDep("C", "//D:macro.bzl%D", "//common:some_dep");
+    // B calls C with a different hardcoded dep = "//common:irrelevant"
+    defineWrappingMacroWithHardcodedDep("B", "//C:macro.bzl%C", "//common:irrelevant");
+    // A calls B with hardcoded dep = "//common:some_dep".
+    defineWrappingMacroWithHardcodedDep("A", "//B:macro.bzl%B", "//common:some_dep");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//A:macro.bzl", "A")
+
+        A(name = "foo")
+        """);
+
+    // No privileges delegated through gap.
+    assertVisibilityDisallows("//pkg:foo", "//common:some_dep");
+
+    // Let's retry it with the visibility rewritten to allow C, but not A.
+    scratch.deleteFile("common/BUILD");
+    defineCommonPackageWithSimpleTargets("some_dep", "['//C:__pkg__']");
+    invalidatePackages(); // to pick up the changes to common/BUILD
+    eventCollector.clear(); // to avoid the assertion matching events emitted above
+
+    // Now D has its own privileges, and we *don't* discover that A is illegally referring to it.
+    assertVisibilityPermits("//pkg:foo", "//common:some_dep");
+  }
+
+  @Test
+  public void delegationDoesNotFollowAliases() throws Exception {
+    // The whole visibility system considers alias targets to have distinct permissions from the
+    // underlying target they refer to. So check that these are separate entities for the purpose
+    // of a caller delegating permission to a macro.
+    defineSimpleRule();
+    scratch.file(
+        "common/BUILD",
+        """
+        load("//rules:simple_rule.bzl", "simple_rule")
+
+        simple_rule(
+            name = "vis_to_pkg",
+            visibility = ["//pkg:__pkg__"],
+        )
+
+        alias(
+            name = "aliasof_vis_to_pkg",
+            actual = ":vis_to_pkg",
+        )
+        """);
+    defineWrappingMacroWithHardcodedDep(
+        "my_macro", "//rules:simple_rule.bzl%simple_rule", "//common:vis_to_pkg");
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//my_macro:macro.bzl", "my_macro")
+
+        my_macro(
+            name = "foo",
+            dep = "//common:aliasof_vis_to_pkg",
+        )
+        """);
+
+    // Delegation doesn't work, needed the actual but passed the alias.
+    assertVisibilityDisallows("//pkg:foo", "//common:vis_to_pkg");
+
+    // Try it the other way around.
+    scratch.deleteFile("my_macro/BUILD");
+    scratch.deleteFile("my_macro/macro.bzl");
+    defineWrappingMacroWithHardcodedDep(
+        "my_macro", "//rules:simple_rule.bzl%simple_rule", "//common:aliasof_vis_to_pkg");
+    scratch.overwriteFile(
+        "pkg/BUILD",
+        """
+        load("//my_macro:macro.bzl", "my_macro")
+
+        my_macro(
+            name = "foo",
+            dep = "//common:vis_to_pkg",
+        )
+        """);
+    invalidatePackages(); // to pick up the changes to common/BUILD
+    eventCollector.clear(); // to avoid the assertion matching events emitted above
+
+    // Delegation doesn't work, needed the alias but passed the actual.
+    assertVisibilityDisallows(
+        "//pkg:foo",
+        "alias '//common:aliasof_vis_to_pkg' referring to target '//common:vis_to_pkg'",
+        /* dependencyIsAlias= */ true);
+  }
+
   /*
    * TODO: #19922 - Tests cases to add:
    *
    * ---- Propagating target usages from parent macro to child ----
-   *
-   * - An inner macro can see a target it doesn't have permission on, if the parent macro has
-   *   permission and the parent passes the label into the inner macro as an explicit attribute of
-   *   the inner macro.
-   *
-   * - This doesn't work if the parent macro has permission but doesn't pass the label in. Implicit
-   *   deps of the inner macro do not qualify as the outer macro passing it in.
-   *
-   * - This doesn't work if the parent macro passes the label in as an explicit attribute, but
-   *   doesn't itself have permission.
-   *
-   * - It's an error if the parent passes the label in but does not have permission, even if the
-   *   inner macro independently has its own permission.
-   *
-   * - Permission can be passed recursively through multiple levels, but not through a gap (e.g.
-   *   middle macro does not have permission or does not thread it through).
-   *
-   * - But if there is a gap, and if the inner macro properly has permission and does not get passed
-   *   the label from the middle, then the original usage by the outer macro (which is independent /
-   *   inconsequential to the usage by the target in the inner macro) is not validated and is
-   *   allowed to pass -- erroneously, we tolerate it.
-   *
-   * - Alias targets aren't followed when checking whether a label occurs in the parent macro. This
-   *   is in line with how we look at the alias target's visibility, not the underlying, and anyway
-   *   a macro wouldn't follow the reference when forwarding it along.
    *
    * - When checking a parent macro to see if the label occurs, only normal dep attributes are
    *   considered, not nodep labels like visibility (that's a funny test case).
@@ -546,7 +942,8 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
    * - If a macro has an implicit dep, that dep's visibility is checked against the macro def's
    *   location, not its instantiation location. So pass even when the instance doesn't have
    *   permission. And fail if the macro def location doesn't have permission, even if the instance
-   *   does.
+   *   does have permission (either because of its declaration location or because its caller
+   *   received permission delegated by its own caller via an explicit attr value).
    *
    * ---- Visibility attr usage ----
    *

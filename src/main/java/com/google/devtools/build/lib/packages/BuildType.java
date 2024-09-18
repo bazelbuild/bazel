@@ -695,7 +695,7 @@ public final class BuildType {
 
     private final Label[] labels;
 
-    // Can contain nulls.
+    // Can contain nulls, when an entry maps to None and the Type<T> has a null getDefaultValue().
     private final T[] values;
 
     private final Set<Label> conditionsWithDefaultValues;

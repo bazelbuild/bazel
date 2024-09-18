@@ -166,12 +166,23 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     type.visitLabels(visitor, (T) rawVal, attr);
   }
 
-  private static <T> void visitLabelsInSelect(
+  /**
+   * Applies {@code visitor} to the labels appearing in {@code selectorList}.
+   *
+   * <p>{@code attribute} and {@code type} give the context for interpreting {@code selectorList}.
+   *
+   * <p>If {@code rule} is not null, its value is used to interpret a possible late-bound default
+   * specified by the attribute.
+   *
+   * <p>{@code includeKeys} and {@code includeValues} determine which parts of the select entries
+   * are traversed.
+   */
+  public static <T> void visitLabelsInSelect(
       SelectorList<T> selectorList,
       Attribute attribute,
       Type<T> type,
       Type.LabelVisitor visitor,
-      Rule rule,
+      @Nullable Rule rule,
       boolean includeKeys,
       boolean includeValues) {
     var entryProcessor =

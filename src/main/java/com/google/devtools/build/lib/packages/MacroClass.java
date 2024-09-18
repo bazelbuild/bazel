@@ -93,6 +93,7 @@ public final class MacroClass {
     return implementation;
   }
 
+  // NB: Order is preserved from what was passed to the constructor.
   public ImmutableMap<String, Attribute> getAttributes() {
     return attributes;
   }
@@ -201,6 +202,9 @@ public final class MacroClass {
 
       // Can't set implicit default.
       // (We don't check Attribute#isImplicit() because that assumes "_" -> "$" prefix mangling.)
+      // TODO: #19922 - The lack of "_" -> "$" mangling may impact the future feature of inheriting
+      // attributes from rules. We could consider just doing the mangling for macros too so they're
+      // consistent.
       if (attr.getName().startsWith("_")) {
         throw Starlark.errorf("cannot set value of implicit attribute '%s'", attr.getName());
       }

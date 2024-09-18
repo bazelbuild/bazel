@@ -1793,6 +1793,9 @@ public final class Attribute implements Comparable<Attribute> {
 
   private final Set<PropertyFlag> propertyFlags;
 
+  // The default value, either as specified in the attribute definition, or else as given by
+  // Type.getDefaultValue (which may be null).
+  //
   // Exactly one of these conditions is true:
   // 1. defaultValue == null.
   // 2. defaultValue instanceof ComputedDefault &&
@@ -2159,9 +2162,11 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   /**
-   * Returns the default value of this attribute.
+   * Returns the default value of this attribute. If no default was given by the attribute schema,
+   * this is just the default of the type ({@link Type#getDefaultValue}).
    *
-   * <p>The result may be null (although this is not a value in the build language).
+   * <p>The result may be null, for instance when the schema does not specify any default value and
+   * the attribute is of LabelType. In Starlark, null is typically converted to None.
    *
    * <p>During population of the rule's attribute dictionary, all non-computed defaults must be set
    * before all computed ones.

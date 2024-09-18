@@ -17,9 +17,14 @@ package com.google.devtools.build.lib.packages;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
+import com.google.devtools.build.lib.packages.BuildType.SelectorList;
+import com.google.devtools.build.lib.packages.Type.ConversionException;
 import java.util.Map;
+import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.Starlark;
 
 /**
  * Represents a use of a symbolic macro in a package.
@@ -43,9 +48,12 @@ public final class MacroInstance {
 
   private final int sameNameDepth;
 
-  // TODO(#19922): Consider switching to more optimized, indexed representation, as in Rule.
-  // Order isn't guaranteed, sort before dumping.
+  // Order isn't guaranteed, sort before dumping. You can use the schema map
+  // MacroClass#getAttributes for a guaranteed order.
   private final ImmutableMap<String, Object> attrValues;
+
+  // TODO(#19922): Consider switching to more optimized, indexed representation for attributes, as
+  // in Rule.
 
   /**
    * Instantiates the given macro class with the given attribute values.
@@ -139,6 +147,81 @@ public final class MacroInstance {
    */
   public ImmutableMap<String, Object> getAttrValues() {
     return attrValues;
+  }
+
+  /**
+   * Visits all labels appearing in non-implicit attributes of {@link Type.LabelClass#DEPENDENCY}
+   * label type, i.e. ignoring nodep labels.
+   *
+   * <p>This is useful for checking whether a given label was passed as an input to this macro by
+   * the caller, which in turn is needed in order to decide whether the caller delegated a
+   * visibility privilege to us.
+   */
+  public void visitExplicitAttributeLabels(Consumer<Label> consumer) {
+    for (Attribute attribute : macroClass.getAttributes().values()) {
+      String name = attribute.getName();
+      Type<?> type = attribute.getType();
+      if (name.startsWith("_")) {
+        continue;
+      }
+      if (type.getLabelClass() != Type.LabelClass.DEPENDENCY) {
+        continue;
+      }
+      Object value = attrValues.get(name);
+      if (value == Starlark.NONE) {
+        continue;
+      }
+      visitAttributeLabels(value, type, attribute, consumer);
+    }
+  }
+
+  // Separate method needed to satisfy type system w.r.t. Type<T>.
+  // `value` is either a T or SelectorList<T>.
+  private static <T> void visitAttributeLabels(
+      Object value, Type<T> type, Attribute attribute, Consumer<Label> consumer) {
+    // The attribute value is stored as a Starlark value. Convert it to the internal type as would
+    // be used in rules, so we can apply visitLabels() machinery to it. selectableConvert() will
+    // yield either a T or a BuildType.SelectorList.
+    Object convertedValue;
+    try {
+      convertedValue =
+          BuildType.selectableConvert(
+              type,
+              value,
+              "macro attribute (internal)",
+              // No string -> Label conversion is being done here.
+              /* context= */ null);
+    } catch (ConversionException e) {
+      // TODO: #19922 - The fact that we have to do this seems like a signal that we should
+      // transition to storing macro attribute values as native-typed attributes in the future.
+      throw new IllegalStateException("Could not convert macro attribute value internally", e);
+    }
+
+    // Unlike rules, null attribute values are disallowed here by construction (the attrValues
+    // map won't tolerate them). It's unclear if the visitor can be passed null values like it can
+    // for rules, so filter them out just in case.
+    Type.LabelVisitor visitor =
+        (label, unusedAttribute) -> {
+          if (label != null) {
+            consumer.accept(label);
+          }
+        };
+
+    if (convertedValue instanceof SelectorList) {
+      @SuppressWarnings("unchecked") // safe by precondition assumption
+      SelectorList<T> selectorList = (SelectorList<T>) convertedValue;
+      AggregatingAttributeMapper.visitLabelsInSelect(
+          selectorList,
+          attribute,
+          type,
+          visitor,
+          /* rule= */ null, // safe because late-bound defaults aren't a thing for macros
+          /* includeKeys= */ false,
+          /* includeValues= */ true);
+    } else {
+      T castValue = type.cast(convertedValue);
+      type.visitLabels(visitor, castValue, attribute);
+    }
   }
 
   /**
