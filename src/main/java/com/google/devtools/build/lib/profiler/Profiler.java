@@ -640,6 +640,14 @@ public final class Profiler {
     void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer);
   }
 
+  public void registerCounterSeriesCollector(CounterSeriesCollector collector) {
+    if (!isActive()) {
+      return;
+    }
+
+    localResourceCollector.registerCounterSeriesCollector(collector);
+  }
+
   /** Adds a whole action count series to the writer bypassing histogram and subtask creation. */
   public void logCounters(
       Map<CounterSeriesTask, double[]> counterSeriesMap,

@@ -48,6 +48,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 import javax.annotation.Nullable;
@@ -69,9 +70,8 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
   private volatile boolean stopLocalUsageCollection;
   private volatile boolean profilingStarted;
 
-  @GuardedBy("this")
-  @Nullable
-  private List<CounterSeriesCollector> collectors;
+  private final ConcurrentLinkedQueue<CounterSeriesCollector> collectors =
+      new ConcurrentLinkedQueue<>();
 
   @GuardedBy("this")
   @Nullable
@@ -122,6 +122,11 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     collector.start();
   }
 
+  @Override
+  public void registerCounterSeriesCollector(CounterSeriesCollector collector) {
+    collectors.add(collector);
+  }
+
   private List<CounterSeriesCollector> createLocalCollectors() {
     OperatingSystemMXBean osBean =
         (OperatingSystemMXBean) ManagementFactory.getOperatingSystemMXBean();
@@ -165,8 +170,8 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
 
     @Override
     public void run() {
+      collectors.addAll(createLocalCollectors());
       synchronized (CollectLocalResourceUsage.this) {
-        collectors = new ArrayList<>(createLocalCollectors());
         timeSeries = new LinkedHashMap<>();
       }
 
@@ -236,7 +241,7 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
       profiler.logCounters(stackedCounters.buildOrThrow(), profileStart, BUCKET_DURATION);
     }
 
-    collectors = null;
+    collectors.clear();
     timeSeries = null;
   }
 
