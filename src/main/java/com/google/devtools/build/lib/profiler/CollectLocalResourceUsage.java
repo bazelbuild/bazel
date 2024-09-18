@@ -14,17 +14,16 @@
 package com.google.devtools.build.lib.profiler;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorMetric.FULL;
 import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorMetric.SOME;
 import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorResource.CPU;
 import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorResource.IO;
 import static com.google.devtools.build.lib.util.ResourceUsage.PressureStallIndicatorResource.MEMORY;
+import static java.util.stream.Collectors.groupingBy;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.HashMultiset;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multiset;
 import com.google.devtools.build.lib.actions.ResourceEstimator;
@@ -46,7 +45,7 @@ import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -77,10 +76,6 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
   @GuardedBy("this")
   @Nullable
   private Map<CounterSeriesTask, TimeSeries> timeSeries;
-
-  @GuardedBy("this")
-  @Nullable
-  private List<List<CounterSeriesTask>> stackedTaskGroups;
 
   private Stopwatch stopwatch;
 
@@ -171,15 +166,8 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     @Override
     public void run() {
       synchronized (CollectLocalResourceUsage.this) {
-        collectors = new ArrayList<>();
-        timeSeries = new HashMap<>();
-        stackedTaskGroups = new ArrayList<>();
-
-        var localCollectors = createLocalCollectors();
-        collectors.addAll(localCollectors);
-        for (var collector : localCollectors) {
-          stackedTaskGroups.addAll(collector.getStackedTaskGroups());
-        }
+        collectors = new ArrayList<>(createLocalCollectors());
+        timeSeries = new LinkedHashMap<>();
       }
 
       stopwatch = Stopwatch.createStarted();
@@ -236,36 +224,20 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     int len = (int) (elapsedNanos / BUCKET_DURATION.toNanos()) + 1;
     Profiler profiler = Profiler.instance();
 
-    for (var task : timeSeries.keySet()) {
-      if (isStacked(task)) {
-        continue;
-      }
-      profiler.logCounters(
-          ImmutableMap.ofEntries(Map.entry(task, timeSeries.get(task).toDoubleArray(len))),
-          profileStart,
-          BUCKET_DURATION);
-    }
+    Map<String, List<Map.Entry<CounterSeriesTask, TimeSeries>>> stackedTaskGroups =
+        timeSeries.entrySet().stream().collect(groupingBy(e -> e.getKey().laneName()));
 
-    for (var taskGroup : stackedTaskGroups) {
-      ImmutableMap.Builder<CounterSeriesTask, double[]> stackedCounters = ImmutableMap.builder();
+    for (var taskGroup : stackedTaskGroups.values()) {
+      ImmutableMap.Builder<CounterSeriesTask, double[]> stackedCounters =
+          ImmutableMap.builderWithExpectedSize(taskGroup.size());
       for (var task : taskGroup) {
-        stackedCounters.put(task, timeSeries.get(task).toDoubleArray(len));
+        stackedCounters.put(task.getKey(), task.getValue().toDoubleArray(len));
       }
       profiler.logCounters(stackedCounters.buildOrThrow(), profileStart, BUCKET_DURATION);
     }
 
     collectors = null;
     timeSeries = null;
-    stackedTaskGroups = null;
-  }
-
-  private synchronized boolean isStacked(CounterSeriesTask type) {
-    for (var tasks : stackedTaskGroups) {
-      if (tasks.contains(type)) {
-        return true;
-      }
-    }
-    return false;
   }
 
   private void addRange(
@@ -511,14 +483,6 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
             CounterSeriesTask.Color.THREAD_STATE_RUNNING);
 
     @Override
-    public List<List<CounterSeriesTask>> getStackedTaskGroups() {
-      // There is no PRESSURE_STALL_FULL_CPU metric, so it's not a stacked counter.
-      return ImmutableList.of(
-          ImmutableList.of(PRESSURE_STALL_FULL_IO, PRESSURE_STALL_SOME_IO),
-          ImmutableList.of(PRESSURE_STALL_FULL_MEMORY, PRESSURE_STALL_SOME_MEMORY));
-    }
-
-    @Override
     public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
       // The pressure stall indicator for full CPU metric is not defined.
       double pressureStallFullIo = ResourceUsage.readPressureStallIndicator(IO, FULL);
@@ -595,13 +559,6 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
 
     private SkyframeCountsCollector(InMemoryGraph graph) {
       this.graph = graph;
-    }
-
-    @Override
-    public List<List<CounterSeriesTask>> getStackedTaskGroups() {
-      return SKYFUNCTION_PROFILER_TASKS.values().stream()
-          .map(tasks -> ImmutableList.of(tasks.totalCounter(), tasks.doneCounter()))
-          .collect(toImmutableList());
     }
 
     @Override

@@ -638,10 +638,6 @@ public final class Profiler {
   /** Interface for collecting counter series */
   public interface CounterSeriesCollector {
     void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer);
-
-    default List<List<CounterSeriesTask>> getStackedTaskGroups() {
-      return ImmutableList.of();
-    }
   }
 
   /** Adds a whole action count series to the writer bypassing histogram and subtask creation. */
