@@ -17,7 +17,6 @@ syntax = "proto3";
 package tools.protos;
 
 import "google/protobuf/duration.proto";
-import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 option java_package = "com.google.devtools.build.lib.exec";
