@@ -41,14 +41,19 @@ import net.starlark.java.eval.StarlarkValue;
     name = "attr",
     category = DocCategory.TOP_LEVEL_MODULE,
     doc =
-        "This is a top-level module for defining the attribute schemas of a rule or aspect. Each"
-            + " function returns an object representing the schema of a single attribute. These"
-            + " objects are used as the values of the <code>attrs</code> dictionary argument of <a"
-            + " href=\"../globals/bzl.html#rule\"><code>rule()</code></a> and <a"
-            + " href=\"../globals/bzl.html#aspect\"><code>aspect()</code></a>.<p>See the Rules page"
-            + " for more on <a href='https://bazel.build/extending/rules#attributes'>defining</a>"
-            + " and <a href='https://bazel.build/extending/rules#implementation_function'>using</a>"
-            + " attributes.")
+        """
+        This is a top-level module for defining the attribute schemas of a rule or aspect. Each \
+        function returns an object representing the schema of a single attribute. These objects \
+        are used as the values of the <code>attrs</code> dictionary argument of \
+        <a href="../globals/bzl.html#rule"><code>rule()</code></a>, \
+        <a href="../globals/bzl.html#aspect"><code>aspect()</code></a>, \
+        <a href="../globals/bzl.html#repository_rule"><code>repository_rule()</code></a> and \
+        <a href="../globals/bzl.html#tag_class"><code>tag_class()</code></a>. \
+        <p>See the Rules page \
+        for more on <a href="https://bazel.build/extending/rules#attributes">defining</a>
+        and <a href="https://bazel.build/extending/rules#implementation_function">using</a> \
+        attributes.</p>
+        """)
 public interface StarlarkAttrModuleApi extends StarlarkValue {
 
   // dependency and output attributes
