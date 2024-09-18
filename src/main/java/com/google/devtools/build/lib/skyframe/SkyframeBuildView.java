@@ -151,7 +151,9 @@ public final class SkyframeBuildView {
 
   private final ConfiguredRuleClassProvider ruleClassProvider;
 
-  private BuildConfigurationValue configuration;
+  // Null until the build configuration is set.
+  @Nullable private BuildConfigurationValue configuration;
+  @Nullable private BuildOptions originalConfigurationOptions;
 
   /**
    * If the last build was executed with {@code Options#discard_analysis_cache} and we are not
@@ -206,16 +208,8 @@ public final class SkyframeBuildView {
    */
   @Nullable
   private String describeConfigurationDifference(
-      BuildConfigurationValue configuration, int maxDifferencesToShow) {
-    if (this.configuration == null) {
-      return null;
-    }
-    if (configuration.equals(this.configuration)) {
-      return null;
-    }
-
-    OptionsDiff diff =
-        BuildOptions.diff(this.configuration.getOptions(), configuration.getOptions());
+      BuildOptions oldOptions, BuildOptions newOptions, int maxDifferencesToShow) {
+    OptionsDiff diff = BuildOptions.diff(oldOptions, newOptions);
 
     ImmutableSet<OptionDefinition> nativeCacheInvalidatingDifferences =
         getNativeCacheInvalidatingDifferences(configuration, diff);
@@ -277,49 +271,78 @@ public final class SkyframeBuildView {
         .collect(toImmutableSet());
   }
 
-  /** Sets the configuration. Not thread-safe. DO NOT CALL except from tests! */
-  @VisibleForTesting
-  public void setConfiguration(
+  /**
+   * Returns whether the analysis results from previous invocations should be discarded or report an
+   * error if it should be, but it's disallowed.
+   *
+   * <p>This should happen when the top-level configuration has changed or if the previous
+   * invocation decided that this should happen. Either way, this method also emits a message
+   * informing the user about this decision.
+   */
+  public boolean shouldDiscardAnalysisCache(
       EventHandler eventHandler,
-      BuildConfigurationValue configuration,
+      BuildOptions newOptions,
       int maxDifferencesToShow,
       boolean allowAnalysisCacheDiscards)
       throws InvalidConfigurationException {
+    if (this.configuration == null) {
+      return false;
+    }
+
     if (skyframeAnalysisWasDiscarded) {
+      logger.atInfo().log("Discarding analysis cache because the previous invocation told us to");
       eventHandler.handle(
           Event.warn(
               "--discard_analysis_cache was used in the previous build, "
                   + "discarding analysis cache."));
-      logger.atInfo().log("Discarding analysis cache because the previous invocation told us to");
-      skyframeExecutor.handleAnalysisInvalidatingChange();
-    } else {
-      String diff = describeConfigurationDifference(configuration, maxDifferencesToShow);
-      if (diff != null) {
-        if (!allowAnalysisCacheDiscards) {
-          String message = String.format("%s, analysis cache would have been discarded.", diff);
-          throw new InvalidConfigurationException(
-              message,
-              FailureDetails.BuildConfiguration.Code.CONFIGURATION_DISCARDED_ANALYSIS_CACHE);
-        }
-        eventHandler.handle(
-            Event.warn(
-                diff
-                    + ", discarding analysis cache (this can be expensive, see"
-                    + " https://bazel.build/advanced/performance/iteration-speed)."));
-        logger.atInfo().log(
-            "Discarding analysis cache because the build configuration changed: %s", diff);
-        // Note that clearing the analysis cache is currently required for correctness. It is also
-        // helpful to save memory.
-        //
-        // If we had more memory, fixing the correctness issue (see also b/144932999) would allow us
-        // to not invalidate the cache, leading to potentially better performance on incremental
-        // builds.
-        skyframeExecutor.handleAnalysisInvalidatingChange();
+      return true;
+    }
+
+    String diff =
+        describeConfigurationDifference(
+            originalConfigurationOptions, newOptions, maxDifferencesToShow);
+
+    if (diff != null) {
+      if (!allowAnalysisCacheDiscards) {
+        String message = String.format("%s, analysis cache would have been discarded.", diff);
+        throw new InvalidConfigurationException(
+            message, FailureDetails.BuildConfiguration.Code.CONFIGURATION_DISCARDED_ANALYSIS_CACHE);
       }
+      eventHandler.handle(
+          Event.warn(
+              diff
+                  + ", discarding analysis cache (this can be expensive, see"
+                  + " https://bazel.build/advanced/performance/iteration-speed)."));
+      logger.atInfo().log(
+          "Discarding analysis cache because the build configuration changed: %s", diff);
+      return true;
+    }
+
+    return false;
+  }
+
+  /** Sets the configuration. Not thread-safe. */
+  @VisibleForTesting
+  public void setConfiguration(
+      BuildConfigurationValue configuration,
+      BuildOptions originalOptions,
+      boolean discardAnalysisCache) {
+    if (discardAnalysisCache) {
+      // Note that clearing the analysis cache is currently required for correctness. It is also
+      // helpful to save memory.
+      //
+      // If we had more memory, fixing the correctness issue (see also b/144932999) would allow us
+      // to not invalidate the cache, leading to potentially better performance on incremental
+      // builds.
+      this.configuration = configuration;
+      this.originalConfigurationOptions = originalOptions;
+      skyframeExecutor.handleAnalysisInvalidatingChange();
+    } else if (this.configuration == null) {
+      this.configuration = configuration;
+      this.originalConfigurationOptions = originalOptions;
     }
 
     skyframeAnalysisWasDiscarded = false;
-    this.configuration = configuration;
     skyframeExecutor.setTopLevelConfiguration(configuration);
   }
 
@@ -1333,6 +1356,7 @@ public final class SkyframeBuildView {
    */
   public void reset() {
     configuration = null;
+    originalConfigurationOptions = null;
     skyframeAnalysisWasDiscarded = false;
     clearLegacyData();
   }

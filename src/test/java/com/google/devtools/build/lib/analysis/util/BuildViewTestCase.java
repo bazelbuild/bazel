@@ -660,7 +660,7 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     skyframeExecutor.handleAnalysisInvalidatingChange();
 
     view = new BuildViewForTesting(directories, ruleClassProvider, skyframeExecutor, null);
-    view.setConfigurationForTesting(event -> {}, targetConfig);
+    view.setConfigurationForTesting(targetConfig);
 
     view.setArtifactRoots(new PackageRootsNoSymlinkCreation(Root.fromPath(rootDirectory)));
   }
