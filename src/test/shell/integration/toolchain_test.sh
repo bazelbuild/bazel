@@ -2781,9 +2781,9 @@ EOF
   expect_log "Selected execution platform //${pkg}/platforms:platform2"
 }
 
-# Regression test for https://github.com/bazelbuild/bazel/issues/19945.
-function test_extra_toolchain_precedence {
-  local -r pkg="${FUNCNAME[0]}"
+function setup_toolchain_precedence_tests() {
+  local pkg="$1"
+  shift
 
   write_test_toolchain "${pkg}"
   write_test_rule "${pkg}"
@@ -2824,42 +2824,72 @@ use_toolchain(
     name = 'use',
     message = 'this is the rule')
 EOF
+}
 
-  bazel query "//${pkg}:*"
+# Regression tests for https://github.com/bazelbuild/bazel/issues/19945 and https://github.com/bazelbuild/bazel/issues/22912
+function test_extra_toolchain_precedence_basic {
+  local -r pkg="${FUNCNAME[0]}"
+  setup_toolchain_precedence_tests "${pkg}"
 
+  # Even with other toolchains defined, only one is registered
   bazel \
     build \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_1"'
+}
 
-  # Test that bazelrc options take precedence over registered toolchains
+function test_extra_toolchain_precedence_from_bazelrc {
+  local -r pkg="${FUNCNAME[0]}"
+  setup_toolchain_precedence_tests "${pkg}"
+
   cat > "${pkg}/toolchain_rc" <<EOF
 import ${bazelrc}
 build --extra_toolchains=//${pkg}:toolchain_2
 EOF
 
+  # Test that bazelrc options take precedence over registered toolchains
   bazel \
     --${PRODUCT_NAME}rc="${pkg}/toolchain_rc" \
     build \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_2"'
+}
+
+function test_extra_toolchain_precedence_from_flag {
+  local -r pkg="${FUNCNAME[0]}"
+  setup_toolchain_precedence_tests "${pkg}"
 
   # Test that command-line options take precedence over other toolchains
   bazel \
-    --${PRODUCT_NAME}rc="${pkg}/toolchain_rc" \
     build \
     --extra_toolchains=//${pkg}:toolchain_3 \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_3"'
+}
+
+function test_extra_toolchain_precedence_multiple {
+  local -r pkg="${FUNCNAME[0]}"
+  setup_toolchain_precedence_tests "${pkg}"
 
   # Test that the last --extra_toolchains takes precedence
   bazel \
-    --${PRODUCT_NAME}rc="${pkg}/toolchain_rc" \
     build \
-    --extra_toolchains=//${pkg}:toolchain_3 \
-    --extra_toolchains=//${pkg}:toolchain_4 \
+    --extra_toolchains=//${pkg}:toolchain_3,//${pkg}:toolchain_4 \
     "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
   expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_4"'
+}
+
+function test_extra_toolchain_precedence_multiple_repeated {
+  local -r pkg="${FUNCNAME[0]}"
+  setup_toolchain_precedence_tests "${pkg}"
+
+  # Test that the last --extra_toolchains takes precedence even when repeated
+  bazel \
+    build \
+    --extra_toolchains=//${pkg}:toolchain_3,//${pkg}:toolchain_4,//${pkg}:toolchain_3 \
+    "//${pkg}/demo:use" &> $TEST_log || fail "Build failed"
+  # Since toolchain_3 is last, it should still have highest precedence
+  expect_log 'Using toolchain: rule message: "this is the rule", toolchain extra_str: "foo from toolchain_3"'
 }
 
 # TODO(katre): Test using toolchain-provided make variables from a genrule.
