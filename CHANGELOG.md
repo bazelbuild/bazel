@@ -9,6 +9,23 @@ Cherry picks:
      Release 8.0.0-pre.20240909.1 (2024-09-19)
    + 5166a571e013c7f45e682f22e177e94f3d9c9e21:
      Release 8.0.0-pre.20240909.1 (2024-09-19)
+   + 5b5cf0245ce8f7c688f88a7728d9c9b4ed95dd21:
+     Release 8.0.0-pre.20240909.1 (2024-09-19)
+```
+
+This release contains contributions from many people at Google, as well as .
+
+## Release 8.0.0-pre.20240909.1 (2024-09-19)
+
+```
+Baseline: 29f7c863d859b2a19b0c6f58cd59c9d74aa188c1
+
+Cherry picks:
+
+   + b637c473249e8ff971fd410b4018ef70569c2833:
+     Release 8.0.0-pre.20240909.1 (2024-09-19)
+   + 5166a571e013c7f45e682f22e177e94f3d9c9e21:
+     Release 8.0.0-pre.20240909.1 (2024-09-19)
 ```
 
 Incompatible changes:
