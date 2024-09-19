@@ -38,13 +38,10 @@ public abstract class BazelFetchAllValue implements SkyValue {
     return BazelFetchAllValue.Key.create(configureEnabled);
   }
 
-  public abstract ImmutableList<RepositoryName> getFetchedRepos();
-
   public abstract ImmutableList<RepositoryName> getReposToVendor();
 
-  public static BazelFetchAllValue create(
-      ImmutableList<RepositoryName> fetchedRepos, ImmutableList<RepositoryName> reposToVendor) {
-    return new AutoValue_BazelFetchAllValue(fetchedRepos, reposToVendor);
+  public static BazelFetchAllValue create(ImmutableList<RepositoryName> reposToVendor) {
+    return new AutoValue_BazelFetchAllValue(reposToVendor);
   }
 
   /** Key type for BazelFetchAllValue. */
