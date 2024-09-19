@@ -64,15 +64,14 @@ public class BuildConfigurationKeyMapProducer
 
   @Override
   public StateMachine step(Tasks tasks) {
-    this.options.entrySet().stream()
-        .map(
-            entry ->
+    options.forEach(
+        (context, buildOptions) ->
+            tasks.enqueue(
                 new BuildConfigurationKeyProducer<>(
                     (BuildConfigurationKeyProducer.ResultSink<String>) this,
                     StateMachine.DONE,
-                    entry.getKey(),
-                    entry.getValue()))
-        .forEach(tasks::enqueue);
+                    context,
+                    buildOptions)));
     return this::combineResults;
   }
 
