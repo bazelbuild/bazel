@@ -151,6 +151,60 @@ class BazelFetchTest(test_base.TestBase):
     self.assertNotIn('+ext+notConfig', repos_fetched)
     self.assertIn('+ext+IamConfig', repos_fetched)
 
+  def testFetchConfigForce(self):
+    self.main_registry.createCcModule('aaa', '1.0').createCcModule(
+        'bbb', '1.0', {'aaa': '1.0'}
+    )
+    self.ScratchFile(
+        'MODULE.bazel',
+        [
+            'bazel_dep(name = "aaa", version = "1.0")',
+            'ext = use_extension("extension.bzl", "ext")',
+            'use_repo(ext, "notConfig")',
+            'use_repo(ext, "IamConfig")',
+            'local_path_override(module_name="bazel_tools", path="tools_mock")',
+            'local_path_override(module_name="local_config_platform", ',
+            'path="platforms_mock")',
+        ],
+    )
+    self.ScratchFile('BUILD')
+    self.ScratchFile(
+        'extension.bzl',
+        [
+            'def _repo_rule_impl(ctx):',
+            '    print("Fetching {}".format(ctx.attr.name))',
+            '    if ctx.attr.name.endswith("IamConfig"):',
+            (
+                '       '
+                ' ctx.path(Label("@notConfig//:whatever")).dirname.readdir()'
+            ),
+            '    ctx.file("BUILD")',
+            'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+            'repo_rule2 = repository_rule(implementation=_repo_rule_impl, ',
+            'configure=True)',
+            '',
+            'def _ext_impl(ctx):',
+            '    repo_rule(name="notConfig")',
+            '    repo_rule2(name="IamConfig")',
+            'ext = module_extension(implementation=_ext_impl)',
+        ],
+    )
+
+    _, _, stderr = self.RunBazel(['fetch', '--configure'])
+    stderr = '\n'.join(stderr)
+    self.assertIn('Fetching +ext+notConfig', stderr)
+    self.assertIn('Fetching +ext+IamConfig', stderr)
+
+    _, stdout, _ = self.RunBazel(['info', 'output_base'])
+    repos_fetched = os.listdir(stdout[0] + '/external')
+    self.assertIn('+ext+notConfig', repos_fetched)
+    self.assertIn('+ext+IamConfig', repos_fetched)
+
+    _, stdout, stderr = self.RunBazel(['fetch', '--configure', '--force'])
+    stderr = '\n'.join(stderr)
+    self.assertNotIn('Fetching +ext+notConfig', stderr)
+    self.assertIn('Fetching +ext+IamConfig', stderr)
+
   def testFetchFailsWithMultipleOptions(self):
     exit_code, _, stderr = self.RunBazel(
         ['fetch', '--all', '--configure'], allow_failure=True
