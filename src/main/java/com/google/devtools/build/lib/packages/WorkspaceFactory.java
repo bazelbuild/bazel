@@ -262,12 +262,10 @@ public class WorkspaceFactory {
           WorkspaceFactoryHelper.addMainRepoEntry(builder, externalRepoName);
           WorkspaceFactoryHelper.addRepoMappings(builder, kwargs, externalRepoName);
           RuleClass ruleClass = ruleClassMap.get(ruleClassName);
-          RuleClass bindRuleClass = ruleClassMap.get("bind");
           Rule rule =
               WorkspaceFactoryHelper.createAndAddRepositoryRule(
                   builder,
                   ruleClass,
-                  bindRuleClass,
                   WorkspaceFactoryHelper.getFinalKwargs(kwargs),
                   thread.getCallStack());
           RepositoryName.validateUserProvidedRepoName(rule.getName());

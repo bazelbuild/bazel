@@ -22,8 +22,6 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.cmdline.TargetParsingException;
-import com.google.devtools.build.lib.cmdline.TargetPattern;
 import com.google.devtools.build.lib.packages.RuleFactory.BuildLangTypedAttributeValuesMap;
 import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -47,7 +45,6 @@ public final class WorkspaceFactoryHelper {
   public static Rule createAndAddRepositoryRule(
       Package.Builder pkgBuilder,
       RuleClass ruleClass,
-      RuleClass bindRuleClass,
       Map<String, Object> kwargs,
       ImmutableList<StarlarkThread.CallStackEntry> callstack)
       throws RuleFactory.InvalidRuleException,
@@ -57,23 +54,6 @@ public final class WorkspaceFactoryHelper {
     BuildLangTypedAttributeValuesMap attributeValues = new BuildLangTypedAttributeValuesMap(kwargs);
     Rule rule = RuleFactory.createRule(pkgBuilder, ruleClass, attributeValues, true, callstack);
     overwriteRule(pkgBuilder, rule);
-    for (Map.Entry<String, Label> entry :
-        ruleClass.getExternalBindingsFunction().apply(rule).entrySet()) {
-      Label nameLabel = Label.parseCanonical("//external:" + entry.getKey());
-      addBindRule(pkgBuilder, bindRuleClass, nameLabel, entry.getValue(), callstack);
-    }
-    // NOTE(wyv): What is this madness?? This is the only instance where a repository rule can
-    // register toolchains upon being instantiated. We should look into converting
-    // android_{s,n}dk_repository into module extensions.
-    ImmutableList.Builder<TargetPattern> toolchains = new ImmutableList.Builder<>();
-    for (String pattern : ruleClass.getToolchainsToRegisterFunction().apply(rule)) {
-      try {
-        toolchains.add(TargetPattern.defaultParser().parse(pattern));
-      } catch (TargetParsingException e) {
-        throw new LabelSyntaxException(e.getMessage());
-      }
-    }
-    pkgBuilder.addRegisteredToolchains(toolchains.build(), originatesInWorkspaceSuffix(callstack));
     return rule;
   }
 

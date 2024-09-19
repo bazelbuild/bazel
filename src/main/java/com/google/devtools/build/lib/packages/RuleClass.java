@@ -150,14 +150,6 @@ public class RuleClass implements RuleClassData {
   private static final int MAX_ATTRIBUTE_NAME_LENGTH = 128;
 
   @SerializationConstant
-  static final Function<? super Rule, Map<String, Label>> NO_EXTERNAL_BINDINGS =
-      Functions.constant(ImmutableMap.of());
-
-  @SerializationConstant
-  static final Function<? super Rule, List<String>> NO_TOOLCHAINS_TO_REGISTER =
-      Functions.constant(ImmutableList.of());
-
-  @SerializationConstant
   static final Function<? super Rule, Set<String>> NO_OPTION_REFERENCE =
       Functions.constant(ImmutableSet.of());
 
@@ -188,7 +180,7 @@ public class RuleClass implements RuleClassData {
      *
      * @throws RuleErrorException if configured target creation could not be completed due to rule
      *     errors
-     * @throws TActionConflictException if there were conflicts during action registration
+     * @throws ActionConflictExceptionT if there were conflicts during action registration
      */
     @Nullable
     ConfiguredTargetT create(ContextT ruleContext)
@@ -687,10 +679,6 @@ public class RuleClass implements RuleClassData {
     private BuildSetting buildSetting = null;
 
     private ImmutableList<? extends StarlarkSubruleApi> subrules = ImmutableList.of();
-    private Function<? super Rule, Map<String, Label>> externalBindingsFunction =
-        NO_EXTERNAL_BINDINGS;
-    private Function<? super Rule, ? extends List<String>> toolchainsToRegisterFunction =
-        NO_TOOLCHAINS_TO_REGISTER;
     private Function<? super Rule, ? extends Set<String>> optionReferenceFunction =
         NO_OPTION_REFERENCE;
 
@@ -860,13 +848,9 @@ public class RuleClass implements RuleClassData {
           type,
           configuredTargetFactory,
           configuredTargetFunction);
-      if (!workspaceOnly) {
-        if (starlark) {
-          assertStarlarkRuleClassHasImplementationFunction();
-          assertStarlarkRuleClassHasEnvironmentLabel();
-        }
-        Preconditions.checkState(externalBindingsFunction == NO_EXTERNAL_BINDINGS);
-        Preconditions.checkState(toolchainsToRegisterFunction == NO_TOOLCHAINS_TO_REGISTER);
+      if (!workspaceOnly && starlark) {
+        assertStarlarkRuleClassHasImplementationFunction();
+        assertStarlarkRuleClassHasEnvironmentLabel();
       }
       if (type == RuleClassType.PLACEHOLDER) {
         Preconditions.checkNotNull(ruleDefinitionEnvironmentDigest, this.name);
@@ -935,8 +919,6 @@ public class RuleClass implements RuleClassData {
           configuredTargetFactory,
           advertisedProviders.build(),
           configuredTargetFunction,
-          externalBindingsFunction,
-          toolchainsToRegisterFunction,
           optionReferenceFunction,
           ruleDefinitionEnvironmentLabel,
           ruleDefinitionEnvironmentDigest,
@@ -1363,19 +1345,6 @@ public class RuleClass implements RuleClassData {
       return builder.build();
     }
 
-    @CanIgnoreReturnValue
-    public Builder setExternalBindingsFunction(Function<? super Rule, Map<String, Label>> func) {
-      this.externalBindingsFunction = func;
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setToolchainsToRegisterFunction(
-        Function<? super Rule, ? extends List<String>> func) {
-      this.toolchainsToRegisterFunction = func;
-      return this;
-    }
-
     /**
      * Sets the rule definition environment label and transitive digest. Meant for Starlark usage.
      */
@@ -1692,8 +1661,8 @@ public class RuleClass implements RuleClassData {
   private final boolean isStarlark;
   private final boolean extendable;
   // The following 2 fields may be non-null only if the rule is Starlark-defined.
-  @Nullable private Label starlarkExtensionLabel;
-  @Nullable private String starlarkDocumentation;
+  @Nullable private final Label starlarkExtensionLabel;
+  @Nullable private final String starlarkDocumentation;
   @Nullable private final Label extendableAllowlist;
   private final boolean starlarkTestable;
   private final boolean documented;
@@ -1753,12 +1722,6 @@ public class RuleClass implements RuleClassData {
    * rules that explicitly pass {@code subrules = [...]} to their {@code rule()} declaration
    */
   private final ImmutableSet<? extends StarlarkSubruleApi> subrules;
-
-  /** Returns the extra bindings a workspace function adds to the WORKSPACE file. */
-  private final Function<? super Rule, Map<String, Label>> externalBindingsFunction;
-
-  /** Returns the toolchains a workspace function wants to have registered in the WORKSPACE file. */
-  private final Function<? super Rule, ? extends List<String>> toolchainsToRegisterFunction;
 
   /** Returns the options referenced by this rule's attributes. */
   private final Function<? super Rule, ? extends Set<String>> optionReferenceFunction;
@@ -1843,8 +1806,6 @@ public class RuleClass implements RuleClassData {
       ConfiguredTargetFactory<?, ?, ?> configuredTargetFactory,
       AdvertisedProviderSet advertisedProviders,
       @Nullable StarlarkCallable configuredTargetFunction,
-      Function<? super Rule, Map<String, Label>> externalBindingsFunction,
-      Function<? super Rule, ? extends List<String>> toolchainsToRegisterFunction,
       Function<? super Rule, ? extends Set<String>> optionReferenceFunction,
       @Nullable Label ruleDefinitionEnvironmentLabel,
       @Nullable byte[] ruleDefinitionEnvironmentDigest,
@@ -1881,8 +1842,6 @@ public class RuleClass implements RuleClassData {
     this.configuredTargetFactory = configuredTargetFactory;
     this.advertisedProviders = advertisedProviders;
     this.configuredTargetFunction = configuredTargetFunction;
-    this.externalBindingsFunction = externalBindingsFunction;
-    this.toolchainsToRegisterFunction = toolchainsToRegisterFunction;
     this.optionReferenceFunction = optionReferenceFunction;
     this.ruleDefinitionEnvironmentLabel = ruleDefinitionEnvironmentLabel;
     this.ruleDefinitionEnvironmentDigest = ruleDefinitionEnvironmentDigest;
@@ -2586,22 +2545,6 @@ public class RuleClass implements RuleClassData {
   @Nullable
   public BuildSetting getBuildSetting() {
     return buildSetting;
-  }
-
-  /**
-   * Returns a function that computes the external bindings a repository function contributes to the
-   * WORKSPACE file.
-   */
-  Function<? super Rule, Map<String, Label>> getExternalBindingsFunction() {
-    return externalBindingsFunction;
-  }
-
-  /**
-   * Returns a function that computes the toolchains that should be registered for a repository
-   * function.
-   */
-  Function<? super Rule, ? extends List<String>> getToolchainsToRegisterFunction() {
-    return toolchainsToRegisterFunction;
   }
 
   /** Returns a function that computes the options referenced by a rule. */

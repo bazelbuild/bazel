@@ -154,7 +154,6 @@ public final class StarlarkRepositoryContextTest {
         WorkspaceFactoryHelper.createAndAddRepositoryRule(
             packageBuilder,
             buildRuleClass(attributes),
-            null,
             kwargs,
             DUMMY_STACK);
     DownloadManager downloader = Mockito.mock(DownloadManager.class);

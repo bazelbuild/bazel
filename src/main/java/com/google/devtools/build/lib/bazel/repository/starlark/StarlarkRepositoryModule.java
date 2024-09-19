@@ -269,7 +269,6 @@ rule. Created by \
         return WorkspaceFactoryHelper.createAndAddRepositoryRule(
             pkgBuilder,
             ruleClass,
-            /* bindRuleClass= */ null,
             WorkspaceFactoryHelper.getFinalKwargs(kwargs),
             thread.getCallStack());
       } catch (InvalidRuleException | NameConflictException | LabelSyntaxException e) {
