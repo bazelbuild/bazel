@@ -144,7 +144,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     private final boolean isolate;
     private final ArrayList<ModuleExtensionUsage.Proxy.Builder> proxyBuilders;
     private final HashBiMap<String, String> imports;
-    private final Map<String, ModuleThreadContext.RepoOverride> repoOverrides;
+    private final Map<String, RepoOverride> repoOverrides;
     private final ImmutableList.Builder<Tag> tags;
 
     ModuleExtensionUsageBuilder(
@@ -158,7 +158,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       this.isolate = isolate;
       this.proxyBuilders = new ArrayList<>();
       this.imports = HashBiMap.create();
-      this.repoOverrides = HashBiMap.create();
+      this.repoOverrides = new HashMap<>();
       this.tags = ImmutableList.builder();
     }
 
@@ -201,8 +201,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       RepoOverride collision =
           repoOverrides.put(
               overriddenRepoName,
-              new ModuleThreadContext.RepoOverride(
-                  overriddenRepoName, overridingRepoName, mustExist, this, stack));
+              new RepoOverride(overriddenRepoName, overridingRepoName, mustExist, this, stack));
       if (collision != null) {
         throw Starlark.errorf(
             "The repo exported as '%s' by module extension '%s' is already overridden with '%s' at"
@@ -239,20 +238,20 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       }
 
       for (var override : repoOverrides.entrySet()) {
-        String exportedName = override.getKey();
-        String localRepoName = override.getValue().overridingRepoName;
-        if (!context.repoNameUsages.containsKey(localRepoName)) {
+        String overriddenRepoName = override.getKey();
+        String overridingRepoName = override.getValue().overridingRepoName;
+        if (!context.repoNameUsages.containsKey(overridingRepoName)) {
           throw Starlark.errorf(
                   "The repo exported as '%s' by module extension '%s' is overridden with '%s', but"
                       + " no repo is visible under this name",
-                  exportedName, extensionName, localRepoName)
+                  overriddenRepoName, extensionName, overridingRepoName)
               .withCallStack(override.getValue().stack);
         }
-        String importedAs = imports.inverse().get(exportedName);
+        String importedAs = imports.inverse().get(overriddenRepoName);
         if (importedAs != null) {
           context.overriddenRepos.put(importedAs, override.getValue());
         }
-        context.overridingRepos.put(localRepoName, override.getValue());
+        context.overridingRepos.put(overridingRepoName, override.getValue());
       }
       builder.setRepoOverrides(
           ImmutableMap.copyOf(
