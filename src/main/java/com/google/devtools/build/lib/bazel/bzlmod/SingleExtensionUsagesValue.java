@@ -57,6 +57,7 @@ public abstract class SingleExtensionUsagesValue implements SkyValue {
   /** The repo mappings to use for each module that used this extension. */
   public abstract ImmutableMap<ModuleKey, RepositoryMapping> getRepoMappings();
 
+  /** Maps an extension-local repo name to the canonical name of the repo it is overridden with. */
   public abstract ImmutableMap<String, RepositoryName> getRepoOverrides();
 
   public static SingleExtensionUsagesValue create(

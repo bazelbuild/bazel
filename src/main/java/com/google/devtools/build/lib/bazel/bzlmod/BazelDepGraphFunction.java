@@ -208,7 +208,7 @@ public class BazelDepGraphFunction implements SkyFunction {
       ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesTable,
       ImmutableMap<ModuleExtensionId, String> extensionUniqueNames,
       ImmutableBiMap<RepositoryName, ModuleKey> canonicalRepoNameLookup) {
-    RepositoryMapping rootModuleMapping =
+    RepositoryMapping rootModuleMappingWithoutOverrides =
         BazelDepGraphValue.getRepositoryMapping(
             ModuleKey.ROOT,
             depGraph,
@@ -228,7 +228,7 @@ public class BazelDepGraphFunction implements SkyFunction {
           repoOverridesBuilder.put(
               extensionId,
               override.getKey(),
-              rootModuleMapping.get(override.getValue().overridingRepoName()));
+              rootModuleMappingWithoutOverrides.get(override.getValue().overridingRepoName()));
         }
       }
     }

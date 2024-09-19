@@ -776,6 +776,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext1")
                         .setIsolationKey(Optional.empty())
+                        .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -806,6 +807,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext2")
                         .setIsolationKey(Optional.empty())
+                        .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -850,6 +852,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@rules_jvm_external//:defs.bzl")
                         .setExtensionName("maven")
                         .setIsolationKey(Optional.empty())
+                        .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -927,6 +930,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@//:defs.bzl")
                         .setExtensionName("myext")
                         .setIsolationKey(Optional.empty())
+                        .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -1058,6 +1062,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext")
                         .setIsolationKey(Optional.empty())
+                        .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -1177,6 +1182,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("//:MODULE.bazel")
                         .setExtensionName("_repo_rules")
                         .setIsolationKey(Optional.empty())
+                        .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -1781,7 +1787,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
             \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
             \t\toverride_repo(ext, baz = "bar")
-            Error in override_repo: The repo 'bar' used as an override for 'baz' in module extension 'ext' is itself overridden with 'override' at /workspace/MODULE.bazel:6:14, which is not supported. Please directly override 'baz' with 'override' instead.""");
+            Error in override_repo: The repo 'bar' used as an override for 'baz' in module extension 'ext' is itself overridden with 'override' at /workspace/MODULE.bazel:6:14, which is not supported.""");
   }
 
   @Test
@@ -1809,7 +1815,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
             \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
             \t\toverride_repo(ext1, baz = "bar")
-            Error in override_repo: The repo 'bar' used as an override for 'baz' in module extension 'ext1' is itself overridden with 'override' at /workspace/MODULE.bazel:6:14, which is not supported. Please directly override 'baz' with 'override' instead.""");
+            Error in override_repo: The repo 'bar' used as an override for 'baz' in module extension 'ext1' is itself overridden with 'override' at /workspace/MODULE.bazel:6:14, which is not supported.""");
   }
 
   @Test
@@ -1835,7 +1841,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
             \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
             \t\toverride_repo(ext, foo = "my_bar", bar = "my_foo")
-            Error in override_repo: The repo 'my_foo' used as an override for 'bar' in module extension 'ext' is itself overridden with 'my_bar' at /workspace/MODULE.bazel:5:14, which forms a cycle.""");
+            Error in override_repo: The repo 'my_foo' used as an override for 'bar' in module extension 'ext' is itself overridden with 'my_bar' at /workspace/MODULE.bazel:5:14, which is not supported.""");
   }
 
   @Test
@@ -1863,6 +1869,6 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
             ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
             \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
             \t\toverride_repo(ext2, bar = "my_foo")
-            Error in override_repo: The repo 'my_foo' used as an override for 'bar' in module extension 'ext2' is itself overridden with 'my_bar' at /workspace/MODULE.bazel:4:14, which forms a cycle.""");
+            Error in override_repo: The repo 'my_foo' used as an override for 'bar' in module extension 'ext2' is itself overridden with 'my_bar' at /workspace/MODULE.bazel:4:14, which is not supported.""");
   }
 }

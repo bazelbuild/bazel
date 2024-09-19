@@ -83,7 +83,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       String overriddenRepoName,
       String overridingRepoName,
       boolean mustExist,
-      ModuleExtensionUsageBuilder extensionUsageBuilder,
+      String extensionName,
       ImmutableList<StarlarkThread.CallStackEntry> stack) {
     Location location() {
       // Skip over the override_repo builtin frame.
@@ -201,7 +201,8 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       RepoOverride collision =
           repoOverrides.put(
               overriddenRepoName,
-              new RepoOverride(overriddenRepoName, overridingRepoName, mustExist, this, stack));
+              new RepoOverride(
+                  overriddenRepoName, overridingRepoName, mustExist, extensionName, stack));
       if (collision != null) {
         throw Starlark.errorf(
             "The repo exported as '%s' by module extension '%s' is already overridden with '%s' at"
@@ -334,31 +335,15 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     if (overridingAndOverridden.isPresent()) {
       var override = overridingRepos.get(overridingAndOverridden.get());
       var overrideOnOverride = overriddenRepos.get(overridingAndOverridden.get());
-      if (override.overriddenRepoName.equals(
-          override.extensionUsageBuilder.imports.get(overrideOnOverride.overridingRepoName))) {
-        throw Starlark.errorf(
-                "The repo '%s' used as an override for '%s' in module extension '%s' is itself"
-                    + " overridden with '%s' at %s, which forms a cycle.",
-                override.overridingRepoName,
-                override.overriddenRepoName,
-                override.extensionUsageBuilder.extensionName,
-                overrideOnOverride.overridingRepoName,
-                overrideOnOverride.location())
-            .withCallStack(override.stack);
-      } else {
-        throw Starlark.errorf(
-                "The repo '%s' used as an override for '%s' in module extension '%s' is itself"
-                    + " overridden with '%s' at %s, which is not supported. Please directly"
-                    + " override '%s' with '%s' instead.",
-                override.overridingRepoName,
-                override.overriddenRepoName,
-                override.extensionUsageBuilder.extensionName,
-                overrideOnOverride.overridingRepoName,
-                overrideOnOverride.location(),
-                override.overriddenRepoName,
-                overrideOnOverride.overridingRepoName)
-            .withCallStack(override.stack);
-      }
+      throw Starlark.errorf(
+              "The repo '%s' used as an override for '%s' in module extension '%s' is itself"
+                  + " overridden with '%s' at %s, which is not supported.",
+              override.overridingRepoName,
+              override.overriddenRepoName,
+              override.extensionName,
+              overrideOnOverride.overridingRepoName,
+              overrideOnOverride.location())
+          .withCallStack(override.stack);
     }
 
     return module
