@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.analysis.AnalysisResult;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
+import com.google.devtools.build.lib.analysis.ExtraActionArtifactsProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.ProviderCollection;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -162,6 +163,7 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
               .getImportantArtifacts();
       addOutputsToDownload(artifactsToBuild.toList());
       addRunfiles(target);
+      addExtraActionArtifacts(target);
     }
   }
 
@@ -194,6 +196,14 @@ public class RemoteOutputChecker implements RemoteArtifactChecker {
         continue;
       }
       addOutputToDownload(artifact);
+    }
+  }
+
+  private void addExtraActionArtifacts(ProviderCollection target) {
+    ExtraActionArtifactsProvider extraActionArtifactsProvider =
+        target.getProvider(ExtraActionArtifactsProvider.class);
+    if (extraActionArtifactsProvider != null) {
+      addOutputsToDownload(extraActionArtifactsProvider.getExtraActionArtifacts().toList());
     }
   }
 
