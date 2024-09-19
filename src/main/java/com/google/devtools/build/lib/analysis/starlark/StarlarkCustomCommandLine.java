@@ -55,7 +55,6 @@ import com.google.devtools.build.lib.starlarkbuildapi.DirectoryExpander;
 import com.google.devtools.build.lib.starlarkbuildapi.FileApi;
 import com.google.devtools.build.lib.starlarkbuildapi.FileRootApi;
 import com.google.devtools.build.lib.util.Fingerprint;
-import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -66,7 +65,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
@@ -748,12 +746,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
       }
       return features == that.features
           && stringificationType.equals(that.stringificationType)
-          && Objects.equals(starlarkSemantics, that.starlarkSemantics);
+          // There is only a single instance of StarlarkSemantics per build (see #internerFor).
+          && starlarkSemantics == that.starlarkSemantics;
     }
 
     @Override
     public int hashCode() {
-      return 31 * HashCodes.hashObjects(stringificationType, starlarkSemantics)
+      return 31 * (31 * stringificationType.hashCode() + System.identityHashCode(starlarkSemantics))
           + Integer.hashCode(features);
     }
   }
