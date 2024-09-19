@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.buildtool;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.DOWNLOAD;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.OFF;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -234,7 +235,7 @@ public class BuildTool {
           evaluateProjectFile(request, buildOptions, targetPatternPhaseValue, env);
 
       var analysisCachingDeps =
-          RemoteAnalysisCachingDependenciesProviderImpl.create(
+          RemoteAnalysisCachingDependenciesProviderImpl.forAnalysis(
               env, projectEvaluationResult.activeDirectoriesMatcher());
 
       if (env.withMergedAnalysisAndExecutionSourceOfTruth()) {
@@ -254,7 +255,8 @@ public class BuildTool {
             analysisCachingDeps);
       }
 
-      logAnalysisCachingStatsAndMaybeUploadFrontier(request, analysisCachingDeps);
+      logAnalysisCachingStatsAndMaybeUploadFrontier(
+          request, projectEvaluationResult.activeDirectoriesMatcher());
 
       if (env.getSkyframeExecutor().getSkyfocusState().enabled()) {
         // Skyfocus only works at the end of a successful build.
@@ -837,7 +839,7 @@ public class BuildTool {
    * </ol>
    */
   private void logAnalysisCachingStatsAndMaybeUploadFrontier(
-      BuildRequest request, RemoteAnalysisCachingDependenciesProvider analysisCachingDeps)
+      BuildRequest request, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher)
       throws InterruptedException, AbruptExitException {
     if (!(env.getSkyframeExecutor() instanceof SequencedSkyframeExecutor)) {
       return;
@@ -850,12 +852,15 @@ public class BuildTool {
 
     switch (options.mode) {
       case UPLOAD -> {
+        if (!activeDirectoriesMatcher.isPresent()) {
+          return;
+        }
         try (SilentCloseable closeable =
             Profiler.instance().profile("serializeAndUploadFrontier")) {
-          Preconditions.checkState(analysisCachingDeps.enabled());
           Optional<FailureDetail> maybeFailureDetail =
               FrontierSerializer.serializeAndUploadFrontier(
-                  analysisCachingDeps,
+                  new RemoteAnalysisCachingDependenciesProviderImpl(
+                      env, activeDirectoriesMatcher.get()),
                   env.getSkyframeExecutor(),
                   env.getReporter(),
                   env.getEventBus(),
@@ -1109,13 +1114,12 @@ public class BuildTool {
     private final PathFragmentPrefixTrie activeDirectoriesMatcher;
     private final RemoteAnalysisCachingEventListener listener;
 
-    public static RemoteAnalysisCachingDependenciesProvider create(
+    public static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher) {
       var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
-      if (options == null || options.mode == OFF || activeDirectoriesMatcher.isEmpty()) {
+      if (options == null || options.mode != DOWNLOAD || activeDirectoriesMatcher.isEmpty()) {
         return DisabledDependenciesProvider.INSTANCE;
       }
-
       return new RemoteAnalysisCachingDependenciesProviderImpl(env, activeDirectoriesMatcher.get());
     }
 
