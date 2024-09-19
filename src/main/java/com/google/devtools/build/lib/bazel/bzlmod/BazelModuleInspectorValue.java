@@ -152,8 +152,8 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
     /** Returns a new {@link AugmentedModule.Builder} with {@code key} set. */
     public static AugmentedModule.Builder builder(ModuleKey key) {
       return new AutoValue_BazelModuleInspectorValue_AugmentedModule.Builder()
-          .setName(key.getName())
-          .setVersion(key.getVersion())
+          .setName(key.name())
+          .setVersion(key.version())
           .setKey(key)
           .setLoaded(false);
     }

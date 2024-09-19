@@ -237,7 +237,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
   public InterimModule buildModule(@Nullable Registry registry) throws EvalException {
     // Add builtin modules as default deps of the current module.
     for (String builtinModule : builtinModules.keySet()) {
-      if (module.getKey().getName().equals(builtinModule)) {
+      if (module.getKey().name().equals(builtinModule)) {
         // The built-in module does not depend on itself.
         continue;
       }

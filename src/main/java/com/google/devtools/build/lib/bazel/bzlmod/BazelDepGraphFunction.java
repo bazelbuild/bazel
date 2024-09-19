@@ -131,7 +131,7 @@ public class BazelDepGraphFunction implements SkyFunction {
     // modules is multiple_version_override.
     ImmutableSet<String> multipleVersionsModules =
         depGraph.keySet().stream()
-            .collect(groupingBy(ModuleKey::getName, counting()))
+            .collect(groupingBy(ModuleKey::name, counting()))
             .entrySet()
             .stream()
             .filter(entry -> entry.getValue() > 1)
@@ -150,7 +150,7 @@ public class BazelDepGraphFunction implements SkyFunction {
         .collect(
             toImmutableBiMap(
                 key ->
-                    multipleVersionsModules.contains(key.getName())
+                    multipleVersionsModules.contains(key.name())
                         ? key.getCanonicalRepoNameWithVersion()
                         : key.getCanonicalRepoNameWithoutVersion(),
                 key -> key));
@@ -188,8 +188,8 @@ public class BazelDepGraphFunction implements SkyFunction {
                     id.getBzlFileLabel().getRepository().getName(),
                     id.getExtensionName(),
                     extensionNameDisambiguator,
-                    isolationKey.getModule().getName(),
-                    isolationKey.getModule().getVersion(),
+                    isolationKey.getModule().name(),
+                    isolationKey.getModule().version(),
                     isolationKey.getUsageExportedName()))
         .orElse(
             id.getBzlFileLabel().getRepository().getName()

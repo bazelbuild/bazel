@@ -228,8 +228,7 @@ public class IndexRegistry implements Registry {
   public Optional<ModuleFile> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler)
       throws IOException, InterruptedException {
     String url =
-        constructUrl(
-            getUrl(), "modules", key.getName(), key.getVersion().toString(), "MODULE.bazel");
+        constructUrl(getUrl(), "modules", key.name(), key.version().toString(), "MODULE.bazel");
     Optional<byte[]> maybeContent = grabFile(url, eventHandler, /* useChecksum= */ true);
     return maybeContent.map(content -> ModuleFile.create(content, url));
   }
@@ -341,7 +340,7 @@ public class IndexRegistry implements Registry {
 
   private String getSourceJsonUrl(ModuleKey key) {
     return constructUrl(
-        getUrl(), "modules", key.getName(), key.getVersion().toString(), SOURCE_JSON_FILENAME);
+        getUrl(), "modules", key.name(), key.version().toString(), SOURCE_JSON_FILENAME);
   }
 
   private Optional<BazelRegistryJson> getBazelRegistryJson(ExtendedEventHandler eventHandler)
@@ -432,8 +431,8 @@ public class IndexRegistry implements Registry {
             constructUrl(
                 getUrl(),
                 "modules",
-                key.getName(),
-                key.getVersion().toString(),
+                key.name(),
+                key.version().toString(),
                 "patches",
                 entry.getKey()),
             entry.getValue());
@@ -455,8 +454,8 @@ public class IndexRegistry implements Registry {
                                 constructUrl(
                                     getUrl(),
                                     "modules",
-                                    key.getName(),
-                                    key.getVersion().toString(),
+                                    key.name(),
+                                    key.version().toString(),
                                     "overlay",
                                     entry.getKey())))));
 
@@ -529,7 +528,7 @@ public class IndexRegistry implements Registry {
       // access if the set of yanked versions has not changed, but the set allowed versions has.
       return Optional.of(
           YankedVersionsValue.create(
-              Optional.of(ImmutableMap.of(selectedModuleKey.getVersion(), yankedInfo))));
+              Optional.of(ImmutableMap.of(selectedModuleKey.version(), yankedInfo))));
     }
     if (knownFileHashes.containsKey(getSourceJsonUrl(selectedModuleKey))) {
       // If the source.json hash is recorded in the lockfile, we know that the module was selected

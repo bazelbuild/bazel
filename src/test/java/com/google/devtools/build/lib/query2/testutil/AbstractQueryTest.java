@@ -2492,7 +2492,7 @@ public abstract class AbstractQueryTest<T> {
         "deps=['@my_repo//a:x','@my_repo//a/b:p']",
         ")");
     helper.addModule(
-        ModuleKey.create("repo", Version.parse("1.0")), "module(name = 'repo', version = '1.0')");
+        new ModuleKey("repo", Version.parse("1.0")), "module(name = 'repo', version = '1.0')");
     writeFile(helper.getModuleRoot().getRelative("repo+1.0/WORKSPACE").getPathString(), "");
     writeFile(
         helper.getModuleRoot().getRelative("repo+1.0/a/BUILD").getPathString(),

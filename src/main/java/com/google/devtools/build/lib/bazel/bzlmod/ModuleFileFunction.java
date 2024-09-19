@@ -205,14 +205,14 @@ public class ModuleFileFunction implements SkyFunction {
       env.getListener().handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
     }
-    if (!module.getName().equals(moduleKey.getName())) {
+    if (!module.getName().equals(moduleKey.name())) {
       throw errorf(
           Code.BAD_MODULE,
           "the MODULE.bazel file of %s declares a different name (%s)",
           moduleKey,
           module.getName());
     }
-    if (!moduleKey.getVersion().isEmpty() && !module.getVersion().equals(moduleKey.getVersion())) {
+    if (!moduleKey.version().isEmpty() && !module.getVersion().equals(moduleKey.version())) {
       throw errorf(
           Code.BAD_MODULE,
           "the MODULE.bazel file of %s declares a different version (%s)",
@@ -472,8 +472,7 @@ public class ModuleFileFunction implements SkyFunction {
                 toImmutableMap(
                     // A module with a non-registry override always has a unique version across the
                     // entire dep graph.
-                    name ->
-                        ModuleKey.create(name, Version.EMPTY).getCanonicalRepoNameWithoutVersion(),
+                    name -> new ModuleKey(name, Version.EMPTY).getCanonicalRepoNameWithoutVersion(),
                     name -> name));
     ImmutableSet<PathFragment> moduleFilePaths =
         Stream.concat(
@@ -572,14 +571,14 @@ public class ModuleFileFunction implements SkyFunction {
     }
 
     // Otherwise, we should get the module file from a registry.
-    if (key.getVersion().isEmpty()) {
+    if (key.version().isEmpty()) {
       // Print a friendlier error message if the user forgets to specify a version *and* doesn't
       // have a non-registry override.
       throw errorf(
           Code.MODULE_NOT_FOUND,
           "bad bazel_dep on module '%s' with no version. Did you forget to specify a version, or a"
               + " non-registry override?",
-          key.getName());
+          key.name());
     }
     ImmutableSet<String> registries = Objects.requireNonNull(REGISTRIES.get(env));
     if (override instanceof RegistryOverride registryOverride) {

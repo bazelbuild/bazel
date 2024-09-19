@@ -363,8 +363,7 @@ public class PrepareDepsOfPatternsFunctionTest extends BuildViewTestCase {
         )
         """);
     registry.addModule(
-        ModuleKey.create("repo", Version.parse("1.0")),
-        "module(name = \"repo\", version = \"1.0\")");
+        new ModuleKey("repo", Version.parse("1.0")), "module(name = \"repo\", version = \"1.0\")");
     scratch.file(moduleRoot.getRelative("repo+1.0/WORKSPACE").getPathString(), "");
     scratch.file(
         moduleRoot.getRelative("repo+1.0/a/BUILD").getPathString(), "exports_files(['x'])");

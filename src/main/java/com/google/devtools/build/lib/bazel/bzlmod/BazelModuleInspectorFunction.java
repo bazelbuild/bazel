@@ -145,8 +145,8 @@ public class BazelModuleInspectorFunction implements SkyFunction {
         }
 
         ResolutionReason reason = ResolutionReason.ORIGINAL;
-        if (!key.getVersion().equals(originalKey.getVersion())) {
-          ModuleOverride override = overrides.get(key.getName());
+        if (!key.version().equals(originalKey.version())) {
+          ModuleOverride override = overrides.get(key.name());
           if (override != null) {
             if (override instanceof SingleVersionOverride) {
               reason = ResolutionReason.SINGLE_VERSION_OVERRIDE;

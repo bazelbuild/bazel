@@ -66,8 +66,7 @@ public class FakeRegistry implements Registry {
 
   @Override
   public Optional<ModuleFile> getModuleFile(ModuleKey key, ExtendedEventHandler eventHandler) {
-    String uri =
-        String.format("%s/modules/%s/%s/MODULE.bazel", url, key.getName(), key.getVersion());
+    String uri = String.format("%s/modules/%s/%s/MODULE.bazel", url, key.name(), key.version());
     var maybeContent = Optional.ofNullable(modules.get(key)).map(value -> value.getBytes(UTF_8));
     eventHandler.post(RegistryFileDownloadEvent.create(uri, maybeContent));
     return maybeContent.map(content -> ModuleFile.create(content, uri));
@@ -85,8 +84,7 @@ public class FakeRegistry implements Registry {
             .build();
     eventHandler.post(
         RegistryFileDownloadEvent.create(
-            "%s/modules/%s/%s/source.json"
-                .formatted(url, key.getName(), key.getVersion().toString()),
+            "%s/modules/%s/%s/source.json".formatted(url, key.name(), key.version()),
             Optional.of(
                 GsonTypeAdapterUtil.SINGLE_EXTENSION_USAGES_VALUE_GSON
                     .toJson(repoSpec)

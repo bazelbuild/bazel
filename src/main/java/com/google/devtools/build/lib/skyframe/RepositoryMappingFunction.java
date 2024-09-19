@@ -160,8 +160,8 @@ public class RepositoryMappingFunction implements SkyFunction {
         }
         return RepositoryMappingValue.createForBzlmodRepo(
             RepositoryMapping.create(repoMappingEntriesValue.getEntries(), repositoryName),
-            repoMappingEntriesValue.getModuleKey().getName(),
-            repoMappingEntriesValue.getModuleKey().getVersion());
+            repoMappingEntriesValue.getModuleKey().name(),
+            repoMappingEntriesValue.getModuleKey().version());
       }
     }
 

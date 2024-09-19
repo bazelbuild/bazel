@@ -62,11 +62,11 @@ public abstract class InterimModule extends ModuleBase {
     }
 
     public static DepSpec fromModuleKey(ModuleKey key) {
-      return create(key.getName(), key.getVersion(), -1);
+      return create(key.name(), key.version(), -1);
     }
 
     public final ModuleKey toModuleKey() {
-      return ModuleKey.create(getName(), getVersion());
+      return new ModuleKey(getName(), getVersion());
     }
   }
 

@@ -93,10 +93,10 @@ public class JsonOutputFormatter extends OutputFormatter {
     AugmentedModule module = depGraph.get(key);
     JsonObject json = new JsonObject();
     json.addProperty("key", printKey(key));
-    if (!key.getName().equals(module.getName())) {
+    if (!key.name().equals(module.getName())) {
       json.addProperty("name", module.getName());
     }
-    if (!key.getVersion().equals(module.getVersion())) {
+    if (!key.version().equals(module.getVersion())) {
       json.addProperty("version", module.getVersion().toString());
     }
 

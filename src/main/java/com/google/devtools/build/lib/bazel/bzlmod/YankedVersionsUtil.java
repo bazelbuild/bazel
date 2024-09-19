@@ -109,7 +109,7 @@ public final class YankedVersionsUtil {
             pieces[1]);
       }
 
-      allowedYankedVersionBuilder.add(ModuleKey.create(pieces[0], version));
+      allowedYankedVersionBuilder.add(new ModuleKey(pieces[0], version));
     }
     return false;
   }
