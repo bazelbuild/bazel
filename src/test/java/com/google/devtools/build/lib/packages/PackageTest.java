@@ -162,7 +162,8 @@ public class PackageTest {
         PackageSettings.DEFAULTS,
         PackageIdentifier.createInMainRepo(name),
         /* filename= */ RootedPath.toRootedPath(
-            Root.fromPath(fileSystem.getPath("/irrelevantRoot")), PathFragment.create(name)),
+            Root.fromPath(fileSystem.getPath("/irrelevantRoot")),
+            PathFragment.create(name + "/BUILD")),
         "workspace",
         Optional.empty(),
         Optional.empty(),

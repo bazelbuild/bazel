@@ -159,6 +159,8 @@ public class Package {
 
   private final Metadata metadata;
 
+  private final Optional<Root> sourceRoot;
+
   // For BUILD files, this is initialized immediately. For WORKSPACE files, it is known only after
   // Starlark evaluation of the WORKSPACE file has finished.
   private String workspaceName;
@@ -171,11 +173,6 @@ public class Package {
 
   // Mutated during BUILD file evaluation (but not by symbolic macro evaluation).
   private ImmutableMap<String, String> makeEnv;
-
-  // Computed in finishInit.
-  // TODO(bazel-team): There's no real reason this can't be computed sooner, reducing the set of
-  // things determined during/after BUILD file evaluation.
-  private Optional<Root> sourceRoot;
 
   // These two fields are mutually exclusive. Which one is set depends on
   // PackageSettings#precomputeTransitiveLoads. See Package.Builder#setLoads.
@@ -282,6 +279,7 @@ public class Package {
   // BUILD evaluation.
   private Package(Metadata metadata) {
     this.metadata = metadata;
+    this.sourceRoot = computeSourceRoot(metadata);
   }
 
   // ==== General package metadata accessors ====
@@ -704,43 +702,58 @@ public class Package {
 
   // ==== Initialization ====
 
+  private static Optional<Root> computeSourceRoot(Metadata metadata) {
+    if (metadata.isRepoRulePackage()) {
+      return Optional.empty();
+    }
+
+    RootedPath buildFileRootedPath = metadata.buildFilename();
+    Root buildFileRoot = buildFileRootedPath.getRoot();
+    PathFragment pkgIdFragment = metadata.packageIdentifier().getSourceRoot();
+    PathFragment pkgDirFragment = buildFileRootedPath.getRootRelativePath().getParentDirectory();
+
+    Root sourceRoot;
+    if (pkgIdFragment.equals(pkgDirFragment)) {
+      // Fast path: BUILD file path and package name are the same, don't create an extra root.
+      sourceRoot = buildFileRoot;
+    } else {
+      // TODO(bazel-team): Can this expr be simplified to just pkgDirFragment?
+      PathFragment current = buildFileRootedPath.asPath().asFragment().getParentDirectory();
+      for (int i = 0, len = pkgIdFragment.segmentCount(); i < len && current != null; i++) {
+        current = current.getParentDirectory();
+      }
+      if (current == null || current.isEmpty()) {
+        // This is never really expected to work. The below check should fail.
+        sourceRoot = buildFileRoot;
+      } else {
+        // Note that current is an absolute path.
+        sourceRoot = Root.fromPath(buildFileRoot.getRelative(current));
+      }
+    }
+
+    Preconditions.checkArgument(
+        sourceRoot.asPath() != null
+            && sourceRoot.getRelative(pkgIdFragment).equals(metadata.getPackageDirectory()),
+        "Invalid BUILD file name for package '%s': %s (in source %s with packageDirectory %s and"
+            + " package identifier source root %s)",
+        metadata.packageIdentifier(),
+        metadata.buildFilename(),
+        sourceRoot,
+        metadata.getPackageDirectory(),
+        metadata.packageIdentifier().getSourceRoot());
+
+    return Optional.of(sourceRoot);
+  }
+
   /**
    * Completes the initialization of this package. Only after this method may a package by shared
    * publicly.
    */
   private void finishInit(Builder builder) {
-    String baseName = metadata.buildFilename().getRootRelativePath().getBaseName();
-
     this.containsErrors |= builder.containsErrors;
     if (directLoads == null && transitiveLoads == null) {
       Preconditions.checkState(containsErrors, "Loads not set for error-free package");
       builder.setLoads(ImmutableList.of());
-    }
-
-    if (isWorkspaceFile(baseName) || isModuleDotBazelFile(baseName)) {
-      Preconditions.checkState(isRepoRulePackage());
-      this.sourceRoot = Optional.empty();
-    } else {
-      Root sourceRoot =
-          computeSourceRoot(metadata.buildFilename(), metadata.packageIdentifier().getSourceRoot());
-      if (sourceRoot.asPath() == null
-          || !sourceRoot
-              .getRelative(metadata.packageIdentifier().getSourceRoot())
-              .equals(metadata.getPackageDirectory())) {
-        throw new IllegalArgumentException(
-            "Invalid BUILD file name for package '"
-                + metadata.packageIdentifier()
-                + "': "
-                + metadata.buildFilename()
-                + " (in source "
-                + sourceRoot
-                + " with packageDirectory "
-                + metadata.getPackageDirectory()
-                + " and package identifier source root "
-                + metadata.packageIdentifier().getSourceRoot()
-                + ")");
-      }
-      this.sourceRoot = Optional.of(sourceRoot);
     }
 
     this.workspaceName = builder.workspaceName;
@@ -772,34 +785,6 @@ public class Package {
     this.externalPackageRepositoryMappings = repositoryMappingsBuilder.buildOrThrow();
     OptionalLong overheadEstimate = builder.packageOverheadEstimator.estimatePackageOverhead(this);
     this.packageOverhead = overheadEstimate.orElse(PACKAGE_OVERHEAD_UNSET);
-  }
-
-  private static boolean isWorkspaceFile(String baseFileName) {
-    return baseFileName.equals(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME.getPathString())
-        || baseFileName.equals(LabelConstants.WORKSPACE_FILE_NAME.getPathString());
-  }
-
-  private static boolean isModuleDotBazelFile(String baseFileName) {
-    return baseFileName.equals(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME.getPathString());
-  }
-
-  private static Root computeSourceRoot(
-      RootedPath buildFileRootedPath, PathFragment packageFragment) {
-    PathFragment packageDirectory = buildFileRootedPath.getRootRelativePath().getParentDirectory();
-    if (packageFragment.equals(packageDirectory)) {
-      // Fast path: BUILD file path and package name are the same, don't create an extra root.
-      return buildFileRootedPath.getRoot();
-    }
-    PathFragment current = buildFileRootedPath.asPath().asFragment().getParentDirectory();
-    for (int i = 0, len = packageFragment.segmentCount(); i < len && current != null; i++) {
-      current = current.getParentDirectory();
-    }
-    if (current == null || current.isEmpty()) {
-      // This is never really expected to work. The check below in #finishInit should fail.
-      return buildFileRootedPath.getRoot();
-    }
-    // Note that current is an absolute path.
-    return Root.fromPath(buildFileRootedPath.getRoot().getRelative(current));
   }
 
   // TODO(bazel-team): This is a mutation, but Package is supposed to be immutable. In practice it
@@ -2770,6 +2755,16 @@ public class Package {
       Preconditions.checkNotNull(repositoryMapping);
       Preconditions.checkNotNull(associatedModuleName);
       Preconditions.checkNotNull(associatedModuleVersion);
+
+      // Check for consistency between isRepoRulePackage and whether the buildFilename is a
+      // WORKSPACE / MODULE.bazel file.
+      String baseName = buildFilename.asPath().getBaseName();
+      boolean isWorkspaceFile =
+          baseName.equals(LabelConstants.WORKSPACE_DOT_BAZEL_FILE_NAME.getPathString())
+              || baseName.equals(LabelConstants.WORKSPACE_FILE_NAME.getPathString());
+      boolean isModuleDotBazelFile =
+          baseName.equals(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME.getPathString());
+      Preconditions.checkArgument(isRepoRulePackage == (isWorkspaceFile || isModuleDotBazelFile));
     }
 
     /**

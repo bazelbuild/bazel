@@ -219,7 +219,7 @@ public final class RuleFactoryTest extends PackageLoadingTestCase {
 
   @Test
   public void testOutputFileNotEqualDot() {
-    Path myPkgPath = scratch.resolve("/workspace/mypkg");
+    Path myPkgPath = scratch.resolve("/workspace/mypkg/BUILD");
     Package.Builder pkgBuilder = newBuilder(PackageIdentifier.createInMainRepo("mypkg"), myPkgPath);
 
     Map<String, Object> attributeValues = new HashMap<>();

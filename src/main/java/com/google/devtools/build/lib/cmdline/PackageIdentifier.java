@@ -164,6 +164,8 @@ public final class PackageIdentifier implements SkyKey, Comparable<PackageIdenti
    * Returns a path to the source code for this package relative to the corresponding source root.
    * Returns pkgName for all repositories.
    */
+  // TODO(bazel-team): This name is misleading, since the returned object is not a source root.
+  // Maybe "getSourceRootRelative()"?
   public PathFragment getSourceRoot() {
     return pkgName;
   }
