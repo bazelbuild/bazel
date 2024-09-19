@@ -5273,7 +5273,7 @@
     },
     "@@rules_python+//python/private/bzlmod:pip.bzl%pip_internal": {
       "general": {
-        "bzlTransitiveDigest": "1KLA+JO86fwZ1jWTGwqau6h3Yaf5DxuhX6TreBS8r/A=",
+        "bzlTransitiveDigest": "paCbMe3CKG5tc/zg9ShG/GVqkBhmHwcCEwVQCGyOsA0=",
         "usagesDigest": "spYTfmH5Mw462zD7a6kcJXCuJA9q0cpZZc4yYSSxiPw=",
         "recordedFileInputs": {
           "@@rules_python+//tools/publish/requirements_windows.txt": "0b7327c4f5751dc429bf53d21fc0797a7a0a6ac468ddcb38e238bed90ef0a7da",
@@ -7330,7 +7330,7 @@
                 "importlib_metadata": "[{\"config_setting\":\"//_config:is_python_3.11\",\"filename\":\"importlib_metadata-6.0.0-py3-none-any.whl\",\"repo\":\"rules_python_publish_deps_311_importlib_metadata_py3_none_any_7efb448e\",\"target_platforms\":null,\"version\":\"3.11\"},{\"config_setting\":\"//_config:is_python_3.11\",\"filename\":\"importlib_metadata-6.0.0.tar.gz\",\"repo\":\"rules_python_publish_deps_311_importlib_metadata_sdist_e354bede\",\"target_platforms\":null,\"version\":\"3.11\"}]",
                 "pywin32_ctypes": "[{\"config_setting\":\"//_config:is_python_3.11\",\"filename\":\"pywin32_ctypes-0.2.0-py2.py3-none-any.whl\",\"repo\":\"rules_python_publish_deps_311_pywin32_ctypes_py2_none_any_9dc2d991\",\"target_platforms\":null,\"version\":\"3.11\"},{\"config_setting\":\"//_config:is_python_3.11\",\"filename\":\"pywin32-ctypes-0.2.0.tar.gz\",\"repo\":\"rules_python_publish_deps_311_pywin32_ctypes_sdist_24ffc3b3\",\"target_platforms\":null,\"version\":\"3.11\"}]"
               },
-              "default_version": "3.8",
+              "default_version": "3.10",
               "groups": {}
             }
           },
@@ -7628,13 +7628,13 @@
           ],
           [
             "rules_python++python+pythons_hub",
-            "python_3_11_host",
-            "rules_python++python+python_3_11_host"
+            "python_3_10_host",
+            "rules_python++python+python_3_10_host"
           ],
           [
             "rules_python++python+pythons_hub",
-            "python_3_8_host",
-            "rules_python++python+python_3_8_host"
+            "python_3_11_host",
+            "rules_python++python+python_3_11_host"
           ]
         ]
       }
