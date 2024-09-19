@@ -110,6 +110,9 @@ public class StandaloneTestStrategy extends TestStrategy {
     Map<String, String> executionInfo =
         new TreeMap<>(action.getTestProperties().getExecutionInfo());
     if (!action.shouldCacheResult()) {
+      // TODO(tjgq): We want to reject a previously cached result, but not prevent the result of the
+      // current execution from being uploaded. We should introduce a separate execution requirement
+      // for this.
       executionInfo.put(ExecutionRequirements.NO_CACHE, "");
     }
     executionInfo.put(ExecutionRequirements.TIMEOUT, "" + getTimeout(action).getSeconds());
