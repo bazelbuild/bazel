@@ -290,9 +290,13 @@ public class Package {
     return metadata;
   }
 
-  /** Returns this package's identifier. */
+  /**
+   * Returns this package's identifier.
+   *
+   * <p>This is a suffix of {@code getFilename().getParentDirectory()}.
+   */
   public PackageIdentifier getPackageIdentifier() {
-    return metadata.packageIdentifier;
+    return metadata.packageIdentifier();
   }
 
   /**
@@ -300,12 +304,12 @@ public class Package {
    * may not be unique!
    */
   public String getName() {
-    return metadata.getName();
+    return metadata.packageIdentifier().getPackageFragment().getPathString();
   }
 
   /** Like {@link #getName}, but has type {@code PathFragment}. */
   public PathFragment getNameFragment() {
-    return metadata.getNameFragment();
+    return getPackageIdentifier().getPackageFragment();
   }
 
   /**
@@ -313,12 +317,12 @@ public class Package {
    * BUILD file is the package directory.
    */
   public RootedPath getFilename() {
-    return metadata.filename;
+    return metadata.buildFilename();
   }
 
   /** Returns the directory containing the package's BUILD file. */
   public Path getPackageDirectory() {
-    return metadata.packageDirectory;
+    return metadata.getPackageDirectory();
   }
 
   /**
@@ -329,17 +333,23 @@ public class Package {
     return metadata.isRepoRulePackage;
   }
 
-  /** Get the repository mapping for this package. */
+  /**
+   * Returns the map of repository reassignments for BUILD packages. This will be empty for packages
+   * within the main workspace.
+   */
   public RepositoryMapping getRepositoryMapping() {
-    return metadata.repositoryMapping;
+    return metadata.repositoryMapping();
   }
 
   /**
    * How to enforce visibility on <code>config_setting</code> See {@link
    * ConfigSettingVisibilityPolicy} for details.
+   *
+   * <p>Null for repo rule packages.
    */
+  @Nullable
   public ConfigSettingVisibilityPolicy getConfigSettingVisibilityPolicy() {
-    return metadata.configSettingVisibilityPolicy;
+    return metadata.configSettingVisibilityPolicy();
   }
 
   /**
@@ -617,12 +627,12 @@ public class Package {
 
     Label label;
     try {
-      label = Label.create(metadata.packageIdentifier, targetName);
+      label = Label.create(metadata.packageIdentifier(), targetName);
     } catch (LabelSyntaxException e) {
       throw new IllegalArgumentException(targetName, e);
     }
 
-    if (metadata.succinctTargetNotFoundErrors) {
+    if (metadata.succinctTargetNotFoundErrors()) {
       throw new NoSuchTargetException(
           label, String.format("target '%s' not declared in package '%s'", targetName, getName()));
     } else {
@@ -633,7 +643,7 @@ public class Package {
               "target '%s' not declared in package '%s' defined by %s%s",
               targetName,
               getName(),
-              metadata.filename.asPath().getPathString(),
+              metadata.buildFilename().asPath().getPathString(),
               alternateTargetSuggestion));
     }
   }
@@ -643,7 +653,7 @@ public class Package {
     // produce a more informative error.  NOTE! this code path is only executed
     // on failure, which is (relatively) very rare.  In the common case no
     // stat(2) is executed.
-    Path filename = metadata.packageDirectory.getRelative(targetName);
+    Path filename = metadata.getPackageDirectory().getRelative(targetName);
     if (!PathFragment.isNormalized(targetName) || "*".equals(targetName)) {
       // Don't check for file existence if the target name is not normalized
       // because the error message would be confusing and wrong. If the
@@ -699,7 +709,7 @@ public class Package {
    * publicly.
    */
   private void finishInit(Builder builder) {
-    String baseName = metadata.filename.getRootRelativePath().getBaseName();
+    String baseName = metadata.buildFilename().getRootRelativePath().getBaseName();
 
     this.containsErrors |= builder.containsErrors;
     if (directLoads == null && transitiveLoads == null) {
@@ -712,22 +722,22 @@ public class Package {
       this.sourceRoot = Optional.empty();
     } else {
       Root sourceRoot =
-          computeSourceRoot(metadata.filename, metadata.packageIdentifier.getSourceRoot());
+          computeSourceRoot(metadata.buildFilename(), metadata.packageIdentifier().getSourceRoot());
       if (sourceRoot.asPath() == null
           || !sourceRoot
-              .getRelative(metadata.packageIdentifier.getSourceRoot())
-              .equals(metadata.packageDirectory)) {
+              .getRelative(metadata.packageIdentifier().getSourceRoot())
+              .equals(metadata.getPackageDirectory())) {
         throw new IllegalArgumentException(
             "Invalid BUILD file name for package '"
-                + metadata.packageIdentifier
+                + metadata.packageIdentifier()
                 + "': "
-                + metadata.filename
+                + metadata.buildFilename()
                 + " (in source "
                 + sourceRoot
                 + " with packageDirectory "
-                + metadata.packageDirectory
+                + metadata.getPackageDirectory()
                 + " and package identifier source root "
-                + metadata.packageIdentifier.getSourceRoot()
+                + metadata.packageIdentifier().getSourceRoot()
                 + ")");
       }
       this.sourceRoot = Optional.of(sourceRoot);
@@ -816,7 +826,7 @@ public class Package {
    * output.
    */
   public void dump(PrintStream out) {
-    out.println("  Package " + getName() + " (" + metadata.filename.asPath() + ")");
+    out.println("  Package " + getName() + " (" + metadata.buildFilename().asPath() + ")");
 
     // Rules:
     out.println("    Rules");
@@ -1005,6 +1015,9 @@ public class Package {
        * thrown from {@link #getTarget}. Useful for toning down verbosity in situations where it can
        * be less helpful.
        */
+      // TODO(bazel-team): Arguably, this could be replaced by a boolean param to getTarget(), or
+      // some separate action taken by the caller. But there's a lot of call sites that would need
+      // updating.
       default boolean succinctTargetNotFoundErrors() {
         return false;
       }
@@ -1312,28 +1325,25 @@ public class Package {
 
       this.workspaceName = Preconditions.checkNotNull(workspaceName);
 
-      Metadata metadata = new Metadata();
-      metadata.packageIdentifier = Preconditions.checkNotNull(id);
-
-      metadata.filename = filename;
-      metadata.packageDirectory = filename.asPath().getParentDirectory();
+      Metadata metadata =
+          new Metadata(
+              /* packageIdentifier= */ id,
+              /* buildFilename= */ filename,
+              /* isRepoRulePackage= */ id.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
+                  // For bzlmod packages, setWorkspaceName() is not called, so this check doesn't
+                  // change during package evaluation.
+                  || workspaceName.equals(DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES),
+              /* repositoryMapping= */ repositoryMapping,
+              /* associatedModuleName= */ associatedModuleName,
+              /* associatedModuleVersion= */ associatedModuleVersion,
+              /* configSettingVisibilityPolicy= */ configSettingVisibilityPolicy,
+              /* succinctTargetNotFoundErrors= */ packageSettings.succinctTargetNotFoundErrors());
       try {
         buildFileLabel = Label.create(id, filename.getRootRelativePath().getBaseName());
       } catch (LabelSyntaxException e) {
         // This can't actually happen.
         throw new AssertionError("Package BUILD file has an illegal name: " + filename, e);
       }
-
-      metadata.isRepoRulePackage =
-          metadata.packageIdentifier.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
-              // For bzlmod packages, setWorkspaceName() is not called, so this check doesn't change
-              // during package evaluation.
-              || workspaceName.equals(DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES);
-      metadata.repositoryMapping = Preconditions.checkNotNull(repositoryMapping);
-      metadata.associatedModuleName = Preconditions.checkNotNull(associatedModuleName);
-      metadata.associatedModuleVersion = Preconditions.checkNotNull(associatedModuleVersion);
-      metadata.succinctTargetNotFoundErrors = packageSettings.succinctTargetNotFoundErrors();
-      metadata.configSettingVisibilityPolicy = configSettingVisibilityPolicy;
 
       this.pkg = new Package(metadata);
 
@@ -1539,7 +1549,7 @@ public class Package {
      * this is the name of the module hosting the extension.
      */
     Optional<String> getAssociatedModuleName() {
-      return pkg.metadata.associatedModuleName;
+      return pkg.metadata.associatedModuleName();
     }
 
     /**
@@ -1548,7 +1558,7 @@ public class Package {
      * this is the version of the module hosting the extension.
      */
     Optional<String> getAssociatedModuleVersion() {
-      return pkg.metadata.associatedModuleVersion;
+      return pkg.metadata.associatedModuleVersion();
     }
 
     /**
@@ -1616,7 +1626,7 @@ public class Package {
     }
 
     RootedPath getFilename() {
-      return pkg.metadata.filename;
+      return pkg.metadata.buildFilename();
     }
 
     /** Returns the {@link StoredEventHandler} associated with this builder. */
@@ -2744,89 +2754,32 @@ public class Package {
   }
 
   /** A collection of data that is known before BUILD file evaluation even begins. */
-  public static final class Metadata {
+  public record Metadata(
+      PackageIdentifier packageIdentifier,
+      RootedPath buildFilename,
+      boolean isRepoRulePackage,
+      RepositoryMapping repositoryMapping,
+      Optional<String> associatedModuleName,
+      Optional<String> associatedModuleVersion,
+      @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
+      boolean succinctTargetNotFoundErrors) {
 
-    private Metadata() {}
-
-    private PackageIdentifier packageIdentifier;
+    public Metadata {
+      Preconditions.checkNotNull(packageIdentifier);
+      Preconditions.checkNotNull(buildFilename);
+      Preconditions.checkNotNull(repositoryMapping);
+      Preconditions.checkNotNull(associatedModuleName);
+      Preconditions.checkNotNull(associatedModuleVersion);
+    }
 
     /**
-     * Returns the package identifier for this package.
+     * Returns the directory in which this package's BUILD file resides.
      *
-     * <p>This is a suffix of {@code getFilename().getParentDirectory()}.
-     */
-    public PackageIdentifier getPackageIdentifier() {
-      return packageIdentifier;
-    }
-
-    /**
-     * Returns the name of this package. If this build is using external repositories then this name
-     * may not be unique!
-     */
-    public String getName() {
-      return packageIdentifier.getPackageFragment().getPathString();
-    }
-
-    /** Like {@link #getName}, but has type {@code PathFragment}. */
-    public PathFragment getNameFragment() {
-      return packageIdentifier.getPackageFragment();
-    }
-
-    private RootedPath filename;
-
-    /** Returns the filename of this package's BUILD file. */
-    public RootedPath getFilename() {
-      return filename;
-    }
-
-    private Path packageDirectory;
-
-    /**
-     * Returns the directory in which this package's BUILD file resides. All InputFile members of
-     * the packages are located relative to this directory.
+     * <p>All InputFile members of the packages are located relative to this directory.
      */
     public Path getPackageDirectory() {
-      return packageDirectory;
+      return buildFilename.asPath().getParentDirectory();
     }
-
-    private boolean isRepoRulePackage;
-
-    private RepositoryMapping repositoryMapping;
-
-    /**
-     * Returns the map of repository reassignments for BUILD packages. This will be empty for
-     * packages within the main workspace.
-     */
-    public RepositoryMapping getRepositoryMapping() {
-      return repositoryMapping;
-    }
-
-    /**
-     * The name of the Bzlmod module associated with the repo this package is in. If this package is
-     * not from a Bzlmod repo, this is empty. For repos generated by module extensions, this is the
-     * name of the module hosting the extension.
-     */
-    private Optional<String> associatedModuleName;
-
-    /**
-     * The version of the Bzlmod module associated with the repo this package is in. If this package
-     * is not from a Bzlmod repo, this is empty. For repos generated by module extensions, this is
-     * the version of the module hosting the extension.
-     */
-    private Optional<String> associatedModuleVersion;
-
-    private ConfigSettingVisibilityPolicy configSettingVisibilityPolicy;
-
-    /** Returns the visibility enforcement policy for {@code config_setting}. */
-    public ConfigSettingVisibilityPolicy getConfigSettingVisibilityPolicy() {
-      return configSettingVisibilityPolicy;
-    }
-
-    /** Governs the error message behavior of {@link Package#getTarget}. */
-    // TODO(bazel-team): Arguably, this could be replaced by a boolean param to getTarget(), or some
-    // separate action taken by the caller. But there's a lot of call sites that would need
-    // updating.
-    private boolean succinctTargetNotFoundErrors;
   }
 
   /** Package codec implementation. */
