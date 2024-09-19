@@ -102,7 +102,7 @@ public final class FingerprintValueService {
   }
 
   /** Delegates to {@link FingerprintValueStore#get}. */
-  ListenableFuture<byte[]> get(PackedFingerprint fingerprint) throws IOException {
+  public ListenableFuture<byte[]> get(PackedFingerprint fingerprint) throws IOException {
     return store.get(fingerprint);
   }
 
