@@ -792,4 +792,269 @@ Hello, BazelCon Munich!
 Hello, BazelCon New York!" "$(cat "$(bazel cquery --output=files //pkg:all_greetings)")"
 }
 
+function test_path_stripping_deduplicated_action() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_deduplicated_action on Windows as it requires sandboxing"
+    return
+  fi
+
+  mkdir rules
+  touch rules/BUILD
+  cat > rules/defs.bzl <<'EOF'
+def _slow_rule_impl(ctx):
+    out_file = ctx.actions.declare_file(ctx.attr.name + "_file")
+    out_dir = ctx.actions.declare_directory(ctx.attr.name + "_dir")
+    out_symlink = ctx.actions.declare_symlink(ctx.attr.name + "_symlink")
+    outs = [out_file, out_dir, out_symlink]
+    args = ctx.actions.args().add_all(outs, expand_directories = False)
+    ctx.actions.run_shell(
+         outputs = outs,
+         command = """
+         # Sleep to ensure that two actions are scheduled in parallel.
+         sleep 3
+
+         echo "Hello, stdout!"
+         >&2 echo "Hello, stderr!"
+
+         echo 'echo "Hello, file!"' > $1
+         chmod +x $1
+         echo 'Hello, dir!' > $2/file
+         ln -s $(basename $2)/file $3
+         """,
+         arguments = [args],
+         execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [
+        DefaultInfo(files = depset(outs)),
+    ]
+
+slow_rule = rule(_slow_rule_impl)
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load("//rules:defs.bzl", "slow_rule")
+
+slow_rule(name = "my_rule")
+
+COMMAND = """
+function validate() {
+  # Sorted by file name.
+  local -r dir=$$1
+  local -r file=$$2
+  local -r symlink=$$3
+
+  [[ $$($$file) == "Hello, file!" ]] || exit 1
+
+  [[ -d $$dir ]] || exit 1
+  [[ $$(cat $$dir/file) == "Hello, dir!" ]] || exit 1
+
+  [[ -L $$symlink ]] || exit 1
+  [[ $$(cat $$symlink) == "Hello, dir!" ]] || exit 1
+}
+validate $(execpaths :my_rule)
+touch $@
+"""
+
+genrule(
+    name = "gen_exec",
+    outs = ["out_exec"],
+    cmd = COMMAND,
+    tools = [":my_rule"],
+)
+
+genrule(
+    name = "gen_target",
+    outs = ["out_target"],
+    cmd = COMMAND,
+    srcs = [":my_rule"],
+)
+EOF
+
+  bazel build \
+    --experimental_output_paths=strip \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:all &> $TEST_log || fail "build failed unexpectedly"
+  # The first slow_write action plus two genrules.
+  expect_log '3 \(linux\|darwin\|processwrapper\)-sandbox'
+  expect_log '1 deduplicated'
+
+  # Even though the spawn is only executed once, its stdout/stderr should be
+  # printed as if it wasn't deduplicated.
+  expect_log_once 'INFO: From Action pkg/my_rule_file:'
+  expect_log_once 'INFO: From Action pkg/my_rule_file \[for tool\]:'
+  expect_log_n 'Hello, stderr!' 2
+  expect_log_n 'Hello, stdout!' 2
+
+  bazel clean || fail "clean failed unexpectedly"
+  bazel build \
+    --experimental_output_paths=strip \
+    --remote_cache=grpc://localhost:${worker_port} \
+    //pkg:all &> $TEST_log || fail "build failed unexpectedly"
+  # The cache is checked before deduplication.
+  expect_log '4 remote cache hit'
+}
+
+function test_path_stripping_deduplicated_action_output_not_created() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_deduplicated_action_output_not_created on Windows as it requires sandboxing"
+    return
+  fi
+
+  mkdir rules
+  touch rules/BUILD
+  cat > rules/defs.bzl <<'EOF'
+def _slow_rule_impl(ctx):
+    out_file = ctx.actions.declare_file(ctx.attr.name + "_file")
+    outs = [out_file]
+    args = ctx.actions.args().add_all(outs)
+    ctx.actions.run_shell(
+         outputs = outs,
+         command = """
+         # Sleep to ensure that two actions are scheduled in parallel.
+         sleep 3
+
+         echo "Hello, stdout!"
+         >&2 echo "Hello, stderr!"
+
+         # Do not create the output file
+         """,
+         arguments = [args],
+         execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [
+        DefaultInfo(files = depset(outs)),
+    ]
+
+slow_rule = rule(_slow_rule_impl)
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load("//rules:defs.bzl", "slow_rule")
+
+slow_rule(name = "my_rule")
+
+COMMAND = """
+[[ $$($(execpath :my_rule)) == "Hello, file!" ]] || exit 1
+touch $@
+"""
+
+genrule(
+    name = "gen_exec",
+    outs = ["out_exec"],
+    cmd = COMMAND,
+    tools = [":my_rule"],
+)
+
+genrule(
+    name = "gen_target",
+    outs = ["out_target"],
+    cmd = COMMAND,
+    srcs = [":my_rule"],
+)
+EOF
+
+  bazel build \
+    --experimental_output_paths=strip \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --keep_going \
+    //pkg:all &> $TEST_log && fail "build succeeded unexpectedly"
+  # The second action runs normally after discovering that the first one failed
+  # to create the output file.
+  expect_log '2 \(linux\|darwin\|processwrapper\)-sandbox'
+  expect_not_log '[0-9] deduplicated'
+
+  expect_log 'Action pkg/my_rule_file failed:'
+  expect_log 'Action pkg/my_rule_file \[for tool\] failed:'
+  # Remote cache warning.
+  expect_log 'Expected output pkg/my_rule_file was not created locally.'
+
+  expect_log_once 'INFO: From Action pkg/my_rule_file:'
+  expect_log_once 'INFO: From Action pkg/my_rule_file \[for tool\]:'
+  expect_log_n 'Hello, stderr!' 2
+  expect_log_n 'Hello, stdout!' 2
+}
+
+function test_path_stripping_deduplicated_action_non_zero_exit_code() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_deduplicated_action_non_zero_exit_code on Windows as it requires sandboxing"
+    return
+  fi
+
+  mkdir rules
+  touch rules/BUILD
+  cat > rules/defs.bzl <<'EOF'
+def _slow_rule_impl(ctx):
+    out_file = ctx.actions.declare_file(ctx.attr.name + "_file")
+    outs = [out_file]
+    args = ctx.actions.args().add_all(outs)
+    ctx.actions.run_shell(
+         outputs = outs,
+         command = """
+         # Sleep to ensure that two actions are scheduled in parallel.
+         sleep 3
+
+         echo "Hello, stdout!"
+         >&2 echo "Hello, stderr!"
+
+         # Create the output file, but with a non-zero exit code.
+         echo 'echo "Hello, file!"' > $1
+         exit 1
+         """,
+         arguments = [args],
+         execution_requirements = {"supports-path-mapping": ""},
+    )
+    return [
+        DefaultInfo(files = depset(outs)),
+    ]
+
+slow_rule = rule(_slow_rule_impl)
+EOF
+
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load("//rules:defs.bzl", "slow_rule")
+
+slow_rule(name = "my_rule")
+
+COMMAND = """
+[[ $$($(execpath :my_rule)) == "Hello, file!" ]] || exit 1
+touch $@
+"""
+
+genrule(
+    name = "gen_exec",
+    outs = ["out_exec"],
+    cmd = COMMAND,
+    tools = [":my_rule"],
+)
+
+genrule(
+    name = "gen_target",
+    outs = ["out_target"],
+    cmd = COMMAND,
+    srcs = [":my_rule"],
+)
+EOF
+
+  bazel build \
+    --experimental_output_paths=strip \
+    --remote_cache=grpc://localhost:${worker_port} \
+    --keep_going \
+    //pkg:all &> $TEST_log && fail "build succeeded unexpectedly"
+  # Failing actions are not deduplicated.
+  expect_not_log '[0-9] deduplicated'
+
+  expect_log 'Action pkg/my_rule_file failed:'
+  expect_log 'Action pkg/my_rule_file \[for tool\] failed:'
+
+  # The first execution emits stdout/stderr, the second doesn't.
+  # stdout/stderr are emitted as part of the failing action error, not as an
+  # info.
+  expect_not_log 'INFO: From Action pkg/my_rule_file'
+  expect_log_n 'Hello, stderr!' 2
+  expect_log_n 'Hello, stdout!' 2
+}
+
 run_suite "path mapping tests"

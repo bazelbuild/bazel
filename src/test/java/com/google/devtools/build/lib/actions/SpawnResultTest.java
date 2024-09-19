@@ -66,7 +66,7 @@ public final class SpawnResultTest {
   }
 
   @Test
-  public void inMemoryContents() throws Exception {
+  public void inMemoryContents() {
     ActionInput output = ActionInputHelper.fromPath("/foo/bar");
     ByteString contents = ByteString.copyFromUtf8("hello world");
 
@@ -78,7 +78,7 @@ public final class SpawnResultTest {
             .setInMemoryOutput(output, contents)
             .build();
 
-    assertThat(ByteString.readFrom(r.getInMemoryOutput(output))).isEqualTo(contents);
+    assertThat(r.getInMemoryOutput(output)).isEqualTo(contents);
     assertThat(r.getInMemoryOutput(null)).isEqualTo(null);
     assertThat(r.getInMemoryOutput(ActionInputHelper.fromPath("/does/not/exist"))).isEqualTo(null);
   }

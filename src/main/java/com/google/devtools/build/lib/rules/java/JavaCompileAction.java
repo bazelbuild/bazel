@@ -82,6 +82,7 @@ import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.view.proto.Deps;
+import com.google.protobuf.ByteString;
 import com.google.protobuf.ExtensionRegistry;
 import java.io.IOException;
 import java.io.InputStream;
@@ -714,6 +715,14 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     return null;
   }
 
+  @Override
+  public boolean mayModifySpawnOutputsAfterExecution() {
+    // Causes of spawn output modification after execution:
+    // - Fallback to the full classpath with --experimental_java_classpath=bazel.
+    // - In-place rewriting of .jdeps files with --experimental_output_paths=strip.
+    return true;
+  }
+
   /**
    * Locally rewrites a .jdeps file to replace missing config prefixes.
    *
@@ -839,11 +848,11 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       Artifact outputDepsProto,
       ActionExecutionContext actionExecutionContext)
       throws IOException {
-    InputStream inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
+    ByteString inMemoryOutput = spawnResult.getInMemoryOutput(outputDepsProto);
     try (InputStream inputStream =
         inMemoryOutput == null
             ? actionExecutionContext.getInputPath(outputDepsProto).getInputStream()
-            : inMemoryOutput) {
+            : inMemoryOutput.newInput()) {
       return Deps.Dependencies.parseFrom(inputStream, ExtensionRegistry.getEmptyRegistry());
     }
   }
