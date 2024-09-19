@@ -1097,8 +1097,6 @@ public class Package {
     @Nullable private String ioExceptionMessage = null;
     @Nullable private IOException ioException = null;
     @Nullable private DetailedExitCode ioExceptionDetailedExitCode = null;
-    // TODO(#19922): Consider having separate containsErrors fields on Metadata and Package. In that
-    // case, this field is replaced by the one on Metadata.
     private boolean containsErrors = false;
     // A package's FailureDetail field derives from the events on its Builder's event handler.
     // During package deserialization, those events are unavailable, because those events aren't
@@ -1673,11 +1671,11 @@ public class Package {
       pkg.computationSteps = n;
     }
 
-    Builder setIOException(IOException e, String message, DetailedExitCode detailedExitCode) {
+    void setIOException(IOException e, String message, DetailedExitCode detailedExitCode) {
       this.ioException = e;
       this.ioExceptionMessage = message;
       this.ioExceptionDetailedExitCode = detailedExitCode;
-      return setContainsErrors();
+      setContainsErrors();
     }
 
     /**
@@ -1688,13 +1686,11 @@ public class Package {
     // TODO(bazel-team): For simplicity it would be nice to replace this with
     // getLocalEventHandler().hasErrors(), since that would prevent the kind of inconsistency where
     // we have reported an ERROR event but not called setContainsErrors(), or vice versa.
-    @CanIgnoreReturnValue
-    public Builder setContainsErrors() {
+    public void setContainsErrors() {
       // TODO(bazel-team): Maybe do Preconditions.checkState(localEventHandler.hasErrors()).
       // Maybe even assert that it has a FailureDetail, though that's a linear scan unless we
       // customize the event handler.
-      containsErrors = true;
-      return this;
+      this.containsErrors = true;
     }
 
     public boolean containsErrors() {
@@ -1720,7 +1716,7 @@ public class Package {
         if (detailedExitCode != null && detailedExitCode.getFailureDetail() != null) {
           return detailedExitCode.getFailureDetail();
         }
-        if (containsErrors) {
+        if (containsErrors()) {
           if (undetailedEvents == null) {
             undetailedEvents = new ArrayList<>();
           }
@@ -2106,7 +2102,7 @@ public class Package {
       }
       addOrReplaceTarget(rule);
       if (rule.containsErrors()) {
-        this.setContainsErrors();
+        setContainsErrors();
       }
     }
 
