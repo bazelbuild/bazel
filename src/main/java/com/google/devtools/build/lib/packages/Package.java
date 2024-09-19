@@ -913,21 +913,34 @@ public class Package {
       // TODO(bazel-team): See Builder() constructor comment about use of null for this param.
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
       @Nullable Globber globber) {
+    // Determine whether this is for a repo rule package. We shouldn't actually have to do this
+    // because newPackageBuilder() is supposed to only be called for normal packages. Unfortunately
+    // serialization still uses the same code path for deserializing BUILD and WORKSPACE files,
+    // violating this method's contract.
+    boolean isRepoRulePackage =
+        id.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
+            // For bzlmod packages, setWorkspaceName() is not called, so this expression doesn't
+            // change during package evaluation.
+            || workspaceName.equals(DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES);
+
     return new Builder(
+        new Metadata(
+            /* packageIdentifier= */ id,
+            /* buildFilename= */ filename,
+            /* isRepoRulePackage= */ isRepoRulePackage,
+            /* repositoryMapping= */ repositoryMapping,
+            /* associatedModuleName= */ associatedModuleName,
+            /* associatedModuleVersion= */ associatedModuleVersion,
+            /* configSettingVisibilityPolicy= */ configSettingVisibilityPolicy,
+            /* succinctTargetNotFoundErrors= */ packageSettings.succinctTargetNotFoundErrors()),
         SymbolGenerator.create(id),
-        packageSettings,
-        id,
-        filename,
-        workspaceName,
-        associatedModuleName,
-        associatedModuleVersion,
+        packageSettings.precomputeTransitiveLoads(),
         noImplicitFileExport,
-        repositoryMapping,
+        workspaceName,
         mainRepositoryMapping,
         cpuBoundSemaphore,
         packageOverheadEstimator,
         generatorMap,
-        configSettingVisibilityPolicy,
         globber);
   }
 
@@ -939,22 +952,25 @@ public class Package {
       boolean noImplicitFileExport,
       PackageOverheadEstimator packageOverheadEstimator) {
     return new Builder(
+        new Metadata(
+            /* packageIdentifier= */ LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
+            /* buildFilename= */ workspaceFileKey.getPath(),
+            /* isRepoRulePackage= */ true,
+            /* repositoryMapping= */ mainRepoMapping,
+            /* associatedModuleName= */ Optional.empty(),
+            /* associatedModuleVersion= */ Optional.empty(),
+            /* configSettingVisibilityPolicy= */ null,
+            /* succinctTargetNotFoundErrors= */ packageSettings.succinctTargetNotFoundErrors()),
         // The SymbolGenerator is based on workspaceFileKey rather than a package id or path,
         // in order to distinguish different chunks of the same WORKSPACE file.
         SymbolGenerator.create(workspaceFileKey),
-        packageSettings,
-        LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER,
-        /* filename= */ workspaceFileKey.getPath(),
-        workspaceName,
-        /* associatedModuleName= */ Optional.empty(),
-        /* associatedModuleVersion= */ Optional.empty(),
+        packageSettings.precomputeTransitiveLoads(),
         noImplicitFileExport,
-        /* repositoryMapping= */ mainRepoMapping,
-        /* mainRepositoryMapping= */ mainRepoMapping,
+        workspaceName,
+        mainRepoMapping,
         /* cpuBoundSemaphore= */ null,
         packageOverheadEstimator,
         /* generatorMap= */ null,
-        /* configSettingVisibilityPolicy= */ null,
         /* globber= */ null);
   }
 
@@ -964,20 +980,24 @@ public class Package {
       PackageIdentifier basePackageId,
       RepositoryMapping repoMapping) {
     return new Builder(
+            new Metadata(
+                /* packageIdentifier= */ basePackageId,
+                /* buildFilename= */ moduleFilePath,
+                /* isRepoRulePackage= */ true,
+                /* repositoryMapping= */ repoMapping,
+                /* associatedModuleName= */ Optional.empty(),
+                /* associatedModuleVersion= */ Optional.empty(),
+                /* configSettingVisibilityPolicy= */ null,
+                /* succinctTargetNotFoundErrors= */ PackageSettings.DEFAULTS
+                    .succinctTargetNotFoundErrors()),
             SymbolGenerator.create(basePackageId),
-            PackageSettings.DEFAULTS,
-            basePackageId,
-            /* filename= */ moduleFilePath,
-            DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES,
-            /* associatedModuleName= */ Optional.empty(),
-            /* associatedModuleVersion= */ Optional.empty(),
+            PackageSettings.DEFAULTS.precomputeTransitiveLoads(),
             noImplicitFileExport,
-            repoMapping,
+            /* workspaceName= */ DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES,
             /* mainRepositoryMapping= */ null,
             /* cpuBoundSemaphore= */ null,
             PackageOverheadEstimator.NOOP_ESTIMATOR,
             /* generatorMap= */ null,
-            /* configSettingVisibilityPolicy= */ null,
             /* globber= */ null)
         .setLoads(ImmutableList.of());
   }
@@ -1291,53 +1311,37 @@ public class Package {
     private boolean alreadyBuilt = false;
 
     private Builder(
+        Metadata metadata,
         SymbolGenerator<?> symbolGenerator,
-        PackageSettings packageSettings,
-        PackageIdentifier id,
-        RootedPath filename,
-        String workspaceName,
-        Optional<String> associatedModuleName,
-        Optional<String> associatedModuleVersion,
+        boolean precomputeTransitiveLoads,
         boolean noImplicitFileExport,
-        RepositoryMapping repositoryMapping,
-        @Nullable RepositoryMapping mainRepositoryMapping,
+        String workspaceName,
+        RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
         PackageOverheadEstimator packageOverheadEstimator,
         @Nullable ImmutableMap<Location, String> generatorMap,
-        // TODO(bazel-team): Config policy is an enum, what is null supposed to mean?
-        // Maybe convert null -> LEGACY_OFF, assuming that's the correct default.
-        @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
         @Nullable Globber globber) {
       super(mainRepositoryMapping);
+      this.metadata = metadata;
+      this.pkg = new Package(metadata);
       this.symbolGenerator = symbolGenerator;
-
       this.workspaceName = Preconditions.checkNotNull(workspaceName);
 
-      this.metadata =
-          new Metadata(
-              /* packageIdentifier= */ id,
-              /* buildFilename= */ filename,
-              /* isRepoRulePackage= */ id.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
-                  // For bzlmod packages, setWorkspaceName() is not called, so this check doesn't
-                  // change during package evaluation.
-                  || workspaceName.equals(DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES),
-              /* repositoryMapping= */ repositoryMapping,
-              /* associatedModuleName= */ associatedModuleName,
-              /* associatedModuleVersion= */ associatedModuleVersion,
-              /* configSettingVisibilityPolicy= */ configSettingVisibilityPolicy,
-              /* succinctTargetNotFoundErrors= */ packageSettings.succinctTargetNotFoundErrors());
       try {
-        buildFileLabel = Label.create(id, filename.getRootRelativePath().getBaseName());
+        this.buildFileLabel =
+            Label.create(
+                metadata.packageIdentifier(),
+                metadata.buildFilename().getRootRelativePath().getBaseName());
       } catch (LabelSyntaxException e) {
         // This can't actually happen.
-        throw new AssertionError("Package BUILD file has an illegal name: " + filename, e);
+        throw new AssertionError(
+            "Package BUILD file has an illegal name: " + metadata.buildFilename(), e);
       }
 
-      this.pkg = new Package(metadata);
-
-      this.precomputeTransitiveLoads = packageSettings.precomputeTransitiveLoads();
+      this.precomputeTransitiveLoads = precomputeTransitiveLoads;
       this.noImplicitFileExport = noImplicitFileExport;
-      this.labelConverter = new LabelConverter(id, repositoryMapping);
+      this.labelConverter =
+          new LabelConverter(metadata.packageIdentifier(), metadata.repositoryMapping());
       if (metadata.getName().startsWith("javatests/")) {
         mergePackageArgsFrom(PackageArgs.builder().setDefaultTestOnly(true));
       }
@@ -1349,7 +1353,10 @@ public class Package {
       // Add target for the BUILD file itself.
       // (This may be overridden by an exports_file declaration.)
       addInputFile(
-          new InputFile(pkg, buildFileLabel, Location.fromFile(filename.asPath().toString())));
+          new InputFile(
+              pkg,
+              buildFileLabel,
+              Location.fromFile(metadata.buildFilename().asPath().toString())));
     }
 
     SymbolGenerator<?> getSymbolGenerator() {
