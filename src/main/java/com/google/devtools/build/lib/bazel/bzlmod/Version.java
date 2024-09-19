@@ -20,10 +20,10 @@ import static com.google.common.primitives.Booleans.falseFirst;
 import static com.google.common.primitives.Booleans.trueFirst;
 import static java.util.Comparator.comparing;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import java.util.Comparator;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -61,8 +61,10 @@ import javax.annotation.Nullable;
  * <p>The special "empty string" version can also be used, and compares higher than everything else.
  * It signifies that there is a {@link NonRegistryOverride} for a module.
  */
-@AutoValue
-public abstract class Version implements Comparable<Version> {
+@AutoCodec
+public record Version(
+    ImmutableList<Identifier> release, ImmutableList<Identifier> prerelease, String normalized)
+    implements Comparable<Version> {
 
   // We don't care about the "build" part at all so don't capture it.
   private static final Pattern PATTERN =
@@ -75,30 +77,30 @@ public abstract class Version implements Comparable<Version> {
    * Represents the special "empty string" version, which compares higher than everything else and
    * signifies that there is a {@link NonRegistryOverride} for the module.
    */
-  public static final Version EMPTY =
-      new AutoValue_Version(ImmutableList.of(), ImmutableList.of(), "");
+  @SuppressWarnings("deprecation") // private usage of constructor
+  public static final Version EMPTY = new Version(ImmutableList.of(), ImmutableList.of(), "");
+
+  /**
+   * @deprecated Use {@link Version#parse(String)} instead.
+   */
+  @Deprecated
+  public Version {}
 
   /**
    * Represents an "identifier", a dot-separated segment in the version string. An identifier is
    * compared differently based on whether it's digits-only or not.
    */
-  @AutoValue
-  abstract static class Identifier implements Comparable<Identifier> {
-
-    abstract boolean isDigitsOnly();
-
-    abstract int asNumber();
-
-    abstract String asString();
-
+  @AutoCodec
+  record Identifier(boolean isDigitsOnly, int asNumber, String asString)
+      implements Comparable<Identifier> {
     static Identifier from(String string) throws ParseException {
       if (Strings.isNullOrEmpty(string)) {
         throw new ParseException("identifier is empty");
       }
       if (string.chars().allMatch(Character::isDigit)) {
-        return new AutoValue_Version_Identifier(true, Integer.parseInt(string), string);
+        return new Identifier(true, Integer.parseInt(string), string);
       } else {
-        return new AutoValue_Version_Identifier(false, 0, string);
+        return new Identifier(false, 0, string);
       }
     }
 
@@ -108,19 +110,15 @@ public abstract class Version implements Comparable<Version> {
             .thenComparing(Identifier::asString);
 
     @Override
-    public final int compareTo(Identifier o) {
+    public int compareTo(Identifier o) {
       return Objects.compare(this, o, COMPARATOR);
     }
   }
 
-  /** Returns the "release" part of the version string as a list of integers. */
-  abstract ImmutableList<Identifier> getRelease();
-
-  /** Returns the "prerelease" part of the version string as a list of {@link Identifier}s. */
-  abstract ImmutableList<Identifier> getPrerelease();
-
   /** Returns the normalized version string (that is, with any "build" part stripped). */
-  public abstract String getNormalized();
+  public String getNormalized() {
+    return normalized;
+  }
 
   /**
    * Whether this is just the "empty string" version, which signifies a non-registry override for
@@ -136,7 +134,7 @@ public abstract class Version implements Comparable<Version> {
    * part.
    */
   boolean isPrerelease() {
-    return !getPrerelease().isEmpty();
+    return !prerelease.isEmpty();
   }
 
   /** Parses a version string into a {@link Version} object. */
@@ -172,14 +170,16 @@ public abstract class Version implements Comparable<Version> {
     }
 
     String normalized = Strings.isNullOrEmpty(prerelease) ? release : release + '-' + prerelease;
-    return new AutoValue_Version(releaseSplit.build(), prereleaseSplit.build(), normalized);
+    @SuppressWarnings("deprecation") // private usage of constructor
+    Version result = new Version(releaseSplit.build(), prereleaseSplit.build(), normalized);
+    return result;
   }
 
   private static final Comparator<Version> COMPARATOR =
       comparing(Version::isEmpty, falseFirst())
-          .thenComparing(Version::getRelease, lexicographical(Identifier.COMPARATOR))
+          .thenComparing(Version::release, lexicographical(Identifier.COMPARATOR))
           .thenComparing(Version::isPrerelease, trueFirst())
-          .thenComparing(Version::getPrerelease, lexicographical(Identifier.COMPARATOR));
+          .thenComparing(Version::prerelease, lexicographical(Identifier.COMPARATOR));
 
   @Override
   public int compareTo(Version o) {
@@ -187,17 +187,17 @@ public abstract class Version implements Comparable<Version> {
   }
 
   @Override
-  public final String toString() {
+  public String toString() {
     return getNormalized();
   }
 
   @Override
-  public final boolean equals(Object o) {
+  public boolean equals(Object o) {
     return this == o || (o instanceof Version v && v.getNormalized().equals(getNormalized()));
   }
 
   @Override
-  public final int hashCode() {
+  public int hashCode() {
     return Objects.hash("version", getNormalized().hashCode());
   }
 
