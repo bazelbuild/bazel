@@ -137,6 +137,70 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testSubrule_attrLengthLimitAppliedOnUserDefinedName() throws Exception {
+    scratch.file(
+        "subrule_testing/myrule.bzl",
+        """
+        _my_subrule = subrule(
+          implementation = lambda ctx: "dummy rule result",
+          attrs = {
+            "_%s": attr.label(default = "//subrule_testing:bar")
+          }
+        )
+
+        my_rule = rule(implementation = lambda ctx: [], subrules = [_my_subrule])
+        """
+            .formatted("a".repeat(130)));
+    scratch.file(
+        "subrule_testing/BUILD",
+        """
+        load("myrule.bzl", "my_rule")
+
+        my_rule(name = "foo")
+        cc_binary(name = "bar")
+        """);
+
+    AssertionError error =
+        assertThrows(AssertionError.class, () -> getTarget("//subrule_testing:foo"));
+
+    assertThat(error).hasMessageThat().contains("name is too long (131 > 128)");
+  }
+
+  @Test
+  public void testSubrule_attrLengthLimitIgnoresBzlLabel() throws Exception {
+    // deserialized package does not have a reference to subrules
+    initializeSkyframeExecutor(/* doPackageLoadingChecks= */ false);
+
+    String longPackageName = "a".repeat(130);
+    scratch.file("subrule_testing/%s/BUILD".formatted(longPackageName));
+    scratch.file(
+        "subrule_testing/%s/myrule.bzl".formatted(longPackageName),
+        """
+        _my_subrule = subrule(
+          implementation = lambda ctx: "dummy rule result",
+          attrs = {
+            "_a": attr.label(default = "//subrule_testing:bar")
+          }
+        )
+
+        my_rule = rule(implementation = lambda ctx: [], subrules = [_my_subrule])
+        """);
+    scratch.file(
+        "subrule_testing/BUILD",
+        """
+        load("//subrule_testing/%s:myrule.bzl", "my_rule")
+
+        my_rule(name = "foo")
+        cc_binary(name = "bar")
+        """
+            .formatted(longPackageName));
+
+    getTarget("//subrule_testing:foo");
+
+    assertNoEvents();
+  }
+
+  @Test
   public void testSubrule_childAndParentSubrules() throws Exception {
     scratch.file(
         "subrule_testing/parent.bzl",
