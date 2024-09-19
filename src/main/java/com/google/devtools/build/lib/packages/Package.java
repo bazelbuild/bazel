@@ -302,7 +302,7 @@ public class Package {
    * may not be unique!
    */
   public String getName() {
-    return metadata.packageIdentifier().getPackageFragment().getPathString();
+    return metadata.getName();
   }
 
   /** Like {@link #getName}, but has type {@code PathFragment}. */
@@ -1029,6 +1029,9 @@ public class Package {
 
     private final SymbolGenerator<?> symbolGenerator;
 
+    // Same as pkg.metadata.
+    private final Metadata metadata;
+
     /**
      * The output instance for this builder. Needs to be instantiated and available with name info
      * throughout initialization. All other settings are applied during {@link #build}. See {@link
@@ -1310,7 +1313,7 @@ public class Package {
 
       this.workspaceName = Preconditions.checkNotNull(workspaceName);
 
-      Metadata metadata =
+      this.metadata =
           new Metadata(
               /* packageIdentifier= */ id,
               /* buildFilename= */ filename,
@@ -1335,7 +1338,7 @@ public class Package {
       this.precomputeTransitiveLoads = packageSettings.precomputeTransitiveLoads();
       this.noImplicitFileExport = noImplicitFileExport;
       this.labelConverter = new LabelConverter(id, repositoryMapping);
-      if (pkg.getName().startsWith("javatests/")) {
+      if (metadata.getName().startsWith("javatests/")) {
         mergePackageArgsFrom(PackageArgs.builder().setDefaultTestOnly(true));
       }
       this.cpuBoundSemaphore = cpuBoundSemaphore;
@@ -1507,7 +1510,7 @@ public class Package {
     }
 
     PackageIdentifier getPackageIdentifier() {
-      return pkg.getPackageIdentifier();
+      return metadata.packageIdentifier();
     }
 
     /**
@@ -1515,7 +1518,7 @@ public class Package {
      * rules (returns {@code true}).
      */
     public boolean isRepoRulePackage() {
-      return pkg.isRepoRulePackage();
+      return metadata.isRepoRulePackage();
     }
 
     /**
@@ -1534,7 +1537,7 @@ public class Package {
      * this is the name of the module hosting the extension.
      */
     Optional<String> getAssociatedModuleName() {
-      return pkg.metadata.associatedModuleName();
+      return metadata.associatedModuleName();
     }
 
     /**
@@ -1543,7 +1546,7 @@ public class Package {
      * this is the version of the module hosting the extension.
      */
     Optional<String> getAssociatedModuleVersion() {
-      return pkg.metadata.associatedModuleVersion();
+      return metadata.associatedModuleVersion();
     }
 
     /**
@@ -1611,7 +1614,7 @@ public class Package {
     }
 
     RootedPath getFilename() {
-      return pkg.metadata.buildFilename();
+      return metadata.buildFilename();
     }
 
     /** Returns the {@link StoredEventHandler} associated with this builder. */
@@ -1905,7 +1908,7 @@ public class Package {
         inputFile = new InputFile(pkg, createLabel(targetName), location);
       } catch (LabelSyntaxException e) {
         throw new IllegalArgumentException(
-            "FileTarget in package " + pkg.getName() + " has illegal name: " + targetName, e);
+            "FileTarget in package " + metadata.getName() + " has illegal name: " + targetName, e);
       }
 
       checkTargetName(inputFile);
@@ -1931,7 +1934,7 @@ public class Package {
             "Can't set visibility for nonexistent FileTarget "
                 + filename
                 + " in package "
-                + pkg.getName()
+                + metadata.getName()
                 + ".");
       }
       if (!((InputFile) cacheInstance).isVisibilitySpecified()
@@ -1949,7 +1952,7 @@ public class Package {
      * @throws LabelSyntaxException if the {@code targetName} is invalid
      */
     Label createLabel(String targetName) throws LabelSyntaxException {
-      return Label.create(pkg.getPackageIdentifier(), targetName);
+      return Label.create(metadata.packageIdentifier(), targetName);
     }
 
     /** Adds a package group to the package. */
@@ -2353,7 +2356,7 @@ public class Package {
           List<Label> labels = (ruleLabels != null) ? ruleLabels.get(rule) : rule.getLabels();
           for (Label label : labels) {
             String name = label.getName();
-            if (label.getPackageIdentifier().equals(pkg.getPackageIdentifier())
+            if (label.getPackageIdentifier().equals(metadata.packageIdentifier())
                 && !targets.containsKey(name)
                 && !newInputFiles.containsKey(name)) {
               // Check for collision with a macro namespace. Currently this is a linear loop over
@@ -2765,6 +2768,11 @@ public class Package {
       boolean isModuleDotBazelFile =
           baseName.equals(LabelConstants.MODULE_DOT_BAZEL_FILE_NAME.getPathString());
       Preconditions.checkArgument(isRepoRulePackage == (isWorkspaceFile || isModuleDotBazelFile));
+    }
+
+    /** Returns the name of this package (sans repository), e.g. "foo/bar". */
+    public String getName() {
+      return packageIdentifier.getPackageFragment().getPathString();
     }
 
     /**
