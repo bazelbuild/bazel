@@ -2,6 +2,11 @@
 
 ```
 Baseline: 29f7c863d859b2a19b0c6f58cd59c9d74aa188c1
+
+Cherry picks:
+
+   + b637c473249e8ff971fd410b4018ef70569c2833:
+     Release 8.0.0-pre.20240909.1 (2024-09-19)
 ```
 
 Incompatible changes:
