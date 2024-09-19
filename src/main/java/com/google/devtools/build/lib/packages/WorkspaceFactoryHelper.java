@@ -103,13 +103,11 @@ public final class WorkspaceFactoryHelper {
    */
   public static void addMainRepoEntry(Package.Builder builder, String externalRepoName)
       throws LabelSyntaxException {
-    if (!Strings.isNullOrEmpty(builder.getPackageWorkspaceName())) {
+    if (!Strings.isNullOrEmpty(builder.getWorkspaceName())) {
       // Create repository names with validation, LabelSyntaxException is thrown is the name
       // is not valid.
       builder.addRepositoryMappingEntry(
-          RepositoryName.create(externalRepoName),
-          builder.getPackageWorkspaceName(),
-          RepositoryName.MAIN);
+          RepositoryName.create(externalRepoName), builder.getWorkspaceName(), RepositoryName.MAIN);
     }
   }
 

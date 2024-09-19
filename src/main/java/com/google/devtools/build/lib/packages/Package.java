@@ -159,6 +159,10 @@ public class Package {
 
   private final Metadata metadata;
 
+  // For BUILD files, this is initialized immediately. For WORKSPACE files, it is known only after
+  // Starlark evaluation of the WORKSPACE file has finished.
+  private String workspaceName;
+
   // Can be changed during BUILD file evaluation due to exports_files() modifying its visibility.
   private InputFile buildFile;
 
@@ -317,9 +321,12 @@ public class Package {
     return metadata.packageDirectory;
   }
 
-  /** Returns this package's workspace name. */
-  public String getWorkspaceName() {
-    return metadata.workspaceName;
+  /**
+   * Whether this package should contain only repo rules (returns {@code true}) or only build rules
+   * (returns {@code false}).
+   */
+  private boolean isRepoRulePackage() {
+    return metadata.isRepoRulePackage;
   }
 
   /** Get the repository mapping for this package. */
@@ -333,6 +340,14 @@ public class Package {
    */
   public ConfigSettingVisibilityPolicy getConfigSettingVisibilityPolicy() {
     return metadata.configSettingVisibilityPolicy;
+  }
+
+  /**
+   * Returns the name of the workspace this package is in. Used as a prefix for the runfiles
+   * directory. This can be set in the WORKSPACE file. This must be a valid target name.
+   */
+  public String getWorkspaceName() {
+    return workspaceName;
   }
 
   /** Returns the InputFile target for this package's BUILD file. */
@@ -462,16 +477,6 @@ public class Package {
   }
 
   // ==== Accessors specific to external package / WORKSPACE logic ====
-
-  // TODO: #19922 - Clean up by moving this to Metadata.
-  /**
-   * Whether this package should contain only repo rules (returns {@code true}) or only build rules
-   * (returns {@code false}).
-   */
-  private boolean isRepoRulePackage() {
-    return metadata.packageIdentifier.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
-        || metadata.workspaceName.equals(DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES);
-  }
 
   /**
    * Returns the repository mapping for the requested external repository.
@@ -727,6 +732,8 @@ public class Package {
       }
       this.sourceRoot = Optional.of(sourceRoot);
     }
+
+    this.workspaceName = builder.workspaceName;
 
     this.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
     this.targets = ImmutableSortedMap.copyOf(builder.targets);
@@ -1031,6 +1038,10 @@ public class Package {
      */
     private final Package pkg;
 
+    // Initialized from outside but also potentially set by `workspace()` function in WORKSPACE
+    // file.
+    private String workspaceName;
+
     private final Label buildFileLabel;
 
     private final boolean precomputeTransitiveLoads;
@@ -1299,6 +1310,8 @@ public class Package {
       super(mainRepositoryMapping);
       this.symbolGenerator = symbolGenerator;
 
+      this.workspaceName = Preconditions.checkNotNull(workspaceName);
+
       Metadata metadata = new Metadata();
       metadata.packageIdentifier = Preconditions.checkNotNull(id);
 
@@ -1311,7 +1324,11 @@ public class Package {
         throw new AssertionError("Package BUILD file has an illegal name: " + filename, e);
       }
 
-      metadata.workspaceName = Preconditions.checkNotNull(workspaceName);
+      metadata.isRepoRulePackage =
+          metadata.packageIdentifier.equals(LabelConstants.EXTERNAL_PACKAGE_IDENTIFIER)
+              // For bzlmod packages, setWorkspaceName() is not called, so this check doesn't change
+              // during package evaluation.
+              || workspaceName.equals(DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES);
       metadata.repositoryMapping = Preconditions.checkNotNull(repositoryMapping);
       metadata.associatedModuleName = Preconditions.checkNotNull(associatedModuleName);
       metadata.associatedModuleVersion = Preconditions.checkNotNull(associatedModuleVersion);
@@ -1506,8 +1523,14 @@ public class Package {
       return pkg.isRepoRulePackage();
     }
 
-    String getPackageWorkspaceName() {
-      return pkg.getWorkspaceName();
+    /**
+     * Returns the name of the workspace this package is in. Used as a prefix for the runfiles
+     * directory. This can be set in the WORKSPACE file. This must be a valid target name.
+     */
+    String getWorkspaceName() {
+      // Current value is stored in the builder field, final value is copied to the Package in
+      // finishInit().
+      return workspaceName;
     }
 
     /**
@@ -1624,15 +1647,10 @@ public class Package {
     }
 
     /** Uses the workspace name from {@code //external} to set this package's workspace name. */
-    // TODO(#19922): Seems like this is only used for WORKSPACE logic (`workspace()` callable), but
-    // it clashes with the notion that, for BUILD files, the workspace name should be supplied to
-    // the Builder constructor and not mutated during evaluation. Either put up with this until we
-    // delete WORKSPACE logic, or else separate the `workspace()` callable's mutation from this
-    // metadata field.
     @CanIgnoreReturnValue
     @VisibleForTesting
     public Builder setWorkspaceName(String workspaceName) {
-      pkg.metadata.workspaceName = workspaceName;
+      this.workspaceName = workspaceName;
       return this;
     }
 
@@ -2771,15 +2789,7 @@ public class Package {
       return packageDirectory;
     }
 
-    private String workspaceName;
-
-    /**
-     * Returns the name of the workspace this package is in. Used as a prefix for the runfiles
-     * directory. This can be set in the WORKSPACE file. This must be a valid target name.
-     */
-    public String getWorkspaceName() {
-      return workspaceName;
-    }
+    private boolean isRepoRulePackage;
 
     private RepositoryMapping repositoryMapping;
 
