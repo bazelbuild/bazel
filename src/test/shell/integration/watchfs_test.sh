@@ -144,6 +144,11 @@ EOF
 }
 
 function test_large_number_of_files() {
+  if [[ "$PLATFORM" == "darwin" ]]; then
+    # Tests Linux-specific JVM flags.
+    return 0
+  fi
+
   local -r pkg=${FUNCNAME[0]}
   mkdir $pkg || fail "mkdir $pkg"
   cat > "$pkg/BUILD" << 'EOF'
@@ -159,12 +164,12 @@ filegroup(
     srcs = glob(["*.txt"]),
 )
 EOF
-  touch 1.txt
+  touch "$pkg/1.txt"
   bazel build --watchfs "//$pkg:gen" &> "$TEST_log" || fail "Expected success."
 
   # By default, the JVM will only report up to 500 changed files per directory before it overflows.
   # https://github.com/openjdk/jdk/blob/2faf8b8d582183275b1fdc92313a1c63c1753e80/src/java.base/share/classes/sun/nio/fs/AbstractWatchKey.java#L40
-  touch {1..600}.txt
+  touch "$pkg/{1..600}.txt"
   bazel build --watchfs "//$pkg:gen" &> "$TEST_log" || fail "Expected success."
   expect_not_log "WARNING:"
 }
