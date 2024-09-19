@@ -21,6 +21,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.Fron
 import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Futures;
@@ -115,6 +116,11 @@ public final class FrontierSerializer {
           if (!marking.equals(FRONTIER_CANDIDATE)) {
             return;
           }
+          Preconditions.checkState(
+              !dependenciesProvider.withinActiveDirectories(key.getLabel().getPackageIdentifier()),
+              "frontier candidates cannot include any node in the active set, but got %s",
+              key);
+
           try {
             SerializationResult<ByteString> keyBytes =
                 codecs.serializeMemoizedAndBlocking(fingerprintValueService, key, profileCollector);
@@ -239,12 +245,28 @@ public final class FrontierSerializer {
       if (!(dep instanceof ActionLookupKey child)) {
         continue;
       }
-      selection.putIfAbsent(child, FRONTIER_CANDIDATE);
+
+      // Three cases where a child node is disqualified to be a frontier candidate:
+      //
+      // 1) It doesn't have a label (e.g. BuildInfoKey). These nodes are not deserialized by the
+      // analysis functions we care about.
+      // 2) It is _already_ marked as ACTIVE, which means it was visited as an rdep from an active
+      // root. putIfAbsent will be a no-op.
+      // 3) It _will_ be marked as ACTIVE when visited as a rdep from an active root later, and
+      // overrides its FRONTIER_CANDIDATE state.
+      //
+      // In all cases, frontier candidates will never include nodes in the active directories. This
+      // is enforced after selection completes.
+      if (child.getLabel() != null) {
+        selection.putIfAbsent(child, FRONTIER_CANDIDATE);
+      }
     }
     for (SkyKey rdep : node.getReverseDepsForDoneEntry()) {
       if (!(rdep instanceof ActionLookupKey parent)) {
         continue;
       }
+      // The active set can include nodes outside of the active directories iff they are in the UTC
+      // of a root in the active directories.
       markActiveAndTraverseEdges(graph, parent, selection);
     }
   }
