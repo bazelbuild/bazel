@@ -221,7 +221,7 @@ public abstract class AbstractSpawnStrategy implements SandboxedSpawnStrategy {
               ? resultMessage
               : CommandFailureUtils.describeCommandFailure(
                   executionOptions.verboseFailures, cwd, spawn);
-      throw new SpawnExecException(message, spawnResult, /*forciblyRunRemotely=*/ false);
+      throw new SpawnExecException(message, spawnResult, /* forciblyRunRemotely= */ false);
     }
     return ImmutableList.of(spawnResult);
   }

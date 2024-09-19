@@ -243,7 +243,7 @@ public class RemoteSpawnRunnerTest {
     // TODO(olaola): verify that the uploaded action has the doNotCache set.
 
     verify(service, never()).lookupCache(any());
-    verify(service, never()).uploadOutputs(any(), any());
+    verify(service, never()).uploadOutputs(any(), any(), any());
     verifyNoMoreInteractions(localRunner);
   }
 
@@ -318,7 +318,7 @@ public class RemoteSpawnRunnerTest {
 
     RemoteSpawnRunner runner = spy(newSpawnRunner());
     RemoteExecutionService service = runner.getRemoteExecutionService();
-    doNothing().when(service).uploadOutputs(any(), any());
+    doNothing().when(service).uploadOutputs(any(), any(), any());
 
     // Throw an IOException to trigger the local fallback.
     when(executor.executeRemotely(
@@ -344,7 +344,7 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(any(), eq(spawn), eq(policy), /* uploadLocalResults= */ eq(true));
-    verify(service).uploadOutputs(any(), eq(res));
+    verify(service).uploadOutputs(any(), eq(res), any());
   }
 
   @Test
@@ -377,7 +377,7 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(any(), eq(spawn), eq(policy), /* uploadLocalResults= */ eq(true));
-    verify(service, never()).uploadOutputs(any(), any());
+    verify(service, never()).uploadOutputs(any(), any(), any());
   }
 
   @Test
@@ -404,7 +404,7 @@ public class RemoteSpawnRunnerTest {
             any(ExecuteRequest.class),
             any(OperationObserver.class)))
         .thenThrow(IOException.class);
-    doNothing().when(service).uploadOutputs(any(), any());
+    doNothing().when(service).uploadOutputs(any(), any(), any());
 
     Spawn spawn = newSimpleSpawn();
     SpawnExecutionContext policy = getSpawnContext(spawn);
@@ -422,7 +422,7 @@ public class RemoteSpawnRunnerTest {
     verify(localRunner).exec(eq(spawn), eq(policy));
     verify(runner)
         .execLocallyAndUpload(any(), eq(spawn), eq(policy), /* uploadLocalResults= */ eq(true));
-    verify(service).uploadOutputs(any(), eq(result));
+    verify(service).uploadOutputs(any(), eq(result), any());
     verify(service, never()).downloadOutputs(any(), any());
   }
 
