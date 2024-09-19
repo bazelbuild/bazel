@@ -380,7 +380,7 @@ public abstract class Args implements CommandLineArgsApi {
         // This unfortunately disallows such trivially safe non-global
         // functions as "lambda x: x".
         // See https://github.com/bazelbuild/bazel/issues/12701.
-        if (sfn.getModule().getGlobal(sfn.getName()) != sfn && !allowClosure) {
+        if (!(sfn.isGlobal() || allowClosure)) {
           throw Starlark.errorf(
               "to avoid unintended retention of analysis data structures, "
                   + "the map_each function (declared at %s) must be declared "
