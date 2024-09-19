@@ -7,6 +7,8 @@ Cherry picks:
 
    + b637c473249e8ff971fd410b4018ef70569c2833:
      Release 8.0.0-pre.20240909.1 (2024-09-19)
+   + 5166a571e013c7f45e682f22e177e94f3d9c9e21:
+     Release 8.0.0-pre.20240909.1 (2024-09-19)
 ```
 
 Incompatible changes:
