@@ -145,7 +145,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private final XattrProvider xattrProvider;
 
   // Maps a key identifying an entry into its ID.
-  // Each key is either a NestedSet.Node or the String path of a file, directory or symlink.
+  // Each key is either a NestedSet.Node or the String path of a file, directory, symlink or
+  // runfiles tree.
   // Only entries that are likely to be referenced by future entries are stored.
   // Use a specialized map for minimal memory footprint.
   @GuardedBy("this")
@@ -552,21 +553,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
               ExecLogEntry.RunfilesTree.newBuilder()
                   .setPath(runfilesTree.getExecPath().getPathString())
                   .setLegacyExternalRunfiles(runfilesTree.isLegacyExternalRunfiles());
-
-          //
-          // The logic below together with the rule that artifacts override symlinks results in the
-          // following order of precedence:
-          //
-          // 1. artifacts at canonical locations
-          // 2. empty files
-          // 3. the _repo_mapping manifest
-          // 4. root symlinks
-          // 5. symlinks
-          //
-          // Since the _repo_mapping manifest and root symlinks always emit a warning in case of
-          // conflicts (and fail for Starlark actions) and empty files are only added at paths which
-          // don't exist yet, this doesn't result in any observable differences for builds without
-          // warnings.
 
           builder.setInputSetId(
               logInputSet(
