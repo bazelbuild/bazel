@@ -192,18 +192,18 @@ class BazelFetchTest(test_base.TestBase):
 
     _, _, stderr = self.RunBazel(['fetch', '--configure'])
     stderr = '\n'.join(stderr)
-    self.assertIn('Fetching ~ext~notConfig', stderr)
-    self.assertIn('Fetching ~ext~IamConfig', stderr)
+    self.assertIn('Fetching _main~ext~notConfig', stderr)
+    self.assertIn('Fetching _main~ext~IamConfig', stderr)
 
     _, stdout, _ = self.RunBazel(['info', 'output_base'])
     repos_fetched = os.listdir(stdout[0] + '/external')
-    self.assertIn('~ext~notConfig', repos_fetched)
-    self.assertIn('~ext~IamConfig', repos_fetched)
+    self.assertIn('_main~ext~notConfig', repos_fetched)
+    self.assertIn('_main~ext~IamConfig', repos_fetched)
 
     _, stdout, stderr = self.RunBazel(['fetch', '--configure', '--force'])
     stderr = '\n'.join(stderr)
-    self.assertNotIn('Fetching ~ext~notConfig', stderr)
-    self.assertIn('Fetching ~ext~IamConfig', stderr)
+    self.assertNotIn('Fetching _main~ext~notConfig', stderr)
+    self.assertIn('Fetching _main~ext~IamConfig', stderr)
 
   def testFetchFailsWithMultipleOptions(self):
     exit_code, _, stderr = self.RunBazel(
