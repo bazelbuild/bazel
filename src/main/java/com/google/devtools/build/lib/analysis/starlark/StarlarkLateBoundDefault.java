@@ -57,7 +57,11 @@ public class StarlarkLateBoundDefault<FragmentT> extends AbstractLabelLateBoundD
 
   @Override
   public Label resolve(
-      Rule rule, AttributeMap attributes, FragmentT config, Object ctx, EventHandler eventHandler) {
+      Rule rule,
+      AttributeMap attributes,
+      FragmentT config,
+      Object analysisContext,
+      EventHandler eventHandler) {
     try {
       Object result = method.invoke(config);
       return (Label) result;

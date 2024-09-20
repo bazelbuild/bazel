@@ -151,6 +151,13 @@ public final class BuildType {
   public static final Type<Set<DistributionType>> DISTRIBUTIONS = new Distributions();
   /** The type of an output file, treated as a {@link #LABEL}. */
   @SerializationConstant public static final Type<Label> OUTPUT = new OutputType();
+
+  private static final ImmutableMap<Type<?>, String> whyNotConfigurable =
+      ImmutableMap.<Type<?>, String>builder()
+          .put(LICENSE, "loading phase license checking logic assumes non-configurable values")
+          .put(OUTPUT, "output paths are part of the static graph structure")
+          .buildOrThrow();
+
   /** The type of a list of {@linkplain #OUTPUT outputs}. */
   @SerializationConstant public static final ListType<Label> OUTPUT_LIST = ListType.create(OUTPUT);
 
@@ -307,6 +314,15 @@ public final class BuildType {
               new AttributeConversionContext(attr.getName(), attrOwner),
               labelConverter);
     }
+  }
+
+  /**
+   * If the given attribute type is non-configurable, returns the reason why. Otherwise, returns
+   * {@code null}.
+   */
+  @Nullable
+  public static String maybeGetNonConfigurableReason(Type<?> type) {
+    return whyNotConfigurable.get(type);
   }
 
   /**

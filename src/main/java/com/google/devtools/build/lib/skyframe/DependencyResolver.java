@@ -54,6 +54,7 @@ import com.google.devtools.build.lib.analysis.producers.DependencyContextProduce
 import com.google.devtools.build.lib.analysis.producers.DependencyContextProducerWithCompatibilityCheck;
 import com.google.devtools.build.lib.analysis.producers.DependencyError;
 import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer;
+import com.google.devtools.build.lib.analysis.producers.DependencyMapProducer.MaterializerException;
 import com.google.devtools.build.lib.analysis.producers.MissingEdgeError;
 import com.google.devtools.build.lib.analysis.producers.PrerequisiteParameters;
 import com.google.devtools.build.lib.analysis.producers.UnloadedToolchainContextsInputs;
@@ -706,6 +707,11 @@ public final class DependencyResolver {
           case DEPENDENCY_OPTIONS_PARSING:
             {
               OptionsParsingException e = error.dependencyOptionsParsing();
+              throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
+            }
+          case MATERIALIZER:
+            {
+              MaterializerException e = error.materializer();
               throw new ConfiguredValueCreationException(ctgValue.getTarget(), e.getMessage());
             }
           case INVALID_VISIBILITY:

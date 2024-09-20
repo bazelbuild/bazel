@@ -55,7 +55,7 @@ public class LateBoundAliasTest extends BuildViewTestCase {
         Rule rule,
         AttributeMap attributes,
         TestFragment input,
-        Object ctx,
+        Object analysisContext,
         EventHandler eventHandler) {
       return null;
     }

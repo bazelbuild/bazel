@@ -17,8 +17,11 @@ package com.google.devtools.build.lib.analysis;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
+import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
+import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.testutil.TestConstants;
@@ -411,7 +414,7 @@ public class DormantDependencyTest extends AnalysisTestCase {
   }
 
   @Test
-  public void testRuleMustBeMarkedAsDormant() throws Exception {
+  public void testRuleMustBeMarkedAsForDependencyResolution() throws Exception {
     scratch.file(
         "a/a.bzl",
         """
@@ -655,5 +658,102 @@ public class DormantDependencyTest extends AnalysisTestCase {
     reporter.removeHandler(failFastHandler);
     assertThrows(ViewCreationFailedException.class, () -> update("//bad:r"));
     assertContainsEvent("Non-allowlisted use of dormant dependencies");
+  }
+
+  private void writeSimpleDormantRules() throws Exception {
+    scratch.file(
+        "dormant/dormant.bzl",
+        """
+ComponentInfo = provider(fields = ["components"])
+
+def _component_impl(ctx):
+  current = struct(label=ctx.label, impl = ctx.attr.impl)
+  transitive = [d[ComponentInfo].components for d in ctx.attr.deps]
+  return [
+    ComponentInfo(components = depset(direct = [current], transitive = transitive)),
+  ]
+
+component = rule(
+  implementation = _component_impl,
+  attrs = {
+    "deps": attr.label_list(providers = [ComponentInfo]),
+    "impl": attr.dormant_label(),
+  },
+  provides = [ComponentInfo],
+  dependency_resolution_rule = True,
+)
+
+def _binary_impl(ctx):
+  return [DefaultInfo(files=depset(ctx.files._impls))]
+
+def _materializer(ctx):
+  all = depset(transitive = [d[ComponentInfo].components for d in ctx.attr.components])
+  selected = [c.impl for c in all.to_list() if "yes" in str(c.label)]
+  return selected
+
+binary = rule(
+  implementation = _binary_impl,
+  attrs = {
+      "components": attr.label_list(providers = [ComponentInfo], for_dependency_resolution = True),
+      "_impls": attr.label_list(materializer = _materializer),
+  })""");
+
+    scratch.file("dormant/BUILD");
+  }
+
+  @Test
+  public void testSmoke() throws Exception {
+    writeSimpleDormantRules();
+    scratch.file(
+        "a/BUILD",
+        """
+        load("//dormant:dormant.bzl", "component", "binary")
+
+        component(name="a_yes", impl=":a_impl")
+        component(name="b_no", deps = [":c_yes", ":d_no"], impl=":b_impl")
+        component(name="c_yes", impl=":c_impl")
+        component(name="d_no", impl=":d_impl")
+
+        binary(name="bin", components=[":a_yes", ":b_no"])
+        [filegroup(name=x + "_impl", srcs=[x]) for x in ["a", "b", "c", "d"]]
+        """);
+
+    update("//a:bin");
+    ConfiguredTarget target = getConfiguredTarget("//a:bin");
+    NestedSet<Artifact> filesToBuild = target.getProvider(FileProvider.class).getFilesToBuild();
+    assertThat(ActionsTestUtil.baseArtifactNames(filesToBuild)).containsExactly("a", "c");
+  }
+
+  @Test
+  public void testErrorOnUnmarkedAttribute() throws Exception {
+    scratch.file(
+        "a/dormant.bzl",
+        """
+        ComponentInfo = provider(fields = ["components"])
+
+        def _binary_impl(ctx):
+          return [DefaultInfo(files=depset([]))]
+
+        def _materializer(ctx):
+          return ctx.attr.dep[ComponentInfo].components
+
+        binary = rule(
+          implementation = _binary_impl,
+          attrs = {
+              "dep": attr.label(),
+              "_impls": attr.label_list(materializer = _materializer),
+          })""");
+
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":dormant.bzl", "binary")
+        binary(name="bin", dep=":dep")
+        filegroup(name="dep")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(ViewCreationFailedException.class, () -> update("//a:bin"));
+    assertContainsEvent("not available in materializer");
   }
 }

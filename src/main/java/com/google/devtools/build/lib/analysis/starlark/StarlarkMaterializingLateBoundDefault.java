@@ -18,8 +18,6 @@ import com.google.common.base.Function;
 import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.DormantDependency;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
@@ -37,30 +35,26 @@ import java.io.IOException;
 import java.io.Serializable;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.Mutability;
-import net.starlark.java.eval.NoneType;
-import net.starlark.java.eval.Sequence;
-import net.starlark.java.eval.Starlark;
-import net.starlark.java.eval.StarlarkFunction;
-import net.starlark.java.eval.StarlarkSemantics;
-import net.starlark.java.eval.StarlarkThread;
 
 // TODO(lberki): Make this class not inherit from LateBoundDefault since they do very different
 // things.
 /** A late-bound default that represents materializers. */
-public class StarlarkMaterializingLateBoundDefault<ValueT> extends LateBoundDefault<Void, ValueT> {
+public class StarlarkMaterializingLateBoundDefault<ValueT, PrerequisiteT>
+    extends LateBoundDefault<Void, ValueT> {
   private final Type<ValueT> type;
-  private final StarlarkSemantics semantics;
-  private final StarlarkFunction implementation;
+  private final Resolver<ValueT, PrerequisiteT> resolver;
+  private final Class<? extends PrerequisiteT> analysisContextClass;
 
   public StarlarkMaterializingLateBoundDefault(
-      Type<ValueT> type, StarlarkSemantics semantics, StarlarkFunction implementation) {
+      Type<ValueT> type,
+      Class<? extends PrerequisiteT> analysisContextClass,
+      Resolver<ValueT, PrerequisiteT> resolver) {
     super(Void.class, (Function<Rule, ValueT> & Serializable) unused -> null);
 
     Preconditions.checkArgument(type == BuildType.LABEL || type == BuildType.LABEL_LIST);
     this.type = type;
-    this.semantics = semantics;
-    this.implementation = implementation;
+    this.resolver = resolver;
+    this.analysisContextClass = analysisContextClass;
   }
 
   @Override
@@ -68,44 +62,46 @@ public class StarlarkMaterializingLateBoundDefault<ValueT> extends LateBoundDefa
     return type.getDefaultValue();
   }
 
-  private static class MaterializationContext extends StarlarkThreadContext {
-    public MaterializationContext() {
-      super(null);
-    }
+  /**
+   * The implementation of the actual resolution of the late-bound default.
+   *
+   * <p>This is a separate interface because StarlarkMaterializingLateBoundDefault must be known to
+   * the loading phase but its implementation necessarily deals with analysis-phase data structures.
+   */
+  public interface Resolver<ValueT, PrerequisiteT> {
+
+    /**
+     * Resolves an attribute with a materializer.
+     *
+     * <p>param rule the rule whose attribute is to be resolved.
+     *
+     * @param attributes the attributes of the rule, after resolving {@code select()} and the like
+     * @param prerequisiteMap a map from attribute name to the prerequisites on that attribute. Only
+     *     those attributes are present that represent dependencies and which are available for
+     *     dependency resolution. The value of the map is in fact {@code List<? extends
+     *     TransitiveInfoCollection}, but we can't say that because this class needs to be available
+     *     in the loading phase.
+     * @param eventHandler messages from Starlark should be reported here
+     * @return the value of the resolved attribute.
+     */
+    ValueT resolve(
+        Rule rule,
+        AttributeMap attributes,
+        PrerequisiteT prerequisiteMap,
+        EventHandler eventHandler)
+        throws InterruptedException, EvalException;
   }
 
   @Override
   public ValueT resolve(
-      Rule rule, AttributeMap attributes, Void unused, Object ctx, EventHandler eventHandler)
+      Rule rule,
+      AttributeMap attributes,
+      Void unused,
+      Object analysisContext,
+      EventHandler eventHandler)
       throws InterruptedException, EvalException {
-    // First call the Starlark implementation...
-    Object starlarkResult = runMaterializer(ctx, eventHandler);
-
-    // Then convert the result to the appropriate type.
-    if (type == BuildType.LABEL) {
-      return switch (starlarkResult) {
-        case NoneType none -> null;
-        case DormantDependency d -> type.cast(d.label());
-        default -> throw new EvalException("Expected a single dormant dependency or None");
-      };
-    } else if (type == BuildType.LABEL_LIST) {
-      return type.cast(
-          Sequence.cast(starlarkResult, Label.class, "return value of materializer")
-              .getImmutableList());
-    } else {
-      throw new IllegalStateException();
-    }
-  }
-
-  private Object runMaterializer(Object ctx, EventHandler eventHandler)
-      throws InterruptedException, EvalException {
-    try (Mutability mu = Mutability.create("eval_starlark_materialization")) {
-      StarlarkThread thread = StarlarkThread.createTransient(mu, semantics);
-      thread.setPrintHandler(Event.makeDebugPrintHandler(eventHandler));
-
-      new MaterializationContext().storeInThread(thread);
-      return Starlark.fastcall(thread, implementation, new Object[] {ctx}, new Object[0]);
-    }
+    return resolver.resolve(
+        rule, attributes, analysisContextClass.cast(analysisContext), eventHandler);
   }
 
   @Keep

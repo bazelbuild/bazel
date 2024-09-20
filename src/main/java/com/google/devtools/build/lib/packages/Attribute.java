@@ -1549,7 +1549,7 @@ public final class Attribute implements Comparable<Attribute> {
         Rule rule,
         AttributeMap attributes,
         @Nullable FragmentT input,
-        @Nullable Object ctx,
+        @Nullable Object analysisContext,
         @Nullable EventHandler eventHandler) {
       return resolver.resolve(rule, attributes, input);
     }
@@ -1645,14 +1645,15 @@ public final class Attribute implements Comparable<Attribute> {
      * @param rule the rule being evaluated
      * @param attributes interface for retrieving the values of the rule's other attributes
      * @param input the configuration fragment to evaluate with
-     * @param ctx a context object that may be used to evaluate the attribute
+     * @param analysisContext analysis phase data. It's an {@code Object} because we cannot
+     *     reference analysis phase data structures here.
      * @param eventHandler an event handler where messages from the evaluation are reported
      */
     public abstract ValueT resolve(
         Rule rule,
         AttributeMap attributes,
         @Nullable FragmentT input,
-        @Nullable Object ctx,
+        @Nullable Object analysisContext,
         @Nullable EventHandler eventHandler)
         throws InterruptedException, EvalException;
   }

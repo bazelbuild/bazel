@@ -193,7 +193,7 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
     }
 
     @Nullable
-    private static Object convertAttributeValue(
+    public static Object convertAttributeValue(
         Supplier<List<? extends TransitiveInfoCollection>> prerequisiteSupplier,
         Attribute a,
         Object val) {

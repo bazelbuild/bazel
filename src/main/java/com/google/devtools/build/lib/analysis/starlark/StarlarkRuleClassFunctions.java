@@ -725,7 +725,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         attr =
             attr.cloneBuilder()
                 .setPropertyFlag("FOR_DEPENDENCY_RESOLUTION")
-                .nonconfigurable("On a rule used in materializers")
+                .nonconfigurable("On a rule used in dependency resolution")
                 .build();
       }
 
@@ -772,7 +772,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
 
       if (attr.isLateBound()
-          && attr.getLateBoundDefault() instanceof StarlarkMaterializingLateBoundDefault<?>) {
+          && attr.getLateBoundDefault() instanceof StarlarkMaterializingLateBoundDefault<?, ?>) {
         hasMaterializers = true;
       }
 
@@ -1164,7 +1164,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
       }
 
       if (attribute.isLateBound()
-          && attribute.getLateBoundDefault() instanceof StarlarkMaterializingLateBoundDefault<?>) {
+          && attribute.getLateBoundDefault() instanceof StarlarkMaterializingLateBoundDefault) {
         throw Starlark.errorf(
             "attribute '%s' has a materializer, which is not allowed on aspects", nativeName);
       }

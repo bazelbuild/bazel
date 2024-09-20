@@ -97,7 +97,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
                                           Rule rule,
                                           AttributeMap attributes,
                                           Void input,
-                                          Object ctx,
+                                          Object analysisContext,
                                           EventHandler eventHandler) {
                                         return "late_bound";
                                       }
