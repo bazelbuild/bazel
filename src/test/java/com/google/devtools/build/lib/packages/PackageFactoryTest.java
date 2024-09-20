@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.License.LicenseType;
 import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
@@ -502,10 +503,14 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     // Install a validator.
     this.validator =
-        (pkg2, eventHandler) -> {
-          if (pkg2.getName().equals("x")) {
-            eventHandler.handle(Event.warn("warning event"));
-            throw new InvalidPackageException(pkg2.getPackageIdentifier(), "nope");
+        new PackageValidator() {
+          @Override
+          public void validate(Package pkg2, ExtendedEventHandler eventHandler)
+              throws InvalidPackageException {
+            if (pkg2.getName().equals("x")) {
+              eventHandler.handle(Event.warn("warning event"));
+              throw new InvalidPackageException(pkg2.getPackageIdentifier(), "nope");
+            }
           }
         };
 
