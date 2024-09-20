@@ -122,7 +122,7 @@ public class SpawnInputExpander {
 
   /** Adds runfiles inputs from runfilesSupplier to inputMappings. */
   @VisibleForTesting
-  void addRunfilesToInputs(
+  public void addRunfilesToInputs(
       Map<PathFragment, ActionInput> inputMap,
       RunfilesSupplier runfilesSupplier,
       InputMetadataProvider inputMetadataProvider,

@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.regex.Pattern;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -344,8 +345,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             "    srcs = ['foo.py'],",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=true");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
-        .isEmpty();
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames()).isEmpty();
   }
 
   @Test
@@ -359,8 +359,8 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             "    legacy_create_init = True,",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=true");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
-        .containsExactly("pkg/__init__.py");
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames())
+        .containsExactly(PathFragment.create("pkg/__init__.py"));
   }
 
   @Test
@@ -373,8 +373,8 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             "    srcs = ['foo.py'],",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=false");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
-        .containsExactly("pkg/__init__.py");
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames())
+        .containsExactly(PathFragment.create("pkg/__init__.py"));
   }
 
   @Test
@@ -388,8 +388,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             "    legacy_create_init = False,",
             ")"));
     useConfiguration("--incompatible_default_to_explicit_init_py=false");
-    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames().toList())
-        .isEmpty();
+    assertThat(getDefaultRunfiles(getConfiguredTarget("//pkg:foo")).getEmptyFilenames()).isEmpty();
   }
 
   @Test

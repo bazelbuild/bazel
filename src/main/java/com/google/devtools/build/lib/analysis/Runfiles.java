@@ -250,10 +250,17 @@ public final class Runfiles implements RunfilesApi {
 
   @Override
   public Depset /*<String>*/ getEmptyFilenamesForStarlark() {
-    return Depset.of(String.class, getEmptyFilenames());
+    return Depset.of(
+        String.class,
+        NestedSetBuilder.wrap(
+            Order.STABLE_ORDER,
+            Iterables.transform(getEmptyFilenames(), PathFragment::getPathString)));
   }
 
-  public NestedSet<String> getEmptyFilenames() {
+  public Iterable<PathFragment> getEmptyFilenames() {
+    if (emptyFilesSupplier == DUMMY_EMPTY_FILES_SUPPLIER) {
+      return ImmutableList.of();
+    }
     Set<PathFragment> manifestKeys =
         Streams.concat(
                 symlinks.toList().stream().map(SymlinkEntry::getPath),
@@ -264,13 +271,7 @@ public final class Runfiles implements RunfilesApi {
                                 ? artifact.getOutputDirRelativePath(false)
                                 : artifact.getRunfilesPath()))
             .collect(ImmutableSet.toImmutableSet());
-    Iterable<PathFragment> emptyKeys = emptyFilesSupplier.getExtraPaths(manifestKeys);
-    return NestedSetBuilder.<String>stableOrder()
-        .addAll(
-            Streams.stream(emptyKeys)
-                .map(PathFragment::toString)
-                .collect(ImmutableList.toImmutableList()))
-        .build();
+    return emptyFilesSupplier.getExtraPaths(manifestKeys);
   }
 
   /**
@@ -385,6 +386,10 @@ public final class Runfiles implements RunfilesApi {
       checker.put(builder.manifest, PathFragment.create("_repo_mapping"), repoMappingManifest);
     }
     return builder.build();
+  }
+
+  public boolean isLegacyExternalRunfiles() {
+    return legacyExternalRunfiles;
   }
 
   /**
