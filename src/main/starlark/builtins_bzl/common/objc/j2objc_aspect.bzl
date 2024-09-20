@@ -23,6 +23,7 @@ load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/java/java_info.bzl", "JavaInfo")
 load(":common/java/java_semantics.bzl", java_semantics = "semantics")
 load(":common/objc/apple_common.bzl", "apple_common")
+load(":common/objc/compilation_artifacts_info.bzl", "CompilationArtifactsInfo")
 load(":common/objc/compilation_support.bzl", "compilation_support")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/providers.bzl", "J2ObjcMappingFileInfo")
@@ -425,14 +426,14 @@ def _common(
     has_module_map = False
     if transpiled_sources or transpiled_headers:
         if compile_with_arc:
-            compilation_artifacts = objc_internal.j2objc_create_compilation_artifacts(
+            compilation_artifacts = CompilationArtifactsInfo(
                 srcs = transpiled_sources,
                 non_arc_srcs = [],
                 hdrs = transpiled_headers,
                 intermediate_artifacts = intermediate_artifacts,
             )
         else:
-            compilation_artifacts = objc_internal.j2objc_create_compilation_artifacts(
+            compilation_artifacts = CompilationArtifactsInfo(
                 srcs = [],
                 non_arc_srcs = transpiled_sources,
                 hdrs = transpiled_headers,

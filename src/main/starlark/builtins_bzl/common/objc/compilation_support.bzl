@@ -20,6 +20,7 @@ load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
 load(":common/objc/apple_configuration.bzl", "apple_configuration")
 load(":common/objc/apple_env.bzl", "apple_host_system_env", "target_apple_env")
+load(":common/objc/compilation_artifacts_info.bzl", "CompilationArtifactsInfo")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
 load(":common/xcode/providers.bzl", "XcodeVersionInfo")
@@ -56,9 +57,12 @@ def _build_common_variables(
     compilation_attributes = objc_internal.create_compilation_attributes(ctx = ctx)
     intermediate_artifacts = objc_internal.create_intermediate_artifacts(ctx = ctx)
     if empty_compilation_artifacts:
-        compilation_artifacts = objc_internal.create_compilation_artifacts()
+        compilation_artifacts = CompilationArtifactsInfo()
     else:
-        compilation_artifacts = objc_internal.create_compilation_artifacts(ctx = ctx)
+        compilation_artifacts = CompilationArtifactsInfo(
+            ctx = ctx,
+            intermediate_artifacts = intermediate_artifacts,
+        )
 
     (
         objc_provider,

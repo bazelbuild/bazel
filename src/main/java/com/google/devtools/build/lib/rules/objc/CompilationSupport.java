@@ -62,24 +62,6 @@ public class CompilationSupport {
 
   static final ImmutableList<String> DEFAULT_COMPILER_FLAGS = ImmutableList.of("-DOS_IOS");
 
-  /** Returns information about the given rule's compilation artifacts. */
-  // TODO(bazel-team): Remove this information from ObjcCommon and move it internal to this class.
-  static CompilationArtifacts compilationArtifacts(RuleContext ruleContext) {
-    return compilationArtifacts(ruleContext, new IntermediateArtifacts(ruleContext));
-  }
-
-  /**
-   * Returns information about the given rule's compilation artifacts. Dependencies specified in the
-   * current rule's attributes are obtained via {@code ruleContext}. Output locations are determined
-   * using the given {@code intermediateArtifacts} object. The fact that these are distinct objects
-   * allows the caller to generate compilation actions pertaining to a configuration separate from
-   * the current rule's configuration.
-   */
-  static CompilationArtifacts compilationArtifacts(
-      RuleContext ruleContext, IntermediateArtifacts intermediateArtifacts) {
-    return new CompilationArtifacts(ruleContext, intermediateArtifacts);
-  }
-
   private CompilationSupport() {}
 
   public static Optional<Artifact> getCustomModuleMap(RuleContext ruleContext) {

@@ -39,12 +39,10 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.annot.Param;
-import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.EvalException;
-import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
@@ -171,54 +169,6 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         /* archiveFileNameSuffix= */ "_j2objc",
         UmbrellaHeaderStrategy.GENERATE,
         AlwaysLink.TRUE);
-  }
-
-  @StarlarkMethod(
-      name = "create_compilation_artifacts",
-      documented = false,
-      parameters = {
-        @Param(
-            name = "ctx",
-            positional = false,
-            named = true,
-            defaultValue = "None",
-            allowedTypes = {
-              @ParamType(type = StarlarkRuleContext.class),
-              @ParamType(type = NoneType.class)
-            }),
-      })
-  public CompilationArtifacts createCompilationArtifacts(Object starlarkRuleContextObject) {
-    StarlarkRuleContext starlarkRuleContext =
-        convertFromNoneable(starlarkRuleContextObject, /* defaultValue= */ null);
-    if (starlarkRuleContext != null) {
-      return CompilationSupport.compilationArtifacts(starlarkRuleContext.getRuleContext());
-    } else {
-      return new CompilationArtifacts();
-    }
-  }
-
-  @StarlarkMethod(
-      name = "j2objc_create_compilation_artifacts",
-      documented = false,
-      parameters = {
-        @Param(name = "srcs", positional = false, named = true),
-        @Param(name = "non_arc_srcs", positional = false, named = true),
-        @Param(name = "hdrs", positional = false, named = true),
-        @Param(name = "intermediate_artifacts", positional = false, named = true),
-      })
-  public CompilationArtifacts j2objcCreateCompilationArtifacts(
-      Sequence<?> srcs,
-      Sequence<?> nonArcSrcs,
-      Sequence<?> hdrs,
-      Object intermediateArtifactsObject)
-      throws EvalException {
-    IntermediateArtifacts intermediateArtifacts =
-        convertFromNoneable(intermediateArtifactsObject, /* defaultValue= */ null);
-    return new CompilationArtifacts(
-        Sequence.cast(srcs, Artifact.class, "srcs"),
-        Sequence.cast(nonArcSrcs, Artifact.class, "non_arc_srcs"),
-        Sequence.cast(hdrs, Artifact.class, "hdrs"),
-        intermediateArtifacts);
   }
 
   @StarlarkMethod(
