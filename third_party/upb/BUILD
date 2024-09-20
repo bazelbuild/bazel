@@ -8,4 +8,5 @@ filegroup(
 
 exports_files([
     "00_remove_toolchain_transition.patch",
+    "01_remove_werror.patch",
 ])
