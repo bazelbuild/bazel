@@ -88,6 +88,7 @@ single_version_override(
     patch_strip = 1,
     patches = [
         "//third_party/upb:00_remove_toolchain_transition.patch",
+        "//third_party/upb:01_remove_werror.patch",
     ],
 )
 
