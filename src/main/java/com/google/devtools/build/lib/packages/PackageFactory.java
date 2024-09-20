@@ -405,6 +405,7 @@ public final class PackageFactory {
       // StarlarkRuleClassFunctions#createRule. So we set it here as a thread-local to be retrieved
       // by StarlarkTestingModule#analysisTest.
       thread.setThreadLocal(RuleDefinitionEnvironment.class, ruleClassProvider);
+      packageValidator.configureThreadWhileLoading(thread);
 
       try {
         Starlark.execFileProgram(buildFileProgram, module, thread);

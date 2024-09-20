@@ -26,10 +26,13 @@ import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
+import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.PackageValidator;
+import com.google.devtools.build.lib.packages.PackageValidator.InvalidPackageException;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.Target;
@@ -115,10 +118,13 @@ public abstract class PackageLoadingTestCase extends FoundationTestCase {
                         directories.getWorkspace(),
                         ImmutableMap.of())))
             .setPackageValidator(
-                (pkg, handler) -> {
-                  // Delegate to late-bound this.validator.
-                  if (validator != null) {
-                    validator.validate(pkg, handler);
+                new PackageValidator() {
+                  @Override
+                  public void validate(Package pkg, ExtendedEventHandler eventHandler)
+                      throws InvalidPackageException {
+                    if (validator != null) {
+                      validator.validate(pkg, eventHandler);
+                    }
                   }
                 })
             .build(ruleClassProvider, fileSystem);
