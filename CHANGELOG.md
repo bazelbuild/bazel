@@ -1,3 +1,28 @@
+## Release 8.0.0-pre.20240911.1 (2024-09-20)
+
+```
+Baseline: ad2ea0736eca30ef1f5ad0b46292cb03e43eec5c
+```
+
+Incompatible changes:
+
+  - --legacy_important_outputs is flipped to false. See #14353 for
+    details
+
+Important changes:
+
+  - Uploading local action results to a disk or remote cache now
+    occurs in the background whenever possible, potentially
+    unblocking the execution of followup actions. Set
+    `--noremote_cache_async` to revert to the previous behavior.
+  - Overrides in the root MODULE.bazel file are now ignored with
+    `--ignore_dev_dependency`. (Overrides in non-root modules are
+    already ignored.)
+  - Added support for using a remote cache that evicts blobs and
+    doesn't have AC integrity check (e.g. HTTP cache).
+
+This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim, Jacob Van De Weert, John Millikin.
+
 ## Release 8.0.0-pre.20240909.1 (2024-09-19)
 
 ```
