@@ -54,10 +54,14 @@
 #include <unistd.h>
 
 #include <map>
+#include <regex>
 #include <string>
 
 // program_invocation_short_name is not portable.
 static const char *argv0;
+
+static const std::regex kEscapedBackslash(R"(\\b)");
+static const std::regex kEscapedSpace(R"(\\s)");
 
 const char *input_filename;
 const char *output_base_dir;
@@ -160,18 +164,18 @@ class RunfilesCreator {
       std::string link;
       const char *target;
       if (buf[0] == ' ') {
-        // The line is of the form " 7 foo bar /tar get/path", with the first
-        // field indicating the length of the source path.
-        std::size_t length_field_length;
-        std::size_t link_length = std::stoul(buf+1, &length_field_length);
-        const char *after_length_field = buf + 1 + length_field_length + 1;
-        target = after_length_field + link_length + 1;
-        if (target >= buf + n || *(target - 1) != ' ') {
-          DIE("invalid length field at line %d: '%s'\n", lineno, buf);
+        // The link path contains escape sequences for spaces and backslashes.
+        char *s = strchr(buf + 1, ' ');
+        if (!s) {
+          DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
         }
-        link = std::string(after_length_field, link_length);
+        link = std::string(buf + 1, s);
+        link = std::regex_replace(link, kEscapedSpace, " ");
+        link = std::regex_replace(link, kEscapedBackslash, "\\");
+        target = s + 1;
       } else {
-        // The line is of the form "foo /target/path", with only a single space.
+        // The line is of the form "foo /target/path", with only a single space
+        // in the link path.
         const char *s = strchr(buf, ' ');
         if (!s) {
           DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);

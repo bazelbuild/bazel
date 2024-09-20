@@ -387,6 +387,37 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             """);
   }
 
+  @Test
+  public void testEscaping() throws Exception {
+    Artifact manifest = getBinArtifactWithNoOwner("manifest1");
+
+    ArtifactRoot trivialRoot =
+        ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory.getRelative("trivial")));
+    Path fileWithSpacePath = scratch.file("trivial/file with sp\\ace", "foo");
+    Artifact fileWithSpaceAndBackslash = ActionsTestUtil.createArtifact(trivialRoot, fileWithSpacePath);
+
+    SourceManifestAction action =
+        new SourceManifestAction(
+            ManifestType.SOURCE_SYMLINKS,
+            NULL_ACTION_OWNER,
+            manifest,
+            new Runfiles.Builder("TESTING", false)
+                .addSymlink(PathFragment.create("no/sp\\ace"), buildFile)
+                .addSymlink(PathFragment.create("also/no/sp\\ace"), fileWithSpaceAndBackslash)
+                .addSymlink(PathFragment.create("with sp\\ace"), buildFile)
+                .addSymlink(PathFragment.create("also/with sp\\ace"), fileWithSpaceAndBackslash)
+                .build());
+
+    assertThat(action.getFileContents(reporter))
+        .isEqualTo(
+            """
+            TESTING/also/no/sp\\ace /workspace/trivial/file with sp\\ace
+             TESTING/also/with\\ssp\\bace /workspace/trivial/file with sp\\ace
+            TESTING/no/sp\\ace /workspace/trivial/BUILD
+             TESTING/with\\ssp\\bace /workspace/trivial/BUILD
+            """);
+  }
+
   private String computeKey(SourceManifestAction action) {
     Fingerprint fp = new Fingerprint();
     action.computeKey(actionKeyContext, /* artifactExpander= */ null, fp);

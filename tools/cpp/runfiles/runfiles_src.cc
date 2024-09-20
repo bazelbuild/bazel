@@ -29,6 +29,7 @@
 #include <fstream>
 #include <functional>
 #include <map>
+#include <regex>
 #include <sstream>
 #include <vector>
 
@@ -48,6 +49,9 @@ using std::string;
 using std::vector;
 
 namespace {
+
+const std::regex kEscapedBackslash("\\\\b");
+const std::regex kEscapedSpace("\\\\s");
 
 bool starts_with(const string& s, const char* prefix) {
   if (!prefix || !*prefix) {
@@ -257,35 +261,24 @@ bool ParseManifest(const string& path, map<string, string>* result,
     std::string source;
     std::string target;
     if (line[0] == ' ') {
-      // Lines starting with a space are of the form " 7 foo bar /tar get/path", with
-      // the first field indicating the length of the runfiles path.
-      std::size_t length_field_end = line.find_first_of(' ', 1);
-      if (length_field_end == string::npos) {
+      // The link path contains escape sequences for spaces and backslashes.
+      string::size_type idx = line.find(' ', 1);
+      if (idx == string::npos) {
         if (error) {
           std::ostringstream err;
           err << "ERROR: " << __FILE__ << "(" << __LINE__
-              << "): invalid length field at line " << line_count << ": '"
-              << line << "'";
+              << "): bad runfiles manifest entry in \"" << path << "\" line #"
+              << line_count << ": \"" << line << "\"";
           *error = err.str();
         }
         return false;
       }
-      std::size_t link_length = std::stoul(line.substr(1, length_field_end - 1));
-      std::size_t after_length_field = length_field_end + 1;
-      if (line.size() < after_length_field + link_length || line[after_length_field + link_length] != ' ') {
-        if (error) {
-          std::ostringstream err;
-          err << "ERROR: " << __FILE__ << "(" << __LINE__
-              << "): invalid length field at line " << line_count << ": '"
-              << line << "'";
-          *error = err.str();
-        }
-        return false;
-      }
-      source = line.substr(after_length_field, link_length);
-      target = line.substr(after_length_field + link_length + 1);
+      source = line.substr(1, idx - 1);
+      source = std::regex_replace(source, kEscapedSpace, " ");
+      source = std::regex_replace(source, kEscapedBackslash, "\\");
+      target = line.substr(idx + 1);
     } else {
-      string::size_type idx = line.find_first_of(' ');
+      string::size_type idx = line.find(' ');
       if (idx == string::npos) {
         if (error) {
           std::ostringstream err;

@@ -569,7 +569,7 @@ EOF
   assert_contains '/link_two$' *-bin/a/go
 }
 
-function test_spaces_in_runfiles_source_paths() {
+function setup_spaces_in_runfiles_source_paths() {
   mkdir -p pkg
   cat > pkg/defs.bzl <<'EOF'
 def _spaces_impl(ctx):
@@ -598,11 +598,21 @@ if [[ "$(cat "pkg/ a b .txt")" != "my content" ]]; then
 fi
 EOF
   chmod +x pkg/foo.sh
-
-  bazel test //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
 }
 
-function test_spaces_in_runfiles_source_and_target_paths() {
+function test_spaces_in_runfiles_source_paths_out_of_process() {
+  setup_spaces_in_runfiles_source_paths
+  bazel test --noexperimental_inprocess_symlink_creation \
+    //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
+}
+
+function test_spaces_in_runfiles_source_paths_in_process() {
+  setup_spaces_in_runfiles_source_paths
+  bazel test --experimental_inprocess_symlink_creation \
+    //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
+}
+
+function setup_spaces_in_runfiles_source_and_target_paths() {
   dir=$(mktemp -d 'runfiles test.XXXXXX')
   cd "$dir" || fail "failed to cd to $dir"
   touch MODULE.bazel
@@ -635,8 +645,84 @@ if [[ "$(cat "pkg/ a b .txt")" != "my content" ]]; then
 fi
 EOF
   chmod +x pkg/foo.sh
+}
 
-  bazel test //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
+function test_spaces_in_runfiles_source_and_target_paths_out_of_process() {
+  setup_spaces_in_runfiles_source_and_target_paths
+  bazel test --noexperimental_inprocess_symlink_creation \
+    //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
+}
+
+function test_spaces_in_runfiles_source_and_target_paths_in_process() {
+  setup_spaces_in_runfiles_source_and_target_paths
+  bazel test --experimental_inprocess_symlink_creation \
+    //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
+}
+
+# Verify that Bazel's runfiles manifest is compatible with v3 of the Bash
+# runfiles library snippet, even if the workspace path contains a space.
+function test_compatibility_with_bash_runfiles_library_snippet() {
+  # Create a workspace path with a space.
+  WORKSPACE="$(mktemp -d XXXXXXXX.jar_manifest)/my workspace"
+  trap "rm -fr '$WORKSPACE'" EXIT
+  mkdir -p "$WORKSPACE"
+  cd "$WORKSPACE" || fail "failed to cd to $WORKSPACE"
+  cat > MODULE.bazel <<'EOF'
+module(name = "my_module")
+EOF
+
+  mkdir pkg
+  cat > pkg/BUILD <<'EOF'
+sh_binary(
+    name = "tool",
+    srcs = ["tool.sh"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+genrule(
+    name = "gen",
+    outs = ["out"],
+    tools = [":tool"],
+    cmd = "$(execpath :tool) $@",
+)
+EOF
+  cat > pkg/tool.sh <<'EOF'
+#!/bin/bash
+# --- begin runfiles.bash initialization v3 ---
+# Copy-pasted from the Bazel Bash runfiles library v3.
+set -uo pipefail; set +e; f=bazel_tools/tools/bash/runfiles/runfiles.bash
+# shellcheck disable=SC1090
+source "${RUNFILES_DIR:-/dev/null}/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "${RUNFILES_MANIFEST_FILE:-/dev/null}" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$0.runfiles/$f" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/null || \
+  { echo>&2 "ERROR: cannot find $f"; exit 1; }; f=; set -e
+# --- end runfiles.bash initialization v3 ---
+
+if [[ ! -z "${RUNFILES_DIR+x}" ]]; then
+  echo "RUNFILES_DIR is set"
+  exit 1
+fi
+
+if [[ -z "${RUNFILES_MANIFEST_FILE+x}" ]]; then
+  echo "RUNFILES_MANIFEST_FILE is not set"
+  exit 1
+fi
+
+if [[ -z "$(rlocation "my_module/pkg/tool.sh")" ]]; then
+  echo "rlocation failed"
+  exit 1
+fi
+
+touch $1
+EOF
+  chmod +x pkg/tool.sh
+
+  bazel build --noenable_runfiles \
+    --spawn_strategy=local \
+    --action_env=RUNFILES_LIB_DEBUG=1 \
+    //pkg:gen >&$TEST_log || fail "build failed"
 }
 
 run_suite "runfiles"

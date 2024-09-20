@@ -357,10 +357,10 @@ function runfiles_rlocation_checked() {
     if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
       echo >&2 "INFO[runfiles.bash]: rlocation($1): looking in RUNFILES_MANIFEST_FILE ($RUNFILES_MANIFEST_FILE)"
     fi
-    # If the rlocation path contains a space, it needs to be prefixed with
-    # " <length> ", where <length> is the length of the path in bytes.
+    # If the rlocation path contains a space, it needs to be prefixed with a
+    # space and spaces and backslashes have to be escaped as \s and \b.
     if [[ "$1" == *" "* ]]; then
-      local search_prefix=" $(echo -n "$1" | wc -c | tr -d ' ') $1"
+      local search_prefix=" $(echo -n "$1" | sed 's/\\/\\b/g; s/ /\\s/g')"
       if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
         echo >&2 "INFO[runfiles.bash]: rlocation($1): using escaped search prefix ($search_prefix)"
       fi
@@ -369,7 +369,9 @@ function runfiles_rlocation_checked() {
     fi
     # The extra space below is added because cut counts from 1.
     local trim_length=$(echo -n "$search_prefix  " | wc -c)
-    local -r result=$(__runfiles_maybe_grep -m1 "^$search_prefix " "${RUNFILES_MANIFEST_FILE}" | cut -b ${trim_length}-)
+    # Escape the search prefix for use in the grep regex below *after*
+    # determining the trim length.
+    local -r result=$(__runfiles_maybe_grep -m1 "^$(echo -n "$search_prefix" | sed 's/[.[\*^$]/\\&/g') " "${RUNFILES_MANIFEST_FILE}" | cut -b ${trim_length}-)
     if [[ -z "$result" ]]; then
       # If path references a runfile that lies under a directory that itself
       # is a runfile, then only the directory is listed in the manifest. Look
@@ -382,14 +384,20 @@ function runfiles_rlocation_checked() {
         new_prefix="${prefix%/*}"
         [[ "$new_prefix" == "$prefix" ]] && break
         prefix="$new_prefix"
+        if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+          echo >&2 "INFO[runfiles.bash]: rlocation($1): looking for prefix ($prefix)"
+        fi
         if [[ "$prefix" == *" "* ]]; then
-          search_prefix=" $(echo -n "$prefix" | wc -c | tr -d ' ') $prefix"
+          search_prefix=" $(echo -n "$prefix" | sed 's/\\/\\b/g; s/ /\\s/g')"
+          if [[ "${RUNFILES_LIB_DEBUG:-}" == 1 ]]; then
+            echo >&2 "INFO[runfiles.bash]: rlocation($1): using escaped search prefix ($search_prefix)"
+          fi
         else
           search_prefix="$prefix"
         fi
         # The extra space below is added because cut counts from 1.
         trim_length=$(echo -n "$search_prefix  " | wc -c)
-        prefix_result=$(__runfiles_maybe_grep -m1 "^$search_prefix " "${RUNFILES_MANIFEST_FILE}" | cut -b ${trim_length}-)
+        prefix_result=$(__runfiles_maybe_grep -m1 "$(echo -n "$search_prefix" | sed 's/[.[\*^$]/\\&/g') " "${RUNFILES_MANIFEST_FILE}" | cut -b ${trim_length}-)
         [[ -z "$prefix_result" ]] && continue
         local -r candidate="${prefix_result}${1#"${prefix}"}"
         if [[ -e "$candidate" ]]; then

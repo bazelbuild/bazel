@@ -495,24 +495,17 @@ public final class Runfiles {
           String runfile;
           String realPath;
           if (line.startsWith(" ")) {
-            // Lines starting with a space are of the form " 7 foo bar /tar get/path", with
-            // the first field indicating the length of the runfiles path.
-            int endOfLengthField = line.indexOf(' ', 1);
-            if (endOfLengthField == -1) {
+            // In lines starting with a space, the runfile path contains spaces and backslashes
+            // escaped with a backslash. The real path is the rest of the line after the first
+            // unescaped space.
+            int firstSpace = line.indexOf(' ', 1);
+            if (firstSpace == -1) {
               throw new IOException(
-                  "Invalid runfiles manifest line, expected second space with leading space: "
+                  "Invalid runfiles manifest line, expected at least one space after the leading space: "
                       + line);
             }
-            int runfileLength;
-            try {
-              runfileLength = Integer.parseUnsignedInt(line.substring(1, endOfLengthField));
-            } catch (NumberFormatException e) {
-              throw new IOException(
-                  "Invalid runfiles manifest line, expected unsigned integer length field: "
-                      + line);
-            }
-            runfile = line.substring(endOfLengthField + 1, endOfLengthField + 1 + runfileLength);
-            realPath = line.substring(endOfLengthField + 1 + runfileLength + 1);
+            runfile = line.substring(1, firstSpace).replace("\\s", " ").replace("\\b", "\\");
+            realPath = line.substring(firstSpace + 1);
           } else {
             int firstSpace = line.indexOf(' ');
             if (firstSpace == -1) {

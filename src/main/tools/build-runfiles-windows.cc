@@ -20,6 +20,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -40,6 +41,9 @@ using std::wstring;
 #endif
 
 namespace {
+
+const std::regex kEscapedBackslash(R"(\\b)");
+const std::regex kEscapedSpace(R"(\\s)");
 
 const wchar_t* manifest_filename;
 const wchar_t* runfiles_base_dir;
@@ -162,21 +166,18 @@ class RunfilesCreator {
       wstring link;
       wstring target;
       if (!line.empty() && line[0] == ' ') {
-        // Lines starting with a space are of the form " 7 foo bar /tar get/path", with
-        // the first field indicating the length of the runfiles path.
-        std::size_t length_field_end = line.find_first_of(' ', 1);
-        if (length_field_end == string::npos) {
-          die(L"Invalid length field: %hs", line.c_str());
+        // The link path contains escape sequences for spaces and backslashes.
+        string::size_type idx = line.find(' ', 1);
+        if (idx == string::npos) {
+          die(L"Missing separator in manifest line: %hs", line.c_str());
         }
-        std::size_t link_length = std::stoul(line.substr(1, length_field_end - 1));
-        std::size_t after_length_field = length_field_end + 1;
-        if (line.size() < after_length_field + link_length || line[after_length_field + link_length] != ' ') {
-          die(L"Invalid length field: %hs", line.c_str());
-        }
-        link = blaze_util::CstringToWstring(line.substr(after_length_field, link_length));
-        target = blaze_util::CstringToWstring(line.substr(after_length_field + link_length + 1));
+        std::string link_path = line.substr(1, idx - 1);
+        link_path = std::regex_replace(link_path, kEscapedSpace, " ");
+        link_path = std::regex_replace(link_path, kEscapedBackslash, "\\");
+        link = blaze_util::CstringToWstring(link_path);
+        target = blaze_util::CstringToWstring(line.substr(idx + 1));
       } else {
-        string::size_type idx = line.find_first_of(' ');
+        string::size_type idx = line.find(' ');
         if (idx == string::npos) {
           die(L"Missing separator in manifest line: %hs", line.c_str());
         }

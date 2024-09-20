@@ -248,8 +248,9 @@ public final class RunfilesTest {
                 "Foo/runfile1 C:/Actual Path\\runfile1",
                 "Foo/Bar/runfile2 D:\\the path\\run file 2.txt",
                 "Foo/Bar/Dir E:\\Actual Path\\Directory",
-                " 4 h/ i F:\\jk",
-                " 15 dir with spaces F:\\j k\\dir with spaces"));
+                " h/\\si F:\\jk",
+                " dir\\swith\\sspaces F:\\j k\\dir with spaces",
+                " h/\\s\\bi F:\\jkb"));
     Runfiles r = Runfiles.createManifestBasedForTesting(mf.toString()).withSourceRepository("");
     assertThat(r.rlocation("Foo/runfile1")).isEqualTo("C:/Actual Path\\runfile1");
     assertThat(r.rlocation("Foo/Bar/runfile2")).isEqualTo("D:\\the path\\run file 2.txt");
@@ -260,6 +261,7 @@ public final class RunfilesTest {
     assertThat(r.rlocation("Foo/Bar/Dir/Deeply/Nested/File With Spaces"))
         .isEqualTo("E:\\Actual Path\\Directory/Deeply/Nested/File With Spaces");
     assertThat(r.rlocation("h/ i")).isEqualTo("F:\\jk");
+    assertThat(r.rlocation("h/ \\i")).isEqualTo("F:\\jkb");
     assertThat(r.rlocation("dir with spaces")).isEqualTo("F:\\j k\\dir with spaces");
     assertThat(r.rlocation("dir with spaces/file")).isEqualTo("F:\\j k\\dir with spaces/file");
     assertThat(r.rlocation("unknown")).isNull();

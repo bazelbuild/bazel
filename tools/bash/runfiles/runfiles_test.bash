@@ -141,8 +141,9 @@ e/f $tmpdir/g h
 y $tmpdir/y
 c/dir $tmpdir/dir
 unresolved $tmpdir/unresolved
- 4 h/ i $tmpdir/ j k
- 15 dir with spaces $tmpdir/dir with spaces
+ h/\si $tmpdir/ j k
+ h/\s\bi $tmpdir/ j k b
+ dir\swith\sspaces $tmpdir/dir with spaces
 EOF
   mkdir "${tmpdir}/c"
   mkdir "${tmpdir}/y"
@@ -154,6 +155,7 @@ EOF
   touch "${tmpdir}/dir/deeply/nested/file with spaces"
   ln -s /does/not/exist "${tmpdir}/unresolved"
   touch "${tmpdir}/ j k"
+  touch "${tmpdir}/ j k b"
   mkdir -p "${tmpdir}/dir with spaces/nested"
   touch "${tmpdir}/dir with spaces/nested/file"
 
@@ -175,6 +177,7 @@ EOF
   [[ "$(rlocation "c/dir/deeply/nested/file with spaces" || echo failed)" == "$tmpdir/dir/deeply/nested/file with spaces" ]] || fail
   [[ -z "$(rlocation unresolved || echo failed)" ]] || fail
   [[ "$(rlocation "h/ i" || echo failed)" == "$tmpdir/ j k" ]] || fail
+  [[ "$(rlocation "h/ \i" || echo failed)" == "$tmpdir/ j k b" ]] || fail
   [[ "$(rlocation "dir with spaces" || echo failed)" == "$tmpdir/dir with spaces" ]] || fail
   [[ "$(rlocation "dir with spaces/nested/file" || echo failed)" == "$tmpdir/dir with spaces/nested/file" ]] || fail
   rm -r "$tmpdir/c/d" "$tmpdir/g h" "$tmpdir/y" "$tmpdir/dir" "$tmpdir/unresolved" "$tmpdir/ j k" "$tmpdir/dir with spaces"

@@ -19,6 +19,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import com.google.common.escape.CharEscaperBuilder;
+import com.google.common.escape.Escaper;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionExecutionContext;
 import com.google.devtools.build.lib.actions.ActionKeyContext;
@@ -62,7 +64,10 @@ public final class SourceManifestAction extends AbstractFileWriteAction
   private static final String GUID = "07459553-a3d0-4d37-9d78-18ed942470f4";
 
   private static final Comparator<Map.Entry<PathFragment, Artifact>> ENTRY_COMPARATOR =
-      (path1, path2) -> path1.getKey().getPathString().compareTo(path2.getKey().getPathString());
+      Comparator.comparing(path -> path.getKey().getPathString());
+  private static final Escaper ROOT_RELATIVE_PATH_ESCAPER =
+      new CharEscaperBuilder().addEscape(' ', "\\s").addEscape('\\', "\\b").toEscaper();
+
   private final Artifact repoMappingManifest;
   /**
    * Interface for defining manifest formatting and reporting specifics. Implementations must be
@@ -291,6 +296,9 @@ public final class SourceManifestAction extends AbstractFileWriteAction
      *
      * <p>[rootRelativePath] [resolvingSymlink]
      *
+     * <p>If rootRelativePath contains spaces, then each backslash is replaced with '\b', each space
+     * is replaced with '\s' and the line is prefixed with a space.
+     *
      * <p>This strategy is suitable for creating an input manifest to a source view tree. Its output
      * is a valid input to {@link com.google.devtools.build.lib.analysis.actions.SymlinkTreeAction}.
      */
@@ -303,14 +311,13 @@ public final class SourceManifestAction extends AbstractFileWriteAction
           throws IOException {
         String rootRelativePathString = rootRelativePath.getPathString();
         // Source paths with spaces require escaping. Target paths with spaces don't as consumers
-        // are expected to split on the first space (without escaping) or after the part indicated
-        // by the length prefix (with escaping).
+        // are expected to split on the first space.
         if (rootRelativePathString.indexOf(' ') != -1) {
           manifestWriter.append(' ');
-          manifestWriter.append(String.valueOf(rootRelativePathString.length()));
-          manifestWriter.append(' ');
+          manifestWriter.append(ROOT_RELATIVE_PATH_ESCAPER.escape(rootRelativePathString));
+        } else {
+          manifestWriter.append(rootRelativePathString);
         }
-        manifestWriter.append(rootRelativePathString);
         // This trailing whitespace is REQUIRED to process the single entry line correctly.
         manifestWriter.append(' ');
         if (symlinkTarget != null) {

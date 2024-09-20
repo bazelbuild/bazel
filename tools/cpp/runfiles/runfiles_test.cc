@@ -230,8 +230,9 @@ TEST_F(RunfilesTest, ManifestBasedRunfilesRlocationAndEnvVars) {
       "foo" LINE_AS_STRING() ".runfiles_manifest", {
           "a/b c/d",
           "e/f target path with spaces",
-          " 4 h/ i j k",
-          " 15 dir with spaces l/m",
+          " h/\\si j k",
+          " dir\\\swith\\\sspaces l/m",
+          " h/\\s\\bi j k b",
       }));
   ASSERT_TRUE(mf != nullptr);
 
@@ -265,6 +266,7 @@ TEST_F(RunfilesTest, ManifestBasedRunfilesRlocationAndEnvVars) {
   EXPECT_EQ(r->Rlocation("e/f"), "target path with spaces");
   EXPECT_EQ(r->Rlocation("e/f/file"), "target path with spaces/file");
   EXPECT_EQ(r->Rlocation("h/ i"), "j k");
+  EXPECT_EQ(r->Rlocation("h/ \\i"), "j k b");
   EXPECT_EQ(r->Rlocation("dir with spaces"), "l/m");
   EXPECT_EQ(r->Rlocation("dir with spaces/file"), "l/m/file");
 }
