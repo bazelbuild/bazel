@@ -35,6 +35,7 @@ filegroup(
         "//third_party/py/mock:srcs",
         "//third_party/py/six:srcs",
         "//third_party/remoteapis:srcs",
+        "//third_party/upb:srcs",
         "//third_party/zlib:srcs",
     ],
 )
