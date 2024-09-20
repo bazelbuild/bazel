@@ -32,6 +32,7 @@ import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
@@ -143,12 +144,13 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     assertThat(entries)
         .containsExactly(
             Protos.ExecLogEntry.newBuilder()
-                .setId(1)
                 .setInvocation(
-                    Protos.ExecLogEntry.Invocation.newBuilder().setHashFunctionName("SHA-256"))
+                    Protos.ExecLogEntry.Invocation.newBuilder()
+                        .setHashFunctionName("SHA-256")
+                        .setWorkspaceRunfilesDirectory(TestConstants.WORKSPACE_NAME)
+                        .setSiblingRepositoryLayout(siblingRepositoryLayout))
                 .build(),
             Protos.ExecLogEntry.newBuilder()
-                .setId(2)
                 .setSymlinkAction(
                     Protos.ExecLogEntry.SymlinkAction.newBuilder()
                         .setInputPath("source")
@@ -167,6 +169,8 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     return new CompactSpawnLogContext(
         logPath,
         execRoot.asFragment(),
+        TestConstants.WORKSPACE_NAME,
+        siblingRepositoryLayout,
         remoteOptions,
         DigestHashFunction.SHA256,
         SyscallCache.NO_CACHE);

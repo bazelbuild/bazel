@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.Runfiles;
+import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -89,5 +90,36 @@ public final class FakeRunfilesTree implements RunfilesTree {
   @Override
   public String getWorkspaceName() {
     return runfiles.getPrefix();
+  }
+
+  @Override
+  public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
+    return runfiles.getArtifacts();
+  }
+
+  @Override
+  public Iterable<PathFragment> getEmptyFilenamesForLogging() {
+    return runfiles.getEmptyFilenames();
+  }
+
+  @Override
+  public NestedSet<SymlinkEntry> getSymlinksForLogging() {
+    return runfiles.getSymlinks();
+  }
+
+  @Override
+  public NestedSet<SymlinkEntry> getRootSymlinksForLogging() {
+    return runfiles.getRootSymlinks();
+  }
+
+  @Nullable
+  @Override
+  public Artifact getRepoMappingManifestForLogging() {
+    return repoMappingManifest;
+  }
+
+  @Override
+  public boolean isLegacyExternalRunfiles() {
+    return runfiles.isLegacyExternalRunfiles();
   }
 }

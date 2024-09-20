@@ -14,10 +14,12 @@
 
 package com.google.devtools.build.lib.actions;
 
+import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Lazy wrapper for a single runfiles tree. */
 // TODO(bazel-team): Ideally we could refer to Runfiles objects directly here, but current package
@@ -45,4 +47,32 @@ public interface RunfilesTree {
 
   /** Returns the name of the workspace that the build is occurring in. */
   String getWorkspaceName();
+
+  /**
+   * Returns artifacts the runfiles tree contain symlinks to at their canonical locations.
+   *
+   * <p>This does <b>not</b> include artifacts that only the symlinks and root symlinks point to.
+   */
+  NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging();
+
+  /**
+   * Returns the set of names of implicit empty files to materialize.
+   *
+   * <p>If this runfiles tree does not implicitly add empty files, implementations should have a
+   * dedicated fast path that returns an empty set without traversing the tree.
+   */
+  Iterable<PathFragment> getEmptyFilenamesForLogging();
+
+  /** Returns the set of custom symlink entries. */
+  NestedSet<SymlinkEntry> getSymlinksForLogging();
+
+  /** Returns the set of root symlinks. */
+  NestedSet<SymlinkEntry> getRootSymlinksForLogging();
+
+  /** Returns the repo mapping manifest if it exists. */
+  @Nullable
+  Artifact getRepoMappingManifestForLogging();
+
+  /** Whether this runfiles tree materializes external runfiles also at their legacy locations. */
+  boolean isLegacyExternalRunfiles();
 }

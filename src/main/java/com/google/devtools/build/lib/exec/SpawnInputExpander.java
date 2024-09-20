@@ -85,7 +85,7 @@ public final class SpawnInputExpander {
   }
 
   @VisibleForTesting
-  void addSingleRunfilesTreeToInputs(
+  public void addSingleRunfilesTreeToInputs(
       RunfilesTree runfilesTree,
       Map<PathFragment, ActionInput> inputMap,
       ArtifactExpander artifactExpander,

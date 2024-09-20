@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.cache.OutputMetadataStore;
+import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
@@ -87,6 +88,37 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     @Override
     public String getWorkspaceName() {
       return wrapped.getWorkspaceName();
+    }
+
+    @Override
+    public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
+      return wrapped.getArtifactsAtCanonicalLocationsForLogging();
+    }
+
+    @Override
+    public Iterable<PathFragment> getEmptyFilenamesForLogging() {
+      return wrapped.getEmptyFilenamesForLogging();
+    }
+
+    @Override
+    public NestedSet<SymlinkEntry> getSymlinksForLogging() {
+      return wrapped.getSymlinksForLogging();
+    }
+
+    @Override
+    public NestedSet<SymlinkEntry> getRootSymlinksForLogging() {
+      return wrapped.getRootSymlinksForLogging();
+    }
+
+    @Nullable
+    @Override
+    public Artifact getRepoMappingManifestForLogging() {
+      return wrapped.getRepoMappingManifestForLogging();
+    }
+
+    @Override
+    public boolean isLegacyExternalRunfiles() {
+      return wrapped.isLegacyExternalRunfiles();
     }
   }
 

@@ -88,14 +88,16 @@ public final class RunfilesSupport {
   private static final String OUTPUT_MANIFEST_BASENAME = "MANIFEST";
   private static final String REPO_MAPPING_MANIFEST_EXT = ".repo_mapping";
 
-  private static class RunfilesTreeImpl implements RunfilesTree {
+  /** The implementation of {@link RunfilesTree}. */
+  @VisibleForTesting
+  public static class RunfilesTreeImpl implements RunfilesTree {
 
     private static final WeakReference<Map<PathFragment, Artifact>> NOT_YET_COMPUTED =
         new WeakReference<>(null);
 
     private final PathFragment execPath;
     private final Runfiles runfiles;
-    private final Artifact repoMappingManifest;
+    @Nullable private final Artifact repoMappingManifest;
 
     /**
      * The cached runfiles mapping. Possible values:
@@ -119,7 +121,7 @@ public final class RunfilesSupport {
     private RunfilesTreeImpl(
         PathFragment execPath,
         Runfiles runfiles,
-        Artifact repoMappingManifest,
+        @Nullable Artifact repoMappingManifest,
         boolean buildRunfileLinks,
         boolean cacheMapping,
         RunfileSymlinksMode runfileSymlinksMode) {
@@ -129,6 +131,17 @@ public final class RunfilesSupport {
       this.buildRunfileLinks = buildRunfileLinks;
       this.runfileSymlinksMode = runfileSymlinksMode;
       this.cachedMapping = cacheMapping ? NOT_YET_COMPUTED : null;
+    }
+
+    @VisibleForTesting
+    public RunfilesTreeImpl(PathFragment execPath, Runfiles runfiles) {
+      this(
+          execPath,
+          runfiles,
+          /* repoMappingManifest= */ null,
+          /* buildRunfileLinks= */ false,
+          /* cacheMapping= */ false,
+          RunfileSymlinksMode.EXTERNAL);
     }
 
     @Override
@@ -165,6 +178,37 @@ public final class RunfilesSupport {
     @Override
     public NestedSet<Artifact> getArtifacts() {
       return runfiles.getAllArtifacts();
+    }
+
+    @Override
+    public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
+      return runfiles.getArtifacts();
+    }
+
+    @Override
+    public Iterable<PathFragment> getEmptyFilenamesForLogging() {
+      return runfiles.getEmptyFilenames();
+    }
+
+    @Override
+    public NestedSet<SymlinkEntry> getSymlinksForLogging() {
+      return runfiles.getSymlinks();
+    }
+
+    @Override
+    public NestedSet<SymlinkEntry> getRootSymlinksForLogging() {
+      return runfiles.getRootSymlinks();
+    }
+
+    @Nullable
+    @Override
+    public Artifact getRepoMappingManifestForLogging() {
+      return repoMappingManifest;
+    }
+
+    @Override
+    public boolean isLegacyExternalRunfiles() {
+      return runfiles.isLegacyExternalRunfiles();
     }
 
     @Override

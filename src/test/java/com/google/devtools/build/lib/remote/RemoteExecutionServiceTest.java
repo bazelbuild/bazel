@@ -81,6 +81,7 @@ import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
+import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -134,6 +135,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -2683,6 +2685,37 @@ public class RemoteExecutionServiceTest {
       @Override
       public String getWorkspaceName() {
         return "__main__";
+      }
+
+      @Override
+      public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
+        return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
+      }
+
+      @Override
+      public ImmutableList<PathFragment> getEmptyFilenamesForLogging() {
+        return ImmutableList.of();
+      }
+
+      @Override
+      public NestedSet<SymlinkEntry> getSymlinksForLogging() {
+        return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      }
+
+      @Override
+      public NestedSet<SymlinkEntry> getRootSymlinksForLogging() {
+        return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
+      }
+
+      @Nullable
+      @Override
+      public Artifact getRepoMappingManifestForLogging() {
+        return null;
+      }
+
+      @Override
+      public boolean isLegacyExternalRunfiles() {
+        return false;
       }
     };
   }
