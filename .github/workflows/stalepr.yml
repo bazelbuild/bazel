@@ -16,11 +16,11 @@ jobs:
             const repo = context.repo.repo;
             const awaitingReviewLabel = "awaiting-review";
 
-            const query = `repo:${owner}/${repo} is:pr label:${awaitingReviewLabel} state:closed`;
             const prs = await github.rest.pulls.list({
-              query: query
+              owner,
+              repo,
             });
-
+            console.log('prs',prs)
             for (const pr of prs) {
               const reviews = await github.rest.pulls.listReviews({
                 owner,
