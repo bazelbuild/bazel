@@ -171,21 +171,6 @@ public final class IntermediateArtifacts implements StarlarkValue {
     return archive();
   }
 
-  /** Representation for a specific architecture. */
-  private Artifact architectureRepresentation(String arch, String suffix) {
-    return appendExtension(String.format("_%s%s", arch, suffix));
-  }
-
-  /** Linkmap representation */
-  public Artifact linkmap() {
-    return appendExtension(LINKMAP_SUFFIX);
-  }
-
-  /** Linkmap representation for a specific architecture. */
-  public Artifact linkmap(String arch) {
-    return architectureRepresentation(arch, LINKMAP_SUFFIX);
-  }
-
   private String getModuleName() {
     String moduleName;
     if (ruleContext.attributes().isAttributeValueExplicitlySpecified("module_name")) {
