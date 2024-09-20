@@ -157,7 +157,7 @@ def _create_context_and_provider(
         )
 
     if has_module_map:
-        module_map = intermediate_artifacts.swift_module_map
+        module_map = intermediate_artifacts.swift_module_map()
         umbrella_header = module_map.umbrella_header()
         if umbrella_header != None:
             objc_provider_kwargs["umbrella_header"].append(umbrella_header)

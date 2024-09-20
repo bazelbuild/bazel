@@ -346,7 +346,7 @@ def _cc_compile_and_link(
     )
     module_map = None
     if generate_module_map:
-        module_map = intermediate_artifacts.internal_module_map
+        module_map = intermediate_artifacts.internal_module_map()
 
     purpose = "{}_objc_arc".format(_get_purpose(common_variables))
     arc_primary_module_map_fc = feature_configuration
@@ -393,7 +393,7 @@ def _cc_compile_and_link(
     if generate_module_map_for_swift:
         _generate_extra_module_map(
             common_variables,
-            intermediate_artifacts.swift_module_map,
+            intermediate_artifacts.swift_module_map(),
             public_hdrs,
             private_hdrs,
             objc_compilation_context.public_textual_hdrs,
