@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.skyframe.serialization.LeafObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.LeafSerializationContext;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.StringUtilities;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
@@ -145,6 +146,8 @@ public final class RepositoryName {
    */
   @Nullable private final String didYouMeanSuffix;
 
+  private final int hashCode;
+
   private RepositoryName(
       String name,
       @Nullable RepositoryName ownerRepoIfNotVisible,
@@ -152,6 +155,9 @@ public final class RepositoryName {
     this.name = name;
     this.ownerRepoIfNotVisible = ownerRepoIfNotVisible;
     this.didYouMeanSuffix = didYouMeanSuffix;
+    this.hashCode =
+        31 * OsPathPolicy.getFilePathOs().hash(name)
+            + HashCodes.hashObjects(ownerRepoIfNotVisible, didYouMeanSuffix);
   }
 
   private RepositoryName(String name) {
@@ -377,8 +383,7 @@ public final class RepositoryName {
 
   @Override
   public int hashCode() {
-    return Objects.hash(
-        OsPathPolicy.getFilePathOs().hash(name), ownerRepoIfNotVisible, didYouMeanSuffix);
+    return hashCode;
   }
 
   public static Codec repositoryNameCodec() {
