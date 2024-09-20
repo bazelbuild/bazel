@@ -1,3 +1,5 @@
+[![Open in DevZero](https://assets.devzero.io/open-in-devzero.svg)](https://www.devzero.io/dashboard/recipes/new?repo-url=https://github.com/bazelbuild/bazel)
+
 # [Bazel](https://bazel.build)
 
 *{Fast, Correct} - Choose two*
