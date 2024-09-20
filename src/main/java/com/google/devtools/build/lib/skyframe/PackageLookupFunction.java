@@ -110,7 +110,7 @@ public class PackageLookupFunction implements SkyFunction {
       return new PackageLookupValue.NoRepositoryPackageLookupValue(
           repoName,
           String.format(
-              "No repository visible as '@%s' from %s.%s",
+              "No repository visible as '@%s' from %s%s",
               repoName.getName(), repoName.getOwnerRepoDisplayString(), workspaceDeprecationMsg));
     }
 

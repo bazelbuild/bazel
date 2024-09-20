@@ -272,7 +272,7 @@ class BazelFetchTest(test_base.TestBase):
     self.AssertExitCode(exit_code, 8, stderr)
     self.assertIn(
         "ERROR: Fetching some repos failed with errors: Repository '@@nono' is "
-        "not defined; No repository visible as '@nana' from main repository.",
+        "not defined; No repository visible as '@nana' from main repository",
         stderr,
     )
 

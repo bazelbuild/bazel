@@ -145,7 +145,7 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       }
       return new NoRepositoryDirectoryValue(
           String.format(
-              "No repository visible as '@%s' from %s.%s",
+              "No repository visible as '@%s' from %s%s",
               repositoryName.getName(),
               repositoryName.getOwnerRepoDisplayString(),
               workspaceDeprecationMsg));

@@ -40,9 +40,9 @@ public class ExternalPackageHelper {
   private final ImmutableList<BuildFileName> workspaceFilesByPriority;
 
   public static final String WORKSPACE_DEPRECATION =
-      " Was the repository introduced in WORKSPACE? The WORKSPACE file is disabled by default in"
+      ". Was the repository introduced in WORKSPACE? The WORKSPACE file is disabled by default in"
           + " Bazel 8 (late 2024) and will be removed in Bazel 9 (late 2025), please migrate to"
-          + " Bzlmod. See https://bazel.build/external/migration.";
+          + " Bzlmod. See https://bazel.build/external/migration";
 
   public ExternalPackageHelper(ImmutableList<BuildFileName> workspaceFilesByPriority) {
     Preconditions.checkArgument(!workspaceFilesByPriority.isEmpty());
