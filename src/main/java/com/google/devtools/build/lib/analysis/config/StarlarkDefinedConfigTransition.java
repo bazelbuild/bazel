@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.starlarkbuildapi.config.ConfigurationTransitionApi;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.common.options.Converter;
@@ -73,7 +74,7 @@ import net.starlark.java.syntax.Location;
  *
  * <p>Represents a configuration transition across a dependency edge defined in Starlark.
  */
-public abstract class StarlarkDefinedConfigTransition implements ConfigurationTransitionApi {
+public abstract sealed class StarlarkDefinedConfigTransition implements ConfigurationTransitionApi {
 
   public static final String COMMAND_LINE_OPTION_PREFIX = "//command_line_option:";
 
@@ -92,7 +93,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
   private final ImmutableMap<String, String> inputsCanonicalizedToGiven;
   private final ImmutableMap<String, String> outputsCanonicalizedToGiven;
-  protected final Label parentLabel;
+  final Label parentLabel;
   private final Location location;
   private final Label.PackageContext packageContext;
 
@@ -297,8 +298,9 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
     return new AnalysisTestTransition(changedSettings, repoMapping, parentLabel, location);
   }
 
-  private static class AnalysisTestTransition extends StarlarkDefinedConfigTransition {
+  private static final class AnalysisTestTransition extends StarlarkDefinedConfigTransition {
     private final Map<String, Object> changedSettings;
+    private final int hashCode;
 
     AnalysisTestTransition(
         Map<String, Object> changedSettings,
@@ -307,12 +309,13 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
         Location location)
         throws EvalException {
       super(
-          /*inputs=*/ ImmutableList.of(),
+          /* inputs= */ ImmutableList.of(),
           ImmutableList.copyOf(changedSettings.keySet()),
           repoMapping,
           parentLabel,
           location);
       this.changedSettings = changedSettings;
+      this.hashCode = HashCodes.hashObjects(getInputs(), getOutputs(), changedSettings);
     }
 
     @Override
@@ -354,15 +357,16 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
     @Override
     public int hashCode() {
-      return Objects.hash(this.getInputs(), this.getOutputs(), this.changedSettings);
+      return hashCode;
     }
   }
 
   /** A transition with a user-defined implementation function. */
-  public static class RegularTransition extends StarlarkDefinedConfigTransition {
+  public static sealed class RegularTransition extends StarlarkDefinedConfigTransition {
     private final StarlarkCallable impl;
     private final StarlarkSemantics semantics;
     private final RepositoryMapping repoMapping;
+    private final int hashCode;
 
     RegularTransition(
         StarlarkCallable impl,
@@ -377,6 +381,7 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
       this.impl = impl;
       this.semantics = semantics;
       this.repoMapping = repoMapping;
+      this.hashCode = HashCodes.hashObjects(getInputs(), getOutputs(), impl);
     }
 
     @Override
@@ -755,12 +760,12 @@ public abstract class StarlarkDefinedConfigTransition implements ConfigurationTr
 
     @Override
     public int hashCode() {
-      return Objects.hash(this.getInputs(), this.getOutputs(), this.impl);
+      return hashCode;
     }
   }
 
   /** A transition implementation used only for Starlark-defined exec transitions. */
-  private static class ExecTransition extends RegularTransition {
+  private static final class ExecTransition extends RegularTransition {
     private ExecTransition(
         StarlarkCallable impl,
         List<String> inputs,
