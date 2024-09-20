@@ -1,9 +1,8 @@
 name: Comment on Stale Approved PRs
 
 on:
-  schedule:
-    - cron: "*/2 * * * *"  # Run daily at midnight
-
+ workflow_dispatch:
+   
 jobs:
   comment-on-stale-prs:
     runs-on: ubuntu-latest
