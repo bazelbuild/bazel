@@ -13,21 +13,17 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const octokit = new Octokit({
-              auth: context.token
-            });
-
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const awaitingReviewLabel = "awaiting-review";
 
             const query = `repo:${owner}/${repo} is:pr label:${awaitingReviewLabel} state:closed`;
-            const prs = await octokit.rest.pulls.list({
+            const prs = await github.rest.pulls.list({
               query: query
             });
 
             for (const pr of prs) {
-              const reviews = await octokit.rest.pulls.listReviews({
+              const reviews = await github.rest.pulls.listReviews({
                 owner,
                 repo,
                 pull_number: pr.number
@@ -41,7 +37,7 @@ jobs:
 
                 if (new Date(approvedReview.submitted_at) < fiveDaysAgo) {
                   const commentBody = "This PR has been approved for more than 5 days but still has the 'awaiting-review' label. Please review and merge or close the PR.";
-                  await octokit.rest.issues.createComment({
+                  await github.rest.issues.createComment({
                     owner,
                     repo,
                     issue_number: pr.number,
