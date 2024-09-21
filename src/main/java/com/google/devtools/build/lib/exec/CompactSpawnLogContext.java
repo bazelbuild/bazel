@@ -326,7 +326,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         additionalDirectoryIds.build(),
         inputMetadataProvider,
         fileSystem,
-        /* shared= */ false);
+        /* shared= */ false,
+        spawn.getMnemonic());
   }
 
   /**
@@ -343,7 +344,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         ImmutableList.of(),
         inputMetadataProvider,
         fileSystem,
-        /* shared= */ true);
+        /* shared= */ true,
+        spawn.getMnemonic());
   }
 
   /**
@@ -353,6 +355,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * @param additionalDirectoryIds the entry IDs of additional {@link ExecLogEntry.Directory}
    *     entries to include as direct members
    * @param shared whether this nested set is likely to be a transitive member of other sets
+   * @param mnemonic the mnemonic of the spawn
    * @return the entry ID of the {@link ExecLogEntry.InputSet} describing the nested set, or 0 if
    *     the nested set is empty.
    */
@@ -361,7 +364,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       Collection<Integer> additionalDirectoryIds,
       InputMetadataProvider inputMetadataProvider,
       FileSystem fileSystem,
-      boolean shared)
+      boolean shared,
+      String mnemonic)
       throws IOException, InterruptedException {
     if (set.isEmpty() && additionalDirectoryIds.isEmpty()) {
       return 0;
@@ -381,7 +385,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                     /* additionalDirectoryIds= */ ImmutableList.of(),
                     inputMetadataProvider,
                     fileSystem,
-                    /* shared= */ true));
+                    /* shared= */ true,
+                    mnemonic));
           }
 
           for (ActionInput input : set.getLeaves()) {
@@ -393,10 +398,11 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                       runfilesTree,
                       inputMetadataProvider,
                       fileSystem,
-                      // If the nested set containing the runfiles tree isn't shared (i.e., it
-                      // contains inputs, not tools), the runfiles are also likely not shared. This
-                      // avoids storing the runfiles tree of a test.
-                      shared));
+                      // Runfiles in non-test spawns are from tools and thus potentially reused
+                      // between spawns. Runfiles of tests cannot be shared unless the test runs
+                      // multiple times in the same build. In this case, the runfiles tree caches
+                      // its mapping.
+                      !"TestRunner".equals(mnemonic) || runfilesTree.isMappingCached()));
               continue;
             }
 
@@ -561,7 +567,9 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                   fileSystem,
                   // The runfiles tree itself is shared, but the nested set is unique to the tree as
                   // it contains the executable.
-                  /* shared= */ false));
+                  /* shared= */ false,
+                  // The mnemonic is only used for logging runfiles trees and they are not nested.
+                  /* mnemonic= */ ""));
           builder.setSymlinksId(
               logSymlinkEntries(
                   runfilesTree.getSymlinksForLogging(), inputMetadataProvider, fileSystem));

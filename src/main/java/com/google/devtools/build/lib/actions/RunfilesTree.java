@@ -75,4 +75,7 @@ public interface RunfilesTree {
 
   /** Whether this runfiles tree materializes external runfiles also at their legacy locations. */
   boolean isLegacyExternalRunfiles();
+
+  /** Whether {@link #getMapping()} is cached due to potential reuse within a single build. */
+  boolean isMappingCached();
 }
