@@ -2350,7 +2350,7 @@ public class RemoteExecutionServiceTest {
                     Platform.Property.newBuilder()
                         .setName("persistentWorkerKey")
                         .setValue(
-                            "b22d48cd55755474eae27e63a79306a64146bd5947d5bd3423d78f001cf7b3de"))
+                            "628637504c26bb74fb6bb3f60fb7132b3aa574b866db4181770774882a8853e5"))
                 .build());
     var merkleTree = remoteAction.getMerkleTree();
     var outputDirectory =
@@ -2386,7 +2386,7 @@ public class RemoteExecutionServiceTest {
                     Platform.Property.newBuilder()
                         .setName("persistentWorkerKey")
                         .setValue(
-                            "b22d48cd55755474eae27e63a79306a64146bd5947d5bd3423d78f001cf7b3de"))
+                            "628637504c26bb74fb6bb3f60fb7132b3aa574b866db4181770774882a8853e5"))
                 .build());
 
     // Check that if a tool input changes, the persistent worker key changes.
@@ -2398,7 +2398,7 @@ public class RemoteExecutionServiceTest {
                     Platform.Property.newBuilder()
                         .setName("persistentWorkerKey")
                         .setValue(
-                            "997337de8dc20123cd7c8fcaed2c9c79cd8138831f9fbbf119f37d0859c9e83a"))
+                            "98e07ff5afc8f4d127e93d326c87c132f89cfd009517422671e6abec2fe05e2b"))
                 .build());
   }
 
