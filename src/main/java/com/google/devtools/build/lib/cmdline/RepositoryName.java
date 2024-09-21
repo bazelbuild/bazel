@@ -50,6 +50,8 @@ public final class RepositoryName {
 
   @SerializationConstant public static final RepositoryName MAIN = new RepositoryName("");
 
+  @SerializationConstant static final RepositoryName BUILTINS = new RepositoryName("_builtins");
+
   private static final Pattern VALID_REPO_NAME = Pattern.compile("[\\w\\-.+]*");
 
   // Must start with a letter. Can contain ASCII letters and digits, underscore, dash, and dot.
@@ -79,6 +81,9 @@ public final class RepositoryName {
     if (name.isEmpty()) {
       return MAIN;
     }
+    if (name.equals(BUILTINS.name)) {
+      return BUILTINS;
+    }
     try {
       return repositoryNameCache.get(name);
     } catch (CompletionException e) {
@@ -95,6 +100,9 @@ public final class RepositoryName {
       //   failing. This suggests to me that something is comparing RepositoryName objects using
       //   reference equality instead of #equals().
       return MAIN;
+    }
+    if (name.equals(BUILTINS.name)) {
+      return BUILTINS;
     }
     return repositoryNameCache.get(name);
   }
@@ -169,7 +177,7 @@ public final class RepositoryName {
    * message is sanitized.
    */
   static void validate(String name) throws LabelSyntaxException {
-    if (name.isEmpty()) {
+    if (name.isEmpty() || name.equals(BUILTINS.name)) {
       return;
     }
 
