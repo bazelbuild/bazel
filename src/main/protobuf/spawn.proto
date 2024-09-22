@@ -447,7 +447,7 @@ message ExecLogEntry {
     InputSet input_set = 6;
     Spawn spawn = 7;
     SymlinkAction symlink_action = 8;
-    SymlinkEntrySet symlink_entries = 9;
+    SymlinkEntrySet symlink_entry_set = 9;
     RunfilesTree runfiles_tree = 10;
   }
 }
