@@ -234,6 +234,41 @@ EOF
   expect_not_log "START.*: \[.*\] Executing genrule //a:foobar"
 }
 
+function test_downloads_minimal_skip_download_stderrout() {
+  # Test that action stderr and stdout are not downloaded when using
+  # --remote_download_minimal
+  mkdir -p a
+  cat > a/BUILD <<'EOF'
+genrule(
+  name = "foo",
+  srcs = [],
+  outs = ["foo.txt"],
+  cmd = """
+echo some_stdout
+echo some_stderr 1>&2
+touch $@
+""",
+)
+EOF
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_log "some_stdout"
+  expect_log "some_stderr"
+
+  bazel clean
+
+  bazel build \
+    --remote_executor=grpc://localhost:${worker_port} \
+    --remote_download_minimal \
+    //a:foo >& $TEST_log || fail "Failed to build //a:foo"
+
+  expect_not_log "some_stdout"
+  expect_not_log "some_stderr"
+}
+
 function setup_genrule_with_dep() {
   mkdir -p a
   cat > a/BUILD <<'EOF'

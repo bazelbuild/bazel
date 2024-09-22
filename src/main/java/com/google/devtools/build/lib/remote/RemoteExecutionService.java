@@ -102,6 +102,7 @@ import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.common.RemotePathResolver;
 import com.google.devtools.build.lib.remote.merkletree.MerkleTree;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.remote.options.RemoteOutputsMode;
 import com.google.devtools.build.lib.remote.salt.CacheSalt;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
@@ -1370,13 +1371,15 @@ public class RemoteExecutionService {
     }
 
     FileOutErr outErr = action.getSpawnExecutionContext().getFileOutErr();
-
-    // Always download the action stdout/stderr.
     FileOutErr tmpOutErr = outErr.childOutErr();
-    List<ListenableFuture<Void>> outErrDownloads =
-        remoteCache.downloadOutErr(context, result.actionResult, tmpOutErr);
-    for (ListenableFuture<Void> future : outErrDownloads) {
-      downloadsBuilder.add(transform(future, (v) -> null, directExecutor()));
+
+    // Skip downloading the action stdout/stderr when remote_download_outputs=minimal and the action is successful.
+    if (remoteOptions.remoteOutputsMode != RemoteOutputsMode.MINIMAL || result.getExitCode() != 0) {
+      List<ListenableFuture<Void>> outErrDownloads =
+          remoteCache.downloadOutErr(context, result.actionResult, tmpOutErr);
+      for (ListenableFuture<Void> future : outErrDownloads) {
+        downloadsBuilder.add(transform(future, (v) -> null, directExecutor()));
+      }
     }
 
     ImmutableList<ListenableFuture<FileMetadata>> downloads = downloadsBuilder.build();
