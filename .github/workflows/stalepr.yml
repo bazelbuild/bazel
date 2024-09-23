@@ -25,7 +25,7 @@ jobs:
             }
             console.log('jsonArray', jsonArray[0].number)
             for (const pr of jsonArray) {
-             console.log('pr', pr)
+             console.log('pr', pr.number)
               const reviews = await github.rest.pulls.reviews({
                 owner,
                 repo,
