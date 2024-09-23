@@ -20,6 +20,7 @@ jobs:
               owner,
               repo,
             });
+            console.log('typeof', typeof(prs))
             for (const pr of prs) {
               const reviews = await github.rest.pulls.listReviews({
                 owner,
