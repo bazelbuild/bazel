@@ -23,9 +23,10 @@ jobs:
             for (const [key, value] of Object.entries(prs)) {
               jsonArray.push({ [key]: value });
             }
-            console.log('jsonArray', jsonArray[0].number)
+            console.log('jsonArray', jsonArray)
             for (const pr of jsonArray) {
-             console.log('pr', pr.number)
+              const jsonString = JSON.stringify(pr);
+              console.log('pr', jsonString)
               const reviews = await github.rest.pulls.reviews({
                 owner,
                 repo,
