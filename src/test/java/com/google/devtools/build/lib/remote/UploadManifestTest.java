@@ -558,9 +558,9 @@ public class UploadManifestTest {
             digestUtil,
             remotePathResolver,
             result,
-            /*followSymlinks=*/ false,
-            /*allowDanglingSymlinks=*/ true,
-            /*allowAbsoluteSymlinks=*/ true);
+            /* followSymlinks= */ false,
+            /* allowDanglingSymlinks= */ true,
+            /* allowAbsoluteSymlinks= */ true);
     um.addFiles(ImmutableList.of(link));
     assertThat(um.getDigestToFile()).isEmpty();
 
