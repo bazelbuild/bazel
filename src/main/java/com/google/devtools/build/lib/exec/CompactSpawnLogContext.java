@@ -438,7 +438,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                 logInput(input.getArtifact(), inputMetadataProvider, fileSystem));
           }
 
-          return ExecLogEntry.newBuilder().setSymlinkEntries(builder);
+          return ExecLogEntry.newBuilder().setSymlinkEntrySet(builder);
         });
   }
 
