@@ -23,7 +23,7 @@ jobs:
             for (const [key, value] of Object.entries(prs)) {
               jsonArray.push({ [key]: value });
             }
-            console.log('jsonArray', jsonArray)
+            console.log('jsonArray', JSON.stringify(jsonArray))
             for (const pr of jsonArray) {
               const jsonString = JSON.stringify(pr);
               console.log('pr', jsonString)
