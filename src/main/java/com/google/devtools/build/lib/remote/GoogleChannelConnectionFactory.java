@@ -30,10 +30,10 @@ import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapabilitiesRequirement;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.grpc.ChannelConnectionFactory;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.RxFutures;
-import com.google.devtools.build.lib.remote.util.Utils;
 import io.grpc.ClientInterceptor;
 import io.grpc.ManagedChannel;
 import io.reactivex.rxjava3.core.Single;
@@ -153,18 +153,14 @@ public class GoogleChannelConnectionFactory
 
             @Override
             public void onFailure(Throwable error) {
-              String message =
-                  "Failed to query remote execution capabilities: "
-                      + Utils.grpcAwareErrorMessage(error, verboseFailures);
-              reporter.handle(Event.error(message));
-
-              IOException exception;
-              if (error instanceof IOException ioException) {
-                exception = ioException;
+              Throwable cause;
+              if (!(error instanceof IOException)
+                  && error.getCause() instanceof IOException ioException) {
+                cause = ioException;
               } else {
-                exception = new IOException(error);
+                cause = error;
               }
-              serverCapabilities.setException(exception);
+              serverCapabilities.setException(new RemoteExecutionCapabilitiesException(cause));
             }
           },
           directExecutor());

@@ -97,10 +97,8 @@ function test_credential_helper_remote_cache() {
 
   bazel build \
       --remote_cache=grpc://localhost:${worker_port} \
-      //a:a >& $TEST_log || fail "Build without credentials should have succeeded"
+      //a:a >& $TEST_log && fail "Build without credentials should have failed"
   expect_log "Failed to query remote execution capabilities"
-
-  bazel clean
 
   # Helper shouldn't have been called yet.
   expect_credential_helper_calls 0
