@@ -38,7 +38,6 @@ import net.starlark.java.eval.StarlarkValue;
  */
 @Immutable
 public final class ObjcCompilationContext implements StarlarkValue {
-  public static final ObjcCompilationContext EMPTY = builder().build();
 
   private final ImmutableList<String> defines;
 
@@ -296,12 +295,6 @@ public final class ObjcCompilationContext implements StarlarkValue {
     public Builder addImplementationCcCompilationContexts(
         Iterable<CcCompilationContext> ccCompilationContexts) {
       Iterables.addAll(this.implementationCcCompilationContexts, ccCompilationContexts);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder addCcCompilationContext(CcCompilationContext ccCompilationContext) {
-      this.ccCompilationContexts.add(ccCompilationContext);
       return this;
     }
 
