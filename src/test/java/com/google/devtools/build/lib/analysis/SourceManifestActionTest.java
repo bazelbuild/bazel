@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -407,15 +408,25 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
                 .addSymlink(PathFragment.create("with sp\\ace"), buildFile)
                 .addSymlink(PathFragment.create("also/with sp\\ace"), fileWithSpaceAndBackslash)
                 .build());
-
-    assertThat(action.getFileContents(reporter))
-        .isEqualTo(
-            """
+    if (OS.getCurrent().equals(OS.WINDOWS)) {
+      assertThat(action.getFileContents(reporter))
+          .isEqualTo(
+              """
+            TESTING/also/no/sp/ace /workspace/trivial/file with sp/ace
+             TESTING/also/with\\ssp/ace /workspace/trivial/file with sp/ace
+            TESTING/no/sp/ace /workspace/trivial/BUILD
+             TESTING/with\\ssp/ace /workspace/trivial/BUILD
+            """);
+    } else {
+      assertThat(action.getFileContents(reporter))
+          .isEqualTo(
+              """
             TESTING/also/no/sp\\ace /workspace/trivial/file with sp\\ace
              TESTING/also/with\\ssp\\bace /workspace/trivial/file with sp\\ace
             TESTING/no/sp\\ace /workspace/trivial/BUILD
              TESTING/with\\ssp\\bace /workspace/trivial/BUILD
             """);
+    }
   }
 
   private String computeKey(SourceManifestAction action) {
