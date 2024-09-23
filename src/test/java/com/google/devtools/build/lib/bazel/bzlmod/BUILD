@@ -96,6 +96,9 @@ java_library(
 
 java_test(
     name = "BzlmodTests",
+    jvm_flags = [
+        "-Djava.lang.Thread.allowVirtualThreads=true",
+    ],
     test_class = "com.google.devtools.build.lib.AllTests",
     runtime_deps = [
         ":BzlmodTests_lib",
