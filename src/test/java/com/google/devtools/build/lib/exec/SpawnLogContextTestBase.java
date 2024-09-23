@@ -520,7 +520,7 @@ public abstract class SpawnLogContextTestBase {
         createRunfilesSupplier(
             runfilesRoot, runfilesInput, externalGenArtifact, externalSourceArtifact);
 
-    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -658,7 +658,7 @@ public abstract class SpawnLogContextTestBase {
             externalSourceArtifact,
             externalGenArtifact);
 
-    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -805,7 +805,7 @@ public abstract class SpawnLogContextTestBase {
             externalSourceArtifact,
             externalGenArtifact);
 
-    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -940,7 +940,7 @@ public abstract class SpawnLogContextTestBase {
             externalSourceArtifact,
             externalGenArtifact);
 
-    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -1048,7 +1048,7 @@ public abstract class SpawnLogContextTestBase {
             externalSourceArtifact,
             externalGenArtifact);
 
-    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -1143,7 +1143,7 @@ public abstract class SpawnLogContextTestBase {
             /* legacyExternalRunfiles= */ false,
             sourceArtifact);
 
-    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -1193,7 +1193,7 @@ public abstract class SpawnLogContextTestBase {
             /* legacyExternalRunfiles= */ false,
             NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
 
-    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -1271,7 +1271,7 @@ public abstract class SpawnLogContextTestBase {
             /* legacyExternalRunfiles= */ false,
             artifacts);
 
-    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -1424,7 +1424,7 @@ public abstract class SpawnLogContextTestBase {
                 : ImmutableMap.of(),
             /* legacyExternalRunfiles= */ false);
 
-    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -2104,23 +2104,20 @@ public abstract class SpawnLogContextTestBase {
       ActionInput... actionInputs)
       throws Exception {
     TreeMap<PathFragment, ActionInput> builder = new TreeMap<>();
-
-    if (runfilesSupplier != null) {
-      new SpawnInputExpander(/* execRoot= */ null, /* strict= */ false)
-          .addRunfilesToInputs(
-              builder,
-              runfilesSupplier,
-              inputMetadataProvider,
-              (treeArtifact, output) -> {
-                try {
-                  output.addAll(createTreeArtifactValue(treeArtifact).getChildren());
-                } catch (Exception e) {
-                  throw new RuntimeException(e);
-                }
-              },
-              PathMapper.NOOP,
-              PathFragment.EMPTY_FRAGMENT);
-    }
+    new SpawnInputExpander(/* execRoot= */ null, /* strict= */ false)
+        .addRunfilesToInputs(
+            builder,
+            runfilesSupplier,
+            inputMetadataProvider,
+            (treeArtifact, output) -> {
+              try {
+                output.addAll(createTreeArtifactValue(treeArtifact).getChildren());
+              } catch (Exception e) {
+                throw new RuntimeException(e);
+              }
+            },
+            PathMapper.NOOP,
+            PathFragment.EMPTY_FRAGMENT);
     for (ActionInput actionInput : actionInputs) {
       if (actionInput instanceof Artifact artifact && artifact.isTreeArtifact()) {
         // Emulate SpawnInputExpander: expand to children, preserve if empty.

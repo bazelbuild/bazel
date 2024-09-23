@@ -534,7 +534,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       FileSystem fileSystem)
       throws IOException, InterruptedException {
     return logEntry(
-        runfilesTree.isLikelyToBeReused(),
+        runfilesTree.isLikelyToBeReused() ? runfilesTree.getExecPath().getPathString() : null,
         () -> {
           ExecLogEntry.RunfilesTree.Builder builder =
               ExecLogEntry.RunfilesTree.newBuilder()
