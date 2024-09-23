@@ -603,6 +603,8 @@ blaze_exit_code::ExitCode StartupOptions::AddJVMArguments(
   // ourselves to).
   result->push_back("-XX:-MaxFDLimit");
 
+  result->push_back("-Djava.lang.Thread.allowVirtualThreads=true");
+
   return AddJVMMemoryArguments(server_javabase, result, user_options, error);
 }
 
