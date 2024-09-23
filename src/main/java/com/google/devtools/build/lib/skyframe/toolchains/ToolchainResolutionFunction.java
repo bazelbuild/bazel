@@ -153,20 +153,10 @@ public class ToolchainResolutionFunction implements SkyFunction {
     }
   }
 
-  @AutoValue
-  abstract static class ToolchainType {
-    abstract ToolchainTypeRequirement toolchainTypeRequirement();
-
-    abstract ToolchainTypeInfo toolchainTypeInfo();
-
-    static ToolchainType create(
-        ToolchainTypeRequirement toolchainTypeRequirement, ToolchainTypeInfo toolchainTypeInfo) {
-      return new AutoValue_ToolchainResolutionFunction_ToolchainType(
-          toolchainTypeRequirement, toolchainTypeInfo);
-    }
-
+  private record ToolchainType(
+      ToolchainTypeRequirement toolchainTypeRequirement, ToolchainTypeInfo toolchainTypeInfo) {
     public boolean mandatory() {
-      return toolchainTypeRequirement().mandatory();
+      return toolchainTypeRequirement.mandatory();
     }
   }
 
@@ -219,7 +209,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
             toolchainTypeRequirement.toBuilder().toolchainType(toolchainTypeLabel).build();
       }
 
-      resolved.add(ToolchainType.create(toolchainTypeRequirement, toolchainTypeInfo));
+      resolved.add(new ToolchainType(toolchainTypeRequirement, toolchainTypeInfo));
     }
     return resolved.build();
   }
