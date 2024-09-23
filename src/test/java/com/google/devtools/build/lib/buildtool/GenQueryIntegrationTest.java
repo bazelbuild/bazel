@@ -230,8 +230,8 @@ public class GenQueryIntegrationTest extends BuildIntegrationTestCase {
             }),
         )
         """);
-    // d exists but is missing "srcs"
-    write("d/BUILD", "sh_binary(name = 'd')");
+    // d exists but has an invalid attribute
+    write("d/BUILD", "sh_binary(name = 'd', funky = True)");
 
     addOptions("--define=D=1");
     assertThrows(expectedExceptionClass(), () -> buildTarget("//q"));

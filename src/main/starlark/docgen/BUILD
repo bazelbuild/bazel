@@ -36,3 +36,8 @@ starlark_doc_extract(
         "@rules_python//python:py_test_bzl",
     ],
 )
+
+starlark_doc_extract(
+    name = "gen_be_shell_stardoc_proto",
+    src = "shell.bzl",
+)

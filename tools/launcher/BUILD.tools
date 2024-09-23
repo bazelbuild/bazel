@@ -1,5 +1,9 @@
 package(default_visibility = ["//visibility:public"])
 
+# TODO: Make precompiled binaries for Windows available in a
+# "remote_windows_tools" repo so that they can be used in remote execution if
+# the host is not Windows.
+
 filegroup(
     name = "launcher_windows",
     srcs = select({

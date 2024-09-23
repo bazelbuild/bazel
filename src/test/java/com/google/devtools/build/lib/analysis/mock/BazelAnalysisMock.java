@@ -803,7 +803,11 @@ public final class BazelAnalysisMock extends AnalysisMock {
             pass
         """);
 
-    config.create("embedded_tools/tools/sh/BUILD");
+    config.create(
+        "embedded_tools/tools/sh/BUILD",
+        """
+        toolchain_type(name = "toolchain_type")
+        """);
     config.create(
         "embedded_tools/tools/sh/sh_configure.bzl",
         """

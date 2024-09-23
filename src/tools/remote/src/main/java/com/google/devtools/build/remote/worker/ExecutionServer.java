@@ -84,6 +84,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /** A basic implementation of an {@link ExecutionImplBase} service. */
@@ -111,6 +112,7 @@ final class ExecutionServer extends ExecutionImplBase {
   private final DigestUtil digestUtil;
   private final LocalEnvProvider localEnvProvider;
   private final BinTools binTools;
+  private final AtomicInteger opCounter = new AtomicInteger();
 
   public ExecutionServer(
       Path workPath,
@@ -248,10 +250,17 @@ final class ExecutionServer extends ExecutionImplBase {
   private ActionResult execute(
       RemoteActionExecutionContext context, ExecuteRequest request, String id)
       throws IOException, InterruptedException, StatusException {
-    Path tempRoot = workPath.getRelative("build-" + id);
+    // Use a short directory name to avoid hitting path limits on Windows.
+    // Also match Bazel's execroot layout to avoid failing C++ header inclusion checks.
+    // https://github.com/bazelbuild/bazel/issues/19733
+    Path tempRoot =
+        workPath
+            .getChild("build-" + opCounter.getAndIncrement())
+            .getChild("execroot")
+            .getChild("_main");
     String workDetails = "";
     try {
-      tempRoot.createDirectory();
+      tempRoot.createDirectoryAndParents();
       RequestMetadata meta = context.getRequestMetadata();
       workDetails =
           String.format(

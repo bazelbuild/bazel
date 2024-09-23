@@ -17,9 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
-import com.google.devtools.build.lib.bazel.rules.sh.BazelShBinaryRule;
-import com.google.devtools.build.lib.bazel.rules.sh.BazelShRuleClasses;
-import com.google.devtools.build.lib.bazel.rules.sh.BazelShTestRule;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
 import java.io.IOException;
@@ -36,10 +33,9 @@ public class ShRules implements RuleSet {
 
   @Override
   public void init(ConfiguredRuleClassProvider.Builder builder) {
-    builder.addRuleDefinition(new BazelShRuleClasses.ShRule());
     builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("sh_library") {});
-    builder.addRuleDefinition(new BazelShBinaryRule());
-    builder.addRuleDefinition(new BazelShTestRule());
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("sh_binary") {});
+    builder.addRuleDefinition(new BaseRuleClasses.EmptyRule("sh_test") {});
     try {
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
