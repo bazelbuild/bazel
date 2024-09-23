@@ -423,7 +423,7 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
-        createInputMetadataProvider(null, runfilesSupplier, runfilesInput);
+        createInputMetadataProvider(runfilesSupplier, runfilesInput);
 
     context.logSpawn(
         spawn,
@@ -463,7 +463,7 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
-        createInputMetadataProvider(null, runfilesSupplier, runfilesInput);
+        createInputMetadataProvider(runfilesSupplier, runfilesInput);
 
     context.logSpawn(
         spawn,
@@ -525,7 +525,6 @@ public abstract class SpawnLogContextTestBase {
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(
-            runfilesMiddleman,
             runfilesSupplier,
             runfilesInput,
             externalGenArtifact,
@@ -663,7 +662,6 @@ public abstract class SpawnLogContextTestBase {
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(
-            null,
             runfilesSupplier,
             sourceArtifact,
             genArtifact,
@@ -810,7 +808,6 @@ public abstract class SpawnLogContextTestBase {
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(
-            runfilesMiddleman,
             runfilesSupplier,
             externalSourceArtifact,
             externalGenArtifact,
@@ -945,7 +942,6 @@ public abstract class SpawnLogContextTestBase {
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(
-            runfilesMiddleman,
             runfilesSupplier,
             sourceArtifact,
             genArtifact,
@@ -1053,7 +1049,6 @@ public abstract class SpawnLogContextTestBase {
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(
-            runfilesMiddleman,
             runfilesSupplier,
             sourceArtifact,
             genArtifact,
@@ -1147,8 +1142,7 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
-        createInputMetadataProvider(
-            runfilesMiddleman, runfilesSupplier, sourceArtifact, symlinkSourceArtifact);
+        createInputMetadataProvider(runfilesSupplier, sourceArtifact, symlinkSourceArtifact);
 
     context.logSpawn(
         spawn,
@@ -1197,7 +1191,7 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
-        createInputMetadataProvider(runfilesMiddleman, runfilesSupplier, file, symlink);
+        createInputMetadataProvider(runfilesSupplier, file, symlink);
 
     context.logSpawn(
         spawn,
@@ -1276,7 +1270,6 @@ public abstract class SpawnLogContextTestBase {
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(
-            runfilesMiddleman,
             runfilesSupplier,
             sourceFile,
             genFile,
@@ -1356,8 +1349,7 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
-        createInputMetadataProvider(
-            runfilesMiddleman, runfilesSupplier, sourceFile, sourceDir, genDir, symlink);
+        createInputMetadataProvider(runfilesSupplier, sourceFile, sourceDir, genDir, symlink);
 
     context.logSpawn(
         spawn,
@@ -1428,7 +1420,7 @@ public abstract class SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
-        createInputMetadataProvider(runfilesMiddleman, runfilesSupplier, genFile);
+        createInputMetadataProvider(runfilesSupplier, genFile);
 
     context.logSpawn(
         spawn,
@@ -2064,17 +2056,14 @@ public abstract class SpawnLogContextTestBase {
 
   protected static InputMetadataProvider createInputMetadataProvider(Artifact... artifacts)
       throws Exception {
-    return createInputMetadataProvider(null, null, artifacts);
+    return createInputMetadataProvider(EmptyRunfilesSupplier.INSTANCE, artifacts);
   }
 
   protected static InputMetadataProvider createInputMetadataProvider(
-      Artifact runfilesMiddleman, RunfilesSupplier runfilesSupplier, Artifact... artifacts)
-      throws Exception {
-    Iterable<Artifact> allArtifacts = Arrays.asList(artifacts);
+      RunfilesSupplier runfilesSupplier, Artifact... artifacts) throws Exception {
+    Iterable<Artifact> allArtifacts =
+        Iterables.concat(Arrays.asList(artifacts), runfilesSupplier.getArtifacts().toList());
     FakeActionInputFileCache builder = new FakeActionInputFileCache();
-    if (runfilesSupplier != null) {
-      allArtifacts = Iterables.concat(allArtifacts, runfilesSupplier.getArtifacts().toList());
-    }
     for (Artifact artifact : allArtifacts) {
       if (artifact.isTreeArtifact()) {
         // Emulate ActionInputMap: add both tree and children.
