@@ -146,7 +146,7 @@ java_plugin(
         ":apache_velocity",
         ":auto_common",
         ":auto_service_lib",
-        ":auto_value_value",
+        ":auto_value_lib",
         ":guava",
         ":jsr305",
         ":tomcat_annotations_api",
@@ -161,7 +161,7 @@ java_plugin(
         ":apache_velocity",
         ":auto_common",
         ":auto_service_lib",
-        ":auto_value_value",
+        ":auto_value_lib",
         ":guava",
         ":tomcat_annotations_api",
     ],
@@ -178,7 +178,7 @@ java_library(
         ":auto_service_plugin",
     ],
     exports = [
-        ":auto_service_lib",
+        ":auto_service_api",
     ],
 )
 
@@ -189,6 +189,13 @@ java_plugin(
         ":auto_common",
         ":auto_service_lib",
         ":guava",
+    ],
+)
+
+java_library(
+    name = "auto_service_api",
+    exports = [
+        "@maven//:com_google_auto_service_auto_service_annotations",
     ],
 )
 
@@ -208,7 +215,7 @@ java_plugin(
         ":apache_velocity",
         ":auto_common",
         ":auto_service_lib",
-        ":auto_value_value",
+        ":auto_value_lib",
         ":guava",
         ":tomcat_annotations_api",
     ],
@@ -222,7 +229,7 @@ java_plugin(
         ":apache_velocity",
         ":auto_common",
         ":auto_service_lib",
-        ":auto_value_value",
+        ":auto_value_lib",
         ":guava",
         ":tomcat_annotations_api",
     ],
@@ -247,14 +254,21 @@ java_library(
         ":auto_value_gson_plugin",
     ],
     exports = [
-        ":auto_value_value",
+        ":auto_value_api",
         ":tomcat_annotations_api",
         "@maven//:com_ryanharter_auto_value_auto_value_gson_runtime",
     ],
 )
 
 java_library(
-    name = "auto_value_value",
+    name = "auto_value_api",
+    exports = [
+        "@maven//:com_google_auto_value_auto_value_annotations",
+    ],
+)
+
+java_library(
+    name = "auto_value_lib",
     exports = [
         "@maven//:com_google_auto_value_auto_value",
         "@maven//:com_google_auto_value_auto_value_annotations",
@@ -269,14 +283,6 @@ distrib_jar_filegroup(
         "@maven//:com_google_auto_value_auto_value_file",
     ],
     enable_distributions = ["debian"],
-)
-
-java_library(
-    name = "byte_buddy",
-    exports = [
-        "@maven//:net_bytebuddy_byte_buddy",
-        "@maven//:net_bytebuddy_byte_buddy_agent",
-    ],
 )
 
 alias(
@@ -294,19 +300,45 @@ alias(
     actual = "@maven//:com_github_ben_manes_caffeine_caffeine",
 )
 
-alias(
+# When using new classes from this dependency, make sure to update fastutil.proguard.
+java_import(
     name = "fastutil",
-    actual = "@maven//:it_unimi_dsi_fastutil",
+    jars = [":fastutil_stripped_jar"],
 )
 
-alias(
-    name = "hungarian_algorithm",
-    actual = "@maven//:com_github_kevinstern_software_and_algorithms",
+genrule(
+    name = "fastutil_stripped_jar",
+    srcs = [
+        "@maven//:it_unimi_dsi_fastutil_file",
+        "@rules_java//toolchains:platformclasspath",
+    ],
+    outs = ["fastutil-stripped.jar"],
+    cmd = """
+    $(location :proguard) \
+        -injars $(execpath @maven//:it_unimi_dsi_fastutil_file) \
+        -outjars $@ \
+        -libraryjars $(execpath @rules_java//toolchains:platformclasspath) \
+        @$(location //tools:fastutil.proguard) \
+      | tail -n +2 # Skip the "ProGuard, version X" line
+    # Null out the file times stored in the jar to make the output reproducible.
+    TMPDIR=$$(mktemp -d)
+    trap 'rm -rf $$TMPDIR' EXIT
+    unzip -q $@ -d $$TMPDIR
+    rm $@
+    find $$TMPDIR -type f -print0 | xargs -0 touch -t 198001010000.00
+    OUTPUT="$$(pwd)/$@"
+    (cd $$TMPDIR && find . -type f | LC_ALL=C sort | zip -qDX0r@ "$$OUTPUT")
+    """,
+    tools = [
+        ":proguard",
+        "//tools:fastutil.proguard",
+    ],
 )
 
-alias(
-    name = "threeten",
-    actual = "@maven//:org_threeten_threeten_extra",
+java_binary(
+    name = "proguard",
+    main_class = "proguard.ProGuard",
+    runtime_deps = ["@maven//:com_guardsquare_proguard_base"],
 )
 
 java_library(
