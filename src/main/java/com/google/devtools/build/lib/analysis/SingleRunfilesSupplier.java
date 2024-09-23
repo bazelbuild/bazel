@@ -177,7 +177,8 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
             runfiles.getRootSymlinks(),
             runfiles.getSymlinks(),
             repoMappingManifest,
-            runfiles.isLegacyExternalRunfiles()));
+            runfiles.isLegacyExternalRunfiles(),
+            runfilesInputs instanceof RunfilesCacher));
   }
 
   /** Softly caches the result of {@link Runfiles#getRunfilesInputs}. */

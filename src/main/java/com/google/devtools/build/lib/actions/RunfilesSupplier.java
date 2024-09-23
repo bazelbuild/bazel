@@ -69,6 +69,11 @@ public interface RunfilesSupplier extends StarlarkValue {
   RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir);
 
   /**
+   * Returns information about the runfiles trees in this supplier for logging purposes.
+   *
+   * <p>The field names are chosen to minimize the diff with the actual RunfilesTree class in Bazel
+   * 8, which simplifies cherry-picks.
+   *
    * @param getArtifactsAtCanonicalLocationsForLogging Returns artifacts the runfiles tree contain
    *     symlinks to at their canonical locations.
    *     <p>This does <b>not</b> include artifacts that only the symlinks and root symlinks point
@@ -82,6 +87,7 @@ public interface RunfilesSupplier extends StarlarkValue {
    * @param getRepoMappingManifestForLogging Returns the repo mapping manifest if it exists.
    * @param isLegacyExternalRunfiles Whether this runfiles tree materializes external runfiles also
    *     at their legacy locations.
+   * @param isLikelyToBeReused Whether this runfiles tree is likely to be used by multiple spawns.
    */
   record RunfilesTree(
       PathFragment getExecPath,
@@ -90,7 +96,8 @@ public interface RunfilesSupplier extends StarlarkValue {
       NestedSet<SymlinkEntry> getSymlinksForLogging,
       NestedSet<SymlinkEntry> getRootSymlinksForLogging,
       @Nullable Artifact getRepoMappingManifestForLogging,
-      boolean isLegacyExternalRunfiles) {}
+      boolean isLegacyExternalRunfiles,
+      boolean isLikelyToBeReused) {}
 
   Map<PathFragment, RunfilesTree> getRunfilesTreesForLogging();
 }

@@ -33,15 +33,14 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifactType;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.EmptyRunfilesSupplier;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType;
-import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.PathMapper;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
@@ -49,15 +48,15 @@ import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.Runfiles;
-import com.google.devtools.build.lib.analysis.RunfilesSupport;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
+import com.google.devtools.build.lib.analysis.SingleRunfilesSupplier;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.FragmentFactory;
 import com.google.devtools.build.lib.analysis.config.FragmentRegistry;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
-import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
+import com.google.devtools.build.lib.bazel.rules.python.BazelPythonSemantics;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -69,6 +68,7 @@ import com.google.devtools.build.lib.exec.Protos.EnvironmentVariable;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.Platform;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
+import com.google.devtools.build.lib.exec.util.FakeActionInputFileCache;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -417,16 +417,18 @@ public abstract class SpawnLogContextTestBase {
     writeFile(runfilesInput, "abc");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
-    RunfilesTree runfilesTree = createRunfilesTree(runfilesRoot, runfilesInput);
+    RunfilesSupplier runfilesSupplier = createRunfilesSupplier(runfilesRoot, runfilesInput);
 
     Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
     SpawnLogContext context = createSpawnLogContext();
+    InputMetadataProvider inputMetadataProvider =
+        createInputMetadataProvider(null, runfilesSupplier, runfilesInput);
 
     context.logSpawn(
         spawn,
-        createInputMetadataProvider(runfilesMiddleman, runfilesTree, runfilesInput),
-        createInputMap(runfilesTree),
+        inputMetadataProvider,
+        createInputMap(runfilesSupplier, inputMetadataProvider),
         fs,
         defaultTimeout(),
         defaultSpawnResult());
@@ -455,16 +457,18 @@ public abstract class SpawnLogContextTestBase {
     }
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
-    RunfilesTree runfilesTree = createRunfilesTree(runfilesRoot, runfilesInput);
+    RunfilesSupplier runfilesSupplier = createRunfilesSupplier(runfilesRoot, runfilesInput);
 
     Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
     SpawnLogContext context = createSpawnLogContext();
+    InputMetadataProvider inputMetadataProvider =
+        createInputMetadataProvider(null, runfilesSupplier, runfilesInput);
 
     context.logSpawn(
         spawn,
-        createInputMetadataProvider(runfilesMiddleman, runfilesTree, runfilesInput),
-        createInputMap(runfilesTree),
+        inputMetadataProvider,
+        createInputMap(runfilesSupplier, inputMetadataProvider),
         fs,
         defaultTimeout(),
         defaultSpawnResult());
@@ -512,23 +516,25 @@ public abstract class SpawnLogContextTestBase {
     writeFile(externalGenArtifact, "external_gen");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
-    RunfilesTree runfilesTree =
-        createRunfilesTree(
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier(
             runfilesRoot, runfilesInput, externalGenArtifact, externalSourceArtifact);
 
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
     SpawnLogContext context = createSpawnLogContext();
+    InputMetadataProvider inputMetadataProvider =
+        createInputMetadataProvider(
+            runfilesMiddleman,
+            runfilesSupplier,
+            runfilesInput,
+            externalGenArtifact,
+            externalSourceArtifact);
 
     context.logSpawn(
         spawn,
-        createInputMetadataProvider(
-            runfilesMiddleman,
-            runfilesTree,
-            runfilesInput,
-            externalGenArtifact,
-            externalSourceArtifact),
-        createInputMap(runfilesTree),
+        inputMetadataProvider,
+        createInputMap(runfilesSupplier, inputMetadataProvider),
         fs,
         defaultTimeout(),
         defaultSpawnResult());
@@ -637,8 +643,8 @@ public abstract class SpawnLogContextTestBase {
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
-    RunfilesTree runfilesTree =
-        createRunfilesTree(
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier(
             runfilesRoot,
             ImmutableMap.of(
                 "some/symlink", symlinkSourceTarget,
@@ -655,12 +661,10 @@ public abstract class SpawnLogContextTestBase {
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
     SpawnLogContext context = createSpawnLogContext();
-
-    context.logSpawn(
-        spawn,
+    InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(
-            runfilesMiddleman,
-            runfilesTree,
+            null,
+            runfilesSupplier,
             sourceArtifact,
             genArtifact,
             externalSourceArtifact,
@@ -668,8 +672,12 @@ public abstract class SpawnLogContextTestBase {
             symlinkSourceTarget,
             symlinkGenTarget,
             rootSymlinkSourceTarget,
-            rootSymlinkGenTarget),
-        createInputMap(runfilesTree),
+            rootSymlinkGenTarget);
+
+    context.logSpawn(
+        spawn,
+        inputMetadataProvider,
+        createInputMap(runfilesSupplier, inputMetadataProvider),
         fs,
         defaultTimeout(),
         defaultSpawnResult());
@@ -786,8 +794,8 @@ public abstract class SpawnLogContextTestBase {
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
-    RunfilesTree runfilesTree =
-        createRunfilesTree(
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier(
             runfilesRoot,
             ImmutableMap.of((symlinkUnderMain ? "" : "../some_repo/") + "symlink", symlinkTarget),
             ImmutableMap.of(
@@ -800,17 +808,19 @@ public abstract class SpawnLogContextTestBase {
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
     SpawnLogContext context = createSpawnLogContext();
-
-    context.logSpawn(
-        spawn,
+    InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(
             runfilesMiddleman,
-            runfilesTree,
+            runfilesSupplier,
             externalSourceArtifact,
             externalGenArtifact,
             symlinkTarget,
-            rootSymlinkTarget),
-        createInputMap(runfilesTree),
+            rootSymlinkTarget);
+
+    context.logSpawn(
+        spawn,
+        inputMetadataProvider,
+        createInputMap(runfilesSupplier, inputMetadataProvider),
         fs,
         defaultTimeout(),
         defaultSpawnResult());
@@ -919,8 +929,8 @@ public abstract class SpawnLogContextTestBase {
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
-    RunfilesTree runfilesTree =
-        createRunfilesTree(
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier(
             runfilesRoot,
             ImmutableMap.of(),
             ImmutableMap.of(),
@@ -933,17 +943,19 @@ public abstract class SpawnLogContextTestBase {
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
     SpawnLogContext context = createSpawnLogContext();
-
-    context.logSpawn(
-        spawn,
+    InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(
             runfilesMiddleman,
-            runfilesTree,
+            runfilesSupplier,
             sourceArtifact,
             genArtifact,
             externalSourceArtifact,
-            externalGenArtifact),
-        createInputMap(runfilesTree),
+            externalGenArtifact);
+
+    context.logSpawn(
+        spawn,
+        inputMetadataProvider,
+        createInputMap(runfilesSupplier, inputMetadataProvider),
         fs,
         defaultTimeout(),
         defaultSpawnResult());
@@ -1020,8 +1032,8 @@ public abstract class SpawnLogContextTestBase {
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
-    RunfilesTree runfilesTree =
-        createRunfilesTree(
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier(
             runfilesRoot,
             ImmutableMap.of(
                 // Symlinks are always relative to the workspace runfiles directory.
@@ -1039,12 +1051,10 @@ public abstract class SpawnLogContextTestBase {
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
     SpawnLogContext context = createSpawnLogContext();
-
-    context.logSpawn(
-        spawn,
+    InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(
             runfilesMiddleman,
-            runfilesTree,
+            runfilesSupplier,
             sourceArtifact,
             genArtifact,
             externalSourceArtifact,
@@ -1052,8 +1062,12 @@ public abstract class SpawnLogContextTestBase {
             symlinkSourceArtifact,
             symlinkGenArtifact,
             symlinkExternalSourceArtifact,
-            symlinkExternalGenArtifact),
-        createInputMap(runfilesTree),
+            symlinkExternalGenArtifact);
+
+    context.logSpawn(
+        spawn,
+        inputMetadataProvider,
+        createInputMap(runfilesSupplier, inputMetadataProvider),
         fs,
         defaultTimeout(),
         defaultSpawnResult());
@@ -1121,8 +1135,8 @@ public abstract class SpawnLogContextTestBase {
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
-    RunfilesTree runfilesTree =
-        createRunfilesTree(
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier(
             runfilesRoot,
             ImmutableMap.of(),
             ImmutableMap.of(WORKSPACE_NAME + "/pkg/source.txt", symlinkSourceArtifact),
@@ -1132,12 +1146,14 @@ public abstract class SpawnLogContextTestBase {
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
     SpawnLogContext context = createSpawnLogContext();
+    InputMetadataProvider inputMetadataProvider =
+        createInputMetadataProvider(
+            runfilesMiddleman, runfilesSupplier, sourceArtifact, symlinkSourceArtifact);
 
     context.logSpawn(
         spawn,
-        createInputMetadataProvider(
-            runfilesMiddleman, runfilesTree, sourceArtifact, symlinkSourceArtifact),
-        createInputMap(runfilesTree),
+        inputMetadataProvider,
+        createInputMap(runfilesSupplier, inputMetadataProvider),
         fs,
         defaultTimeout(),
         defaultSpawnResult());
@@ -1169,8 +1185,8 @@ public abstract class SpawnLogContextTestBase {
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     var artifacts =
         symlinkFirst ? ImmutableList.of(symlink, file) : ImmutableList.of(file, symlink);
-    RunfilesTree runfilesTree =
-        createRunfilesTree(
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier(
             runfilesRoot,
             ImmutableMap.of(),
             ImmutableMap.of(),
@@ -1180,11 +1196,13 @@ public abstract class SpawnLogContextTestBase {
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
     SpawnLogContext context = createSpawnLogContext();
+    InputMetadataProvider inputMetadataProvider =
+        createInputMetadataProvider(runfilesMiddleman, runfilesSupplier, file, symlink);
 
     context.logSpawn(
         spawn,
-        createInputMetadataProvider(runfilesMiddleman, runfilesTree, file, symlink),
-        createInputMap(runfilesTree),
+        inputMetadataProvider,
+        createInputMap(runfilesSupplier, inputMetadataProvider),
         fs,
         defaultTimeout(),
         defaultSpawnResult());
@@ -1245,8 +1263,8 @@ public abstract class SpawnLogContextTestBase {
       assertThat(artifacts.getNonLeaves()).hasSize(2);
     }
 
-    RunfilesTree runfilesTree =
-        createRunfilesTree(
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier(
             runfilesRoot,
             ImmutableMap.of(),
             ImmutableMap.of(),
@@ -1256,12 +1274,19 @@ public abstract class SpawnLogContextTestBase {
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
     SpawnLogContext context = createSpawnLogContext();
+    InputMetadataProvider inputMetadataProvider =
+        createInputMetadataProvider(
+            runfilesMiddleman,
+            runfilesSupplier,
+            sourceFile,
+            genFile,
+            otherSourceFile,
+            otherGenFile);
 
     context.logSpawn(
         spawn,
-        createInputMetadataProvider(
-            runfilesMiddleman, runfilesTree, sourceFile, genFile, otherSourceFile, otherGenFile),
-        createInputMap(runfilesTree),
+        inputMetadataProvider,
+        createInputMap(runfilesSupplier, inputMetadataProvider),
         fs,
         defaultTimeout(),
         defaultSpawnResult());
@@ -1308,8 +1333,8 @@ public abstract class SpawnLogContextTestBase {
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
-    RunfilesTree runfilesTree =
-        createRunfilesTree(
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier(
             runfilesRoot,
             rootSymlinks
                 ? ImmutableMap.of()
@@ -1330,12 +1355,14 @@ public abstract class SpawnLogContextTestBase {
     Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
     SpawnLogContext context = createSpawnLogContext();
+    InputMetadataProvider inputMetadataProvider =
+        createInputMetadataProvider(
+            runfilesMiddleman, runfilesSupplier, sourceFile, sourceDir, genDir, symlink);
 
     context.logSpawn(
         spawn,
-        createInputMetadataProvider(
-            runfilesMiddleman, runfilesTree, sourceFile, sourceDir, genDir, symlink),
-        createInputMap(runfilesTree),
+        inputMetadataProvider,
+        createInputMap(runfilesSupplier, inputMetadataProvider),
         fs,
         defaultTimeout(),
         defaultSpawnResult());
@@ -1388,8 +1415,8 @@ public abstract class SpawnLogContextTestBase {
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
-    RunfilesTree runfilesTree =
-        createRunfilesTree(
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier(
             runfilesRoot,
             rootSymlink ? ImmutableMap.of() : ImmutableMap.of("pkg/symlink", genFile),
             rootSymlink
@@ -1400,12 +1427,14 @@ public abstract class SpawnLogContextTestBase {
     Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
 
     SpawnLogContext context = createSpawnLogContext();
+    InputMetadataProvider inputMetadataProvider =
+        createInputMetadataProvider(runfilesMiddleman, runfilesSupplier, genFile);
 
     context.logSpawn(
         spawn,
-        createInputMetadataProvider(runfilesMiddleman, runfilesTree, genFile),
-        createInputMap(runfilesTree),
-        fs,
+        inputMetadataProvider,
+        createInputMap(runfilesSupplier, inputMetadataProvider),
+        outputsMode.getActionFileSystem(fs),
         defaultTimeout(),
         defaultSpawnResult());
 
@@ -1526,7 +1555,7 @@ public abstract class SpawnLogContextTestBase {
 
     context.logSpawn(
         spawn,
-        createInputMetadataProvider(),
+        createInputMetadataProvider(fileOutput),
         createInputMap(),
         outputsMode.getActionFileSystem(fs),
         defaultTimeout(),
@@ -1989,12 +2018,13 @@ public abstract class SpawnLogContextTestBase {
         .setMetrics(Protos.SpawnMetrics.getDefaultInstance());
   }
 
-  protected static RunfilesTree createRunfilesTree(PathFragment root, Artifact... artifacts) {
-    return createRunfilesTree(
+  protected static RunfilesSupplier createRunfilesSupplier(
+      PathFragment root, Artifact... artifacts) {
+    return createRunfilesSupplier(
         root, ImmutableMap.of(), ImmutableMap.of(), /* legacyExternalRunfiles= */ false, artifacts);
   }
 
-  protected static RunfilesTree createRunfilesTree(
+  protected static RunfilesSupplier createRunfilesSupplier(
       PathFragment root,
       Map<String, Artifact> symlinks,
       Map<String, Artifact> rootSymlinks,
@@ -2009,17 +2039,22 @@ public abstract class SpawnLogContextTestBase {
     for (Map.Entry<String, Artifact> entry : rootSymlinks.entrySet()) {
       runfiles.addRootSymlink(PathFragment.create(entry.getKey()), entry.getValue());
     }
-    runfiles.setEmptyFilesSupplier(BazelPyBuiltins.GET_INIT_PY_FILES);
-    return new RunfilesSupport.RunfilesTreeImpl(root, runfiles.build());
+    runfiles.setEmptyFilesSupplier(BazelPythonSemantics.GET_INIT_PY_FILES);
+    return new SingleRunfilesSupplier(
+        root,
+        runfiles.build(),
+        /* repoMappingManifest= */ null,
+        BuildConfigurationValue.RunfileSymlinksMode.EXTERNAL,
+        /* buildRunfileLinks= */ false);
   }
 
-  protected static RunfilesTree createRunfilesTree(
+  protected static RunfilesSupplier createRunfilesSupplier(
       PathFragment root,
       Map<String, Artifact> symlinks,
       Map<String, Artifact> rootSymlinks,
       boolean legacyExternalRunfiles,
       Artifact... artifacts) {
-    return createRunfilesTree(
+    return createRunfilesSupplier(
         root,
         symlinks,
         rootSymlinks,
@@ -2033,13 +2068,12 @@ public abstract class SpawnLogContextTestBase {
   }
 
   protected static InputMetadataProvider createInputMetadataProvider(
-      Artifact runfilesMiddleman, RunfilesTree runfilesTree, Artifact... artifacts)
+      Artifact runfilesMiddleman, RunfilesSupplier runfilesSupplier, Artifact... artifacts)
       throws Exception {
     Iterable<Artifact> allArtifacts = Arrays.asList(artifacts);
     FakeActionInputFileCache builder = new FakeActionInputFileCache();
-    if (runfilesMiddleman != null) {
-      allArtifacts = Iterables.concat(allArtifacts, runfilesTree.getArtifacts().toList());
-      builder.putRunfilesTree(runfilesMiddleman, runfilesTree);
+    if (runfilesSupplier != null) {
+      allArtifacts = Iterables.concat(allArtifacts, runfilesSupplier.getArtifacts().toList());
     }
     for (Artifact artifact : allArtifacts) {
       if (artifact.isTreeArtifact()) {
@@ -2061,23 +2095,27 @@ public abstract class SpawnLogContextTestBase {
 
   protected static SortedMap<PathFragment, ActionInput> createInputMap(ActionInput... actionInputs)
       throws Exception {
-    return createInputMap(EmptyRunfilesSupplier.INSTANCE, actionInputs);
+    return createInputMap(EmptyRunfilesSupplier.INSTANCE, null, actionInputs);
   }
 
   protected static SortedMap<PathFragment, ActionInput> createInputMap(
-      RunfilesSupplier runfilesSupplier, ActionInput... actionInputs) throws Exception {
+      RunfilesSupplier runfilesSupplier,
+      InputMetadataProvider inputMetadataProvider,
+      ActionInput... actionInputs)
+      throws Exception {
     TreeMap<PathFragment, ActionInput> builder = new TreeMap<>();
 
     if (runfilesSupplier != null) {
-      new SpawnInputExpander(/* execRoot= */ null)
-          .addSingleRunfilesTreeToInputs(
-              runfilesTree,
+      new SpawnInputExpander(/* execRoot= */ null, /* strict= */ false)
+          .addRunfilesToInputs(
               builder,
-              treeArtifact -> {
+              runfilesSupplier,
+              inputMetadataProvider,
+              (treeArtifact, output) -> {
                 try {
-                  return createTreeArtifactValue(treeArtifact).getChildren();
+                  output.addAll(createTreeArtifactValue(treeArtifact).getChildren());
                 } catch (Exception e) {
-                  throw new ArtifactExpander.MissingExpansionException(e.getMessage());
+                  throw new RuntimeException(e);
                 }
               },
               PathMapper.NOOP,
