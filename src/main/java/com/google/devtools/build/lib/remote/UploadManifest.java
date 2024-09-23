@@ -616,10 +616,12 @@ public class UploadManifest {
 
   /** Uploads outputs and action result (if exit code is 0) to remote cache. */
   public ActionResult upload(
-      RemoteActionExecutionContext context, RemoteCache remoteCache, ExtendedEventHandler reporter)
+      RemoteActionExecutionContext context,
+      CombinedCache combinedCache,
+      ExtendedEventHandler reporter)
       throws IOException, InterruptedException, ExecException {
     try {
-      return uploadAsync(context, remoteCache, reporter).blockingGet();
+      return uploadAsync(context, combinedCache, reporter).blockingGet();
     } catch (RuntimeException e) {
       Throwable cause = e.getCause();
       if (cause != null) {
@@ -632,10 +634,10 @@ public class UploadManifest {
   }
 
   private Completable upload(
-      RemoteActionExecutionContext context, RemoteCache remoteCache, Digest digest) {
+      RemoteActionExecutionContext context, CombinedCache combinedCache, Digest digest) {
     Path file = digestToFile.get(digest);
     if (file != null) {
-      return toCompletable(() -> remoteCache.uploadFile(context, digest, file), directExecutor());
+      return toCompletable(() -> combinedCache.uploadFile(context, digest, file), directExecutor());
     }
 
     ByteString blob = digestToBlobs.get(digest);
@@ -644,7 +646,7 @@ public class UploadManifest {
       return Completable.error(new IOException(message));
     }
 
-    return toCompletable(() -> remoteCache.uploadBlob(context, digest, blob), directExecutor());
+    return toCompletable(() -> combinedCache.uploadBlob(context, digest, blob), directExecutor());
   }
 
   private static void reportUploadStarted(
@@ -677,7 +679,7 @@ public class UploadManifest {
    */
   public Single<ActionResult> uploadAsync(
       RemoteActionExecutionContext context,
-      RemoteCache remoteCache,
+      CombinedCache combinedCache,
       ExtendedEventHandler reporter) {
     Collection<Digest> digests = new ArrayList<>();
     digests.addAll(digestToFile.keySet());
@@ -686,7 +688,7 @@ public class UploadManifest {
     ActionExecutionMetadata action = context.getSpawnOwner();
 
     Flowable<RxUtils.TransferResult> bulkTransfers =
-        toSingle(() -> findMissingDigests(context, remoteCache, digests), directExecutor())
+        toSingle(() -> findMissingDigests(context, combinedCache, digests), directExecutor())
             .doOnSubscribe(d -> reportUploadStarted(reporter, action, Store.CAS, digests))
             .doOnError(error -> reportUploadFinished(reporter, action, Store.CAS, digests))
             .doOnDispose(() -> reportUploadFinished(reporter, action, Store.CAS, digests))
@@ -701,7 +703,7 @@ public class UploadManifest {
             .flatMapPublisher(Flowable::fromIterable)
             .flatMapSingle(
                 digest ->
-                    toTransferResult(upload(context, remoteCache, digest))
+                    toTransferResult(upload(context, combinedCache, digest))
                         .doFinally(
                             () ->
                                 reportUploadFinished(
@@ -713,7 +715,7 @@ public class UploadManifest {
     if (actionResult.getExitCode() == 0 && actionKey != null) {
       uploadActionResult =
           toCompletable(
-                  () -> remoteCache.uploadActionResult(context, actionKey, actionResult),
+                  () -> combinedCache.uploadActionResult(context, actionKey, actionResult),
                   directExecutor())
               .doOnSubscribe(
                   d ->
@@ -729,10 +731,12 @@ public class UploadManifest {
   }
 
   private ListenableFuture<ImmutableSet<Digest>> findMissingDigests(
-      RemoteActionExecutionContext context, RemoteCache remoteCache, Collection<Digest> digests) {
+      RemoteActionExecutionContext context,
+      CombinedCache combinedCache,
+      Collection<Digest> digests) {
     long startTime = Profiler.nanoTimeMaybe();
 
-    var future = remoteCache.findMissingDigests(context, digests);
+    var future = combinedCache.findMissingDigests(context, digests);
 
     if (profiler.isActive()) {
       future.addListener(

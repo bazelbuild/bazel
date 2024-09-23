@@ -27,20 +27,20 @@ import com.google.protobuf.Message;
 import java.io.IOException;
 import java.util.Map;
 
-class InMemoryRemoteCache extends RemoteExecutionCache {
+class InMemoryCombinedCache extends RemoteExecutionCache {
 
-  InMemoryRemoteCache(
+  InMemoryCombinedCache(
       Map<Digest, byte[]> casEntries, RemoteOptions options, DigestUtil digestUtil) {
     super(new InMemoryCacheClient(casEntries), /* diskCacheClient= */ null, options, digestUtil);
   }
 
-  InMemoryRemoteCache(RemoteOptions options, DigestUtil digestUtil) {
+  InMemoryCombinedCache(RemoteOptions options, DigestUtil digestUtil) {
     super(new InMemoryCacheClient(), /* diskCacheClient= */ null, options, digestUtil);
   }
 
-  InMemoryRemoteCache(
-      RemoteCacheClient cacheProtocol, RemoteOptions options, DigestUtil digestUtil) {
-    super(cacheProtocol, /* diskCacheClient= */ null, options, digestUtil);
+  InMemoryCombinedCache(
+      RemoteCacheClient remoteCacheClient, RemoteOptions options, DigestUtil digestUtil) {
+    super(remoteCacheClient, /* diskCacheClient= */ null, options, digestUtil);
   }
 
   Digest addContents(RemoteActionExecutionContext context, String txt)

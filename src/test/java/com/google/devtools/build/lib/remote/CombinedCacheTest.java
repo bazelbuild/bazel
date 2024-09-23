@@ -96,9 +96,9 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.mockito.MockitoAnnotations;
 
-/** Tests for {@link RemoteCache}. */
+/** Tests for {@link CombinedCache}. */
 @RunWith(JUnit4.class)
-public class RemoteCacheTest {
+public class CombinedCacheTest {
   @Rule public final RxNoGlobalErrorsRule rxNoGlobalErrorsRule = new RxNoGlobalErrorsRule();
 
   private RemoteActionExecutionContext remoteActionExecutionContext;
@@ -153,15 +153,15 @@ public class RemoteCacheTest {
 
     // arrange
     Path file = fs.getPath("/execroot/file");
-    RemoteCache remoteCache = newRemoteCache();
+    InMemoryCombinedCache combinedCache = newCombinedCache();
     Digest emptyDigest = digestUtil.compute(new byte[0]);
 
     // act and assert
-    assertThat(getFromFuture(remoteCache.downloadBlob(remoteActionExecutionContext, emptyDigest)))
+    assertThat(getFromFuture(combinedCache.downloadBlob(remoteActionExecutionContext, emptyDigest)))
         .isEmpty();
 
     try (OutputStream out = file.getOutputStream()) {
-      getFromFuture(remoteCache.downloadFile(remoteActionExecutionContext, file, emptyDigest));
+      getFromFuture(combinedCache.downloadFile(remoteActionExecutionContext, file, emptyDigest));
     }
     assertThat(file.exists()).isTrue();
     assertThat(file.getFileSize()).isEqualTo(0);
@@ -169,9 +169,9 @@ public class RemoteCacheTest {
 
   @Test
   public void downloadActionResult_reportsSpawnCheckingCacheEvent() throws Exception {
-    var remoteCache = newRemoteCache();
+    var combinedCache = newCombinedCache();
     var unused =
-        remoteCache.downloadActionResult(
+        combinedCache.downloadActionResult(
             remoteActionExecutionContext,
             digestUtil.asActionKey(digestUtil.computeAsUtf8("key")),
             /* inlineOutErr= */ false,
@@ -190,7 +190,7 @@ public class RemoteCacheTest {
     SettableFuture<Void> future = SettableFuture.create();
     // Return a future that never completes
     doAnswer(invocationOnMock -> future).when(remoteCacheClient).downloadBlob(any(), any(), any());
-    RemoteCache remoteCache = newRemoteCache(remoteCacheClient);
+    CombinedCache remoteCache = newCombinedCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
 
@@ -207,21 +207,21 @@ public class RemoteCacheTest {
   public void downloadOutErr_empty_doNotPerformDownload() throws Exception {
     // Test that downloading empty stdout/stderr does not try to perform a download.
 
-    InMemoryRemoteCache remoteCache = newRemoteCache();
+    InMemoryCombinedCache combinedCache = newCombinedCache();
     Digest emptyDigest = digestUtil.compute(new byte[0]);
     ActionResult.Builder result = ActionResult.newBuilder();
     result.setStdoutDigest(emptyDigest);
     result.setStderrDigest(emptyDigest);
 
     waitForBulkTransfer(
-        remoteCache.downloadOutErr(
+        combinedCache.downloadOutErr(
             remoteActionExecutionContext,
             result.build(),
             new FileOutErr(execRoot.getRelative("stdout"), execRoot.getRelative("stderr"))),
         true);
 
-    assertThat(remoteCache.getNumSuccessfulDownloads()).isEqualTo(0);
-    assertThat(remoteCache.getNumFailedDownloads()).isEqualTo(0);
+    assertThat(combinedCache.getNumSuccessfulDownloads()).isEqualTo(0);
+    assertThat(combinedCache.getNumFailedDownloads()).isEqualTo(0);
   }
 
   @Test
@@ -240,10 +240,10 @@ public class RemoteCacheTest {
     Path file = fs.getPath("/execroot/symlink-to-file");
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
     options.remoteDownloadSymlinkTemplate = "/home/alice/cas/{hash}-{size_bytes}";
-    RemoteCache remoteCache = new InMemoryRemoteCache(cas, options, digestUtil);
+    InMemoryCombinedCache combinedCache = newCombinedCache(cas, options, digestUtil);
 
     // act
-    getFromFuture(remoteCache.downloadFile(remoteActionExecutionContext, file, helloDigest));
+    getFromFuture(combinedCache.downloadFile(remoteActionExecutionContext, file, helloDigest));
 
     // assert
     assertThat(file.isSymbolicLink()).isTrue();
@@ -256,22 +256,22 @@ public class RemoteCacheTest {
   @Test
   public void upload_emptyBlobAndFile_doNotPerformUpload() throws Exception {
     // Test that uploading an empty BLOB/file does not try to perform an upload.
-    InMemoryRemoteCache remoteCache = newRemoteCache();
+    InMemoryCombinedCache combinedCache = newCombinedCache();
     Digest emptyDigest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "");
     Path file = execRoot.getRelative("file");
 
     getFromFuture(
-        remoteCache.uploadBlob(remoteActionExecutionContext, emptyDigest, ByteString.EMPTY));
+        combinedCache.uploadBlob(remoteActionExecutionContext, emptyDigest, ByteString.EMPTY));
     assertThat(
             getFromFuture(
-                remoteCache.findMissingDigests(
+                combinedCache.findMissingDigests(
                     remoteActionExecutionContext, ImmutableSet.of(emptyDigest))))
         .containsExactly(emptyDigest);
 
-    getFromFuture(remoteCache.uploadFile(remoteActionExecutionContext, emptyDigest, file));
+    getFromFuture(combinedCache.uploadFile(remoteActionExecutionContext, emptyDigest, file));
     assertThat(
             getFromFuture(
-                remoteCache.findMissingDigests(
+                combinedCache.findMissingDigests(
                     remoteActionExecutionContext, ImmutableSet.of(emptyDigest))))
         .containsExactly(emptyDigest);
   }
@@ -288,12 +288,12 @@ public class RemoteCacheTest {
             })
         .when(remoteCacheClient)
         .uploadFile(any(), any(), any());
-    RemoteCache remoteCache = newRemoteCache(remoteCacheClient);
+    CombinedCache combinedCache = newCombinedCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
 
-    remoteCache.uploadFile(remoteActionExecutionContext, digest, file);
-    remoteCache.uploadFile(remoteActionExecutionContext, digest, file);
+    var unused1 = combinedCache.uploadFile(remoteActionExecutionContext, digest, file);
+    var unused2 = combinedCache.uploadFile(remoteActionExecutionContext, digest, file);
 
     assertThat(times.get()).isEqualTo(1);
   }
@@ -321,28 +321,28 @@ public class RemoteCacheTest {
                     invocationOnMock.getArgument(0), invocationOnMock.getArgument(1)))
         .when(remoteCacheClient)
         .findMissingDigests(any(), any());
-    RemoteCache remoteCache = newRemoteCache(remoteCacheClient);
+    CombinedCache combinedCache = newCombinedCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
     assertThat(
             getFromFuture(
-                remoteCache.findMissingDigests(
+                combinedCache.findMissingDigests(
                     remoteActionExecutionContext, ImmutableList.of(digest))))
         .containsExactly(digest);
 
     Exception thrown = null;
     try {
-      getFromFuture(remoteCache.uploadFile(remoteActionExecutionContext, digest, file));
+      getFromFuture(combinedCache.uploadFile(remoteActionExecutionContext, digest, file));
     } catch (IOException e) {
       thrown = e;
     }
     assertThat(thrown).isNotNull();
     assertThat(thrown).isInstanceOf(IOException.class);
-    getFromFuture(remoteCache.uploadFile(remoteActionExecutionContext, digest, file));
+    getFromFuture(combinedCache.uploadFile(remoteActionExecutionContext, digest, file));
 
     assertThat(
             getFromFuture(
-                remoteCache.findMissingDigests(
+                combinedCache.findMissingDigests(
                     remoteActionExecutionContext, ImmutableList.of(digest))))
         .isEmpty();
   }
@@ -679,25 +679,30 @@ public class RemoteCacheTest {
     doAnswer(invocationOnMock -> SettableFuture.create())
         .when(remoteCacheClient)
         .uploadFile(any(), any(), any());
-    RemoteCache remoteCache = newRemoteCache(remoteCacheClient);
+    CombinedCache combinedCache = newCombinedCache(remoteCacheClient);
     Digest digest = fakeFileCache.createScratchInput(ActionInputHelper.fromPath("file"), "content");
     Path file = execRoot.getRelative("file");
 
     ListenableFuture<Void> upload =
-        remoteCache.uploadFile(remoteActionExecutionContext, digest, file);
-    assertThat(remoteCache.casUploadCache.getInProgressTasks()).contains(digest);
-    remoteCache.shutdownNow();
+        combinedCache.uploadFile(remoteActionExecutionContext, digest, file);
+    assertThat(combinedCache.casUploadCache.getInProgressTasks()).contains(digest);
+    combinedCache.shutdownNow();
 
     assertThat(upload.isCancelled()).isTrue();
   }
 
-  private InMemoryRemoteCache newRemoteCache() {
+  private InMemoryCombinedCache newCombinedCache() {
     RemoteOptions options = Options.getDefaults(RemoteOptions.class);
-    return new InMemoryRemoteCache(options, digestUtil);
+    return new InMemoryCombinedCache(options, digestUtil);
   }
 
-  private RemoteCache newRemoteCache(RemoteCacheClient remoteCacheClient) {
-    return new RemoteCache(
+  private InMemoryCombinedCache newCombinedCache(
+      Map<Digest, byte[]> casEntries, RemoteOptions options, DigestUtil digestUtil) {
+    return new InMemoryCombinedCache(casEntries, options, digestUtil);
+  }
+
+  private CombinedCache newCombinedCache(RemoteCacheClient remoteCacheClient) {
+    return new CombinedCache(
         remoteCacheClient,
         /* diskCacheClient= */ null,
         Options.getDefaults(RemoteOptions.class),
