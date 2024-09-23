@@ -352,7 +352,7 @@ def _create_one_version_check(ctx, inputs, is_test_rule_class):
     one_version_inputs = []
     args.add("--output", output)
     if allowlist:
-        args.add("--whitelist", allowlist)
+        args.add("--allowlist", allowlist)
         one_version_inputs.append(allowlist)
     if one_version_level == "WARNING":
         args.add("--succeed_on_found_violations")
