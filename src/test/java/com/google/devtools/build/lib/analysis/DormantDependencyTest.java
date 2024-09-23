@@ -556,6 +556,97 @@ public class DormantDependencyTest extends AnalysisTestCase {
   }
 
   @Test
+  public void testSubrulesCannotHaveDormantDeps() throws Exception {
+    scratch.file(
+        "dormant/dormant.bzl",
+        """
+        def _impl(ctx):
+          fail("implementation should not be called")
+
+        sub = subrule(implementation = _impl, attrs = {
+          "_dormant": attr.dormant_label(default="//dormant:dormant"),
+        })
+        real = rule(implementation = _impl, attrs = {}, subrules = [sub])
+        """);
+
+    scratch.file(
+        "dormant/BUILD",
+        """
+        load(":dormant.bzl", "real")
+        real(name="real")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(TargetParsingException.class, () -> update("//dormant:real"));
+    assertContainsEvent("subrule attributes may only be");
+  }
+
+  @Test
+  public void testMarkedRulesCannotBeParents() throws Exception {
+    scratch.file(
+        "parent/parent.bzl",
+        """
+        def _impl(ctx):
+          fail("rule implementation should not be called")
+
+        p = rule(
+          implementation = _impl,
+          dependency_resolution_rule = True,
+          attrs = {
+              "dormant": attr.dormant_label(),
+          })""");
+
+    scratch.file("parent/BUILD");
+
+    scratch.file(
+        "unmarked/unmarked.bzl",
+        """
+        load("//parent:parent.bzl", "p")
+
+        def _impl(ctx):
+          fail("rule implementation should not be called")
+
+        unmarked = rule(
+          implementation = _impl,
+          parent = p,
+          attrs = {})""");
+
+    scratch.file(
+        "unmarked/BUILD",
+        """
+        load(":unmarked.bzl", "unmarked")
+        unmarked(name="unmarked")
+        """);
+
+    scratch.file(
+        "marked/marked.bzl",
+        """
+        load("//parent:parent.bzl", "p")
+
+        def _impl(ctx):
+          fail("rule implementation should not be called")
+
+        marked = rule(
+          implementation = _impl,
+          parent = p,
+          attrs = {})""");
+
+    scratch.file(
+        "marked/BUILD",
+        """
+        load(":marked.bzl", "marked")
+        marked(name="marked")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    assertThrows(TargetParsingException.class, () -> update("//unmarked:unmarked"));
+    assertContainsEvent("cannot be parents");
+
+    assertThrows(TargetParsingException.class, () -> update("//marked:marked"));
+    assertContainsEvent("cannot be parents");
+  }
+
+  @Test
   public void testMarkedRulesCannotHaveParents() throws Exception {
     scratch.file(
         "a/dormant.bzl",
