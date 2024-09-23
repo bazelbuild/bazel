@@ -313,8 +313,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
     for (RunfilesSupplier.RunfilesTree runfilesTree :
         spawn.getRunfilesSupplier().getRunfilesTreesForLogging().values()) {
-      additionalInputIds.add(
-          logRunfilesTree(runfilesTree, inputMetadataProvider, fileSystem, /* shared= */ false));
+      additionalInputIds.add(logRunfilesTree(runfilesTree, inputMetadataProvider, fileSystem));
     }
 
     for (Artifact fileset : spawn.getFilesetMappings().keySet()) {
@@ -527,18 +526,15 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * store them in the log as a special entry that references the nested set of artifacts instead of
    * as a flat directory.
    *
-   * @param shared whether this runfiles tree is likely to be contained in more than one Spawn's
-   *     inputs
    * @return the entry ID of the {@link ExecLogEntry.RunfilesTree} describing the directory.
    */
   private int logRunfilesTree(
       RunfilesSupplier.RunfilesTree runfilesTree,
       InputMetadataProvider inputMetadataProvider,
-      FileSystem fileSystem,
-      boolean shared)
+      FileSystem fileSystem)
       throws IOException, InterruptedException {
     return logEntry(
-        shared ? runfilesTree.getExecPath().getPathString() : null,
+        runfilesTree.isLikelyToBeReused(),
         () -> {
           ExecLogEntry.RunfilesTree.Builder builder =
               ExecLogEntry.RunfilesTree.newBuilder()
