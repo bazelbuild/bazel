@@ -140,12 +140,13 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
         case SYMLINK_ENTRIES -> putSymlinkEntrySet(entry.getId(), entry.getSymlinkEntries());
         case SPAWN -> {
           return reconstructSpawnExec(entry.getSpawn());
-        case SYMLINK_ACTION:
+        }
+        case SYMLINK_ACTION -> {
           // Symlink actions are not represented in the expanded format.
-          break;
-        default:
-          throw new IOException(
-              String.format("unknown entry type %d", entry.getTypeCase().getNumber()));
+        }
+        default ->
+            throw new IOException(
+                String.format("unknown entry type %d", entry.getTypeCase().getNumber()));
       }
     }
     return null;

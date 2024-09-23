@@ -2556,34 +2556,8 @@ public class RemoteExecutionServiceTest {
       }
 
       @Override
-      public NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging() {
-        return NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts);
-      }
-
-      @Override
-      public ImmutableList<PathFragment> getEmptyFilenamesForLogging() {
-        return ImmutableList.of();
-      }
-
-      @Override
-      public NestedSet<SymlinkEntry> getSymlinksForLogging() {
-        return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-      }
-
-      @Override
-      public NestedSet<SymlinkEntry> getRootSymlinksForLogging() {
-        return NestedSetBuilder.emptySet(Order.STABLE_ORDER);
-      }
-
-      @Nullable
-      @Override
-      public Artifact getRepoMappingManifestForLogging() {
-        return null;
-      }
-
-      @Override
-      public boolean isLegacyExternalRunfiles() {
-        return false;
+      public Map<PathFragment, RunfilesTree> getRunfilesTreesForLogging() {
+        throw new UnsupportedOperationException();
       }
     };
   }

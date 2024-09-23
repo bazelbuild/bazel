@@ -69,30 +69,28 @@ public interface RunfilesSupplier extends StarlarkValue {
   RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir);
 
   /**
-   * Returns artifacts the runfiles tree contain symlinks to at their canonical locations.
-   *
-   * <p>This does <b>not</b> include artifacts that only the symlinks and root symlinks point to.
+   * @param getArtifactsAtCanonicalLocationsForLogging Returns artifacts the runfiles tree contain
+   *     symlinks to at their canonical locations.
+   *     <p>This does <b>not</b> include artifacts that only the symlinks and root symlinks point
+   *     to.
+   * @param getEmptyFilenamesForLogging Returns the set of names of implicit empty files to
+   *     materialize.
+   *     <p>If this runfiles tree does not implicitly add empty files, implementations should have a
+   *     dedicated fast path that returns an empty set without traversing the tree.
+   * @param getSymlinksForLogging Returns the set of custom symlink entries.
+   * @param getRootSymlinksForLogging Returns the set of root symlinks.
+   * @param getRepoMappingManifestForLogging Returns the repo mapping manifest if it exists.
+   * @param isLegacyExternalRunfiles Whether this runfiles tree materializes external runfiles also
+   *     at their legacy locations.
    */
-  NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging();
+  record RunfilesTree(
+      PathFragment getExecPath,
+      NestedSet<Artifact> getArtifactsAtCanonicalLocationsForLogging,
+      Iterable<PathFragment> getEmptyFilenamesForLogging,
+      NestedSet<SymlinkEntry> getSymlinksForLogging,
+      NestedSet<SymlinkEntry> getRootSymlinksForLogging,
+      @Nullable Artifact getRepoMappingManifestForLogging,
+      boolean isLegacyExternalRunfiles) {}
 
-  /**
-   * Returns the set of names of implicit empty files to materialize.
-   *
-   * <p>If this runfiles tree does not implicitly add empty files, implementations should have a
-   * dedicated fast path that returns an empty set without traversing the tree.
-   */
-  Iterable<PathFragment> getEmptyFilenamesForLogging();
-
-  /** Returns the set of custom symlink entries. */
-  NestedSet<SymlinkEntry> getSymlinksForLogging();
-
-  /** Returns the set of root symlinks. */
-  NestedSet<SymlinkEntry> getRootSymlinksForLogging();
-
-  /** Returns the repo mapping manifest if it exists. */
-  @Nullable
-  Artifact getRepoMappingManifestForLogging();
-
-  /** Whether this runfiles tree materializes external runfiles also at their legacy locations. */
-  boolean isLegacyExternalRunfiles();
+  Map<PathFragment, RunfilesTree> getRunfilesTreesForLogging();
 }

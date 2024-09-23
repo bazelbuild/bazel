@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -118,5 +119,14 @@ public final class CompositeRunfilesSupplier implements RunfilesSupplier {
   @Override
   public RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
     throw new UnsupportedOperationException();
+  }
+
+  @Override
+  public Map<PathFragment, RunfilesTree> getRunfilesTreesForLogging() {
+    Map<PathFragment, RunfilesTree> result = new LinkedHashMap<>();
+    for (RunfilesSupplier supplier : suppliers) {
+      result.putAll(supplier.getRunfilesTreesForLogging());
+    }
+    return result;
   }
 }

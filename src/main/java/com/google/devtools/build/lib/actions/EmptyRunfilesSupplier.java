@@ -63,4 +63,9 @@ public final class EmptyRunfilesSupplier implements RunfilesSupplier {
   public RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
     throw new UnsupportedOperationException();
   }
+
+  @Override
+  public Map<PathFragment, RunfilesTree> getRunfilesTreesForLogging() {
+    return ImmutableMap.of();
+  }
 }

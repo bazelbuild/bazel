@@ -166,6 +166,20 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
             buildRunfileLinks);
   }
 
+  @Override
+  public Map<PathFragment, RunfilesTree> getRunfilesTreesForLogging() {
+    return ImmutableMap.of(
+        runfilesDir,
+        new RunfilesTree(
+            runfilesDir,
+            runfiles.getArtifacts(),
+            runfiles.getEmptyFilenames(),
+            runfiles.getRootSymlinks(),
+            runfiles.getSymlinks(),
+            repoMappingManifest,
+            runfiles.isLegacyExternalRunfiles()));
+  }
+
   /** Softly caches the result of {@link Runfiles#getRunfilesInputs}. */
   private static final class RunfilesCacher implements Supplier<Map<PathFragment, Artifact>> {
 
