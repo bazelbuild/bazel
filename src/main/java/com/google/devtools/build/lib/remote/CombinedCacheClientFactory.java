@@ -134,8 +134,7 @@ public final class CombinedCacheClientFactory {
       boolean verifyDownloads)
       throws IOException {
     Path cacheDir = workingDirectory.getRelative(Preconditions.checkNotNull(options.diskCache));
-    return new DiskCacheClient(
-        cacheDir, options.diskCacheMaxSizeBytes, digestUtil, executorService, verifyDownloads);
+    return new DiskCacheClient(cacheDir, digestUtil, executorService, verifyDownloads);
   }
 
   public static boolean isDiskCache(RemoteOptions options) {
