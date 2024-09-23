@@ -22,6 +22,8 @@ import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_PROCESS
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_QUEUE;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.REMOTE_SETUP;
 import static com.google.devtools.build.lib.profiler.ProfilerTask.UPLOAD_TIME;
+import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionForCredentialHelperException;
+import static com.google.devtools.build.lib.remote.util.Utils.createExecExceptionFromRemoteExecutionCapabilitiesException;
 import static com.google.devtools.build.lib.remote.util.Utils.createSpawnResult;
 import static java.lang.Math.max;
 
@@ -42,6 +44,7 @@ import com.google.devtools.build.lib.actions.SpawnMetrics;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.SpawnResult.Status;
 import com.google.devtools.build.lib.actions.cache.VirtualActionInput;
+import com.google.devtools.build.lib.authandtls.credentialhelper.CredentialHelperException;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.clock.BlazeClock.MillisSinceEpochToNanosConverter;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -62,6 +65,7 @@ import com.google.devtools.build.lib.remote.RemoteExecutionService.ServerLogs;
 import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
 import com.google.devtools.build.lib.remote.common.OperationObserver;
+import com.google.devtools.build.lib.remote.common.RemoteExecutionCapabilitiesException;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.Utils;
@@ -241,6 +245,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
           }
         }
       }
+    } catch (CredentialHelperException e) {
+      throw createExecExceptionForCredentialHelperException(e);
     } catch (IOException e) {
       return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
     }
@@ -328,6 +334,8 @@ public class RemoteSpawnRunner implements SpawnRunner {
               throw e;
             }
           });
+    } catch (CredentialHelperException e) {
+      throw createExecExceptionForCredentialHelperException(e);
     } catch (IOException e) {
       return execLocallyAndUploadOrFail(action, spawn, context, uploadLocalResults, e);
     }
@@ -575,6 +583,9 @@ public class RemoteSpawnRunner implements SpawnRunner {
   private SpawnResult handleError(
       RemoteAction action, IOException exception, SpawnExecutionContext context)
       throws ExecException, InterruptedException, IOException {
+    if (exception instanceof RemoteExecutionCapabilitiesException e) {
+      throw createExecExceptionFromRemoteExecutionCapabilitiesException(e);
+    }
     boolean remoteCacheFailed = BulkTransferException.allCausedByCacheNotFoundException(exception);
     if (exception.getCause() instanceof ExecutionStatusException e) {
       RemoteActionResult result = null;
