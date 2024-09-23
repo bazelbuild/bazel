@@ -20,14 +20,13 @@ jobs:
               owner,
               repo,
             });
-            console.log('prs',prs)
             for (const pr of prs) {
               const reviews = await github.rest.pulls.listReviews({
                 owner,
                 repo,
                 pull_number: pr.number
               });
-
+             console.log('prs',pr.number)
               const approvedReview = reviews.data.find(review => review.state === "APPROVED");
 
               if (approvedReview) {
@@ -35,6 +34,7 @@ jobs:
                 fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
 
                 if (new Date(approvedReview.submitted_at) < fiveDaysAgo) {
+                  console.log('approved pr: ',pr.number)
                   const commentBody = "This PR has been approved for more than 5 days but still has the 'awaiting-review' label. Please review and merge or close the PR.";
                   await github.rest.issues.createComment({
                     owner,
