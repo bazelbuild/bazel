@@ -2180,7 +2180,7 @@ default_java_toolchain(
     name = "java_toolchain",
     source_version = "17",
     target_version = "17",
-    oneversion_whitelist = "//pkg:allowlist",
+    oneversion_allowlist = "//pkg:allowlist",
 )
 
 java_binary(

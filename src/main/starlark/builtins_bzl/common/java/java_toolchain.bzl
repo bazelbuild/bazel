@@ -90,6 +90,9 @@ def _java_toolchain_impl(ctx):
     else:
         header_compiler_direct_data = []
         header_compiler_direct_jvm_opts = []
+    if ctx.attr.oneversion_allowlist and ctx.attr.oneversion_whitelist:
+        fail("oneversion_allowlist and oneversion_whitelist are mutually exclusive")
+    oneversion_allowlist = ctx.file.oneversion_allowlist if ctx.file.oneversion_allowlist else ctx.file.oneversion_whitelist
     java_toolchain_info = _new_javatoolchaininfo(
         bootclasspath = bootclasspath_info.bootclasspath,
         ijar = ctx.attr.ijar.files_to_run if ctx.attr.ijar else None,
@@ -128,7 +131,7 @@ def _java_toolchain_impl(ctx):
         _jspecify_info = _get_jspecify_info(ctx),
         _local_java_optimization_config = ctx.files._local_java_optimization_configuration,
         _one_version_tool = ctx.attr.oneversion.files_to_run if ctx.attr.oneversion else None,
-        _one_version_allowlist = ctx.file.oneversion_whitelist,
+        _one_version_allowlist = oneversion_allowlist,
         _one_version_allowlist_for_tests = ctx.file.oneversion_allowlist_for_tests,
         _package_configuration = [dep[JavaPackageConfigurationInfo] for dep in ctx.attr.package_configuration],
         _reduced_classpath_incompatible_processors = depset(ctx.attr.reduced_classpath_incompatible_processors, order = "preorder"),
@@ -501,6 +504,10 @@ Label of the one-version enforcement binary.
             """,
         ),
         "oneversion_whitelist": attr.label(
+            allow_single_file = True,
+            doc = """Deprecated: use oneversion_allowlist instead""",
+        ),
+        "oneversion_allowlist": attr.label(
             allow_single_file = True,
             doc = """
 Label of the one-version allowlist.
