@@ -137,7 +137,7 @@ public final class SpawnLogReconstructor implements MessageInputStream<SpawnExec
         case RUNFILES_TREE ->
             putInput(entry.getId(), reconstructRunfilesDir(entry.getRunfilesTree()));
         case INPUT_SET -> putInputSet(entry.getId(), entry.getInputSet());
-        case SYMLINK_ENTRIES -> putSymlinkEntrySet(entry.getId(), entry.getSymlinkEntries());
+        case SYMLINK_ENTRY_SET -> putSymlinkEntrySet(entry.getId(), entry.getSymlinkEntrySet());
         case SPAWN -> {
           return reconstructSpawnExec(entry.getSpawn());
         }
