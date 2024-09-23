@@ -13,19 +13,13 @@ filegroup(
 )
 
 # Description:
-#   Tests for the blaze dx bridge code.
+#   Tests for the DexFileSplitter.
 java_library(
     name = "tests",
     srcs = [
         "AllTests.java",
     ] + select({
-        "//external:has_androidsdk": glob(
-            ["*Test.java"],
-            exclude = [
-                "NoAndroidSdkStubTest.java",
-                "AllTests.java",
-            ],
-        ),
+        "//external:has_androidsdk": ["DexFileSplitterTest.java"],
         "//conditions:default": ["NoAndroidSdkStubTest.java"],
     }),
     javacopts = ["-source 8 -target 8"],
@@ -33,7 +27,8 @@ java_library(
     deps = [
         "//src/test/java/com/google/devtools/build/lib/testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil:TestSuite",
-        "//src/tools/android/java/com/google/devtools/build/android/dexer",
+        "//src/tools/android/java/com/google/devtools/build/android/dexer:DexFileSplitter_lib",
+        "//src/tools/android/java/com/google/devtools/build/android/r8:dexbuilder_deploy.jar",
         "//third_party:guava",
         "//third_party:junit4",
         "//third_party:mockito",

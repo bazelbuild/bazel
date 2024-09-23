@@ -16,18 +16,20 @@ filegroup(
     name = "embedded_tools",
     srcs = glob(
         ["*.java"],
-        exclude = ["NoAndroidSdkStub.java"],
     ) + ["BUILD.tools"],
     visibility = ["//visibility:public"],
 )
 
 java_library(
-    name = "dexer",
+    name = "DexFileSplitter_lib",
     srcs = select({
-        "//external:has_androidsdk": glob(
-            ["*.java"],
-            exclude = ["NoAndroidSdkStub.java"],
-        ),
+        "//external:has_androidsdk": [
+            "AsyncZipOut.java",
+            "DexFileSplitter.java",
+            "DexLimitTracker.java",
+            "ZipEntryComparator.java",
+            "ZipEntryPredicates.java",
+        ],
         "//conditions:default": ["NoAndroidSdkStub.java"],
     }),
     visibility = ["//src/test/java/com/google/devtools/build/android/dexer:__pkg__"],

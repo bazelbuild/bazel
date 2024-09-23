@@ -18,12 +18,12 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
-import com.android.dx.command.dexer.DxContext;
 import com.google.common.base.Function;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.android.r8.CompatDexBuilder;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -332,17 +332,20 @@ public class DexFileSplitterTest {
   }
 
   private Path buildDexArchive(Path inputJar, String outputZip) throws Exception {
-    DexBuilder.Options options = new DexBuilder.Options();
     // Use Jar file that has this test in it as the input Jar
-    options.inputJar = inputJar;
-    options.outputZip =
-        FileSystems.getDefault().getPath(System.getenv("TEST_TMPDIR"), outputZip);
-    options.maxThreads = 1;
-    Dexing.DexingOptions dexingOptions = new Dexing.DexingOptions();
-    dexingOptions.optimize = true;
-    dexingOptions.positionInfo = "lines"; // com.android.dx.dex.code.PositionList.LINES;
-    DexBuilder.buildDexArchive(options, new Dexing(new DxContext(), dexingOptions));
-    return options.outputZip;
+    Path outputZipPath = FileSystems.getDefault().getPath(System.getenv("TEST_TMPDIR"), outputZip);
+    int maxThreads = 1;
+    boolean optimize = true;
+    String positionInfo = "lines"; // com.android.dx.dex.code.PositionList.LINES;
+    CompatDexBuilder.main(
+        new String[] {
+          "--input", inputJar.toString(),
+          "--output", outputZipPath.toString(),
+          "--max-threads", Integer.toString(maxThreads),
+          "--optimize", Boolean.toString(optimize),
+          "--position-info", positionInfo
+        });
+    return outputZipPath;
   }
 
   // Can't use lambda for Java 7 compatibility so we can run this Jar through dx without desugaring.
