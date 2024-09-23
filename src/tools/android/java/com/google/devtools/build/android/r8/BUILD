@@ -125,3 +125,14 @@ java_binary(
         ":r8",
     ],
 )
+
+java_binary(
+    name = "dexbuilder",
+    main_class = "com.google.devtools.build.android.r8.CompatDexBuilder",
+    visibility = [
+        "//src/test/java/com/google/devtools/build/android/dexer:__pkg__",
+    ],
+    runtime_deps = [
+        ":r8",
+    ],
+)
