@@ -579,6 +579,10 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
 
       builder = new RuleClass.Builder("", type, true, dependencyResolutionBaseRule);
     } else if (parent != null) {
+      if (parent.isDependencyResolutionRule()) {
+        throw Starlark.errorf("dependency resolution rules cannot be parents");
+      }
+
       // We'll set the name later, pass the empty string for now.
       builder = new RuleClass.Builder("", type, true, parent);
     } else {
