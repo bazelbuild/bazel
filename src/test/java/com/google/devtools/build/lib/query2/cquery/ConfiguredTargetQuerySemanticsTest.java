@@ -1186,4 +1186,50 @@ public class ConfiguredTargetQuerySemanticsTest extends ConfiguredTargetQueryTes
         .isEqualTo("//configurable:target");
     assertThat(evalToString("attr(string_values, 'quux', '//configurable:target')")).isEmpty();
   }
+
+  @Test
+  public void testOnlySelectedDormantDepsReturned() throws Exception {
+    writeFile(
+        "a/a.bzl",
+        """
+        ComponentInfo = provider(fields=["dormant"])
+
+        def _bin_impl(ctx):
+          return [DefaultInfo()]
+
+        def _materializer(ctx):
+          return [d for d in ctx.attr.dep[ComponentInfo].dormant if "yes" in str(d.label())]
+
+        bin = rule(
+          implementation = _bin_impl,
+          attrs = {
+            "_materialized": attr.label_list(materializer=_materializer),
+            "dep": attr.label(for_dependency_resolution = True) })
+
+        def _component_impl(ctx):
+          return [ComponentInfo(dormant=ctx.attr.impl)]
+
+        component = rule(
+          implementation = _component_impl,
+          dependency_resolution_rule = True,
+          attrs = { "impl": attr.dormant_label_list() })
+        """);
+
+    writeFile(
+        "a/BUILD",
+        """
+        load("a.bzl", "bin", "component")
+
+        filegroup(name="a_yes")
+        filegroup(name="b_no")
+
+        bin(name="bin", dep=":c")
+        component(name="c", impl=[":a_yes", "b_no"])
+        """);
+
+    ((PostAnalysisQueryHelper<CqueryNode>) helper).useConfiguration("--experimental_dormant_deps");
+    ImmutableList<String> deps = evalToListOfStrings("deps('//a:bin')");
+    assertThat(deps).containsAtLeast("//a:bin", "//a:c", "//a:a_yes");
+    assertThat(deps).doesNotContain("//a:b_no");
+  }
 }
