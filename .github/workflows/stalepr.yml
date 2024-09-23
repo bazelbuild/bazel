@@ -25,20 +25,13 @@ jobs:
             }
             console.log('jsonArray', jsonArray)
             for (const pr of jsonArray) {
-            const reviews = (await github.rest.pulls.listReviews({
-                owner,
-                repo,
-                pull_number = pr.number,
-             })).data;
-             console.log('reviews', reviews)
+             console.log('pr', pr)
               const reviews = await github.rest.pulls.listReviews({
                 owner,
                 repo,
                 pull_number: pr.number
               });
-              
              console.log('reviews', reviews)
-             console.log('prs',pr.number)
               const approvedReview = reviews.data.find(review => review.state === "APPROVED");
 
               if (approvedReview) {
