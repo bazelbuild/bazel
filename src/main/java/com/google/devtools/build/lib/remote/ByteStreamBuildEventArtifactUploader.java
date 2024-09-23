@@ -61,7 +61,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
-/** A {@link BuildEventArtifactUploader} backed by {@link RemoteCache}. */
+/** A {@link BuildEventArtifactUploader} backed by {@link CombinedCache}. */
 class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     implements BuildEventArtifactUploader {
   private static final Pattern TEST_LOG_PATTERN = Pattern.compile(".*/bazel-out/[^/]*/testlogs/.*");
@@ -71,7 +71,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   private final Executor executor;
   private final ExtendedEventHandler reporter;
   private final boolean verboseFailures;
-  private final RemoteCache remoteCache;
+  private final CombinedCache combinedCache;
   private final String buildRequestId;
   private final String commandId;
   private final String remoteInstanceName;
@@ -87,7 +87,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
       Executor executor,
       ExtendedEventHandler reporter,
       boolean verboseFailures,
-      RemoteCache remoteCache,
+      CombinedCache combinedCache,
       String remoteInstanceName,
       String remoteBytestreamUriPrefix,
       String buildRequestId,
@@ -97,7 +97,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     this.executor = executor;
     this.reporter = reporter;
     this.verboseFailures = verboseFailures;
-    this.remoteCache = remoteCache;
+    this.combinedCache = combinedCache;
     this.buildRequestId = buildRequestId;
     this.commandId = commandId;
     this.remoteInstanceName = remoteInstanceName;
@@ -252,9 +252,9 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         || BUILD_LOG_PATTERN.matcher(path.getPath().getPathString()).matches();
   }
 
-  private Single<List<PathMetadata>> queryRemoteCache(
-      RemoteCache remoteCache, RemoteActionExecutionContext context, List<PathMetadata> paths) {
-    List<PathMetadata> knownRemotePaths = new ArrayList<>(paths.size());
+  private Single<List<PathMetadata>> queryCombinedCache(
+      CombinedCache combinedCache, RemoteActionExecutionContext context, List<PathMetadata> paths) {
+    List<PathMetadata> knownPaths = new ArrayList<>(paths.size());
     List<PathMetadata> filesToQuery = new ArrayList<>();
     Set<Digest> digestsToQuery = new HashSet<>();
     for (PathMetadata path : paths) {
@@ -262,14 +262,14 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         filesToQuery.add(path);
         digestsToQuery.add(path.getDigest());
       } else {
-        knownRemotePaths.add(path);
+        knownPaths.add(path);
       }
     }
 
     if (digestsToQuery.isEmpty()) {
-      return Single.just(knownRemotePaths);
+      return Single.just(knownPaths);
     }
-    return toSingle(() -> remoteCache.findMissingDigests(context, digestsToQuery), executor)
+    return toSingle(() -> combinedCache.findMissingDigests(context, digestsToQuery), executor)
         .onErrorResumeNext(
             error -> {
               reportUploadError(error, null, null);
@@ -278,8 +278,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
             })
         .map(
             missingDigests -> {
-              processQueryResult(missingDigests, filesToQuery, knownRemotePaths);
-              return knownRemotePaths;
+              processQueryResult(missingDigests, filesToQuery, knownPaths);
+              return knownPaths;
             });
   }
 
@@ -301,7 +301,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
   }
 
   private Single<List<PathMetadata>> uploadLocalFiles(
-      RemoteCache remoteCache, RemoteActionExecutionContext context, List<PathMetadata> paths) {
+      CombinedCache combinedCache, RemoteActionExecutionContext context, List<PathMetadata> paths) {
     return Flowable.fromIterable(paths)
         .flatMapSingle(
             path -> {
@@ -310,7 +310,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
               }
 
               return toCompletable(
-                      () -> remoteCache.uploadFile(context, path.getDigest(), path.getPath()),
+                      () -> combinedCache.uploadFile(context, path.getDigest(), path.getPath()),
                       executor)
                   .toSingle(
                       () ->
@@ -333,12 +333,12 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
         .collect(Collectors.toList());
   }
 
-  private Single<String> getRemoteServerInstanceName(RemoteCache remoteCache) {
+  private Single<String> getRemoteServerInstanceName(CombinedCache combinedCache) {
     if (!Strings.isNullOrEmpty(remoteBytestreamUriPrefix)) {
       return Single.just(remoteBytestreamUriPrefix);
     }
 
-    return toSingle(remoteCache::getRemoteAuthority, directExecutor())
+    return toSingle(combinedCache::getRemoteAuthority, directExecutor())
         .map(
             a -> {
               if (!Strings.isNullOrEmpty(remoteInstanceName)) {
@@ -360,8 +360,8 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
             .withWriteCachePolicy(CachePolicy.REMOTE_CACHE_ONLY);
 
     return Single.using(
-        remoteCache::retain,
-        remoteCache ->
+        combinedCache::retain,
+        combinedCache ->
             Flowable.fromIterable(files.entrySet())
                 .map(
                     entry -> {
@@ -382,18 +382,18 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
                       }
                     })
                 .collect(Collectors.toList())
-                .flatMap(paths -> queryRemoteCache(remoteCache, context, paths))
-                .flatMap(paths -> uploadLocalFiles(remoteCache, context, paths))
+                .flatMap(paths -> queryCombinedCache(combinedCache, context, paths))
+                .flatMap(paths -> uploadLocalFiles(combinedCache, context, paths))
                 .flatMap(
                     paths ->
-                        getRemoteServerInstanceName(remoteCache)
+                        getRemoteServerInstanceName(combinedCache)
                             .map(
                                 remoteServerInstanceName ->
                                     new PathConverterImpl(
                                         remoteServerInstanceName,
                                         paths,
                                         remoteBuildEventUploadMode))),
-        RemoteCache::release);
+        CombinedCache::release);
   }
 
   @Override
@@ -411,7 +411,7 @@ class ByteStreamBuildEventArtifactUploader extends AbstractReferenceCounted
     if (shutdown.getAndSet(true)) {
       return;
     }
-    remoteCache.release();
+    combinedCache.release();
   }
 
   @Override

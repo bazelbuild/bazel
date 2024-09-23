@@ -70,17 +70,17 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
- * A cache for storing artifacts (input and output) as well as the output of running an action.
+ * Provides unified access to a disk cache, remote cache, or both.
  *
  * <p>The cache is reference counted. Initially, the reference count is 1. Use {@link #retain()} to
  * increase and {@link #release()} to decrease the reference count respectively. Once the reference
- * count is reached to 0, the underlying resources will be released (after network I/Os finished).
+ * count is reached to 0, the underlying resources will be released (after pending I/O is finished).
  *
- * <p>Use {@link #awaitTermination()} to wait for the underlying network I/Os to finish. Use {@link
- * #shutdownNow()} to cancel all active network I/Os and reject new requests.
+ * <p>Use {@link #awaitTermination()} to wait for pending I/O to finish. Use {@link #shutdownNow()}
+ * to cancel all pending I/O and reject new requests.
  */
 @ThreadSafety.ThreadSafe
-public class RemoteCache extends AbstractReferenceCounted {
+public class CombinedCache extends AbstractReferenceCounted {
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
   private static final ListenableFuture<Void> COMPLETED_SUCCESS = immediateFuture(null);
@@ -98,7 +98,7 @@ public class RemoteCache extends AbstractReferenceCounted {
   protected final RemoteOptions options;
   protected final DigestUtil digestUtil;
 
-  public RemoteCache(
+  public CombinedCache(
       @Nullable RemoteCacheClient remoteCacheClient,
       @Nullable DiskCacheClient diskCacheClient,
       RemoteOptions options,
@@ -686,13 +686,13 @@ public class RemoteCache extends AbstractReferenceCounted {
   }
 
   @Override
-  public RemoteCache touch(Object o) {
+  public CombinedCache touch(Object o) {
     return this;
   }
 
   @CanIgnoreReturnValue
   @Override
-  public RemoteCache retain() {
+  public CombinedCache retain() {
     super.retain();
     return this;
   }

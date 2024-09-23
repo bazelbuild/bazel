@@ -31,15 +31,15 @@ import java.net.URI;
 import java.util.concurrent.ExecutorService;
 import javax.annotation.Nullable;
 
-/**
- * A factory class for providing a {@link RemoteCacheClient}. Currently implemented for HTTP and
- * disk caching.
- */
-public final class RemoteCacheClientFactory {
+/** A factory class for providing a {@link CombinedCacheClient}. */
+public final class CombinedCacheClientFactory {
 
-  private RemoteCacheClientFactory() {}
+  private CombinedCacheClientFactory() {}
 
-  /** A record that hold both a {@link RemoteCacheClient} and {@link DiskCacheClient}. */
+  /**
+   * A record holding a {@link DiskCacheClient} and {@link RemoteCacheClient} pair. Either may be
+   * absent.
+   */
   public record CombinedCacheClient(
       @Nullable RemoteCacheClient remoteCacheClient, @Nullable DiskCacheClient diskCacheClient) {}
 

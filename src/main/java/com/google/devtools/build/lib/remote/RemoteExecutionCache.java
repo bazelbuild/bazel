@@ -64,8 +64,8 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
-/** A {@link RemoteCache} with additional functionality needed for remote execution. */
-public class RemoteExecutionCache extends RemoteCache {
+/** A {@link CombinedCache} with additional functionality needed for remote execution. */
+public class RemoteExecutionCache extends CombinedCache {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 

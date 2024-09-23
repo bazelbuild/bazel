@@ -242,7 +242,7 @@ final class RemoteSpawnCache implements SpawnCache {
           }
 
           if (options.experimentalGuardAgainstConcurrentChanges) {
-            try (SilentCloseable c = prof.profile("RemoteCache.checkForConcurrentModifications")) {
+            try (SilentCloseable c = prof.profile("checkForConcurrentModifications")) {
               checkForConcurrentModifications();
             } catch (IOException | ForbiddenActionInputException e) {
               String msg =

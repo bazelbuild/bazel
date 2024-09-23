@@ -260,7 +260,10 @@ public final class RemoteModuleTest {
       // Retrieve the execution capabilities so that the asynchronous task that eagerly requests
       // them doesn't leak and accidentally interfere with other test cases.
       ProtoTruth.assertThat(
-              remoteModule.getActionContextProvider().getRemoteCache().getRemoteCacheCapabilities())
+              remoteModule
+                  .getActionContextProvider()
+                  .getCombinedCache()
+                  .getRemoteCacheCapabilities())
           .isEqualTo(EXEC_AND_CACHE_CAPS.getCacheCapabilities());
 
       assertCircuitBreakerInstance();
@@ -286,7 +289,10 @@ public final class RemoteModuleTest {
       beforeCommand();
 
       assertThat(
-              remoteModule.getActionContextProvider().getRemoteCache().getRemoteCacheCapabilities())
+              remoteModule
+                  .getActionContextProvider()
+                  .getCombinedCache()
+                  .getRemoteCacheCapabilities())
           .isEqualTo(EXEC_AND_CACHE_CAPS.getCacheCapabilities());
       assertThat(
               remoteModule
@@ -315,7 +321,10 @@ public final class RemoteModuleTest {
       beforeCommand();
 
       assertThat(
-              remoteModule.getActionContextProvider().getRemoteCache().getRemoteCacheCapabilities())
+              remoteModule
+                  .getActionContextProvider()
+                  .getCombinedCache()
+                  .getRemoteCacheCapabilities())
           .isEqualTo(CACHE_ONLY_CAPS.getCacheCapabilities());
       assertThat(Thread.interrupted()).isFalse();
       assertThat(cacheServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);
@@ -344,7 +353,10 @@ public final class RemoteModuleTest {
       beforeCommand();
 
       assertThat(
-              remoteModule.getActionContextProvider().getRemoteCache().getRemoteCacheCapabilities())
+              remoteModule
+                  .getActionContextProvider()
+                  .getCombinedCache()
+                  .getRemoteCacheCapabilities())
           .isEqualTo(EXEC_AND_CACHE_CAPS.getCacheCapabilities());
       assertThat(
               remoteModule
@@ -383,7 +395,10 @@ public final class RemoteModuleTest {
       beforeCommand();
 
       assertThat(
-              remoteModule.getActionContextProvider().getRemoteCache().getRemoteCacheCapabilities())
+              remoteModule
+                  .getActionContextProvider()
+                  .getCombinedCache()
+                  .getRemoteCacheCapabilities())
           .isEqualTo(CACHE_ONLY_CAPS.getCacheCapabilities());
       assertThat(
               remoteModule
@@ -446,8 +461,8 @@ public final class RemoteModuleTest {
       assertThat(Thread.interrupted()).isFalse();
       RemoteActionContextProvider actionContextProvider = remoteModule.getActionContextProvider();
       assertThat(actionContextProvider).isNotNull();
-      assertThat(actionContextProvider.getRemoteCache()).isNotNull();
-      assertThat(actionContextProvider.getRemoteCache().getRemoteCacheCapabilities())
+      assertThat(actionContextProvider.getCombinedCache()).isNotNull();
+      assertThat(actionContextProvider.getCombinedCache().getRemoteCacheCapabilities())
           .isEqualTo(CACHE_ONLY_CAPS.getCacheCapabilities());
     } finally {
       cacheServer.shutdownNow();
@@ -470,8 +485,8 @@ public final class RemoteModuleTest {
       assertThat(Thread.interrupted()).isFalse();
       RemoteActionContextProvider actionContextProvider = remoteModule.getActionContextProvider();
       assertThat(actionContextProvider).isNotNull();
-      assertThat(actionContextProvider.getRemoteCache()).isNotNull();
-      assertThat(actionContextProvider.getRemoteCache().getRemoteCacheCapabilities())
+      assertThat(actionContextProvider.getCombinedCache()).isNotNull();
+      assertThat(actionContextProvider.getCombinedCache().getRemoteCacheCapabilities())
           .isEqualTo(EXEC_AND_CACHE_CAPS.getCacheCapabilities());
     } finally {
       executionServer.shutdownNow();
@@ -521,7 +536,10 @@ public final class RemoteModuleTest {
       beforeCommand();
 
       assertThat(
-              remoteModule.getActionContextProvider().getRemoteCache().getRemoteCacheCapabilities())
+              remoteModule
+                  .getActionContextProvider()
+                  .getCombinedCache()
+                  .getRemoteCacheCapabilities())
           .isEqualTo(CACHE_ONLY_CAPS.getCacheCapabilities());
       assertThat(Thread.interrupted()).isFalse();
       assertThat(cacheServerCapabilitiesImpl.getRequestCount()).isEqualTo(1);
@@ -558,9 +576,9 @@ public final class RemoteModuleTest {
     assertThat(actionContextProvider).isNotNull();
 
     Retrier.CircuitBreaker circuitBreaker;
-    if (actionContextProvider.getRemoteCache() != null) {
+    if (actionContextProvider.getCombinedCache() != null) {
       circuitBreaker =
-          ((GrpcCacheClient) actionContextProvider.getRemoteCache().remoteCacheClient)
+          ((GrpcCacheClient) actionContextProvider.getCombinedCache().remoteCacheClient)
               .getRetrier()
               .getCircuitBreaker();
     } else if (actionContextProvider.getRemoteExecutionClient() != null) {

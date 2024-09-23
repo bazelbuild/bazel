@@ -21,7 +21,7 @@ import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.Futures.transform;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
-import static com.google.devtools.build.lib.remote.RemoteCache.createFailureDetail;
+import static com.google.devtools.build.lib.remote.CombinedCache.createFailureDetail;
 import static com.google.devtools.build.lib.remote.util.Utils.getFromFuture;
 import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputPath;
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
@@ -85,7 +85,7 @@ import com.google.devtools.build.lib.exec.local.LocalEnvProvider;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.profiler.SilentCloseable;
-import com.google.devtools.build.lib.remote.RemoteCache.CachedActionResult;
+import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.DirectoryMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.FileMetadata;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.ActionResultMetadata.SymlinkMetadata;
@@ -179,7 +179,7 @@ public class RemoteExecutionService {
   private final String commandId;
   private final DigestUtil digestUtil;
   private final RemoteOptions remoteOptions;
-  @Nullable private final RemoteCache remoteCache;
+  @Nullable private final CombinedCache combinedCache;
   @Nullable private final RemoteExecutionClient remoteExecutor;
   private final TempPathGenerator tempPathGenerator;
   @Nullable private final Path captureCorruptedOutputsDir;
@@ -210,7 +210,7 @@ public class RemoteExecutionService {
       String commandId,
       DigestUtil digestUtil,
       RemoteOptions remoteOptions,
-      @Nullable RemoteCache remoteCache,
+      @Nullable CombinedCache combinedCache,
       @Nullable RemoteExecutionClient remoteExecutor,
       TempPathGenerator tempPathGenerator,
       @Nullable Path captureCorruptedOutputsDir,
@@ -225,7 +225,7 @@ public class RemoteExecutionService {
     this.commandId = commandId;
     this.digestUtil = digestUtil;
     this.remoteOptions = remoteOptions;
-    this.remoteCache = remoteCache;
+    this.combinedCache = combinedCache;
     this.remoteExecutor = remoteExecutor;
 
     Caffeine<Object, Object> merkleTreeCacheBuilder = Caffeine.newBuilder().softValues();
@@ -302,15 +302,15 @@ public class RemoteExecutionService {
   }
 
   private boolean useRemoteCache() {
-    return remoteCache != null && remoteCache.hasRemoteCache();
+    return combinedCache != null && combinedCache.hasRemoteCache();
   }
 
   private boolean useDiskCache() {
-    return remoteCache != null && remoteCache.hasDiskCache();
+    return combinedCache != null && combinedCache.hasDiskCache();
   }
 
   public CachePolicy getReadCachePolicy(Spawn spawn) {
-    if (remoteCache == null) {
+    if (combinedCache == null) {
       return CachePolicy.NO_CACHE;
     }
 
@@ -322,14 +322,14 @@ public class RemoteExecutionService {
   }
 
   public CachePolicy getWriteCachePolicy(Spawn spawn) {
-    if (remoteCache == null) {
+    if (combinedCache == null) {
       return CachePolicy.NO_CACHE;
     }
 
     boolean allowRemoteCache =
         useRemoteCache()
             && shouldUploadLocalResultsToRemoteCache(remoteOptions, spawn.getExecutionInfo())
-            && remoteCache.remoteActionCacheSupportsUpdate();
+            && combinedCache.remoteActionCacheSupportsUpdate();
     boolean allowDiskCache = useDiskCache() && Spawns.mayBeCached(spawn);
 
     return CachePolicy.create(allowRemoteCache, allowDiskCache);
@@ -337,7 +337,7 @@ public class RemoteExecutionService {
 
   /** Returns {@code true} if the spawn may be executed remotely. */
   public boolean mayBeExecutedRemotely(Spawn spawn) {
-    return remoteCache instanceof RemoteExecutionCache
+    return combinedCache instanceof RemoteExecutionCache
         && remoteExecutor != null
         && Spawns.mayBeExecutedRemotely(spawn)
         && !isScrubbedSpawn(spawn, scrubber);
@@ -580,8 +580,8 @@ public class RemoteExecutionService {
       }
 
       ClientApiVersion.ServerSupportedStatus cacheSupportStatus = null;
-      if (remoteCache != null) {
-        var serverCapabilities = remoteCache.getRemoteServerCapabilities();
+      if (combinedCache != null) {
+        var serverCapabilities = combinedCache.getRemoteServerCapabilities();
         if (serverCapabilities != null) {
           cacheSupportStatus =
               ClientApiVersion.current.checkServerSupportedVersions(serverCapabilities);
@@ -744,7 +744,7 @@ public class RemoteExecutionService {
     }
 
     public ActionResultMetadata getOrParseActionResultMetadata(
-        RemoteCache remoteCache,
+        CombinedCache combinedCache,
         DigestUtil digestUtil,
         RemoteActionExecutionContext context,
         RemotePathResolver remotePathResolver)
@@ -753,7 +753,7 @@ public class RemoteExecutionService {
         try (SilentCloseable c = Profiler.instance().profile("Remote.parseActionResultMetadata")) {
           metadata =
               parseActionResultMetadata(
-                  remoteCache, digestUtil, context, actionResult, remotePathResolver);
+                  combinedCache, digestUtil, context, actionResult, remotePathResolver);
         }
       }
       return metadata;
@@ -847,7 +847,7 @@ public class RemoteExecutionService {
     }
 
     CachedActionResult cachedActionResult =
-        remoteCache.downloadActionResult(
+        combinedCache.downloadActionResult(
             action.getRemoteActionExecutionContext(),
             action.getActionKey(),
             /* inlineOutErr= */ false,
@@ -865,7 +865,7 @@ public class RemoteExecutionService {
     if (!knownMissingCasDigests.isEmpty()) {
       var metadata =
           result.getOrParseActionResultMetadata(
-              remoteCache,
+              combinedCache,
               digestUtil,
               action.getRemoteActionExecutionContext(),
               action.getRemotePathResolver());
@@ -912,16 +912,16 @@ public class RemoteExecutionService {
       FileMetadata file,
       Path tmpPath,
       RemotePathResolver remotePathResolver) {
-    checkNotNull(remoteCache, "remoteCache can't be null");
+    checkNotNull(combinedCache, "combinedCache can't be null");
 
     try {
       ListenableFuture<Void> future =
-          remoteCache.downloadFile(
+          combinedCache.downloadFile(
               context,
               reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(file.path())),
               tmpPath,
               file.digest(),
-              new RemoteCache.DownloadProgressReporter(
+              new CombinedCache.DownloadProgressReporter(
                   progressStatusListener,
                   reencodeInternalToExternal(remotePathResolver.localPathToOutputPath(file.path())),
                   file.digest().getSizeBytes()));
@@ -1150,13 +1150,13 @@ public class RemoteExecutionService {
   }
 
   static ActionResultMetadata parseActionResultMetadata(
-      RemoteCache remoteCache,
+      CombinedCache combinedCache,
       DigestUtil digestUtil,
       RemoteActionExecutionContext context,
       ActionResult result,
       RemotePathResolver remotePathResolver)
       throws IOException, InterruptedException {
-    checkNotNull(remoteCache, "remoteCache can't be null");
+    checkNotNull(combinedCache, "combinedCache can't be null");
 
     Map<Path, ListenableFuture<Tree>> dirMetadataDownloads =
         Maps.newHashMapWithExpectedSize(result.getOutputDirectoriesCount());
@@ -1165,7 +1165,7 @@ public class RemoteExecutionService {
       dirMetadataDownloads.put(
           remotePathResolver.outputPathToLocalPath(reencodeExternalToInternal(outputPath)),
           Futures.transformAsync(
-              remoteCache.downloadBlob(context, outputPath, dir.getTreeDigest()),
+              combinedCache.downloadBlob(context, outputPath, dir.getTreeDigest()),
               (treeBytes) ->
                   immediateFuture(Tree.parseFrom(treeBytes, ExtensionRegistry.getEmptyRegistry())),
               directExecutor()));
@@ -1246,7 +1246,7 @@ public class RemoteExecutionService {
   public InMemoryOutput downloadOutputs(RemoteAction action, RemoteActionResult result)
       throws InterruptedException, IOException, ExecException {
     checkState(!shutdown.get(), "shutdown");
-    checkNotNull(remoteCache, "remoteCache can't be null");
+    checkNotNull(combinedCache, "combinedCache can't be null");
 
     RemoteActionFileSystem remoteActionFileSystem = null;
     boolean hasBazelOutputService = outputService instanceof BazelOutputService;
@@ -1267,7 +1267,7 @@ public class RemoteExecutionService {
 
     ActionResultMetadata metadata =
         result.getOrParseActionResultMetadata(
-            remoteCache, digestUtil, context, action.getRemotePathResolver());
+            combinedCache, digestUtil, context, action.getRemotePathResolver());
 
     // The expiration time for remote cache entries.
     var expireAtEpochMilli = Instant.now().plus(remoteOptions.remoteCacheTtl).toEpochMilli();
@@ -1327,7 +1327,7 @@ public class RemoteExecutionService {
             } else {
               downloadsBuilder.add(
                   transform(
-                      remoteCache.downloadBlob(
+                      combinedCache.downloadBlob(
                           context, inMemoryOutputPath.getPathString(), file.digest()),
                       data -> {
                         inMemoryOutputData.set(ByteString.copyFrom(data));
@@ -1374,7 +1374,7 @@ public class RemoteExecutionService {
     // Always download the action stdout/stderr.
     FileOutErr tmpOutErr = outErr.childOutErr();
     List<ListenableFuture<Void>> outErrDownloads =
-        remoteCache.downloadOutErr(context, result.actionResult, tmpOutErr);
+        combinedCache.downloadOutErr(context, result.actionResult, tmpOutErr);
     for (ListenableFuture<Void> future : outErrDownloads) {
       downloadsBuilder.add(transform(future, (v) -> null, directExecutor()));
     }
@@ -1463,7 +1463,7 @@ public class RemoteExecutionService {
       // uploaded to it. Upload action result to disk cache here so next build could hit it.
       if (useDiskCache() && result.executeResponse != null) {
         getFromFuture(
-            remoteCache.uploadActionResult(
+            combinedCache.uploadActionResult(
                 context.withWriteCachePolicy(CachePolicy.DISK_CACHE_ONLY),
                 action.getActionKey(),
                 result.actionResult));
@@ -1741,7 +1741,7 @@ public class RemoteExecutionService {
 
             return UploadManifest.create(
                 remoteOptions,
-                remoteCache.getRemoteCacheCapabilities(),
+                combinedCache.getRemoteCacheCapabilities(),
                 digestUtil,
                 action.getRemotePathResolver(),
                 action.getActionKey(),
@@ -1786,14 +1786,16 @@ public class RemoteExecutionService {
     if (remoteOptions.remoteCacheAsync
         && !action.getSpawn().getResourceOwner().mayModifySpawnOutputsAfterExecution()) {
       Single.using(
-              remoteCache::retain,
-              remoteCache ->
+              combinedCache::retain,
+              combinedCache ->
                   buildUploadManifestAsync(action, spawnResult)
                       .flatMap(
                           manifest ->
                               manifest.uploadAsync(
-                                  action.getRemoteActionExecutionContext(), remoteCache, reporter)),
-              RemoteCache::release)
+                                  action.getRemoteActionExecutionContext(),
+                                  combinedCache,
+                                  reporter)),
+              CombinedCache::release)
           .subscribeOn(scheduler)
           .subscribe(
               new SingleObserver<ActionResult>() {
@@ -1826,7 +1828,8 @@ public class RemoteExecutionService {
       try (SilentCloseable c =
           Profiler.instance().profile(ProfilerTask.UPLOAD_TIME, "upload outputs")) {
         UploadManifest manifest = buildUploadManifest(action, spawnResult);
-        manifest.upload(action.getRemoteActionExecutionContext(), remoteCache, reporter);
+        var unused =
+            manifest.upload(action.getRemoteActionExecutionContext(), combinedCache, reporter);
       } catch (IOException e) {
         reportUploadError(e);
       } finally {
@@ -1856,7 +1859,7 @@ public class RemoteExecutionService {
     checkState(!shutdown.get(), "shutdown");
     checkState(mayBeExecutedRemotely(action.getSpawn()), "spawn can't be executed remotely");
 
-    RemoteExecutionCache remoteExecutionCache = (RemoteExecutionCache) remoteCache;
+    RemoteExecutionCache remoteExecutionCache = (RemoteExecutionCache) combinedCache;
     // Upload the command and all the inputs into the remote cache.
     Map<Digest, Message> additionalInputs = Maps.newHashMapWithExpectedSize(2);
     additionalInputs.put(action.getActionKey().getDigest(), action.getAction());
@@ -1946,7 +1949,7 @@ public class RemoteExecutionService {
   public ServerLogs maybeDownloadServerLogs(RemoteAction action, ExecuteResponse resp, Path logDir)
       throws InterruptedException, IOException {
     checkState(!shutdown.get(), "shutdown");
-    checkNotNull(remoteCache, "remoteCache can't be null");
+    checkNotNull(combinedCache, "combinedCache can't be null");
     ServerLogs serverLogs = new ServerLogs();
     serverLogs.directory = logDir.getRelative(action.getActionId());
 
@@ -1958,7 +1961,7 @@ public class RemoteExecutionService {
           serverLogs.lastLogPath = serverLogs.directory.getRelative(e.getKey());
           serverLogs.logCount++;
           getFromFuture(
-              remoteCache.downloadFile(
+              combinedCache.downloadFile(
                   action.getRemoteActionExecutionContext(),
                   serverLogs.lastLogPath,
                   e.getValue().getDigest()));
@@ -2000,20 +2003,20 @@ public class RemoteExecutionService {
       Thread.currentThread().interrupt();
     }
 
-    if (remoteCache != null) {
+    if (combinedCache != null) {
       try {
         backgroundTaskPhaser.awaitAdvanceInterruptibly(backgroundTaskPhaser.arrive());
       } catch (InterruptedException e) {
         buildInterrupted.set(true);
-        remoteCache.shutdownNow();
+        combinedCache.shutdownNow();
         Thread.currentThread().interrupt();
       }
 
-      // Only release the remoteCache once all background tasks have been finished. Otherwise, the
-      // last task might try to close the remoteCache inside the callback of network response which
-      // might cause deadlocks.
+      // Only release the combinedCache once all background tasks have been finished. Otherwise, the
+      // last task might try to close the combinedCache inside the callback of network response
+      // which might cause deadlocks.
       // See https://github.com/bazelbuild/bazel/issues/21568.
-      remoteCache.release();
+      combinedCache.release();
     }
 
     if (remoteExecutor != null) {

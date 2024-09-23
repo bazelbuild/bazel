@@ -93,7 +93,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.exec.util.FakeOwner;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
-import com.google.devtools.build.lib.remote.RemoteCache.CachedActionResult;
+import com.google.devtools.build.lib.remote.CombinedCache.CachedActionResult;
 import com.google.devtools.build.lib.remote.RemoteExecutionService.RemoteActionResult;
 import com.google.devtools.build.lib.remote.RemoteScrubbing.Config;
 import com.google.devtools.build.lib.remote.common.BulkTransferException;
@@ -193,7 +193,7 @@ public class RemoteExecutionServiceTest {
   private FakeActionInputFileCache fakeFileCache;
   private RemotePathResolver remotePathResolver;
   private FileOutErr outErr;
-  private InMemoryRemoteCache cache;
+  private InMemoryCombinedCache cache;
   private RemoteExecutionClient executor;
   private RemoteActionExecutionContext remoteActionExecutionContext;
 
@@ -226,7 +226,8 @@ public class RemoteExecutionServiceTest {
     checkNotNull(stderr.getParentDirectory()).createDirectoryAndParents();
     outErr = new FileOutErr(stdout, stderr);
 
-    cache = spy(new InMemoryRemoteCache(spy(new InMemoryCacheClient()), remoteOptions, digestUtil));
+    cache =
+        spy(new InMemoryCombinedCache(spy(new InMemoryCacheClient()), remoteOptions, digestUtil));
     doReturn(remoteExecutorCapabilities).when(cache).getRemoteServerCapabilities();
     executor = mock(RemoteExecutionClient.class);
     when(executor.getServerCapabilities()).thenReturn(remoteExecutorCapabilities);
