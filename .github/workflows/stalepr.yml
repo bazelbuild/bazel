@@ -20,10 +20,12 @@ jobs:
               owner,
               repo,
             });
-            const jsonString = JSON.stringify(prs);
-            console.log(jsonString);
-            console.log('typeof', typeof(prs),' : jsonString',typeof(jsonString))
-            for (const pr of prs) {
+            const jsonArray = [];
+            for (const [key, value] of Object.entries(prs)) {
+              jsonArray.push({ [key]: value });
+            }
+
+            for (const pr of jsonArray) {
               const reviews = await github.rest.pulls.listReviews({
                 owner,
                 repo,
