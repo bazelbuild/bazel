@@ -48,12 +48,7 @@ class OnDiskBlobStoreCache extends CombinedCache {
       throws IOException {
     super(
         /* remoteCacheClient= */ null,
-        new DiskCacheClient(
-            cacheDir,
-            /* maxSizeBytes= */ 0,
-            digestUtil,
-            executorService,
-            /* verifyDownloads= */ true),
+        new DiskCacheClient(cacheDir, digestUtil, executorService, /* verifyDownloads= */ true),
         options,
         digestUtil);
   }
