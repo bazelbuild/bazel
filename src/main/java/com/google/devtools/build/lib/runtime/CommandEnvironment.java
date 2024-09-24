@@ -50,6 +50,7 @@ import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository;
 import com.google.devtools.build.lib.server.FailureDetails.ExternalRepository.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.skyframe.BuildResultListener;
 import com.google.devtools.build.lib.skyframe.SkyframeBuildView;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -122,6 +123,7 @@ public class CommandEnvironment {
   private final CommandLinePathFactory commandLinePathFactory;
   private final HttpDownloader httpDownloader;
   private final DelegatingDownloader delegatingDownloader;
+  private final ImmutableList.Builder<IdleTask> idleTasks = ImmutableList.builder();
 
   private boolean mergedAnalysisAndExecution;
 
@@ -951,5 +953,19 @@ public class CommandEnvironment {
 
   public DelegatingDownloader getDownloaderDelegate() {
     return delegatingDownloader;
+  }
+
+  /**
+   * Registers a task to be executed following this command, while the server is idle.
+   *
+   * <p>See {@link IdleServerTasks} for details.
+   */
+  public void addIdleTask(IdleTask idleTask) {
+    idleTasks.add(idleTask);
+  }
+
+  /** Returns the list of registered idle tasks. */
+  public ImmutableList<IdleTask> getIdleTasks() {
+    return idleTasks.build();
   }
 }

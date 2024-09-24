@@ -15,10 +15,10 @@
 package com.google.devtools.build.lib.server;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.server.CommandProtos.CancelRequest;
-import com.google.devtools.build.lib.server.IdleServerTasks.IdleServerCleanupStrategy;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import java.util.Collections;
 import java.util.HashMap;
@@ -38,13 +38,13 @@ class CommandManager {
   private final AtomicLong interruptCounter = new AtomicLong(0);
   private final boolean doIdleServerTasks;
 
-  private IdleServerTasks idleServerTasks;
+  private IdleTaskManager idleTaskManager;
   @Nullable private final String slowInterruptMessageSuffix;
 
   CommandManager(boolean doIdleServerTasks, @Nullable String slowInterruptMessageSuffix) {
     this.doIdleServerTasks = doIdleServerTasks;
     this.slowInterruptMessageSuffix = slowInterruptMessageSuffix;
-    idle(IdleServerCleanupStrategy.DELAYED);
+    idle(ImmutableList.of(), /* stateKeptAfterBuild= */ true);
   }
 
   void preemptEligibleCommands() {
@@ -133,19 +133,19 @@ class CommandManager {
     logger.atInfo().log("Starting command %s on thread %s", command.id, command.thread.getName());
   }
 
-  private void idle(IdleServerCleanupStrategy cleanupStrategy) {
-    Preconditions.checkState(idleServerTasks == null);
+  private void idle(ImmutableList<IdleTask> idleTasks, boolean stateKeptAfterBuild) {
+    Preconditions.checkState(idleTaskManager == null);
     if (doIdleServerTasks) {
-      idleServerTasks = new IdleServerTasks();
-      idleServerTasks.idle(cleanupStrategy);
+      idleTaskManager = new IdleTaskManager(idleTasks, stateKeptAfterBuild);
+      idleTaskManager.idle();
     }
   }
 
   private void busy() {
     if (doIdleServerTasks) {
-      Preconditions.checkState(idleServerTasks != null);
-      idleServerTasks.busy();
-      idleServerTasks = null;
+      Preconditions.checkState(idleTaskManager != null);
+      idleTaskManager.busy();
+      idleTaskManager = null;
     }
   }
 
@@ -181,7 +181,8 @@ class CommandManager {
     private final Thread thread;
     private final String id;
     private final boolean preemptible;
-    private IdleServerCleanupStrategy cleanupStrategy = IdleServerCleanupStrategy.DELAYED;
+    private ImmutableList<IdleTask> idleTasks = ImmutableList.of();
+    private boolean stateKeptAfterBuild = true;
 
     private RunningCommand(boolean preemptible) {
       thread = Thread.currentThread();
@@ -194,7 +195,7 @@ class CommandManager {
       synchronized (runningCommandsMap) {
         runningCommandsMap.remove(id);
         if (runningCommandsMap.isEmpty()) {
-          idle(cleanupStrategy);
+          idle(idleTasks, stateKeptAfterBuild);
         }
         runningCommandsMap.notify();
       }
@@ -210,9 +211,10 @@ class CommandManager {
       return preemptible;
     }
 
-    /** Requests a manual GC as soon as the server becomes idle. */
-    void requestEagerIdleServerCleanup() {
-      cleanupStrategy = IdleServerCleanupStrategy.EAGER;
+    /** Record tasks to be run by {@link IdleTaskManager}. */
+    void setIdleTasks(ImmutableList<IdleTask> idleTasks, boolean stateKeptAfterBuild) {
+      this.idleTasks = idleTasks;
+      this.stateKeptAfterBuild = stateKeptAfterBuild;
     }
   }
 }
