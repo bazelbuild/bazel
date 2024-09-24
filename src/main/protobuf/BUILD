@@ -287,6 +287,11 @@ java_library_srcs(
     deps = [":bazel_output_service_java_proto"],
 )
 
+cc_proto_library(
+    name = "bazel_output_service_cc_proto",
+    deps = [":bazel_output_service_proto"],
+)
+
 proto_library(
     name = "bazel_output_service_rev2_proto",
     srcs = ["bazel_output_service_rev2.proto"],
@@ -300,15 +305,26 @@ java_proto_library(
     deps = [":bazel_output_service_rev2_proto"],
 )
 
+java_library_srcs(
+    name = "bazel_output_service_rev2_java_proto_srcs",
+    deps = [":bazel_output_service_rev2_java_proto"],
+)
+
+cc_proto_library(
+    name = "bazel_output_service_rev2_cc_proto",
+    deps = [":bazel_output_service_rev2_proto"],
+)
+
 java_grpc_library(
     name = "bazel_output_service_java_grpc",
     srcs = [":bazel_output_service_proto"],
     deps = [":bazel_output_service_java_proto"],
 )
 
-java_library_srcs(
-    name = "bazel_output_service_rev2_java_proto_srcs",
-    deps = [":bazel_output_service_rev2_java_proto"],
+cc_grpc_library(
+    name = "bazel_output_service_cc_grpc",
+    srcs = [":bazel_output_service_proto"],
+    deps = [":bazel_output_service_cc_proto"],
 )
 
 proto_library(
