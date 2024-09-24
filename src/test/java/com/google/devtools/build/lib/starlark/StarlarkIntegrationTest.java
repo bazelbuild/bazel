@@ -480,17 +480,17 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
                 "Traceback (most recent call last):",
                 "\tFile \"/workspace/test/starlark/extension.bzl\", line 6, column 6, in"
                     + " custom_rule_impl",
-                // "\t\tfoo()",
+                "\t\tfoo()",
                 "\tFile \"/workspace/test/starlark/extension.bzl\", line 9, column 6, in foo",
-                // "\t\tbar(2, 4)",
+                "\t\tbar(2, 4)",
                 "\tFile \"/workspace/test/starlark/extension.bzl\", line 11, column 8, in bar",
-                // "\t\tfirst(x, y, z)",
+                "\t\tfirst(x, y, z)",
                 "\tFile \"/workspace/test/starlark/functions.bzl\", line 2, column 9, in first",
-                // "\t\tsecond(a, b)",
+                "\t\tsecond(a, b)",
                 "\tFile \"/workspace/test/starlark/functions.bzl\", line 5, column 8, in second",
-                // "\t\tthird(\"legal\")",
+                "\t\tthird('legal')",
                 "\tFile \"/workspace/test/starlark/functions.bzl\", line 7, column 12, in third",
-                // ...
+                "\t\t" + expr.stripLeading(),
                 errorMessage);
     scratch.file(
         "test/starlark/extension.bzl",
@@ -503,9 +503,9 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
           foo()
           return [MyInfo(provider_key = ftb)]
         def foo():
-          bar(2,4)
+          bar(2, 4)
         def bar(x,y,z=1):
-          first(x,y, z)
+          first(x, y, z)
         custom_rule = rule(implementation = custom_rule_impl,
           attrs = {'attr1': attr.label_list(mandatory=True, allow_files=True)})
         """);

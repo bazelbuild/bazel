@@ -871,6 +871,7 @@ my_rule = rule(
             + "//test:aspect.bzl%MyAspect aspect on java_library rule //test:xxx: \n"
             + "Traceback (most recent call last):\n"
             + "\tFile \"/workspace/test/aspect.bzl\", line 2, column 13, in _impl\n"
+            + "\t\treturn 1 // 0\n"
             + "Error: integer division by zero");
   }
 

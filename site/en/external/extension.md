@@ -174,6 +174,63 @@ several repo visibility rules:
         the repo visible to the module instead of the extension-generated repo
         of the same name.
 
+### Overriding and injecting module extension repos
+
+The root module can use
+[`override_repo`](/rules/lib/globals/module#override_repo) and
+[`inject_repo`](/rules/lib/globals/module#inject_repo) to override or inject
+module extension repos.
+
+#### Example: Replacing `rules_java`'s `java_tools` with a vendored copy
+
+```python
+# MODULE.bazel
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+local_repository(
+  name = "my_java_tools",
+  path = "vendor/java_tools",
+)
+
+bazel_dep(name = "rules_java", version = "7.11.1")
+java_toolchains = use_extension("@rules_java//java:extension.bzl", "toolchains")
+
+override_repo(java_toolchains, remote_java_tools = "my_java_tools")
+```
+
+#### Example: Patch a Go dependency to depend on `@zlib` instead of the system zlib
+
+```python
+# MODULE.bazel
+bazel_dep(name = "gazelle", version = "0.38.0")
+bazel_dep(name = "zlib", version = "1.3.1.bcr.3")
+
+go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
+go_deps.from_file(go_mod = "//:go.mod")
+go_deps.module_override(
+  patches = [
+    "//patches:my_module_zlib.patch",
+  ],
+  path = "example.com/my_module",
+)
+use_repo(go_deps, ...)
+
+inject_repo(go_deps, "zlib")
+```
+
+```diff
+# patches/my_module_zlib.patch
+--- a/BUILD.bazel
++++ b/BUILD.bazel
+@@ -1,6 +1,6 @@
+ go_binary(
+     name = "my_module",
+     importpath = "example.com/my_module",
+     srcs = ["my_module.go"],
+-    copts = ["-lz"],
++    cdeps = ["@zlib"],
+ )
+```
+
 ## Best practices
 
 This section describes best practices when writing extensions so they are

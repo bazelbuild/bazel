@@ -776,6 +776,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext1")
                         .setIsolationKey(Optional.empty())
+                        .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -806,6 +807,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext2")
                         .setIsolationKey(Optional.empty())
+                        .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -850,6 +852,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@rules_jvm_external//:defs.bzl")
                         .setExtensionName("maven")
                         .setIsolationKey(Optional.empty())
+                        .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -927,6 +930,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@//:defs.bzl")
                         .setExtensionName("myext")
                         .setIsolationKey(Optional.empty())
+                        .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -1058,6 +1062,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("@mymod//:defs.bzl")
                         .setExtensionName("myext")
                         .setIsolationKey(Optional.empty())
+                        .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -1177,6 +1182,7 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
                         .setExtensionBzlFile("//:MODULE.bazel")
                         .setExtensionName("_repo_rules")
                         .setIsolationKey(Optional.empty())
+                        .setRepoOverrides(ImmutableMap.of())
                         .addProxy(
                             ModuleExtensionUsage.Proxy.builder()
                                 .setLocation(
@@ -1704,5 +1710,175 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         "Error in use_extension: invalid label \"@foo/bar:extensions.bzl\": invalid repository"
             + " name 'foo/bar:extensions.bzl': repo names may contain only A-Z, a-z, 0-9, '-',"
             + " '_', '.' and '+'");
+  }
+
+  @Test
+  public void testOverrideRepo_overridingRepoDoesntExist() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        ext = use_extension('//:defs.bzl', 'ext')
+        override_repo(ext, 'foo')
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:3:14: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 3, column 14, in <toplevel>
+        \t\toverride_repo(ext, 'foo')
+        Error in override_repo: The repo exported as 'foo' by module extension 'ext' is \
+        overridden with 'foo', but no repo is visible under this name""");
+  }
+
+  @Test
+  public void testOverrideRepo_duplicateOverride() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        bazel_dep(name = "override1", version = "1.0")
+        bazel_dep(name = "override2", version = "1.0")
+        ext = use_extension('//:defs.bzl', 'ext')
+        override_repo(ext, foo = "override1")
+        override_repo(ext, foo = "override2")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:6:14: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 6, column 14, in <toplevel>
+        \t\toverride_repo(ext, foo = "override2")
+        Error in override_repo: The repo exported as 'foo' by module extension 'ext' is already \
+        overridden with 'override1' at /workspace/MODULE.bazel:5:14""");
+  }
+
+  @Test
+  public void testOverrideRepo_chain_singleExtension() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        bazel_dep(name = "override", version = "1.0")
+        ext = use_extension('//:defs.bzl', 'ext')
+        use_repo(ext, bar = "foo")
+        override_repo(ext, baz = "bar")
+        override_repo(ext, foo = "override")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
+        \t\toverride_repo(ext, baz = "bar")
+        Error in override_repo: The repo 'bar' used as an override for 'baz' in module extension \
+        'ext' is itself overridden with 'override' at /workspace/MODULE.bazel:6:14, which is not \
+        supported.""");
+  }
+
+  @Test
+  public void testOverrideRepo_chain_multipleExtensions() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        bazel_dep(name = "override", version = "1.0")
+        ext1 = use_extension('//:defs.bzl', 'ext1')
+        ext2 = use_extension('//:defs.bzl', 'ext2')
+        override_repo(ext1, baz = "bar")
+        override_repo(ext2, foo = "override")
+        use_repo(ext2, bar = "foo")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
+        \t\toverride_repo(ext1, baz = "bar")
+        Error in override_repo: The repo 'bar' used as an override for 'baz' in module extension \
+        'ext1' is itself overridden with 'override' at /workspace/MODULE.bazel:6:14, which is not \
+        supported.""");
+  }
+
+  @Test
+  public void testOverrideRepo_cycle_singleExtension() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        bazel_dep(name = "override", version = "1.0")
+        ext = use_extension('//:defs.bzl', 'ext')
+        use_repo(ext, my_foo = "foo", my_bar = "bar")
+        override_repo(ext, foo = "my_bar", bar = "my_foo")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
+        \t\toverride_repo(ext, foo = "my_bar", bar = "my_foo")
+        Error in override_repo: The repo 'my_foo' used as an override for 'bar' in module \
+        extension 'ext' is itself overridden with 'my_bar' at /workspace/MODULE.bazel:5:14, which \
+        is not supported.""");
+  }
+
+  @Test
+  public void testOverrideRepo_cycle_multipleExtensions() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        ext1 = use_extension('//:defs.bzl', 'ext1')
+        ext2 = use_extension('//:defs.bzl', 'ext2')
+        override_repo(ext1, foo = "my_bar")
+        override_repo(ext2, bar = "my_foo")
+        use_repo(ext1, my_foo = "foo")
+        use_repo(ext2, my_bar = "bar")
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:5:14: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 5, column 14, in <toplevel>
+        \t\toverride_repo(ext2, bar = "my_foo")
+        Error in override_repo: The repo 'my_foo' used as an override for 'bar' in module \
+        extension 'ext2' is itself overridden with 'my_bar' at /workspace/MODULE.bazel:4:14, \
+        which is not supported.""");
   }
 }
