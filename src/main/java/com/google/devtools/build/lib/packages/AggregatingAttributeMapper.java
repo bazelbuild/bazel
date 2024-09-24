@@ -159,6 +159,8 @@ public class AggregatingAttributeMapper extends AbstractAttributeMapper {
     }
     if (rawVal instanceof Attribute.LateBoundDefault) {
       rawVal = ((Attribute.LateBoundDefault<?, ?>) rawVal).getDefault(rule);
+    } else if (rawVal instanceof MaterializingDefault) {
+      rawVal = ((MaterializingDefault<?, ?>) rawVal).getDefault();
     }
     if (rawVal == null || ((rawVal instanceof Collection) && ((Collection<?>) rawVal).isEmpty())) {
       return;

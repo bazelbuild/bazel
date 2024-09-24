@@ -334,7 +334,6 @@ java_library(
         ":starlark/starlark_api_provider",
         ":starlark/starlark_exec_group_collection",
         ":starlark/starlark_late_bound_default",
-        ":starlark/starlark_materializing_late_bound_default",
         ":starlark/starlark_toolchain_context",
         ":starlark/starlark_transition",
         ":starlark/template_dict",
@@ -2614,24 +2613,10 @@ java_library(
     srcs = ["DormantDependency.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
-    ],
-)
-
-java_library(
-    name = "starlark/starlark_materializing_late_bound_default",
-    srcs = ["starlark/StarlarkMaterializingLateBoundDefault.java"],
-    deps = [
-        ":dormant_dependency",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
-        "//src/main/java/net/starlark/java/eval",
         "//third_party:error_prone_annotations",
-        "//third_party:guava",
-        "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
     ],
 )
@@ -2642,7 +2627,6 @@ java_library(
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis/starlark/annotations",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/main/java/com/google/devtools/build/lib/starlarkbuildapi",
         "//src/main/java/net/starlark/java/annot",

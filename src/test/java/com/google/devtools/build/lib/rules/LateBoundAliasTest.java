@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.Label;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.LabelLateBoundDefault;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.Rule;
@@ -51,12 +50,7 @@ public class LateBoundAliasTest extends BuildViewTestCase {
     }
 
     @Override
-    public Label resolve(
-        Rule rule,
-        AttributeMap attributes,
-        TestFragment input,
-        Object analysisContext,
-        EventHandler eventHandler) {
+    public Label resolve(Rule rule, AttributeMap attributes, TestFragment input) {
       return null;
     }
   }

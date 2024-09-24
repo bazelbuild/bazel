@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.packages.AttributeValueSource;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.BzlInitThreadContext;
 import com.google.devtools.build.lib.packages.LabelConverter;
+import com.google.devtools.build.lib.packages.MaterializingDefault;
 import com.google.devtools.build.lib.packages.Provider;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.StarlarkAspect;
@@ -205,7 +206,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   }
 
   private static class StarlarkMaterializer<ValueT>
-      implements StarlarkMaterializingLateBoundDefault.Resolver<
+      implements MaterializingDefault.Resolver<
           ValueT, ImmutableMap<String, ? extends TransitiveInfoCollection>> {
     private final Type<ValueT> type;
     private final StarlarkSemantics semantics;
@@ -338,12 +339,10 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
       }
 
       // This method doesn't have a type parameter so we can't supply one to
-      // StarlarkMaterializingLateBoundDefault, either.
+      // MaterializingDefault, either.
       StarlarkMaterializer starlarkMaterializer =
           new StarlarkMaterializer(type, thread.getSemantics(), (StarlarkFunction) materializer);
-      builder.value(
-          new StarlarkMaterializingLateBoundDefault(
-              type, ImmutableMap.class, starlarkMaterializer));
+      builder.value(new MaterializingDefault(type, ImmutableMap.class, starlarkMaterializer));
     } else if (!Starlark.isNullOrNone(defaultValue)) {
       if (defaultValue instanceof StarlarkFunction) {
         // Computed attribute. Non label type attributes already caused a type check error.
@@ -471,7 +470,7 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
             "late-bound attributes must not have a split configuration transition");
       }
 
-      if (isSplit && defaultValue instanceof StarlarkMaterializingLateBoundDefault<?, ?>) {
+      if (isSplit && defaultValue instanceof MaterializingDefault<?, ?>) {
         throw Starlark.errorf(
             "materializing attributes must not have a split configuration transition");
       }

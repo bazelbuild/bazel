@@ -2283,7 +2283,8 @@ public class RuleClass implements RuleClassData {
 
       } else if (attr.isLateBound()) {
         rule.setAttributeValue(attr, attr.getLateBoundDefault(), /* explicit= */ false);
-
+      } else if (attr.isMaterializing()) {
+        rule.setAttributeValue(attr, attr.getMaterializer(), false);
       } else if (attr.getName().equals(APPLICABLE_METADATA_ATTR)
           && attr.getType() == BuildType.LABEL_LIST) {
         // The check here is preventing against a corner case where the license()/package_info()

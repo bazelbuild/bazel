@@ -775,8 +775,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
         dormantAttributes.add(name);
       }
 
-      if (attr.isLateBound()
-          && attr.getLateBoundDefault() instanceof StarlarkMaterializingLateBoundDefault<?, ?>) {
+      if (attr.isMaterializing()) {
         hasMaterializers = true;
       }
 
@@ -1167,8 +1166,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             nativeName);
       }
 
-      if (attribute.isLateBound()
-          && attribute.getLateBoundDefault() instanceof StarlarkMaterializingLateBoundDefault) {
+      if (attribute.isMaterializing()) {
         throw Starlark.errorf(
             "attribute '%s' has a materializer, which is not allowed on aspects", nativeName);
       }
@@ -1180,7 +1178,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
             attribute.getPublicName());
       }
 
-      if (!Attribute.isImplicit(nativeName) && !Attribute.isLateBound(nativeName)) {
+      if (!Attribute.isImplicit(nativeName) && !Attribute.isAnalysisDependent(nativeName)) {
         if (attribute.getType() == Type.STRING) {
           // isValueSet() is always true for attr.string as default value is "" by default.
           hasDefault = !Objects.equals(attribute.getDefaultValue(null), "");

@@ -24,13 +24,13 @@ import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.analysis.DependencyKind;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionCollector;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkMaterializingLateBoundDefault;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.ImmutableSortedKeyListMultimap;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
+import com.google.devtools.build.lib.packages.MaterializingDefault;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
@@ -147,31 +147,25 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
       return null;
     }
 
-    if (!kind.getAttribute().isLateBound()) {
+    if (!kind.getAttribute().isMaterializing()) {
       return null;
     }
 
-    if (!(kind.getAttribute().getLateBoundDefault()
-        instanceof StarlarkMaterializingLateBoundDefault)) {
-      return null;
-    }
-
-    // By this point, we know the attribute is a materializer. Compute the attributes available to
+    // By this point, we know the attribute is a materializingDefault. Compute the attributes
+    // available to
     // it...
     ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> attrs = createMaterializerMap();
     ImmutableMap<String, Object> prerequisitesForMaterializer =
         computePrerequisitesForMaterializer(parameters.associatedRule(), attrs);
 
     // ...then invoke the function,
-    StarlarkMaterializingLateBoundDefault materializer =
-        (StarlarkMaterializingLateBoundDefault) kind.getAttribute().getLateBoundDefault();
+    MaterializingDefault materializingDefault = kind.getAttribute().getMaterializer();
     Object materializerResult;
     try {
       materializerResult =
-          materializer.resolve(
+          materializingDefault.resolve(
               parameters.associatedRule(),
               parameters.attributeMap(),
-              null,
               prerequisitesForMaterializer,
               parameters.eventHandler());
     } catch (EvalException e) {
@@ -191,7 +185,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     } else if (kind.getAttribute().getType() == BuildType.LABEL_LIST) {
       return ImmutableList.copyOf(BuildType.LABEL_LIST.cast(materializerResult));
     } else {
-      throw new IllegalStateException("bad value returned from materializer");
+      throw new IllegalStateException("bad value returned from materializingDefault");
     }
   }
 
@@ -321,6 +315,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     sink.acceptTransition(kind, label, transition);
   }
 
+  @SuppressWarnings("MultimapKeys")
   private ImmutableSortedKeyListMultimap<String, ConfiguredTargetAndData> createMaterializerMap() {
     var result = ImmutableSortedKeyListMultimap.<String, ConfiguredTargetAndData>builder();
     int i = 0;
@@ -346,6 +341,7 @@ public final class DependencyMapProducer implements StateMachine, DependencyProd
     return result.build();
   }
 
+  @SuppressWarnings("MultimapKeys")
   private StateMachine buildAndEmitResult(Tasks tasks) {
     if (lastError != null || parameters.transitiveState().hasRootCause()) {
       return DONE; // There was an error.

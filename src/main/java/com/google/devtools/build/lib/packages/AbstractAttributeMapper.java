@@ -63,6 +63,8 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
       value = ((Attribute.ComputedDefault) value).getDefault(this);
     } else if (value instanceof Attribute.LateBoundDefault) {
       value = ((Attribute.LateBoundDefault<?, ?>) value).getDefault(rule);
+    } else if (value instanceof MaterializingDefault) {
+      value = ((MaterializingDefault<?, ?>) value).getDefault();
     } else if (value instanceof SelectorList) {
       throw new IllegalArgumentException(
           String.format(
@@ -106,6 +108,17 @@ public abstract class AbstractAttributeMapper implements AttributeMap {
     Object value = rule.getAttr(attributeName, type);
     if (value instanceof Attribute.LateBoundDefault) {
       return (Attribute.LateBoundDefault<?, T>) value;
+    } else {
+      return null;
+    }
+  }
+
+  @Nullable
+  @SuppressWarnings("unchecked")
+  public <T> MaterializingDefault<?, T> getMaterializer(String attributeName, Type<T> type) {
+    Object value = rule.getAttr(attributeName, type);
+    if (value instanceof MaterializingDefault<?, ?>) {
+      return (MaterializingDefault<?, T>) value;
     } else {
       return null;
     }

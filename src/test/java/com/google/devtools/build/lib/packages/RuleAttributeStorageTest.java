@@ -22,7 +22,6 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.analysis.util.MockRule;
 import com.google.devtools.build.lib.analysis.util.MockRuleDefaults;
-import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.packages.Attribute.ComputedDefault;
 import com.google.devtools.build.lib.packages.Attribute.LateBoundDefault;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
@@ -94,11 +93,7 @@ public final class RuleAttributeStorageTest extends BuildViewTestCase {
                                     new LateBoundDefault<>(Void.class, (rule) -> "late_bound") {
                                       @Override
                                       public String resolve(
-                                          Rule rule,
-                                          AttributeMap attributes,
-                                          Void input,
-                                          Object analysisContext,
-                                          EventHandler eventHandler) {
+                                          Rule rule, AttributeMap attributes, Void input) {
                                         return "late_bound";
                                       }
                                     });
