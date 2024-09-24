@@ -167,7 +167,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
    * <p>This field is null if name conflict checking is disabled. It is also null after the package
    * is built. The content of the map is manipulated only in {@link #checkRuleAndOutputs}.
    */
-  @Nullable protected Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
+  @Nullable private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
 
   protected TargetRegistrationEnvironment(RepositoryMapping mainRepositoryMapping) {
     super(mainRepositoryMapping);

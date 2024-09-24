@@ -2092,14 +2092,10 @@ public class Package {
         return pkg;
       }
 
-      // Freeze targets and distributions.
+      // Freeze rules, compacting their attributes' representations.
       for (Rule rule : getRules()) {
         rule.freeze();
       }
-      ruleLabels = null;
-      rulesCreatedInMacros = null;
-      outputFilePrefixes = null;
-      targets = Maps.unmodifiableBiMap(targets);
 
       // Now all targets have been loaded, so we validate the group's member environments.
       for (EnvironmentGroup envGroup : ImmutableSet.copyOf(environmentGroups.values())) {
