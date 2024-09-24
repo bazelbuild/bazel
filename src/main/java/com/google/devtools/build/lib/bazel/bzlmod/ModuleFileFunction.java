@@ -20,14 +20,17 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.github.difflib.patch.PatchFailedException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.CompiledModuleFile.IncludeStatement;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.NonRootModuleFileValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileValue.RootModuleFileValue;
+import com.google.devtools.build.lib.bazel.repository.PatchUtil;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum.MissingChecksumException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -50,11 +53,13 @@ import com.google.devtools.build.lib.skyframe.PackageLookupFunction;
 import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
+import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
+import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -613,11 +618,15 @@ public class ModuleFileFunction implements SkyFunction {
     StoredEventHandler downloadEventHandler = new StoredEventHandler();
     for (Registry registry : registryObjects) {
       try {
-        Optional<ModuleFile> moduleFile = registry.getModuleFile(key, downloadEventHandler);
-        if (moduleFile.isEmpty()) {
+        Optional<ModuleFile> maybeModuleFile = registry.getModuleFile(key, downloadEventHandler);
+        if (maybeModuleFile.isEmpty()) {
           continue;
         }
-        return new GetModuleFileResult(moduleFile.get(), registry, downloadEventHandler);
+        ModuleFile moduleFile = maybePatchModuleFile(maybeModuleFile.get(), override, env);
+        if (moduleFile == null) {
+          return null;
+        }
+        return new GetModuleFileResult(moduleFile, registry, downloadEventHandler);
       } catch (MissingChecksumException e) {
         throw new ModuleFileFunctionException(
             ExternalDepsException.withCause(Code.BAD_LOCKFILE, e));
@@ -628,6 +637,114 @@ public class ModuleFileFunction implements SkyFunction {
     }
 
     throw errorf(Code.MODULE_NOT_FOUND, "module not found in registries: %s", key);
+  }
+
+  /**
+   * Applies any patches specified in registry overrides.
+   *
+   * <p>This allows users to modify MODULE.bazel files and thus influence resolution and visibility
+   * for modules via patches without having to replace the entire module via a non-registry
+   * override.
+   *
+   * <p>Note: Only patch files from the main repo are applied, all other patches are ignored. This
+   * is necessary as we can't load other repos during resolution (unless they are subject to a
+   * non-registry override). Patch commands are also not supported as they cannot be selectively
+   * applied to the module file only.
+   */
+  @Nullable
+  private ModuleFile maybePatchModuleFile(
+      ModuleFile moduleFile, ModuleOverride override, Environment env)
+      throws InterruptedException, ModuleFileFunctionException {
+    if (!(override instanceof SingleVersionOverride singleVersionOverride)) {
+      return moduleFile;
+    }
+    var patchesInMainRepo =
+        singleVersionOverride.getPatches().stream()
+            .filter(label -> label.getRepository().isMain())
+            .collect(toImmutableList());
+    if (patchesInMainRepo.isEmpty()) {
+      return moduleFile;
+    }
+
+    // Get the patch paths.
+    var patchPackageLookupKeys =
+        patchesInMainRepo.stream()
+            .map(Label::getPackageIdentifier)
+            .map(pkg -> (SkyKey) PackageLookupValue.key(pkg))
+            .collect(toImmutableList());
+    var patchPackageLookupResult = env.getValuesAndExceptions(patchPackageLookupKeys);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    List<RootedPath> patchPaths = new ArrayList<>();
+    for (int i = 0; i < patchesInMainRepo.size(); i++) {
+      var pkgLookupValue =
+          (PackageLookupValue) patchPackageLookupResult.get(patchPackageLookupKeys.get(i));
+      if (pkgLookupValue == null) {
+        return null;
+      }
+      if (!pkgLookupValue.packageExists()) {
+        Label label = patchesInMainRepo.get(i);
+        throw errorf(
+            Code.BAD_MODULE,
+            "unable to load package for single_version_override patch %s: %s",
+            label,
+            PackageLookupFunction.explainNoBuildFileValue(label.getPackageIdentifier(), env));
+      }
+      patchPaths.add(
+          RootedPath.toRootedPath(
+              pkgLookupValue.getRoot(), patchesInMainRepo.get(i).toPathFragment()));
+    }
+
+    // Register dependencies on the patch files and ensure that they exist.
+    var fileKeys = Iterables.transform(patchPaths, FileValue::key);
+    var fileValueResult = env.getValuesAndExceptions(fileKeys);
+    if (env.valuesMissing()) {
+      return null;
+    }
+    for (var key : fileKeys) {
+      var fileValue = (FileValue) fileValueResult.get(key);
+      if (fileValue == null) {
+        return null;
+      }
+      if (!fileValue.isFile()) {
+        throw errorf(
+            Code.BAD_MODULE,
+            "error reading single_version_override patch %s: not a regular file",
+            key.argument());
+      }
+    }
+
+    // Apply the patches to the module file only.
+    InMemoryFileSystem patchFs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    try {
+      Path moduleRoot = patchFs.getPath("/module");
+      moduleRoot.createDirectoryAndParents();
+      Path moduleFilePath = moduleRoot.getChild("MODULE.bazel");
+      FileSystemUtils.writeContent(moduleFilePath, moduleFile.getContent());
+      for (var patchPath : patchPaths) {
+        try {
+          PatchUtil.applyToSingleFile(
+              patchPath.asPath(),
+              singleVersionOverride.getPatchStrip(),
+              moduleRoot,
+              moduleFilePath);
+        } catch (PatchFailedException e) {
+          throw errorf(
+              Code.BAD_MODULE,
+              "error applying single_version_override patch %s to module file: %s",
+              patchPath.asPath(),
+              e.getMessage());
+        }
+      }
+      return ModuleFile.create(
+          FileSystemUtils.readContent(moduleFilePath), moduleFile.getLocation());
+    } catch (IOException e) {
+      throw errorf(
+          Code.BAD_MODULE,
+          "error applying single_version_override patches to module file: %s",
+          e.getMessage());
+    }
   }
 
   private static byte[] readModuleFile(Path path) throws ModuleFileFunctionException {
