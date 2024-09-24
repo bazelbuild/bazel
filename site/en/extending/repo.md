@@ -125,9 +125,9 @@ changes:
 There are two parameters of `repository_rule` that control when the repositories
 are re-fetched:
 
-*   If the `configure` flag is set, the repository is only re-fetched on `bazel
-    fetch` when the` --configure` parameter is passed to it (if the attribute is
-    unset, this command will not cause a re-fetch)
+*   If the `configure` flag is set, the repository is re-fetched on `bazel
+    fetch --force --configure` (non-`configure` repositories are not
+    re-fetched).
 *   If the `local` flag is set, in addition to the above cases, the repo is also
     re-fetched when the Bazel server restarts.
 
@@ -142,7 +142,7 @@ unconditionally by calling `bazel fetch --force --all`.
 Moreover, some repo rules inspect the local machine and might become outdated if
 the local machine was upgraded. Here you can ask Bazel to only refetch those
 external repos where the [`repository_rule`](/rules/lib/globals#repository_rule)
-definition has the `configure` attribute set, use `bazel fetch --all
+definition has the `configure` attribute set, use `bazel fetch --force
 --configure`.
 
 ## Examples
