@@ -731,7 +731,7 @@ public class Package {
    * publicly.
    */
   private void finishInit(Builder builder) {
-    this.containsErrors |= builder.containsErrors;
+    this.containsErrors |= builder.containsErrors();
     if (directLoads == null && transitiveLoads == null) {
       Preconditions.checkState(containsErrors, "Loads not set for error-free package");
       builder.setLoads(ImmutableList.of());
@@ -740,13 +740,12 @@ public class Package {
     this.workspaceName = builder.workspaceName;
 
     this.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
-    this.targets = ImmutableSortedMap.copyOf(builder.targets);
-    this.macros = ImmutableSortedMap.copyOf(builder.macros);
+    this.targets = ImmutableSortedMap.copyOf(builder.getTargetMap());
+    this.macros = ImmutableSortedMap.copyOf(builder.getMacroMap());
     this.macroNamespaceViolatingTargets =
-        builder.macroNamespaceViolatingTargets != null
-            ? ImmutableMap.copyOf(builder.macroNamespaceViolatingTargets)
-            : ImmutableMap.of();
-    this.targetsToDeclaringMacros = ImmutableSortedMap.copyOf(builder.targetsToDeclaringMacros);
+        ImmutableMap.copyOf(builder.getMacroNamespaceViolatingTargets());
+    this.targetsToDeclaringMacros =
+        ImmutableSortedMap.copyOf(builder.getTargetsToDeclaringMacros());
     this.failureDetail = builder.getFailureDetail();
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
@@ -1642,7 +1641,8 @@ public class Package {
      */
     MacroInstance createMacro(
         MacroClass macroClass, Map<String, Object> attrValues, int sameNameDepth) {
-      MacroInstance parent = currentMacroFrame == null ? null : currentMacroFrame.macroInstance;
+      MacroInstance parent =
+          getCurrentMacroFrame() == null ? null : getCurrentMacroFrame().macroInstance;
       return new MacroInstance(pkg, parent, macroClass, attrValues, sameNameDepth);
     }
 
@@ -1667,9 +1667,9 @@ public class Package {
     Map<String, Rule> getRulesSnapshotView() {
       if (rulesSnapshotViewForFinalizers != null) {
         return rulesSnapshotViewForFinalizers;
-      } else if (targets instanceof SnapshottableBiMap<?, ?>) {
+      } else if (getTargetMap() instanceof SnapshottableBiMap<?, ?>) {
         return Maps.transformValues(
-            ((SnapshottableBiMap<String, Target>) targets).getTrackedSnapshot(),
+            ((SnapshottableBiMap<String, Target>) getTargetMap()).getTrackedSnapshot(),
             target -> (Rule) target);
       } else {
         throw new IllegalStateException(
@@ -1691,7 +1691,7 @@ public class Package {
      * @throws IllegalArgumentException if the name is not a valid label
      */
     InputFile createInputFile(String targetName, Location location) throws NameConflictException {
-      Target existing = targets.get(targetName);
+      Target existing = getTargetMap().get(targetName);
 
       if (existing instanceof InputFile) {
         return (InputFile) existing; // idempotent
@@ -1721,7 +1721,7 @@ public class Package {
     // visibility of :BUILD inside a symbolic macro.
     void setVisibilityAndLicense(InputFile inputFile, RuleVisibility visibility, License license) {
       String filename = inputFile.getName();
-      Target cacheInstance = targets.get(filename);
+      Target cacheInstance = getTargetMap().get(filename);
       if (!(cacheInstance instanceof InputFile)) {
         throw new IllegalArgumentException(
             "Can't set visibility for nonexistent FileTarget "
@@ -1808,7 +1808,7 @@ public class Package {
         EventHandler eventHandler,
         Location location)
         throws NameConflictException, LabelSyntaxException {
-      Preconditions.checkState(currentMacroFrame == null);
+      Preconditions.checkState(getCurrentMacroFrame() == null);
 
       if (hasDuplicateLabels(environments, name, "environments", location, eventHandler)
           || hasDuplicateLabels(defaults, name, "defaults", location, eventHandler)) {
@@ -1852,9 +1852,15 @@ public class Package {
     }
 
     @Override
-    protected void addRuleInternal(Rule rule) {
+    public void addRuleUnchecked(Rule rule) {
       Preconditions.checkArgument(rule.getPackage() == pkg);
-      super.addRuleInternal(rule);
+      super.addRuleUnchecked(rule);
+    }
+
+    @Override
+    public void addRule(Rule rule) throws NameConflictException {
+      Preconditions.checkArgument(rule.getPackage() == pkg);
+      super.addRule(rule);
     }
 
     @Override
@@ -1889,10 +1895,10 @@ public class Package {
      * from which the macro's {@code MacroClass} was exported.
      */
     RuleVisibility copyAppendingCurrentMacroLocation(RuleVisibility visibility) {
-      if (currentMacroFrame == null) {
+      if (getCurrentMacroFrame() == null) {
         return visibility;
       }
-      MacroClass macroClass = currentMacroFrame.macroInstance.getMacroClass();
+      MacroClass macroClass = getCurrentMacroFrame().macroInstance.getMacroClass();
       PackageIdentifier macroLocation = macroClass.getDefiningBzlLabel().getPackageIdentifier();
       Label newVisibilityItem = Label.createUnvalidated(macroLocation, "__pkg__");
 
@@ -1946,7 +1952,8 @@ public class Package {
       // Finalizer expansion step.
       if (!unexpandedMacros.isEmpty()) {
         Preconditions.checkState(
-            unexpandedMacros.stream().allMatch(id -> macros.get(id).getMacroClass().isFinalizer()),
+            unexpandedMacros.stream()
+                .allMatch(id -> getMacroMap().get(id).getMacroClass().isFinalizer()),
             "At the beginning of finalizer expansion, unexpandedMacros must contain only"
                 + " finalizers");
 
@@ -1955,14 +1962,14 @@ public class Package {
         // include any rule instantiated by a finalizer or macro called from a finalizer.
         if (rulesSnapshotViewForFinalizers == null) {
           Preconditions.checkState(
-              targets instanceof SnapshottableBiMap<?, ?>,
+              getTargetMap() instanceof SnapshottableBiMap<?, ?>,
               "Cannot call expandAllRemainingMacros() after beforeBuild() has been called");
           rulesSnapshotViewForFinalizers = getRulesSnapshotView();
         }
 
         while (!unexpandedMacros.isEmpty()) { // NB: collection mutated by body
           String id = unexpandedMacros.iterator().next();
-          MacroInstance macro = macros.get(id);
+          MacroInstance macro = getMacroMap().get(id);
           MacroClass.executeMacroImplementation(macro, this, semantics);
         }
       }
@@ -1995,15 +2002,16 @@ public class Package {
       // map to the SnapshottableBiMap's underlying bimap and thus stop tracking insertion order.
       // After this point, snapshots of targets should no longer be used, and any further
       // getRulesSnapshotView calls will throw.
-      if (targets instanceof SnapshottableBiMap<?, ?>) {
-        targets = ((SnapshottableBiMap<String, Target>) targets).getUnderlyingBiMap();
+      if (getTargetMap() instanceof SnapshottableBiMap<?, ?>) {
+        unwrapSnapshottableBiMap();
         rulesSnapshotViewForFinalizers = null;
       }
 
       // We create an InputFile corresponding to the BUILD file in Builder's constructor. However,
       // the visibility of this target may be overridden with an exports_files directive, so we wait
       // until now to obtain the current instance from the targets map.
-      pkg.buildFile = (InputFile) Preconditions.checkNotNull(targets.get(buildFileLabel.getName()));
+      pkg.buildFile =
+          (InputFile) Preconditions.checkNotNull(getTargetMap().get(buildFileLabel.getName()));
 
       // TODO(bazel-team): We run testSuiteImplicitTestsAccumulator here in beforeBuild(), but what
       // if one of the accumulated tests is later removed in PackageFunction, between the call to
@@ -2024,23 +2032,23 @@ public class Package {
           // since we don't want the evaluation of the macro to affect the semantics of whether or
           // not this target was created (i.e. all implicitly created files are knowable without
           // necessarily evaluating symbolic macros).
-          if (rulesCreatedInMacros.contains(rule)) {
+          if (isRuleCreatedInMacro(rule)) {
             continue;
           }
           // We use a temporary map, newInputFiles, to avoid concurrent modification to this.targets
           // while iterating (via getRules() above).
-          List<Label> labels = (ruleLabels != null) ? ruleLabels.get(rule) : rule.getLabels();
+          List<Label> labels = getRuleLabels(rule);
           for (Label label : labels) {
             String name = label.getName();
             if (label.getPackageIdentifier().equals(metadata.packageIdentifier())
-                && !targets.containsKey(name)
+                && !getTargetMap().containsKey(name)
                 && !newInputFiles.containsKey(name)) {
               // Check for collision with a macro namespace. Currently this is a linear loop over
               // all symbolic macros in the package.
               // TODO(#19922): This is quadratic complexity, optimize with a trie or similar if
               // needed.
               boolean macroConflictsFound = false;
-              for (MacroInstance macro : macros.values()) {
+              for (MacroInstance macro : getMacroMap().values()) {
                 macroConflictsFound |= nameIsWithinMacroNamespace(name, macro.getName());
               }
               if (!macroConflictsFound) {
@@ -2096,7 +2104,7 @@ public class Package {
 
       // Now all targets have been loaded, so we validate the group's member environments.
       for (EnvironmentGroup envGroup : ImmutableSet.copyOf(environmentGroups.values())) {
-        List<Event> errors = envGroup.processMemberEnvironments(targets);
+        List<Event> errors = envGroup.processMemberEnvironments(getTargetMap());
         if (!errors.isEmpty()) {
           Event.replayEventsOn(localEventHandler, errors);
           // TODO(bazel-team): Can't we automatically infer containsError from the presence of

@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.packages;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -40,7 +41,8 @@ import javax.annotation.Nullable;
  * construction.
  */
 // TODO: #19922 - Inheritance from TargetDefinitionContext isn't needed if we have Package.Builder
-// compose this class rather than inherit from it.
+// compose this class rather than inherit from it. If we change that, we can make the protected APIs
+// here public.
 public class TargetRegistrationEnvironment extends TargetDefinitionContext {
 
   /** Used for constructing macro namespace violation error messages. */
@@ -48,21 +50,18 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
       "Name must be the same as the macro's name, or the macro's name followed by '_'"
           + " (recommended), '-', or '.', and a non-empty string.";
 
-  // TODO: #19922 - Some of these fields are temporarily protected instead of private, to reduce the
-  // diff to Package.java.
-
-  protected boolean containsErrors = false;
+  private boolean containsErrors = false;
 
   // All targets added to the package.
   //
   // We use SnapshottableBiMap to help track insertion order of Rule targets, for use by
   // native.existing_rules().
-  protected BiMap<String, Target> targets =
+  private BiMap<String, Target> targetMap =
       new SnapshottableBiMap<>(target -> target instanceof Rule);
 
   // All instances of symbolic macros created during package construction, indexed by id (not
   // name).
-  protected final Map<String, MacroInstance> macros = new LinkedHashMap<>();
+  private final Map<String, MacroInstance> macroMap = new LinkedHashMap<>();
 
   /**
    * Represents the innermost currently executing symbolic macro, or null if none are running.
@@ -77,14 +76,14 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
    * documentation on {@code macro()} at {@link StarlarkRuleFunctionsApi#macro}), and to help
    * enforce naming requirements on targets and macros.
    */
-  @Nullable protected MacroFrame currentMacroFrame = null;
+  @Nullable private MacroFrame currentMacroFrame = null;
 
   /**
    * Represents the state of a running symbolic macro (see {@link #currentMacroFrame}). Semi-opaque.
    */
   static class MacroFrame {
     final MacroInstance macroInstance;
-    // Most name conflicts are caught by checking the keys of the `targets` and `macros` maps.
+    // Most name conflicts are caught by checking the keys of the `targetMap` and `macroMap` maps.
     // It is not a conflict for a target or macro to have the same name as the macro it is
     // declared in, yet such a target or macro may still conflict with siblings in the same macro.
     // We use this bool to track whether or not a newly introduced macro, M, having the same name
@@ -125,7 +124,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
    */
   // TODO(#19922): Technically we don't need to store entries for rules that were created by
   // macros; see rulesCreatedInMacros, below.
-  @Nullable protected Map<Rule, List<Label>> ruleLabels = new HashMap<>();
+  @Nullable private Map<Rule, List<Label>> ruleLabels = new HashMap<>();
 
   /**
    * Stores labels of rule targets that were created in symbolic macros. We don't implicitly create
@@ -139,7 +138,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
   // MacroInstance that instantiated them. (This is a little nontrivial because we'd like to avoid
   // simply adding a new field to Target subclasses, and instead want to combine it with the
   // existing Package-typed field.)
-  @Nullable protected Set<Rule> rulesCreatedInMacros = new HashSet<>();
+  @Nullable private Set<Rule> rulesCreatedInMacros = new HashSet<>();
 
   /**
    * A map from names of targets declared in a symbolic macro which violate macro naming rules, such
@@ -150,13 +149,14 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
    * manipulated only in {@link #checkRuleAndOutputs}.
    */
   @Nullable
-  protected LinkedHashMap<String, String> macroNamespaceViolatingTargets = new LinkedHashMap<>();
+  private LinkedHashMap<String, String> macroNamespaceViolatingTargets = new LinkedHashMap<>();
 
   /**
    * A map from target name to the (innermost) macro instance that declared it. See {@link
    * Package#targetsToDeclaringMacros}.
    */
-  protected LinkedHashMap<String, MacroInstance> targetsToDeclaringMacros = new LinkedHashMap<>();
+  private final LinkedHashMap<String, MacroInstance> targetsToDeclaringMacros =
+      new LinkedHashMap<>();
 
   /**
    * The collection of the prefixes of every output file. Maps each prefix to an arbitrary output
@@ -169,6 +169,41 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
 
   protected TargetRegistrationEnvironment(RepositoryMapping mainRepositoryMapping) {
     super(mainRepositoryMapping);
+  }
+
+  protected Map<String, Target> getTargetMap() {
+    return targetMap;
+  }
+
+  protected Map<String, MacroInstance> getMacroMap() {
+    return macroMap;
+  }
+
+  protected List<Label> getRuleLabels(Rule rule) {
+    return (ruleLabels != null) ? ruleLabels.get(rule) : rule.getLabels();
+  }
+
+  protected boolean isRuleCreatedInMacro(Rule rule) {
+    return rulesCreatedInMacros.contains(rule);
+  }
+
+  /**
+   * Returns a map from names of targets declared in a symbolic macro which violate macro naming
+   * rules, such as "lib%{name}-src.jar" implicit outputs in java rules, to the name of the macro
+   * instance where they were declared.
+   */
+  protected Map<String, String> getMacroNamespaceViolatingTargets() {
+    return macroNamespaceViolatingTargets != null
+        ? macroNamespaceViolatingTargets
+        : ImmutableMap.of();
+  }
+
+  /**
+   * A map from target name to the (innermost) macro instance that declared it. See {@link
+   * Package#targetsToDeclaringMacros}.
+   */
+  protected Map<String, MacroInstance> getTargetsToDeclaringMacros() {
+    return targetsToDeclaringMacros;
   }
 
   /**
@@ -198,14 +233,15 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
   }
 
   /**
-   * Inserts a target into the targets map. Returns the previous target if one was present, or null.
+   * Inserts a target into {@code targetMap}. Returns the previous target if one was present, or
+   * null.
    *
    * <p>No validation is done on the target's name.
    */
   @CanIgnoreReturnValue
   @Nullable
   private Target putTargetInternal(Target target) {
-    Target existing = targets.put(target.getName(), target);
+    Target existing = targetMap.put(target.getName(), target);
     if (currentMacroFrame != null) {
       targetsToDeclaringMacros.put(target.getName(), currentMacroFrame.macroInstance);
     }
@@ -254,7 +290,12 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
 
   @Nullable
   Target getTarget(String name) {
-    return targets.get(name);
+    return targetMap.get(name);
+  }
+
+  protected void unwrapSnapshottableBiMap() {
+    Preconditions.checkState(targetMap instanceof SnapshottableBiMap<?, ?>);
+    this.targetMap = ((SnapshottableBiMap<String, Target>) targetMap).getUnderlyingBiMap();
   }
 
   /**
@@ -271,7 +312,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
     ensureNameConflictChecking();
 
     Preconditions.checkArgument(
-        targets.containsKey(newTarget.getName()),
+        targetMap.containsKey(newTarget.getName()),
         "No existing target with name '%s' in the targets map",
         newTarget.getName());
     Target oldTarget = putTargetInternal(newTarget);
@@ -287,7 +328,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
   }
 
   public Set<Target> getTargets() {
-    return targets.values();
+    return targetMap.values();
   }
 
   /**
@@ -297,7 +338,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
    * instance targets were instantiated.
    */
   protected Iterable<Rule> getRules() {
-    return Iterables.filter(targets.values(), Rule.class);
+    return Iterables.filter(targetMap.values(), Rule.class);
   }
 
   /**
@@ -330,7 +371,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
    * Adds a rule and its outputs to the targets map, and propagates the error bit from the rule to
    * the package.
    */
-  protected void addRuleInternal(Rule rule) {
+  private void addRuleInternal(Rule rule) {
     for (OutputFile outputFile : rule.getOutputFiles()) {
       putTargetInternal(outputFile);
     }
@@ -369,7 +410,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
   /** Adds a symbolic macro instance to the package. */
   public void addMacro(MacroInstance macro) throws NameConflictException {
     checkMacroName(macro);
-    Object prev = macros.put(macro.getId(), macro);
+    Object prev = macroMap.put(macro.getId(), macro);
     Preconditions.checkState(prev == null);
 
     // Track whether a main submacro has been seen yet. Conflict checking for this is done in
@@ -475,8 +516,8 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
         if (outputFilesByName.containsKey(prefix)) {
           throw overlappingOutputFilePrefixes(outputFile, outputFilesByName.get(prefix));
         }
-        if (targets.get(prefix) instanceof OutputFile) {
-          throw overlappingOutputFilePrefixes(outputFile, (OutputFile) targets.get(prefix));
+        if (targetMap.get(prefix) instanceof OutputFile) {
+          throw overlappingOutputFilePrefixes(outputFile, (OutputFile) targetMap.get(prefix));
         }
 
         // Store in persistent map, for checking when adding future rules.
@@ -512,7 +553,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
    * <p>Note that just because a name is within a macro's namespace does not necessarily mean the
    * corresponding target or macro was declared within this macro.
    */
-  protected boolean nameIsWithinMacroNamespace(String name, String macroName) {
+  protected static boolean nameIsWithinMacroNamespace(String name, String macroName) {
     if (name.equals(macroName)) {
       return true;
     } else if (name.startsWith(macroName)) {
@@ -577,7 +618,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
    * <p>The given target must *not* have already been added.
    */
   private void checkForExistingTargetName(Target target) throws NameConflictException {
-    Target existing = targets.get(target.getName());
+    Target existing = targetMap.get(target.getName());
     if (existing == null) {
       return;
     }
@@ -610,7 +651,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
     // A macro can share names with its main target but no other target. Since the macro hasn't
     // even been added yet, it hasn't run, and its main target is not yet defined. Therefore, any
     // match in the targets map represents a real conflict.
-    Target existingTarget = targets.get(name);
+    Target existingTarget = targetMap.get(name);
     if (existingTarget != null) {
       throw new NameConflictException(
           String.format("macro '%s' conflicts with an existing target.", name));
@@ -635,10 +676,10 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
    * <p>{@code what} must be either "macro" or "target".
    */
   private void checkForExistingMacroName(String name, String what) throws NameConflictException {
-    // Macros are indexed by id, not name, so we can't just use macros.get() directly.
+    // Macros are indexed by id, not name, so we can't just use macroMap.get() directly.
     // Instead, we reason that if at least one macro by the given name exists, then there is one
     // with an id suffix of ":1".
-    MacroInstance existing = macros.get(name + ":1");
+    MacroInstance existing = macroMap.get(name + ":1");
     if (existing == null) {
       return;
     }
