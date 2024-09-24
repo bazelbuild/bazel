@@ -34,7 +34,6 @@ load("@_builtins//:common/proto/proto_common.bzl", "proto_common_do_not_use")
 load("@_builtins//:common/proto/proto_info.bzl", "ProtoInfo")
 load("@_builtins//:common/proto/proto_lang_toolchain.bzl", "proto_lang_toolchain")
 load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyInfo", "PyRuntimeInfo")
-load("@_builtins//:common/python/py_runtime_macro.bzl", "py_runtime")
 load("@_builtins//:common/xcode/available_xcodes.bzl", "available_xcodes")
 load("@_builtins//:common/xcode/xcode_config.bzl", "xcode_config")
 load("@_builtins//:common/xcode/xcode_config_alias.bzl", "xcode_config_alias")
@@ -85,7 +84,6 @@ exported_rules = {
     "cc_test": cc_test,
     "cc_library": cc_library,
     "proto_lang_toolchain": proto_lang_toolchain,
-    "py_runtime": py_runtime,
     "cc_toolchain_alias": cc_toolchain_alias,
     "cc_toolchain": cc_toolchain,
     "fdo_prefetch_hints": fdo_prefetch_hints,
