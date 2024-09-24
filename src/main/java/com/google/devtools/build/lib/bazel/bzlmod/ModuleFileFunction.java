@@ -435,7 +435,7 @@ public class ModuleFileFunction implements SkyFunction {
     try {
       module = moduleThreadContext.buildModule(/* registry= */ null);
     } catch (EvalException e) {
-      eventHandler.handle(Event.error(e.getMessageWithStack()));
+      eventHandler.handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for the root module");
     }
     for (ModuleExtensionUsage usage : module.getExtensionUsages()) {
@@ -521,7 +521,7 @@ public class ModuleFileFunction implements SkyFunction {
           });
       compiledRootModuleFile.runOnThread(thread);
     } catch (EvalException e) {
-      eventHandler.handle(Event.error(e.getMessageWithStack()));
+      eventHandler.handle(Event.error(e.getInnermostLocation(), e.getMessageWithStack()));
       throw errorf(Code.BAD_MODULE, "error executing MODULE.bazel file for %s", moduleKey);
     }
     return context;

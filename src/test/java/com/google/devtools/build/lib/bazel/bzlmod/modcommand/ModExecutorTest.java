@@ -607,6 +607,7 @@ public class ModExecutorTest {
                 ModuleExtensionUsage.builder()
                     .setExtensionBzlFile("//extensions:extensions.bzl")
                     .setExtensionName("maven")
+                    .setRepoOverrides(ImmutableMap.of())
                     .addProxy(
                         ModuleExtensionUsage.Proxy.builder()
                             .setLocation(Location.fromFileLineColumn("C@1.0/MODULE.bazel", 2, 23))
@@ -621,6 +622,7 @@ public class ModExecutorTest {
                 ModuleExtensionUsage.builder()
                     .setExtensionBzlFile("//extensions:extensions.bzl")
                     .setExtensionName("maven")
+                    .setRepoOverrides(ImmutableMap.of())
                     .addProxy(
                         ModuleExtensionUsage.Proxy.builder()
                             .setLocation(Location.fromFileLineColumn("D@1.0/MODULE.bazel", 1, 10))
@@ -635,6 +637,7 @@ public class ModExecutorTest {
                 ModuleExtensionUsage.builder()
                     .setExtensionBzlFile("//extensions:extensions.bzl")
                     .setExtensionName("gradle")
+                    .setRepoOverrides(ImmutableMap.of())
                     .addProxy(
                         ModuleExtensionUsage.Proxy.builder()
                             .setLocation(Location.fromFileLineColumn("Y@2.0/MODULE.bazel", 2, 13))
@@ -649,6 +652,7 @@ public class ModExecutorTest {
                 ModuleExtensionUsage.builder()
                     .setExtensionBzlFile("//extensions:extensions.bzl")
                     .setExtensionName("maven")
+                    .setRepoOverrides(ImmutableMap.of())
                     .addProxy(
                         ModuleExtensionUsage.Proxy.builder()
                             .setLocation(Location.fromFileLineColumn("Y@2.0/MODULE.bazel", 13, 10))

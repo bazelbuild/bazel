@@ -13,8 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.testutil;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Splitter;
+import com.google.common.collect.Iterables;
 import com.google.common.eventbus.EventBus;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Event;
@@ -24,11 +27,13 @@ import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
+import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.Set;
 import java.util.regex.Pattern;
+import net.starlark.java.eval.EvalException;
 import org.junit.After;
 import org.junit.Before;
 
@@ -78,6 +83,19 @@ public abstract class FoundationTestCase {
     scratch.file(rootDirectory.getRelative("WORKSPACE").getPathString());
     scratch.file(rootDirectory.getRelative("MODULE.bazel").getPathString());
     root = Root.fromPath(rootDirectory);
+
+    // Let the Starlark interpreter know how to read source files.
+    EvalException.setSourceReaderSupplier(
+        () ->
+            loc -> {
+              try {
+                String content = FileSystemUtils.readContent(fileSystem.getPath(loc.file()), UTF_8);
+                return Iterables.get(Splitter.on("\n").split(content), loc.line() - 1, null);
+              } catch (Exception ignored) {
+                // ignore any exceptions reading the file -- this is just for extra info
+                return null;
+              }
+            });
   }
 
   @Before

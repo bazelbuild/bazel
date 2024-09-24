@@ -21,6 +21,7 @@ import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bazel.bzlmod.InterimModule.DepSpec;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
@@ -53,6 +54,9 @@ public class ModuleThreadContext {
   private final Map<String, ModuleOverride> overrides = new LinkedHashMap<>();
   private final Map<String, RepoNameUsage> repoNameUsages = new HashMap<>();
 
+  private final Map<String, RepoOverride> overriddenRepos = new HashMap<>();
+  private final Map<String, RepoOverride> overridingRepos = new HashMap<>();
+
   public static ModuleThreadContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
     ModuleThreadContext context = thread.getThreadLocal(ModuleThreadContext.class);
@@ -77,14 +81,33 @@ public class ModuleThreadContext {
     this.includeLabelToCompiledModuleFile = includeLabelToCompiledModuleFile;
   }
 
-  record RepoNameUsage(String how, Location where) {}
+  record RepoOverride(
+      String overriddenRepoName,
+      String overridingRepoName,
+      boolean mustExist,
+      String extensionName,
+      ImmutableList<StarlarkThread.CallStackEntry> stack) {
+    Location location() {
+      // Skip over the override_repo builtin frame.
+      return stack.reverse().get(1).location;
+    }
+  }
 
-  public void addRepoNameUsage(String repoName, String how, Location where) throws EvalException {
-    RepoNameUsage collision = repoNameUsages.put(repoName, new RepoNameUsage(how, where));
+  record RepoNameUsage(String how, ImmutableList<StarlarkThread.CallStackEntry> stack) {
+    Location location() {
+      // Skip over the override_repo builtin frame.
+      return stack.reverse().get(1).location;
+    }
+  }
+
+  public void addRepoNameUsage(
+      String repoName, String how, ImmutableList<StarlarkThread.CallStackEntry> stack)
+      throws EvalException {
+    RepoNameUsage collision = repoNameUsages.put(repoName, new RepoNameUsage(how, stack));
     if (collision != null) {
       throw Starlark.errorf(
           "The repo name '%s' is already being used %s at %s",
-          repoName, collision.how(), collision.where());
+          repoName, collision.how(), collision.location());
     }
   }
 
@@ -123,12 +146,14 @@ public class ModuleThreadContext {
   }
 
   static class ModuleExtensionUsageBuilder {
+
     private final ModuleThreadContext context;
     private final String extensionBzlFile;
     private final String extensionName;
     private final boolean isolate;
     private final ArrayList<ModuleExtensionUsage.Proxy.Builder> proxyBuilders;
     private final HashBiMap<String, String> imports;
+    private final Map<String, RepoOverride> repoOverrides;
     private final ImmutableList.Builder<Tag> tags;
 
     ModuleExtensionUsageBuilder(
@@ -142,6 +167,7 @@ public class ModuleThreadContext {
       this.isolate = isolate;
       this.proxyBuilders = new ArrayList<>();
       this.imports = HashBiMap.create();
+      this.repoOverrides = new HashMap<>();
       this.tags = ImmutableList.builder();
     }
 
@@ -163,18 +189,39 @@ public class ModuleThreadContext {
         String localRepoName,
         String exportedName,
         String byWhat,
-        Location location)
+        ImmutableList<StarlarkThread.CallStackEntry> stack)
         throws EvalException {
       RepositoryName.validateUserProvidedRepoName(localRepoName);
       RepositoryName.validateUserProvidedRepoName(exportedName);
-      context.addRepoNameUsage(localRepoName, byWhat, location);
+      context.addRepoNameUsage(localRepoName, byWhat, stack);
       if (imports.containsValue(exportedName)) {
         String collisionRepoName = imports.inverse().get(exportedName);
         throw Starlark.errorf(
             "The repo exported as '%s' by module extension '%s' is already imported at %s",
-            exportedName, extensionName, context.repoNameUsages.get(collisionRepoName).where());
+            exportedName, extensionName, context.repoNameUsages.get(collisionRepoName).location());
       }
       imports.put(localRepoName, exportedName);
+    }
+
+    public void addRepoOverride(
+        String overriddenRepoName,
+        String overridingRepoName,
+        boolean mustExist,
+        ImmutableList<StarlarkThread.CallStackEntry> stack)
+        throws EvalException {
+      RepositoryName.validateUserProvidedRepoName(overriddenRepoName);
+      RepositoryName.validateUserProvidedRepoName(overridingRepoName);
+      RepoOverride collision =
+          repoOverrides.put(
+              overriddenRepoName,
+              new RepoOverride(
+                  overriddenRepoName, overridingRepoName, mustExist, extensionName, stack));
+      if (collision != null) {
+        throw Starlark.errorf(
+            "The repo exported as '%s' by module extension '%s' is already overridden with '%s' at"
+                + " %s",
+            overriddenRepoName, extensionName, collision.overridingRepoName, collision.location());
+      }
     }
 
     void addTag(Tag tag) {
@@ -203,6 +250,41 @@ public class ModuleThreadContext {
       } else {
         builder.setIsolationKey(Optional.empty());
       }
+
+      for (var override : repoOverrides.entrySet()) {
+        String overriddenRepoName = override.getKey();
+        String overridingRepoName = override.getValue().overridingRepoName;
+        if (!context.repoNameUsages.containsKey(overridingRepoName)) {
+          throw Starlark.errorf(
+                  "The repo exported as '%s' by module extension '%s' is overridden with '%s', but"
+                      + " no repo is visible under this name",
+                  overriddenRepoName, extensionName, overridingRepoName)
+              .withCallStack(override.getValue().stack);
+        }
+        String importedAs = imports.inverse().get(overriddenRepoName);
+        if (importedAs != null) {
+          if (!override.getValue().mustExist) {
+            throw Starlark.errorf(
+                    "Cannot import repo '%s' that has been injected into module extension '%s' at"
+                        + " %s. Please refer to @%s directly.",
+                    overriddenRepoName,
+                    extensionName,
+                    override.getValue().location(),
+                    overridingRepoName)
+                .withCallStack(context.repoNameUsages.get(importedAs).stack);
+          }
+          context.overriddenRepos.put(importedAs, override.getValue());
+        }
+        context.overridingRepos.put(overridingRepoName, override.getValue());
+      }
+      builder.setRepoOverrides(
+          ImmutableMap.copyOf(
+              Maps.transformValues(
+                  repoOverrides,
+                  v ->
+                      new ModuleExtensionUsage.RepoOverride(
+                          v.overridingRepoName, v.mustExist, v.location()))));
+
       return builder.build();
     }
   }
@@ -249,7 +331,7 @@ public class ModuleThreadContext {
       }
       deps.put(builtinModule, DepSpec.create(builtinModule, Version.EMPTY, -1));
       try {
-        addRepoNameUsage(builtinModule, "as a built-in dependency", Location.BUILTIN);
+        addRepoNameUsage(builtinModule, "as a built-in dependency", ImmutableList.of());
       } catch (EvalException e) {
         throw new EvalException(
             e.getMessage()
@@ -269,6 +351,24 @@ public class ModuleThreadContext {
       }
       extensionUsages.add(extensionUsageBuilder.buildUsage());
     }
+    // A repo cannot be both overriding and overridden. This ensures that repo overrides can be
+    // applied to repo mappings in a single step (and also prevents cycles).
+    Optional<String> overridingAndOverridden =
+        overridingRepos.keySet().stream().filter(overriddenRepos::containsKey).findFirst();
+    if (overridingAndOverridden.isPresent()) {
+      var override = overridingRepos.get(overridingAndOverridden.get());
+      var overrideOnOverride = overriddenRepos.get(overridingAndOverridden.get());
+      throw Starlark.errorf(
+              "The repo '%s' used as an override for '%s' in module extension '%s' is itself"
+                  + " overridden with '%s' at %s, which is not supported.",
+              override.overridingRepoName,
+              override.overriddenRepoName,
+              override.extensionName,
+              overrideOnOverride.overridingRepoName,
+              overrideOnOverride.location())
+          .withCallStack(override.stack);
+    }
+
     return module
         .setRegistry(registry)
         .setDeps(ImmutableMap.copyOf(deps))
