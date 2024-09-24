@@ -51,6 +51,7 @@ using std::vector;
 namespace {
 
 const std::regex kEscapedBackslash("\\\\b");
+const std::regex kEscapedNewline("\\\\n");
 const std::regex kEscapedSpace("\\\\s");
 
 bool starts_with(const string& s, const char* prefix) {
@@ -275,8 +276,11 @@ bool ParseManifest(const string& path, map<string, string>* result,
       }
       source = line.substr(1, idx - 1);
       source = std::regex_replace(source, kEscapedSpace, " ");
+      source = std::regex_replace(source, kEscapedNewline, "\n");
       source = std::regex_replace(source, kEscapedBackslash, "\\");
       target = line.substr(idx + 1);
+      target = std::regex_replace(target, kEscapedNewline, "\n");
+      target = std::regex_replace(target, kEscapedBackslash, "\\");
     } else {
       string::size_type idx = line.find(' ');
       if (idx == string::npos) {

@@ -61,6 +61,7 @@
 static const char *argv0;
 
 static const std::regex kEscapedBackslash(R"(\\b)");
+static const std::regex kEscapedNewline(R"(\\n)");
 static const std::regex kEscapedSpace(R"(\\s)");
 
 const char *input_filename;
@@ -162,7 +163,7 @@ class RunfilesCreator {
         DIE("paths must not be absolute: line %d: '%s'\n", lineno, buf);
       }
       std::string link;
-      const char *target;
+      std::string target;
       if (buf[0] == ' ') {
         // The link path contains escape sequences for spaces and backslashes.
         char *s = strchr(buf + 1, ' ');
@@ -171,8 +172,11 @@ class RunfilesCreator {
         }
         link = std::string(buf + 1, s);
         link = std::regex_replace(link, kEscapedSpace, " ");
+        link = std::regex_replace(link, kEscapedNewline, "\n");
         link = std::regex_replace(link, kEscapedBackslash, "\\");
         target = s + 1;
+        target = std::regex_replace(target, kEscapedNewline, "\n");
+        target = std::regex_replace(target, kEscapedBackslash, "\\");
       } else {
         // The line is of the form "foo /target/path", with only a single space
         // in the link path.

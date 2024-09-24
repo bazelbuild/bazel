@@ -43,6 +43,7 @@ using std::wstring;
 namespace {
 
 const std::regex kEscapedBackslash(R"(\\b)");
+const std::regex kEscapedNewline(R"(\\n)");
 const std::regex kEscapedSpace(R"(\\s)");
 
 const wchar_t* manifest_filename;
@@ -173,9 +174,13 @@ class RunfilesCreator {
         }
         std::string link_path = line.substr(1, idx - 1);
         link_path = std::regex_replace(link_path, kEscapedSpace, " ");
+        link_path = std::regex_replace(link_path, kEscapedNewline, "\n");
         link_path = std::regex_replace(link_path, kEscapedBackslash, "\\");
         link = blaze_util::CstringToWstring(link_path);
-        target = blaze_util::CstringToWstring(line.substr(idx + 1));
+        std::string target_path = line.substr(idx + 1);
+        target_path = std::regex_replace(target_path, kEscapedNewline, "\n");
+        target_path = std::regex_replace(target_path, kEscapedBackslash, " ");
+        target = blaze_util::CstringToWstring(target_path);
       } else {
         string::size_type idx = line.find(' ');
         if (idx == string::npos) {

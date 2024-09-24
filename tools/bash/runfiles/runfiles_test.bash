@@ -143,7 +143,9 @@ c/dir $tmpdir/dir
 unresolved $tmpdir/unresolved
  h/\si $tmpdir/ j k
  h/\s\bi $tmpdir/ j k b
+ h/\n\bi $tmpdir/ \bnj k \na
  dir\swith\sspaces $tmpdir/dir with spaces
+ space\snewline\nbackslash\b_dir $tmpdir/space newline\nbackslash\ba
 EOF
   mkdir "${tmpdir}/c"
   mkdir "${tmpdir}/y"
@@ -158,6 +160,11 @@ EOF
   touch "${tmpdir}/ j k b"
   mkdir -p "${tmpdir}/dir with spaces/nested"
   touch "${tmpdir}/dir with spaces/nested/file"
+  if ! is_windows; then
+    touch "${tmpdir}/ \nj k "$'\n'a
+    mkdir -p "${tmpdir}/space newline"$'\n'"backslash\a"
+    touch "${tmpdir}/space newline"$'\n'"backslash\a/f i\le"
+  fi
 
   export RUNFILES_DIR=
   export RUNFILES_MANIFEST_FILE=$tmpdir/foo.runfiles_manifest
@@ -180,7 +187,17 @@ EOF
   [[ "$(rlocation "h/ \i" || echo failed)" == "$tmpdir/ j k b" ]] || fail
   [[ "$(rlocation "dir with spaces" || echo failed)" == "$tmpdir/dir with spaces" ]] || fail
   [[ "$(rlocation "dir with spaces/nested/file" || echo failed)" == "$tmpdir/dir with spaces/nested/file" ]] || fail
+  if ! is_windows; then
+    [[ "$(rlocation $'h/\n\\i' || echo failed)" == "$tmpdir/ \nj k "$'\n'a ]] || fail
+    [[ "$(rlocation "space newline"$'\n'"backslash\_dir/f i\le" || echo failed)" == "${tmpdir}/space newline"$'\n'"backslash\a/f i\le" ]] || fail
+  fi
+
   rm -r "$tmpdir/c/d" "$tmpdir/g h" "$tmpdir/y" "$tmpdir/dir" "$tmpdir/unresolved" "$tmpdir/ j k" "$tmpdir/dir with spaces"
+  if ! is_windows; then
+    rm -r "$tmpdir/ \nj k "$'\n'a "${tmpdir}/space newline"$'\n'"backslash\a"
+    [[ -z "$(rlocation $'h/\n\\i' || echo failed)" ]] || fail
+    [[ -z "$(rlocation "space newline"$'\n'"backslash\_dir/f i\le" || echo failed)" ]] || fail
+  fi
   [[ -z "$(rlocation a/b || echo failed)" ]] || fail
   [[ -z "$(rlocation e/f || echo failed)" ]] || fail
   [[ -z "$(rlocation y || echo failed)" ]] || fail

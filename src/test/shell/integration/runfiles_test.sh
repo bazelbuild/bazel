@@ -569,16 +569,101 @@ EOF
   assert_contains '/link_two$' *-bin/a/go
 }
 
-function setup_spaces_in_runfiles_source_paths() {
+function setup_special_chars_in_runfiles_source_paths() {
   mkdir -p pkg
+  if "$is_windows"; then
+    cat > pkg/constants.bzl <<'EOF'
+NAME = "pkg/a b .txt"
+EOF
+  else
+    cat > pkg/constants.bzl <<'EOF'
+NAME = "pkg/a \n \\ b .txt"
+EOF
+  fi
   cat > pkg/defs.bzl <<'EOF'
-def _spaces_impl(ctx):
-    out = ctx.actions.declare_file(" a b .txt")
+load(":constants.bzl", "NAME")
+def _special_chars_impl(ctx):
+    out = ctx.actions.declare_file("data.txt")
     ctx.actions.write(out, "my content")
-    return [DefaultInfo(files = depset([out]))]
+    runfiles = ctx.runfiles(
+        symlinks = {
+            NAME: out,
+        },
+    )
+    return [DefaultInfo(files = depset([out]), runfiles = runfiles)]
 
 spaces = rule(
-    implementation = _spaces_impl,
+    implementation = _special_chars_impl,
+)
+EOF
+  cat > pkg/BUILD <<'EOF'
+load(":defs.bzl", "spaces")
+spaces(name = "spaces")
+sh_test(
+    name = "foo",
+    srcs = ["foo.sh"],
+    data = [":spaces"],
+)
+EOF
+  if "$is_windows"; then
+    cat > pkg/foo.sh <<'EOF'
+#!/bin/bash
+if [[ "$(cat $'pkg/a b .txt')" != "my content" ]]; then
+  echo "unexpected content or not found"
+  exit 1
+fi
+EOF
+  else
+    cat > pkg/foo.sh <<'EOF'
+#!/bin/bash
+if [[ "$(cat $'pkg/a \n \\ b .txt')" != "my content" ]]; then
+  echo "unexpected content or not found"
+  exit 1
+fi
+EOF
+  fi
+  chmod +x pkg/foo.sh
+}
+
+function test_special_chars_in_runfiles_source_paths_out_of_process() {
+  setup_special_chars_in_runfiles_source_paths
+  bazel test --noexperimental_inprocess_symlink_creation \
+    --test_output=errors \
+    //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
+}
+
+function test_special_chars_in_runfiles_source_paths_in_process() {
+  setup_special_chars_in_runfiles_source_paths
+  bazel test --experimental_inprocess_symlink_creation \
+    --test_output=errors \
+    //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
+}
+
+function setup_special_chars_in_runfiles_target_paths() {
+  mkdir -p pkg
+  if "$is_windows"; then
+    cat > pkg/constants.bzl <<'EOF'
+NAME = "pkg/a b .txt"
+EOF
+  else
+    cat > pkg/constants.bzl <<'EOF'
+NAME = "pkg/a \n \\ b .txt"
+EOF
+  fi
+  cat > pkg/defs.bzl <<'EOF'
+load(":constants.bzl", "NAME")
+def _special_chars_impl(ctx):
+    out = ctx.actions.declare_file(NAME)
+    ctx.actions.write(out, "my content")
+    runfiles = ctx.runfiles(
+        symlinks = {
+            "pkg/data.txt": out,
+        },
+    )
+    return [DefaultInfo(files = depset([out]), runfiles = runfiles)]
+
+spaces = rule(
+    implementation = _special_chars_impl,
 )
 EOF
   cat > pkg/BUILD <<'EOF'
@@ -592,7 +677,7 @@ sh_test(
 EOF
   cat > pkg/foo.sh <<'EOF'
 #!/bin/bash
-if [[ "$(cat "pkg/ a b .txt")" != "my content" ]]; then
+if [[ "$(cat pkg/data.txt)" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
 fi
@@ -600,32 +685,40 @@ EOF
   chmod +x pkg/foo.sh
 }
 
-function test_spaces_in_runfiles_source_paths_out_of_process() {
-  setup_spaces_in_runfiles_source_paths
+function test_special_chars_in_runfiles_target_paths_out_of_process() {
+  setup_special_chars_in_runfiles_target_paths
   bazel test --noexperimental_inprocess_symlink_creation \
+    --test_output=errors \
     //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
 }
 
-function test_spaces_in_runfiles_source_paths_in_process() {
-  setup_spaces_in_runfiles_source_paths
+function test_special_chars_in_runfiles_target_paths_in_process() {
+  setup_special_chars_in_runfiles_target_paths
   bazel test --experimental_inprocess_symlink_creation \
+    --test_output=errors \
     //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
 }
 
-function setup_spaces_in_runfiles_source_and_target_paths() {
-  dir=$(mktemp -d 'runfiles test.XXXXXX')
-  cd "$dir" || fail "failed to cd to $dir"
-  touch MODULE.bazel
-
+function setup_special_chars_in_runfiles_source_and_target_paths() {
   mkdir -p pkg
+  if "$is_windows"; then
+    cat > pkg/constants.bzl <<'EOF'
+NAME = "a b .txt"
+EOF
+  else
+    cat > pkg/constants.bzl <<'EOF'
+NAME = "a \n \\ b .txt"
+EOF
+  fi
   cat > pkg/defs.bzl <<'EOF'
-def _spaces_impl(ctx):
-    out = ctx.actions.declare_file(" a b .txt")
+load(":constants.bzl", "NAME")
+def _special_chars_impl(ctx):
+    out = ctx.actions.declare_file(NAME)
     ctx.actions.write(out, "my content")
     return [DefaultInfo(files = depset([out]))]
 
 spaces = rule(
-    implementation = _spaces_impl,
+    implementation = _special_chars_impl,
 )
 EOF
   cat > pkg/BUILD <<'EOF'
@@ -637,33 +730,46 @@ sh_test(
     data = [":spaces"],
 )
 EOF
-  cat > pkg/foo.sh <<'EOF'
+  if "$is_windows"; then
+    cat > pkg/foo.sh <<'EOF'
 #!/bin/bash
-if [[ "$(cat "pkg/ a b .txt")" != "my content" ]]; then
+if [[ "$(cat $'pkg/a b .txt')" != "my content" ]]; then
   echo "unexpected content or not found"
   exit 1
 fi
 EOF
+  else
+    cat > pkg/foo.sh <<'EOF'
+#!/bin/bash
+if [[ "$(cat $'pkg/a \n \\ b .txt')" != "my content" ]]; then
+  echo "unexpected content or not found"
+  exit 1
+fi
+EOF
+  fi
   chmod +x pkg/foo.sh
 }
 
-function test_spaces_in_runfiles_source_and_target_paths_out_of_process() {
-  setup_spaces_in_runfiles_source_and_target_paths
+function test_special_chars_in_runfiles_source_and_target_paths_out_of_process() {
+  setup_special_chars_in_runfiles_source_and_target_paths
   bazel test --noexperimental_inprocess_symlink_creation \
+    --test_output=errors \
     //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
 }
 
-function test_spaces_in_runfiles_source_and_target_paths_in_process() {
-  setup_spaces_in_runfiles_source_and_target_paths
+function test_special_chars_in_runfiles_source_and_target_paths_in_process() {
+  setup_special_chars_in_runfiles_source_and_target_paths
   bazel test --experimental_inprocess_symlink_creation \
+    --test_output=errors \
     //pkg:foo $EXTRA_BUILD_FLAGS >&$TEST_log || fail "test failed"
 }
 
 # Verify that Bazel's runfiles manifest is compatible with v3 of the Bash
-# runfiles library snippet, even if the workspace path contains a space.
+# runfiles library snippet, even if the workspace path contains a space and
+# a backslash.
 function test_compatibility_with_bash_runfiles_library_snippet() {
   # Create a workspace path with a space.
-  WORKSPACE="$(mktemp -d XXXXXXXX.jar_manifest)/my workspace"
+  WORKSPACE="$(mktemp -d XXXXXXXX.jar_manifest)/my w\orkspace"
   trap "rm -fr '$WORKSPACE'" EXIT
   mkdir -p "$WORKSPACE"
   cd "$WORKSPACE" || fail "failed to cd to $WORKSPACE"

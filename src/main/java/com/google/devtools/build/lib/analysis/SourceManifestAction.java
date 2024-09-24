@@ -66,7 +66,13 @@ public final class SourceManifestAction extends AbstractFileWriteAction
   private static final Comparator<Map.Entry<PathFragment, Artifact>> ENTRY_COMPARATOR =
       Comparator.comparing(path -> path.getKey().getPathString());
   private static final Escaper ROOT_RELATIVE_PATH_ESCAPER =
-      new CharEscaperBuilder().addEscape(' ', "\\s").addEscape('\\', "\\b").toEscaper();
+      new CharEscaperBuilder()
+          .addEscape(' ', "\\s")
+          .addEscape('\n', "\\n")
+          .addEscape('\\', "\\b")
+          .toEscaper();
+  private static final Escaper TARGET_PATH_ESCAPER =
+      new CharEscaperBuilder().addEscape('\n', "\\n").addEscape('\\', "\\b").toEscaper();
 
   private final Artifact repoMappingManifest;
   /**
@@ -311,8 +317,17 @@ public final class SourceManifestAction extends AbstractFileWriteAction
           throws IOException {
         String rootRelativePathString = rootRelativePath.getPathString();
         // Source paths with spaces require escaping. Target paths with spaces don't as consumers
-        // are expected to split on the first space.
-        if (rootRelativePathString.indexOf(' ') != -1) {
+        // are expected to split on the first space. Newlines always need to be escaped.
+        // Note that if any of these characters are present, then we also need to escape the escape
+        // character (backslash) in both paths. We avoid doing so if none of the problematic
+        // characters are present for backwards compatibility with existing runfiles libraries. In
+        // particular, entries with a source path that contains neither spaces nor newlines and
+        // target paths that contain both spaces and backslashes require no escaping.
+        boolean needsEscaping =
+            rootRelativePathString.indexOf(' ') != -1
+                || rootRelativePathString.indexOf('\n') != -1
+                || (symlinkTarget != null && symlinkTarget.getPathString().indexOf('\n') != -1);
+        if (needsEscaping) {
           manifestWriter.append(' ');
           manifestWriter.append(ROOT_RELATIVE_PATH_ESCAPER.escape(rootRelativePathString));
         } else {
@@ -321,7 +336,11 @@ public final class SourceManifestAction extends AbstractFileWriteAction
         // This trailing whitespace is REQUIRED to process the single entry line correctly.
         manifestWriter.append(' ');
         if (symlinkTarget != null) {
-          manifestWriter.append(symlinkTarget.getPathString());
+          if (needsEscaping) {
+            manifestWriter.append(TARGET_PATH_ESCAPER.escape(symlinkTarget.getPathString()));
+          } else {
+            manifestWriter.append(symlinkTarget.getPathString());
+          }
         }
         manifestWriter.append('\n');
       }

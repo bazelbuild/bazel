@@ -504,8 +504,12 @@ public final class Runfiles {
                   "Invalid runfiles manifest line, expected at least one space after the leading space: "
                       + line);
             }
-            runfile = line.substring(1, firstSpace).replace("\\s", " ").replace("\\b", "\\");
-            realPath = line.substring(firstSpace + 1);
+            runfile =
+                line.substring(1, firstSpace)
+                    .replace("\\s", " ")
+                    .replace("\\n", "\n")
+                    .replace("\\b", "\\");
+            realPath = line.substring(firstSpace + 1).replace("\\n", "\n").replace("\\b", "\\");
           } else {
             int firstSpace = line.indexOf(' ');
             if (firstSpace == -1) {
