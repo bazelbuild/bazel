@@ -129,16 +129,17 @@ public final class NativePosixFiles {
   public static native ErrnoFileStatus errnoLstat(String path);
 
   /**
-   * Native wrapper around POSIX utime(2) syscall.
+   * Native wrapper around POSIX utimensat(2) syscall.
    *
-   * Note: negative file times are interpreted as unsigned time_t.
+   * <p>Note that, even though utimensat(2) supports up to nanosecond precision, this interface only
+   * allows millisecond precision, which is what Bazel uses internally.
    *
-   * @param path the file whose times to change.
-   * @param now if true, ignore actime/modtime parameters and use current time.
-   * @param modtime the file modification time in seconds since the UNIX epoch.
-   * @throws IOException if the utime() syscall failed.
+   * @param path the file whose modification time should be changed.
+   * @param now if true, ignore {@code epochMilli} and use the current time.
+   * @param epochMilli the file modification time in milliseconds since the UNIX epoch.
+   * @throws IOException if the operation failed.
    */
-  public static native void utime(String path, boolean now, int modtime) throws IOException;
+  public static native void utimensat(String path, boolean now, long epochMilli) throws IOException;
 
   /**
    * Native wrapper around POSIX mkdir(2) syscall.

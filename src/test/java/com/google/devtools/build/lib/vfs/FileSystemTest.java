@@ -43,6 +43,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.channels.SeekableByteChannel;
 import java.nio.channels.WritableByteChannel;
 import java.nio.file.FileAlreadyExistsException;
+import java.time.Instant;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
@@ -1168,6 +1169,31 @@ public abstract class FileSystemTest {
   }
 
   // Test the date functions
+
+  @Test
+  public void testSetLastModifiedTime() throws Exception {
+    Path file = absolutize("file");
+    FileSystemUtils.createEmptyFile(file);
+
+    file.setLastModifiedTime(1234567890L);
+    assertThat(file.getLastModifiedTime()).isEqualTo(1234567890L);
+  }
+
+  @Test
+  public void testSetLastModifiedTimeWithSentinel() throws Exception {
+    Path file = absolutize("file");
+    FileSystemUtils.createEmptyFile(file);
+
+    // To avoid sleeping, first set the modification time to the past.
+    long pastTime = Instant.now().minusSeconds(1).toEpochMilli();
+    file.setLastModifiedTime(pastTime);
+
+    // Even if we get the system time before the setLastModifiedTime call, getLastModifiedTime may
+    // return a time which is slightly behind. Simply check that it's greater than the past time.
+    file.setLastModifiedTime(Path.NOW_SENTINEL_TIME);
+    assertThat(file.getLastModifiedTime()).isGreaterThan(pastTime);
+  }
+
   @Test
   public void testCreateFileChangesTimeOfDirectory() throws Exception {
     storeReferenceTime(workingDir.getLastModifiedTime());
