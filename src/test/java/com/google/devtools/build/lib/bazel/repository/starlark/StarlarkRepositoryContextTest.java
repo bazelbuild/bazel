@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.fail;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -25,13 +26,16 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.io.CharStreams;
+import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.packages.Attribute;
+import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
 import com.google.devtools.build.lib.packages.PackageOverheadEstimator;
@@ -48,6 +52,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reposit
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor;
 import com.google.devtools.build.lib.runtime.RepositoryRemoteExecutor.ExecutionResult;
 import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
+import com.google.devtools.build.lib.skyframe.PackageLookupValue;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -91,6 +96,7 @@ public final class StarlarkRepositoryContextTest {
   private Root root;
   private Path workspaceFile;
   private StarlarkRepositoryContext context;
+  private Label fakeFileLabel;
   private static final StarlarkThread thread =
       StarlarkThread.createTransient(Mutability.create("test"), StarlarkSemantics.DEFAULT);
 
@@ -159,6 +165,13 @@ public final class StarlarkRepositoryContextTest {
     DownloadManager downloader = Mockito.mock(DownloadManager.class);
     SkyFunction.Environment environment = Mockito.mock(SkyFunction.Environment.class);
     when(environment.getListener()).thenReturn(listener);
+    fakeFileLabel = Label.parseCanonical("//:foo");
+    when(environment.getValue(PackageLookupValue.key(fakeFileLabel.getPackageIdentifier())))
+        .thenReturn(
+            PackageLookupValue.success(
+                Root.fromPath(workspaceFile.getParentDirectory()), BuildFileName.BUILD));
+    when(environment.getValueOrThrow(any(), eq(IOException.class)))
+        .thenReturn(Mockito.mock(FileValue.class));
     PathPackageLocator packageLocator =
         new PathPackageLocator(
             outputDirectory,
@@ -188,11 +201,16 @@ public final class StarlarkRepositoryContextTest {
   }
 
   private void setUpContextForRule(String name) throws Exception {
+    setUpContextForRule(name, StarlarkSemantics.DEFAULT);
+  }
+
+  private void setUpContextForRule(String name, StarlarkSemantics starlarkSemantics)
+      throws Exception {
     setUpContextForRule(
         ImmutableMap.of("name", name),
         ImmutableSet.of(),
         ImmutableMap.of("FOO", "BAR"),
-        StarlarkSemantics.DEFAULT,
+        starlarkSemantics,
         /* repoRemoteExecutor= */ null);
   }
 
@@ -490,5 +508,27 @@ public final class StarlarkRepositoryContextTest {
   public void testWorkspaceRoot() throws Exception {
     setUpContextForRule("test");
     assertThat(context.getWorkspaceRoot().getPath()).isEqualTo(root.asPath());
+  }
+
+  @Test
+  public void testNoIncompatibleNoImplicitWatchLabel() throws Exception {
+    setUpContextForRule("test");
+    scratch.file(root.getRelative("foo").getPathString());
+    context.path(fakeFileLabel);
+    context.readFile(fakeFileLabel, "no", thread);
+    assertThat(context.getRecordedFileInputs()).isNotEmpty();
+  }
+
+  @Test
+  public void testIncompatibleNoImplicitWatchLabel() throws Exception {
+    setUpContextForRule(
+        "test",
+        StarlarkSemantics.DEFAULT.toBuilder()
+            .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, true)
+            .build());
+    scratch.file(root.getRelative("foo").getPathString());
+    context.path(fakeFileLabel);
+    context.readFile(fakeFileLabel, "no", thread);
+    assertThat(context.getRecordedFileInputs()).isEmpty();
   }
 }
