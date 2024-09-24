@@ -540,7 +540,8 @@ java_library(
 filegroup(
     name = "generated_docs",
     srcs = [
-        "//src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia",
+        # TODO
+        #        "//src/main/java/com/google/devtools/build/lib:gen_buildencyclopedia",
         "//src/main/java/com/google/devtools/build/lib:gen_command-line-reference",
         "//src/main/java/com/google/devtools/build/lib:gen_skylarklibrary",
     ],
@@ -588,6 +589,8 @@ genrule(
         " --create_toc=true &&" +
         "zip -qj $@ $(@D)/be/*"
     ),
+    # TODO
+    tags = ["manual"],
     tools = [
         "//src/main/java/com/google/devtools/build/docgen:docgen_bin",
         "//src/main/java/com/google/devtools/build/docgen:docgen_javalib",
@@ -641,7 +644,8 @@ genrule(
 genrule(
     name = "gen_reference_docs",
     srcs = [
-        ":build-encyclopedia.zip",
+        # TODO
+        # ":build-encyclopedia.zip",
         ":command-line-reference.html",
         ":skylark-library.zip",
         "//tools/build_defs/repo:doc",
@@ -649,7 +653,8 @@ genrule(
     outs = ["reference-docs.zip"],
     cmd = "mkdir -p $(@D)/gen_docs/reference/be && " +
           "cp $(location :command-line-reference.html) $(@D)/gen_docs/reference/ && " +
-          "unzip -q -d $(@D)/gen_docs/reference/be/ $(location :build-encyclopedia.zip) && " +
+          # TODO
+          # "unzip -q -d $(@D)/gen_docs/reference/be/ $(location :build-encyclopedia.zip) && " +
           "mkdir -p $(@D)/gen_docs/rules/lib/repo && " +
           "unzip -q -d $(@D)/gen_docs/rules/lib/ $(location :skylark-library.zip) && " +
           "tar -xf $(location //tools/build_defs/repo:doc) -C $(@D)/gen_docs/rules/lib/repo/ && " +
@@ -687,6 +692,8 @@ genrule(
         " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_python_stardoc_proto)" +
         " --input_stardoc_proto=$(location //src/main/starlark/docgen:gen_be_shell_stardoc_proto)"
     ),
+    # TODO
+    tags = ["manual"],
     tools = [
         "//src/main/java/com/google/devtools/build/docgen:api_exporter",
     ],

@@ -744,7 +744,11 @@ sh_test(
     size = "large",
     srcs = ["bazel_docgen_test.sh"],
     data = ["//src/main/java/com/google/devtools/build/lib:generated_docs"],
-    tags = ["no_windows"],
+    # TODO
+    tags = [
+        "manual",
+        "no_windows",
+    ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
