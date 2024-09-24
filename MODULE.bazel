@@ -57,7 +57,6 @@ local_path_override(
 
 single_version_override(
     module_name = "grpc",
-    version = "1.48.1.bcr.1",
     patch_strip = 1,
     patches = [
         "//third_party/grpc:00_disable_layering_check.patch",
@@ -69,11 +68,6 @@ single_version_override(
     version = "21.7",
     patch_strip = 1,
     patches = ["//third_party:protobuf_21.7.patch"],
-)
-
-single_version_override(
-    module_name = "abseil-cpp",
-    version = "20230802.1",
 )
 
 # The following Bazel modules are not direct dependencies for building Bazel,
