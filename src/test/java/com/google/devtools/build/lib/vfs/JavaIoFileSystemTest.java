@@ -13,14 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import static com.google.common.truth.Truth.assertThat;
-
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -42,12 +39,9 @@ import org.junit.Test;
  */
 public class JavaIoFileSystemTest extends SymlinkAwareFileSystemTest {
 
-  private ManualClock clock;
-
   @Override
   public FileSystem getFreshFileSystem(DigestHashFunction digestHashFunction) {
-    clock = new ManualClock();
-    return new JavaIoFileSystem(clock, digestHashFunction);
+    return new JavaIoFileSystem(digestHashFunction);
   }
 
   // Tests are inherited from the FileSystemTest
@@ -57,21 +51,6 @@ public class JavaIoFileSystemTest extends SymlinkAwareFileSystemTest {
   @Override
   @Test
   public void testBadPermissionsThrowsExceptionOnStatIfFound() {}
-
-  @Test
-  public void testSetLastModifiedTime() throws Exception {
-    Path file = xEmptyDirectory.getChild("new-file");
-    FileSystemUtils.createEmptyFile(file);
-
-    file.setLastModifiedTime(1000L);
-    assertThat(file.getLastModifiedTime()).isEqualTo(1000L);
-    file.setLastModifiedTime(0L);
-    assertThat(file.getLastModifiedTime()).isEqualTo(0L);
-
-    clock.advanceMillis(42000L);
-    file.setLastModifiedTime(-1L);
-    assertThat(file.getLastModifiedTime()).isEqualTo(42000L);
-  }
 
   @Override
   protected boolean isHardLinked(Path a, Path b) throws IOException {

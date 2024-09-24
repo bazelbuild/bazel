@@ -22,6 +22,7 @@
 #include <limits.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/resource.h>
@@ -30,6 +31,7 @@
 #include <sys/syscall.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#include <time.h>
 #include <unistd.h>
 #include <utime.h>
 
@@ -489,32 +491,25 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_errnoLstat(JNIEnv *env,
 
 /*
  * Class:     com.google.devtools.build.lib.unix.NativePosixFiles
- * Method:    utime
- * Signature: (Ljava/lang/String;ZII)V
+ * Method:    utimensat
+ * Signature: (Ljava/lang/String;ZJ)V
  * Throws:    java.io.IOException
  */
 extern "C" JNIEXPORT void JNICALL
-Java_com_google_devtools_build_lib_unix_NativePosixFiles_utime(JNIEnv *env,
-                                                  jclass clazz,
-                                                  jstring path,
-                                                  jboolean now,
-                                                  jint modtime) {
+Java_com_google_devtools_build_lib_unix_NativePosixFiles_utimensat(
+    JNIEnv *env, jclass clazz, jstring path, jboolean now, jlong millis) {
   const char *path_chars = GetStringLatin1Chars(env, path);
-#ifdef __linux
-  struct timespec spec[2] = {{0, UTIME_OMIT}, {modtime, now ? UTIME_NOW : 0}};
+  int64_t sec = millis / 1000;
+  int32_t nsec = (millis % 1000) * 1000000;
+  struct timespec spec[2] = {
+      // Do not set atime.
+      {0, UTIME_OMIT},
+      // Set mtime to now if `now` is true, otherwise to the specified time.
+      {sec, now ? UTIME_NOW : nsec},
+  };
   if (::utimensat(AT_FDCWD, path_chars, spec, 0) == -1) {
     PostException(env, errno, path_chars);
   }
-#else
-  struct utimbuf buf = { modtime, modtime };
-  struct utimbuf *bufptr = now ? nullptr : &buf;
-  if (::utime(path_chars, bufptr) == -1) {
-    // EACCES ENOENT EMULTIHOP ELOOP EINTR
-    // ENOTDIR ENOLINK EPERM EROFS   -> IOException
-    // EFAULT ENAMETOOLONG           -> RuntimeException
-    PostException(env, errno, path_chars);
-  }
-#endif
   ReleaseStringLatin1Chars(path_chars);
 }
 
