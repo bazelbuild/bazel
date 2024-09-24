@@ -2043,4 +2043,89 @@ EOF
     "@@$WORKSPACE_NAME//a:a" || fail "build failed"
 }
 
+function test_tree_artifact_sources_in_no_deps_library() {
+  mkdir -p pkg
+  cat > pkg/BUILD <<'EOF'
+load("generate.bzl", "generate_source")
+sh_binary(
+    name = "generate_tool",
+    srcs = ["generate.sh"],
+)
+
+generate_source(
+    name = "generated_source",
+    tool = ":generate_tool",
+    output_dir = "generated",
+)
+
+cc_library(
+    name = "hello_world",
+    srcs = [":generated_source"],
+    hdrs = [":generated_source"],
+)
+
+cc_test(
+    name = "testCodegen",
+    srcs = ["testCodegen.cpp"],
+    deps = [":hello_world"],
+)
+EOF
+  cat > pkg/generate.bzl <<'EOF'
+def _generate_source_impl(ctx):
+    output_dir = ctx.attr.output_dir
+    files = ctx.actions.declare_directory(output_dir)
+
+    ctx.actions.run(
+        inputs = [],
+        outputs = [files],
+        arguments = [files.path],
+        executable = ctx.executable.tool
+    )
+
+    return [
+        DefaultInfo(files = depset([files]))
+    ]
+
+
+generate_source = rule(
+    implementation = _generate_source_impl,
+    attrs = {
+        "output_dir": attr.string(),
+        "tool": attr.label(executable = True, cfg = "exec")
+    }
+)
+EOF
+  cat > pkg/generate.sh <<'EOF2'
+#!/bin/bash
+
+OUTPUT_DIR=$1
+
+cat << EOF > $OUTPUT_DIR/test.hpp
+#pragma once
+void hello_world();
+EOF
+
+
+cat << EOF > $OUTPUT_DIR/test.cpp
+#include "test.hpp"
+#include <cstdio>
+void hello_world()
+{
+    puts("Hello World!");
+}
+EOF
+EOF2
+  chmod +x pkg/generate.sh
+  cat > pkg/testCodegen.cpp <<'EOF'
+#include "pkg/generated/test.hpp"
+
+int main() {
+    hello_world();
+    return 0;
+}
+EOF
+
+  bazel build //pkg:testCodegen &> "$TEST_log" || fail "Build failed"
+}
+
 run_suite "cc_integration_test"
