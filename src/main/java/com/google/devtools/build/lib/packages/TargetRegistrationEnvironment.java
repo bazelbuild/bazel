@@ -22,8 +22,6 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
-import com.google.devtools.build.lib.cmdline.RepositoryMapping;
-import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
@@ -41,10 +39,7 @@ import javax.annotation.Nullable;
  * enforcing naming requirements on them. It is used by {@link Package.Builder} as part of package
  * construction.
  */
-// TODO: #19922 - Inheritance from StarlarkThreadContext isn't needed if we have Package.Builder
-// compose this class rather than inherit from it. If we change that, we can make the protected APIs
-// here public.
-public class TargetRegistrationEnvironment extends StarlarkThreadContext {
+public final class TargetRegistrationEnvironment {
 
   /** Used for constructing macro namespace violation error messages. */
   static final String MACRO_NAMING_RULES =
@@ -168,23 +163,19 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
    */
   @Nullable private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
 
-  protected TargetRegistrationEnvironment(RepositoryMapping mainRepositoryMapping) {
-    super(() -> mainRepositoryMapping);
-  }
-
-  protected Map<String, Target> getTargetMap() {
+  public Map<String, Target> getTargetMap() {
     return targetMap;
   }
 
-  protected Map<String, MacroInstance> getMacroMap() {
+  public Map<String, MacroInstance> getMacroMap() {
     return macroMap;
   }
 
-  protected List<Label> getRuleLabels(Rule rule) {
+  public List<Label> getRuleLabels(Rule rule) {
     return (ruleLabels != null) ? ruleLabels.get(rule) : rule.getLabels();
   }
 
-  protected boolean isRuleCreatedInMacro(Rule rule) {
+  public boolean isRuleCreatedInMacro(Rule rule) {
     return rulesCreatedInMacros.contains(rule);
   }
 
@@ -193,7 +184,7 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
    * rules, such as "lib%{name}-src.jar" implicit outputs in java rules, to the name of the macro
    * instance where they were declared.
    */
-  protected Map<String, String> getMacroNamespaceViolatingTargets() {
+  public Map<String, String> getMacroNamespaceViolatingTargets() {
     return macroNamespaceViolatingTargets != null
         ? macroNamespaceViolatingTargets
         : ImmutableMap.of();
@@ -203,7 +194,7 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
    * A map from target name to the (innermost) macro instance that declared it. See {@link
    * Package#targetsToDeclaringMacros}.
    */
-  protected Map<String, MacroInstance> getTargetsToDeclaringMacros() {
+  public Map<String, MacroInstance> getTargetsToDeclaringMacros() {
     return targetsToDeclaringMacros;
   }
 
@@ -255,7 +246,7 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
    * <p>The target must have a valid name (for the current macro) and cannot have already been
    * added.
    */
-  protected void addTarget(Target target) throws NameConflictException {
+  public void addTarget(Target target) throws NameConflictException {
     if (target instanceof Rule rule) {
       // Use addRule() to ensure all rule-related maps and caches are consulted.
       // checkTargetName() and putTargetInternal() are both reached through addRule().
@@ -274,7 +265,7 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
    * <p>The target must not have already been added, and there cannot be any existing target by the
    * same name.
    */
-  protected void addInputFileUnchecked(InputFile file) {
+  public void addInputFileUnchecked(InputFile file) {
     Target prev = putTargetInternal(file);
     Preconditions.checkState(prev == null);
   }
@@ -284,17 +275,17 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
    *
    * <p>It is an error if no input file by that name already exists.
    */
-  protected void replaceInputFileUnchecked(InputFile file) {
+  public void replaceInputFileUnchecked(InputFile file) {
     Target prev = putTargetInternal(file);
     Preconditions.checkState(prev instanceof InputFile, prev);
   }
 
   @Nullable
-  Target getTarget(String name) {
+  public Target getTarget(String name) {
     return targetMap.get(name);
   }
 
-  protected void unwrapSnapshottableBiMap() {
+  public void unwrapSnapshottableBiMap() {
     Preconditions.checkState(targetMap instanceof SnapshottableBiMap<?, ?>);
     this.targetMap = ((SnapshottableBiMap<String, Target>) targetMap).getUnderlyingBiMap();
   }
@@ -309,7 +300,7 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
    *
    * <p>A hack needed for {@link WorkspaceFactoryHelper}.
    */
-  void replaceTarget(Target newTarget) {
+  public void replaceTarget(Target newTarget) {
     ensureNameConflictChecking();
 
     Preconditions.checkArgument(
@@ -328,6 +319,9 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
     }
   }
 
+  // TODO(bazel-team): This method allows target deletion via the returned view, which is used in
+  // PackageFunction#handleLabelsCrossingSubpackagesAndPropagateInconsistentFilesystemExceptions.
+  // Let's disallow that and make removal go through a dedicated method.
   public Set<Target> getTargets() {
     return targetMap.values();
   }
@@ -338,7 +332,7 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
    * <p>The returned {@link Iterable} will be deterministically ordered, in the order the rule
    * instance targets were instantiated.
    */
-  protected Iterable<Rule> getRules() {
+  public Iterable<Rule> getRules() {
     return Iterables.filter(targetMap.values(), Rule.class);
   }
 
@@ -353,7 +347,7 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
    * <p>This method must be called prior to {@link #addRuleUnchecked}. It may not be called, neither
    * before nor after, a call to {@link #addRule} or {@link #replaceTarget}.
    */
-  void disableNameConflictChecking() {
+  public void disableNameConflictChecking() {
     Preconditions.checkState(nameConflictCheckingPolicy == NameConflictCheckingPolicy.UNKNOWN);
     this.nameConflictCheckingPolicy = NameConflictCheckingPolicy.NOT_GUARANTEED;
     this.ruleLabels = null;
@@ -362,7 +356,7 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
     this.outputFilePrefixes = null;
   }
 
-  protected void ensureNameConflictChecking() {
+  public void ensureNameConflictChecking() {
     Preconditions.checkState(
         nameConflictCheckingPolicy != NameConflictCheckingPolicy.NOT_GUARANTEED);
     this.nameConflictCheckingPolicy = NameConflictCheckingPolicy.ENABLED;
@@ -386,7 +380,7 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
    * Adds a rule without certain validation checks. Requires that {@link
    * #disableNameConflictChecking} was already called.
    */
-  void addRuleUnchecked(Rule rule) {
+  public void addRuleUnchecked(Rule rule) {
     Preconditions.checkState(
         nameConflictCheckingPolicy == NameConflictCheckingPolicy.NOT_GUARANTEED);
     addRuleInternal(rule);
@@ -396,7 +390,7 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
    * Adds a rule, subject to the usual validation checks. Requires that {@link
    * #disableNameConflictChecking} was not called.
    */
-  void addRule(Rule rule) throws NameConflictException {
+  public void addRule(Rule rule) throws NameConflictException {
     ensureNameConflictChecking();
 
     List<Label> labels = rule.getLabels();
@@ -425,7 +419,7 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
 
   /** Returns the current macro frame, or null if there is no currently running symbolic macro. */
   @Nullable
-  MacroFrame getCurrentMacroFrame() {
+  public MacroFrame getCurrentMacroFrame() {
     return currentMacroFrame;
   }
 
@@ -455,7 +449,7 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
    * <p>Either the new or old frame may be null, indicating no currently running symbolic macro.
    */
   @Nullable
-  MacroFrame setCurrentMacroFrame(@Nullable MacroFrame frame) {
+  public MacroFrame setCurrentMacroFrame(@Nullable MacroFrame frame) {
     MacroFrame prev = currentMacroFrame;
     currentMacroFrame = frame;
     return prev;
@@ -554,7 +548,7 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
    * <p>Note that just because a name is within a macro's namespace does not necessarily mean the
    * corresponding target or macro was declared within this macro.
    */
-  protected static boolean nameIsWithinMacroNamespace(String name, String macroName) {
+  public static boolean nameIsWithinMacroNamespace(String name, String macroName) {
     if (name.equals(macroName)) {
       return true;
     } else if (name.startsWith(macroName)) {
@@ -605,7 +599,8 @@ public class TargetRegistrationEnvironment extends StarlarkThreadContext {
    *
    * <p>Intended to be used for package deserialization.
    */
-  void putAllMacroNamespaceViolatingTargets(Map<String, String> macroNamespaceViolatingTargets) {
+  public void putAllMacroNamespaceViolatingTargets(
+      Map<String, String> macroNamespaceViolatingTargets) {
     if (this.macroNamespaceViolatingTargets == null) {
       this.macroNamespaceViolatingTargets = new LinkedHashMap<>();
     }
