@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.vfs;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.clock.Clock;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
@@ -61,12 +60,6 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
   public JavaIoFileSystem(DigestHashFunction hashFunction) {
     super(hashFunction);
     this.clock = new JavaClock();
-  }
-
-  @VisibleForTesting
-  JavaIoFileSystem(Clock clock, DigestHashFunction hashFunction) {
-    super(hashFunction);
-    this.clock = clock;
   }
 
   protected File getIoFile(PathFragment path) {
