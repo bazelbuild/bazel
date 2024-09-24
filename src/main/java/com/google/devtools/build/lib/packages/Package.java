@@ -1215,7 +1215,7 @@ public class Package {
 
       // Add target for the BUILD file itself.
       // (This may be overridden by an exports_file declaration.)
-      addInputFile(
+      addInputFileUnchecked(
           new InputFile(
               pkg,
               buildFileLabel,
@@ -1705,8 +1705,7 @@ public class Package {
             "FileTarget in package " + metadata.getName() + " has illegal name: " + targetName, e);
       }
 
-      checkTargetName(inputFile);
-      addInputFile(inputFile);
+      addTarget(inputFile);
       return inputFile;
     }
 
@@ -1734,7 +1733,7 @@ public class Package {
       if (!((InputFile) cacheInstance).isVisibilitySpecified()
           || cacheInstance.getVisibility() != visibility
           || !Objects.equals(cacheInstance.getLicense(), license)) {
-        addOrReplaceTarget(
+        replaceInputFileUnchecked(
             new VisibilityLicenseSpecifiedInputFile(
                 pkg, cacheInstance.getLabel(), cacheInstance.getLocation(), visibility, license));
       }
@@ -1769,8 +1768,7 @@ public class Package {
               repoRootMeansCurrentRepo,
               eventHandler,
               location);
-      checkTargetName(group);
-      addOrReplaceTarget(group);
+      addTarget(group);
 
       if (group.containsErrors()) {
         setContainsErrors();
@@ -1820,8 +1818,7 @@ public class Package {
 
       EnvironmentGroup group =
           new EnvironmentGroup(createLabel(name), pkg, environments, defaults, location);
-      checkTargetName(group);
-      addOrReplaceTarget(group);
+      addTarget(group);
 
       // Invariant: once group is inserted into targets, it must also:
       // (a) be inserted into environmentGroups, or
@@ -2067,7 +2064,7 @@ public class Package {
       testSuiteImplicitTestsAccumulator.sortTests();
 
       for (InputFile file : newInputFiles.values()) {
-        addInputFile(file);
+        addInputFileUnchecked(file);
       }
 
       return this;

@@ -57,8 +57,6 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
   //
   // We use SnapshottableBiMap to help track insertion order of Rule targets, for use by
   // native.existing_rules().
-  //
-  // Use addOrReplaceTarget() to add new entries.
   protected BiMap<String, Target> targets =
       new SnapshottableBiMap<>(target -> target instanceof Rule);
 
@@ -201,15 +199,57 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
 
   /**
    * Inserts a target into the targets map. Returns the previous target if one was present, or null.
+   *
+   * <p>No validation is done on the target's name.
    */
   @CanIgnoreReturnValue
   @Nullable
-  protected Target addOrReplaceTarget(Target target) {
+  private Target putTargetInternal(Target target) {
     Target existing = targets.put(target.getName(), target);
     if (currentMacroFrame != null) {
       targetsToDeclaringMacros.put(target.getName(), currentMacroFrame.macroInstance);
     }
     return existing;
+  }
+
+  /**
+   * Inserts a target into the target map.
+   *
+   * <p>The target must have a valid name (for the current macro) and cannot have already been
+   * added.
+   */
+  protected void addTarget(Target target) throws NameConflictException {
+    if (target instanceof Rule rule) {
+      // Use addRule() to ensure all rule-related maps and caches are consulted.
+      // checkTargetName() and putTargetInternal() are both reached through addRule().
+      addRule(rule);
+    } else {
+      checkTargetName(target);
+      putTargetInternal(target);
+    }
+  }
+
+  /**
+   * Inserts an input file into the target map.
+   *
+   * <p>No validation is done on the target's name.
+   *
+   * <p>The target must not have already been added, and there cannot be any existing target by the
+   * same name.
+   */
+  protected void addInputFileUnchecked(InputFile file) {
+    Target prev = putTargetInternal(file);
+    Preconditions.checkState(prev == null);
+  }
+
+  /**
+   * Inserts an input file into the target map, replacing an existing file by the same name.
+   *
+   * <p>It is an error if no input file by that name already exists.
+   */
+  protected void replaceInputFileUnchecked(InputFile file) {
+    Target prev = putTargetInternal(file);
+    Preconditions.checkState(prev instanceof InputFile, prev);
   }
 
   @Nullable
@@ -220,6 +260,8 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
   /**
    * Replaces a target in the {@link Package} under construction with a new target with the same
    * name and belonging to the same package.
+   *
+   * <p>There must already be an existing target by the same name.
    *
    * <p>Requires that {@link #disableNameConflictChecking} was not called.
    *
@@ -232,7 +274,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
         targets.containsKey(newTarget.getName()),
         "No existing target with name '%s' in the targets map",
         newTarget.getName());
-    Target oldTarget = addOrReplaceTarget(newTarget);
+    Target oldTarget = putTargetInternal(newTarget);
     if (newTarget instanceof Rule) {
       List<Label> ruleLabelsForOldTarget = ruleLabels.remove(oldTarget);
       if (ruleLabelsForOldTarget != null) {
@@ -290,9 +332,9 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
    */
   protected void addRuleInternal(Rule rule) {
     for (OutputFile outputFile : rule.getOutputFiles()) {
-      addOrReplaceTarget(outputFile);
+      putTargetInternal(outputFile);
     }
-    addOrReplaceTarget(rule);
+    putTargetInternal(rule);
     if (rule.containsErrors()) {
       setContainsErrors();
     }
@@ -354,8 +396,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
    */
   public boolean currentlyInNonFinalizerMacro() {
     return currentMacroFrame != null
-        ? !currentMacroFrame.macroInstance.getMacroClass().isFinalizer()
-        : false;
+        && !currentMacroFrame.macroInstance.getMacroClass().isFinalizer();
   }
 
   /**
@@ -363,8 +404,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
    */
   public boolean currentlyInFinalizer() {
     return currentMacroFrame != null
-        ? currentMacroFrame.macroInstance.getMacroClass().isFinalizer()
-        : false;
+        && currentMacroFrame.macroInstance.getMacroClass().isFinalizer();
   }
 
   /**
@@ -377,16 +417,6 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
     MacroFrame prev = currentMacroFrame;
     currentMacroFrame = frame;
     return prev;
-  }
-
-  /**
-   * Adds an input file to this package.
-   *
-   * <p>There must not already be a target with the same name (i.e., this is not idempotent).
-   */
-  protected void addInputFile(InputFile inputFile) {
-    Target prev = addOrReplaceTarget(inputFile);
-    Preconditions.checkState(prev == null);
   }
 
   /**
@@ -502,7 +532,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
    * throw but instead records that the target's name is in violation, so that an attempt to use the
    * target will fail during the analysis phase.
    *
-   * <p>The given target must *not* have already been added (via {@link #addOrReplaceTarget}).
+   * <p>The given target must *not* have already been added.
    *
    * <p>We defer enforcement of symbolic macro naming rules for targets to the analysis phase
    * because otherwise, we could not use java rules (which declare lib%{name}-src.jar implicit
@@ -511,7 +541,9 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
   // TODO(#19922): Provide a way to allow targets which violate naming rules to be configured
   // (either only as a dep to other targets declared in the current macro, or also externally).
   // TODO(#19922): Ensure `bazel build //pkg:all` (or //pkg:*) ignores violating targets.
-  protected void checkTargetName(Target target) throws NameConflictException {
+  private void checkTargetName(Target target) throws NameConflictException {
+    // We only care about the target's name, but we accept the full Target object to produce better
+    // error messages.
     checkForExistingTargetName(target);
 
     checkForExistingMacroName(target.getName(), "target");
@@ -542,7 +574,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
    * Throws {@link NameConflictException} if the given target's name matches that of an existing
    * target in the package, or an existing macro in the package that is not its ancestor.
    *
-   * <p>The given target must *not* have already been added (via {@link #addOrReplaceTarget}).
+   * <p>The given target must *not* have already been added.
    */
   private void checkForExistingTargetName(Target target) throws NameConflictException {
     Target existing = targets.get(target.getName());
