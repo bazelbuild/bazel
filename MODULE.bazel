@@ -12,10 +12,10 @@ module(
 # Bazel module dependencies
 # =========================================
 
-bazel_dep(name = "rules_license", version = "0.0.7")
+bazel_dep(name = "rules_license", version = "0.0.8")
 bazel_dep(name = "bazel_skylib", version = "1.7.1")
-bazel_dep(name = "protobuf", version = "21.7", repo_name = "com_google_protobuf")
-bazel_dep(name = "grpc", version = "1.48.1.bcr.1", repo_name = "com_github_grpc_grpc")
+bazel_dep(name = "protobuf", version = "28.1", repo_name = "com_google_protobuf")
+bazel_dep(name = "grpc", version = "1.66.0", repo_name = "com_github_grpc_grpc")
 bazel_dep(name = "platforms", version = "0.0.10")
 bazel_dep(name = "rules_pkg", version = "0.9.1")
 bazel_dep(name = "stardoc", version = "0.7.1", repo_name = "io_bazel_skydoc")
@@ -27,16 +27,30 @@ bazel_dep(name = "rules_cc", version = "0.0.10")
 bazel_dep(name = "rules_java", version = "7.11.1")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
 bazel_dep(name = "rules_proto", version = "6.0.2")
-bazel_dep(name = "rules_jvm_external", version = "6.0")
+bazel_dep(name = "rules_jvm_external", version = "6.3")
 bazel_dep(name = "rules_python", version = "0.36.0")
 bazel_dep(name = "rules_testing", version = "0.6.0")
 bazel_dep(name = "googletest", version = "1.14.0.bcr.1", repo_name = "com_google_googletest")
 bazel_dep(name = "with_cfg.bzl", version = "0.2.4")
-bazel_dep(name = "abseil-cpp", version = "20230802.1")
+bazel_dep(name = "abseil-cpp", version = "20240116.1")
 
 # TODO(pcloudy): Add remoteapis and googleapis as Bazel modules in the BCR.
 bazel_dep(name = "remoteapis", version = "")
 bazel_dep(name = "googleapis", version = "")
+
+single_version_override(
+    module_name = "protobuf",
+    patch_strip = 1,
+    patches = [
+        "//third_party/protobuf:MODULE.bazel.patch",
+    ],
+)
+
+bazel_dep(name = "rules_rust", version = "0.45.1")
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+rust.toolchain(edition = "2023")
+use_repo(rust, "rust_toolchains")
+register_toolchains("@rust_toolchains//:all")
 
 single_version_override(
     module_name = "rules_jvm_external",
@@ -63,19 +77,13 @@ single_version_override(
     ],
 )
 
-single_version_override(
-    module_name = "protobuf",
-    patch_strip = 1,
-    patches = ["//third_party:protobuf_21.7.patch"],
-)
-
 # The following Bazel modules are not direct dependencies for building Bazel,
 # but are required for visibility from DIST_ARCHIVE_REPOS in repositories.bzl
-bazel_dep(name = "apple_support", version = "1.8.1")
+bazel_dep(name = "apple_support", version = "1.15.1")
 bazel_dep(name = "c-ares", version = "1.15.0")
-bazel_dep(name = "rules_go", version = "0.39.1")
+bazel_dep(name = "rules_go", version = "0.48.0")
 bazel_dep(name = "rules_kotlin", version = "1.9.6")
-bazel_dep(name = "upb", version = "0.0.0-20220923-a547704")
+bazel_dep(name = "upb", version = "0.0.0-20230907-e7430e6")
 single_version_override(
     module_name = "upb",
     patch_strip = 1,
