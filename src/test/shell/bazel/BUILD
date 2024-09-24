@@ -272,6 +272,7 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     exec_compatible_with = ["//:highcpu_machine"],
+    shard_count = 2,
     tags = [
         "requires-network",  # For Bzlmod
     ],
@@ -304,6 +305,7 @@ JAVA_VERSIONS_COVERAGE = ("11", "17", "21")
             "@bazel_tools//tools/bash/runfiles",
         ],
         exec_compatible_with = ["//:highcpu_machine"],
+        shard_count = 2,
         tags = [
             "requires-network",  # For Bzlmod
         ],
@@ -384,6 +386,7 @@ sh_test(
     srcs = ["bazel_proto_library_test.sh"],
     data = [":test-deps"],
     exec_compatible_with = ["//:highcpu_machine"],
+    shard_count = 2,
     tags = [
         "no_windows",  # Doesn't work on Windows for unknown reason
         "requires-network",  # Allow this test to access internet to fetch rules_proto dependencies.
