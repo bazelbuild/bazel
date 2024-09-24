@@ -181,6 +181,54 @@ public class MetricsCollectorTest extends BuildIntegrationTestCase {
   }
 
   @Test
+  public void testAspectActionsCreatedNotOverCountedForAlias() throws Exception {
+    write(
+        "pkg/BUILD",
+        """
+        load(":defs.bzl", "my_rule")
+        my_rule(name = "foo", dep = "dep_alias_alias")
+        alias(name = "dep_alias_alias", actual = ":dep_alias")
+        alias(name = "dep_alias", actual = ":dep")
+        my_rule(name = "dep")
+        """);
+    write(
+        "pkg/defs.bzl",
+        """
+        def _aspect_impl(target, ctx):
+            f = ctx.actions.declare_file(target.label.name + ".out")
+            ctx.actions.run_shell(
+                outputs = [f],
+                command = "touch $@",
+                mnemonic = "MyAspectAction",
+            )
+            return [OutputGroupInfo(my_out = depset([f]))]
+
+        my_aspect = aspect(implementation = _aspect_impl)
+
+        def _impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _impl,
+            attrs = {
+                "dep": attr.label(aspects = [my_aspect]),
+            },
+        )
+        """);
+    buildTarget("//pkg:foo");
+
+    BuildMetrics buildMetrics = buildMetricsEventListener.event.getBuildMetrics();
+    List<ActionData> actionData = buildMetrics.getActionSummary().getActionDataList();
+    ImmutableList<ActionData> aspectActions =
+        actionData.stream()
+            .filter(a -> a.getMnemonic().equals("MyAspectAction"))
+            .collect(toImmutableList());
+    assertThat(aspectActions).hasSize(1);
+    ActionData aspectAction = aspectActions.get(0);
+    assertThat(aspectAction.getActionsCreated()).isEqualTo(1);
+  }
+
+  @Test
   public void buildGraphAndArtifactMetrics() throws Exception {
     write(
         "a/BUILD",

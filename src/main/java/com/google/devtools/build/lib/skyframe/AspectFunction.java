@@ -927,7 +927,7 @@ final class AspectFunction implements SkyFunction {
                 .addTransitive(real.getTransitivePackages())
                 .build()
             : null;
-    return AspectValue.create(
+    return AspectValue.createForAlias(
         originalKey, aspect, ConfiguredAspect.forAlias(real), transitivePackages);
   }
 
