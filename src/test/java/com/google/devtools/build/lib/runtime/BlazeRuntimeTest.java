@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.In
 import com.google.devtools.build.lib.server.FailureDetails.Crash;
 import com.google.devtools.build.lib.server.FailureDetails.Crash.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -182,7 +183,7 @@ public class BlazeRuntimeTest {
   }
 
   @Test
-  public void resultExtensions() throws Exception {
+  public void addsResponseExtensions() throws Exception {
     FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
     ServerDirectories serverDirectories =
         new ServerDirectories(
@@ -226,6 +227,54 @@ public class BlazeRuntimeTest {
                     /* forceKeepStateForTesting= */ false, env, BlazeCommandResult.success())
                 .getResponseExtensions())
         .containsExactly(anyFoo, anyBar);
+  }
+
+  @Test
+  public void addsIdleTasks() throws Exception {
+    FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
+    ServerDirectories serverDirectories =
+        new ServerDirectories(
+            fs.getPath("/install"), fs.getPath("/output"), fs.getPath("/output_user"));
+    BlazeRuntime runtime =
+        new BlazeRuntime.Builder()
+            .setFileSystem(fs)
+            .setProductName("bazel")
+            .setServerDirectories(serverDirectories)
+            .setStartupOptionsProvider(mock(OptionsParsingResult.class))
+            .build();
+    BlazeDirectories directories =
+        new BlazeDirectories(
+            serverDirectories, fs.getPath("/workspace"), fs.getPath("/system_javabase"), "blaze");
+    BlazeWorkspace workspace = runtime.initWorkspace(directories, BinTools.empty(directories));
+    CommandEnvironment env =
+        new CommandEnvironment(
+            runtime,
+            workspace,
+            mock(EventBus.class),
+            Thread.currentThread(),
+            VersionCommand.class.getAnnotation(Command.class),
+            OptionsParser.builder().optionsClasses(COMMAND_ENV_REQUIRED_OPTIONS).build(),
+            InvocationPolicy.getDefaultInstance(),
+            /* packageLocator= */ null,
+            SyscallCache.NO_CACHE,
+            QuiescingExecutorsImpl.forTesting(),
+            /* warnings= */ ImmutableList.of(),
+            /* waitTimeInMs= */ 0L,
+            /* commandStartTime= */ 0L,
+            /* commandExtensions= */ ImmutableList.of(),
+            /* shutdownReasonConsumer= */ s -> {},
+            NO_OP_COMMAND_EXTENSION_REPORTER,
+            /* attemptNumber= */ 1);
+    IdleTask fooTask = () -> {};
+    IdleTask barTask = () -> {};
+    env.addIdleTask(fooTask);
+    env.addIdleTask(barTask);
+    assertThat(
+            runtime
+                .afterCommand(
+                    /* forceKeepStateForTesting= */ false, env, BlazeCommandResult.success())
+                .getIdleTasks())
+        .containsExactly(fooTask, barTask);
   }
 
   @Test
