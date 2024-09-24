@@ -91,8 +91,8 @@ public final class DiskCacheGarbageCollectorTest {
     writeFiles(
         Entry.of("ac/123", kbytes(1), daysAgo(1)),
         Entry.of("cas/456", kbytes(1), daysAgo(2)),
-        Entry.of("ac/abc", kbytes(1), daysAgo(3)),
-        Entry.of("cas/def", kbytes(1), daysAgo(4)));
+        Entry.of("ac/abc", kbytes(1), daysAgo(4)),
+        Entry.of("cas/def", kbytes(1), daysAgo(5)));
 
     runGarbageCollector(Optional.empty(), Optional.of(Duration.ofDays(3)));
 
