@@ -38,7 +38,7 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
-import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
+import com.google.devtools.build.lib.packages.TargetRegistrationEnvironment.NameConflictException;
 import com.google.devtools.build.lib.packages.WorkspaceFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;

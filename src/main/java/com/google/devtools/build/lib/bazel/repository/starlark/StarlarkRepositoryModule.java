@@ -40,7 +40,7 @@ import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleFactory.InvalidRuleException;
 import com.google.devtools.build.lib.packages.RuleFunction;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
-import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
+import com.google.devtools.build.lib.packages.TargetRegistrationEnvironment.NameConflictException;
 import com.google.devtools.build.lib.packages.WorkspaceFactoryHelper;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.starlarkbuildapi.repository.RepositoryModuleApi;

@@ -23,6 +23,7 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
+import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.HashMap;
@@ -40,10 +41,10 @@ import javax.annotation.Nullable;
  * enforcing naming requirements on them. It is used by {@link Package.Builder} as part of package
  * construction.
  */
-// TODO: #19922 - Inheritance from TargetDefinitionContext isn't needed if we have Package.Builder
+// TODO: #19922 - Inheritance from StarlarkThreadContext isn't needed if we have Package.Builder
 // compose this class rather than inherit from it. If we change that, we can make the protected APIs
 // here public.
-public class TargetRegistrationEnvironment extends TargetDefinitionContext {
+public class TargetRegistrationEnvironment extends StarlarkThreadContext {
 
   /** Used for constructing macro namespace violation error messages. */
   static final String MACRO_NAMING_RULES =
@@ -168,7 +169,7 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
   @Nullable private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
 
   protected TargetRegistrationEnvironment(RepositoryMapping mainRepositoryMapping) {
-    super(mainRepositoryMapping);
+    super(() -> mainRepositoryMapping);
   }
 
   protected Map<String, Target> getTargetMap() {
@@ -722,6 +723,33 @@ public class TargetRegistrationEnvironment extends TargetDefinitionContext {
               added.getGeneratingRule().getName(),
               existing.getName(),
               existing.getGeneratingRule().getName()));
+    }
+  }
+
+  /**
+   * An exception used when the name of a target or symbolic macro clashes with another entity
+   * defined in the package.
+   *
+   * <p>Common examples of conflicts include two targets or symbolic macros sharing the same name,
+   * and one output file being a prefix of another. See {@link Package.Builder#checkForExistingName}
+   * and {@link Package.Builder#checkRuleAndOutputs} for more details.
+   */
+  public static sealed class NameConflictException extends Exception
+      permits MacroNamespaceViolationException {
+    public NameConflictException(String message) {
+      super(message);
+    }
+  }
+
+  /**
+   * An exception used when the name of a target or submacro declared within a symbolic macro
+   * violates symbolic macro naming rules.
+   *
+   * <p>An example might be a target named "libfoo" declared within a macro named "foo".
+   */
+  public static final class MacroNamespaceViolationException extends NameConflictException {
+    public MacroNamespaceViolationException(String message) {
+      super(message);
     }
   }
 }

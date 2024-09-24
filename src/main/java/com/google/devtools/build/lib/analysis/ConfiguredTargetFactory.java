@@ -68,7 +68,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.RuleVisibility;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.TargetDefinitionContext.MacroNamespaceViolationException;
+import com.google.devtools.build.lib.packages.TargetRegistrationEnvironment.MacroNamespaceViolationException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.profiler.memory.CurrentRuleTracker;
 import com.google.devtools.build.lib.server.FailureDetails.FailAction.Code;

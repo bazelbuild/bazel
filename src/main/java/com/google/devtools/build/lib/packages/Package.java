@@ -43,7 +43,7 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
-import com.google.devtools.build.lib.packages.TargetDefinitionContext.MacroNamespaceViolationException;
+import com.google.devtools.build.lib.packages.TargetRegistrationEnvironment.MacroNamespaceViolationException;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
