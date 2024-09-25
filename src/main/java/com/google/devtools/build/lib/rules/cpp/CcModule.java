@@ -717,6 +717,7 @@ public abstract class CcModule
       Object externalIncludes,
       Object virtualToOriginalHeaders,
       Sequence<?> dependentCcCompilationContexts,
+      Sequence<?> exportedDependentCcCompilationContexts,
       Sequence<?> nonCodeInputs,
       Sequence<?> looseHdrsDirsObject,
       String headersCheckingMode,
@@ -788,6 +789,11 @@ public abstract class CcModule
         Depset.cast(virtualToOriginalHeaders, Tuple.class, "virtual_to_original_headers"));
 
     ccCompilationContext.addDependentCcCompilationContexts(
+        Sequence.cast(
+                exportedDependentCcCompilationContexts,
+                CcCompilationContext.class,
+                "exported_dependent_cc_compilation_contexts")
+            .getImmutableList(),
         Sequence.cast(
                 dependentCcCompilationContexts,
                 CcCompilationContext.class,

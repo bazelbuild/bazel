@@ -14,27 +14,21 @@
 
 package com.google.devtools.build.lib.rules.objc;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
-
 import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.docgen.annot.DocCategory;
-import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
 import com.google.devtools.build.lib.packages.BuiltinRestriction;
-import com.google.devtools.build.lib.packages.StarlarkInfoWithSchema;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
 import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
 import com.google.devtools.build.lib.rules.objc.IntermediateArtifacts.AlwaysLink;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
@@ -169,68 +163,6 @@ public class ObjcStarlarkInternal implements StarlarkValue {
         /* archiveFileNameSuffix= */ "_j2objc",
         UmbrellaHeaderStrategy.GENERATE,
         AlwaysLink.TRUE);
-  }
-
-  @StarlarkMethod(
-      name = "create_compilation_context",
-      documented = false,
-      parameters = {
-        @Param(name = "public_hdrs", positional = false, defaultValue = "[]", named = true),
-        @Param(name = "public_textual_hdrs", positional = false, defaultValue = "[]", named = true),
-        @Param(name = "private_hdrs", positional = false, defaultValue = "[]", named = true),
-        @Param(name = "providers", positional = false, defaultValue = "[]", named = true),
-        @Param(
-            name = "direct_cc_compilation_contexts",
-            positional = false,
-            defaultValue = "[]",
-            named = true),
-        @Param(
-            name = "cc_compilation_contexts",
-            positional = false,
-            defaultValue = "[]",
-            named = true),
-        @Param(
-            name = "implementation_cc_compilation_contexts",
-            positional = false,
-            defaultValue = "[]",
-            named = true),
-        @Param(name = "defines", positional = false, defaultValue = "[]", named = true),
-        @Param(name = "includes", positional = false, defaultValue = "[]", named = true),
-      })
-  public ObjcCompilationContext createCompilationContext(
-      Sequence<?> publicHdrs,
-      Sequence<?> publicTextualHdrs,
-      Sequence<?> privateHdrs,
-      Sequence<?> providers,
-      Sequence<?> directCcCompilationContexts,
-      Sequence<?> ccCompilationContexts,
-      Sequence<?> implementationCcCompilationContexts,
-      Sequence<?> defines,
-      Sequence<?> includes)
-      throws InterruptedException, EvalException {
-    return ObjcCompilationContext.builder()
-        .addPublicHeaders(Sequence.cast(publicHdrs, Artifact.class, "public_hdrs"))
-        .addPublicTextualHeaders(
-            Sequence.cast(publicTextualHdrs, Artifact.class, "public_textual_hdrs"))
-        .addPrivateHeaders(Sequence.cast(privateHdrs, Artifact.class, "private_hdrs"))
-        .addObjcProviders(Sequence.cast(providers, StarlarkInfoWithSchema.class, "providers"))
-        .addDirectCcCompilationContexts(
-            Sequence.cast(
-                directCcCompilationContexts, CcCompilationContext.class, "cc_compilation_contexts"))
-        .addCcCompilationContexts(
-            Sequence.cast(
-                ccCompilationContexts, CcCompilationContext.class, "cc_compilation_contexts"))
-        .addImplementationCcCompilationContexts(
-            Sequence.cast(
-                implementationCcCompilationContexts,
-                CcCompilationContext.class,
-                "implementation_cc_compilation_contexts"))
-        .addDefines(Sequence.cast(defines, String.class, "defines"))
-        .addIncludes(
-            Sequence.cast(includes, String.class, "includes").stream()
-                .map(PathFragment::create)
-                .collect(toImmutableList()))
-        .build();
   }
 
   @StarlarkMethod(

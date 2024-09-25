@@ -26,6 +26,7 @@ load(":common/objc/apple_common.bzl", "apple_common")
 load(":common/objc/compilation_artifacts_info.bzl", "CompilationArtifactsInfo")
 load(":common/objc/compilation_support.bzl", "compilation_support")
 load(":common/objc/objc_common.bzl", "objc_common")
+load(":common/objc/objc_compilation_context_info.bzl", "create_cc_compilation_context")
 load(":common/objc/providers.bzl", "J2ObjcMappingFileInfo")
 load(":common/paths.bzl", "paths")
 load(
@@ -521,7 +522,8 @@ def _build_aspect(
             other_deps = proto_toolchain_runtime,
             compile_with_arc = j2objc_source.compile_with_arc,
         )
-        cc_compilation_context = common.objc_compilation_context.create_cc_compilation_context()
+
+        cc_compilation_context = create_cc_compilation_context(common.objc_compilation_context)
         cc_linking_context = cc_common.merge_linking_contexts(
             linking_contexts = common.objc_linking_context.cc_linking_contexts,
         )

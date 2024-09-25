@@ -16,6 +16,7 @@
 
 load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/objc/apple_toolchain.bzl", "apple_toolchain")
+load(":common/objc/objc_compilation_context_info.bzl", "ObjcCompilationContextInfo")
 load(":common/objc/objc_info.bzl", "ObjcInfo")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
 
@@ -171,7 +172,7 @@ def _create_context_and_provider(
         else:
             objc_provider_kwargs_built[k] = depset(v)
 
-    objc_compilation_context = objc_internal.create_compilation_context(
+    objc_compilation_context = ObjcCompilationContextInfo(
         **objc_compilation_context_kwargs
     )
 
