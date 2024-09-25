@@ -974,9 +974,12 @@ public class CppOptions extends FragmentOptions {
       help = "If enabled, give distinguishing mnemonic to header processing actions")
   public boolean useCppCompileHeaderMnemonic;
 
+  // TODO: When moving this flag to the graveyard, also delete
+  // tools/cpp/osx_cc_wrapper.sh.tpl and make tools/cpp/linux_cc_wrapper.sh.tpl
+  // the generic wrapper for header parsing on all Unix platforms.
   @Option(
       name = "incompatible_macos_set_install_name",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
