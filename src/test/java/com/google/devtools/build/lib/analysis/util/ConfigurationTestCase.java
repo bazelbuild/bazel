@@ -140,8 +140,10 @@ public abstract class ConfigurationTestCase extends FoundationTestCase {
     PackageOptions packageOptions = Options.getDefaults(PackageOptions.class);
     packageOptions.showLoadingProgress = true;
     packageOptions.globbingThreads = 7;
-    BuildLanguageOptions options = Options.getDefaults(BuildLanguageOptions.class);
-    options.experimentalGoogleLegacyApi = !analysisMock.isThisBazel();
+    OptionsParser parser =
+        OptionsParser.builder().optionsClasses(BuildLanguageOptions.class).build();
+    parser.parse(TestConstants.PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS);
+    BuildLanguageOptions options = parser.getOptions(BuildLanguageOptions.class);
     skyframeExecutor.preparePackageLoading(
         pkgLocator,
         packageOptions,

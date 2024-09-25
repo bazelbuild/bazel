@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BzlLoadFailedException;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.packages.PackageLoader.LoadingContext;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.util.concurrent.ForkJoinPool;
 import net.starlark.java.eval.Module;
+import net.starlark.java.eval.StarlarkSemantics;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -72,7 +74,12 @@ public abstract class AbstractPackageLoaderTest {
   protected abstract AbstractPackageLoader.Builder newPackageLoaderBuilder(Root workspaceDir);
 
   protected AbstractPackageLoader.Builder newPackageLoaderBuilder() {
-    return newPackageLoaderBuilder(root).useDefaultStarlarkSemantics().setCommonReporter(reporter);
+    return newPackageLoaderBuilder(root)
+        .setStarlarkSemantics(
+            StarlarkSemantics.builder()
+                .set(BuildLanguageOptions.INCOMPATIBLE_AUTOLOAD_EXTERNALLY, ImmutableList.of())
+                .build())
+        .setCommonReporter(reporter);
   }
 
   protected abstract ForkJoinPool extractLegacyGlobbingForkJoinPool(PackageLoader packageLoader);

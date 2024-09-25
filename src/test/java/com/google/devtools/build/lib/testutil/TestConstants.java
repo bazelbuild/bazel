@@ -152,7 +152,9 @@ public class TestConstants {
           "--incompatible_use_toolchain_resolution_for_java_rules");
 
   public static final ImmutableList<String> PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS =
-      ImmutableList.of();
+      ImmutableList.of(
+          // Don't apply autoloads in unit tests, because not all repos are available
+          "--incompatible_autoload_externally=");
 
   /** Partial query to filter out implicit dependencies of C/C++ rules. */
   public static final String CC_DEPENDENCY_CORRECTION =

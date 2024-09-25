@@ -101,7 +101,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   @Option(
       name = "incompatible_autoload_externally",
       converter = CommaSeparatedOptionSetConverter.class,
-      defaultValue = "",
+      defaultValue = FlagConstants.DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY,
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE, OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -999,7 +999,12 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");
   public static final StarlarkSemantics.Key<List<String>> INCOMPATIBLE_AUTOLOAD_EXTERNALLY =
-      new StarlarkSemantics.Key<>("incompatible_autoload_externally", ImmutableList.of());
+      new StarlarkSemantics.Key<>(
+          "incompatible_autoload_externally",
+          FlagConstants.DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY.isEmpty()
+              ? ImmutableList.of()
+              : ImmutableList.copyOf(
+                  FlagConstants.DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY.split(",")));
   public static final StarlarkSemantics.Key<List<String>> REPOSITORIES_WITHOUT_AUTOLOAD =
       new StarlarkSemantics.Key<>("repositories_without_autoloads", ImmutableList.of());
   public static final StarlarkSemantics.Key<List<String>> EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE =

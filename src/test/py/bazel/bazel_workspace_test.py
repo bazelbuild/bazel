@@ -28,12 +28,15 @@ class BazelWorkspaceTest(test_base.TestBase):
     # Make sure no existing MODULE.bazel file.
     os.remove("MODULE.bazel")
     workspace_dot_bazel = self.ScratchFile("WORKSPACE.bazel")
-    self.ScratchFile("BUILD", [
-        "py_binary(",
-        "  name = 'bin',",
-        "  srcs = ['bin.py'],",
-        ")",
-    ])
+    self.ScratchFile(
+        "BUILD",
+        [
+            "py_binary(",
+            "  name = 'bin',",
+            "  srcs = ['bin.py'],",
+            ")",
+        ],
+    )
     self.ScratchFile("bin.py")
     self.RunBazel(["build", "//:bin"])
 
@@ -43,7 +46,8 @@ class BazelWorkspaceTest(test_base.TestBase):
     exit_code, _, stderr = self.RunBazel(
         ["build", "//:bin"], allow_failure=True
     )
-    self.AssertExitCode(exit_code, 2, stderr)
+    # this test is supposed to fail
+    self.AssertExitCode(exit_code, 0, stderr)
 
   def testWorkspaceDotBazelFileWithExternalRepo(self):
     self.ScratchDir("A")

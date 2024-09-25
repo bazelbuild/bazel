@@ -293,6 +293,7 @@ class BazelVendorTest(test_base.TestBase):
         '@@dummyRepo//:all',
         '--enable_workspace=true',
         '--vendor_dir=blabla',
+        '--incompatible_autoload_externally=',
     ])
     self.assertNotIn(
         "Vendored repository 'dummyRepo' is out-of-date.", '\n'.join(stderr)
