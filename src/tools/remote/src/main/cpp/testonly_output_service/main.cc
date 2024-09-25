@@ -12,29 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <iostream>
-#include <memory>
-#include <string>
-
 #include "src/tools/remote/src/main/cpp/testonly_output_service/bazel_output_service_impl.h"
-#include "grpcpp/security/server_credentials.h"
-#include "grpcpp/server_builder.h"
-
-static void RunServer() {
-  BazelOutputServiceImpl service;
-
-  std::string server_address = "0.0.0.0:8080";
-
-  grpc::ServerBuilder builder;
-  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-  builder.RegisterService(&service);
-  std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-  std::cerr << "Server listening on " << server_address << std::endl;
-
-  server->Wait();
-}
 
 int main(int argc, char** argv) {
-  RunServer();
-  return 0;
+  return RunServer(argc, argv);
 }
