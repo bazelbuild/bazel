@@ -19,22 +19,15 @@ jobs:
               owner,
               repo,
             });
-            const jsonArray = [];
-            for (const [key, value] of Object.entries(prs)) {
-              jsonArray.push({ [key]: value });
-            }
-            console.log('jsonArray', JSON.stringify(jsonArray))
-            for (const pr of jsonArray) {
-              const jsonString = JSON.stringify(pr);
-              console.log('pr', jsonString)
-              const reviews = await github.rest.pulls.reviews({
-                owner,
-                repo,
-                pull_number: pr.number
-              });
-             console.log('reviews', reviews)
+            for (const pr of prs.data) {
+              const prNumber = pr.number;
+              console.log(`PR number: ${prNumber}`);
+               const reviews = await github.rest.pulls.reviews({
+                 owner,
+                 repo,
+                 pull_number: pr.number
+               });
               const approvedReview = reviews.data.find(review => review.state === "APPROVED");
-
               if (approvedReview) {
                 const fiveDaysAgo = new Date();
                 fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
@@ -50,4 +43,5 @@ jobs:
                   });
                 }
               }
+            }
             }
