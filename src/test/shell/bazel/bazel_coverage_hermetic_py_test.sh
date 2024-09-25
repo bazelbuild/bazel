@@ -24,6 +24,7 @@ source "${CURRENT_DIR}/../integration_test_setup.sh" \
 # Fetch hermetic python and register toolchain.
 function set_up() {
     cat >>MODULE.bazel <<EOF
+bazel_dep(name = "rules_python", version = "0.36.0")
 register_toolchains(
     "//:python_toolchain",
 )
@@ -46,7 +47,8 @@ function get_coverage_file_path_from_test_log() {
 function set_up_py_test_coverage() {
   # Set up python toolchain.
   cat <<EOF > BUILD
-load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
+load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load("@rules_python//python:py_runtime.bzl", "py_runtime")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -76,15 +78,10 @@ py_library(
     srcs = ["hello.py"],
 )
 
-py_library(
+filegroup(
     name = "mock_coverage",
     srcs = ["mock_coverage.py"],
-    deps = [":coverage_support"],
-)
-
-py_library(
-    name = "coverage_support",
-    srcs = ["coverage_support.py"],
+    data = ["coverage_support.py"],
 )
 
 py_test(
@@ -164,9 +161,9 @@ end_of_record
 EOF
 }
 
-function test_py_test_coverage() {
+function disabled_test_py_test_coverage() {
   set_up_py_test_coverage
-  bazel coverage --test_output=all //:hello_test &>$TEST_log || fail "Coverage for //:hello_test failed"
+  bazel coverage --incompatible_autoload_externally= --test_output=all //:hello_test &>$TEST_log || fail "Coverage for //:hello_test failed"
   local coverage_file_path
   coverage_file_path="$( get_coverage_file_path_from_test_log )"
   diff expected.dat "$coverage_file_path" >> $TEST_log

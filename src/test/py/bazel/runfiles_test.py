@@ -504,7 +504,9 @@ class RunfilesTest(test_base.TestBase):
     _, stdout, _ = self.RunBazel(["run", "//wrapped"])
     self.assertEqual(stdout, ["Hello, World!"])
 
-  def testWrappedPyBinary(self):
+  def disabledWrappedPyBinary(self):
+    # https://github.com/bazelbuild/rules_python/issues/2250
+    # wrapping py_binary fails with rules_python 0.36.0 on Windows
     self.writeWrapperRule()
     self.ScratchFile("MODULE.bazel")
     self.ScratchFile(

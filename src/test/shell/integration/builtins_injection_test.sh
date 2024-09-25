@@ -114,6 +114,7 @@ EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path= \
       --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
+      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: original value"
 
@@ -121,6 +122,7 @@ EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=%bundled% \
       --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
+      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel build failed"
   # "overridden value" comes from the exports.bzl in production Bazel.
   expect_log "dummy :: overridden value"
@@ -130,6 +132,7 @@ EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=%workspace% \
       --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
+      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: workspace value"
 
@@ -138,6 +141,7 @@ EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=alternate \
       --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
+      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: alternate value"
 
@@ -150,6 +154,7 @@ EOF
   bazel build --nobuild //pkg:BUILD --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=alternate \
       --experimental_exec_config=//exec:dummy_exec_platforms.bzl%noop \
+      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel build failed"
   expect_log "dummy :: second alternate value"
 
@@ -157,6 +162,7 @@ EOF
   # files are.
   bazel query 'buildfiles(//pkg:BUILD)' --experimental_builtins_dummy=true \
       --experimental_builtins_bzl_path=alternate \
+      --incompatible_autoload_externally= \
       &>"$TEST_log" || fail "bazel query failed"
   expect_not_log "exports.bzl"
 }
