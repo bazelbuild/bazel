@@ -2,11 +2,6 @@
 # No WORKSPACE prefix or suffix are added.
 
 bind(
-    name = "android/sdk",
-    actual = "@bazel_tools//tools/android:poison_pill_android_sdk",
-)
-
-bind(
     name = "android/dx_jar_import",
     actual = "@bazel_tools//tools/android:no_android_sdk_repository_error",
 )

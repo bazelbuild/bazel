@@ -72,8 +72,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
     return ImmutableList.of(
         "# __SKIP_WORKSPACE_PREFIX__",
-        "bind(name = 'android/sdk', actual ="
-            + " '@bazel_tools//tools/android:poison_pill_android_sdk')",
         "bind(name = 'android/dx_jar_import', actual ="
             + " '@bazel_tools//tools/android:no_android_sdk_repository_error')",
         "bind(name = 'android/d8_jar_import', actual ="
@@ -97,13 +95,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "local_repository(name = 'build_bazel_apple_support', path = '" + appleSupport + "')",
         "register_toolchains('@rules_java//java/toolchains/runtime:all')",
         "register_toolchains('@rules_java//java/toolchains/javac:all')",
-        "bind(name = 'android/sdk', actual='@bazel_tools//tools/android:sdk')",
         "register_toolchains('@bazel_tools//tools/cpp:all')",
         "register_toolchains('@bazel_tools//tools/jdk:all')",
         "register_toolchains('@bazel_tools//tools/android:all')",
-        // Note this path is created inside the test infrastructure in
-        // createAndroidBuildContents() below. It may not reflect a real depot path.
-        "register_toolchains('@bazel_tools//tools/android/dummy_sdk:all')",
         "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')",
         "local_repository(name='local_config_platform',path='"
             + localConfigPlatformWorkspace
@@ -156,10 +150,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "register_toolchains('@rules_java//java/toolchains/javac:all')",
         "register_toolchains('@bazel_tools//tools/cpp:all')",
         "register_toolchains('@bazel_tools//tools/jdk:all')",
-        "register_toolchains('@bazel_tools//tools/android:all')",
-        // Note this path is created inside the test infrastructure in
-        // createAndroidBuildContents() below. It may not reflect a real depot path.
-        "register_toolchains('@bazel_tools//tools/android/dummy_sdk:all')",
         "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')");
     /* The rest of platforms is initialized in {@link MockPlatformSupport}. */
     config.create("platforms_workspace/WORKSPACE", "workspace(name = 'platforms')");
@@ -389,48 +379,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "embedded_tools/tools/android/emulator/BUILD",
         Iterables.toArray(createToolsAndroidEmulatorContents(), String.class));
-    config.create(
-        "embedded_tools/tools/android/dummy_sdk/BUILD",
-        """
-        package(default_visibility = ["//visibility:public"])
-
-        toolchain(
-            name = "dummy-sdk",
-            toolchain = ":invalid-fallback-sdk",
-            toolchain_type = "@bazel_tools//tools/android:sdk_toolchain_type",
-        )
-
-        filegroup(
-            name = "jar-filegroup",
-            srcs = ["dummy.jar"],
-        )
-
-        genrule(
-            name = "empty-binary",
-            srcs = [],
-            outs = ["empty.sh"],
-            cmd = "touch $@",
-            executable = 1,
-        )
-
-        android_sdk(
-            name = "invalid-fallback-sdk",
-            aapt = ":empty_binary",
-            aapt2 = ":empty_binary",
-            adb = ":empty_binary",
-            aidl = ":empty_binary",
-            android_jar = ":jar-filegroup",
-            apksigner = ":empty_binary",
-            dx = ":empty_binary",
-            framework_aidl = "dummy.jar",
-            main_dex_classes = "dummy.jar",
-            main_dex_list_creator = ":empty_binary",
-            proguard = "empty_binary",
-            shrinked_android_jar = "dummy.jar",
-            tags = ["__ANDROID_RULES_MIGRATION__"],
-            zipalign = ":empty_binary",
-        )
-        """);
     config.create(
         "android_gmaven_r8/jar/BUILD",
         """
@@ -768,31 +716,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
     androidBuildContents.add(
         "package(default_visibility=['//visibility:public'])",
         "toolchain_type(name = 'sdk_toolchain_type')",
-        "toolchain(",
-        "  name = 'sdk_toolchain',",
-        "  toolchain = ':sdk',",
-        "  toolchain_type = ':sdk_toolchain_type',",
-        "  target_compatible_with = [",
-        "    '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android',",
-        "  ],",
-        ")",
-        "android_sdk(",
-        "    name = 'sdk',",
-        "    aapt = ':static_aapt_tool',",
-        "    aapt2 = ':static_aapt2_tool',",
-        "    adb = ':static_adb_tool',",
-        "    aidl = ':static_aidl_tool',",
-        "    android_jar = ':android_runtime_jar',",
-        "    apksigner = ':ApkSignerBinary',",
-        "    dx = ':dx_binary',",
-        "    framework_aidl = ':aidl_framework',",
-        "    main_dex_classes = ':mainDexClasses.rules',",
-        "    main_dex_list_creator = ':main_dex_list_creator',",
-        "    proguard = ':ProGuard',",
-        "    shrinked_android_jar = ':shrinkedAndroid.jar',",
-        "    zipalign = ':zipalign',",
-        "    tags = ['__ANDROID_RULES_MIGRATION__'],",
-        ")",
         "filegroup(name = 'android_runtime_jar', srcs = ['android.jar'])",
         "filegroup(name = 'dx_binary', srcs = ['dx_binary.jar'])");
 

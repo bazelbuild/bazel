@@ -79,17 +79,6 @@ java_library(
 )
 
 java_test(
-    name = "AndroidSdkTest",
-    srcs = ["AndroidSdkTest.java"],
-    deps = [
-        ":AndroidBuildViewTestCase",
-        "//src/main/java/com/google/devtools/build/lib/rules/android",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_test(
     name = "AndroidDataConverterTest",
     srcs = ["AndroidDataConverterTest.java"],
     deps = [

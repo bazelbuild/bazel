@@ -240,7 +240,7 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
     @Option(
         name = "android_sdk",
-        defaultValue = "@bazel_tools//tools/android:sdk",
+        defaultValue = "null",
         converter = LabelConverter.class,
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {
@@ -1152,7 +1152,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
   @StarlarkConfigurationField(
       name = "android_sdk_label",
       doc = "Returns the target denoted by the value of the --android_sdk flag",
-      defaultLabel = AndroidRuleClasses.DEFAULT_SDK,
       defaultInToolRepository = true)
   public Label getSdk() {
     return sdk;

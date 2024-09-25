@@ -36,9 +36,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.bazel.BazelConfiguration;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
-import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSdkRule;
 import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
-import com.google.devtools.build.lib.bazel.rules.android.BazelSdkToolchainRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
@@ -66,7 +64,6 @@ import com.google.devtools.build.lib.rules.android.AndroidOptimizedJarInfo;
 import com.google.devtools.build.lib.rules.android.AndroidPreDexJarProvider;
 import com.google.devtools.build.lib.rules.android.AndroidProguardInfo;
 import com.google.devtools.build.lib.rules.android.AndroidResourcesInfo;
-import com.google.devtools.build.lib.rules.android.AndroidSdkBaseRule;
 import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommon;
 import com.google.devtools.build.lib.rules.android.ApkInfo;
@@ -319,10 +316,6 @@ public class BazelRuleClassProvider {
 
           builder.addConfigurationFragment(AndroidConfiguration.class);
           builder.addConfigurationFragment(BazelAndroidConfiguration.class);
-
-          builder.addRuleDefinition(new AndroidSdkBaseRule());
-          builder.addRuleDefinition(new BazelAndroidSdkRule());
-          builder.addRuleDefinition(new BazelSdkToolchainRule());
 
           AndroidBootstrap bootstrap =
               new AndroidBootstrap(
