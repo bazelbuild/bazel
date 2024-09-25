@@ -201,6 +201,6 @@ public final class StarlarkPath implements StarlarkValue {
 
   @Override
   public void repr(Printer printer) {
-    printer.append(toString());
+    printer.repr(toString());
   }
 }
