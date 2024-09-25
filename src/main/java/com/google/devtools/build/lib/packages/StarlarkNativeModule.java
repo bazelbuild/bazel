@@ -434,8 +434,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
     Package.Builder pkgBuilder =
         Package.Builder.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rule()");
-    Target target = pkgBuilder.getTarget(name);
-    if (target instanceof Rule rule) {
+    @Nullable Rule rule = pkgBuilder.getNonFinalizerInstantiatedRule(name);
+    if (rule != null) {
       return new ExistingRuleView(rule);
     } else {
       return Starlark.NONE;

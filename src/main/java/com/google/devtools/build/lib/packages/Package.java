@@ -1728,6 +1728,24 @@ public class Package {
     }
 
     /**
+     * Returns a non-finalizer-instantiated rule target with the provided name belonging to this
+     * package at the time of this call. If such a rule target cannot be returned, returns null.
+     */
+    // TODO(https://github.com/bazelbuild/bazel/issues/23765): when we restrict
+    // native.existing_rule() to be usable only in finalizer context, we can replace this method
+    // with {@code getRulesSnapshotView().get(name)}; we don't do so at present because we do not
+    // want to make unnecessary snapshots.
+    @Nullable
+    Rule getNonFinalizerInstantiatedRule(String name) {
+      if (rulesSnapshotViewForFinalizers != null) {
+        return rulesSnapshotViewForFinalizers.get(name);
+      } else {
+        Target target = regEnv.getTargetMap().get(name);
+        return target instanceof Rule ? (Rule) target : null;
+      }
+    }
+
+    /**
      * Creates an input file target in this package with the specified name, if it does not yet
      * exist.
      *
