@@ -996,7 +996,10 @@ sh_test(
     srcs = ["cc_integration_test.sh"],
     data = [":test-deps"],
     shard_count = 10,
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",  # Fetches Python toolchains on systems where supported
+    ],
 )
 
 sh_test(
