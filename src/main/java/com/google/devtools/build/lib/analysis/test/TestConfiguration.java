@@ -326,6 +326,14 @@ public class TestConfiguration extends Fragment {
                 + "If false, a test runner that does not support sharding will lead to all tests "
                 + "running in each shard.")
     public boolean checkShardingSupport;
+
+    @Option(
+        name = "allow_local_tests",
+        defaultValue = "true",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.EXECUTION},
+        help = "If true, Bazel will allow local tests to run.")
+    public boolean allowLocalTests;
   }
 
   private final TestOptions options;
@@ -437,6 +445,10 @@ public class TestConfiguration extends Fragment {
 
   public boolean checkShardingSupport() {
     return options.checkShardingSupport;
+  }
+
+  public boolean allowLocalTests() {
+    return options.allowLocalTests;
   }
 
   /**

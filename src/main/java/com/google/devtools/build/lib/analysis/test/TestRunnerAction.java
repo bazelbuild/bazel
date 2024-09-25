@@ -312,6 +312,10 @@ public class TestRunnerAction extends AbstractAction
     this.isExecutedOnWindows = isExecutedOnWindows;
   }
 
+  public boolean allowLocalTests() {
+    return testConfiguration.allowLocalTests();
+  }
+
   @Override
   public boolean mayModifySpawnOutputsAfterExecution() {
     // Test actions modify test spawn outputs after execution:
