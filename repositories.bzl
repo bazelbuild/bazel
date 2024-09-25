@@ -15,7 +15,7 @@
 
 """
 
-load("//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 
 ##################################################################################

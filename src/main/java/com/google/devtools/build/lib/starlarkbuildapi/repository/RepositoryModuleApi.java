@@ -40,8 +40,10 @@ public interface RepositoryModuleApi {
   @StarlarkMethod(
       name = "repository_rule",
       doc =
-          "Creates a new repository rule. Store it in a global value, so that it can be loaded and "
-              + "called from the WORKSPACE file.",
+          "Creates a new repository rule. Store it in a global value, so that it can be loaded and"
+              + " called from a <code><a href=\"#module_extension\">module extension</a></code>"
+              + " implementation function, or used by <code><a"
+              + " href=\"../globals/module.html#use_repo_rule\">use_repo_rule</a></code>.",
       parameters = {
         @Param(
             name = "implementation",
@@ -132,7 +134,8 @@ public interface RepositoryModuleApi {
       name = "module_extension",
       doc =
           "Creates a new module extension. Store it in a global value, so that it can be exported"
-              + " and used in a MODULE.bazel file.",
+              + " and used in a MODULE.bazel file with <code><a"
+              + " href=\"../globals/module.html#use_extension\">use_extension</a></code>.",
       parameters = {
         @Param(
             name = "implementation",

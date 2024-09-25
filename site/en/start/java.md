@@ -70,7 +70,7 @@ java-tutorial
 │                   │   └── Runner.java
 │                   ├── Greeting.java
 │                   └── ProjectRunner.java
-└── WORKSPACE
+└── MODULE.bazel
 ```
 
 ## Build with Bazel
@@ -81,7 +81,7 @@ Before you can build a project, you need to set up its workspace. A workspace is
 a directory that holds your project's source files and Bazel's build outputs. It
 also contains files that Bazel recognizes as special:
 
-*  The `WORKSPACE` file, which identifies the directory and its contents as a
+*  The `MODULE.bazel` file, which identifies the directory and its contents as a
    Bazel workspace and lives at the root of the project's directory structure,
 
 *  One or more `BUILD` files, which tell Bazel how to build different parts of
@@ -89,7 +89,7 @@ also contains files that Bazel recognizes as special:
    is a *package*. You will learn about packages later in this tutorial.)
 
 To designate a directory as a Bazel workspace, create an empty file named
-`WORKSPACE` in that directory.
+`MODULE.bazel` in that directory.
 
 When Bazel builds the project, all inputs and dependencies must be in the same
 workspace. Files residing in different workspaces are independent of one

@@ -1,47 +1,37 @@
 Project: /_project.yaml
 Book: /_book.yaml
 
-# Workspaces, packages, and targets
+# Repositories, workspaces, packages, and targets
 
 {% include "_buttons.html" %}
 
-Bazel builds software from source code organized in a directory tree called a
-workspace. Source files in the workspace are organized in a nested hierarchy of
-packages, where each package is a directory that contains a set of related
-source files and one `BUILD` file. The `BUILD` file specifies what software
-outputs can be built from the source.
-
-## Workspace {:#workspace}
-
-A _workspace_ is a directory tree on your filesystem that contains the source
-files for the software you want to build. Each workspace has a text file named
-`WORKSPACE` which may be empty, or may contain references to [external
-dependencies](/docs/external) required to build the outputs.
-
-Directories containing a file called `WORKSPACE` are considered the root of a
-workspace. Therefore, Bazel ignores any directory trees in a workspace rooted at
-a subdirectory containing a `WORKSPACE` file, as they form another workspace.
-
-Bazel also supports `WORKSPACE.bazel` file as an alias of `WORKSPACE` file. If
-both files exist, `WORKSPACE.bazel` is used.
+Bazel builds software from source code organized in directory trees called
+repositories. A defined set of repositories comprises the workspace. Source
+files in repositories are organized in a nested hierarchy of packages, where
+each package is a directory that contains a set of related source files and one
+`BUILD` file. The `BUILD` file specifies what software outputs can be built from
+the source.
 
 ### Repositories {:#repositories}
 
-Code is organized in _repositories_. The directory containing the `WORKSPACE`
-file is the root of the main repository, also called `@`. Other, (external)
-repositories are defined in the `WORKSPACE` file using workspace rules, or
-generated from modules and extensions in the Bzlmod system. See [external
+Source files used in a Bazel build are organized in _repositories_ (often
+shortened to _repos_). A repo is a directory tree with a boundary marker file at
+its root; such a boundary marker file could be `MODULE.bazel`, `REPO.bazel`, or
+in legacy contexts, `WORKSPACE` or `WORKSPACE.bazel`.
+
+The repo in which the current Bazel command is being run is called the _main
+repo_. Other, (external) repos are defined by _repo rules_; see [external
 dependencies overview](/external/overview) for more information.
 
-The workspace rules bundled with Bazel are documented in the [Workspace
-Rules](/reference/be/workspace) section in the [Build
-Encyclopedia](/reference/be/overview) and the documentation on [embedded
-Starlark repository rules](/rules/lib/repo/index).
+## Workspace {:#workspace}
 
-As external repositories are repositories themselves, they often contain a
-`WORKSPACE` file as well. However, these additional `WORKSPACE` files are
-ignored by Bazel. In particular, repositories depended upon transitively are not
-added automatically.
+A _workspace_ is the environment shared by all Bazel commands run from the same
+main repo. It encompasses the main repo and the set of all defined external
+repos.
+
+Note that historically the concepts of "repository" and "workspace" have been
+conflated; the term "workspace" has often been used to refer to the main
+repository, and sometimes even used as a synonym of "repository".
 
 ## Packages {:#packages}
 

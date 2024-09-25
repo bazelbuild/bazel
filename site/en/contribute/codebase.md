@@ -47,10 +47,10 @@ and some are after (`-c opt`); the former kind is called a "startup option" and
 affects the server process as a whole, whereas the latter kind, the "command
 option", only affects a single command.
 
-Each server instance has a single associated source tree ("workspace") and each
-workspace usually has a single active server instance. This can be circumvented
-by specifying a custom output base (see the "Directory layout" section for more
-information).
+Each server instance has a single associated workspace (collection of source
+trees known as "repositories") and each workspace usually has a single active
+server instance. This can be circumvented by specifying a custom output base
+(see the "Directory layout" section for more information).
 
 Bazel is distributed as a single ELF executable that is also a valid .zip file.
 When you type `bazel`, the above ELF executable implemented in C++ (the
@@ -96,8 +96,9 @@ from the client are handled by `GrpcServerImpl.run()`.
 Bazel creates a somewhat complicated set of directories during a build. A full
 description is available in [Output directory layout](/remote/output-directories).
 
-The "workspace" is the source tree Bazel is run in. It usually corresponds to
-something you checked out from source control.
+The "main repo" is the source tree Bazel is run in. It usually corresponds to
+something you checked out from source control. The root of this directory is
+known as the "workspace root".
 
 Bazel puts all of its data under the "output user root". This is usually
 `$HOME/.cache/bazel/_bazel_${USER}`, but can be overridden using the
@@ -226,12 +227,11 @@ Bazel, in contrast, supports projects whose source code spans multiple
 repositories. The repository from which Bazel is invoked is called the "main
 repository", the others are called "external repositories".
 
-A repository is marked by a file called `WORKSPACE` (or `WORKSPACE.bazel`) in
-its root directory. This file contains information that is "global" to the whole
-build, for example, the set of available external repositories. It works like a
-regular Starlark file which means that one can `load()` other Starlark files.
-This is commonly used to pull in repositories that are needed by a repository
-that's explicitly referenced (we call this the "`deps.bzl` pattern")
+A repository is marked by a repo boundary file (`MODULE.bazel`, `REPO.bazel`, or
+in legacy contexts, `WORKSPACE` or `WORKSPACE.bazel`) in its root directory. The
+main repo is the source tree where you're invoking Bazel from. External repos
+are defined in various ways; see [external dependencies
+overview](/external/overview) for more information.
 
 Code of external repositories is symlinked or downloaded under
 `$OUTPUT_BASE/external`.
@@ -239,9 +239,7 @@ Code of external repositories is symlinked or downloaded under
 When running the build, the whole source tree needs to be pieced together; this
 is done by `SymlinkForest`, which symlinks every package in the main repository
 to `$EXECROOT` and every external repository to either `$EXECROOT/external` or
-`$EXECROOT/..` (the former of course makes it impossible to have a package
-called `external` in the main repository; that's why we are migrating away from
-it)
+`$EXECROOT/..`.
 
 ### Packages {:#packages}
 
@@ -277,7 +275,8 @@ Globbing is implemented in the following classes:
     the legacy globber in order to avoid "Skyframe restarts" (described below)
 
 The `Package` class itself contains some members that are exclusively used to
-parse the WORKSPACE file and which do not make sense for real packages. This is
+parse the "external" package (related to external dependencies) and which do not
+make sense for real packages. This is
 a design flaw because objects describing regular packages should not contain
 fields that describe something else. These include:
 
@@ -285,10 +284,10 @@ fields that describe something else. These include:
 *   The registered toolchains
 *   The registered execution platforms
 
-Ideally, there would be more separation between parsing the WORKSPACE file from
-parsing regular packages so that `Package`does not need to cater for the needs
-of both. This is unfortunately difficult to do because the two are intertwined
-quite deeply.
+Ideally, there would be more separation between parsing the "external" package
+from parsing regular packages so that `Package` does not need to cater for the
+needs of both. This is unfortunately difficult to do because the two are
+intertwined quite deeply.
 
 ### Labels, Targets, and Rules {:#labels-targets-rules}
 
@@ -417,25 +416,21 @@ implementation used in Bazel is currently an interpreter.
 
 Starlark is used in several contexts, including:
 
-1.  **The `BUILD` language.** This is where new rules are defined. Starlark code
-    running in this context only has access to the contents of the `BUILD` file
-    itself and `.bzl` files loaded by it.
-2.  **Rule definitions.** This is how new rules (such as support for a new
-    language) are defined. Starlark code running in this context has access to
-    the configuration and data provided by its direct dependencies (more on this
-    later).
-3.  **The WORKSPACE file.** This is where external repositories (code that's not
-    in the main source tree) are defined.
-4.  **Repository rule definitions.** This is where new external repository types
-    are defined. Starlark code running in this context can run arbitrary code on
-    the machine where Bazel is running, and reach outside the workspace.
+1.  **`BUILD` files.** This is where new build targets are defined. Starlark
+    code running in this context only has access to the contents of the `BUILD`
+    file itself and `.bzl` files loaded by it.
+2.  **The `MODULE.bazel` file.** This is where external dependencies are
+    defined. Starlark code running in this context only has very limited access
+    to a few predefined directives.
+3.  **`.bzl` files.** This is where new build rules, repo rules, module
+    extensions are defined. Starlark code here can define new functions and load
+    from other `.bzl` files.
 
 The dialects available for `BUILD` and `.bzl` files are slightly different
 because they express different things. A list of differences is available
 [here](/rules/language#differences-between-build-and-bzl-files).
 
-More information about Starlark is available
-[here](/rules/language).
+More information about Starlark is available [here](/rules/language).
 
 ## The loading/analysis phase {:#loading-phase}
 
@@ -721,7 +716,7 @@ time to load.
 
 Execution platforms are specified in one of the following ways:
 
-1.  In the WORKSPACE file using the `register_execution_platforms()` function
+1.  In the MODULE.bazel file using the `register_execution_platforms()` function
 2.  On the command line using the --extra\_execution\_platforms command line
     option
 
@@ -736,7 +731,7 @@ yet.
 The set of toolchains to be used for a configured target is determined by
 `ToolchainResolutionFunction`. It is a function of:
 
-*   The set of registered toolchains (in the WORKSPACE file and the
+*   The set of registered toolchains (in the MODULE.bazel file and the
     configuration)
 *   The desired execution and target platforms (in the configuration)
 *   The set of toolchain types that are required by the configured target (in
@@ -1444,6 +1439,11 @@ This is implemented in the `build.lib.buildeventservice` and
 
 ## External repositories {:#external-repos}
 
+Note: The information in this section is out of date, as code in this area has
+undergone extensive change in the past couple of years. Please refer to
+[external dependencies overview](/external/overview) for more up-to-date
+information.
+
 Whereas Bazel was originally designed to be used in a monorepo (a single source
 tree containing everything one needs to build), Bazel lives in a world where
 this is not necessarily true. "External repositories" are an abstraction used to
@@ -1514,23 +1514,6 @@ of source artifacts by calling stat() on them, and these artifacts are also
 invalidated when the definition of the repository they are in changes. Thus,
 `FileStateValue`s for an artifact in an external repository need to depend on
 their external repository. This is handled by `ExternalFilesHelper`.
-
-### Managed directories {:#managed-directories}
-
-Sometimes, external repositories need to modify files under the workspace root
-(such as a package manager that houses the downloaded packages in a subdirectory of
-the source tree). This is at odds with the assumption Bazel makes that source
-files are only modified by the user and not by itself and allows packages to
-refer to every directory under the workspace root. In order to make this kind of
-external repository work, Bazel does two things:
-
-1.  Allows the user to specify subdirectories of the workspace Bazel is not
-    allowed to reach into. They are listed in a file called `.bazelignore` and
-    the functionality is implemented in `BlacklistedPackagePrefixesFunction`.
-2.  We encode the mapping from the subdirectory of the workspace to the external
-    repository it is handled by into `ManagedDirectoriesKnowledge` and handle
-    `FileStateValue`s referring to them in the same way as those for regular
-    external repositories.
 
 ### Repository mappings {:#repo-mappings}
 

@@ -1504,24 +1504,8 @@ full syntax for
 
 ### Querying with external repositories {:#querying-external-repositories}
 
-If the build depends on rules from external repositories (defined in the
-WORKSPACE file) then query results will include these dependencies. For
-example, if `//foo:bar` depends on `//external:some-lib`
-and `//external:some-lib` is bound to `@other-repo//baz:lib`, then
-`bazel query 'deps(//foo:bar)'` will list both `@other-repo//baz:lib` and
-`//external:some-lib` as dependencies.
-
-External repositories themselves are not dependencies of a build. That is, in
-the example above, `//external:other-repo` is not a dependency. It
-can be queried for as a member of the `//external` package, though,
-for example:
-
-```
-  # Querying over all members of //external returns the repository.
-  bazel query 'kind(http_archive, //external:*)'
-  //external:other-repo
-
-  # ...but the repository is not a dependency.
-  bazel query 'kind(http_archive, deps(//foo:bar))'
-  INFO: Empty results
-```
+If the build depends on rules from [external repositories](/external/overview)
+then query results will include these dependencies. For
+example, if `//foo:bar` depends on `@other-repo//baz:lib`, then
+`bazel query 'deps(//foo:bar)'` will list `@other-repo//baz:lib` as a
+dependency.

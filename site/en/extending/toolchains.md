@@ -430,7 +430,7 @@ be able to run on the execution platform.
 
 At this point all the building blocks are assembled, and you just need to make
 the toolchains available to Bazel's resolution procedure. This is done by
-registering the toolchain, either in a `WORKSPACE` file using
+registering the toolchain, either in a `MODULE.bazel` file using
 `register_toolchains()`, or by passing the toolchains' labels on the command
 line using the `--extra_toolchains` flag.
 
@@ -495,10 +495,11 @@ selected toolchain for each toolchain type as well as a selected execution
 platform for the current target.
 
 The available execution platforms and toolchains are gathered from the
-`WORKSPACE` file via
-[`register_execution_platforms`](/rules/lib/globals/workspace#register_execution_platforms)
+external dependency graph via
+[`register_execution_platforms`](/rules/lib/globals/module#register_execution_platforms)
 and
-[`register_toolchains`](/rules/lib/globals/workspace#register_toolchains).
+[`register_toolchains`](/rules/lib/globals/module#register_toolchains) calls in
+`MODULE.bazel`` files.
 Additional execution platforms and toolchains may also be specified on the
 command line via
 [`--extra_execution_platforms`](/reference/command-line-reference#flag--extra_execution_platforms)
@@ -511,10 +512,19 @@ with preference given to earlier items in the list.
 The set of available toolchains, in priority order, is created from
 `--extra_toolchains` and `register_toolchains`:
 
-1. Toolchains registered using `--extra_toolchains` are added first.
-  1. Within these, the **last** toolchain has highest priority.
-2. Toolchains registered using `register_toolchains`
-  1. Within these, the **first** mentioned toolchain has highest priority.
+1. Toolchains registered using `--extra_toolchains` are added first. (Within
+   these, the **last** toolchain has highest priority.)
+2. Toolchains registered using `register_toolchains` in the transitive external
+   dependency graph, in the following order: (Within these, the **first**
+   mentioned toolchain has highest priority.)
+  1. Toolchains registered by the root module (as in, the `MODULE.bazel` at the
+     workspace root);
+  2. Toolchains registered in the user's `WORKSPACE` file, including in any
+     macros invoked from there;
+  3. Toolchains registered by non-root modules (as in, dependencies specified by
+     the root module, and their dependencies, and so forth);
+  4. Toolchains registered in the "WORKSPACE suffix"; this is only used by
+     certain native rules bundled with the Bazel installation.
 
 **NOTE:** [Pseudo-targets like `:all`, `:*`, and
 `/...`](/run/build#specifying-build-targets) are ordered by Bazel's package
