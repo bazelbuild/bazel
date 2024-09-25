@@ -2139,7 +2139,8 @@ public class RuleClass implements RuleClassData {
             attributeValues,
             failOnUnknownAttributes,
             pkgBuilder.getListInterner(),
-            pkgBuilder.getLocalEventHandler());
+            pkgBuilder.getLocalEventHandler(),
+            pkgBuilder.simplifyUnconditionalSelectsInRuleAttrs());
     populateDefaultRuleAttributeValues(rule, pkgBuilder, definedAttrIndices);
     // Now that all attributes are bound to values, collect and store configurable attribute keys.
     populateConfigDependenciesAttribute(rule);
@@ -2162,7 +2163,8 @@ public class RuleClass implements RuleClassData {
       AttributeValues<T> attributeValues,
       boolean failOnUnknownAttributes,
       Interner<ImmutableList<?>> listInterner,
-      EventHandler eventHandler) {
+      EventHandler eventHandler,
+      boolean simplifyUnconditionalSelects) {
     BitSet definedAttrIndices = new BitSet();
     for (T attributeAccessor : attributeValues.getAttributeAccessors()) {
       String attributeName = attributeValues.getName(attributeAccessor);
@@ -2215,9 +2217,18 @@ public class RuleClass implements RuleClassData {
         try {
           nativeAttributeValue =
               BuildType.convertFromBuildLangType(
-                  rule.getRuleClass(), attr, attributeValue, labelConverter, listInterner);
+                  rule.getRuleClass(),
+                  attr,
+                  attributeValue,
+                  labelConverter,
+                  listInterner,
+                  simplifyUnconditionalSelects);
         } catch (ConversionException e) {
           rule.reportError(String.format("%s: %s", rule.getLabel(), e.getMessage()), eventHandler);
+          continue;
+        }
+        // Ignore select({"//conditions:default": None}) values for attr types with null default.
+        if (nativeAttributeValue == null) {
           continue;
         }
       } else {

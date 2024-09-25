@@ -66,6 +66,8 @@ public final class BzlmodRepoRuleCreator {
                 Root.fromPath(directories.getWorkspace()),
                 LabelConstants.MODULE_DOT_BAZEL_FILE_NAME),
             semantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
+            semantics.getBool(
+                BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
             basePackageId,
             repoMapping);
     BuildLangTypedAttributeValuesMap attributeValues =

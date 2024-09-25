@@ -72,6 +72,8 @@ final class WorkspaceFactoryTestHelper {
                 RepositoryMapping.ALWAYS_FALLBACK,
                 starlarkSemantics.getBool(
                     BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
+                starlarkSemantics.getBool(
+                    BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
                 PackageOverheadEstimator.NOOP_ESTIMATOR)
             .setLoads(ImmutableList.of());
     WorkspaceFactory factory =

@@ -887,6 +887,7 @@ public class Package {
       Optional<String> associatedModuleName,
       Optional<String> associatedModuleVersion,
       boolean noImplicitFileExport,
+      boolean simplifyUnconditionalSelectsInRuleAttrs,
       RepositoryMapping repositoryMapping,
       RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
@@ -918,6 +919,7 @@ public class Package {
         SymbolGenerator.create(id),
         packageSettings.precomputeTransitiveLoads(),
         noImplicitFileExport,
+        simplifyUnconditionalSelectsInRuleAttrs,
         workspaceName,
         mainRepositoryMapping,
         cpuBoundSemaphore,
@@ -932,6 +934,7 @@ public class Package {
       String workspaceName,
       RepositoryMapping mainRepoMapping,
       boolean noImplicitFileExport,
+      boolean simplifyUnconditionalSelectsInRuleAttrs,
       PackageOverheadEstimator packageOverheadEstimator) {
     return new Builder(
         new Metadata(
@@ -948,6 +951,7 @@ public class Package {
         SymbolGenerator.create(workspaceFileKey),
         packageSettings.precomputeTransitiveLoads(),
         noImplicitFileExport,
+        simplifyUnconditionalSelectsInRuleAttrs,
         workspaceName,
         mainRepoMapping,
         /* cpuBoundSemaphore= */ null,
@@ -959,6 +963,7 @@ public class Package {
   public static Builder newExternalPackageBuilderForBzlmod(
       RootedPath moduleFilePath,
       boolean noImplicitFileExport,
+      boolean simplifyUnconditionalSelectsInRuleAttrs,
       PackageIdentifier basePackageId,
       RepositoryMapping repoMapping) {
     return new Builder(
@@ -975,6 +980,7 @@ public class Package {
             SymbolGenerator.create(basePackageId),
             PackageSettings.DEFAULTS.precomputeTransitiveLoads(),
             noImplicitFileExport,
+            simplifyUnconditionalSelectsInRuleAttrs,
             /* workspaceName= */ DUMMY_WORKSPACE_NAME_FOR_BZLMOD_PACKAGES,
             /* mainRepositoryMapping= */ null,
             /* cpuBoundSemaphore= */ null,
@@ -1053,6 +1059,7 @@ public class Package {
 
     private final boolean precomputeTransitiveLoads;
     private final boolean noImplicitFileExport;
+    private final boolean simplifyUnconditionalSelectsInRuleAttrs;
 
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
@@ -1183,6 +1190,7 @@ public class Package {
         SymbolGenerator<?> symbolGenerator,
         boolean precomputeTransitiveLoads,
         boolean noImplicitFileExport,
+        boolean simplifyUnconditionalSelectsInRuleAttrs,
         String workspaceName,
         RepositoryMapping mainRepositoryMapping,
         @Nullable Semaphore cpuBoundSemaphore,
@@ -1208,6 +1216,7 @@ public class Package {
 
       this.precomputeTransitiveLoads = precomputeTransitiveLoads;
       this.noImplicitFileExport = noImplicitFileExport;
+      this.simplifyUnconditionalSelectsInRuleAttrs = simplifyUnconditionalSelectsInRuleAttrs;
       this.labelConverter =
           new LabelConverter(metadata.packageIdentifier(), metadata.repositoryMapping());
       if (metadata.getName().startsWith("javatests/")) {
@@ -1629,6 +1638,14 @@ public class Package {
     @Nullable
     public Globber getGlobber() {
       return globber;
+    }
+
+    /**
+     * Returns true if values of conditional rule attributes which only contain unconditional
+     * selects should be simplified and stored as a non-select value.
+     */
+    public boolean simplifyUnconditionalSelectsInRuleAttrs() {
+      return this.simplifyUnconditionalSelectsInRuleAttrs;
     }
 
     /**

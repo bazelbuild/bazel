@@ -206,7 +206,9 @@ public final class MacroInstance {
               value,
               "macro attribute (internal)",
               // No string -> Label conversion is being done here.
-              /* context= */ null);
+              /* context= */ null,
+              // Macros always preserve selects as selects.
+              /* simplifyUnconditionalSelects= */ false);
     } catch (ConversionException e) {
       // TODO: #19922 - The fact that we have to do this seems like a signal that we should
       // transition to storing macro attribute values as native-typed attributes in the future.

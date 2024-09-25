@@ -785,6 +785,19 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " ctx.actions.run_shell.")
   public boolean incompatibleDisallowCtxResolveTools;
 
+  @Option(
+      name = "incompatible_simplify_unconditional_selects_in_rule_attrs",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
+      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
+      help =
+          "If true, simplify configurable rule attributes which contain only unconditional selects;"
+              + " for example, if [\"a\"] + select(\"//conditions:default\", [\"b\"]) is assigned"
+              + " to a rule attribute, it is stored as [\"a\", \"b\"]. This option does not affect"
+              + " attributes of symbolic macros or attribute default values.")
+  public boolean incompatibleSimplifyUnconditionalSelectsInRuleAttrs;
+
   /**
    * An interner to reduce the number of StarlarkSemantics instances. A single Blaze instance should
    * never accumulate a large number of these and being able to shortcut on object identity makes a
@@ -894,6 +907,9 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(
                 INCOMPATIBLE_STOP_EXPORTING_BUILD_FILE_PATH, incompatibleStopExportingBuildFilePath)
             .setBool(INCOMPATIBLE_DISALLOW_CTX_RESOLVE_TOOLS, incompatibleDisallowCtxResolveTools)
+            .setBool(
+                INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS,
+                incompatibleSimplifyUnconditionalSelectsInRuleAttrs)
             .build();
     return INTERNER.intern(semantics);
   }
@@ -995,6 +1011,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_stop_exporting_build_file_path";
   public static final String INCOMPATIBLE_DISALLOW_CTX_RESOLVE_TOOLS =
       "+incompatible_disallow_ctx_resolve_tools";
+  public static final String INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS =
+      "-incompatible_simplify_unconditional_selects_in_rule_attrs";
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");
