@@ -767,7 +767,10 @@ public class ModuleFileGlobals {
             doc =
                 "A list of labels pointing to patch files to apply for this module. The patch files"
                     + " must exist in the source tree of the top level project. They are applied in"
-                    + " the list order.",
+                    + " the list order."
+                    + ""
+                    + "<p>If a patch makes changes to the MODULE.bazel file, these changes will"
+                    + " only be effective if the patch file is provided by the root module.",
             allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
             named = true,
             positional = false,
@@ -775,7 +778,9 @@ public class ModuleFileGlobals {
         @Param(
             name = "patch_cmds",
             doc =
-                "Sequence of Bash commands to be applied on Linux/Macos after patches are applied.",
+                "Sequence of Bash commands to be applied on Linux/Macos after patches are applied."
+                    + ""
+                    + "<p>Changes to the MODULE.bazel file will not be effective.",
             allowedTypes = {@ParamType(type = Iterable.class, generic1 = String.class)},
             named = true,
             positional = false,
