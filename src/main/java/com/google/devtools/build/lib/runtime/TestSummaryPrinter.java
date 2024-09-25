@@ -216,7 +216,6 @@ public class TestSummaryPrinter {
             e);
       }
     }
-    terminalPrinter.print("end of print");
   }
 
   /** Prints the result of an individual test case. */
