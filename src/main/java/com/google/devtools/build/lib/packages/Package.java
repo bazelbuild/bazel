@@ -1635,7 +1635,7 @@ public class Package {
      * Returns the innermost currently executing symbolic macro, or null if not in a symbolic macro.
      */
     @Nullable
-    private MacroInstance currentMacro() {
+    public MacroInstance currentMacro() {
       MacroFrame frame = regEnv.getCurrentMacroFrame();
       return frame == null ? null : frame.macroInstance;
     }
@@ -1958,36 +1958,6 @@ public class Package {
       if (!unexpandedMacros.remove(id)) {
         throw new IllegalArgumentException(
             String.format("Macro id '%s' unknown or already marked complete", id));
-      }
-    }
-
-    /**
-     * If we are currently executing a symbolic macro, returns the result of unioning the given
-     * visibility with the location of the innermost macro's code. Otherwise, returns the given
-     * visibility unmodified.
-     *
-     * <p>The location of the macro's code is considered to be the package containing the .bzl file
-     * from which the macro's {@code MacroClass} was exported.
-     */
-    RuleVisibility copyAppendingCurrentMacroLocation(RuleVisibility visibility) {
-      if (currentMacro() == null) {
-        return visibility;
-      }
-      MacroClass macroClass = currentMacro().getMacroClass();
-      PackageIdentifier macroLocation = macroClass.getDefiningBzlLabel().getPackageIdentifier();
-      Label newVisibilityItem = Label.createUnvalidated(macroLocation, "__pkg__");
-
-      if (visibility.equals(RuleVisibility.PRIVATE)) {
-        // Private is dropped.
-        return PackageGroupsRuleVisibility.create(ImmutableList.of(newVisibilityItem));
-      } else if (visibility.equals(RuleVisibility.PUBLIC)) {
-        // Public is idempotent.
-        return visibility;
-      } else {
-        ImmutableList.Builder<Label> items = new ImmutableList.Builder<>();
-        items.addAll(visibility.getDeclaredLabels());
-        items.add(newVisibilityItem);
-        return PackageGroupsRuleVisibility.create(items.build());
       }
     }
 

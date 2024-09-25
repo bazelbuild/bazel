@@ -553,7 +553,10 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
             : RuleVisibility.parse(
                 BuildType.LABEL_LIST.convert(
                     visibilityO, "'exports_files' operand", pkgBuilder.getLabelConverter()));
-    visibility = pkgBuilder.copyAppendingCurrentMacroLocation(visibility);
+    MacroInstance currentMacro = pkgBuilder.currentMacro();
+    if (currentMacro != null) {
+      visibility = currentMacro.concatDefinitionLocationToVisibility(visibility);
+    }
 
     // TODO(bazel-team): is licenses plural or singular?
     License license = BuildType.LICENSE.convertOptional(licensesO, "'exports_files' operand");

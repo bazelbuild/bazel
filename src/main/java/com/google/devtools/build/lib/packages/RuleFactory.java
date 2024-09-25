@@ -289,7 +289,8 @@ public class RuleFactory {
   @Nullable
   private static List<Label> getModifiedVisibility(
       Package.Builder pkgBuilder, BuildLangTypedAttributeValuesMap args) {
-    if (pkgBuilder.getCurrentMacroFrame() == null) {
+    MacroInstance currentMacro = pkgBuilder.currentMacro();
+    if (currentMacro == null) {
       return null;
     }
 
@@ -311,7 +312,7 @@ public class RuleFactory {
       }
     }
 
-    return pkgBuilder.copyAppendingCurrentMacroLocation(visibility).getDeclaredLabels();
+    return currentMacro.concatDefinitionLocationToVisibility(visibility).getDeclaredLabels();
   }
 
   /**
