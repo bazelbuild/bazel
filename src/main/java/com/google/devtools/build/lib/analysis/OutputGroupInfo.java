@@ -209,9 +209,6 @@ public abstract class OutputGroupInfo extends StructImpl
             "Output group " + VALIDATION + " provided twice with incompatible depset orders");
       }
     }
-    if (!validationOutputs.isEmpty()) {
-      outputGroups.put(VALIDATION, validationOutputs.build());
-    }
     return createInternal(ImmutableMap.copyOf(outputGroups));
   }
 

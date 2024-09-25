@@ -22,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
-import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
@@ -58,6 +57,7 @@ import javax.annotation.Nullable;
  * as --keep_going, --jobs, etc.
  */
 public class BuildRequest implements OptionsProvider {
+  public static final String VALIDATION_ASPECT_NAME = "ValidateTarget";
 
   private static final ImmutableList<Class<? extends OptionsBase>> MANDATORY_OPTIONS =
       ImmutableList.of(
@@ -429,8 +429,8 @@ public class BuildRequest implements OptionsProvider {
   public ImmutableList<String> getAspects() {
     List<String> aspects = getBuildOptions().aspects;
     ImmutableList.Builder<String> result = ImmutableList.<String>builder().addAll(aspects);
-    if (!aspects.contains(AspectCollection.VALIDATION_ASPECT_NAME) && useValidationAspect()) {
-      result.add(AspectCollection.VALIDATION_ASPECT_NAME);
+    if (!aspects.contains(VALIDATION_ASPECT_NAME) && useValidationAspect()) {
+      result.add(VALIDATION_ASPECT_NAME);
     }
     return result.build();
   }
@@ -453,7 +453,7 @@ public class BuildRequest implements OptionsProvider {
     }
   }
 
-  /** Whether {@value AspectCollection#VALIDATION_ASPECT_NAME} is in use. */
+  /** Whether {@value #VALIDATION_ASPECT_NAME} is in use. */
   public boolean useValidationAspect() {
     return validationMode() == OutputGroupInfo.ValidationMode.ASPECT;
   }
