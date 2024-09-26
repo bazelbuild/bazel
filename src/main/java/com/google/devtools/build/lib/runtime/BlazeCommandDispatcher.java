@@ -723,13 +723,6 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
       result = BlazeCommandResult.createShutdown(crash);
       return result;
     } finally {
-      if (needToCallAfterCommand) {
-        BlazeCommandResult newResult = runtime.afterCommand(false, env, result);
-        if (!newResult.equals(result)) {
-          logger.atWarning().log("afterCommand yielded different result: %s %s", result, newResult);
-        }
-      }
-
       try {
         Profiler.instance().stop();
         if (profilerStartedEvent.getProfile() instanceof LocalInstrumentationOutput profile) {
@@ -739,8 +732,15 @@ public class BlazeCommandDispatcher implements CommandDispatcher {
         env.getReporter()
             .handle(Event.error("Error while writing profile file: " + e.getMessage()));
       }
-
       Profiler.instance().clear();
+
+      if (needToCallAfterCommand) {
+        BlazeCommandResult newResult = runtime.afterCommand(false, env, result);
+        if (!newResult.equals(result)) {
+          logger.atWarning().log("afterCommand yielded different result: %s %s", result, newResult);
+        }
+      }
+
       MemoryProfiler.instance().stop();
 
       // Swallow IOException, as we are already in a finally clause
