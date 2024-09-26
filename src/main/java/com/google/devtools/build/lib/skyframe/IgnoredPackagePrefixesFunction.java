@@ -13,6 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction.VENDOR_DIRECTORY;
+
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.CharStreams;
 import com.google.common.io.LineProcessor;
@@ -33,6 +36,8 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.util.Optional;
+
 import javax.annotation.Nullable;
 
 /**
@@ -82,7 +87,20 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
       }
 
       if (repositoryName.isMain()) {
+        // Always ignore the vendor dir for finding packages
+        PathFragment vendorDir = null;
+        if (VENDOR_DIRECTORY.get(env).isPresent()) {
+          vendorDir = VENDOR_DIRECTORY.get(env).get().asFragment();
+          // Vendor dir should have been resolved to an absolute path.
+          Preconditions.checkArgument(vendorDir.isAbsolute());
+        }
+
         for (Root packagePathEntry : pkgLocator.getPathEntries()) {
+          PathFragment workspaceRoot = packagePathEntry.asPath().asFragment();
+          if (vendorDir != null && vendorDir.startsWith(workspaceRoot)) {
+            ignoredPackagePrefixesBuilder.add(vendorDir.relativeTo(workspaceRoot));
+          }
+
           RootedPath rootedPatternFile =
               RootedPath.toRootedPath(packagePathEntry, ignoredPackagePrefixesFile);
           FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
