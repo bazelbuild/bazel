@@ -64,6 +64,7 @@ import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
 import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
+import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.http.DownloadTimeoutException;
 import com.google.devtools.build.lib.remote.http.HttpException;
@@ -340,6 +341,15 @@ public final class RemoteModule extends BlazeModule {
     boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
     boolean enableGrpcCache = GrpcCacheClient.isRemoteCacheOptions(remoteOptions);
     boolean enableRemoteDownloader = shouldEnableRemoteDownloader(remoteOptions);
+
+    if (enableDiskCache) {
+      var gcIdleTask =
+          DiskCacheGarbageCollectorIdleTask.create(
+              remoteOptions, env.getWorkingDirectory(), executorService);
+      if (gcIdleTask != null) {
+        env.addIdleTask(gcIdleTask);
+      }
+    }
 
     if (enableRemoteDownloader && !enableGrpcCache) {
       throw createOptionsExitException(
@@ -919,9 +929,9 @@ public final class RemoteModule extends BlazeModule {
   }
 
   private static void afterCommandTask(
-      RemoteActionContextProvider actionContextProvider,
-      TempPathGenerator tempPathGenerator,
-      AsynchronousMessageOutputStream<LogEntry> rpcLogFile)
+      @Nullable RemoteActionContextProvider actionContextProvider,
+      @Nullable TempPathGenerator tempPathGenerator,
+      @Nullable AsynchronousMessageOutputStream<LogEntry> rpcLogFile)
       throws AbruptExitException {
     if (actionContextProvider != null) {
       actionContextProvider.afterCommand();
