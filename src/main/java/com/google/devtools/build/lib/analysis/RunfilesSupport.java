@@ -236,13 +236,17 @@ public final class RunfilesSupport {
   private final CommandLine args;
   private final ActionEnvironment actionEnvironment;
 
-  // Only cache runfiles if there is more than one test runner action. Otherwise, there is no chance
-  // for reusing the runfiles within a single build, so don't pay the overhead of a weak reference.
+  // Only cache mappings if there is a chance that more than one action will use it within a single
+  // build. This helps reduce peak memory usage, especially when the value of --jobs is high, but
+  // avoids the additional overhead of a weak reference when it is not needed.
   private static boolean cacheRunfilesMappings(RuleContext ruleContext) {
     if (!TargetUtils.isTestRule(ruleContext.getTarget())) {
-      return false;
+      // Runfiles trees of non-test rules are tools and can thus be used by multiple actions.
+      return true;
     }
 
+    // Test runfiles are only used by a single test runner action unless there are multiple runs or
+    // shards.
     if (TestActionBuilder.getRunsPerTest(ruleContext) > 1) {
       return true;
     }
