@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.disk;
 
+import static com.google.devtools.build.lib.remote.util.Utils.bytesCountToDisplayString;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.CollectionPolicy;
@@ -90,25 +92,12 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
           "Disk cache garbage collection finished: deleted %d of %d files, reclaimed %s of %s",
           stats.deletedEntries(),
           stats.totalEntries(),
-          formatBytes(stats.deletedBytes()),
-          formatBytes(stats.totalBytes()));
+          bytesCountToDisplayString(stats.deletedBytes()),
+          bytesCountToDisplayString(stats.totalBytes()));
     } catch (IOException e) {
       logger.atInfo().withCause(e).log("Disk cache garbage collection failed");
     } catch (InterruptedException e) {
       logger.atInfo().withCause(e).log("Disk cache garbage collection interrupted");
     }
-  }
-
-  private static String formatBytes(long bytes) {
-    if (bytes >= 1024 * 1024 * 1024) {
-      return "%3fGB".formatted((double) bytes / (1024 * 1024 * 1024));
-    }
-    if (bytes >= 1024 * 1024) {
-      return "%3fMB".formatted((double) bytes / (1024 * 1024));
-    }
-    if (bytes >= 1024) {
-      return "%3fKB".formatted((double) bytes / 1024);
-    }
-    return "%dB".formatted(bytes);
   }
 }
