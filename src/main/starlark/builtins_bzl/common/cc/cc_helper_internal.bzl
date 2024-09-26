@@ -40,6 +40,9 @@ PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("", "third_party/protobuf"),
     ("protobuf", ""),
     ("com_google_protobuf", ""),
+    ("", "third_party/bazel_rules/rules_apple"),
+    ("apple_support", ""),
+    ("rules_apple", ""),
 ] + CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
 
 artifact_category = struct(
