@@ -377,6 +377,7 @@ filegroup(
         "//src/tools/android:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/bzlmod:srcs",
+        "//src/tools/diskcache:srcs",
         "//src/tools/execlog:srcs",
         "//src/tools/launcher:srcs",
         "//src/tools/one_version:srcs",
