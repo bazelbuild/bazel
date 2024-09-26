@@ -78,7 +78,6 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     assertThat(spawnResult.status()).isEqualTo(SpawnResult.Status.SUCCESS);
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
-    assertThat(spawnResult.getWallTimeInMs()).isNotNull();
   }
 
   @Test
@@ -138,13 +137,10 @@ public final class ProcessWrapperSandboxedSpawnRunnerTest extends SandboxedSpawn
     assertThat(spawnResult.exitCode()).isEqualTo(0);
     assertThat(spawnResult.setupSuccess()).isTrue();
 
-    assertThat(spawnResult.getWallTimeInMs()).isNotNull();
     assertThat(spawnResult.getWallTimeInMs()).isAtLeast(minimumWallTimeToSpend);
     assertThat(spawnResult.getWallTimeInMs()).isAtMost(maximumWallTimeToSpend);
-    assertThat(spawnResult.getUserTimeInMs()).isNotNull();
     assertThat(spawnResult.getUserTimeInMs()).isAtLeast(minimumUserTimeToSpend);
     assertThat(spawnResult.getUserTimeInMs()).isAtMost(maximumUserTimeToSpend);
-    assertThat(spawnResult.getSystemTimeInMs()).isNotNull();
     assertThat(spawnResult.getSystemTimeInMs()).isAtLeast(minimumSystemTimeToSpend);
     assertThat(spawnResult.getSystemTimeInMs()).isAtMost(maximumSystemTimeToSpend);
     assertThat(spawnResult.getNumBlockOutputOperations()).isAtLeast(0L);

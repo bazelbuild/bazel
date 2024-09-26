@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -33,6 +34,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Supplier;
 import javax.annotation.Nullable;
 
 /**
@@ -46,8 +48,15 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
 
   private final ActionInputMap inputArtifactData;
 
-  /** Mapping from a fileset entry's target path to its metadata. */
-  private final ImmutableMap<String, FileArtifactValue> filesetMapping;
+  /**
+   * Mapping from a fileset entry's target path to its metadata.
+   *
+   * <p>Initialized lazily because it can consume significant memory and may never be needed, for
+   * example if there is an action cache hit or an {@linkplain
+   * com.google.devtools.build.lib.vfs.OutputService#createActionFileSystem action file system} is
+   * in use.
+   */
+  private final Supplier<ImmutableMap<String, FileArtifactValue>> filesetMapping;
 
   ActionInputMetadataProvider(
       PathFragment execRoot,
@@ -55,7 +64,7 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
       Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
     this.execRoot = execRoot;
     this.inputArtifactData = inputArtifactData;
-    this.filesetMapping = createFilesetMapping(filesets, execRoot);
+    this.filesetMapping = Suppliers.memoize(() -> createFilesetMapping(filesets, execRoot));
   }
 
   private static ImmutableMap<String, FileArtifactValue> createFilesetMapping(
@@ -84,7 +93,7 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
       PathFragment inputPath = actionInput.getExecPath();
       PathFragment filesetKeyPath =
           inputPath.startsWith(execRoot) ? inputPath.relativeTo(execRoot) : inputPath;
-      return filesetMapping.get(filesetKeyPath.getPathString());
+      return filesetMapping.get().get(filesetKeyPath.getPathString());
     }
 
     FileArtifactValue value;

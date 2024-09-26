@@ -8,6 +8,7 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["**"]) + [
+        "//src/tools/remote/src/main/cpp/testonly_output_service:srcs",
         "//src/tools/remote/src/main/java/com/google/devtools/build/remote/worker:srcs",
         "//src/tools/remote/src/test/java/com/google/devtools/build/remote/worker:srcs",
     ],

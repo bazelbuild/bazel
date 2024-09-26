@@ -107,7 +107,8 @@ final class HeaderDiscovery {
         treeArtifacts,
         execRoot,
         artifactResolver,
-        siblingRepositoryLayout);
+        siblingRepositoryLayout,
+        pathMapper);
   }
 
   private static NestedSet<Artifact> runDiscovery(
@@ -120,7 +121,8 @@ final class HeaderDiscovery {
       Map<PathFragment, SpecialArtifact> treeArtifacts,
       Path execRoot,
       ArtifactResolver artifactResolver,
-      boolean siblingRepositoryLayout)
+      boolean siblingRepositoryLayout,
+      PathMapper pathMapper)
       throws ActionExecutionException {
     NestedSetBuilder<Artifact> inputs = NestedSetBuilder.stableOrder();
 
@@ -192,7 +194,7 @@ final class HeaderDiscovery {
           inputs.add(artifact);
         }
         continue;
-      } else if (artifact == null && execPathFragment.getFileExtension().equals("cppmap")) {
+      } else if (execPathFragment.getFileExtension().equals("cppmap")) {
         // Transitive cppmap files are added to the dotd files of compiles even
         // though they are not required for compilation. Since they're not
         // explicit inputs to the action this only happens when sandboxing is
@@ -200,7 +202,8 @@ final class HeaderDiscovery {
         continue;
       }
 
-      SpecialArtifact treeArtifact = findOwningTreeArtifact(execPathFragment, treeArtifacts);
+      SpecialArtifact treeArtifact =
+          findOwningTreeArtifact(execPathFragment, treeArtifacts, pathMapper);
       if (treeArtifact != null) {
         inputs.add(treeArtifact);
       } else {
@@ -234,7 +237,9 @@ final class HeaderDiscovery {
 
   @Nullable
   private static SpecialArtifact findOwningTreeArtifact(
-      PathFragment execPath, Map<PathFragment, SpecialArtifact> treeArtifacts) {
+      PathFragment execPath,
+      Map<PathFragment, SpecialArtifact> treeArtifacts,
+      PathMapper pathMapper) {
     // Check the map for the exec path's parent directory first. If the exec path matches a direct
     // child of a tree artifact (a common case), we can skip the full iteration below.
     PathFragment dir = execPath.getParentDirectory();
@@ -245,7 +250,7 @@ final class HeaderDiscovery {
 
     // Search for any tree artifact that encloses the exec path.
     return treeArtifacts.values().stream()
-        .filter(a -> dir.startsWith(a.getExecPath()))
+        .filter(a -> dir.startsWith(pathMapper.map(a.getExecPath())))
         .findAny()
         .orElse(null);
   }

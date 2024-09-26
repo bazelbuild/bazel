@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -151,5 +152,50 @@ public interface RuleVisibility {
       }
     }
   }
-}
 
+  /**
+   * Returns a {@code RuleVisibility} representing the logical result of concatenating the given
+   * {@code visibility} with the additional {@code element}.
+   *
+   * <p>If {@code element} or {@code visibility} is public, the result is public. If {@code element}
+   * or {@code visibility} is private, the result is {@code visibility} or a visibility consisting
+   * solely of {@code element}, respectively.
+   *
+   * @throws EvalException if there's a problem parsing {@code element} into a visibility
+   */
+  static RuleVisibility concatWithElement(RuleVisibility visibility, Label element)
+      throws EvalException {
+    if (visibility.equals(RuleVisibility.PRIVATE)) {
+      // Left-side private is dropped.
+      return parse(ImmutableList.of(element));
+    } else if (element.equals(PRIVATE_LABEL)) {
+      // Right-side private is dropped.
+      return visibility;
+    } else if (visibility.equals(RuleVisibility.PUBLIC) || element.equals(PUBLIC_LABEL)) {
+      // Public is idempotent.
+      return RuleVisibility.PUBLIC;
+    } else {
+      ImmutableList.Builder<Label> items = new ImmutableList.Builder<>();
+      items.addAll(visibility.getDeclaredLabels());
+      items.add(element);
+      return parse(items.build());
+    }
+  }
+
+  /**
+   * Convenience wrapper for {@link #concatWithElement} where the added element is the given
+   * package.
+   *
+   * <p>Unlike that method, this does not throw EvalException.
+   */
+  static RuleVisibility concatWithPackage(
+      RuleVisibility visibility, PackageIdentifier packageIdentifier) {
+    Label pkgItem = Label.createUnvalidated(packageIdentifier, "__pkg__");
+    try {
+      return concatWithElement(visibility, pkgItem);
+    } catch (EvalException ex) {
+      throw new AssertionError(
+          String.format("Unreachable; couldn't parse %s as visibility", pkgItem), ex);
+    }
+  }
+}

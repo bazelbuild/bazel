@@ -231,6 +231,10 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
       - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
       - "-//src/test/shell/bazel:bazel_android_tools_test"
+      # https://github.com/bazelbuild/bazel/issues/23726
+      - "-//src/test/shell/bazel:bazel_determinism_test"
+      - "-//src/test/shell/bazel:bazel_bootstrap_distfile_tar_test"
+      - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
     include_json_profile:
       - build
       - test

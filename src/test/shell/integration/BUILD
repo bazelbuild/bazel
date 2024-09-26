@@ -108,6 +108,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    tags = ["requires-network"],  # Fetches Python toolchains on systems where supported
 )
 
 sh_test(
@@ -167,6 +168,7 @@ sh_test(
     ],
     tags = [
         "no_windows",
+        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
 )
 
@@ -226,6 +228,9 @@ sh_test(
     srcs = ["run_test.sh"],
     data = [":test-deps"],
     shard_count = 3,
+    tags = [
+        "requires-network",  # Fetches Python toolchains on systems where supported
+    ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
@@ -234,7 +239,10 @@ sh_test(
     size = "medium",
     srcs = ["stub_finds_runfiles_test.sh"],
     data = [":test-deps"],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",  # Fetches Python toolchains on systems where supported
+    ],
 )
 
 sh_test(
@@ -246,7 +254,10 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["no_windows"],
+    tags = [
+        "no_windows",
+        "requires-network",  # Fetches Python toolchains on systems where supported
+    ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
 
@@ -632,6 +643,7 @@ sh_test(
         # MacOS does not have cgroups so it can't support hardened sandbox
         "no_macos",
         "no_windows",
+        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
 )
 

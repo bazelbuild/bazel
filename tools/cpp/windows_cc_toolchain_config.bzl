@@ -601,6 +601,11 @@ def _impl(ctx):
                             expand_if_available = "output_execpath",
                         ),
                         flag_group(
+                            flags = ["%{user_archiver_flags}"],
+                            iterate_over = "user_archiver_flags",
+                            expand_if_available = "user_archiver_flags",
+                        ),
+                        flag_group(
                             flags = ctx.attr.archiver_flags,
                         ),
                     ],

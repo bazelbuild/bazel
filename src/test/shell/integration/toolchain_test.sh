@@ -2915,4 +2915,18 @@ function test_extra_toolchain_precedence_multiple_repeated {
 
 # TODO(katre): Test using toolchain-provided make variables from a genrule.
 
+function test_invalid_cpu() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p "${pkg}"
+  cat > "${pkg}/BUILD" <<EOF
+filegroup(name = "demo")
+EOF
+  bazel \
+    build \
+    --allowed_cpu_values=foo,bar \
+    --cpu=quux \
+    "//${pkg}:demo" &> $TEST_log && fail "Build failure expected"
+  expect_log "Invalid --cpu value \"quux\": allowed values are bar, foo."
+}
+
 run_suite "toolchain tests"

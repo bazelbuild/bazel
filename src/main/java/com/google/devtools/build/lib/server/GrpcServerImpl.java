@@ -627,9 +627,9 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
                         .build()));
       }
 
-      // The actual cleanup will be triggered in RunningCommand#close() (as a Closeable),
-      // as we go out of scope immediately after this.
-      command.requestCleanup(result.stateKeptAfterBuild());
+      // Record tasks to be run by IdleTaskManager. This is triggered in RunningCommand#close()
+      // (as a Closeable), as we go out of scope immediately after this.
+      command.setIdleTasks(result.getIdleTasks(), result.stateKeptAfterBuild());
     } catch (InterruptedException e) {
       result =
           BlazeCommandResult.detailedExitCode(

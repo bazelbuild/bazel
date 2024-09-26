@@ -97,10 +97,10 @@ public final class FilegroupRule implements RuleDefinition {
 
 <p>
   Using <code>filegroup</code> is encouraged instead of referencing directories directly.
-  The latter is unsound since the build system does not have full knowledge of all files
-  below the directory, so it may not rebuild when these files change. When combined with
-  <a href="${link glob}">glob</a>, <code>filegroup</code> can ensure that all files are
-  explicitly known to the build system.
+  Directly referencing directories is discouraged because the build system does not have
+  full knowledge of all files below the directory, so it may not rebuild when these files change.
+  When combined with <a href="${link glob}">glob</a>, <code>filegroup</code> can ensure that all
+  files are explicitly known to the build system.
 </p>
 
 <h4 id="filegroup_example">Examples</h4>
@@ -119,7 +119,7 @@ filegroup(
 )
 </pre>
 <p>
-  Or, use a <code>glob</code> to grovel a testdata directory:
+  Or, use a <code>glob</code> to fully crawl a testdata directory:
 </p>
 <pre class="code">
 filegroup(

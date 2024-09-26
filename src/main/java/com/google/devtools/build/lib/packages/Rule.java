@@ -540,6 +540,10 @@ public class Rule implements Target, DependencyFilter.AttributeInfoProvider {
       // compute the value.
       return isFrozen() ? attr.getDefaultValue(this) : null;
     }
+    if (attr.isMaterializing()) {
+      checkState(isFrozen(), "Mutable rule missing LateBoundDefault");
+      return attr.getMaterializer();
+    }
     if (attr.isLateBound()) {
       // Frozen rules don't store late bound defaults.
       checkState(isFrozen(), "Mutable rule missing LateBoundDefault");

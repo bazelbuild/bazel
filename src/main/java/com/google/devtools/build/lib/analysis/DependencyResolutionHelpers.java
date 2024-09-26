@@ -29,7 +29,6 @@ import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
 import com.google.devtools.build.lib.analysis.config.Fragment;
 import com.google.devtools.build.lib.analysis.config.transitions.TransitionFactory;
 import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
-import com.google.devtools.build.lib.analysis.starlark.StarlarkMaterializingLateBoundDefault;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.AspectClass;
@@ -415,8 +414,7 @@ public final class DependencyResolutionHelpers {
                     ? computedDefault.getDefault(attributeMap)
                     : defaultValue);
       }
-    } else if (attribute.isLateBound()
-        && attribute.getLateBoundDefault() instanceof StarlarkMaterializingLateBoundDefault<?, ?>) {
+    } else if (attribute.isMaterializing()) {
       // These attributes are resolved by calling the materializer function in
       // DependencyMapProducer. The reason is that they need the analyzed versions some direct
       // dependencies and we can't do that here.
@@ -457,20 +455,13 @@ public final class DependencyResolutionHelpers {
       if (BuildConfigurationValue.class.equals(fragmentClass)
           // noconfig targets can't meaningfully parse late-bound defaults. See NoConfigTransition.
           && !ruleConfig.getOptions().hasNoConfig()) {
-        return lateBoundDefault.resolve(
-            rule,
-            attributeMap,
-            fragmentClass.cast(ruleConfig),
-            /* analysisContext= */ null,
-            /* eventHandler= */ null);
+        return lateBoundDefault.resolve(rule, attributeMap, fragmentClass.cast(ruleConfig));
       }
       if (Void.class.equals(fragmentClass)) {
         return lateBoundDefault.resolve(
-            rule,
-            attributeMap,
-            /* input= */ null,
-            /* analysisContext= */ null,
-            /* eventHandler= */ null);
+            rule, attributeMap, /* input= */ null
+            /* analysisContext= */
+            /* eventHandler= */ );
       }
       @SuppressWarnings("unchecked")
       FragmentT fragment =
@@ -479,7 +470,9 @@ public final class DependencyResolutionHelpers {
         return null;
       }
       return lateBoundDefault.resolve(
-          rule, attributeMap, fragment, /* analysisContext= */ null, /* eventHandler= */ null);
+          rule, attributeMap, fragment
+          /* analysisContext= */
+          /* eventHandler= */ );
     } catch (EvalException e) {
       // Materializers should not be called here and those are the only kind of late-bound defaults
       // that can throw these exceptions.

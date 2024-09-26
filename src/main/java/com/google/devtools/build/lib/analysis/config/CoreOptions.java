@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.util.RegexFilter;
 import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.BooleanConverter;
+import com.google.devtools.common.options.Converters.CommaSeparatedOptionSetConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -183,6 +184,16 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
           "Each --define option specifies an assignment for a build variable."
               + " In case of multiple values for a variable, the last one wins.")
   public List<Map.Entry<String, String>> commandLineBuildVariables;
+
+  // TODO: blaze-configurability-team - Remove this when --cpu is fully deprecated.
+  @Option(
+      name = "allowed_cpu_values",
+      defaultValue = "",
+      converter = CommaSeparatedOptionSetConverter.class,
+      documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      effectTags = {OptionEffectTag.CHANGES_INPUTS, OptionEffectTag.AFFECTS_OUTPUTS},
+      help = "Allowed values for the --cpu flag.")
+  public ImmutableList<String> allowedCpuValues;
 
   @Option(
       name = "cpu",
@@ -1043,6 +1054,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   @Override
   public CoreOptions getNormalized() {
     CoreOptions result = (CoreOptions) clone();
+    result.allowedCpuValues = dedupAndSort(allowedCpuValues);
     result.commandLineBuildVariables = sortEntries(normalizeEntries(commandLineBuildVariables));
 
     // Normalize features.

@@ -220,6 +220,7 @@ public class BazelDepGraphFunctionTest extends FoundationTestCase {
         .setExtensionBzlFile(bzlFile)
         .setExtensionName(name)
         .setIsolationKey(Optional.empty())
+        .setRepoOverrides(ImmutableMap.of())
         .addProxy(
             ModuleExtensionUsage.Proxy.builder()
                 .setDevDependency(false)

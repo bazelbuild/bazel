@@ -148,6 +148,8 @@ public final class StarlarkRepositoryContextTest {
             "runfiles",
             RepositoryMapping.ALWAYS_FALLBACK,
             starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_FILE_EXPORT),
+            starlarkSemantics.getBool(
+                BuildLanguageOptions.INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS),
             PackageOverheadEstimator.NOOP_ESTIMATOR);
     ExtendedEventHandler listener = Mockito.mock(ExtendedEventHandler.class);
     Rule rule =

@@ -279,7 +279,10 @@ java_library(
 
 java_library(
     name = "toolchain_resolution_function",
-    srcs = ["ToolchainResolutionFunction.java"],
+    srcs = [
+        "PlatformKeys.java",
+        "ToolchainResolutionFunction.java",
+    ],
     deps = [
         ":constraint_value_lookup_util",
         ":no_matching_platform_data",
@@ -303,10 +306,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/events",
         "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe/config",
-        "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
     ],

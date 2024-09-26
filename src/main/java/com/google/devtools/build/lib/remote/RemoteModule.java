@@ -179,14 +179,19 @@ public final class RemoteModule extends BlazeModule {
     builder.setRepositoryRemoteExecutorFactory(repositoryRemoteExecutorFactoryDelegate);
   }
 
-  /** Returns whether remote execution should be available. */
+  /** Returns whether remote execution should be enabled. */
   public static boolean shouldEnableRemoteExecution(RemoteOptions options) {
     return !Strings.isNullOrEmpty(options.remoteExecutor);
   }
 
-  /** Returns whether remote downloading should be available. */
+  /** Returns whether the remote downloader should be enabled. */
   private static boolean shouldEnableRemoteDownloader(RemoteOptions options) {
     return !Strings.isNullOrEmpty(options.remoteDownloader);
+  }
+
+  /** Returns whether the remote output service should be enabled. */
+  private static boolean shouldEnableRemoteOutputService(RemoteOptions options) {
+    return !Strings.isNullOrEmpty(options.remoteOutputService);
   }
 
   public static final Predicate<? super Exception> RETRIABLE_HTTP_ERRORS =
@@ -307,26 +312,15 @@ public final class RemoteModule extends BlazeModule {
       verboseFailures = executionOptions.verboseFailures;
     }
 
-    boolean enableDiskCache = CombinedCacheClientFactory.isDiskCache(remoteOptions);
-    boolean enableHttpCache = CombinedCacheClientFactory.isHttpCache(remoteOptions);
-    boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
-    // If --remote_cache is empty but --remote_executor is not, endpoint for cache should be the one
-    // for execution.
-    if (enableRemoteExecution && Strings.isNullOrEmpty(remoteOptions.remoteCache)) {
+    // If --remote_cache is empty but --remote_executor is not, reuse the latter for the former.
+    if (!Strings.isNullOrEmpty(remoteOptions.remoteExecutor)
+        && Strings.isNullOrEmpty(remoteOptions.remoteCache)) {
       remoteOptions.remoteCache = remoteOptions.remoteExecutor;
     }
-    boolean enableGrpcCache = GrpcCacheClient.isRemoteCacheOptions(remoteOptions);
-    boolean enableRemoteDownloader = shouldEnableRemoteDownloader(remoteOptions);
-    boolean enableRemoteOutputService = !Strings.isNullOrEmpty(remoteOptions.remoteOutputService);
 
-    if (enableRemoteDownloader && !enableGrpcCache) {
-      throw createOptionsExitException(
-          "The remote downloader can only be used in combination with gRPC caching",
-          FailureDetails.RemoteOptions.Code.DOWNLOADER_WITHOUT_GRPC_CACHE);
-    }
-
-    if (enableRemoteOutputService) {
-      if (enableDiskCache) {
+    if (shouldEnableRemoteOutputService(remoteOptions)) {
+      if (CombinedCacheClientFactory.isDiskCache(remoteOptions)) {
+        remoteOptions.diskCache = null;
         env.getReporter()
             .handle(
                 Event.warn(
@@ -335,10 +329,22 @@ public final class RemoteModule extends BlazeModule {
 
       if (Strings.isNullOrEmpty(remoteOptions.remoteCache)) {
         throw createOptionsExitException(
-            "--experimental_remote_output_service can only be used in combination with"
+            "--experimental_remote_output_service must be used in combination with one of"
                 + " --remote_cache or --remote_executor.",
             FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
       }
+    }
+
+    boolean enableDiskCache = CombinedCacheClientFactory.isDiskCache(remoteOptions);
+    boolean enableHttpCache = CombinedCacheClientFactory.isHttpCache(remoteOptions);
+    boolean enableRemoteExecution = shouldEnableRemoteExecution(remoteOptions);
+    boolean enableGrpcCache = GrpcCacheClient.isRemoteCacheOptions(remoteOptions);
+    boolean enableRemoteDownloader = shouldEnableRemoteDownloader(remoteOptions);
+
+    if (enableRemoteDownloader && !enableGrpcCache) {
+      throw createOptionsExitException(
+          "The remote downloader can only be used in combination with gRPC caching",
+          FailureDetails.RemoteOptions.Code.DOWNLOADER_WITHOUT_GRPC_CACHE);
     }
 
     if (!enableDiskCache && !enableHttpCache && !enableGrpcCache && !enableRemoteExecution) {

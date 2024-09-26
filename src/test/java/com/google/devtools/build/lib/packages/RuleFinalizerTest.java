@@ -200,11 +200,38 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
   }
 
   @Test
-  public void finalizer_nativeExistingRules_seesOnlyNonFinalizerTargets_inAllLexicalPositions()
+  public void finalizer_nativeExistingRule_seesOnlyNonFinalizerTargets_inAllLexicalPositions()
       throws Exception {
     scratch.file(
         "pkg/foo.bzl",
         """
+        EXPECTED = [
+            "top_level_lexically_before_finalizer",
+            "macro_lexically_before_finalizer_inner_lib",
+            "top_level_lexically_after_finalizer",
+            "macro_lexically_after_finalizer_inner_lib",
+        ]
+
+        UNEXPECTED = [
+            "finalizer_inner_lib",
+            "finalizer_inner_macro_inner_lib",
+            "finalizer_inner_finalizer_inner_lib",
+            "other_finalizer_inner_lib",
+            "other_finalizer_inner_macro_inner_lib",
+            "other_finalizer_inner_finalizer_inner_lib",
+        ]
+
+        def check_existing_rules():
+            if (sorted(native.existing_rules().keys()) != sorted(EXPECTED)):
+                fail("native.existing_rules().keys(): " + native.existing_rules().keys())
+            for t in EXPECTED:
+                if native.existing_rule(t) == None:
+                    fail("native.existing_rule(" + t + ") == None")
+            for t in UNEXPECTED:
+                if native.existing_rule(t) != None:
+                    fail("native.existing_rule(" + t + ") != None")
+            print("native.existing_rules and native.existing_rule are as expected")
+
         def _impl_macro(name):
             native.cc_library(name = name + "_inner_lib")
 
@@ -212,8 +239,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
 
         def _impl_inner_finalizer(name):
             native.cc_library(name = name + "_inner_lib")
-            for r in native.existing_rules().values():
-                print("saw " + r["name"])
+            check_existing_rules()
 
         inner_finalizer = macro(implementation = _impl_inner_finalizer, finalizer = True)
 
@@ -221,8 +247,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
             native.cc_library(name = name + "_inner_lib")
             my_macro(name = name + "_inner_macro")
             inner_finalizer(name = name + "_inner_finalizer")
-            for r in native.existing_rules().values():
-                print("saw " + r["name"])
+            check_existing_rules()
 
         my_finalizer = macro(implementation = _impl_finalizer, finalizer = True)
         """);
@@ -240,15 +265,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertContainsEventWithFrequency("saw top_level_lexically_before_finalizer", 4);
-    assertContainsEventWithFrequency("saw macro_lexically_before_finalizer_inner_lib", 4);
-    assertContainsEventWithFrequency("saw top_level_lexically_after_finalizer", 4);
-    assertContainsEventWithFrequency("saw macro_lexically_after_finalizer_inner_lib", 4);
-    assertDoesNotContainEvent("saw finalizer_inner_lib");
-    assertDoesNotContainEvent("saw finalizer_inner_macro_inner_lib");
-    assertDoesNotContainEvent("saw finalizer_inner_finalizer_inner_lib");
-    assertDoesNotContainEvent("saw other_finalizer_inner_lib");
-    assertDoesNotContainEvent("saw other_finalizer_inner_macro_inner_lib");
-    assertDoesNotContainEvent("saw other_finalizer_inner_finalizer_inner_lib");
+    assertContainsEventWithFrequency(
+        "native.existing_rules and native.existing_rule are as expected", 4);
   }
 }

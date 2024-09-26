@@ -2144,4 +2144,57 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     assertThat(attributes.get("string_list_dict_attr", Types.STRING_LIST_DICT))
         .containsExactly("a", Arrays.asList("a.out"), "b", Arrays.asList("b.out"));
   }
+
+  @Test
+  public void incompatibleSimplifyUnconditionalSelectsInRuleAttrs_checksForNonconfigurableAttrs()
+      throws Exception {
+    setBuildLanguageOptions("--incompatible_simplify_unconditional_selects_in_rule_attrs=true");
+    writeConfigRules();
+    scratch.file(
+        "foo/BUILD",
+        """
+        rule_with_output_attr(
+            name = "foo",
+            out = select({"//conditions:default": "default.out"}),
+        )
+        """);
+
+    reporter.removeHandler(failFastHandler); // Expect errors.
+    getConfiguredTarget("//foo");
+    assertContainsEvent("attribute \"out\" is not configurable");
+  }
+
+  @Test
+  public void incompatibleSimplifyUnconditionalSelectsInRuleAttrs_doesNotAffectConfiguredAttrValue()
+      throws Exception {
+    scratch.file(
+        "foo/BUILD",
+        """
+        cc_binary(
+            name = "foo",
+            srcs = select({"//conditions:default": ["foo.cc"]}),
+            link_extra_lib = select({"//conditions:default": None}),
+        )
+        """);
+    setBuildLanguageOptions("--incompatible_simplify_unconditional_selects_in_rule_attrs=false");
+    AttributeMap attributesFromUnsimplifiedSelects =
+        getMapperFromConfiguredTargetAndTarget(getConfiguredTargetAndData("//foo"));
+
+    assertThat(attributesFromUnsimplifiedSelects.get("srcs", BuildType.LABEL_LIST))
+        .containsExactly(Label.parseCanonicalUnchecked("//foo:foo.cc"));
+    assertThat(attributesFromUnsimplifiedSelects.get("link_extra_lib", BuildType.LABEL))
+        .isEqualTo(
+            attributesFromUnsimplifiedSelects
+                .getAttributeDefinition("link_extra_lib")
+                .getDefaultValueUnchecked());
+
+    setBuildLanguageOptions("--incompatible_simplify_unconditional_selects_in_rule_attrs=true");
+    AttributeMap attributesFromSimplifiedSelects =
+        getMapperFromConfiguredTargetAndTarget(getConfiguredTargetAndData("//foo"));
+
+    assertThat(attributesFromSimplifiedSelects.get("srcs", BuildType.LABEL_LIST))
+        .isEqualTo(attributesFromUnsimplifiedSelects.get("srcs", BuildType.LABEL_LIST));
+    assertThat(attributesFromSimplifiedSelects.get("link_extra_lib", BuildType.LABEL))
+        .isEqualTo(attributesFromUnsimplifiedSelects.get("link_extra_lib", BuildType.LABEL));
+  }
 }

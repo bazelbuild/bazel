@@ -1023,5 +1023,69 @@ EOF
   expect_log 'From child rule flag: values = \["granite", "marble", "sandstone"\]'
 }
 
+function test_transitions_baseline_options_affect_mnemonic() {
+  local -r pkg="${FUNCNAME[0]}"
+  mkdir -p ${pkg}
+  cat > "${pkg}/BUILD" <<EOF
+load(":my_transition.bzl", "my_rule", "apply_transition", "int_flag")
+int_flag(name = "my_int_flag", build_setting_default = 42)
+my_rule(name = "A_rule")
+apply_transition(name = "A_transitioner", dep = ":A_rule")
+EOF
+  cat > "${pkg}/my_transition.bzl" <<EOF
+BuildSettingInfo = provider(fields = ['value'])
+def _int_flag_impl(ctx):
+     return BuildSettingInfo(value = ctx.build_setting_value)
+int_flag = rule(
+    implementation = _int_flag_impl,
+    build_setting = config.int(flag = True),
+)
+
+def _my_transition_impl(settings, attr):
+    return {"//${pkg}:my_int_flag": 9000}
+
+my_transition = transition(
+    implementation = _my_transition_impl,
+    inputs = [],
+    outputs = ["//${pkg}:my_int_flag"],
+)
+
+def _apply_transition_impl(ctx):
+    pass
+
+apply_transition = rule(
+    implementation = _apply_transition_impl,
+    attrs = { "dep": attr.label(cfg = my_transition) },
+)
+
+def _my_rule_impl(ctx):
+    output = ctx.actions.declare_file(ctx.attr.name + ".out")
+    ctx.actions.write(output, "unused")
+    return DefaultInfo(files = depset([output]))
+
+my_rule = rule(
+    implementation = _my_rule_impl,
+)
+EOF
+
+   # The cfg hash is static in both invocations below, because the configuration
+   # of the target will be unchanged.
+   cfg_hash=$(bazel cquery "filter(//$pkg, deps(//$pkg:A_transitioner))" | grep "//$pkg:A_rule" | cut -d'(' -f2 | cut -d ')' -f1)
+
+   # This should be something like k8-fastbuild-ST-deadbeef, because the
+   # checksum is derived from the delta of the build options (with
+   # my_int_flag=9000 transition) to the baseline options (no mention of
+   # my_int_flag).
+   cfg_path_fragment_from_transition=$(bazel config | grep ${cfg_hash} | cut -d ' ' -f 2)
+
+   bazel cquery //${pkg}:A_rule --//${pkg}:my_int_flag=9000
+   # This should be something like k8-fastbuild without a checksum, because the
+   # build options has no delta to the baseline options (my_int_flag=9000 is
+   # also set in the command line).
+   cfg_path_fragment_from_top_level=$(bazel config | grep ${cfg_hash} | cut -d ' ' -f 2)
+
+   assert_not_equals ${cfg_path_fragment_from_top_level} ${cfg_path_fragment_from_transition}
+}
+
 
 run_suite "${PRODUCT_NAME} starlark configurations tests"

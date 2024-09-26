@@ -22,6 +22,7 @@ load(":common/cc/cc_info.bzl", "CcInfo")
 load(":common/cc/semantics.bzl", "semantics")
 load(":common/objc/compilation_support.bzl", "compilation_support")
 load(":common/objc/j2objc_aspect.bzl", "j2objc_aspect")
+load(":common/objc/objc_compilation_context_info.bzl", "create_cc_compilation_context")
 load(":common/objc/providers.bzl", "J2ObjcEntryClassInfo", "J2ObjcMappingFileInfo")
 load(":common/objc/semantics.bzl", objc_semantics = "semantics")
 
@@ -80,12 +81,13 @@ def _j2objc_library_impl(ctx):
         direct_cc_compilation_contexts = [dep[CcInfo].compilation_context for dep in ctx.attr.deps if CcInfo in dep],
     )
 
+    cc_compilation_context = create_cc_compilation_context(common_variables.objc_compilation_context)
     return [
         _entry_class_provider(ctx.attr.entry_classes, ctx.attr.deps),
         _mapping_file_provider(ctx.attr.deps),
         common_variables.objc_provider,
         CcInfo(
-            compilation_context = common_variables.objc_compilation_context.create_cc_compilation_context(),
+            compilation_context = cc_compilation_context,
             linking_context = cc_common.merge_linking_contexts(linking_contexts = common_variables.objc_linking_context.cc_linking_contexts),
         ),
     ]

@@ -455,13 +455,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   public void setLastModifiedTime(PathFragment path, long newTime) throws IOException {
     var comp = Blocker.begin();
     try {
-      if (newTime == Path.NOW_SENTINEL_TIME) {
-        NativePosixFiles.utime(path.toString(), true, 0);
-      } else {
-        // newTime > MAX_INT => -ve unixTime
-        int unixTime = (int) (newTime / 1000);
-        NativePosixFiles.utime(path.toString(), false, unixTime);
-      }
+      NativePosixFiles.utimensat(path.toString(), newTime == Path.NOW_SENTINEL_TIME, newTime);
     } finally {
       Blocker.end(comp);
     }

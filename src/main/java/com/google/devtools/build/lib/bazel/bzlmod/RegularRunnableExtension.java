@@ -256,6 +256,7 @@ final class RegularRunnableExtension implements RunnableExtension {
             usagesValue.getExtensionUniqueName() + "+",
             extensionId.getBzlFileLabel().getPackageIdentifier(),
             BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
+            usagesValue.getRepoOverrides(),
             mainRepositoryMapping,
             directories,
             env.getListener());

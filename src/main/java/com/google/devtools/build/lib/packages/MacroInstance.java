@@ -150,6 +150,22 @@ public final class MacroInstance {
   }
 
   /**
+   * Returns a {@code RuleVisibility} representing the result of concatenating this macro's {@link
+   * MacroClass}'s definition location to the given {@code visibility}.
+   *
+   * <p>The definition location of a macro class is the package containing the .bzl file from which
+   * the macro class was exported.
+   *
+   * <p>Logically, this represents the visibility that a target would have, if it were passed the
+   * given value for its {@code visibility} attribute, and if the target were declared directly in
+   * this macro (i.e. not in a submacro).
+   */
+  public RuleVisibility concatDefinitionLocationToVisibility(RuleVisibility visibility) {
+    PackageIdentifier macroLocation = macroClass.getDefiningBzlLabel().getPackageIdentifier();
+    return RuleVisibility.concatWithPackage(visibility, macroLocation);
+  }
+
+  /**
    * Visits all labels appearing in non-implicit attributes of {@link Type.LabelClass#DEPENDENCY}
    * label type, i.e. ignoring nodep labels.
    *
@@ -190,7 +206,9 @@ public final class MacroInstance {
               value,
               "macro attribute (internal)",
               // No string -> Label conversion is being done here.
-              /* context= */ null);
+              /* context= */ null,
+              // Macros always preserve selects as selects.
+              /* simplifyUnconditionalSelects= */ false);
     } catch (ConversionException e) {
       // TODO: #19922 - The fact that we have to do this seems like a signal that we should
       // transition to storing macro attribute values as native-typed attributes in the future.

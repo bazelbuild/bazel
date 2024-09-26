@@ -19,26 +19,16 @@ import com.google.devtools.build.lib.vfs.PathFragment;
 /**
  * Represents an input file to a build action, with an appropriate relative path.
  *
- * <p>Artifact is the only notable implementer of the interface, but the interface remains
- * because 1) some Google specific rules ship files that could be Artifacts to remote execution
- * by instantiating ad-hoc derived classes of ActionInput.  2) historically, Google C++ rules
- * allow underspecified C++ builds. For that case, we have extra logic to guess the undeclared
- * header inclusions (eg. computed inclusions). The extra logic lives in a file that is not
- * needed for remote execution, but is a dependency, and it is inserted as a non-Artifact
- * ActionInput.
- *
- * <p>ActionInput is used as a cache "key" for ActionInputFileCache: for Artifacts, the
- * digest/size is already stored in Artifact, but for non-artifacts, we use getExecPathString
- * to find this data in a filesystem related cache.
+ * <p>Artifact is the only notable implementer of the interface, but the interface remains because
+ * 1) some Google specific rules ship files that could be Artifacts to remote execution by
+ * instantiating ad-hoc derived classes of ActionInput. 2) historically, Google C++ rules allow
+ * underspecified C++ builds. For that case, we have extra logic to guess the undeclared header
+ * inclusions (eg. computed inclusions). The extra logic lives in a file that is not needed for
+ * remote execution, but is a dependency, and it is inserted as a non-Artifact ActionInput.
  */
-public interface ActionInput {
+public interface ActionInput extends HasExecPathString {
 
-  /** @return the relative path to the input file. */
-  String getExecPathString();
-
-  /**
-   * @return the relative path to the input file.
-   */
+  /** Same as {@link #getExecPathString}, but returns a {@link PathFragment}. */
   PathFragment getExecPath();
 
   /** The input is a directory. */

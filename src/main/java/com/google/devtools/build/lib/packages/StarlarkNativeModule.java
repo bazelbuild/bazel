@@ -31,7 +31,7 @@ import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
-import com.google.devtools.build.lib.packages.TargetDefinitionContext.NameConflictException;
+import com.google.devtools.build.lib.packages.TargetRegistrationEnvironment.NameConflictException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkNativeModuleApi;
@@ -434,8 +434,8 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
     }
     Package.Builder pkgBuilder =
         Package.Builder.fromOrFailDisallowNonFinalizerMacros(thread, "existing_rule()");
-    Target target = pkgBuilder.getTarget(name);
-    if (target instanceof Rule rule) {
+    @Nullable Rule rule = pkgBuilder.getNonFinalizerInstantiatedRule(name);
+    if (rule != null) {
       return new ExistingRuleView(rule);
     } else {
       return Starlark.NONE;
@@ -553,7 +553,10 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
             : RuleVisibility.parse(
                 BuildType.LABEL_LIST.convert(
                     visibilityO, "'exports_files' operand", pkgBuilder.getLabelConverter()));
-    visibility = pkgBuilder.copyAppendingCurrentMacroLocation(visibility);
+    MacroInstance currentMacro = pkgBuilder.currentMacro();
+    if (currentMacro != null) {
+      visibility = currentMacro.concatDefinitionLocationToVisibility(visibility);
+    }
 
     // TODO(bazel-team): is licenses plural or singular?
     License license = BuildType.LICENSE.convertOptional(licensesO, "'exports_files' operand");

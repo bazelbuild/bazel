@@ -327,8 +327,9 @@ public final class Attribute implements Comparable<Attribute> {
 
     public Attribute build(String name) {
       Preconditions.checkState(!name.isEmpty(), "name has not been set");
-      if (valueSource == AttributeValueSource.LATE_BOUND) {
-        Preconditions.checkState(isLateBound(name));
+      if (valueSource == AttributeValueSource.LATE_BOUND
+          || valueSource == AttributeValueSource.MATERIALIZER) {
+        Preconditions.checkState(isAnalysisDependent(name));
         Preconditions.checkState(!transitionFactory.isSplit());
       }
       // TODO(bazel-team): Set the default to be no file type, then remove this check, and also
@@ -437,7 +438,7 @@ public final class Attribute implements Comparable<Attribute> {
     public Builder(String name, Type<TYPE> type) {
       this.name = Preconditions.checkNotNull(name);
       this.type = Preconditions.checkNotNull(type);
-      if (isImplicit(name) || isLateBound(name)) {
+      if (isImplicit(name) || isAnalysisDependent(name)) {
         setPropertyFlag(PropertyFlag.UNDOCUMENTED, "undocumented");
       }
     }
@@ -671,6 +672,14 @@ public final class Attribute implements Comparable<Attribute> {
     public Builder<TYPE> value(LateBoundDefault<?, ? extends TYPE> defaultValue) {
       value = defaultValue;
       valueSource = AttributeValueSource.LATE_BOUND;
+      valueSet = true;
+      return this;
+    }
+
+    @CanIgnoreReturnValue
+    public Builder<TYPE> value(MaterializingDefault<?, ? extends TYPE> defaultValue) {
+      value = defaultValue;
+      valueSource = AttributeValueSource.MATERIALIZER;
       valueSet = true;
       return this;
     }
@@ -1545,12 +1554,7 @@ public final class Attribute implements Comparable<Attribute> {
     }
 
     @Override
-    public ValueT resolve(
-        Rule rule,
-        AttributeMap attributes,
-        @Nullable FragmentT input,
-        @Nullable Object analysisContext,
-        @Nullable EventHandler eventHandler) {
+    public ValueT resolve(Rule rule, AttributeMap attributes, @Nullable FragmentT input) {
       return resolver.resolve(rule, attributes, input);
     }
   }
@@ -1645,16 +1649,8 @@ public final class Attribute implements Comparable<Attribute> {
      * @param rule the rule being evaluated
      * @param attributes interface for retrieving the values of the rule's other attributes
      * @param input the configuration fragment to evaluate with
-     * @param analysisContext analysis phase data. It's an {@code Object} because we cannot
-     *     reference analysis phase data structures here.
-     * @param eventHandler an event handler where messages from the evaluation are reported
      */
-    public abstract ValueT resolve(
-        Rule rule,
-        AttributeMap attributes,
-        @Nullable FragmentT input,
-        @Nullable Object analysisContext,
-        @Nullable EventHandler eventHandler)
+    public abstract ValueT resolve(Rule rule, AttributeMap attributes, @Nullable FragmentT input)
         throws InterruptedException, EvalException;
   }
 
@@ -1868,8 +1864,10 @@ public final class Attribute implements Comparable<Attribute> {
             || type.getLabelClass() == LabelClass.NONDEP_REFERENCE,
         "Configuration transitions can only be specified for label or label list attributes");
     Preconditions.checkArgument(
-        isLateBound(name) == (defaultValue instanceof LateBoundDefault),
-        "late bound attributes require a default value that is late bound (and vice versa): %s",
+        isAnalysisDependent(name)
+            == (defaultValue instanceof LateBoundDefault
+                || defaultValue instanceof MaterializingDefault),
+        "analysis dependent attributes require a default value that is one (and vice versa): %s",
         name);
     this.name = name;
     this.doc = doc;
@@ -2197,8 +2195,12 @@ public final class Attribute implements Comparable<Attribute> {
   }
 
   public LateBoundDefault<?, ?> getLateBoundDefault() {
-    Preconditions.checkState(isLateBound());
     return (LateBoundDefault<?, ?>) defaultValue;
+  }
+
+  public MaterializingDefault<?, ?> getMaterializer() {
+    Preconditions.checkState(isMaterializing());
+    return (MaterializingDefault<?, ?>) defaultValue;
   }
 
   /**
@@ -2236,20 +2238,24 @@ public final class Attribute implements Comparable<Attribute> {
    * late-bound attributes.
    */
   public boolean isLateBound() {
-    return isLateBound(name);
+    return defaultValue instanceof LateBoundDefault<?, ?>;
+  }
+
+  public boolean isMaterializing() {
+    return defaultValue instanceof MaterializingDefault<?, ?>;
   }
 
   /**
    * Returns if an attribute with the given name is late-bound according to the naming policy that
    * designates late-bound attributes.
    */
-  public static boolean isLateBound(String name) {
+  public static boolean isAnalysisDependent(String name) {
     return name.startsWith(":");
   }
 
   /** Returns whether this attribute is considered private in Starlark. */
   private static boolean isPrivateAttribute(String nativeAttrName) {
-    return isLateBound(nativeAttrName) || isImplicit(nativeAttrName);
+    return isAnalysisDependent(nativeAttrName) || isImplicit(nativeAttrName);
   }
 
   /**

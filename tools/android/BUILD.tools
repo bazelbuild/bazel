@@ -7,11 +7,6 @@ package(default_visibility = ["//visibility:public"])
 toolchain_type(name = "sdk_toolchain_type")
 
 alias(
-    name = "sdk",
-    actual = "//external:android/sdk",
-)
-
-alias(
     name = "busybox",
     actual = "//src/tools/android/java/com/google/devtools/build/android:ResourceProcessorBusyBox",
 )
@@ -264,26 +259,6 @@ filegroup(name = "empty")
 alias(
     name = "instrumentation_test_entry_point",
     actual = "@android_test_support//:instrumentation_test_runner",
-)
-
-# This is the default binding of //external:android/sdk. If someone attempts to
-# build a rule that depends on //external:android/sdk without setting up
-# android_sdk_repository in their WORKSPACE, the genrule will fail with a
-# helpful error message.
-android_sdk(
-    name = "poison_pill_android_sdk",
-    aapt = ":error_message",
-    adb = ":error_message",
-    aidl = ":error_message",
-    android_jar = ":error_message.jar",
-    apksigner = ":error_message",
-    dx = ":error_message",
-    framework_aidl = ":error_message",
-    main_dex_classes = ":error_message",
-    main_dex_list_creator = ":error_message",
-    proguard = ":error_message",
-    shrinked_android_jar = ":error_message.jar",
-    zipalign = ":error_message",
 )
 
 genrule(

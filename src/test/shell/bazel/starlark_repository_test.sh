@@ -2355,7 +2355,7 @@ genrule(
 EOF
 
   # for some reason --repository_disable_download fails with bzlmod trying to download @platforms.
-  bazel build --distdir="." --repository_disable_download --repository_cache= --enable_workspace --noenable_bzlmod //:it || fail "Failed to build"
+  bazel build --distdir="." --repository_disable_download --repository_cache= --enable_workspace --noenable_bzlmod --incompatible_autoload_externally= //:it || fail "Failed to build"
 }
 
 function test_disable_download_should_allow_local_repository() {
@@ -2382,7 +2382,7 @@ genrule(
 )
 EOF
   # for some reason --repository_disable_download fails with bzlmod trying to download @platforms.
-  bazel build --repository_disable_download --enable_workspace --noenable_bzlmod //:it || fail "Failed to build"
+  bazel build --repository_disable_download --enable_workspace --noenable_bzlmod --incompatible_autoload_externally= //:it || fail "Failed to build"
 }
 
 function test_no_restarts_fetching_with_worker_thread() {

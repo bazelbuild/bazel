@@ -1657,6 +1657,12 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "unbound"),
         @Param(
+            name = "exported_dependent_cc_compilation_contexts",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "unbound"),
+        @Param(
             name = "non_code_inputs",
             documented = false,
             positional = false,
@@ -1735,6 +1741,7 @@ public interface CcModuleApi<
       Object externalIncludes,
       Object virtualToOriginalHeaders,
       Sequence<?> dependentCcCompilationContexts,
+      Sequence<?> exportedDependentCcCompilationContexts,
       Sequence<?> nonCodeInputs,
       Sequence<?> looseHdrsDirs,
       String headersCheckingMode,

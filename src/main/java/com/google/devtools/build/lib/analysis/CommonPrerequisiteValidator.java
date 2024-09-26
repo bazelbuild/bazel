@@ -86,7 +86,7 @@ public abstract class CommonPrerequisiteValidator implements PrerequisiteValidat
 
     // We don't check the visibility of late-bound attributes, because it would break some
     // features.
-    if (Attribute.isLateBound(attrName)) {
+    if (Attribute.isAnalysisDependent(attrName)) {
       return;
     }
 

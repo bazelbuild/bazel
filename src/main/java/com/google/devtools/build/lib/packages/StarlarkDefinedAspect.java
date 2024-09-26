@@ -297,7 +297,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
           AspectParameters.Builder builder = new AspectParameters.Builder();
           for (Attribute aspectAttr : attributes) {
             String param = aspectAttr.getName();
-            if (Attribute.isImplicit(param) || Attribute.isLateBound(param)) {
+            if (Attribute.isImplicit(param) || Attribute.isAnalysisDependent(param)) {
               // These attributes are the private matters of the aspect
               continue;
             }
@@ -342,7 +342,7 @@ public final class StarlarkDefinedAspect implements StarlarkExportable, Starlark
       String parameterName = aspectParameter.getName();
       Type<?> parameterType = aspectParameter.getType();
 
-      if (Attribute.isImplicit(parameterName) || Attribute.isLateBound(parameterName)) {
+      if (Attribute.isImplicit(parameterName) || Attribute.isAnalysisDependent(parameterName)) {
         // These attributes are the private matters of the aspect
         continue;
       }

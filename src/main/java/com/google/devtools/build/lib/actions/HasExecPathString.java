@@ -1,4 +1,4 @@
-// Copyright 2018 The Bazel Authors. All rights reserved.
+// Copyright 2024 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -10,14 +10,21 @@
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
-// limitations under the License.
-package com.google.devtools.build.lib.bazel.rules.android;
 
-import com.google.devtools.build.lib.rules.android.AndroidSdkBase;
+package com.google.devtools.build.lib.actions;
 
-/** Implementation of {@code AndroidSdk} with Bazel semantics. */
-public class BazelAndroidSdk extends AndroidSdkBase {
-  public BazelAndroidSdk() {
-    super(BazelAndroidSemantics.INSTANCE);
-  }
+/**
+ * A file that has an exec path string.
+ *
+ * <p>Mainly implemented by classes that also implement {@link ActionInput}, but has other
+ * implementations in the Google-internal spawn execution service.
+ */
+public interface HasExecPathString {
+
+  /**
+   * Returns the path to this file.
+   *
+   * <p>The path may be relative to the exec root or absolute.
+   */
+  String getExecPathString();
 }

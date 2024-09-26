@@ -38,6 +38,17 @@ public class AspectValue extends BasicActionLookupValue
         : new AspectValueWithTransitivePackages(key, aspect, configuredAspect, transitivePackages);
   }
 
+  public static AspectValue createForAlias(
+      AspectKey key,
+      Aspect aspect,
+      ConfiguredAspect configuredAspect,
+      @Nullable NestedSet<Package> transitivePackages) {
+    return transitivePackages == null
+        ? new AspectValueForAlias(aspect, configuredAspect)
+        : new AspectValueWithTransitivePackagesForAlias(
+            key, aspect, configuredAspect, transitivePackages);
+  }
+
   // These variables are only non-final because they may be clear()ed to save memory. They are null
   // only after they are cleared except for transitivePackagesForPackageRootResolution.
   @Nullable private Aspect aspect;
@@ -101,7 +112,7 @@ public class AspectValue extends BasicActionLookupValue
     return getStringHelper().toString();
   }
 
-  private static final class AspectValueWithTransitivePackages extends AspectValue {
+  private static class AspectValueWithTransitivePackages extends AspectValue {
     @Nullable private transient NestedSet<Package> transitivePackages; // Null after clear().
     @Nullable private AspectKey key;
 
@@ -136,5 +147,27 @@ public class AspectValue extends BasicActionLookupValue
     protected ToStringHelper getStringHelper() {
       return super.getStringHelper().add("key", key).add("transitivePackages", transitivePackages);
     }
+  }
+
+  private static final class AspectValueForAlias extends AspectValue {
+    private AspectValueForAlias(Aspect aspect, ConfiguredAspect configuredAspect) {
+      super(aspect, configuredAspect);
+    }
+  }
+
+  private static final class AspectValueWithTransitivePackagesForAlias
+      extends AspectValueWithTransitivePackages {
+    private AspectValueWithTransitivePackagesForAlias(
+        AspectKey key,
+        Aspect aspect,
+        ConfiguredAspect configuredAspect,
+        NestedSet<Package> transitivePackages) {
+      super(key, aspect, configuredAspect, transitivePackages);
+    }
+  }
+
+  public static boolean isForAliasTarget(AspectValue aspectValue) {
+    return aspectValue instanceof AspectValueForAlias
+        || aspectValue instanceof AspectValueWithTransitivePackagesForAlias;
   }
 }

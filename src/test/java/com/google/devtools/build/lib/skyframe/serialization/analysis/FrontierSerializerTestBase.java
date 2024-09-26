@@ -39,6 +39,7 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueServ
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer.SelectionMarking;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.SkyKey;
+import com.google.errorprone.annotations.ForOverride;
 import com.google.perftools.profiles.ProfileProto.Profile;
 import com.google.protobuf.ExtensionRegistry;
 import java.nio.file.Files;
@@ -60,7 +61,12 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
     // Give each test case a unique instance of the fingerprint value service, so that test cases
     // don't share state. This instance will then last the lifetime of the test case, regardless
     // of the number of command invocations.
-    service = FingerprintValueService.createForTesting();
+    service = createFingerprintValueService();
+  }
+
+  @ForOverride
+  protected FingerprintValueService createFingerprintValueService() {
+    return FingerprintValueService.createForTesting();
   }
 
   @Before

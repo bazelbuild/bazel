@@ -49,6 +49,7 @@ import com.google.devtools.build.lib.actions.TotalAndConfiguredTargetOnlyMetric;
 import com.google.devtools.build.lib.analysis.AnalysisFailureEvent;
 import com.google.devtools.build.lib.analysis.AnalysisOperationWatcher;
 import com.google.devtools.build.lib.analysis.AnalysisPhaseCompleteEvent;
+import com.google.devtools.build.lib.analysis.AspectValue;
 import com.google.devtools.build.lib.analysis.CachingAnalysisEnvironment;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -1506,6 +1507,12 @@ public final class SkyframeBuildView {
         }
         configuredObjectCount.incrementAndGet();
         if (newValue instanceof ActionLookupValue alv) {
+          if (alv instanceof AspectValue) {
+            if (AspectValue.isForAliasTarget((AspectValue) alv)) {
+              // Created actions will be counted from {@link AspectValue} on the original target.
+              return;
+            }
+          }
           // During multithreaded operation, this is only set to true, so no concurrency issues.
           someActionLookupValueEvaluated = true;
           ImmutableList<ActionAnalysisMetadata> actions = alv.getActions();
