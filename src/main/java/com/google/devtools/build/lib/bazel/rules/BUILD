@@ -27,7 +27,7 @@ java_library(
         "xcode_configure.WORKSPACE",
         ":builtins_bzl_zip",
         ":coverage.WORKSPACE",
-        ":rules_license.WORKSPACE",
+        ":rules_suffix.WORKSPACE",
     ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib:runtime",
@@ -132,13 +132,19 @@ gen_workspace_stanza(
 )
 
 gen_workspace_stanza(
-    name = "rules_license",
-    out = "rules_license.WORKSPACE",
+    name = "rules_suffix",
+    out = "rules_suffix.WORKSPACE",
     preamble = """
         load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
         load("@bazel_tools//tools/build_defs/repo:utils.bzl", "maybe")
     """,
-    repos = ["rules_license"],
+    repos = [
+        "bazel_skylib",  # Dependency of other rules
+        "rules_java",    # For auto-load java rules symbols
+        "rules_cc",      # For auto-load cc rules symbols
+        "rules_python",  # For auto-load python rules symbols
+        "rules_license", # for license attestations
+    ],
     use_maybe = 1,
     visibility = ["//:__pkg__"],
 )
