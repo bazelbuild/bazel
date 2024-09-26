@@ -110,6 +110,11 @@ public interface FileValue extends SkyValue {
   /**
    * If a symlink pointing back to its own ancestor was encountered during the resolution of this
    * {@link FileValue}, returns the symlinks in the cycle. Otherwise, returns null.
+   *
+   * <p>If you're about to attempt a recursive directory traversal starting at the original path,
+   * you should first use this method to check if there's an unbounded ancestor symlink expansion.
+   * If there is, you should either error out and give up, or you should perform the traversal
+   * carefully (e.g. with a visited set) lest the traversal never terminate.
    */
   ImmutableList<RootedPath> unboundedAncestorSymlinkExpansionChain();
 
