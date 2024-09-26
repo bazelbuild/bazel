@@ -348,7 +348,7 @@ def _init_cc_compilation_context(
             pic_header_module = _header_module_artifact(
                 actions,
                 label,
-                config.is_sibling_repository_layout(),
+                sibling_repo_layout,
                 "",
                 ".pic.pcm",
             )
@@ -356,7 +356,7 @@ def _init_cc_compilation_context(
             header_module = _header_module_artifact(
                 actions,
                 label,
-                config.is_sibling_repository_layout(),
+                sibling_repo_layout,
                 "",
                 ".pcm",
             )
@@ -366,7 +366,7 @@ def _init_cc_compilation_context(
                 separate_module = _header_module_artifact(
                     actions,
                     label,
-                    config.is_sibling_repository_layout(),
+                    sibling_repo_layout,
                     ".sep",
                     ".pcm",
                 )
@@ -374,7 +374,7 @@ def _init_cc_compilation_context(
                 separate_pic_module = _header_module_artifact(
                     actions,
                     label,
-                    config.is_sibling_repository_layout(),
+                    sibling_repo_layout,
                     ".sep",
                     ".pic.pcm",
                 )
