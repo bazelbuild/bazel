@@ -25,7 +25,6 @@ EMBEDDED_TOOLS=$1; shift
 DEPLOY_JAR=$1; shift
 INSTALL_BASE_KEY=$1; shift
 PLATFORMS_ARCHIVE=$1; shift
-RULES_JAVA_ARCHIVE=$1; shift
 
 if [[ "$OUT" == *jdk_allmodules.zip ]]; then
   DEV_BUILD=1
@@ -77,18 +76,6 @@ fi
   cd $PACKAGE_DIR
   tar -xf $WORKDIR/$PLATFORMS_ARCHIVE -C .
   # "platforms" is a well-known module, so no need to tamper with anything here.
-)
-
-(
-  cd $PACKAGE_DIR
-  tar -xf $WORKDIR/$RULES_JAVA_ARCHIVE -C .
-  # Rename "rules_java~" or "rules_java+" to "rules_java".
-  if [[ -d rules_java~ ]]; then
-    mv rules_java~ rules_java
-  fi
-  if [[ -d rules_java+ ]]; then
-    mv rules_java+ rules_java
-  fi
 )
 
 # Make a list of the files in the order we want them inside the final zip.

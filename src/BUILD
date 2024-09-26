@@ -26,7 +26,6 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
         "//:platforms-srcs",
-        "//:rules_java-srcs",
     ] + select({
         "//src/conditions:windows": [],
         "//conditions:default": [
@@ -247,7 +246,6 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "install_base_key" + suffix,
         "//:platforms-srcs",
-        "//:rules_java-srcs",
         # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
         "//src/main/tools:build-runfiles",
