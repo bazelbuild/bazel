@@ -24,25 +24,33 @@ CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES = [("", "devtools/rust/cc_interop
 
 PRIVATE_STARLARKIFICATION_ALLOWLIST = [
     ("_builtins", ""),
-    ("", "bazel_internal/test_rules/cc"),
+    # Android rules
     ("", "tools/build_defs/android"),
     ("", "third_party/bazel_rules/rules_android"),
     ("build_bazel_rules_android", ""),
     ("rules_android", ""),
-    ("", "rust/private"),
-    ("rules_rust", "rust/private"),
-    ("", "third_party/gpus/cuda"),
-    ("", "tools/build_defs/go"),
-    ("", "third_party/bazel_rules/rules_cc"),
-    ("rules_cc", ""),
-    ("", "third_party/bazel_rules/rules_java"),
-    ("rules_java", ""),
-    ("", "third_party/protobuf"),
-    ("protobuf", ""),
-    ("com_google_protobuf", ""),
+    # Apple rules
     ("", "third_party/bazel_rules/rules_apple"),
     ("apple_support", ""),
     ("rules_apple", ""),
+    # C++ rules
+    ("", "bazel_internal/test_rules/cc"),
+    ("", "third_party/bazel_rules/rules_cc"),
+    ("rules_cc", ""),
+    # CUDA rules
+    ("", "third_party/gpus/cuda"),
+    # Go rules
+    ("", "tools/build_defs/go"),
+    # Java rules
+    ("", "third_party/bazel_rules/rules_java"),
+    ("rules_java", ""),
+    # Protobuf rules
+    ("", "third_party/protobuf"),
+    ("protobuf", ""),
+    ("com_google_protobuf", ""),
+    # Rust rules
+    ("", "rust/private"),
+    ("rules_rust", "rust/private"),
 ] + CREATE_COMPILE_ACTION_API_ALLOWLISTED_PACKAGES
 
 artifact_category = struct(
