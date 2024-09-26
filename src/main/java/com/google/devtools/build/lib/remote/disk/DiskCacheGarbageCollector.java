@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.remote.disk;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.Comparator.comparing;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
@@ -62,13 +63,23 @@ public final class DiskCacheGarbageCollector {
    */
   public record CollectionPolicy(Optional<Long> maxSizeBytes, Optional<Duration> maxAge) {
 
+    // Sort older entries before newer ones, tie breaking by path. This causes AC entries to be
+    // sorted before CAS entries with the same age, making it less likely for garbage collection
+    // to break referential integrity in the event that mtime resolution is insufficient.
+    private static final Comparator<Entry> COMPARATOR =
+        (x, y) ->
+            ComparisonChain.start()
+                .compare(x.mtime(), y.mtime())
+                .compare(x.path(), y.path())
+                .result();
+
     /**
      * Returns the entries to be deleted.
      *
      * @param entries the full list of entries
      */
     List<Entry> getEntriesToDelete(List<Entry> entries) {
-      entries.sort(comparing(Entry::mtime));
+      entries.sort(COMPARATOR);
 
       long excessSizeBytes = getExcessSizeBytes(entries);
       long timeCutoff = getTimeCutoff();

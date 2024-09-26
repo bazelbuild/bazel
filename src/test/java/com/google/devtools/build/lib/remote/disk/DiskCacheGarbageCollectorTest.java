@@ -80,6 +80,21 @@ public final class DiskCacheGarbageCollectorTest {
   }
 
   @Test
+  public void sizePolicy_tieBreakByPath() throws Exception {
+    writeFiles(
+        Entry.of("ac/123", kbytes(1), daysAgo(1)),
+        Entry.of("cas/456", kbytes(1), daysAgo(1)),
+        Entry.of("ac/abc", kbytes(1), daysAgo(1)),
+        Entry.of("cas/def", kbytes(1), daysAgo(1)));
+
+    CollectionStats stats = runGarbageCollector(Optional.of(kbytes(2)), Optional.empty());
+
+    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2)));
+    assertFilesExist("cas/456", "cas/def");
+    assertFilesDoNotExist("ac/123", "ac/abc");
+  }
+
+  @Test
   public void agePolicy_noCollection() throws Exception {
     writeFiles(
         Entry.of("ac/123", kbytes(1), Instant.now()),
