@@ -105,14 +105,4 @@ public final class CppModuleMap implements CppModuleMapApi<Artifact> {
   public String toString() {
     return name + "@" + artifact;
   }
-
-  /**
-   * Specifies whether to generate an umbrella header.
-   */
-  public enum UmbrellaHeaderStrategy {
-    /** Generate an umbrella header. */
-    GENERATE,
-    /** Do not generate an umbrella header. */
-    DO_NOT_GENERATE
-  }
 }

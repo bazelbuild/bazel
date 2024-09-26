@@ -23,11 +23,8 @@ import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.Expander;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext;
-import com.google.devtools.build.lib.packages.BuiltinRestriction;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.rules.apple.AppleConfiguration;
-import com.google.devtools.build.lib.rules.cpp.CppModuleMap.UmbrellaHeaderStrategy;
-import com.google.devtools.build.lib.rules.objc.IntermediateArtifacts.AlwaysLink;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import java.util.List;
 import java.util.Map;
@@ -40,7 +37,6 @@ import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkList;
-import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 
 /** Utility methods for Objc rules in Starlark Builtins */
@@ -140,39 +136,11 @@ public class ObjcStarlarkInternal implements StarlarkValue {
   }
 
   @StarlarkMethod(
-      name = "create_intermediate_artifacts",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-      })
-  public IntermediateArtifacts createIntermediateArtifacts(
-      StarlarkRuleContext starlarkRuleContext) {
-    return new IntermediateArtifacts(starlarkRuleContext.getRuleContext());
-  }
-
-  @StarlarkMethod(
-      name = "j2objc_create_intermediate_artifacts",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-      })
-  public IntermediateArtifacts j2objcCreateIntermediateArtifacts(
-      StarlarkRuleContext starlarkRuleContext) {
-    return new IntermediateArtifacts(
-        starlarkRuleContext.getRuleContext(),
-        /* archiveFileNameSuffix= */ "_j2objc",
-        UmbrellaHeaderStrategy.GENERATE,
-        AlwaysLink.TRUE);
-  }
-
-  @StarlarkMethod(
       name = "get_split_prerequisites",
       documented = false,
-      parameters = {@Param(name = "ctx", named = true)},
-      useStarlarkThread = true)
+      parameters = {@Param(name = "ctx", named = true)})
   public ImmutableMap<String, BuildConfigurationValue> getSplitPrerequisites(
-      StarlarkRuleContext starlarkRuleContext, StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+      StarlarkRuleContext starlarkRuleContext) throws EvalException {
     Map<Optional<String>, List<ConfiguredTargetAndData>> ctads =
         starlarkRuleContext
             .getRuleContext()
@@ -193,22 +161,17 @@ public class ObjcStarlarkInternal implements StarlarkValue {
   @StarlarkMethod(
       name = "get_apple_config",
       documented = false,
-      parameters = {@Param(name = "build_config", named = true)},
-      useStarlarkThread = true)
-  public AppleConfiguration getAppleConfig(
-      BuildConfigurationValue buildConfiguration, StarlarkThread thread) throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+      parameters = {@Param(name = "build_config", named = true)})
+  public AppleConfiguration getAppleConfig(BuildConfigurationValue buildConfiguration)
+      throws EvalException {
     return buildConfiguration.getFragment(AppleConfiguration.class);
   }
 
   @StarlarkMethod(
       name = "get_cpu",
       documented = false,
-      parameters = {@Param(name = "build_config", named = true)},
-      useStarlarkThread = true)
-  public String getCpu(BuildConfigurationValue buildConfiguration, StarlarkThread thread)
-      throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideBuiltins(thread);
+      parameters = {@Param(name = "build_config", named = true)})
+  public String getCpu(BuildConfigurationValue buildConfiguration) throws EvalException {
     return buildConfiguration.getCpu();
   }
 

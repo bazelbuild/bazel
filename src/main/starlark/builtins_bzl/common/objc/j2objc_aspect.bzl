@@ -25,6 +25,7 @@ load(":common/java/java_semantics.bzl", java_semantics = "semantics")
 load(":common/objc/apple_common.bzl", "apple_common")
 load(":common/objc/compilation_artifacts_info.bzl", "CompilationArtifactsInfo")
 load(":common/objc/compilation_support.bzl", "compilation_support")
+load(":common/objc/intermediate_artifacts.bzl", "j2objc_create_intermediate_artifacts")
 load(":common/objc/objc_common.bzl", "objc_common")
 load(":common/objc/objc_compilation_context_info.bzl", "create_cc_compilation_context")
 load(":common/objc/providers.bzl", "J2ObjcMappingFileInfo")
@@ -35,8 +36,6 @@ load(
     proto_common = "proto_common_do_not_use",
 )
 load(":common/proto/proto_info.bzl", "ProtoInfo")
-
-objc_internal = _builtins.internal.objc_internal
 
 def _j2objc_source_header_search_paths(genfiles_dir_path, bin_dir_path, objc_file_path, proto_sources):
     for source_to_translate in proto_sources:
@@ -294,7 +293,7 @@ def _create_j2objc_transpilation_action(
     archive_source_mapping_file = ctx.actions.declare_file(ctx.label.name + ".archive_source_mapping.j2objc")
     args.add("--output_archive_source_mapping_file", archive_source_mapping_file)
 
-    compiled_library = objc_internal.j2objc_create_intermediate_artifacts(ctx = ctx).archive()
+    compiled_library = j2objc_create_intermediate_artifacts(ctx = ctx).archive()
     args.add("--compiled_archive_file_path", compiled_library)
 
     boothclasspath_jar = ctx.file._jre_emul_jar
@@ -480,7 +479,7 @@ def _build_aspect(
         direct_j2objc_mapping_file_provider,
         dep_attributes,
         proto_toolchain_runtime):
-    intermediate_artifacts = objc_internal.j2objc_create_intermediate_artifacts(ctx = ctx)
+    intermediate_artifacts = j2objc_create_intermediate_artifacts(ctx = ctx)
     if j2objc_source.objc_srcs:
         common = _common(
             ctx = ctx,
