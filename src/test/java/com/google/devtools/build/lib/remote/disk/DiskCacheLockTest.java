@@ -16,13 +16,8 @@ package com.google.devtools.build.lib.remote.disk;
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.shell.Subprocess;
-import com.google.devtools.build.lib.shell.SubprocessBuilder;
 import com.google.devtools.build.lib.testutil.TestUtils;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
 import org.junit.Before;
 import org.junit.Test;
@@ -84,49 +79,6 @@ public final class DiskCacheLockTest {
     try (var lock = ExternalLock.getExclusive(lockPath)) {
       IOException e = assertThrows(IOException.class, () -> DiskCacheLock.getExclusive(lockPath));
       assertThat(e).hasMessageThat().contains("failed to acquire exclusive disk cache lock");
-    }
-  }
-
-  /**
-   * Runs an external process that holds a shared or exclusive lock on a file.
-   *
-   * <p>This is needed because the JVM does not allow overlapping locks.
-   */
-  private static class ExternalLock implements AutoCloseable {
-    private static final String HELPER_PATH =
-        "io_bazel/src/test/java/com/google/devtools/build/lib/remote/disk/external_lock_helper"
-            + (OS.getCurrent() == OS.WINDOWS ? ".exe" : "");
-
-    private final Subprocess subprocess;
-
-    static ExternalLock getShared(Path lockPath) throws IOException {
-      return new ExternalLock(lockPath, true);
-    }
-
-    static ExternalLock getExclusive(Path lockPath) throws IOException {
-      return new ExternalLock(lockPath, false);
-    }
-
-    ExternalLock(Path lockPath, boolean shared) throws IOException {
-      String binaryPath = Runfiles.preload().withSourceRepository("").rlocation(HELPER_PATH);
-      this.subprocess =
-          new SubprocessBuilder()
-              .setArgv(
-                  ImmutableList.of(
-                      binaryPath, lockPath.getPathString(), shared ? "shared" : "exclusive"))
-              .start();
-      // Wait for child to report that the lock has been acquired.
-      // We could read the entire stdout/stderr here to obtain additional debugging information,
-      // but for some reason that hangs forever on Windows, even if we close them on the child side.
-      if (subprocess.getInputStream().read() != '!') {
-        throw new IOException("external helper process failed");
-      }
-    }
-
-    @Override
-    public void close() throws IOException {
-      // Wait for process to exit and release the lock.
-      subprocess.destroyAndWait();
     }
   }
 }

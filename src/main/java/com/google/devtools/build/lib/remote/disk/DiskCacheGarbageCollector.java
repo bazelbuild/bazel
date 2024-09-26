@@ -154,6 +154,14 @@ public final class DiskCacheGarbageCollector {
    * @throws InterruptedException if the thread was interrupted
    */
   public CollectionStats run() throws IOException, InterruptedException {
+    // Acquire an exclusive lock to prevent two Bazel processes from simultaneously running
+    // garbage collection, which can waste resources and lead to incorrect results.
+    try (var lock = DiskCacheLock.getExclusive(root.getRelative("gc/lock"))) {
+      return runUnderLock();
+    }
+  }
+
+  private CollectionStats runUnderLock() throws IOException, InterruptedException {
     EntryScanner scanner = new EntryScanner();
     EntryDeleter deleter = new EntryDeleter();
 
