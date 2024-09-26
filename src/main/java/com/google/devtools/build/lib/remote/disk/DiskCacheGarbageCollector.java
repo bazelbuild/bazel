@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A garbage collector for the disk cache.
@@ -99,6 +100,12 @@ public final class DiskCacheGarbageCollector {
     }
   }
 
+  private record DeletionStats(long deletedEntries, long deletedBytes) {}
+
+  /** Stats for a garbage collection run. */
+  public record CollectionStats(
+      long totalEntries, long totalBytes, long deletedEntries, long deletedBytes) {}
+
   private final Path root;
   private final CollectionPolicy policy;
   private final ExecutorService executorService;
@@ -135,7 +142,7 @@ public final class DiskCacheGarbageCollector {
    * @throws IOException if an I/O error occurred
    * @throws InterruptedException if the thread was interrupted
    */
-  public void run() throws IOException, InterruptedException {
+  public CollectionStats run() throws IOException, InterruptedException {
     EntryScanner scanner = new EntryScanner();
     EntryDeleter deleter = new EntryDeleter();
 
@@ -143,10 +150,16 @@ public final class DiskCacheGarbageCollector {
     List<Entry> entriesToDelete = policy.getEntriesToDelete(allEntries);
 
     for (Entry entry : entriesToDelete) {
-      deleter.delete(root.getRelative(entry.path()));
+      deleter.delete(root.getRelative(entry.path()), entry.size());
     }
 
-    deleter.await();
+    DeletionStats deletionStats = deleter.await();
+
+    return new CollectionStats(
+        allEntries.size(),
+        allEntries.stream().mapToLong(Entry::size).sum(),
+        deletionStats.deletedEntries(),
+        deletionStats.deletedBytes());
   }
 
   /** Lists all disk cache entries, performing I/O in parallel. */
@@ -203,6 +216,9 @@ public final class DiskCacheGarbageCollector {
 
   /** Deletes disk cache entries, performing I/O in parallel. */
   private final class EntryDeleter extends AbstractQueueVisitor {
+    private final AtomicLong deletedEntries = new AtomicLong(0);
+    private final AtomicLong deletedBytes = new AtomicLong(0);
+
     EntryDeleter() {
       super(
           executorService,
@@ -212,11 +228,14 @@ public final class DiskCacheGarbageCollector {
     }
 
     /** Enqueues an entry to be deleted. */
-    void delete(Path path) {
+    void delete(Path path, long size) {
       execute(
           () -> {
             try {
-              path.delete();
+              if (path.delete()) {
+                deletedEntries.incrementAndGet();
+                deletedBytes.addAndGet(size);
+              }
             } catch (IOException e) {
               throw new IORuntimeException(e);
             }
@@ -224,12 +243,13 @@ public final class DiskCacheGarbageCollector {
     }
 
     /** Waits for all enqueued deletions to complete. */
-    void await() throws IOException, InterruptedException {
+    DeletionStats await() throws IOException, InterruptedException {
       try {
         awaitQuiescence(true);
       } catch (IORuntimeException e) {
         throw e.getCauseIOException();
       }
+      return new DeletionStats(deletedEntries.get(), deletedBytes.get());
     }
   }
 }
