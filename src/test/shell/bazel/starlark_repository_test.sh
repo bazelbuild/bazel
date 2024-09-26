@@ -2895,6 +2895,14 @@ EOF
   bazel shutdown
   bazel build @foo >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I see: nothing"
+
+  # Test to clear the marker file.
+  echo > ${marker_file}
+
+  # Running Bazel again shouldn't crash, and should result in a refetch.
+  bazel shutdown
+  bazel build @foo >& $TEST_log || fail "expected bazel to succeed"
+  expect_log "I see: nothing"
 }
 
 function test_file_watching_in_undefined_repo() {
