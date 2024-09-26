@@ -17,7 +17,7 @@ import com.google.devtools.build.docgen.annot.GlobalMethods;
 import com.google.devtools.build.docgen.annot.GlobalMethods.Environment;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
-import com.google.devtools.build.lib.packages.TargetRegistrationEnvironment.NameConflictException;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import java.util.List;

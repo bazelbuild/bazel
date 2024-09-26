@@ -39,7 +39,7 @@ import javax.annotation.Nullable;
  * enforcing naming requirements on them. It is used by {@link Package.Builder} as part of package
  * construction.
  */
-public final class TargetRegistrationEnvironment {
+public final class TargetRecorder {
 
   /** Used for constructing macro namespace violation error messages. */
   static final String MACRO_NAMING_RULES =
