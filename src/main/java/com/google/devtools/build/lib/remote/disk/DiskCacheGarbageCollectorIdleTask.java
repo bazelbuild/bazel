@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote.disk;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.CollectionPolicy;
+import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.CollectionStats;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.vfs.Path;
@@ -84,12 +85,30 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
   public void run() {
     try {
       logger.atInfo().log("Disk cache garbage collection started");
-      gc.run();
-      logger.atInfo().log("Disk cache garbage collection finished");
+      CollectionStats stats = gc.run();
+      logger.atInfo().log(
+          "Disk cache garbage collection finished: deleted %d of %d files, reclaimed %s of %s",
+          stats.deletedEntries(),
+          stats.totalEntries(),
+          formatBytes(stats.deletedBytes()),
+          formatBytes(stats.totalBytes()));
     } catch (IOException e) {
       logger.atInfo().withCause(e).log("Disk cache garbage collection failed");
     } catch (InterruptedException e) {
       logger.atInfo().withCause(e).log("Disk cache garbage collection interrupted");
     }
+  }
+
+  private static String formatBytes(long bytes) {
+    if (bytes >= 1024 * 1024 * 1024) {
+      return "%3fGB".formatted((double) bytes / (1024 * 1024 * 1024));
+    }
+    if (bytes >= 1024 * 1024) {
+      return "%3fMB".formatted((double) bytes / (1024 * 1024));
+    }
+    if (bytes >= 1024) {
+      return "%3fKB".formatted((double) bytes / 1024);
+    }
+    return "%dB".formatted(bytes);
   }
 }
