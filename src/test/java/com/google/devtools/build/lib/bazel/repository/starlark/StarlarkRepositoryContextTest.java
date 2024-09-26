@@ -253,16 +253,16 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testFile() throws Exception {
     setUpContextForRule("test");
-    context.createFile(context.path("foobar"), "", true, true, thread);
-    context.createFile(context.path("foo/bar"), "foobar", true, true, thread);
-    context.createFile(context.path("bar/foo/bar"), "", true, true, thread);
+    context.createFile(context.getPath("foobar"), "", true, true, thread);
+    context.createFile(context.getPath("foo/bar"), "foobar", true, true, thread);
+    context.createFile(context.getPath("bar/foo/bar"), "", true, true, thread);
 
     testOutputFile(outputDirectory.getChild("foobar"), "");
     testOutputFile(outputDirectory.getRelative("foo/bar"), "foobar");
     testOutputFile(outputDirectory.getRelative("bar/foo/bar"), "");
 
     try {
-      context.createFile(context.path("/absolute"), "", true, true, thread);
+      context.createFile(context.getPath("/absolute"), "", true, true, thread);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -271,7 +271,7 @@ public final class StarlarkRepositoryContextTest {
           .isEqualTo("Cannot write outside of the repository directory for path /absolute");
     }
     try {
-      context.createFile(context.path("../somepath"), "", true, true, thread);
+      context.createFile(context.getPath("../somepath"), "", true, true, thread);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -280,7 +280,7 @@ public final class StarlarkRepositoryContextTest {
           .isEqualTo("Cannot write outside of the repository directory for path /somepath");
     }
     try {
-      context.createFile(context.path("foo/../../somepath"), "", true, true, thread);
+      context.createFile(context.getPath("foo/../../somepath"), "", true, true, thread);
       fail("Expected error on creating path outside of the repository directory");
     } catch (RepositoryFunctionException ex) {
       assertThat(ex)
@@ -294,14 +294,16 @@ public final class StarlarkRepositoryContextTest {
   public void testDelete() throws Exception {
     setUpContextForRule("testDelete");
     Path bar = outputDirectory.getRelative("foo/bar");
-    StarlarkPath barPath = context.path(bar.getPathString());
+    Object path1 = bar.getPathString();
+    StarlarkPath barPath = context.getPath(path1);
     context.createFile(barPath, "content", true, true, thread);
     assertThat(context.delete(barPath, thread)).isTrue();
 
     assertThat(context.delete(barPath, thread)).isFalse();
 
     Path tempFile = scratch.file("/abcde/b", "123");
-    assertThat(context.delete(context.path(tempFile.getPathString()), thread)).isTrue();
+    Object path = tempFile.getPathString();
+    assertThat(context.delete(context.getPath(path), thread)).isTrue();
 
     Path innerDir = scratch.dir("/some/inner");
     scratch.dir("/some/inner/deeper");
@@ -331,20 +333,20 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testRead() throws Exception {
     setUpContextForRule("test");
-    context.createFile(context.path("foo/bar"), "foobar", true, true, thread);
+    context.createFile(context.getPath("foo/bar"), "foobar", true, true, thread);
 
-    String content = context.readFile(context.path("foo/bar"), "auto", thread);
+    String content = context.readFile(context.getPath("foo/bar"), "auto", thread);
     assertThat(content).isEqualTo("foobar");
   }
 
   @Test
   public void testPatch() throws Exception {
     setUpContextForRule("test");
-    StarlarkPath foo = context.path("foo");
+    StarlarkPath foo = context.getPath("foo");
     context.createFile(foo, "line one\n", false, true, thread);
-    StarlarkPath patchFile = context.path("my.patch");
+    StarlarkPath patchFile = context.getPath("my.patch");
     context.createFile(
-        context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
+        context.getPath("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
     testOutputFile(foo.getPath(), "line one\nline two\n");
   }
@@ -352,9 +354,9 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testCannotFindFileToPatch() throws Exception {
     setUpContextForRule("test");
-    StarlarkPath patchFile = context.path("my.patch");
+    StarlarkPath patchFile = context.getPath("my.patch");
     context.createFile(
-        context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
+        context.getPath("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     try {
       context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
       fail("Expected RepositoryFunctionException");
@@ -371,9 +373,9 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testPatchOutsideOfExternalRepository() throws Exception {
     setUpContextForRule("test");
-    StarlarkPath patchFile = context.path("my.patch");
+    StarlarkPath patchFile = context.getPath("my.patch");
     context.createFile(
-        context.path("my.patch"),
+        context.getPath("my.patch"),
         "--- ../other_root/foo\n" + "+++ ../other_root/foo\n" + ONE_LINE_PATCH,
         false,
         true,
@@ -394,11 +396,11 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testPatchErrorWasThrown() throws Exception {
     setUpContextForRule("test");
-    StarlarkPath foo = context.path("foo");
-    StarlarkPath patchFile = context.path("my.patch");
+    StarlarkPath foo = context.getPath("foo");
+    StarlarkPath patchFile = context.getPath("my.patch");
     context.createFile(foo, "line three\n", false, true, thread);
     context.createFile(
-        context.path("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
+        context.getPath("my.patch"), "--- foo\n+++ foo\n" + ONE_LINE_PATCH, false, true, thread);
     try {
       context.patch(patchFile, StarlarkInt.of(0), "auto", thread);
       fail("Expected RepositoryFunctionException");
@@ -475,12 +477,12 @@ public final class StarlarkRepositoryContextTest {
   @Test
   public void testSymlink() throws Exception {
     setUpContextForRule("test");
-    context.createFile(context.path("foo"), "foobar", true, true, thread);
+    context.createFile(context.getPath("foo"), "foobar", true, true, thread);
 
-    context.symlink(context.path("foo"), context.path("bar"), thread);
+    context.symlink(context.getPath("foo"), context.getPath("bar"), thread);
     testOutputFile(outputDirectory.getChild("bar"), "foobar");
 
-    assertThat(context.path("bar").realpath()).isEqualTo(context.path("foo"));
+    assertThat(context.getPath("bar").realpath()).isEqualTo(context.getPath("foo"));
   }
 
   private static void testOutputFile(Path path, String content) throws IOException {
@@ -497,11 +499,11 @@ public final class StarlarkRepositoryContextTest {
     scratch.file("/my/folder/a");
     scratch.file("/my/folder/b");
     scratch.file("/my/folder/c");
-    assertThat(context.path("/my/folder").readdir("no"))
+    assertThat(context.getPath("/my/folder").readdir("no"))
         .containsExactly(
-            context.path("/my/folder/a"),
-            context.path("/my/folder/b"),
-            context.path("/my/folder/c"));
+            context.getPath("/my/folder/a"),
+            context.getPath("/my/folder/b"),
+            context.getPath("/my/folder/c"));
   }
 
   @Test
@@ -514,7 +516,7 @@ public final class StarlarkRepositoryContextTest {
   public void testNoIncompatibleNoImplicitWatchLabel() throws Exception {
     setUpContextForRule("test");
     scratch.file(root.getRelative("foo").getPathString());
-    context.path(fakeFileLabel);
+    context.getPath(fakeFileLabel);
     context.readFile(fakeFileLabel, "no", thread);
     assertThat(context.getRecordedFileInputs()).isNotEmpty();
   }
@@ -527,7 +529,7 @@ public final class StarlarkRepositoryContextTest {
             .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, true)
             .build());
     scratch.file(root.getRelative("foo").getPathString());
-    context.path(fakeFileLabel);
+    context.getPath(fakeFileLabel);
     context.readFile(fakeFileLabel, "no", thread);
     assertThat(context.getRecordedFileInputs()).isEmpty();
   }

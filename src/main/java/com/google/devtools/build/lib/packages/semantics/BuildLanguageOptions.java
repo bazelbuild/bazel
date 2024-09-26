@@ -292,7 +292,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       help =
           "If true, then methods on <code>repository_ctx</code> that are passed a Label will no"
               + " longer automatically watch the file under that label for changes even if"
-              + " <code>watch = \"no\"</code> and <code>repository_ctx.path</code> no longer causes"
+              + " <code>watch = \"no\"</code>, and <code>repository_ctx.path</code> no longer causes"
               + " the returned path to be watched. Use <code>repository_ctx.watch</code> instead.")
   public boolean incompatibleNoImplicitWatchLabel;
 

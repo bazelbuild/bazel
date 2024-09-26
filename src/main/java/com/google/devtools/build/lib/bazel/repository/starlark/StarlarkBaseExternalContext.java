@@ -1351,13 +1351,9 @@ the same path on case-insensitive filesystems.
                 "<code>string</code>, <code>Label</code> or <code>path</code> from which to create"
                     + " a path from.")
       })
-  public StarlarkPath path(Object path) throws EvalException, InterruptedException {
-    return getPath(path);
-  }
-
-  protected StarlarkPath getPath(Object path) throws EvalException, InterruptedException {
+  public StarlarkPath getPath(Object path) throws EvalException, InterruptedException {
     return switch (path) {
-      case String ignored -> new StarlarkPath(this, workingDirectory.getRelative(path.toString()));
+      case String s -> new StarlarkPath(this, workingDirectory.getRelative(s));
       case Label label -> getPathFromLabel(label);
       case StarlarkPath starlarkPath -> starlarkPath;
       // This can never happen because we check it in the Starlark interpreter.
