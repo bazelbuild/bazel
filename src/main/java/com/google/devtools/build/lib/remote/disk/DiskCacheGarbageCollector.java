@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.remote.disk;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Comparator.comparing;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
@@ -52,21 +53,13 @@ public final class DiskCacheGarbageCollector {
    */
   private record Entry(String path, long size, long mtime) {}
 
-  /** Determines which entries should be collected. */
-  public static final class CollectionPolicy {
-    private final Optional<Long> maxSizeBytes;
-    private final Optional<Duration> maxAge;
-
-    /**
-     * Creates a new policy.
-     *
-     * @param maxSizeBytes the maximum total size in bytes, or empty for no size limit
-     * @param maxAge the maximum age of cache entries, or empty for no age limit
-     */
-    CollectionPolicy(Optional<Long> maxSizeBytes, Optional<Duration> maxAge) {
-      this.maxSizeBytes = maxSizeBytes;
-      this.maxAge = maxAge;
-    }
+  /**
+   * Determines which entries should be collected.
+   *
+   * @param maxSizeBytes the maximum total size in bytes, or empty for no size limit
+   * @param maxAge the maximum age of cache entries, or empty for no age limit
+   */
+  public record CollectionPolicy(Optional<Long> maxSizeBytes, Optional<Duration> maxAge) {
 
     /**
      * Returns the entries to be deleted.
@@ -124,6 +117,16 @@ public final class DiskCacheGarbageCollector {
     this.policy = policy;
     this.executorService = executorService;
     this.excludedDirs = EXCLUDED_DIRS.stream().map(root::getChild).collect(toImmutableSet());
+  }
+
+  @VisibleForTesting
+  public Path getRoot() {
+    return root;
+  }
+
+  @VisibleForTesting
+  public CollectionPolicy getPolicy() {
+    return policy;
   }
 
   /**

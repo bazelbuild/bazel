@@ -64,6 +64,8 @@ import com.google.devtools.build.lib.remote.RemoteServerCapabilities.ServerCapab
 import com.google.devtools.build.lib.remote.circuitbreaker.CircuitBreakerFactory;
 import com.google.devtools.build.lib.remote.common.RemoteCacheClient;
 import com.google.devtools.build.lib.remote.common.RemoteExecutionClient;
+import com.google.devtools.build.lib.remote.disk.DiskCacheClient;
+import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.http.DownloadTimeoutException;
 import com.google.devtools.build.lib.remote.http.HttpException;
@@ -332,6 +334,15 @@ public final class RemoteModule extends BlazeModule {
             "--experimental_remote_output_service can only be used in combination with"
                 + " --remote_cache or --remote_executor.",
             FailureDetails.RemoteOptions.Code.EXECUTION_WITH_INVALID_CACHE);
+      }
+    }
+
+    if (enableDiskCache) {
+      var gcIdleTask =
+          DiskCacheGarbageCollectorIdleTask.create(
+              remoteOptions, env.getWorkingDirectory(), executorService);
+      if (gcIdleTask != null) {
+        env.addIdleTask(gcIdleTask);
       }
     }
 
@@ -954,9 +965,9 @@ public final class RemoteModule extends BlazeModule {
   }
 
   private static void afterCommandTask(
-      RemoteActionContextProvider actionContextProvider,
-      TempPathGenerator tempPathGenerator,
-      AsynchronousMessageOutputStream<LogEntry> rpcLogFile)
+      @Nullable RemoteActionContextProvider actionContextProvider,
+      @Nullable TempPathGenerator tempPathGenerator,
+      @Nullable AsynchronousMessageOutputStream<LogEntry> rpcLogFile)
       throws AbruptExitException {
     if (actionContextProvider != null) {
       actionContextProvider.afterCommand();
