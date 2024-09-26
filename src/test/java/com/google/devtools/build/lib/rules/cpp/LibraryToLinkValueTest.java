@@ -46,9 +46,10 @@ public class LibraryToLinkValueTest {
 
     // #forVersionedDynamicLibrary
     equalsTester.addEqualityGroup(
-        LibraryToLinkValue.forVersionedDynamicLibrary("foo"),
-        LibraryToLinkValue.forVersionedDynamicLibrary("foo"));
-    equalsTester.addEqualityGroup(LibraryToLinkValue.forVersionedDynamicLibrary("bar"));
+        LibraryToLinkValue.forVersionedDynamicLibrary("foo", /* path= */ ""),
+        LibraryToLinkValue.forVersionedDynamicLibrary("foo", /* path= */ ""));
+    equalsTester.addEqualityGroup(
+        LibraryToLinkValue.forVersionedDynamicLibrary("bar", /* path= */ ""));
 
     // #forInterfaceLibrary
     equalsTester.addEqualityGroup(
@@ -140,7 +141,8 @@ public class LibraryToLinkValueTest {
 
   @Test
   public void getFieldValue_forVersionedDynamicLibrary() throws Exception {
-    LibraryToLinkValue libraryToLinkValue = LibraryToLinkValue.forVersionedDynamicLibrary("foo");
+    LibraryToLinkValue libraryToLinkValue =
+        LibraryToLinkValue.forVersionedDynamicLibrary("foo", "foo/bar.so");
     assertThat(
             libraryToLinkValue
                 .getFieldValue(
@@ -150,6 +152,15 @@ public class LibraryToLinkValueTest {
                     /* throwOnMissingVariable= */ false)
                 .getStringValue("variable name doesn't matter", PathMapper.NOOP))
         .isEqualTo("versioned_dynamic_library");
+    assertThat(
+            libraryToLinkValue
+                .getFieldValue(
+                    /* variableName= */ "variable name doesn't matter",
+                    /* field= */ "path",
+                    /* expander= */ null,
+                    /* throwOnMissingVariable= */ false)
+                .getStringValue("variable name doesn't matter", PathMapper.NOOP))
+        .isEqualTo("foo/bar.so");
     assertThat(
             libraryToLinkValue
                 .getFieldValue(

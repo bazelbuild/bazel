@@ -6473,11 +6473,11 @@ def _impl(ctx):
                             flag_group(
                                 flag_groups = [
                                     flag_group(
-                                        flags = ["-l:%{libraries_to_link.name}"],
+                                        flags = ["%{libraries_to_link.path}"],
                                         expand_if_false = "libraries_to_link.is_whole_archive",
                                     ),
                                     flag_group(
-                                        flags = ["-Wl,-force_load,-l:%{libraries_to_link.name}"],
+                                        flags = ["-Wl,-force_load,%{libraries_to_link.path}"],
                                         expand_if_true = "libraries_to_link.is_whole_archive",
                                     ),
                                 ],
