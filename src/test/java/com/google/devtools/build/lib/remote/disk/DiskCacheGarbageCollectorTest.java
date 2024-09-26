@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.remote.disk;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.CollectionStats;
@@ -174,6 +175,17 @@ public final class DiskCacheGarbageCollectorTest {
     assertFilesExist("gc/foo", "tmp/foo");
   }
 
+  @Test
+  public void failsWhenLockIsAlreadyHeld() throws Exception {
+    try (var externalLock = ExternalLock.getShared(rootDir.getRelative("gc/lock"))) {
+      Exception e =
+          assertThrows(
+              Exception.class, () -> runGarbageCollector(Optional.of(1L), Optional.empty()));
+      assertThat(e).isInstanceOf(IOException.class);
+      assertThat(e).hasMessageThat().contains("failed to acquire exclusive disk cache lock");
+    }
+  }
+
   private void assertFilesExist(String... relativePaths) throws IOException {
     for (String relativePath : relativePaths) {
       Path path = rootDir.getRelative(relativePath);
@@ -193,7 +205,8 @@ public final class DiskCacheGarbageCollectorTest {
   }
 
   private CollectionStats runGarbageCollector(
-      Optional<Long> maxSizeBytes, Optional<Duration> maxAge) throws Exception {
+      Optional<Long> maxSizeBytes, Optional<Duration> maxAge)
+      throws IOException, InterruptedException {
     var gc =
         new DiskCacheGarbageCollector(
             rootDir,
