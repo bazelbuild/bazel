@@ -43,7 +43,6 @@ load(":common/cc/fdo/fdo_prefetch_hints.bzl", "fdo_prefetch_hints")
 load(":common/cc/fdo/fdo_profile.bzl", "fdo_profile")
 load(":common/cc/fdo/memprof_profile.bzl", "memprof_profile")
 load(":common/cc/fdo/propeller_optimize.bzl", "propeller_optimize")
-load(":common/java/java_binary_deploy_jar.bzl", get_java_build_info = "get_build_info")
 load(":common/java/java_common.bzl", "java_common")
 load(":common/java/java_info.bzl", "JavaInfo", "JavaPluginInfo")
 load(":common/objc/apple_common.bzl", "apple_common")
@@ -104,7 +103,5 @@ exported_to_java = {
     "j2objc_mapping_file_info_union": objc_common.j2objc_mapping_file_info_union,
     "j2objc_entry_class_info_union": objc_common.j2objc_entry_class_info_union,
     "init_cc_compilation_context": cc_compilation_helper.init_cc_compilation_context,
-    "java_common": java_common,
-    "get_build_info": get_java_build_info,
     "get_toolchain_global_make_variables": cc_helper.get_toolchain_global_make_variables,
 }
