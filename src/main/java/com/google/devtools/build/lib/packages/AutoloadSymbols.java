@@ -269,16 +269,31 @@ public class AutoloadSymbols {
       if (AUTOLOAD_CONFIG.get(symbol).isRule()) {
         nativeBindings.remove(symbol);
       } else {
-        envBuilder.remove(symbol);
+        if (symbol.equals("proto_common_do_not_use")
+            && envBuilder.get("proto_common_do_not_use") instanceof StarlarkInfo) {
+          // proto_common_do_not_use can't be completely removed, because the implementation of
+          // proto rules in protobuf still relies on INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION,
+          // that reads the build language flag.
+          envBuilder.put(
+              "proto_common_do_not_use",
+              StructProvider.STRUCT.create(
+                  ImmutableMap.of(
+                      "INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION",
+                      ((StarlarkInfo) envBuilder.get("proto_common_do_not_use"))
+                          .getValue("INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION")),
+                  "no native symbol '%s'"));
+        } else {
+          envBuilder.remove(symbol);
+        }
       }
     }
 
     if (!isWithAutoloads) {
-      // In the repositories that don't have autoloads we also expose native.legacy_symbols.
+      // In the repositories that don't have autoloads we also expose native.legacy_globals.
       // Those can be used to fallback to the native symbol, whenever it's still available in Bazel.
       // Fallback using a top-level symbol doesn't work, because BzlCompileFunction would throw an
       // error when it's mentioned.
-      // legacy_symbols aren't available when autoloads are not enabled. The feature is intended to
+      // legacy_globals aren't available when autoloads are not enabled. The feature is intended to
       // be use with bazel_features repository, which can correctly report native symbols on all
       // versions of Bazel.
       ImmutableMap<String, Object> legacySymbols =
@@ -293,7 +308,7 @@ public class AutoloadSymbols {
                               ? ((GuardedValue) e.getValue()).getObject()
                               : e.getValue()));
       nativeBindings.put(
-          "legacy_symbols", StructProvider.STRUCT.create(legacySymbols, "no native symbol '%s'"));
+          "legacy_globals", StructProvider.STRUCT.create(legacySymbols, "no native symbol '%s'"));
     }
 
     envBuilder.put(
@@ -525,7 +540,8 @@ public class AutoloadSymbols {
               symbolRedirect("@rules_cc//cc/common:cc_shared_library_hint_info.bzl", "cc_common"))
           .put(
               "cc_proto_aspect",
-              symbolRedirect("@protobuf//bazel/common:cc_proto_library.bzl", "cc_proto_library"))
+              symbolRedirect(
+                  "@protobuf//bazel/private:bazel_cc_proto_library.bzl", "cc_proto_aspect"))
           .put(
               "ProtoInfo",
               symbolRedirect(
@@ -537,7 +553,6 @@ public class AutoloadSymbols {
                   "java_proto_library",
                   "proto_lang_toolchain",
                   "java_binary",
-                  "py_extension",
                   "proto_common_do_not_use"))
           .put(
               "proto_common_do_not_use", symbolRedirect("@protobuf//bazel/common:proto_common.bzl"))
@@ -673,7 +688,7 @@ public class AutoloadSymbols {
               "propeller_optimize", ruleRedirect("@rules_cc//cc/toolchains:propeller_optimize.bzl"))
           .put(
               "proto_lang_toolchain",
-              ruleRedirect("@protobuf//bazel/toolchain:proto_lang_toolchain.bzl"))
+              ruleRedirect("@protobuf//bazel/toolchains:proto_lang_toolchain.bzl"))
           .put("proto_library", ruleRedirect("@protobuf//bazel:proto_library.bzl"))
           .put("py_binary", ruleRedirect("@rules_python//python:py_binary.bzl"))
           .put("py_library", ruleRedirect("@rules_python//python:py_library.bzl"))
