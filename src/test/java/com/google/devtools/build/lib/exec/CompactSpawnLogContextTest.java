@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
@@ -171,7 +172,15 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     Artifact tool = ActionsTestUtil.createArtifact(rootDir, "data.txt");
     writeFile(tool, "abc");
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
-    RunfilesSupplier runfilesSupplier = createRunfilesSupplier(runfilesRoot, tool);
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "middleman");
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier(
+            runfilesRoot,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            /* legacyExternalRunfiles= */ false,
+            NestedSetBuilder.wrap(Order.STABLE_ORDER, ImmutableList.of(tool)),
+            runfilesMiddleman);
 
     Artifact firstInput = ActionsTestUtil.createArtifact(rootDir, "first_input");
     writeFile(firstInput, "def");
@@ -186,11 +195,13 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
         defaultSpawnBuilder()
             .withRunfilesSupplier(runfilesSupplier)
             .withInputs(firstInput)
+            .withTool(runfilesMiddleman)
             .build();
     Spawn secondSpawn =
         defaultSpawnBuilder()
             .withRunfilesSupplier(runfilesSupplier)
             .withInputs(secondInput)
+            .withTool(runfilesMiddleman)
             .build();
 
     SpawnLogContext context = createSpawnLogContext();

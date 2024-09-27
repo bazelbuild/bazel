@@ -40,6 +40,7 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
   @Nullable private final Artifact repoMappingManifest;
   private final RunfileSymlinksMode runfileSymlinksMode;
   private final boolean buildRunfileLinks;
+  @Nullable private final Artifact runfilesMiddleman;
 
   /**
    * Same as {@link SingleRunfilesSupplier#SingleRunfilesSupplier(PathFragment, Runfiles, boolean,
@@ -54,14 +55,16 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
       Runfiles runfiles,
       @Nullable Artifact repoMappingManifest,
       RunfileSymlinksMode runfileSymlinksMode,
-      boolean buildRunfileLinks) {
+      boolean buildRunfileLinks,
+      @Nullable Artifact runfilesMiddleman) {
     return new SingleRunfilesSupplier(
         runfilesDir,
         runfiles,
         /* runfilesCachingEnabled= */ true,
         repoMappingManifest,
         runfileSymlinksMode,
-        buildRunfileLinks);
+        buildRunfileLinks,
+        runfilesMiddleman);
   }
 
   /**
@@ -78,14 +81,16 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
       Runfiles runfiles,
       @Nullable Artifact repoMappingManifest,
       RunfileSymlinksMode runfileSymlinksMode,
-      boolean buildRunfileLinks) {
+      boolean buildRunfileLinks,
+      @Nullable Artifact runfilesMiddleman) {
     this(
         runfilesDir,
         runfiles,
         /* runfilesCachingEnabled= */ false,
         repoMappingManifest,
         runfileSymlinksMode,
-        buildRunfileLinks);
+        buildRunfileLinks,
+        runfilesMiddleman);
   }
 
   private SingleRunfilesSupplier(
@@ -94,7 +99,8 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
       boolean runfilesCachingEnabled,
       @Nullable Artifact repoMappingManifest,
       RunfileSymlinksMode runfileSymlinksMode,
-      boolean buildRunfileLinks) {
+      boolean buildRunfileLinks,
+      @Nullable Artifact runfilesMiddleman) {
     this(
         runfilesDir,
         runfiles,
@@ -105,7 +111,8 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
                     /* eventHandler= */ null, /* location= */ null, repoMappingManifest),
         repoMappingManifest,
         runfileSymlinksMode,
-        buildRunfileLinks);
+        buildRunfileLinks,
+        runfilesMiddleman);
   }
 
   private SingleRunfilesSupplier(
@@ -114,7 +121,8 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
       Supplier<Map<PathFragment, Artifact>> runfilesInputs,
       @Nullable Artifact repoMappingManifest,
       RunfileSymlinksMode runfileSymlinksMode,
-      boolean buildRunfileLinks) {
+      boolean buildRunfileLinks,
+      @Nullable Artifact runfilesMiddleman) {
     checkArgument(!runfilesDir.isAbsolute());
     this.runfilesDir = checkNotNull(runfilesDir);
     this.runfiles = checkNotNull(runfiles);
@@ -122,6 +130,7 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
     this.repoMappingManifest = repoMappingManifest;
     this.runfileSymlinksMode = runfileSymlinksMode;
     this.buildRunfileLinks = buildRunfileLinks;
+    this.runfilesMiddleman = runfilesMiddleman;
   }
 
   @Override
@@ -163,13 +172,17 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
             runfilesInputs,
             repoMappingManifest,
             runfileSymlinksMode,
-            buildRunfileLinks);
+            buildRunfileLinks,
+            runfilesMiddleman);
   }
 
   @Override
-  public Map<PathFragment, RunfilesTree> getRunfilesTreesForLogging() {
+  public Map<Artifact, RunfilesTree> getRunfilesTreesForLogging() {
+    if (runfilesMiddleman == null) {
+      return ImmutableMap.of();
+    }
     return ImmutableMap.of(
-        runfilesDir,
+        runfilesMiddleman,
         new RunfilesTree(
             runfilesDir,
             runfiles.getArtifacts(),

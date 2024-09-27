@@ -122,8 +122,8 @@ public final class CompositeRunfilesSupplier implements RunfilesSupplier {
   }
 
   @Override
-  public Map<PathFragment, RunfilesTree> getRunfilesTreesForLogging() {
-    Map<PathFragment, RunfilesTree> result = new LinkedHashMap<>();
+  public Map<Artifact, RunfilesTree> getRunfilesTreesForLogging() {
+    Map<Artifact, RunfilesTree> result = new LinkedHashMap<>();
     for (RunfilesSupplier supplier : suppliers) {
       result.putAll(supplier.getRunfilesTreesForLogging());
     }

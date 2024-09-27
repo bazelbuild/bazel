@@ -99,5 +99,5 @@ public interface RunfilesSupplier extends StarlarkValue {
       boolean isLegacyExternalRunfiles,
       boolean isMappingCached) {}
 
-  Map<PathFragment, RunfilesTree> getRunfilesTreesForLogging();
+  Map<Artifact, RunfilesTree> getRunfilesTreesForLogging();
 }

@@ -96,6 +96,7 @@ import java.util.Date;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1213,7 +1214,8 @@ public abstract class SpawnLogContextTestBase {
             ImmutableMap.of(),
             ImmutableMap.of(),
             /* legacyExternalRunfiles= */ false,
-            NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
+            NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts),
+            /* runfilesMiddleman= */ null);
 
     Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
@@ -1291,7 +1293,8 @@ public abstract class SpawnLogContextTestBase {
             ImmutableMap.of(),
             ImmutableMap.of(),
             /* legacyExternalRunfiles= */ false,
-            artifacts);
+            artifacts,
+            /* runfilesMiddleman= */ null);
 
     Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
@@ -2054,7 +2057,8 @@ public abstract class SpawnLogContextTestBase {
       Map<String, Artifact> symlinks,
       Map<String, Artifact> rootSymlinks,
       boolean legacyExternalRunfiles,
-      NestedSet<Artifact> artifacts) {
+      NestedSet<Artifact> artifacts,
+      @Nullable Artifact runfilesMiddleman) {
     Runfiles.Builder runfiles =
         new Runfiles.Builder(TestConstants.WORKSPACE_NAME, legacyExternalRunfiles);
     runfiles.addTransitiveArtifacts(artifacts);
@@ -2070,7 +2074,8 @@ public abstract class SpawnLogContextTestBase {
         runfiles.build(),
         /* repoMappingManifest= */ null,
         BuildConfigurationValue.RunfileSymlinksMode.EXTERNAL,
-        /* buildRunfileLinks= */ false);
+        /* buildRunfileLinks= */ false,
+        runfilesMiddleman);
   }
 
   protected static RunfilesSupplier createRunfilesSupplier(
@@ -2084,7 +2089,8 @@ public abstract class SpawnLogContextTestBase {
         symlinks,
         rootSymlinks,
         legacyExternalRunfiles,
-        NestedSetBuilder.wrap(Order.COMPILE_ORDER, Arrays.asList(artifacts)));
+        NestedSetBuilder.wrap(Order.COMPILE_ORDER, Arrays.asList(artifacts)),
+        /* runfilesMiddleman= */ null);
   }
 
   protected static InputMetadataProvider createInputMetadataProvider(Artifact... artifacts)

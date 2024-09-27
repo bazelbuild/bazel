@@ -65,7 +65,7 @@ public final class EmptyRunfilesSupplier implements RunfilesSupplier {
   }
 
   @Override
-  public Map<PathFragment, RunfilesTree> getRunfilesTreesForLogging() {
+  public Map<Artifact, RunfilesTree> getRunfilesTreesForLogging() {
     return ImmutableMap.of();
   }
 }

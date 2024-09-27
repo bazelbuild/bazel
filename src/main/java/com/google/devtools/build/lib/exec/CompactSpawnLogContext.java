@@ -18,6 +18,8 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -26,6 +28,7 @@ import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.ExecException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.RunfilesSupplier.RunfilesTree;
 import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.SpawnResult;
 import com.google.devtools.build.lib.actions.Spawns;
@@ -61,6 +64,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ForkJoinPool;
 import javax.annotation.Nullable;
@@ -311,16 +316,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
     ImmutableList.Builder<Integer> additionalInputIds = ImmutableList.builder();
 
-    for (RunfilesSupplier.RunfilesTree runfilesTree :
-        spawn.getRunfilesSupplier().getRunfilesTreesForLogging().values()) {
-      additionalInputIds.add(
-          logRunfilesTree(
-              runfilesTree,
-              inputMetadataProvider,
-              fileSystem,
-              "TestRunner".equals(spawn.getMnemonic())));
-    }
-
     for (Artifact fileset : spawn.getFilesetMappings().keySet()) {
       // The fileset symlink tree is always materialized on disk.
       additionalInputIds.add(
@@ -332,10 +327,13 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
     return logInputSet(
         spawn.getInputFiles(),
+        spawn.getRunfilesSupplier().getRunfilesTreesForLogging(),
+        spawn.getRunfilesSupplier().getRunfilesTreesForLogging().keySet(),
         additionalInputIds.build(),
         inputMetadataProvider,
         fileSystem,
-        /* shared= */ false);
+        /* shared= */ false,
+        "TestRunner".equals(spawn.getMnemonic()));
   }
 
   /**
@@ -347,37 +345,23 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private int logTools(
       Spawn spawn, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
       throws IOException, InterruptedException {
-
-    // Add runfiles as additional direct members of the top-level nested set of tools if they are
-    // tools. Since only the runfiles middlemen are members of the tool files of the spawn and there
-    // is no general way to go from runfiles middleman to RunfilesSupplier, we use that non-test
-    // runfiles are always tools. This doesn't correctly label all runfiles, but there are very few
-    // exceptions: tools that are used during test preprocessing, e.g. for test.xml generation and
-    // coverage collection.
-
-    ImmutableList.Builder<Integer> additionalInputIds = ImmutableList.builder();
-
-    if (!"TestRunner".equals(spawn.getMnemonic())) {
-      for (RunfilesSupplier.RunfilesTree runfilesTree :
-          spawn.getRunfilesSupplier().getRunfilesTreesForLogging().values()) {
-        additionalInputIds.add(
-            logRunfilesTree(
-                runfilesTree, inputMetadataProvider, fileSystem, /* isTestRunnerSpawn= */ false));
-      }
-    }
-
     return logInputSet(
         spawn.getToolFiles(),
-        additionalInputIds.build(),
+        spawn.getRunfilesSupplier().getRunfilesTreesForLogging(),
+        ImmutableSet.of(),
+        ImmutableList.of(),
         inputMetadataProvider,
         fileSystem,
-        /* shared= */ true);
+        /* shared= */ true,
+        "TestRunner".equals(spawn.getMnemonic()));
   }
 
   /**
    * Logs a nested set.
    *
    * @param set the nested set
+   * @param runfilesTrees runfiles trees of the spawn to be added to the set if it contains the
+   *     corresponding middleman
    * @param additionalDirectoryIds the entry IDs of additional {@link ExecLogEntry.Directory}
    *     entries to include as direct members
    * @param shared whether this nested set is likely to be a transitive member of other sets
@@ -386,10 +370,13 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    */
   private int logInputSet(
       NestedSet<? extends ActionInput> set,
+      Map<Artifact, RunfilesTree> runfilesTrees,
+      Set<Artifact> extraMiddleman,
       Collection<Integer> additionalDirectoryIds,
       InputMetadataProvider inputMetadataProvider,
       FileSystem fileSystem,
-      boolean shared)
+      boolean shared,
+      boolean isTestRunnerSpawn)
       throws IOException, InterruptedException {
     if (set.isEmpty() && additionalDirectoryIds.isEmpty()) {
       return 0;
@@ -406,16 +393,26 @@ public class CompactSpawnLogContext extends SpawnLogContext {
             builder.addTransitiveSetIds(
                 logInputSet(
                     transitive,
-                    /* additionalDirectoryIds= */ ImmutableList.of(),
+                    ImmutableMap.of(),
+                    ImmutableSet.of(),
+                    ImmutableList.of(),
                     inputMetadataProvider,
                     fileSystem,
-                    /* shared= */ true));
+                    /* shared= */ true,
+                    /* isTestRunnerSpawn= */ false));
           }
 
-          for (ActionInput input : set.getLeaves()) {
-            // Runfiles and filesets are logged separately.
-            if (input instanceof Artifact artifact
-                && (artifact.isMiddlemanArtifact() || artifact.isFileset())) {
+          for (ActionInput input : Iterables.concat(set.getLeaves(), extraMiddleman)) {
+            if (input instanceof Artifact artifact && artifact.isMiddlemanArtifact()) {
+              RunfilesTree runfilesTree = runfilesTrees.get(artifact);
+              builder.addInputIds(
+                  logRunfilesTree(
+                      runfilesTree, inputMetadataProvider, fileSystem, isTestRunnerSpawn));
+              continue;
+            }
+
+            // Filesets are logged separately.
+            if (input instanceof Artifact artifact && artifact.isFileset()) {
               continue;
             }
 
@@ -550,7 +547,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * @return the entry ID of the {@link ExecLogEntry.RunfilesTree} describing the directory.
    */
   private int logRunfilesTree(
-      RunfilesSupplier.RunfilesTree runfilesTree,
+      RunfilesTree runfilesTree,
       InputMetadataProvider inputMetadataProvider,
       FileSystem fileSystem,
       boolean isTestRunnerSpawn)
@@ -572,12 +569,17 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           builder.setInputSetId(
               logInputSet(
                   runfilesTree.getArtifactsAtCanonicalLocationsForLogging(),
-                  /* additionalDirectoryIds= */ ImmutableList.of(),
+                  ImmutableMap.of(),
+                  ImmutableSet.of(),
+                  ImmutableList.of(),
                   inputMetadataProvider,
                   fileSystem,
                   // The runfiles tree itself is shared, but the nested set is unique to the tree as
                   // it contains the executable.
-                  /* shared= */ false));
+                  /* shared= */ false,
+                  // This value only matters for nested sets that may contain runfiles trees, but
+                  // these are never nested.
+                  /* isTestRunnerSpawn= */ false));
           builder.setSymlinksId(
               logSymlinkEntries(
                   runfilesTree.getSymlinksForLogging(), inputMetadataProvider, fileSystem));

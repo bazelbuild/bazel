@@ -563,13 +563,14 @@ public final class RunfilesSupport implements RunfilesSupplier {
             runfiles,
             repoMappingManifest,
             runfileSymlinksMode,
-            buildRunfileLinks);
+            buildRunfileLinks,
+            runfilesMiddleman);
   }
 
   @Override
-  public Map<PathFragment, RunfilesTree> getRunfilesTreesForLogging() {
+  public Map<Artifact, RunfilesTree> getRunfilesTreesForLogging() {
     return ImmutableMap.of(
-        getRunfilesDirectoryExecPath(),
+        getRunfilesMiddleman(),
         new RunfilesTree(
             getRunfilesDirectoryExecPath(),
             runfiles.getArtifacts(),

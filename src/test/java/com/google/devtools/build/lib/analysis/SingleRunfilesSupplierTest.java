@@ -58,7 +58,8 @@ public final class SingleRunfilesSupplierTest {
             mkRunfiles(artifacts),
             /* repoMappingManifest= */ null,
             RunfileSymlinksMode.SKIP,
-            /* buildRunfileLinks= */ false);
+            /* buildRunfileLinks= */ false,
+            /* runfilesMiddleman= */ null);
 
     assertThat(underTest.getArtifacts().toList()).containsExactlyElementsIn(artifacts);
   }
@@ -71,7 +72,8 @@ public final class SingleRunfilesSupplierTest {
             Runfiles.EMPTY,
             /* repoMappingManifest= */ null,
             RunfileSymlinksMode.SKIP,
-            /* buildRunfileLinks= */ false);
+            /* buildRunfileLinks= */ false,
+            /* runfilesMiddleman= */ null);
     PathFragment newDir = PathFragment.create("new");
 
     RunfilesSupplier overridden = original.withOverriddenRunfilesDir(newDir);
@@ -91,7 +93,8 @@ public final class SingleRunfilesSupplierTest {
             Runfiles.EMPTY,
             /* repoMappingManifest= */ null,
             RunfileSymlinksMode.SKIP,
-            /* buildRunfileLinks= */ false);
+            /* buildRunfileLinks= */ false,
+            /* runfilesMiddleman= */ null);
     assertThat(original.withOverriddenRunfilesDir(dir)).isSameInstanceAs(original);
   }
 
