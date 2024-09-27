@@ -165,9 +165,8 @@ filegroup(
     srcs = [
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:builtins_bzl.zip",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules:coverage.WORKSPACE",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules:rules_license.WORKSPACE",
+        "//src/main/java/com/google/devtools/build/lib/bazel/rules:rules_suffix.WORKSPACE",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:cc_configure.WORKSPACE",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:jdk.WORKSPACE",
     ],
 )
 
@@ -190,17 +189,6 @@ pkg_tar(
 pkg_tar(
     name = "platforms-srcs",
     srcs = ["@platforms//:srcs"],
-    remap_paths = {
-        "external/": "",
-        "../": "",
-    },
-    strip_prefix = ".",
-    visibility = ["//:__subpackages__"],
-)
-
-pkg_tar(
-    name = "rules_java-srcs",
-    srcs = ["@rules_java//:distribution"],
     remap_paths = {
         "external/": "",
         "../": "",
@@ -263,7 +251,6 @@ genrule(
         ":bazel-srcs",
         ":bootstrap-jars",
         ":platforms-srcs",
-        ":rules_java-srcs",
         ":maven-srcs",
         "//src:derived_java_srcs",
         "@bootstrap_repo_cache//:archives.tar",

@@ -1,5 +1,4 @@
 load("@rules_java//java:defs.bzl", "java_library")
-load("//:workspace_deps.bzl", "gen_workspace_stanza")
 
 package(
     default_applicable_licenses = ["//:license"],
@@ -24,10 +23,7 @@ java_library(
         [
             "*.txt",
         ],
-    ) + [
-        ":jdk.WORKSPACE",
-        ":rules_java_builtin.WORKSPACE",
-    ],
+    ),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/execution_transition_factory",
@@ -66,24 +62,4 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
-)
-
-gen_workspace_stanza(
-    name = "workspace_with_java_toolchains",
-    out = "jdk.WORKSPACE",
-    repo_clause = """
-    name = "{repo}",
-    sha256 = "{sha256}",
-    strip_prefix = {strip_prefix},
-    urls = {urls},
-    """,
-    repos = [
-        "bazel_skylib",
-        "rules_cc",
-        "rules_java",
-        "rules_proto",
-        "rules_python",
-    ],
-    template = "jdk.WORKSPACE.tmpl",
-    visibility = ["//:__pkg__"],
 )
