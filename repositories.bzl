@@ -44,7 +44,6 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "rules_pkg",
     "rules_proto",
     "rules_python",
-    "sqlite3",
     "upb",
     "zlib",
     "zstd-jni",
