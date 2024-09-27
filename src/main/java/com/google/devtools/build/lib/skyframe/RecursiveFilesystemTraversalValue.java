@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
-import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyValue;
@@ -326,11 +325,6 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     public PathFragment getNameInSymlinkTree() {
       return path.getRootRelativePath();
     }
-
-    @Override
-    public PathFragment getTargetInSymlinkTree(boolean followSymlinks) {
-      return path.asPath().asFragment();
-    }
   }
 
   private static final class Directory implements ResolvedFile {
@@ -379,11 +373,6 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     @Override
     public PathFragment getNameInSymlinkTree() {
       return path.getRootRelativePath();
-    }
-
-    @Override
-    public PathFragment getTargetInSymlinkTree(boolean followSymlinks) {
-      return path.asPath().asFragment();
     }
   }
 
@@ -437,17 +426,6 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     @Override
     public PathFragment getNameInSymlinkTree() {
       return symlink.getNameInSymlinkTree();
-    }
-
-    @Override
-    public PathFragment getTargetInSymlinkTree(boolean followSymlinks)
-        throws DanglingSymlinkException {
-      if (followSymlinks) {
-        throw new DanglingSymlinkException(symlink.linkName.asPath().getPathString(),
-            symlink.unresolvedLinkTarget.getPathString());
-      } else {
-        return symlink.unresolvedLinkTarget;
-      }
     }
   }
 
@@ -508,11 +486,6 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     public PathFragment getNameInSymlinkTree() {
       return symlink.getNameInSymlinkTree();
     }
-
-    @Override
-    public PathFragment getTargetInSymlinkTree(boolean followSymlinks) {
-      return followSymlinks ? path.asPath().asFragment() : symlink.unresolvedLinkTarget;
-    }
   }
 
   private static final class SymlinkToDirectory implements ResolvedFile {
@@ -571,11 +544,6 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
     @Override
     public PathFragment getNameInSymlinkTree() {
       return symlink.getNameInSymlinkTree();
-    }
-
-    @Override
-    public PathFragment getTargetInSymlinkTree(boolean followSymlinks) {
-      return followSymlinks ? path.asPath().asFragment() : symlink.unresolvedLinkTarget;
     }
   }
 
@@ -639,15 +607,6 @@ public final class RecursiveFilesystemTraversalValue implements SkyValue {
      * should have necessary prefixes stripped (if any).
      */
     PathFragment getNameInSymlinkTree();
-  
-
-    /**
-     * Returns the path of the symlink target.
-     *
-     * @throws DanglingSymlinkException if the target cannot be resolved because the symlink is
-     *     dangling
-     */
-    PathFragment getTargetInSymlinkTree(boolean followSymlinks) throws DanglingSymlinkException;
   }
 
   @Override

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
-import java.util.Locale;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -36,27 +35,6 @@ import javax.annotation.Nullable;
  * of the traversal is.
  */
 public interface FilesetTraversalParams {
-
-  /** Specifies how symlinks should be treated. */
-  enum SymlinkBehavior {
-    /** Symlinks are treated as regular files (the same as the runfiles output tree). */
-    IGNORE,
-
-    /** Symlinks are copied to the output tree. */
-    COPY,
-
-    /** Symlinks are dereferenced and the underlying file is used for the output tree. */
-    DEREFERENCE;
-
-    public static SymlinkBehavior parse(String value) throws IllegalArgumentException {
-      return valueOf(value.toUpperCase(Locale.ROOT));
-    }
-
-    @Override
-    public String toString() {
-      return super.toString().toLowerCase(Locale.ROOT);
-    }
-  }
 
   /** Desired behavior if the traversal hits a directory with a BUILD file, i.e. a subpackage. */
   enum PackageBoundaryMode {
@@ -195,9 +173,6 @@ public interface FilesetTraversalParams {
     /** Returns true if the root points to a generated file, symlink or directory. */
     public abstract boolean isGenerated();
 
-    /** Returns the desired behaviour for handling symlinks */
-    public abstract SymlinkBehavior getSymlinkBehavior();
-
     /** Returns the desired behavior when the traversal hits a subpackage. */
     public abstract PackageBoundaryMode getPackageBoundaryMode();
 
@@ -219,24 +194,17 @@ public interface FilesetTraversalParams {
       fp.addBoolean(isStrictFilesetOutput());
       fp.addBoolean(permitDirectories());
       getPackageBoundaryMode().fingerprint(fp);
-      fp.addInt(getSymlinkBehavior().ordinal());
       return fp.digestAndReset();
     }
 
     static DirectTraversal getDirectTraversal(
         DirectTraversalRoot root,
-        SymlinkBehavior symlinkBehavior,
         PackageBoundaryMode packageBoundaryMode,
         boolean isStrictFilesetOutput,
         boolean permitSourceDirectories,
         boolean isGenerated) {
       return new AutoValue_FilesetTraversalParams_DirectTraversal(
-          root,
-          isGenerated,
-          symlinkBehavior,
-          packageBoundaryMode,
-          isStrictFilesetOutput,
-          permitSourceDirectories);
+          root, isGenerated, packageBoundaryMode, isStrictFilesetOutput, permitSourceDirectories);
     }
   }
 

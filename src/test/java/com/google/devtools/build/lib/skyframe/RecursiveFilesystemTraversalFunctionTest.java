@@ -24,7 +24,6 @@ import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversa
 import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory.symlinkToDirectory;
 import static com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory.symlinkToFile;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThrows;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Suppliers;
@@ -60,7 +59,6 @@ import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.ExternalFileAction;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
-import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFileFactory;
@@ -415,17 +413,6 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
       ResolvedFile actual = nameToActualResolvedFiles.get(expected.getNameInSymlinkTree());
       assertEquals(expected.getType(), actual.getType());
       assertEquals(expected.getPath(), actual.getPath());
-      assertEquals(expected.getTargetInSymlinkTree(false), actual.getTargetInSymlinkTree(false));
-      try {
-        expected.getTargetInSymlinkTree(true);
-        // No exception thrown, let's safely compare results.
-        assertEquals(expected.getTargetInSymlinkTree(true), actual.getTargetInSymlinkTree(true));
-      } catch (DanglingSymlinkException e) {
-        assertThrows(
-            "Expected exception not thrown while requesting resolved symlink.",
-            DanglingSymlinkException.class,
-            () -> actual.getTargetInSymlinkTree(true));
-      }
     }
   }
 

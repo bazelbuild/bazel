@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
-import com.google.devtools.build.lib.actions.FilesetTraversalParams.SymlinkBehavior;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -39,7 +38,6 @@ public final class FilesetTraversalParamsFactory {
    *     directory or a symlink to one then it'll be traversed as one
    * @param destPath path in the Fileset's output directory that will be the name of this file's
    *     respective symlink there, or the root of files found (in case this is a directory)
-   * @param symlinkBehaviorMode what to do with symlinks
    * @param pkgBoundaryMode what to do when the traversal hits a subdirectory that is also a
    * @param strictFilesetOutput whether Fileset assumes that output Artifacts are regular files.
    */
@@ -47,7 +45,6 @@ public final class FilesetTraversalParamsFactory {
       Label ownerLabel,
       Artifact fileToTraverse,
       PathFragment destPath,
-      SymlinkBehavior symlinkBehaviorMode,
       PackageBoundaryMode pkgBoundaryMode,
       boolean strictFilesetOutput,
       boolean permitDirectories) {
@@ -56,7 +53,6 @@ public final class FilesetTraversalParamsFactory {
         DirectTraversalRoot.forFileOrDirectory(fileToTraverse),
         destPath,
         null,
-        symlinkBehaviorMode,
         pkgBoundaryMode,
         strictFilesetOutput,
         permitDirectories,
@@ -121,19 +117,13 @@ public final class FilesetTraversalParamsFactory {
         DirectTraversalRoot root,
         PathFragment destPath,
         @Nullable Set<String> excludes,
-        SymlinkBehavior symlinkBehaviorMode,
         PackageBoundaryMode pkgBoundaryMode,
         boolean strictFilesetOutput,
         boolean permitDirectories,
         boolean isGenerated) {
       DirectTraversal traversal =
           DirectTraversal.getDirectTraversal(
-              root,
-              symlinkBehaviorMode,
-              pkgBoundaryMode,
-              strictFilesetOutput,
-              permitDirectories,
-              isGenerated);
+              root, pkgBoundaryMode, strictFilesetOutput, permitDirectories, isGenerated);
       return new AutoValue_FilesetTraversalParamsFactory_DirectoryTraversalParams(
           ownerLabelForErrorMessages, destPath, getOrderedExcludes(excludes), traversal);
     }
