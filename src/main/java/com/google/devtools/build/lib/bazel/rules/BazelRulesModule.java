@@ -61,15 +61,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean enableFdoProfileAbsolutePath;
 
     @Option(
-        name = "incompatible_disallow_unsound_directory_outputs",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "Deprecated. No-op.")
-    public boolean disallowUnsoundDirectoryOutputs;
-
-    @Option(
         name = "experimental_use_scheduling_middlemen",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
