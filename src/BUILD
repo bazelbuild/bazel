@@ -371,6 +371,7 @@ filegroup(
         "//src/test/testdata/test_tls_certificate",
         "//src/test/tools:srcs",
         "//src/test/tools/bzlmod:srcs",
+        "//src/tools/android:srcs",
         "//src/tools/bzlmod:srcs",
         "//src/tools/diskcache:srcs",
         "//src/tools/execlog:srcs",
