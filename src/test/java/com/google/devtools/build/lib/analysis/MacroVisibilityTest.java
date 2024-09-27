@@ -24,7 +24,10 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-/** Tests for the how the visibility system works with respect to symbolic macros. */
+/**
+ * Tests for the how the visibility system works with respect to symbolic macros, i.e. the
+ * Macro-Aware Visibility design.
+ */
 @RunWith(TestParameterInjector.class)
 public final class MacroVisibilityTest extends BuildViewTestCase {
 
@@ -924,6 +927,56 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
         /* dependencyIsAlias= */ true);
   }
 
+  @Test
+  public void packageDefaultVisibilityDoesNotPropagateToInsideMacro() throws Exception {
+    defineSimpleRule();
+    defineWrappingMacroWithSameDep("my_macro", "//rules:simple_rule.bzl%simple_rule");
+    defineWrappingMacroWithSameDep("inner", "//rules:simple_rule.bzl%simple_rule");
+    defineWrappingMacroWithSameDep("outer", "//inner:macro.bzl%inner");
+    scratch.file(
+        "lib/BUILD",
+        """
+        load("//rules:simple_rule.bzl", "simple_rule")
+        load("//my_macro:macro.bzl", "my_macro")
+        load("//outer:macro.bzl", "outer")
+
+        package(default_visibility=["//pkg:__pkg__"])
+
+        simple_rule(name = "foo")
+
+        my_macro(name = "bar")
+
+        outer(name = "baz")
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//rules:simple_rule.bzl", "simple_rule")
+
+        simple_rule(
+            name = "consumes_foo",
+            dep = "//lib:foo",
+        )
+
+        simple_rule(
+            name = "consumes_bar",
+            dep = "//lib:bar",
+        )
+
+        simple_rule(
+            name = "consumes_baz",
+            dep = "//lib:baz",
+        )
+        """);
+
+    // Not in a macro, default_visibility applies.
+    assertVisibilityPermits("//pkg:consumes_foo", "//lib:foo");
+    // In a macro, default_visibility does not propagate.
+    assertVisibilityDisallows("//pkg:consumes_bar", "//lib:bar");
+    // In more than one macro, default_visibility still does not propagate.
+    assertVisibilityDisallows("//pkg:consumes_baz", "//lib:baz");
+  }
+
   /*
    * TODO: #19922 - Tests cases to add:
    *
@@ -959,9 +1012,6 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
    *   outside symbolic macros.)
    *
    * ---- default_visibility ----
-   *
-   * - default_visibility does not propagate to inside any symbolic macro, to either macros or
-   *   targets.
    *
    * - default_visibility affects the visibility of a top-level macro that does not set
    *   visibility=..., and does not affect a top-level macro that does set visibility=...

@@ -297,8 +297,7 @@ public class RuleFactory {
     RuleVisibility visibility = null;
     Object uncheckedVisibilityAttr = args.getAttributeValue("visibility");
     if (uncheckedVisibilityAttr == null) {
-      // TODO: #19922 - Don't use default_visibility, we're in a symbolic macro.
-      visibility = pkgBuilder.getPartialPackageArgs().defaultVisibility();
+      visibility = RuleVisibility.PRIVATE;
     } else {
       try {
         List<Label> visibilityAttr =

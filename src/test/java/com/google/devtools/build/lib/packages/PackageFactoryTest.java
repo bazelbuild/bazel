@@ -1633,7 +1633,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   }
 
   @Test
-  public void testDeclarationVisibilityUnioning_respectsPackageDefaultVisibility()
+  public void testDeclarationVisibilityUnioning_doesNotApplyPackageDefaultVisibility()
       throws Exception {
     enableMacrosAndUsePrivateVisibility();
     scratch.file("lib/BUILD");
@@ -1656,9 +1656,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     Package pkg = loadPackageAndAssertSuccess("pkg");
     assertVisibilityIs(pkg.getTarget("foo"), "//other_pkg:__pkg__");
-    // TODO: #19922 - Change this behavior, default visibility should not propagate to within a
-    // macro.
-    assertVisibilityIs(pkg.getTarget("bar"), "//other_pkg:__pkg__", "//lib:__pkg__");
+    assertVisibilityIs(pkg.getTarget("bar"), "//lib:__pkg__");
   }
 
   @Test
