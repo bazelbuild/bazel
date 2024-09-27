@@ -17,6 +17,7 @@ import static com.google.devtools.build.lib.remote.util.Utils.bytesCountToDispla
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.CollectionPolicy;
 import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.CollectionStats;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
@@ -26,6 +27,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import javax.annotation.Nullable;
 
 /** An {@link IdleTask} to run a {@link DiskCacheGarbageCollector}. */
@@ -34,6 +36,10 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
 
   private final Duration delay;
   private final DiskCacheGarbageCollector gc;
+
+  private static final ExecutorService executorService =
+      Executors.newCachedThreadPool(
+          new ThreadFactoryBuilder().setNameFormat("disk-cache-gc-%d").build());
 
   private DiskCacheGarbageCollectorIdleTask(Duration delay, DiskCacheGarbageCollector gc) {
     this.delay = delay;
@@ -50,7 +56,7 @@ public final class DiskCacheGarbageCollectorIdleTask implements IdleTask {
    */
   @Nullable
   public static DiskCacheGarbageCollectorIdleTask create(
-      RemoteOptions remoteOptions, Path workingDirectory, ExecutorService executorService) {
+      RemoteOptions remoteOptions, Path workingDirectory) {
     if (remoteOptions.diskCache == null || remoteOptions.diskCache.isEmpty()) {
       return null;
     }
