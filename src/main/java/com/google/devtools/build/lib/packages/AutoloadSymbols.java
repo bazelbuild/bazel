@@ -498,10 +498,6 @@ public class AutoloadSymbols {
         label, false, newName, ImmutableSet.copyOf(rdeps));
   }
 
-  private static final String[] androidRules = {
-    "aar_import", "android_binary", "android_library", "android_local_test", "android_sdk"
-  };
-
   private static final ImmutableSet<String> PREDECLARED_REPOS_DISALLOWING_AUTOLOADS =
       ImmutableSet.of(
           "protobuf",
@@ -607,76 +603,6 @@ public class AutoloadSymbols {
                   "java_import",
                   "android_binary",
                   "android_library"))
-          .put("android_common", symbolRedirect("@rules_android//rules:common.bzl"))
-          .put(
-              "AndroidIdeInfo", symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put("ApkInfo", symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidInstrumentationInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidResourcesInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidNativeLibsInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidApplicationResourceInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidBinaryNativeLibsInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidSdkInfo", symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidManifestInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidAssetsInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidLibraryAarInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidProguardInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidIdlInfo", symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidPreDexJarInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidCcLinkParamsInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "DataBindingV2Info",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidLibraryResourceClassJarProvider",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidFeatureFlagSet",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "ProguardMappingInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidBinaryData",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "BaselineProfileProvider",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidNeverLinkLibrariesProvider",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidOptimizedJarInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidDexInfo", symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidOptimizationInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
           .put(
               "PyInfo",
               symbolRedirect(
@@ -696,6 +622,18 @@ public class AutoloadSymbols {
                   "py_binary",
                   "py_test",
                   "py_library"))
+          // Note: AndroidIdeInfo is intended to be autoloaded for ASwBazel/IntelliJ migration
+          // purposes. It is not intended to be used by other teams and projects, and is effectively
+          // an internal implementation detail.
+          .put(
+              "AndroidIdeInfo",
+              symbolRedirect(
+                  "@rules_android//providers:providers.bzl",
+                  "aar_import",
+                  "android_binary",
+                  "android_library",
+                  "android_local_test",
+                  "android_sdk"))
           .put("aar_import", ruleRedirect("@rules_android//rules:rules.bzl"))
           .put("android_binary", ruleRedirect("@rules_android//rules:rules.bzl"))
           .put("android_library", ruleRedirect("@rules_android//rules:rules.bzl"))
