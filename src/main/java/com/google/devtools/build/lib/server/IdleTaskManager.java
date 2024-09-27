@@ -26,8 +26,13 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.lang.management.ManagementFactory;
 import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
+import java.util.ArrayList;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Runs cleanup-related tasks during an idle period in the server.
@@ -60,6 +65,8 @@ public final class IdleTaskManager {
   private final ImmutableList<IdleTask> registeredTasks;
   private final boolean stateKeptAfterBuild;
 
+  private final ArrayList<ScheduledFuture<?>> taskFutures = new ArrayList<>();
+
   /**
    * Creates a new {@link IdleTaskManager}.
    *
@@ -82,19 +89,19 @@ public final class IdleTaskManager {
 
     // Schedule tasks in the order they were registered.
     for (IdleTask task : registeredTasks) {
-      var unused = executor.schedule(task::run, task.delay().toSeconds(), TimeUnit.SECONDS);
+      taskFutures.add(executor.schedule(task::run, task.delay().toSeconds(), TimeUnit.SECONDS));
     }
 
     // Schedule the final task to run after everything else.
     // Note that this is effectively enforced by the fact that the executor is single-threaded and
     // executes tasks in the order they are scheduled.
-    var unused =
+    taskFutures.add(
         executor.schedule(
             () -> runGc(stateKeptAfterBuild),
             // If state was kept after the build, wait for a few seconds before triggering GC, to
             // avoid unnecessarily slowing down an immediately following incremental build.
             stateKeptAfterBuild ? 10 : 0,
-            TimeUnit.SECONDS);
+            TimeUnit.SECONDS));
   }
 
   /**
@@ -117,6 +124,19 @@ public final class IdleTaskManager {
         break;
       } catch (InterruptedException e) {
         // It's unsafe to leak tasks - keep trying and reset the interrupt bit later.
+        interrupted = true;
+      }
+    }
+
+    for (ScheduledFuture<?> taskFuture : taskFutures) {
+      try {
+        taskFuture.get(0, TimeUnit.SECONDS);
+      } catch (ExecutionException e) {
+        logger.atWarning().withCause(e.getCause()).log("Unexpected exception from idle task");
+      } catch (TimeoutException | CancellationException e) {
+        // Expected if the task hadn't yet started running or was interrupted mid-run.
+      } catch (InterruptedException e) {
+        // We ourselves were interrupted, not the task.
         interrupted = true;
       }
     }
