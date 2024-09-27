@@ -339,8 +339,7 @@ public final class RemoteModule extends BlazeModule {
 
     if (enableDiskCache) {
       var gcIdleTask =
-          DiskCacheGarbageCollectorIdleTask.create(
-              remoteOptions, env.getWorkingDirectory(), executorService);
+          DiskCacheGarbageCollectorIdleTask.create(remoteOptions, env.getWorkingDirectory());
       if (gcIdleTask != null) {
         env.addIdleTask(gcIdleTask);
       }
