@@ -216,22 +216,6 @@ EOF
   chmod +x validation_actions/validation_tool
 }
 
-function assert_exists() {
-  path="$1"
-  [ -f "$path" ] && return 0
-
-  fail "Expected file '$path' to exist, but it did not"
-  return 1
-}
-
-function assert_not_exists() {
-  path="$1"
-  [ ! -f "$path" ] && return 0
-
-  fail "Expected file '$path' to not exist, but it did"
-  return 1
-}
-
 #### Tests #####################################################################
 
 function test_validation_actions() {
