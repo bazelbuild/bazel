@@ -261,6 +261,10 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
             context.getInputMapping(PathFragment.EMPTY_FRAGMENT, /* willAccessRepeatedly= */ true),
             execRoot);
 
+    ImmutableMap<String, String> environment =
+        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
+    ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
+
     Path sandboxTmp = null;
     ImmutableSet<Path> pathsUnderTmpToMount = ImmutableSet.of();
     if (useHermeticTmp()) {
@@ -272,21 +276,21 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
       sandboxTmp = sandboxPath.getRelative("_hermetic_tmp");
       sandboxTmp.createDirectoryAndParents();
 
-      for (PathFragment pathFragment : getSandboxOptions().sandboxTmpfsPath) {
+      for (PathFragment pathFragment :
+          Iterables.concat(
+              getSandboxOptions().sandboxTmpfsPath,
+              Iterables.transform(writableDirs, Path::asFragment))) {
         Path path = fileSystem.getPath(pathFragment);
         if (path.startsWith(slashTmp)) {
-          // tmpfs mount points must exist, which is usually the user's responsibility. But if the
-          // user requests a tmpfs mount under /tmp, we have to create it under the sandbox tmp
-          // directory.
+          // tmpfs mount points and writable dirs must exist, which is usually the user's
+          // responsibility. But if the user requests a path mount under /tmp, we have to create it
+          // under the sandbox tmp directory.
           sandboxTmp.getRelative(path.relativeTo(slashTmp)).createDirectoryAndParents();
         }
       }
     }
 
     SandboxOutputs outputs = helpers.getOutputs(spawn);
-    ImmutableMap<String, String> environment =
-        localEnvProvider.rewriteLocalEnv(spawn.getEnvironment(), binTools, "/tmp");
-    ImmutableSet<Path> writableDirs = getWritableDirs(sandboxExecRoot, environment);
     Duration timeout = context.getTimeout();
     SandboxOptions sandboxOptions = getSandboxOptions();
 
@@ -371,8 +375,7 @@ final class LinuxSandboxedSpawnRunner extends AbstractSandboxSpawnRunner {
   @Override
   protected ImmutableSet<Path> getWritableDirs(Path sandboxExecRoot, Map<String, String> env)
       throws IOException {
-    Set<Path> writableDirs = new TreeSet<>();
-    writableDirs.addAll(super.getWritableDirs(sandboxExecRoot, env));
+    Set<Path> writableDirs = new TreeSet<>(super.getWritableDirs(sandboxExecRoot, env));
     if (getSandboxOptions().memoryLimitMb > 0) {
       CgroupsInfo cgroupsInfo = CgroupsInfo.getInstance();
       writableDirs.add(fileSystem.getPath(cgroupsInfo.getMountPoint().getAbsolutePath()));
