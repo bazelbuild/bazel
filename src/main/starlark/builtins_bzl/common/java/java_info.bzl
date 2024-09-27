@@ -78,11 +78,13 @@ _JavaGenJarsInfo = provider(
     },
 )
 
-_JavaCompilationInfo = provider(
+JavaCompilationInfo = provider(
     doc = "Compilation information in Java rules, for perusal of aspects and tools.",
     fields = {
         "boot_classpath": "Boot classpath for this Java target.",
-        "javac_options": "Options to the java compiler.",
+        "javac_options": """Depset of options to the java compiler. To get the
+            exact list of options passed to javac in the correct order, use the
+            tokenize_javacopts utility in rules_java""",
         "javac_options_list": """A list of options to java compiler. This exists
             temporarily for migration purposes. javac_options will return a depset
             in the future, and this method will be dropped once all usages have
@@ -90,14 +92,6 @@ _JavaCompilationInfo = provider(
         "compilation_classpath": "Compilation classpath for this Java target.",
         "runtime_classpath": "Run-time classpath for this Java target.",
     },
-)
-
-_EMPTY_COMPILATION_INFO = _JavaCompilationInfo(
-    compilation_classpath = depset(),
-    runtime_classpath = depset(),
-    boot_classpath = None,
-    javac_options = [],
-    javac_options_list = [],
 )
 
 def merge(
@@ -197,12 +191,12 @@ def merge(
         )
     return _java_common_internal.wrap_java_info(_new_javainfo(**result))
 
-def to_java_binary_info(java_info):
+def to_java_binary_info(java_info, compilation_info):
     """Get a copy of the given JavaInfo with minimal info returned by a java_binary
 
     Args:
         java_info: (JavaInfo) A JavaInfo provider instance
-
+        compilation_info: (JavaCompilationInfo)
     Returns:
         (JavaInfo) A JavaInfo instance representing a java_binary target
     """
@@ -227,17 +221,6 @@ def to_java_binary_info(java_info):
     if hasattr(java_info, "cc_link_params_info"):
         result.update(cc_link_params_info = java_info.cc_link_params_info)
 
-    compilation_info = _EMPTY_COMPILATION_INFO
-    if java_info.compilation_info:
-        compilation_info = java_info.compilation_info
-    elif java_info.transitive_compile_time_jars or java_info.transitive_runtime_jars:
-        compilation_info = _JavaCompilationInfo(
-            boot_classpath = None,
-            javac_options = [],
-            javac_options_list = [],
-            compilation_classpath = java_info.transitive_compile_time_jars,
-            runtime_classpath = java_info.transitive_runtime_jars,
-        )
     result["compilation_info"] = compilation_info
 
     java_outputs = [
@@ -471,8 +454,8 @@ def java_info_for_compilation(
     )
     if compilation_info:
         result.update(
-            compilation_info = _JavaCompilationInfo(
-                javac_options = _java_common_internal.intern_javac_opts(compilation_info.javac_options),
+            compilation_info = JavaCompilationInfo(
+                javac_options = compilation_info.javac_options,
                 javac_options_list = _java_common_internal.intern_javac_opts(compilation_info.javac_options_list),
                 boot_classpath = compilation_info.boot_classpath,
                 compilation_classpath = compilation_info.compilation_classpath,

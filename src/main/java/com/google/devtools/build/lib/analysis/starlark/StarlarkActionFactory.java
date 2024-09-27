@@ -13,13 +13,11 @@
 // limitations under the License.
 package com.google.devtools.build.lib.analysis.starlark;
 
-import static com.google.devtools.build.lib.analysis.starlark.StarlarkRuleContext.PRIVATE_STARLARKIFICATION_ALLOWLIST;
 import static com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions.EXPERIMENTAL_SIBLING_REPOSITORY_LAYOUT;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.Action;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
@@ -110,16 +108,6 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   private static final ResourceSet DEFAULT_RESOURCE_SET = ResourceSet.createWithRamCpu(250, 1);
   private static final Set<String> validResources =
       new HashSet<>(Arrays.asList(ResourceSet.CPU, ResourceSet.MEMORY, "local_test"));
-
-  // TODO(gnish): This is a temporary allowlist while new BuildInfo API becomes stable enough to
-  // become public.
-  // After at least some of the builtin rules have been switched to the new API delete this.
-  private static final ImmutableSet<BuiltinRestriction.AllowlistEntry>
-      PRIVATE_BUILDINFO_API_ALLOWLIST =
-          ImmutableSet.of(
-              BuiltinRestriction.allowlistEntry("", "test"), // for tests
-              BuiltinRestriction.allowlistEntry("", "tools/build_defs/build_info"),
-              BuiltinRestriction.allowlistEntry("bazel_tools", "tools/build_defs/build_info"));
 
   public StarlarkActionFactory(StarlarkActionContext context) {
     this.context = context;
@@ -291,7 +279,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       throws EvalException {
     context.checkMutable("actions.symlink");
     if (useExecRootForSourceObject != Starlark.UNBOUND) {
-      BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFICATION_ALLOWLIST);
+      BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     }
     boolean useExecRootForSource =
         !Starlark.UNBOUND.equals(useExecRootForSourceObject)
@@ -468,7 +456,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       String outputFileName,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_BUILDINFO_API_ALLOWLIST);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return transformBuildInfoFile(
         transformFuncObject, templateObject, outputFileName, true, thread);
   }
@@ -480,7 +468,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
       String outputFileName,
       StarlarkThread thread)
       throws InterruptedException, EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_BUILDINFO_API_ALLOWLIST);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     return transformBuildInfoFile(
         transformFuncObject, templateObject, outputFileName, false, thread);
   }
@@ -1081,7 +1069,7 @@ public class StarlarkActionFactory implements StarlarkActionFactoryApi {
   @Override
   public FileApi createShareableArtifact(String path, Object artifactRoot, StarlarkThread thread)
       throws EvalException {
-    BuiltinRestriction.failIfCalledOutsideAllowlist(thread, PRIVATE_STARLARKIFICATION_ALLOWLIST);
+    BuiltinRestriction.failIfCalledOutsideDefaultAllowlist(thread);
     ArtifactRoot root =
         artifactRoot == Starlark.UNBOUND
             ? getRuleContext().getBinDirectory()

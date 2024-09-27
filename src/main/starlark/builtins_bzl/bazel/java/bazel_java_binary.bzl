@@ -14,6 +14,7 @@
 
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/semantics.bzl", cc_semantics = "semantics")
+load(":common/java/android_lint.bzl", "android_lint_subrule")
 load(":common/java/java_binary.bzl", "BASE_TEST_ATTRIBUTES", "BASIC_JAVA_BINARY_ATTRIBUTES", "basic_java_binary")
 load(":common/java/java_helper.bzl", "helper")
 load(":common/java/java_info.bzl", "JavaInfo")
@@ -292,6 +293,7 @@ def _make_binary_rule(implementation, attrs, executable = False, test = False):
         exec_groups = {
             "cpp_link": exec_group(toolchains = cc_helper.use_cpp_toolchain()),
         },
+        subrules = [android_lint_subrule],
     )
 
 _BASE_BINARY_ATTRS = merge_attrs(

@@ -73,6 +73,7 @@ public final class JavaCompilationHelper {
   private final JavaTargetAttributes.Builder attributes;
   private JavaTargetAttributes builtAttributes;
   private final ImmutableList<String> customJavacOpts;
+  private NestedSet<String> javaBuilderJvmFlags = NestedSetBuilder.emptySet(Order.STABLE_ORDER);
   private final JavaSemantics semantics;
   private final ImmutableList<Artifact> additionalInputsForDatabinding;
   private final StrictDepsMode strictJavaDeps;
@@ -137,6 +138,10 @@ public final class JavaCompilationHelper {
       return null;
     }
     return javacOptsInterner.intern(javacOpts);
+  }
+
+  public void javaBuilderJvmFlags(NestedSet<String> javaBuilderJvmFlags) {
+    this.javaBuilderJvmFlags = javaBuilderJvmFlags;
   }
 
   public void enableJspecify(boolean enableJspecify) {
@@ -347,7 +352,8 @@ public final class JavaCompilationHelper {
     }
     builder.setSourcePathEntries(attributes.getSourcePath());
     builder.setToolsJars(javaToolchain.getTools());
-    builder.setJavaBuilder(javaToolchain.getJavaBuilder());
+    builder.setJavaBuilder(
+        javaToolchain.getJavaBuilder().withAdditionalJvmFlags(javaBuilderJvmFlags));
     if (!turbineAnnotationProcessing) {
       builder.setGenSourceOutput(outputs.genSource());
       builder.setAdditionalOutputs(attributes.getAdditionalOutputs());

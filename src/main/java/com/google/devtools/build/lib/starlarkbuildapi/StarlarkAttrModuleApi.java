@@ -346,11 +346,10 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
             doc = ASPECTS_ARG_DOC),
         @Param(
             name = FLAGS_ARG,
-            defaultValue = "unbound",
             allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
             named = true,
             positional = false,
-            documented = false,
             doc = FLAGS_DOC)
       },
       useStarlarkThread = true)
@@ -365,7 +364,7 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       Object allowRules,
       Object cfg,
       Sequence<?> aspects,
-      Object flags, // Sequence<String> expected
+      Sequence<?> flags,
       StarlarkThread thread)
       throws EvalException;
 
