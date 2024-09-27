@@ -144,6 +144,7 @@ gen_workspace_stanza(
         "rules_cc",      # For auto-load cc rules symbols
         "rules_python",  # For auto-load python rules symbols
         "rules_license", # for license attestations
+        "rules_proto",
     ],
     postamble = """
         load("@rules_java//java:repositories.bzl", "rules_java_dependencies", "rules_java_toolchains")
