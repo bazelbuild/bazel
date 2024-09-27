@@ -54,8 +54,13 @@ import javax.annotation.Nullable;
  * when they collide.
  *
  * <p>The mtime of an entry reflects the most recent time the entry was stored *or* retrieved. This
- * property may be used to trim the disk cache to the most recently used entries. However, it's not
- * safe to trim the cache at the same time a Bazel process is accessing it.
+ * property may be used to garbage collect the disk cache by deleting the least recently accessed
+ * entries. This may be done by Bazel itself (see {@link DiskCacheGarbageCollectorIdleTask}), by
+ * another Bazel process sharing the disk cache, or by an external process. Although we could have
+ * arranged for an ongoing garbage collection to block a concurrent build, we judge it to not be
+ * worth the extra complexity; assuming that the collection policy is not overly aggressive, the
+ * likelihood of a race condition is fairly small, and an affected build is able to automatically
+ * recover by retrying.
  */
 public class DiskCacheClient {
 
