@@ -187,29 +187,21 @@ public abstract class OutputGroupInfo extends StructImpl
       return providers.get(0);
     }
 
-    Map<String, NestedSet<Artifact>> outputGroups = new TreeMap<>();
+    Map<String, NestedSetBuilder<Artifact>> outputGroupBuilders = new TreeMap<>();
     for (OutputGroupInfo provider : providers) {
       for (String group : provider) {
-        if (group.equals(VALIDATION)) {
-          continue;
-        }
-        if (outputGroups.put(group, provider.getOutputGroup(group)) != null) {
-          throw new MergingException("Output group " + group + " provided twice");
-        }
+        NestedSetBuilder<Artifact> builder =
+            outputGroupBuilders.computeIfAbsent(group, g -> NestedSetBuilder.stableOrder());
+        builder.addTransitive(provider.getOutputGroup(group));
       }
     }
-    // Allow both an aspect and the rule to use validation actions.
-    NestedSetBuilder<Artifact> validationOutputs = NestedSetBuilder.stableOrder();
-    for (OutputGroupInfo provider : providers) {
-      try {
-        validationOutputs.addTransitive(provider.getOutputGroup(VALIDATION));
-      } catch (IllegalArgumentException e) {
-        // Thrown if nested set orders aren't compatible.
-        throw new MergingException(
-            "Output group " + VALIDATION + " provided twice with incompatible depset orders");
-      }
+
+    ImmutableMap.Builder<String, NestedSet<Artifact>> outputGroups = ImmutableMap.builder();
+    for (var entry : outputGroupBuilders.entrySet()) {
+      outputGroups.put(entry.getKey(), entry.getValue().build());
     }
-    return createInternal(ImmutableMap.copyOf(outputGroups));
+
+    return createInternal(outputGroups.buildOrThrow());
   }
 
   public static ImmutableSortedSet<String> determineOutputGroups(

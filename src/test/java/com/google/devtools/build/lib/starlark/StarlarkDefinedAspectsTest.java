@@ -1054,20 +1054,20 @@ my_rule = rule(
     scratch.file(
         "test/aspect.bzl",
         """
-        def _impl(target, ctx):
-          f = ctx.actions.declare_file('f.txt')
-          ctx.actions.write(f, 'f')
-          return [OutputGroupInfo(duplicate = depset([f]))]
+        def _aspect_impl(target, ctx):
+          a = ctx.actions.declare_file('aspect.txt')
+          ctx.actions.write(a, 'f')
+          return [OutputGroupInfo(duplicate = depset([a]))]
 
-        MyAspect = aspect(implementation=_impl)
+        MyAspect = aspect(implementation=_aspect_impl)
         def _rule_impl(ctx):
-          g = ctx.actions.declare_file('g.txt')
-          ctx.actions.write(g, 'g')
-          return [OutputGroupInfo(duplicate = depset([g]))]
+          r = ctx.actions.declare_file('rule.txt')
+          ctx.actions.write(r, 'r')
+          return [OutputGroupInfo(duplicate = depset([r]))]
         my_rule = rule(_rule_impl)
-        def _noop(ctx):
-          pass
-        rbase = rule(_noop, attrs = { 'dep' : attr.label(aspects = [MyAspect]) })
+        def _rbase_impl(ctx):
+          return [DefaultInfo(files=ctx.attr.dep[OutputGroupInfo].duplicate)]
+        rbase = rule(_rbase_impl, attrs = { 'dep' : attr.label(aspects = [MyAspect]) })
         """);
     scratch.file(
         "test/BUILD",
@@ -1077,15 +1077,13 @@ my_rule = rule(
         rbase(name = 'yyy', dep = ':xxx')
         """);
 
-    reporter.removeHandler(failFastHandler);
-    try {
-      AnalysisResult result = update("//test:yyy");
-      assertThat(keepGoing()).isTrue();
-      assertThat(result.hasError()).isTrue();
-    } catch (ViewCreationFailedException e) {
-      // expect to fail.
-    }
-    assertContainsEvent("ERROR /workspace/test/BUILD:3:6: Output group duplicate provided twice");
+    AnalysisResult analysisResult = update("//test:yyy");
+    NestedSet<Artifact> filesToBuild =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild())
+            .getProvider(FileProvider.class)
+            .getFilesToBuild();
+    assertThat(ActionsTestUtil.baseArtifactNames(filesToBuild))
+        .containsExactly("aspect.txt", "rule.txt");
   }
 
   @Test
@@ -1371,43 +1369,44 @@ my_rule = rule(
         "test/aspect.bzl",
         """
         def _a1_impl(target, ctx):
-          f = ctx.actions.declare_file(target.label.name + '_a1.txt')
-          ctx.actions.write(f, 'f')
-          return [OutputGroupInfo(a1_group = depset([f]))]
+          a1 = ctx.actions.declare_file(target.label.name + '_a1.txt')
+          ctx.actions.write(a1, 'f')
+          return [OutputGroupInfo(aspect_group = depset([a1]))]
 
         a1 = aspect(implementation=_a1_impl, attr_aspects = ['dep'])
-        def _rule_impl(ctx):
-          if not ctx.attr.dep:
-             return []
-          og = {k:ctx.attr.dep.output_groups[k] for k in ctx.attr.dep[OutputGroupInfo]}
-          return [OutputGroupInfo(**og)]
-        my_rule1 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a1]) })
+
         def _a2_impl(target, ctx):
-          g = ctx.actions.declare_file(target.label.name + '_a2.txt')
-          ctx.actions.write(g, 'f')
-          return [OutputGroupInfo(a1_group = depset([g]))]
+          a2 = ctx.actions.declare_file(target.label.name + '_a2.txt')
+          ctx.actions.write(a2, 'f')
+          return [OutputGroupInfo(aspect_group = depset([a2]))]
 
         a2 = aspect(implementation=_a2_impl, attr_aspects = ['dep'])
-        my_rule2 = rule(_rule_impl, attrs = { 'dep' : attr.label(aspects = [a2]) })
+
+        def _base_impl(ctx):
+          return []
+
+        base = rule(_base_impl, attrs = {})
+
+        def _top_impl(ctx):
+          return [DefaultInfo(files=ctx.attr.dep[OutputGroupInfo].aspect_group)]
+
+        top = rule(_top_impl, attrs = { 'dep' : attr.label(aspects = [a1, a2]) })
         """);
     scratch.file(
         "test/BUILD",
         """
-        load(':aspect.bzl', 'my_rule1', 'my_rule2')
-        my_rule1(name = 'base')
-        my_rule1(name = 'xxx', dep = ':base')
-        my_rule2(name = 'yyy', dep = ':xxx')
+        load(':aspect.bzl', 'base', 'top')
+        base(name = 'base')
+        top(name = 'top', dep = ':base')
         """);
 
-    reporter.removeHandler(failFastHandler);
-    try {
-      AnalysisResult analysisResult = update("//test:yyy");
-      assertThat(analysisResult.hasError()).isTrue();
-      assertThat(keepGoing()).isTrue();
-    } catch (ViewCreationFailedException e) {
-      // expected.
-    }
-    assertContainsEvent("ERROR /workspace/test/BUILD:3:9: Output group a1_group provided twice");
+    AnalysisResult analysisResult = update("//test:top");
+    NestedSet<Artifact> filesToBuild =
+        Iterables.getOnlyElement(analysisResult.getTargetsToBuild())
+            .getProvider(FileProvider.class)
+            .getFilesToBuild();
+    assertThat(ActionsTestUtil.baseArtifactNames(filesToBuild))
+        .containsExactly("base_a1.txt", "base_a2.txt");
   }
 
   private static Iterable<String> getOutputGroupContents(
