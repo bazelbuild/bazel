@@ -89,6 +89,9 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
     /** {@link ModuleKey} of this module. Same as in {@link Module} */
     public abstract ModuleKey getKey();
 
+    /** The apparent name used by the module to refer to its own repository. */
+    public abstract String getRepoName();
+
     /**
      * The set of modules in the resolved dep graph that depend on this module
      * <strong>after</strong> the module resolution.
@@ -154,6 +157,7 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
       return new AutoValue_BazelModuleInspectorValue_AugmentedModule.Builder()
           .setName(key.name())
           .setVersion(key.version())
+          .setRepoName(key.name())
           .setKey(key)
           .setLoaded(false);
     }
@@ -166,6 +170,8 @@ public abstract class BazelModuleInspectorValue implements SkyValue {
       public abstract AugmentedModule.Builder setVersion(Version value);
 
       public abstract AugmentedModule.Builder setKey(ModuleKey value);
+
+      public abstract AugmentedModule.Builder setRepoName(String value);
 
       public abstract AugmentedModule.Builder setLoaded(boolean value);
 
