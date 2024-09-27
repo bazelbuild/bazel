@@ -97,7 +97,6 @@ JAVA_TOOLS = [
                "//src/main/cpp/util:embedded_tools",
                "//src/main/native:embedded_tools",
                "//src/main/protobuf:srcs",
-               "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
                "//src/tools/launcher:srcs",
                "//third_party:gpl-srcs",
                "//third_party/def_parser:srcs",
@@ -358,7 +357,6 @@ filegroup(
         "//src/main/tools:srcs",
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
-        "//src/test/java/com/google/devtools/build/android:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",
         "//src/test/java/com/google/devtools/build/lib:srcs",
         "//src/test/java/com/google/devtools/build/lib/shell:srcs",
@@ -373,8 +371,6 @@ filegroup(
         "//src/test/testdata/test_tls_certificate",
         "//src/test/tools:srcs",
         "//src/test/tools/bzlmod:srcs",
-        "//src/tools/android:srcs",
-        "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/bzlmod:srcs",
         "//src/tools/diskcache:srcs",
         "//src/tools/execlog:srcs",
@@ -592,8 +588,6 @@ filegroup(
     name = "test_repos",
     srcs = [
         requirement("bazel-runfiles"),  # Fetching the hermetic Python toolchain.
-        "@android_gmaven_r8//jar:file",
-        "@android_tools//:all_android_tools_deploy.jar",
         "@bazel_skylib//:WORKSPACE",
         "@com_google_protobuf//:LICENSE",
         "@remote_coverage_tools//:all_lcov_merger_lib",
