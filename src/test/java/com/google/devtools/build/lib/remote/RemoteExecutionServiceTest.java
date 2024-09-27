@@ -2556,7 +2556,7 @@ public class RemoteExecutionServiceTest {
       }
 
       @Override
-      public Map<PathFragment, RunfilesTree> getRunfilesTreesForLogging() {
+      public Map<Artifact, RunfilesTree> getRunfilesTreesForLogging() {
         throw new UnsupportedOperationException();
       }
     };

@@ -347,9 +347,28 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private int logTools(
       Spawn spawn, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
       throws IOException, InterruptedException {
+
+    // Add runfiles as additional direct members of the top-level nested set of tools if they are
+    // tools. Since only the runfiles middlemen are members of the tool files of the spawn and there
+    // is no general way to go from runfiles middleman to RunfilesSupplier, we use that non-test
+    // runfiles are always tools. This doesn't correctly label all runfiles, but there are very few
+    // exceptions: tools that are used during test preprocessing, e.g. for test.xml generation and
+    // coverage collection.
+
+    ImmutableList.Builder<Integer> additionalInputIds = ImmutableList.builder();
+
+    if (!"TestRunner".equals(spawn.getMnemonic())) {
+      for (RunfilesSupplier.RunfilesTree runfilesTree :
+          spawn.getRunfilesSupplier().getRunfilesTreesForLogging().values()) {
+        additionalInputIds.add(
+            logRunfilesTree(
+                runfilesTree, inputMetadataProvider, fileSystem, /* isTestRunnerSpawn= */ false));
+      }
+    }
+
     return logInputSet(
         spawn.getToolFiles(),
-        ImmutableList.of(),
+        additionalInputIds.build(),
         inputMetadataProvider,
         fileSystem,
         /* shared= */ true);

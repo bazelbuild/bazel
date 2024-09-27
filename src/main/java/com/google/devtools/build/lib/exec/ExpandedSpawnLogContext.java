@@ -156,6 +156,8 @@ public class ExpandedSpawnLogContext extends SpawnLogContext {
       builder.addAllEnvironmentVariables(getEnvironmentVariables(spawn));
 
       ImmutableSet<? extends ActionInput> toolFiles = spawn.getToolFiles().toSet();
+      ImmutableSet<PathFragment> toolRunfilesDirectories =
+          spawn.getRunfilesSupplier().getRunfilesDirs();
 
       try (SilentCloseable c1 = Profiler.instance().profile("logSpawn/inputs")) {
         for (Map.Entry<PathFragment, ActionInput> e : inputMap.entrySet()) {

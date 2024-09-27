@@ -443,7 +443,8 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/data.txt")
-                    .setDigest(getDigest("abc")))
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(true))
             .build());
   }
 
@@ -487,6 +488,7 @@ public abstract class SpawnLogContextTestBase {
                                     + WORKSPACE_NAME
                                     + "/dir/data.txt")
                             .setDigest(getDigest("abc"))
+                            .setIsTool(true)
                             .build()))
             .build());
   }
@@ -541,21 +543,24 @@ public abstract class SpawnLogContextTestBase {
         defaultSpawnExecBuilder()
             .addInputs(
                 File.newBuilder()
-                    .setPath(PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/__init__.py"))
+                    .setPath(PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/__init__.py")
+                    .setIsTool(true))
             .addInputs(
                 File.newBuilder()
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/foo.runfiles/"
                             + WORKSPACE_NAME
-                            + "/sub/__init__.py"))
+                            + "/sub/__init__.py")
+                    .setIsTool(true))
             .addInputs(
                 File.newBuilder()
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/foo.runfiles/"
                             + WORKSPACE_NAME
-                            + "/sub/dir/__init__.py"))
+                            + "/sub/dir/__init__.py")
+                    .setIsTool(true))
             .addInputs(
                 File.newBuilder()
                     .setPath(
@@ -563,37 +568,44 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/sub/dir/script.py")
-                    .setDigest(getDigest("abc")))
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(true))
             .addInputs(
                 File.newBuilder()
                     .setPath(
-                        PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/__init__.py"))
+                        PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/__init__.py")
+                    .setIsTool(true))
             .addInputs(
                 File.newBuilder()
                     .setPath(
                         PRODUCT_NAME
-                            + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/other/__init__.py"))
+                            + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/other/__init__.py")
+                    .setIsTool(true))
             .addInputs(
                 File.newBuilder()
                     .setPath(
                         PRODUCT_NAME
-                            + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/other/pkg/__init__.py"))
+                            + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/other/pkg/__init__.py")
+                    .setIsTool(true))
             .addInputs(
                 File.newBuilder()
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/other/pkg/gen.py")
-                    .setDigest(getDigest("external_gen")))
+                    .setDigest(getDigest("external_gen"))
+                    .setIsTool(true))
             .addInputs(
                 File.newBuilder()
                     .setPath(
                         PRODUCT_NAME
-                            + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/pkg/__init__.py"))
+                            + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/pkg/__init__.py")
+                    .setIsTool(true))
             .addInputs(
                 File.newBuilder()
                     .setPath(
                         PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/pkg/lib.py")
-                    .setDigest(getDigest("external_source")))
+                    .setDigest(getDigest("external_source"))
+                    .setIsTool(true))
             .build());
   }
 
@@ -686,7 +698,8 @@ public abstract class SpawnLogContextTestBase {
                           + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                           + WORKSPACE_NAME
                           + "/external/some_repo/other/pkg/gen.txt")
-                  .setDigest(getDigest("external_gen")))
+                  .setDigest(getDigest("external_gen"))
+                  .setIsTool(true))
           .addInputs(
               File.newBuilder()
                   .setPath(
@@ -694,7 +707,8 @@ public abstract class SpawnLogContextTestBase {
                           + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                           + WORKSPACE_NAME
                           + "/external/some_repo/pkg/source.txt")
-                  .setDigest(getDigest("external_source")));
+                  .setDigest(getDigest("external_source"))
+                  .setIsTool(true));
     }
     builder
         .addInputs(
@@ -704,7 +718,8 @@ public abstract class SpawnLogContextTestBase {
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                         + WORKSPACE_NAME
                         + "/other/pkg/gen.txt")
-                .setDigest(getDigest("gen")))
+                .setDigest(getDigest("gen"))
+                .setIsTool(true))
         .addInputs(
             File.newBuilder()
                 .setPath(
@@ -712,7 +727,8 @@ public abstract class SpawnLogContextTestBase {
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                         + WORKSPACE_NAME
                         + "/other/symlink")
-                .setDigest(getDigest("symlink_gen")))
+                .setDigest(getDigest("symlink_gen"))
+                .setIsTool(true))
         .addInputs(
             File.newBuilder()
                 .setPath(
@@ -720,7 +736,8 @@ public abstract class SpawnLogContextTestBase {
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                         + WORKSPACE_NAME
                         + "/pkg/source.txt")
-                .setDigest(getDigest("source")))
+                .setDigest(getDigest("source"))
+                .setIsTool(true))
         .addInputs(
             File.newBuilder()
                 .setPath(
@@ -728,28 +745,33 @@ public abstract class SpawnLogContextTestBase {
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                         + WORKSPACE_NAME
                         + "/some/symlink")
-                .setDigest(getDigest("symlink_source")))
+                .setDigest(getDigest("symlink_source"))
+                .setIsTool(true))
         .addInputs(
             File.newBuilder()
                 .setPath(
                     PRODUCT_NAME + "-out/k8-fastbuild/bin/tools/foo.runfiles/root/other/symlink")
-                .setDigest(getDigest("root_symlink_gen")))
+                .setDigest(getDigest("root_symlink_gen"))
+                .setIsTool(true))
         .addInputs(
             File.newBuilder()
                 .setPath(PRODUCT_NAME + "-out/k8-fastbuild/bin/tools/foo.runfiles/root/symlink")
-                .setDigest(getDigest("root_symlink_source")))
+                .setDigest(getDigest("root_symlink_source"))
+                .setIsTool(true))
         .addInputs(
             File.newBuilder()
                 .setPath(
                     PRODUCT_NAME
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/other/pkg/gen.txt")
-                .setDigest(getDigest("external_gen")))
+                .setDigest(getDigest("external_gen"))
+                .setIsTool(true))
         .addInputs(
             File.newBuilder()
                 .setPath(
                     PRODUCT_NAME
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/pkg/source.txt")
-                .setDigest(getDigest("external_source")));
+                .setDigest(getDigest("external_source"))
+                .setIsTool(true));
     closeAndAssertLog(context, builder.build());
   }
 
@@ -824,6 +846,7 @@ public abstract class SpawnLogContextTestBase {
                     + "-out/k8-fastbuild/bin/tools/foo.runfiles/%s/root_symlink"
                         .formatted(rootSymlinkUnderMain ? WORKSPACE_NAME : "some_repo"))
             .setDigest(getDigest("root_symlink_target"))
+            .setIsTool(true)
             .build());
     files.add(
         File.newBuilder()
@@ -832,6 +855,7 @@ public abstract class SpawnLogContextTestBase {
                     + "-out/k8-fastbuild/bin/tools/foo.runfiles/%s/symlink"
                         .formatted(symlinkUnderMain ? WORKSPACE_NAME : "some_repo"))
             .setDigest(getDigest("symlink_target"))
+            .setIsTool(true)
             .build());
     files.add(
         File.newBuilder()
@@ -839,12 +863,14 @@ public abstract class SpawnLogContextTestBase {
                 PRODUCT_NAME
                     + "-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/other/pkg/gen.txt")
             .setDigest(getDigest("external_gen"))
+            .setIsTool(true)
             .build());
     files.add(
         File.newBuilder()
             .setPath(
                 PRODUCT_NAME + "-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/pkg/source.txt")
             .setDigest(getDigest("external_source"))
+            .setIsTool(true)
             .build());
     if (legacyExternalRunfiles) {
       files.add(
@@ -855,6 +881,7 @@ public abstract class SpawnLogContextTestBase {
                       + WORKSPACE_NAME
                       + "/external/some_repo/other/pkg/gen.txt")
               .setDigest(getDigest("external_gen"))
+              .setIsTool(true)
               .build());
       files.add(
           File.newBuilder()
@@ -864,6 +891,7 @@ public abstract class SpawnLogContextTestBase {
                       + WORKSPACE_NAME
                       + "/external/some_repo/pkg/source.txt")
               .setDigest(getDigest("external_source"))
+              .setIsTool(true)
               .build());
       if (!symlinkUnderMain) {
         files.add(
@@ -875,6 +903,7 @@ public abstract class SpawnLogContextTestBase {
                         + WORKSPACE_NAME
                         + "/external/some_repo/symlink")
                 .setDigest(getDigest("symlink_target"))
+                .setIsTool(true)
                 .build());
       }
     } else if (!symlinkUnderMain && !rootSymlinkUnderMain) {
@@ -885,6 +914,7 @@ public abstract class SpawnLogContextTestBase {
                       + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                       + WORKSPACE_NAME
                       + "/.runfile")
+              .setIsTool(true)
               .build());
     }
     closeAndAssertLog(
@@ -957,7 +987,8 @@ public abstract class SpawnLogContextTestBase {
                       + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                       + WORKSPACE_NAME
                       + "/external/some_repo/pkg/file.txt")
-              .setDigest(getDigest("external_gen")));
+              .setDigest(getDigest("external_gen"))
+              .setIsTool(true));
     }
     builder
         .addInputs(
@@ -967,13 +998,15 @@ public abstract class SpawnLogContextTestBase {
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                         + WORKSPACE_NAME
                         + "/pkg/file.txt")
-                .setDigest(getDigest("gen")))
+                .setDigest(getDigest("gen"))
+                .setIsTool(true))
         .addInputs(
             File.newBuilder()
                 .setPath(
                     PRODUCT_NAME
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/pkg/file.txt")
-                .setDigest(getDigest("external_gen")));
+                .setDigest(getDigest("external_gen"))
+                .setIsTool(true));
     closeAndAssertLog(context, builder.build());
   }
 
@@ -1069,7 +1102,8 @@ public abstract class SpawnLogContextTestBase {
                           + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                           + WORKSPACE_NAME
                           + "/external/some_repo/other/pkg/gen.txt")
-                  .setDigest(getDigest("external_gen")))
+                  .setDigest(getDigest("external_gen"))
+                  .setIsTool(true))
           .addInputs(
               File.newBuilder()
                   .setPath(
@@ -1077,7 +1111,8 @@ public abstract class SpawnLogContextTestBase {
                           + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                           + WORKSPACE_NAME
                           + "/external/some_repo/pkg/source.txt")
-                  .setDigest(getDigest("external_source")));
+                  .setDigest(getDigest("external_source"))
+                  .setIsTool(true));
     }
     builder
         .addInputs(
@@ -1087,7 +1122,8 @@ public abstract class SpawnLogContextTestBase {
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                         + WORKSPACE_NAME
                         + "/other/pkg/gen.txt")
-                .setDigest(getDigest("gen")))
+                .setDigest(getDigest("gen"))
+                .setIsTool(true))
         .addInputs(
             File.newBuilder()
                 .setPath(
@@ -1095,19 +1131,22 @@ public abstract class SpawnLogContextTestBase {
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                         + WORKSPACE_NAME
                         + "/pkg/source.txt")
-                .setDigest(getDigest("source")))
+                .setDigest(getDigest("source"))
+                .setIsTool(true))
         .addInputs(
             File.newBuilder()
                 .setPath(
                     PRODUCT_NAME
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/other/pkg/gen.txt")
-                .setDigest(getDigest("external_gen")))
+                .setDigest(getDigest("external_gen"))
+                .setIsTool(true))
         .addInputs(
             File.newBuilder()
                 .setPath(
                     PRODUCT_NAME
                         + "-out/k8-fastbuild/bin/tools/foo.runfiles/some_repo/pkg/source.txt")
-                .setDigest(getDigest("external_source")));
+                .setDigest(getDigest("external_source"))
+                .setIsTool(true));
     closeAndAssertLog(context, builder.build());
   }
 
@@ -1152,7 +1191,8 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/pkg/source.txt")
-                    .setDigest(getDigest("symlink_source")))
+                    .setDigest(getDigest("symlink_source"))
+                    .setIsTool(true))
             .build());
   }
 
@@ -1201,13 +1241,15 @@ public abstract class SpawnLogContextTestBase {
                                 + WORKSPACE_NAME
                                 + "/pkg/file.txt")
                         .setDigest(getDigest("file"))
+                        .setIsTool(true)
                     : File.newBuilder()
                         .setPath(
                             PRODUCT_NAME
                                 + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                                 + WORKSPACE_NAME
                                 + "/pkg/file.txt")
-                        .setSymlinkTargetPath("/some/path/other_file.txt"))
+                        .setSymlinkTargetPath("/some/path/other_file.txt")
+                        .setIsTool(true))
             .build());
   }
 
@@ -1280,7 +1322,8 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/pkg/file.txt")
-                    .setDigest(getDigest("gen")))
+                    .setDigest(getDigest("gen"))
+                    .setIsTool(true))
             .addInputs(
                 File.newBuilder()
                     .setPath(
@@ -1288,7 +1331,8 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/pkg/other_file.txt")
-                    .setDigest(getDigest("other_source")))
+                    .setDigest(getDigest("other_source"))
+                    .setIsTool(true))
             .build());
   }
 
@@ -1353,7 +1397,8 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/file")
-                    .setDigest(getDigest("source")))
+                    .setDigest(getDigest("source"))
+                    .setIsTool(true))
             .addInputs(
                 File.newBuilder()
                     .setPath(
@@ -1361,7 +1406,8 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/gen_dir/other_file")
-                    .setDigest(getDigest("gen_dir_file")))
+                    .setDigest(getDigest("gen_dir_file"))
+                    .setIsTool(true))
             .addInputs(
                 File.newBuilder()
                     .setPath(
@@ -1369,7 +1415,8 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/source_dir/some_file")
-                    .setDigest(getDigest("source_dir_file")))
+                    .setDigest(getDigest("source_dir_file"))
+                    .setIsTool(true))
             .addInputs(
                 File.newBuilder()
                     .setPath(
@@ -1377,7 +1424,8 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/symlink")
-                    .setSymlinkTargetPath("/some/path"))
+                    .setSymlinkTargetPath("/some/path")
+                    .setIsTool(true))
             .build());
   }
 
@@ -1424,7 +1472,8 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/pkg/symlink/file")
-                    .setDigest(getDigest("abc")))
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(true))
             .build());
   }
 

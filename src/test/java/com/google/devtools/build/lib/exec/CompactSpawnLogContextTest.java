@@ -183,7 +183,10 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
         createInputMetadataProvider(runfilesSupplier, secondInput, tool);
 
     Spawn firstSpawn =
-        defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).withInputs(firstInput).build();
+        defaultSpawnBuilder()
+            .withRunfilesSupplier(runfilesSupplier)
+            .withInputs(firstInput)
+            .build();
     Spawn secondSpawn =
         defaultSpawnBuilder()
             .withRunfilesSupplier(runfilesSupplier)
@@ -216,15 +219,25 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
             .addInputs(
                 File.newBuilder()
                     .setPath(PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/_main/data.txt")
-                    .setDigest(getDigest("abc")))
-            .addInputs(File.newBuilder().setPath("first_input").setDigest(getDigest("def")))
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(true))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("first_input")
+                    .setDigest(getDigest("def"))
+                    .setIsTool(false))
             .build(),
         defaultSpawnExecBuilder()
             .addInputs(
                 File.newBuilder()
                     .setPath(PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/_main/data.txt")
-                    .setDigest(getDigest("abc")))
-            .addInputs(File.newBuilder().setPath("second_input").setDigest(getDigest("ghi")))
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(true))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("second_input")
+                    .setDigest(getDigest("ghi"))
+                    .setIsTool(false))
             .build());
   }
 
