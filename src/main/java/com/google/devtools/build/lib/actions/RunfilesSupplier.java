@@ -87,7 +87,7 @@ public interface RunfilesSupplier extends StarlarkValue {
    * @param getRepoMappingManifestForLogging Returns the repo mapping manifest if it exists.
    * @param isLegacyExternalRunfiles Whether this runfiles tree materializes external runfiles also
    *     at their legacy locations.
-   * @param isLikelyToBeReused Whether this runfiles tree is likely to be used by multiple spawns.
+   * @param isMappingCached Whether this runfiles tree is likely to be used by multiple spawns.
    */
   record RunfilesTree(
       PathFragment getExecPath,
@@ -97,7 +97,7 @@ public interface RunfilesSupplier extends StarlarkValue {
       NestedSet<SymlinkEntry> getRootSymlinksForLogging,
       @Nullable Artifact getRepoMappingManifestForLogging,
       boolean isLegacyExternalRunfiles,
-      boolean isLikelyToBeReused) {}
+      boolean isMappingCached) {}
 
   Map<PathFragment, RunfilesTree> getRunfilesTreesForLogging();
 }

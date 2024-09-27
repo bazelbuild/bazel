@@ -493,8 +493,6 @@ public abstract class SpawnLogContextTestBase {
 
   @Test
   public void testRunfilesEmptyInput() throws Exception {
-    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
-
     Artifact runfilesInput = ActionsTestUtil.createArtifact(rootDir, "sub/dir/script.py");
     writeFile(runfilesInput, "abc");
     PackageIdentifier someRepoPkg =
@@ -638,8 +636,6 @@ public abstract class SpawnLogContextTestBase {
     Artifact rootSymlinkGenTarget =
         ActionsTestUtil.createArtifact(outputDir, "pkg/root_target.txt");
     writeFile(rootSymlinkGenTarget, "root_symlink_gen");
-
-    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     RunfilesSupplier runfilesSupplier =
@@ -789,8 +785,6 @@ public abstract class SpawnLogContextTestBase {
     Artifact rootSymlinkTarget = ActionsTestUtil.createArtifact(rootDir, "pkg/root_target.txt");
     writeFile(rootSymlinkTarget, "root_symlink_target");
 
-    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
-
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier(
@@ -922,8 +916,6 @@ public abstract class SpawnLogContextTestBase {
                 .getChild("file.txt")
                 .getPathString());
     writeFile(externalGenArtifact, "external_gen");
-
-    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     RunfilesSupplier runfilesSupplier =
@@ -1127,8 +1119,6 @@ public abstract class SpawnLogContextTestBase {
     Artifact symlinkSourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/not_source.txt");
     writeFile(symlinkSourceArtifact, "symlink_source");
 
-    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
-
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier(
@@ -1173,8 +1163,6 @@ public abstract class SpawnLogContextTestBase {
     Artifact symlink = ActionsTestUtil.createUnresolvedSymlinkArtifact(outputDir, "pkg/file.txt");
     symlink.getPath().getParentDirectory().createDirectoryAndParents();
     symlink.getPath().createSymbolicLink(PathFragment.create("/some/path/other_file.txt"));
-
-    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     var artifacts =
@@ -1233,8 +1221,6 @@ public abstract class SpawnLogContextTestBase {
     writeFile(otherSourceFile, "other_source");
     Artifact otherGenFile = ActionsTestUtil.createArtifact(outputDir, "pkg/other_file.txt");
     writeFile(otherGenFile, "other_gen");
-
-    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     var artifactsBuilder =
@@ -1322,8 +1308,6 @@ public abstract class SpawnLogContextTestBase {
     Artifact symlink = ActionsTestUtil.createUnresolvedSymlinkArtifact(outputDir, "pkg/symlink");
     symlink.getPath().getParentDirectory().createDirectoryAndParents();
     symlink.getPath().createSymbolicLink(PathFragment.create("/some/path"));
-
-    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     RunfilesSupplier runfilesSupplier =

@@ -578,6 +578,6 @@ public final class RunfilesSupport implements RunfilesSupplier {
             runfiles.getRootSymlinks(),
             getRepoMappingManifest(),
             runfiles.isLegacyExternalRunfiles(),
-            /* isLikelyToBeReused= */ false));
+            /* isMappingCached= */ false));
   }
 }

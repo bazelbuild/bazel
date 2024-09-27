@@ -313,7 +313,12 @@ public class CompactSpawnLogContext extends SpawnLogContext {
 
     for (RunfilesSupplier.RunfilesTree runfilesTree :
         spawn.getRunfilesSupplier().getRunfilesTreesForLogging().values()) {
-      additionalInputIds.add(logRunfilesTree(runfilesTree, inputMetadataProvider, fileSystem));
+      additionalInputIds.add(
+          logRunfilesTree(
+              runfilesTree,
+              inputMetadataProvider,
+              fileSystem,
+              "TestRunner".equals(spawn.getMnemonic())));
     }
 
     for (Artifact fileset : spawn.getFilesetMappings().keySet()) {
@@ -389,12 +394,9 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           }
 
           for (ActionInput input : set.getLeaves()) {
-            // Runfiles are logged separately.
-            if (input instanceof Artifact artifact && artifact.isMiddlemanArtifact()) {
-              continue;
-            }
-            // Filesets are logged separately.
-            if (input instanceof Artifact artifact && artifact.isFileset()) {
+            // Runfiles and filesets are logged separately.
+            if (input instanceof Artifact artifact
+                && (artifact.isMiddlemanArtifact() || artifact.isFileset())) {
               continue;
             }
 
@@ -531,10 +533,17 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private int logRunfilesTree(
       RunfilesSupplier.RunfilesTree runfilesTree,
       InputMetadataProvider inputMetadataProvider,
-      FileSystem fileSystem)
+      FileSystem fileSystem,
+      boolean isTestRunnerSpawn)
       throws IOException, InterruptedException {
     return logEntry(
-        runfilesTree.isLikelyToBeReused() ? runfilesTree.getExecPath().getPathString() : null,
+        // Runfiles of non-test spawns are tool inputs and thus potentially reused
+        // between spawns. Runfiles of test spawns are reused if the test is attempted
+        // multiple times in the same build; in this case, the runfiles tree caches
+        // its mapping.
+        !isTestRunnerSpawn || runfilesTree.isMappingCached()
+            ? runfilesTree.getExecPath().getPathString()
+            : null,
         () -> {
           ExecLogEntry.RunfilesTree.Builder builder =
               ExecLogEntry.RunfilesTree.newBuilder()

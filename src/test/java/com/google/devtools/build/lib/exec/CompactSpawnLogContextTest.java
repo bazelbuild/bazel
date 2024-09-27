@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
+import static com.google.devtools.build.lib.testutil.TestConstants.PRODUCT_NAME;
 
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +24,9 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -35,6 +40,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -160,6 +166,68 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
                 .build());
   }
 
+  @Test
+  public void testRunfilesTreeReusedForTool() throws Exception {
+    Artifact tool = ActionsTestUtil.createArtifact(rootDir, "data.txt");
+    writeFile(tool, "abc");
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
+    RunfilesSupplier runfilesSupplier = createRunfilesSupplier(runfilesRoot, tool);
+
+    Artifact firstInput = ActionsTestUtil.createArtifact(rootDir, "first_input");
+    writeFile(firstInput, "def");
+    InputMetadataProvider firstInputMetadataProvider =
+        createInputMetadataProvider(runfilesSupplier, firstInput, tool);
+    Artifact secondInput = ActionsTestUtil.createArtifact(rootDir, "second_input");
+    writeFile(secondInput, "ghi");
+    InputMetadataProvider secondInputMetadataProvider =
+        createInputMetadataProvider(runfilesSupplier, secondInput, tool);
+
+    Spawn firstSpawn =
+        defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).withInputs(firstInput).build();
+    Spawn secondSpawn =
+        defaultSpawnBuilder()
+            .withRunfilesSupplier(runfilesSupplier)
+            .withInputs(secondInput)
+            .build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        firstSpawn,
+        firstInputMetadataProvider,
+        createInputMap(runfilesSupplier, firstInputMetadataProvider, firstInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+    context.logSpawn(
+        secondSpawn,
+        secondInputMetadataProvider,
+        createInputMap(runfilesSupplier, secondInputMetadataProvider, secondInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    var entries = closeAndReadCompactLog(context);
+    assertThat(entries.stream().filter(Protos.ExecLogEntry::hasRunfilesTree)).hasSize(1);
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath(PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/_main/data.txt")
+                    .setDigest(getDigest("abc")))
+            .addInputs(File.newBuilder().setPath("first_input").setDigest(getDigest("def")))
+            .build(),
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath(PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/_main/data.txt")
+                    .setDigest(getDigest("abc")))
+            .addInputs(File.newBuilder().setPath("second_input").setDigest(getDigest("ghi")))
+            .build());
+  }
+
   @Override
   protected SpawnLogContext createSpawnLogContext(ImmutableMap<String, String> platformProperties)
       throws IOException, InterruptedException {
@@ -191,5 +259,20 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     }
 
     assertThat(actual).containsExactlyElementsIn(expected).inOrder();
+  }
+
+  private ImmutableList<Protos.ExecLogEntry> closeAndReadCompactLog(SpawnLogContext context)
+      throws IOException {
+    context.close();
+
+    ImmutableList.Builder<Protos.ExecLogEntry> entries = ImmutableList.builder();
+    try (InputStream in = logPath.getInputStream();
+        ZstdInputStream zstdIn = new ZstdInputStream(in)) {
+      Protos.ExecLogEntry entry;
+      while ((entry = Protos.ExecLogEntry.parseDelimitedFrom(zstdIn)) != null) {
+        entries.add(entry);
+      }
+    }
+    return entries.build();
   }
 }
