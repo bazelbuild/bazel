@@ -588,6 +588,8 @@ filegroup(
     name = "test_repos",
     srcs = [
         requirement("bazel-runfiles"),  # Fetching the hermetic Python toolchain.
+        "@android_gmaven_r8//jar:file",
+        "@android_tools//:all_android_tools_deploy.jar",
         "@bazel_skylib//:WORKSPACE",
         "@com_google_protobuf//:LICENSE",
         "@remote_coverage_tools//:all_lcov_merger_lib",
