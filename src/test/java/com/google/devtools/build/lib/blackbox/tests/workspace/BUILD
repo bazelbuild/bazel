@@ -46,7 +46,6 @@ java_test(
     ],
     tags = [
         "black_box_test",
-        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
     deps = common_deps + [
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",

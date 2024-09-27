@@ -107,7 +107,6 @@ sh_test(
     shard_count = 3,
     tags = [
         "no_windows",
-        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
@@ -165,7 +164,6 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["requires-network"],  # Fetches Python toolchains on systems where supported
 )
 
 sh_test(
@@ -214,7 +212,6 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["requires-network"],  # Fetches Python toolchains on systems where supported
     target_compatible_with = select({
         "@platforms//os:linux": ["@platforms//cpu:x86_64"],
         "@platforms//os:macos": [],
@@ -438,7 +435,6 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    tags = ["requires-network"],  # Fetches Python toolchains on systems where supported
 )
 
 sh_test(
@@ -559,7 +555,6 @@ sh_test(
         ],
         tags = [
             "no_windows",
-            "requires-network",  # Fetches Python toolchains on systems where supported
         ],
     )
     for java_version in JAVA_VERSIONS_COVERAGE
@@ -599,7 +594,6 @@ sh_test(
     data = [":test-deps"],
     tags = [
         "no_windows",
-        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
 )
 
@@ -619,7 +613,6 @@ sh_test(
     data = [":test-deps"],
     tags = [
         "no_windows",
-        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
 )
 
@@ -629,7 +622,6 @@ sh_test(
     data = [":test-deps"],
     tags = [
         "no_windows",
-        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
 )
 
@@ -842,7 +834,6 @@ sh_test(
     shard_count = 3,
     tags = [
         "no_windows",
-        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
 )
 
@@ -1012,7 +1003,6 @@ sh_test(
     shard_count = 10,
     tags = [
         "no_windows",
-        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
 )
 
@@ -1157,7 +1147,6 @@ sh_test(
     ],
     tags = [
         "no_windows",
-        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
@@ -1255,7 +1244,6 @@ sh_test(
     data = [":test-deps"],
     tags = [
         "no_windows",
-        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )

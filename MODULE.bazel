@@ -272,12 +272,12 @@ use_repo(
 # =========================================
 
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
-python.toolchain(python_version = "3.10")
+python.toolchain(python_version = "3.11")
 
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
     hub_name = "bazel_pip_dev_deps",
-    python_version = "3.10",
+    python_version = "3.11",
     requirements_lock = "//:requirements.txt",
 )
 use_repo(pip, "bazel_pip_dev_deps")

@@ -1,5 +1,6 @@
 # Packaging
 
+load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("//src:build_defs.bzl", "transition_java_language_8_archive")
@@ -592,6 +593,7 @@ JDK_VERSIONS = [
 filegroup(
     name = "test_repos",
     srcs = [
+        requirement("bazel-runfiles"),  # Fetching the hermetic Python toolchain.
         "@android_gmaven_r8//jar:file",
         "@android_tools//:all_android_tools_deploy.jar",
         "@bazel_skylib//:WORKSPACE",
