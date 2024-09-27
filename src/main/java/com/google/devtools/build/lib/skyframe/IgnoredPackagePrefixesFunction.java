@@ -89,8 +89,6 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
         PathFragment vendorDir = null;
         if (VENDOR_DIRECTORY.get(env).isPresent()) {
           vendorDir = VENDOR_DIRECTORY.get(env).get().asFragment();
-          // Vendor dir should have been resolved to an absolute path.
-          Preconditions.checkArgument(vendorDir.isAbsolute());
         }
 
         for (Root packagePathEntry : pkgLocator.getPathEntries()) {
