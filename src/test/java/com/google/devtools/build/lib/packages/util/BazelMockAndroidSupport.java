@@ -92,23 +92,4 @@ public final class BazelMockAndroidSupport {
             TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7",
             TestConstants.CONSTRAINTS_PACKAGE_ROOT + "os:android");
   }
-
-  public static void setupPlatformResolvableSdks(MockToolsConfig config) throws Exception {
-    config.create(
-        "platform_selected_android_sdks/toolchains/BUILD",
-        "toolchain(",
-        "    name = 'x86_64_toolchain',",
-        String.format("    toolchain_type = '%s',", TestConstants.ANDROID_TOOLCHAIN_TYPE_LABEL),
-        "    toolchain = '//platform_selected_android_sdks:x86_64',",
-        "    target_compatible_with = [",
-        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:x86_64',",
-        "    ])",
-        "toolchain(",
-        "    name = 'arm_toolchain',",
-        String.format("    toolchain_type = '%s',", TestConstants.ANDROID_TOOLCHAIN_TYPE_LABEL),
-        "    toolchain = '//platform_selected_android_sdks:arm',",
-        "    target_compatible_with = [",
-        "        '" + TestConstants.CONSTRAINTS_PACKAGE_ROOT + "cpu:armv7',",
-        "    ])");
-  }
 }

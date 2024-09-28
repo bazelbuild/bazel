@@ -9,7 +9,6 @@ package(
 filegroup(
     name = "srcs",
     srcs = glob(["*"]) + [
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/android:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule:srcs",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:srcs",
@@ -46,7 +45,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:statically_linked_marker_provider",
         "//src/main/java/com/google/devtools/build/lib/bazel:bazel_configuration",
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/android",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java",
