@@ -2012,4 +2012,31 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         extension 'ext2' is itself overridden with 'my_bar' at /workspace/MODULE.bazel:4:14, \
         which is not supported.""");
   }
+
+  @Test
+  public void testInjectRepo_imported() throws Exception {
+    scratch.overwriteFile(
+        rootDirectory.getRelative("MODULE.bazel").getPathString(),
+        """
+        module(name='aaa')
+        bazel_dep(name = 'my_repo', version = "1.0")
+        ext = use_extension('//:defs.bzl', 'ext')
+        inject_repo(ext, foo = 'my_repo')
+        use_repo(ext, bar = 'foo')
+        """);
+
+    reporter.removeHandler(failFastHandler);
+    EvaluationResult<RootModuleFileValue> result =
+        evaluator.evaluate(
+            ImmutableList.of(ModuleFileValue.KEY_FOR_ROOT_MODULE), evaluationContext);
+    assertThat(result.hasError()).isTrue();
+
+    assertContainsEvent(
+        """
+        ERROR /workspace/MODULE.bazel:5:9: Traceback (most recent call last):
+        \tFile "/workspace/MODULE.bazel", line 5, column 9, in <toplevel>
+        \t\tuse_repo(ext, bar = 'foo')
+        Error in use_repo: Cannot import repo 'foo' that has been injected into module extension 'ext' at /workspace/MODULE.bazel:4:12. Please refer to @my_repo directly.\
+        """);
+  }
 }
