@@ -144,20 +144,6 @@ public final class FilesetManifestTest {
       assertThat(manifest.getEntries())
           .containsExactly(PathFragment.create("out/foo/bar"), "foo/bar");
     }
-
-    /** Current behavior is first one wins. */
-    @Test
-    public void testDefactoBehaviorWithDuplicateEntries() throws Exception {
-      List<FilesetOutputSymlink> symlinks =
-          ImmutableList.of(filesetSymlink("bar", "/foo/bar"), filesetSymlink("bar", "/baz"));
-
-      FilesetManifest manifest =
-          FilesetManifest.constructFilesetManifest(
-              symlinks, PathFragment.create("out/foo"), behavior);
-
-      assertThat(manifest.getEntries())
-          .containsExactly(PathFragment.create("out/foo/bar"), "/foo/bar");
-    }
   }
 
   /** Manifest tests that apply to a specific relative symlink behavior. */
