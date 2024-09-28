@@ -175,12 +175,12 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "middleman");
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier(
+            runfilesMiddleman,
             runfilesRoot,
             ImmutableMap.of(),
             ImmutableMap.of(),
             /* legacyExternalRunfiles= */ false,
-            NestedSetBuilder.wrap(Order.STABLE_ORDER, ImmutableList.of(tool)),
-            runfilesMiddleman);
+            NestedSetBuilder.wrap(Order.COMPILE_ORDER, ImmutableList.of(tool)));
 
     Artifact firstInput = ActionsTestUtil.createArtifact(rootDir, "first_input");
     writeFile(firstInput, "def");

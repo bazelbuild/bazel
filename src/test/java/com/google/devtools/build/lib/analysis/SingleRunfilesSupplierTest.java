@@ -108,7 +108,8 @@ public final class SingleRunfilesSupplierTest {
             runfiles,
             /* repoMappingManifest= */ null,
             RunfileSymlinksMode.SKIP,
-            /* buildRunfileLinks= */ false);
+            /* buildRunfileLinks= */ false,
+            /* runfilesMiddleman= */ null);
 
     Map<PathFragment, Map<PathFragment, Artifact>> mappings1 = underTest.getMappings();
     Map<PathFragment, Map<PathFragment, Artifact>> mappings2 = underTest.getMappings();
@@ -129,7 +130,8 @@ public final class SingleRunfilesSupplierTest {
             runfiles,
             /* repoMappingManifest= */ null,
             RunfileSymlinksMode.SKIP,
-            /* buildRunfileLinks= */ false);
+            /* buildRunfileLinks= */ false,
+            /* runfilesMiddleman= */ null);
     SingleRunfilesSupplier overridden = original.withOverriddenRunfilesDir(newDir);
 
     Map<PathFragment, Map<PathFragment, Artifact>> mappingsOld = original.getMappings();

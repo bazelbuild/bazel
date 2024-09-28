@@ -179,6 +179,8 @@ public final class SingleRunfilesSupplier implements RunfilesSupplier {
   @Override
   public Map<Artifact, RunfilesTree> getRunfilesTreesForLogging() {
     if (runfilesMiddleman == null) {
+      // This can only happen with the "new_runfiles_supplier" Python builtin function, which is
+      // unused in builtin rules as well as in the latest rules_python version.
       return ImmutableMap.of();
     }
     return ImmutableMap.of(

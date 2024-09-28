@@ -99,5 +99,12 @@ public interface RunfilesSupplier extends StarlarkValue {
       boolean isLegacyExternalRunfiles,
       boolean isMappingCached) {}
 
+  /**
+   * A map from runfiles middleman artifacts to the {@link RunfilesTree} they represent.
+   *
+   * <p>This is used for the purposes of the execution log only and matches the architecture of
+   * Bazel 8, in which a runfiles tree can be obtained from its middleman via {@link
+   * InputMetadataProvider}.
+   */
   Map<Artifact, RunfilesTree> getRunfilesTreesForLogging();
 }

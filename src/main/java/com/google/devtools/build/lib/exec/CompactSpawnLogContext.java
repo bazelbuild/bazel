@@ -378,7 +378,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       boolean shared,
       boolean isTestRunnerSpawn)
       throws IOException, InterruptedException {
-    if (set.isEmpty() && additionalDirectoryIds.isEmpty()) {
+    if (set.isEmpty() && additionalDirectoryIds.isEmpty() && extraMiddleman.isEmpty()) {
       return 0;
     }
 

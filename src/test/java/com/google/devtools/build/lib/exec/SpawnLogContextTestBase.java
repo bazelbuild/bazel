@@ -96,7 +96,6 @@ import java.util.Date;
 import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -412,22 +411,27 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
-  public void testRunfilesFileInput() throws Exception {
+  public void testRunfilesFileInput(@TestParameter InputsMode inputsMode) throws Exception {
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
     Artifact runfilesInput = ActionsTestUtil.createArtifact(rootDir, "data.txt");
 
     writeFile(runfilesInput, "abc");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
-    RunfilesSupplier runfilesSupplier = createRunfilesSupplier(runfilesRoot, runfilesInput);
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier(runfilesMiddleman, runfilesRoot, runfilesInput);
 
-    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
+    SpawnBuilder spawnBuilder = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier);
+    if (inputsMode.isTool()) {
+      spawnBuilder.withTool(runfilesMiddleman);
+    }
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(runfilesSupplier, runfilesInput);
 
     context.logSpawn(
-        spawn,
+        spawnBuilder.build(),
         inputMetadataProvider,
         createInputMap(runfilesSupplier, inputMetadataProvider),
         fs,
@@ -444,12 +448,16 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/data.txt")
-                    .setDigest(getDigest("abc")))
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(inputsMode.isTool()))
             .build());
   }
 
   @Test
-  public void testRunfilesDirectoryInput(@TestParameter DirContents dirContents) throws Exception {
+  public void testRunfilesDirectoryInput(
+      @TestParameter DirContents dirContents, @TestParameter InputsMode inputsMode)
+      throws Exception {
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
     Artifact runfilesInput = ActionsTestUtil.createArtifact(rootDir, "dir");
 
     runfilesInput.getPath().createDirectoryAndParents();
@@ -458,16 +466,20 @@ public abstract class SpawnLogContextTestBase {
     }
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
-    RunfilesSupplier runfilesSupplier = createRunfilesSupplier(runfilesRoot, runfilesInput);
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier(runfilesMiddleman, runfilesRoot, runfilesInput);
 
-    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
+    SpawnBuilder spawnBuilder = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier);
+    if (inputsMode.isTool()) {
+      spawnBuilder.withTool(runfilesMiddleman);
+    }
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(runfilesSupplier, runfilesInput);
 
     context.logSpawn(
-        spawn,
+        spawnBuilder.build(),
         inputMetadataProvider,
         createInputMap(runfilesSupplier, inputMetadataProvider),
         fs,
@@ -488,12 +500,14 @@ public abstract class SpawnLogContextTestBase {
                                     + WORKSPACE_NAME
                                     + "/dir/data.txt")
                             .setDigest(getDigest("abc"))
+                            .setIsTool(inputsMode.isTool())
                             .build()))
             .build());
   }
 
   @Test
-  public void testRunfilesEmptyInput() throws Exception {
+  public void testRunfilesEmptyInput(@TestParameter InputsMode inputsMode) throws Exception {
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
     Artifact runfilesInput = ActionsTestUtil.createArtifact(rootDir, "sub/dir/script.py");
     writeFile(runfilesInput, "abc");
     PackageIdentifier someRepoPkg =
@@ -517,9 +531,16 @@ public abstract class SpawnLogContextTestBase {
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier(
-            runfilesRoot, runfilesInput, externalGenArtifact, externalSourceArtifact);
+            runfilesMiddleman,
+            runfilesRoot,
+            runfilesInput,
+            externalGenArtifact,
+            externalSourceArtifact);
 
-    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
+    SpawnBuilder spawnBuilder = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier);
+    if (inputsMode.isTool()) {
+      spawnBuilder.withTool(runfilesMiddleman);
+    }
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -530,7 +551,7 @@ public abstract class SpawnLogContextTestBase {
             externalSourceArtifact);
 
     context.logSpawn(
-        spawn,
+        spawnBuilder.build(),
         inputMetadataProvider,
         createInputMap(runfilesSupplier, inputMetadataProvider),
         fs,
@@ -542,21 +563,24 @@ public abstract class SpawnLogContextTestBase {
         defaultSpawnExecBuilder()
             .addInputs(
                 File.newBuilder()
-                    .setPath(PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/__init__.py"))
+                    .setPath(PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/__init__.py")
+                    .setIsTool(inputsMode.isTool()))
             .addInputs(
                 File.newBuilder()
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/foo.runfiles/"
                             + WORKSPACE_NAME
-                            + "/sub/__init__.py"))
+                            + "/sub/__init__.py")
+                    .setIsTool(inputsMode.isTool()))
             .addInputs(
                 File.newBuilder()
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/foo.runfiles/"
                             + WORKSPACE_NAME
-                            + "/sub/dir/__init__.py"))
+                            + "/sub/dir/__init__.py")
+                    .setIsTool(inputsMode.isTool()))
             .addInputs(
                 File.newBuilder()
                     .setPath(
@@ -564,43 +588,51 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/sub/dir/script.py")
-                    .setDigest(getDigest("abc")))
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(inputsMode.isTool()))
             .addInputs(
                 File.newBuilder()
                     .setPath(
-                        PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/__init__.py"))
+                        PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/__init__.py")
+                    .setIsTool(inputsMode.isTool()))
             .addInputs(
                 File.newBuilder()
                     .setPath(
                         PRODUCT_NAME
-                            + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/other/__init__.py"))
+                            + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/other/__init__.py")
+                    .setIsTool(inputsMode.isTool()))
             .addInputs(
                 File.newBuilder()
                     .setPath(
                         PRODUCT_NAME
-                            + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/other/pkg/__init__.py"))
+                            + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/other/pkg/__init__.py")
+                    .setIsTool(inputsMode.isTool()))
             .addInputs(
                 File.newBuilder()
                     .setPath(
                         PRODUCT_NAME
                             + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/other/pkg/gen.py")
-                    .setDigest(getDigest("external_gen")))
+                    .setDigest(getDigest("external_gen"))
+                    .setIsTool(inputsMode.isTool()))
             .addInputs(
                 File.newBuilder()
                     .setPath(
                         PRODUCT_NAME
-                            + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/pkg/__init__.py"))
+                            + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/pkg/__init__.py")
+                    .setIsTool(inputsMode.isTool()))
             .addInputs(
                 File.newBuilder()
                     .setPath(
                         PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/some_repo/pkg/lib.py")
-                    .setDigest(getDigest("external_source")))
+                    .setDigest(getDigest("external_source"))
+                    .setIsTool(inputsMode.isTool()))
             .build());
   }
 
   @Test
   public void testRunfilesMixedRoots(@TestParameter boolean legacyExternalRunfiles)
       throws Exception {
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
     Artifact sourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/source.txt");
     writeFile(sourceArtifact, "source");
     Artifact genArtifact = ActionsTestUtil.createArtifact(outputDir, "other/pkg/gen.txt");
@@ -641,6 +673,7 @@ public abstract class SpawnLogContextTestBase {
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier(
+            runfilesMiddleman,
             runfilesRoot,
             ImmutableMap.of(
                 "some/symlink", symlinkSourceTarget,
@@ -786,9 +819,11 @@ public abstract class SpawnLogContextTestBase {
     Artifact rootSymlinkTarget = ActionsTestUtil.createArtifact(rootDir, "pkg/root_target.txt");
     writeFile(rootSymlinkTarget, "root_symlink_target");
 
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier(
+            runfilesMiddleman,
             runfilesRoot,
             ImmutableMap.of((symlinkUnderMain ? "" : "../some_repo/") + "symlink", symlinkTarget),
             ImmutableMap.of(
@@ -918,9 +953,11 @@ public abstract class SpawnLogContextTestBase {
                 .getPathString());
     writeFile(externalGenArtifact, "external_gen");
 
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier(
+            runfilesMiddleman,
             runfilesRoot,
             ImmutableMap.of(),
             ImmutableMap.of(),
@@ -1018,9 +1055,11 @@ public abstract class SpawnLogContextTestBase {
         ActionsTestUtil.createArtifact(outputDir, "external/some_repo/other/pkg/not_gen.txt");
     writeFile(symlinkExternalGenArtifact, "symlink_external_gen");
 
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier(
+            runfilesMiddleman,
             runfilesRoot,
             ImmutableMap.of(
                 // Symlinks are always relative to the workspace runfiles directory.
@@ -1118,9 +1157,11 @@ public abstract class SpawnLogContextTestBase {
     Artifact symlinkSourceArtifact = ActionsTestUtil.createArtifact(rootDir, "pkg/not_source.txt");
     writeFile(symlinkSourceArtifact, "symlink_source");
 
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier(
+            runfilesMiddleman,
             runfilesRoot,
             ImmutableMap.of(),
             ImmutableMap.of(WORKSPACE_NAME + "/pkg/source.txt", symlinkSourceArtifact),
@@ -1163,17 +1204,18 @@ public abstract class SpawnLogContextTestBase {
     symlink.getPath().getParentDirectory().createDirectoryAndParents();
     symlink.getPath().createSymbolicLink(PathFragment.create("/some/path/other_file.txt"));
 
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     var artifacts =
         symlinkFirst ? ImmutableList.of(symlink, file) : ImmutableList.of(file, symlink);
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier(
+            runfilesMiddleman,
             runfilesRoot,
             ImmutableMap.of(),
             ImmutableMap.of(),
             /* legacyExternalRunfiles= */ false,
-            NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts),
-            /* runfilesMiddleman= */ null);
+            NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
 
     Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
@@ -1243,14 +1285,15 @@ public abstract class SpawnLogContextTestBase {
       assertThat(artifacts.getNonLeaves()).hasSize(2);
     }
 
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier(
+            runfilesMiddleman,
             runfilesRoot,
             ImmutableMap.of(),
             ImmutableMap.of(),
             /* legacyExternalRunfiles= */ false,
-            artifacts,
-            /* runfilesMiddleman= */ null);
+            artifacts);
 
     Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
 
@@ -1294,7 +1337,9 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
-  public void testRunfilesSymlinkTargets(@TestParameter boolean rootSymlinks) throws Exception {
+  public void testRunfilesSymlinkTargets(
+      @TestParameter boolean rootSymlinks, @TestParameter InputsMode inputsMode) throws Exception {
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
     Artifact sourceFile = ActionsTestUtil.createArtifact(rootDir, "pkg/file.txt");
     writeFile(sourceFile, "source");
     Artifact sourceDir = ActionsTestUtil.createArtifact(rootDir, "pkg/source_dir");
@@ -1313,6 +1358,7 @@ public abstract class SpawnLogContextTestBase {
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier(
+            runfilesMiddleman,
             runfilesRoot,
             rootSymlinks
                 ? ImmutableMap.of()
@@ -1330,14 +1376,17 @@ public abstract class SpawnLogContextTestBase {
                 : ImmutableMap.of(),
             /* legacyExternalRunfiles= */ false);
 
-    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
+    SpawnBuilder spawnBuilder = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier);
+    if (inputsMode.isTool()) {
+      spawnBuilder.withTool(runfilesMiddleman);
+    }
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
         createInputMetadataProvider(runfilesSupplier, sourceFile, sourceDir, genDir, symlink);
 
     context.logSpawn(
-        spawn,
+        spawnBuilder.build(),
         inputMetadataProvider,
         createInputMap(runfilesSupplier, inputMetadataProvider),
         fs,
@@ -1354,7 +1403,8 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/file")
-                    .setDigest(getDigest("source")))
+                    .setDigest(getDigest("source"))
+                    .setIsTool(inputsMode.isTool()))
             .addInputs(
                 File.newBuilder()
                     .setPath(
@@ -1362,7 +1412,8 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/gen_dir/other_file")
-                    .setDigest(getDigest("gen_dir_file")))
+                    .setDigest(getDigest("gen_dir_file"))
+                    .setIsTool(inputsMode.isTool()))
             .addInputs(
                 File.newBuilder()
                     .setPath(
@@ -1370,7 +1421,8 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/source_dir/some_file")
-                    .setDigest(getDigest("source_dir_file")))
+                    .setDigest(getDigest("source_dir_file"))
+                    .setIsTool(inputsMode.isTool()))
             .addInputs(
                 File.newBuilder()
                     .setPath(
@@ -1378,7 +1430,8 @@ public abstract class SpawnLogContextTestBase {
                             + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
                             + WORKSPACE_NAME
                             + "/symlink")
-                    .setSymlinkTargetPath("/some/path"))
+                    .setSymlinkTargetPath("/some/path")
+                    .setIsTool(inputsMode.isTool()))
             .build());
   }
 
@@ -1394,6 +1447,7 @@ public abstract class SpawnLogContextTestBase {
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier(
+            runfilesMiddleman,
             runfilesRoot,
             rootSymlink ? ImmutableMap.of() : ImmutableMap.of("pkg/symlink", genFile),
             rootSymlink
@@ -1996,18 +2050,23 @@ public abstract class SpawnLogContextTestBase {
   }
 
   protected static RunfilesSupplier createRunfilesSupplier(
-      PathFragment root, Artifact... artifacts) {
+      Artifact runfilesMiddleman, PathFragment root, Artifact... artifacts) {
     return createRunfilesSupplier(
-        root, ImmutableMap.of(), ImmutableMap.of(), /* legacyExternalRunfiles= */ false, artifacts);
+        runfilesMiddleman,
+        root,
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        /* legacyExternalRunfiles= */ false,
+        NestedSetBuilder.wrap(Order.COMPILE_ORDER, Arrays.asList(artifacts)));
   }
 
   protected static RunfilesSupplier createRunfilesSupplier(
+      Artifact runfilesMiddleman,
       PathFragment root,
       Map<String, Artifact> symlinks,
       Map<String, Artifact> rootSymlinks,
       boolean legacyExternalRunfiles,
-      NestedSet<Artifact> artifacts,
-      @Nullable Artifact runfilesMiddleman) {
+      NestedSet<Artifact> artifacts) {
     Runfiles.Builder runfiles =
         new Runfiles.Builder(TestConstants.WORKSPACE_NAME, legacyExternalRunfiles);
     runfiles.addTransitiveArtifacts(artifacts);
@@ -2028,18 +2087,19 @@ public abstract class SpawnLogContextTestBase {
   }
 
   protected static RunfilesSupplier createRunfilesSupplier(
+      Artifact runfilesMiddleman,
       PathFragment root,
       Map<String, Artifact> symlinks,
       Map<String, Artifact> rootSymlinks,
       boolean legacyExternalRunfiles,
       Artifact... artifacts) {
     return createRunfilesSupplier(
+        runfilesMiddleman,
         root,
         symlinks,
         rootSymlinks,
         legacyExternalRunfiles,
-        NestedSetBuilder.wrap(Order.COMPILE_ORDER, Arrays.asList(artifacts)),
-        /* runfilesMiddleman= */ null);
+        NestedSetBuilder.wrap(Order.COMPILE_ORDER, Arrays.asList(artifacts)));
   }
 
   protected static InputMetadataProvider createInputMetadataProvider(Artifact... artifacts)
