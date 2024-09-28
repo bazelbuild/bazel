@@ -34,20 +34,20 @@ import net.starlark.java.eval.Starlark;
 public interface RuleVisibility {
 
   /**
-   * Returns the list of labels that need to be loaded so that the visibility decision can be made
-   * during analysis time. E.g. for package group visibility, this is the list of package groups
-   * referenced. Does not include labels that have special meanings in the visibility declaration,
-   * e.g. "//visibility:*" or "//*:__pkg__".
-   */
-  List<Label> getDependencyLabels();
-
-  /**
-   * Returns the list of labels used during the declaration of this visibility. These do not
-   * necessarily represent loadable labels: for example, for public or private visibilities, the
-   * special labels "//visibility:*" will be returned, and so will be the special "//*:__pkg__"
-   * labels indicating a single package.
+   * Returns the list of all labels comprising this visibility.
+   *
+   * <p>This includes labels that are not loadable, such as //visibility:public and //foo:__pkg__.
    */
   List<Label> getDeclaredLabels();
+
+  /**
+   * Same as {@link #getDeclaredLabels}, but excludes labels that cannot be loaded.
+   *
+   * <p>I.e., this returns the labels of the top-level {@code package_group}s that must be loaded in
+   * order to determine the complete set of packages represented by this visibility. (Additional
+   * {@code package_group}s may need to be loaded due to their {@code includes} attribute.)
+   */
+  List<Label> getDependencyLabels();
 
   @SerializationConstant Label PUBLIC_LABEL = Label.parseCanonicalUnchecked("//visibility:public");
 
@@ -58,13 +58,13 @@ public interface RuleVisibility {
   RuleVisibility PUBLIC =
       new RuleVisibility() {
         @Override
-        public ImmutableList<Label> getDependencyLabels() {
-          return ImmutableList.of();
+        public ImmutableList<Label> getDeclaredLabels() {
+          return ImmutableList.of(PUBLIC_LABEL);
         }
 
         @Override
-        public ImmutableList<Label> getDeclaredLabels() {
-          return ImmutableList.of(PUBLIC_LABEL);
+        public ImmutableList<Label> getDependencyLabels() {
+          return ImmutableList.of();
         }
 
         @Override
@@ -77,13 +77,13 @@ public interface RuleVisibility {
   RuleVisibility PRIVATE =
       new RuleVisibility() {
         @Override
-        public ImmutableList<Label> getDependencyLabels() {
-          return ImmutableList.of();
+        public ImmutableList<Label> getDeclaredLabels() {
+          return ImmutableList.of(PRIVATE_LABEL);
         }
 
         @Override
-        public ImmutableList<Label> getDeclaredLabels() {
-          return ImmutableList.of(PRIVATE_LABEL);
+        public ImmutableList<Label> getDependencyLabels() {
+          return ImmutableList.of();
         }
 
         @Override
@@ -161,6 +161,9 @@ public interface RuleVisibility {
    * or {@code visibility} is private, the result is {@code visibility} or a visibility consisting
    * solely of {@code element}, respectively.
    *
+   * <p>If {@code element} is already present in {@code visibility}, the result is just {@code
+   * visibility}.
+   *
    * @throws EvalException if there's a problem parsing {@code element} into a visibility
    */
   static RuleVisibility concatWithElement(RuleVisibility visibility, Label element)
@@ -175,10 +178,15 @@ public interface RuleVisibility {
       // Public is idempotent.
       return RuleVisibility.PUBLIC;
     } else {
-      ImmutableList.Builder<Label> items = new ImmutableList.Builder<>();
-      items.addAll(visibility.getDeclaredLabels());
-      items.add(element);
-      return parse(items.build());
+      List<Label> items = visibility.getDeclaredLabels();
+      if (items.contains(element)) {
+        return visibility;
+      } else {
+        ImmutableList.Builder<Label> newItems = new ImmutableList.Builder<>();
+        newItems.addAll(items);
+        newItems.add(element);
+        return parse(newItems.build());
+      }
     }
   }
 

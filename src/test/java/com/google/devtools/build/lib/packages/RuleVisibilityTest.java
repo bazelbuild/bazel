@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.packages.RuleVisibility.concatWithElement;
 
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -44,43 +45,42 @@ public final class RuleVisibilityTest {
     assertThat(vis1.getDeclaredLabels()).isEqualTo(vis2.getDeclaredLabels());
   }
 
+  private static final String A = "//a:__pkg__";
+  // Package group labels are represented differently than __pkg__ labels, so cover both cases.
+  private static final String B = "//b:pkggroup";
+  private static final String C = "//c:__pkg__";
+  private static final String PUBLIC = "//visibility:public";
+  private static final String PRIVATE = "//visibility:private";
+  private static final RuleVisibility PUBLIC_VIS = RuleVisibility.PUBLIC;
+  private static final RuleVisibility PRIVATE_VIS = RuleVisibility.PRIVATE;
+
   @Test
   public void concatenation() throws Exception {
-    RuleVisibility normalVis = ruleVisibility("//a:__pkg__", "//b:__pkg__");
-    RuleVisibility publicVis = RuleVisibility.PUBLIC;
-    RuleVisibility privateVis = RuleVisibility.PRIVATE;
     // Technically the empty visibility is a distinct object from private visibility, even though
     // it has the same semantics.
     RuleVisibility emptyVis = ruleVisibility();
 
-    assertEqual(
-        RuleVisibility.concatWithElement(normalVis, label("//c:__pkg__")),
-        ruleVisibility("//a:__pkg__", "//b:__pkg__", "//c:__pkg__"));
-    assertEqual(
-        RuleVisibility.concatWithElement(normalVis, label("//visibility:public")), publicVis);
-    assertEqual(
-        RuleVisibility.concatWithElement(normalVis, label("//visibility:private")), normalVis);
+    assertEqual(concatWithElement(ruleVisibility(A, B), label(C)), ruleVisibility(A, B, C));
+    assertEqual(concatWithElement(ruleVisibility(A, B), label(PUBLIC)), PUBLIC_VIS);
+    assertEqual(concatWithElement(ruleVisibility(A, B), label(PRIVATE)), ruleVisibility(A, B));
 
-    assertEqual(RuleVisibility.concatWithElement(publicVis, label("//c:__pkg__")), publicVis);
-    assertEqual(
-        RuleVisibility.concatWithElement(publicVis, label("//visibility:public")), publicVis);
-    assertEqual(
-        RuleVisibility.concatWithElement(publicVis, label("//visibility:private")), publicVis);
+    assertEqual(concatWithElement(PUBLIC_VIS, label(C)), PUBLIC_VIS);
+    assertEqual(concatWithElement(PUBLIC_VIS, label(PUBLIC)), PUBLIC_VIS);
+    assertEqual(concatWithElement(PUBLIC_VIS, label(PRIVATE)), PUBLIC_VIS);
 
-    assertEqual(
-        RuleVisibility.concatWithElement(privateVis, label("//c:__pkg__")),
-        ruleVisibility("//c:__pkg__"));
-    assertEqual(
-        RuleVisibility.concatWithElement(privateVis, label("//visibility:public")), publicVis);
-    assertEqual(
-        RuleVisibility.concatWithElement(privateVis, label("//visibility:private")), privateVis);
+    assertEqual(concatWithElement(PRIVATE_VIS, label(C)), ruleVisibility(C));
+    assertEqual(concatWithElement(PRIVATE_VIS, label(PUBLIC)), PUBLIC_VIS);
+    assertEqual(concatWithElement(PRIVATE_VIS, label(PRIVATE)), PRIVATE_VIS);
 
+    assertEqual(concatWithElement(emptyVis, label(C)), ruleVisibility(C));
+    assertEqual(concatWithElement(emptyVis, label(PUBLIC)), PUBLIC_VIS);
+    assertEqual(concatWithElement(emptyVis, label(PRIVATE)), emptyVis);
+
+    // Duplicates are not added, though they are preserved.
+    assertEqual(concatWithElement(ruleVisibility(A, B), label(A)), ruleVisibility(A, B));
     assertEqual(
-        RuleVisibility.concatWithElement(emptyVis, label("//c:__pkg__")),
-        ruleVisibility("//c:__pkg__"));
+        concatWithElement(ruleVisibility(A, B, B, A), label(A)), ruleVisibility(A, B, B, A));
     assertEqual(
-        RuleVisibility.concatWithElement(emptyVis, label("//visibility:public")), publicVis);
-    assertEqual(
-        RuleVisibility.concatWithElement(emptyVis, label("//visibility:private")), emptyVis);
+        concatWithElement(ruleVisibility(A, B, B, A), label(C)), ruleVisibility(A, B, B, A, C));
   }
 }

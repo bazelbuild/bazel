@@ -1693,9 +1693,10 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     Package pkg = loadPackageAndAssertSuccess("pkg");
     assertVisibilityIs(pkg.getTarget("foo_public"), "//visibility:public");
     assertVisibilityIs(pkg.getTarget("foo_private"), "//lib:__pkg__");
-    // Visibility is a label_list. Label lists don't do duplicate elimination. (Nor can we eliminate
-    // all logical redundancies anyway, since visibilities may refer to redundant package groups.)
-    assertVisibilityIs(pkg.getTarget("foo_selfvisible"), "//lib:__pkg__", "//lib:__pkg__");
+    // The visibility concatenation operation does not add any label that would duplicate an
+    // existing one. (Note that we can't eliminate *all* possible redundancy, since the visibility
+    // list's semantics depend on expanding package_groups.)
+    assertVisibilityIs(pkg.getTarget("foo_selfvisible"), "//lib:__pkg__");
   }
 
   @Test
