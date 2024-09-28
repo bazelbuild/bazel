@@ -59,6 +59,7 @@ import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.ExecGroup;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.MacroClass;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.PredicateWithMessage;
@@ -272,7 +273,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(implementation=_impl)
         """);
@@ -295,7 +296,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(implementation=_impl)
         """);
@@ -320,7 +321,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         s = struct(m = macro(implementation=_impl))
         """);
@@ -345,7 +346,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(implementation=_impl)
 
@@ -375,7 +376,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(implementation=_impl)
         """);
@@ -400,7 +401,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(implementation=_impl)
         """);
@@ -425,7 +426,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, target_suffix):
+        def _impl(name, visibility, target_suffix):
             native.cc_library(name = name + "_" + target_suffix)
         my_macro = macro(
             implementation=_impl,
@@ -456,7 +457,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(
             implementation = _impl,
@@ -490,7 +491,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     evalAndExport(
         ev,
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(
             implementation = _impl,
@@ -510,7 +511,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(
             implementation = _impl,
@@ -540,7 +541,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, _xyz):
+        def _impl(name, visibility, _xyz):
             print("_xyz is %s" % _xyz)
         my_macro = macro(
             implementation=_impl,
@@ -572,7 +573,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.checkEvalErrorContains(
         "In macro attribute 'xyz': Macros do not support computed defaults or late-bound defaults",
         """
-        def _impl(name, xyz): pass
+        def _impl(name, visibility, xyz): pass
         def _computed_default(): return "DEFAULT"
         my_macro = macro(
             implementation=_impl,
@@ -599,7 +600,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     ev.checkEvalErrorContains(
         "In macro attribute 'xyz': Macros do not support computed defaults or late-bound defaults",
         """
-        def _impl(name, xyz): pass
+        def _impl(name, visibility, xyz): pass
         _latebound_default = configuration_field(fragment = "cpp", name = "cc_toolchain")
         my_macro = macro(
             implementation=_impl,
@@ -617,7 +618,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     evalAndExport(
         ev,
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         exported = macro(
             implementation=_impl,
@@ -662,6 +663,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         .containsExactly(
             "name",
             RuleClass.NAME_ATTRIBUTE,
+            "visibility",
+            MacroClass.VISIBILITY_ATTRIBUTE,
             "abc",
             Attribute.attr("abc", Type.INTEGER).starlarkDefined().build(),
             "xyz",
@@ -851,8 +854,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, xyz):
-            print("xyz is %s" % xyz)
+        def _impl(ctx):
+            print("xyz is %s" % ctx.attr.xyz)
         my_rule = rule(
             implementation=_impl,
             attrs = {
@@ -884,8 +887,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, xyz):
-            print("xyz is %s" % xyz)
+        def _impl(ctx):
+            print("xyz is %s" % ctx.attr.xyz)
         my_aspect = aspect(
             implementation=_impl,
             attrs = {
@@ -6514,8 +6517,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, xyz):
-            print("xyz is %s" % xyz)
+        def _impl(ctx):
+            print("xyz is %s" % ctx.attr.xyz)
         my_rule = rule(
             implementation=_impl,
             attrs = {

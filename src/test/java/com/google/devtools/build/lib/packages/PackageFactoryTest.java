@@ -1185,7 +1185,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "pkg/my_macro.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(implementation = _impl)
         """);
@@ -1376,7 +1376,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "pkg/my_macro.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             native.cc_library(
                 name = name,
                 srcs = ["//pkg:src_A.txt", "//pkg:src_B.txt"],
@@ -1405,15 +1405,15 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "pkg/my_macro.bzl",
         """
-        def _inner_impl(name):
+        def _inner_impl(name, visibility):
             native.cc_library(name = name)
         inner_macro = macro(implementation=_inner_impl, finalizer = True)
 
-        def _middle_impl(name):
+        def _middle_impl(name, visibility):
             inner_macro(name = name)
         middle_macro = macro(implementation=_middle_impl, finalizer = True)
 
-        def _outer_impl(name):
+        def _outer_impl(name, visibility):
             middle_macro(name = name)
         outer_macro = macro(implementation=_outer_impl, finalizer = True)
         """);
@@ -1434,7 +1434,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "pkg/recursive_macro.bzl",
         String.format(
             """
-            def _impl(name, height):
+            def _impl(name, visibility, height):
                 if height == 0:
                     native.cc_library(name = name)
                 else:
@@ -1501,7 +1501,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "pkg/recursive_macro.bzl",
         """
-        def _A_impl(name, stop):
+        def _A_impl(name, visibility, stop):
             if stop:
                 native.cc_library(name = name)
             else:
@@ -1514,7 +1514,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
             },
         )
 
-        def _B_impl(name):
+        def _B_impl(name, visibility):
             macro_A(
                 name = name + "_A",
                 stop = True,
@@ -1522,7 +1522,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
         macro_B = macro(implementation = _B_impl)
 
-        def _main_impl(name):
+        def _main_impl(name, visibility):
             macro_A(name = name)
 
         main_macro = macro(implementation = _main_impl)
@@ -1573,7 +1573,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "lib/macro.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             native.cc_library(
                 name = name,
                 visibility = ["//other_pkg:__pkg__"],
@@ -1604,7 +1604,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "inner/macro.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             native.cc_library(
                 name = name,
                 visibility = ["//other_pkg:__pkg__"],
@@ -1616,7 +1616,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
         "outer/macro.bzl",
         """
         load("//inner:macro.bzl", "inner_macro")
-        def _impl(name):
+        def _impl(name, visibility):
             inner_macro(name = name)
         outer_macro = macro(implementation = _impl)
         """);
@@ -1640,7 +1640,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "lib/macro.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             native.cc_library(name = name)
         my_macro = macro(implementation = _impl)
         """);
@@ -1667,7 +1667,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "lib/macro.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             native.cc_library(
                 name = name + "_public",
                 visibility = ["//visibility:public"],
@@ -1705,7 +1705,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "lib/macro.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             native.exports_files([name + "_exported"])
             native.exports_files([name + "_internal"], visibility = ["//visibility:private"])
         my_macro = macro(implementation = _impl)
@@ -1730,7 +1730,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "lib/macro.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             native.package_group(name = name)
         my_macro = macro(implementation = _impl)
         """);
@@ -1754,7 +1754,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "lib/macro.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             native.cc_library(
                 name = name,
                 visibility = ["//visibility:not_a_valid_specifier"],

@@ -1718,7 +1718,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         def _top_level_rule_impl(ctx):
           print('My Dep Providers:', ctx.attr.my_dep)
 
-        def _dep_rule_impl(name):
+        def _dep_rule_impl(ctx):
           providers = [
               FooInfo(),
               BarInfo(),

@@ -373,7 +373,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     MacroClass.Builder builder = new MacroClass.Builder(implementation);
-    builder.addAttribute(RuleClass.NAME_ATTRIBUTE);
+    // "name" and "visibility" attributes are added automatically by the builder.
     for (Map.Entry<String, Descriptor> descriptorEntry :
         Dict.cast(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
       String attrName = descriptorEntry.getKey();

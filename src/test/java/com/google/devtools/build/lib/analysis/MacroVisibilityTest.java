@@ -27,6 +27,9 @@ import org.junit.runner.RunWith;
 /**
  * Tests for the how the visibility system works with respect to symbolic macros, i.e. the
  * Macro-Aware Visibility design.
+ *
+ * <p>This does *not* include tests of how the {@code visibility} attribute's value gets determined
+ * and threaded through macros.
  */
 @RunWith(TestParameterInjector.class)
 public final class MacroVisibilityTest extends BuildViewTestCase {
@@ -180,7 +183,7 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
         """
         load("//rules:simple_rule.bzl", "simple_rule")
 
-        def _impl(name):
+        def _impl(name, visibility):
             simple_rule(
                 name = name + "_exported",
                 visibility = ["//pkg:__pkg__"],
@@ -226,7 +229,7 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
         """
         load("//rules:simple_rule.bzl", "simple_rule")
 
-        def _impl(name):
+        def _impl(name, visibility):
             simple_rule(name = name + "_consumes_exported_ruletarget", dep = "//pkg:exported")
             simple_rule(name = name + "_consumes_exported_output", dep = "//pkg:exported.bin")
             simple_rule(name = name + "_consumes_exported_input", dep = "//pkg:exported_input")
@@ -272,7 +275,7 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
         """
         load("//rules:simple_rule.bzl", "simple_rule")
 
-        def _impl(name):
+        def _impl(name, visibility):
             simple_rule(
                 name = name + "_internal",
             )
@@ -293,7 +296,7 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
         """
         load("//rules:simple_rule.bzl", "simple_rule")
 
-        def _impl(name):
+        def _impl(name, visibility):
             simple_rule(
                 name = name + "_consumes_internal",
                 dep = "//pkg:foo_internal",
@@ -334,7 +337,7 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
         """
         load("//rules:simple_rule.bzl", "simple_rule")
 
-        def _impl(name):
+        def _impl(name, visibility):
             simple_rule(
                 name = name + "_ruletarget",
             )
@@ -382,7 +385,7 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
         """
         load("//rules:simple_rule.bzl", "simple_rule")
 
-        def _impl(name):
+        def _impl(name, visibility):
             simple_rule(name = name + "_macro_target", dep = "//pkg:build_target")
 
         my_macro = macro(implementation=_impl)
@@ -436,7 +439,7 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
         "B/impl.bzl",
         """
         load("//A:helper.bzl", "helper")
-        def impl(name):
+        def impl(name, visibility):
             helper(name)
         """);
     scratch.file("C/BUILD");
@@ -504,7 +507,7 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
         """
         load("//rules:simple_rule.bzl", "simple_rule")
 
-        def _impl(name):
+        def _impl(name, visibility):
             simple_rule(
                 name = name + "_wants_vis_to_inner",
                 dep = "//common:vis_to_inner",
@@ -523,7 +526,7 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
         load("//rules:simple_rule.bzl", "simple_rule")
         load("//inner:macro.bzl", "inner_macro")
 
-        def _impl(name):
+        def _impl(name, visibility):
             inner_macro(name = name + "_inner")
             simple_rule(
                 name = name + "_wants_vis_to_inner",
@@ -566,7 +569,7 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
             """
             load("//rules:simple_rule.bzl", "simple_rule")
 
-            def _impl(name, dep):
+            def _impl(name, visibility, dep):
                 simple_rule(
                     name = name,
                     dep = dep,
@@ -622,7 +625,7 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
             """
             load("%2$s", "%3$s")
 
-            def _impl(name, dep):
+            def _impl(name, visibility, dep):
                 %3$s(
                     name = name,
                     %4$s,
@@ -772,7 +775,7 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
         """
         load("//rules:simple_rule.bzl", "simple_rule")
 
-        def _impl(name, _v2P_implicitdep, _v2M_implicitdep):
+        def _impl(name, visibility, _v2P_implicitdep, _v2M_implicitdep):
             simple_rule(
                 name = name + "_consumes_v2P_hardcoded",
                 dep = "//common:v2P_hardcoded",
