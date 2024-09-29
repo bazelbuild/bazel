@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_cc//cc/toolchains:cc_flags_supplier.bzl", _cc_flags_supplier="cc_flags_supplier")
+load("@rules_cc//cc:defs.bzl", _cc_flags_supplier="cc_flags_supplier")
 
 cc_flags_supplier = _cc_flags_supplier

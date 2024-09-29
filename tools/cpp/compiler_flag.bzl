@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-load("@rules_cc//cc/toolchains:compiler_flag.bzl", _compiler_flag="compiler_flag")
+load("@rules_cc//cc:defs.bzl", _compiler_flag="compiler_flag")
 
 compiler_flag = _compiler_flag
