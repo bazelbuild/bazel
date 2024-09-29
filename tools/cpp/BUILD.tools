@@ -47,7 +47,7 @@ toolchain_type(name = "test_runner_toolchain_type")
         "current_cc_toolchain": "@rules_cc//cc:current_cc_toolchain",
         "optional_current_cc_toolchain": "@rules_cc//cc:optional_current_cc_toolchain",
         "current_libc_top": "@rules_cc//cc:current_libc_top",
-    }
+    }.items()
 ]
 
 cc_library(
@@ -116,13 +116,6 @@ alias(
 alias(
     name = "host_xcodes",
     actual = "@local_config_xcode//:host_xcodes",
-)
-
-filegroup(
-    name = "srcs",
-    srcs = glob(["**"]) + [
-        "//tools/cpp/runfiles:srcs",
-    ],
 )
 
 cc_library(
