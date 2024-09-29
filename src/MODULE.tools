@@ -10,7 +10,7 @@ bazel_dep(name = "buildozer", version = "7.1.2")
 bazel_dep(name = "platforms", version = "0.0.10")
 bazel_dep(name = "zlib", version = "1.3.1.bcr.3")
 
-cc_configure = use_extension("//tools/cpp:cc_configure.bzl", "cc_configure_extension")
+cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
 use_repo(cc_configure, "local_config_cc", "local_config_cc_toolchains")
 register_toolchains("@local_config_cc_toolchains//:all")
 
