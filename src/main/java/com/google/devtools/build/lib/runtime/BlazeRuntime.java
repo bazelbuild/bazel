@@ -78,6 +78,7 @@ import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Filesystem;
 import com.google.devtools.build.lib.server.GrpcServerImpl;
+import com.google.devtools.build.lib.server.IdleTask;
 import com.google.devtools.build.lib.server.PidFileWatcher;
 import com.google.devtools.build.lib.server.RPCServer;
 import com.google.devtools.build.lib.server.ShutdownHooks;
@@ -668,6 +669,11 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       try (SilentCloseable closeable = Profiler.instance().profile(module + ".commandComplete")) {
         module.commandComplete();
       }
+    }
+
+    ImmutableList<IdleTask> idleTasks = env.getIdleTasks();
+    if (!idleTasks.isEmpty()) {
+      finalCommandResult = BlazeCommandResult.withIdleTasks(finalCommandResult, idleTasks);
     }
 
     env.getReporter().clearEventBus();
