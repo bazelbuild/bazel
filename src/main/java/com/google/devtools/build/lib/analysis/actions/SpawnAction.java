@@ -403,6 +403,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       message.append(ShellEscaper.escapeString(var));
       message.append('\n');
     }
+    for (Map.Entry<String, String> entry : getExecutionInfo().entrySet()) {
+      message.append("  Execution info: ");
+      message.append(entry.getKey()).append('=').append(entry.getValue());
+      message.append('\n');
+    }
     try {
       for (String argument : ShellEscaper.escapeAll(getArguments())) {
         message.append("  Argument: ");
