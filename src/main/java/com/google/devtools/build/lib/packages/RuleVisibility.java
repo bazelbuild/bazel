@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -94,14 +95,15 @@ public interface RuleVisibility {
 
   /** Validates and parses the given labels into a {@link RuleVisibility}. */
   static RuleVisibility parse(List<Label> labels) throws EvalException {
-    validate(labels);
-    return parseUnchecked(labels);
+    return parseUnchecked(validateAndSimplify(labels));
   }
 
   /**
-   * Same as {@link #parse} except does not perform validation checks.
+   * Same as {@link #parse} except does not perform validation checks or public/private
+   * simplification.
    *
-   * <p>Use only after the given labels have been {@linkplain #validate validated}.
+   * <p>Use only after the given labels have been {@linkplain #validateAndSimplify validated and
+   * simplified}.
    */
   static RuleVisibility parseUnchecked(List<Label> labels) {
     RuleVisibility result = parseIfConstant(labels);
@@ -115,14 +117,15 @@ public interface RuleVisibility {
    * If the given list of labels represents a constant {@link RuleVisibility} ({@link #PUBLIC} or
    * {@link #PRIVATE}), returns that visibility instance, otherwise returns {@code null}.
    *
-   * <p>Use only after the given labels have been {@linkplain #validate validated}.
+   * <p>Use only after the given labels have been {@linkplain #validateAndSimplify validated and
+   * simplified}.
    */
   @Nullable
   static RuleVisibility parseIfConstant(List<Label> labels) {
     if (labels.size() != 1) {
       return null;
     }
-    Label label = labels.get(0);
+    Label label = labels.getFirst();
     if (label.equals(PUBLIC_LABEL)) {
       return PUBLIC;
     }
@@ -132,25 +135,57 @@ public interface RuleVisibility {
     return null;
   }
 
-  static void validate(List<Label> labels) throws EvalException {
+  @CanIgnoreReturnValue
+  private static Label validate(Label label) throws EvalException {
+    if (label.getPackageIdentifier().equals(PUBLIC_LABEL.getPackageIdentifier())
+        && PackageSpecification.fromLabel(label) == null) {
+      // In other words, if the label is in //visibility and is not //visibility:public,
+      // //visibility:private, or (for the unusual case where //visibility exists as a package)
+      // //visibility:__pkg__ or //visibility:__subpackages__
+      throw Starlark.errorf(
+          "Invalid visibility label '%s'; did you mean //visibility:public or"
+              + " //visibility:private?",
+          label);
+    }
+    return label;
+  }
+
+  /**
+   * Validates visibility labels, simplifies a list containing "//visibility:public" to
+   * ["//visibility:public"], drops "//visibility:private" if it occurs with other labels, and
+   * canonicalizes an empty list to ["//visibility:private"].
+   *
+   * @param labels list of visibility labels; not modified even if mutable.
+   * @return either {@code labels} unmodified if it does not require simplification, or a new
+   *     simplified list of visibility labels.
+   */
+  // TODO(arostovtsev): we ought to uniquify the labels, matching the behavior of {@link
+  // #concatWithElement}; note that this would be an incompatible change (affects query output).
+  static List<Label> validateAndSimplify(List<Label> labels) throws EvalException {
+    boolean hasPublicLabel = false;
+    int numPrivateLabels = 0;
     for (Label label : labels) {
-      if (label.equals(PUBLIC_LABEL) || label.equals(PRIVATE_LABEL)) {
-        if (labels.size() > 1) {
-          throw Starlark.errorf(
-              "//visibility:public and //visibility:private cannot be used in combination with"
-                  + " other labels");
-        }
-      } else if (label.getPackageIdentifier().equals(PUBLIC_LABEL.getPackageIdentifier())
-          && PackageSpecification.fromLabel(label) == null) {
-        // In other words, if the label is in //visibility and is not //visibility:public,
-        // //visibility:private, or (for the unusual case where //visibility
-        // exists as a package) //visibility:__pkg__ or //visibility:__subpackages__
-        throw Starlark.errorf(
-            "Invalid visibility label '%s'; did you mean //visibility:public or"
-                + " //visibility:private?",
-            label);
+      if (label.equals(PUBLIC_LABEL)) {
+        // Do not short-circuit here; we want to validate all the labels.
+        hasPublicLabel = true;
+      } else if (label.equals(PRIVATE_LABEL)) {
+        numPrivateLabels++;
+      } else {
+        validate(label);
       }
     }
+    if (hasPublicLabel) {
+      return PUBLIC.getDeclaredLabels();
+    }
+    if (numPrivateLabels == labels.size()) {
+      return PRIVATE.getDeclaredLabels();
+    }
+    if (numPrivateLabels == 0) {
+      return labels;
+    }
+    return labels.stream()
+        .filter(label -> !label.equals(PRIVATE_LABEL))
+        .collect(ImmutableList.toImmutableList());
   }
 
   /**
@@ -184,8 +219,8 @@ public interface RuleVisibility {
       } else {
         ImmutableList.Builder<Label> newItems = new ImmutableList.Builder<>();
         newItems.addAll(items);
-        newItems.add(element);
-        return parse(newItems.build());
+        newItems.add(validate(element));
+        return parseUnchecked(newItems.build());
       }
     }
   }
