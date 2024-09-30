@@ -222,6 +222,16 @@ message ExecLogEntry {
   message Invocation {
     // The hash function used to compute digests.
     string hash_function_name = 1;
+
+    // The name of the subdirectory of the runfiles tree corresponding to the
+    // main repository (also known as the "workspace name").
+    //
+    // With --enable_bzlmod, this is always "_main", but can vary when using
+    // WORKSPACE.
+    string workspace_runfiles_directory = 2;
+
+    // Whether --experimental_sibling_repository_layout is enabled.
+    bool sibling_repository_layout = 3;
   }
 
   // An input or output file.
@@ -235,7 +245,7 @@ message ExecLogEntry {
   }
 
   // An input or output directory.
-  // May be a source directory, a runfiles or fileset tree, or a tree artifact.
+  // May be a source directory, a fileset tree, or a tree artifact.
   message Directory {
     // The directory path.
     string path = 1;
@@ -252,34 +262,101 @@ message ExecLogEntry {
   }
 
   // A set of spawn inputs.
-  // The contents of the set are the directly referenced files, directories and
-  // symlinks in addition to the contents of all transitively referenced sets.
+  // The contents of the set are the directly contained entries in addition to
+  // the contents of all transitively referenced sets. When order matters,
+  // transitive sets come before direct entries and within a set, entries are
+  // considered in left-to-right order ("postorder").
   // Sets are not canonical: two sets with different structure may yield the
   // same contents.
   message InputSet {
-    // Entry IDs of files belonging to this set.
-    repeated int32 file_ids = 1;
-    // Entry IDs of directories belonging to this set.
-    repeated int32 directory_ids = 2;
-    // Entry IDs of unresolved symlinks belonging to this set.
-    repeated int32 unresolved_symlink_ids = 3;
-    // Entry IDs of other sets contained in this set.
-    repeated int32 transitive_set_ids = 4;
+    // Entry IDs of files, directories, unresolved symlinks or runfiles trees
+    // belonging to this set.
+    repeated uint32 input_ids = 5;
+    // Entry IDs of other input sets contained in this set.
+    repeated uint32 transitive_set_ids = 4;
+
+    reserved 1, 2, 3;
+  }
+
+  // A collection of runfiles symlinked at custom locations.
+  // The contents of the set are the directly contained entries in addition to
+  // the contents of all transitively referenced sets. When order matters,
+  // transitive sets come before direct entries and within a set, entries are
+  // considered in left-to-right order ("postorder").
+  // Sets are not canonical: two sets with different structure may yield the
+  // same contents.
+  message SymlinkEntrySet {
+    // A map from relative paths of runfiles symlinks to the entry IDs of the
+    // symlink target, which may be a file, directory, or unresolved symlink.
+    map<string, uint32> direct_entries = 1;
+    // Entry IDs of other symlink entry sets transitively contained in this set.
+    repeated uint32 transitive_set_ids = 2;
+  }
+
+  // A structured representation of the .runfiles directory of an executable.
+  //
+  // Instead of storing the directory directly, the tree is represented
+  // similarly to its in-memory representation in Bazel and needs to be
+  // reassembled from the following parts (in case of path collisions, later
+  // entries overwrite earlier ones):
+  //
+  // 1. symlinks (symlinks_id)
+  // 2. artifacts at canonical locations (input_set_id)
+  // 3. empty files (empty_files)
+  // 4. root symlinks (root_symlinks_id)
+  // 5. the _repo_mapping file with the repo mapping manifest
+  // (repo_mapping_manifest)
+  // 6. the <workspace runfiles directory>/.runfile file (if the workspace
+  // runfiles directory
+  //    wouldn't exist otherwise)
+  //
+  // See SpawnLogReconstructor#reconstructRunfilesDir for details.
+  message RunfilesTree {
+    // The runfiles tree path.
+    string path = 1;
+    // The entry ID of the set of artifacts in the runfiles tree that are
+    // symlinked at their canonical locations relative to the tree path.
+    // See SpawnLogReconstructor#getRunfilesPaths for how to recover the
+    // tree-relative paths of the artifacts from their exec paths.
+    //
+    // In case of path collisions, later artifacts overwrite earlier ones and
+    // artifacts override custom symlinks.
+    //
+    // The referenced set must not transitively contain any runfile trees.
+    uint32 input_set_id = 2;
+    // The entry ID of the set of symlink entries with paths relative to the
+    // subdirectory of the runfiles tree root corresponding to the main
+    // repository.
+    uint32 symlinks_id = 3;
+    // The entry ID of the set of symlink entries with paths relative to the
+    // root of the runfiles tree.
+    uint32 root_symlinks_id = 4;
+    // The paths of empty files relative to the subdirectory of the runfiles
+    // tree root corresponding to the main repository.
+    repeated string empty_files = 5;
+    // The "_repo_mapping" file at the root of the runfiles tree, if it exists.
+    // Only the digest is stored as the relative path is fixed.
+    File repo_mapping_manifest = 6;
+    // Whether the runfiles tree contains external runfiles at their legacy
+    // locations (e.g. _main/external/bazel_tools/tools/bash/runfiles.bash)
+    // in addition to the default locations (e.g.
+    // bazel_tools/tools/bash/runfiles.bash).
+    bool legacy_external_runfiles = 7;
   }
 
   // A spawn output.
   message Output {
     oneof type {
-      // An output file, i.e., ctx.actions.declare_file.
-      int32 file_id = 1;
-      // An output directory, i.e., ctx.actions.declare_directory.
-      int32 directory_id = 2;
-      // An output unresolved symlink, i.e., ctx.actions.declare_symlink.
-      int32 unresolved_symlink_id = 3;
+      // The ID of a file (ctx.actions.declare_file), directory
+      // (ctx.actions.declare_directory) or unresolved symlink
+      // (ctx.actions.declare_symlink) that is an output of the spawn.
+      uint32 output_id = 5;
       // A declared output that is either missing or has the wrong type
       // (e.g., a file where a directory was expected).
       string invalid_output_path = 4;
     }
+
+    reserved 1, 2, 3;
   }
 
   // An executed spawn.
@@ -294,10 +371,10 @@ message ExecLogEntry {
     Platform platform = 3;
 
     // Entry ID of the set of inputs. Unset means empty.
-    int32 input_set_id = 4;
+    uint32 input_set_id = 4;
 
     // Entry ID of the set of tool inputs. Unset means empty.
-    int32 tool_set_id = 5;
+    uint32 tool_set_id = 5;
 
     // The set of outputs.
     repeated Output outputs = 6;
@@ -343,7 +420,8 @@ message ExecLogEntry {
 
   // A symlink action, which is not backed by a spawn.
   message SymlinkAction {
-    // The path of the input file of the action (i.e., the target of the symlink).
+    // The path of the input file of the action (i.e., the target of the
+    // symlink).
     string input_path = 1;
 
     // The path of the output file of the action (i.e., the symlink itself).
@@ -356,8 +434,9 @@ message ExecLogEntry {
     string mnemonic = 4;
   }
 
-  // The entry ID. Must be nonzero.
-  int32 id = 1;
+  // If nonzero, then this entry may be referenced by later entries by this ID.
+  // Nonzero IDs are unique within an execution log, but may not be contiguous.
+  uint32 id = 1;
 
   // The entry payload.
   oneof type {
@@ -368,5 +447,7 @@ message ExecLogEntry {
     InputSet input_set = 6;
     Spawn spawn = 7;
     SymlinkAction symlink_action = 8;
+    SymlinkEntrySet symlink_entry_set = 9;
+    RunfilesTree runfiles_tree = 10;
   }
 }

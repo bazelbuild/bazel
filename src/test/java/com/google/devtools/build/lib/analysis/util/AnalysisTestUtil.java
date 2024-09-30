@@ -558,7 +558,8 @@ public final class AnalysisTestUtil {
         runfiles,
         /* repoMappingManifest= */ null,
         RunfileSymlinksMode.SKIP,
-        /* buildRunfileLinks= */ false);
+        /* buildRunfileLinks= */ false,
+        /* runfilesMiddleman= */ null);
   }
 
   public static BuildOptions execOptions(BuildOptions targetOptions, EventHandler handler)

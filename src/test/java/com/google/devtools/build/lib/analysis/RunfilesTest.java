@@ -649,7 +649,8 @@ public class RunfilesTest extends FoundationTestCase {
                   public void fingerprint(Fingerprint fingerprint) {}
                 })
             .build();
-    assertThat(runfiles.getEmptyFilenames().toList())
-        .containsExactly("my-artifact-empty", "my-symlink-empty");
+    assertThat(runfiles.getEmptyFilenames())
+        .containsExactly(
+            PathFragment.create("my-artifact-empty"), PathFragment.create("my-symlink-empty"));
   }
 }

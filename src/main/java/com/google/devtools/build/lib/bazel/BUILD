@@ -136,6 +136,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/exec:executor_builder",
         "//src/main/java/com/google/devtools/build/lib/exec:module_action_context_registry",
         "//src/main/java/com/google/devtools/build/lib/exec:spawn_log_context",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
         "//src/main/java/com/google/devtools/build/lib/remote/options",
         "//src/main/java/com/google/devtools/build/lib/util:abrupt_exit_exception",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",

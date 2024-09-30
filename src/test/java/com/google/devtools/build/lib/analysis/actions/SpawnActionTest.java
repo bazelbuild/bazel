@@ -377,7 +377,8 @@ public final class SpawnActionTest extends BuildViewTestCase {
                     Runfiles.EMPTY,
                     /* repoMappingManifest= */ null,
                     RunfileSymlinksMode.SKIP,
-                    /* buildRunfileLinks= */ false))
+                    /* buildRunfileLinks= */ false,
+                    /* runfilesMiddleman= */ null))
             .addOutput(getBinArtifactWithNoOwner("output"))
             .setExecutable(scratch.file("/bin/xxx").asFragment())
             .setProgressMessage("Test")
@@ -581,7 +582,8 @@ public final class SpawnActionTest extends BuildViewTestCase {
         Runfiles.EMPTY,
         /* repoMappingManifest= */ null,
         RunfileSymlinksMode.SKIP,
-        /* buildRunfileLinks= */ false);
+        /* buildRunfileLinks= */ false,
+        /* runfilesMiddleman= */ null);
   }
 
   private ActionOwner nullOwnerWithTargetConfig() {

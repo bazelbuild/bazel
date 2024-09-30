@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth8.assertThat;
+import static com.google.devtools.build.lib.testutil.TestConstants.PRODUCT_NAME;
 
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.collect.ImmutableList;
@@ -22,18 +24,24 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
+import com.google.devtools.build.lib.actions.InputMetadataProvider;
+import com.google.devtools.build.lib.actions.RunfilesSupplier;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
+import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.exec.Protos.File;
 import com.google.devtools.build.lib.exec.Protos.SpawnExec;
 import com.google.devtools.build.lib.exec.util.SpawnBuilder;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -143,12 +151,13 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     assertThat(entries)
         .containsExactly(
             Protos.ExecLogEntry.newBuilder()
-                .setId(1)
                 .setInvocation(
-                    Protos.ExecLogEntry.Invocation.newBuilder().setHashFunctionName("SHA-256"))
+                    Protos.ExecLogEntry.Invocation.newBuilder()
+                        .setHashFunctionName("SHA-256")
+                        .setWorkspaceRunfilesDirectory(TestConstants.WORKSPACE_NAME)
+                        .setSiblingRepositoryLayout(siblingRepositoryLayout))
                 .build(),
             Protos.ExecLogEntry.newBuilder()
-                .setId(2)
                 .setSymlinkAction(
                     Protos.ExecLogEntry.SymlinkAction.newBuilder()
                         .setInputPath("source")
@@ -156,6 +165,91 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
                         .setMnemonic("Symlink")
                         .setTargetLabel("//pkg:symlink"))
                 .build());
+  }
+
+  @Test
+  public void testRunfilesTreeReusedForTool() throws Exception {
+    Artifact tool = ActionsTestUtil.createArtifact(rootDir, "data.txt");
+    writeFile(tool, "abc");
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "middleman");
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier(
+            runfilesMiddleman,
+            runfilesRoot,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            /* legacyExternalRunfiles= */ false,
+            NestedSetBuilder.wrap(Order.COMPILE_ORDER, ImmutableList.of(tool)));
+
+    Artifact firstInput = ActionsTestUtil.createArtifact(rootDir, "first_input");
+    writeFile(firstInput, "def");
+    InputMetadataProvider firstInputMetadataProvider =
+        createInputMetadataProvider(runfilesSupplier, firstInput, tool);
+    Artifact secondInput = ActionsTestUtil.createArtifact(rootDir, "second_input");
+    writeFile(secondInput, "ghi");
+    InputMetadataProvider secondInputMetadataProvider =
+        createInputMetadataProvider(runfilesSupplier, secondInput, tool);
+
+    Spawn firstSpawn =
+        defaultSpawnBuilder()
+            .withRunfilesSupplier(runfilesSupplier)
+            .withInputs(firstInput)
+            .withTool(runfilesMiddleman)
+            .build();
+    Spawn secondSpawn =
+        defaultSpawnBuilder()
+            .withRunfilesSupplier(runfilesSupplier)
+            .withInputs(secondInput)
+            .withTool(runfilesMiddleman)
+            .build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        firstSpawn,
+        firstInputMetadataProvider,
+        createInputMap(runfilesSupplier, firstInputMetadataProvider, firstInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+    context.logSpawn(
+        secondSpawn,
+        secondInputMetadataProvider,
+        createInputMap(runfilesSupplier, secondInputMetadataProvider, secondInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    var entries = closeAndReadCompactLog(context);
+    assertThat(entries.stream().filter(Protos.ExecLogEntry::hasRunfilesTree)).hasSize(1);
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath(PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/_main/data.txt")
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(true))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("first_input")
+                    .setDigest(getDigest("def"))
+                    .setIsTool(false))
+            .build(),
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath(PRODUCT_NAME + "-out/k8-fastbuild/bin/foo.runfiles/_main/data.txt")
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(true))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("second_input")
+                    .setDigest(getDigest("ghi"))
+                    .setIsTool(false))
+            .build());
   }
 
   @Override
@@ -167,6 +261,8 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     return new CompactSpawnLogContext(
         logPath,
         execRoot.asFragment(),
+        TestConstants.WORKSPACE_NAME,
+        siblingRepositoryLayout,
         remoteOptions,
         DigestHashFunction.SHA256,
         SyscallCache.NO_CACHE);
@@ -187,5 +283,20 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     }
 
     assertThat(actual).containsExactlyElementsIn(expected).inOrder();
+  }
+
+  private ImmutableList<Protos.ExecLogEntry> closeAndReadCompactLog(SpawnLogContext context)
+      throws IOException {
+    context.close();
+
+    ImmutableList.Builder<Protos.ExecLogEntry> entries = ImmutableList.builder();
+    try (InputStream in = logPath.getInputStream();
+        ZstdInputStream zstdIn = new ZstdInputStream(in)) {
+      Protos.ExecLogEntry entry;
+      while ((entry = Protos.ExecLogEntry.parseDelimitedFrom(zstdIn)) != null) {
+        entries.add(entry);
+      }
+    }
+    return entries.build();
   }
 }

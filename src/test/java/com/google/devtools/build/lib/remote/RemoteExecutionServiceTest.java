@@ -2552,6 +2552,11 @@ public class RemoteExecutionServiceTest {
       public RunfilesSupplier withOverriddenRunfilesDir(PathFragment newRunfilesDir) {
         throw new UnsupportedOperationException();
       }
+
+      @Override
+      public Map<Artifact, RunfilesTree> getRunfilesTreesForLogging() {
+        throw new UnsupportedOperationException();
+      }
     };
   }
 

@@ -216,7 +216,8 @@ public class LtoBackendActionTest extends BuildViewTestCase {
                     Runfiles.EMPTY,
                     /* repoMappingManifest= */ null,
                     RunfileSymlinksMode.SKIP,
-                    /* buildRunfileLinks= */ false));
+                    /* buildRunfileLinks= */ false,
+                    /* runfilesMiddleman= */ null));
 
             if (attributesToFlip.contains(KeyAttributes.INPUT)) {
               builder.addInput(artifactA);

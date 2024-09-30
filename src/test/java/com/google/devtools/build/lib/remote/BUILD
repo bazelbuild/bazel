@@ -81,6 +81,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
         "//src/main/java/com/google/devtools/build/lib/analysis:config/core_options",
         "//src/main/java/com/google/devtools/build/lib/analysis:server_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:symlink_entry",
         "//src/main/java/com/google/devtools/build/lib/authandtls",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper",
         "//src/main/java/com/google/devtools/build/lib/authandtls/credentialhelper:credential_module",

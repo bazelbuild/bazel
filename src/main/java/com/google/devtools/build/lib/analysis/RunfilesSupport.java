@@ -563,6 +563,22 @@ public final class RunfilesSupport implements RunfilesSupplier {
             runfiles,
             repoMappingManifest,
             runfileSymlinksMode,
-            buildRunfileLinks);
+            buildRunfileLinks,
+            runfilesMiddleman);
+  }
+
+  @Override
+  public Map<Artifact, RunfilesTree> getRunfilesTreesForLogging() {
+    return ImmutableMap.of(
+        getRunfilesMiddleman(),
+        new RunfilesTree(
+            getRunfilesDirectoryExecPath(),
+            runfiles.getArtifacts(),
+            runfiles.getEmptyFilenames(),
+            runfiles.getSymlinks(),
+            runfiles.getRootSymlinks(),
+            getRepoMappingManifest(),
+            runfiles.isLegacyExternalRunfiles(),
+            /* isMappingCached= */ false));
   }
 }

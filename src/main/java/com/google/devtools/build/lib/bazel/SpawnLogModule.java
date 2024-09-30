@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.exec.ExpandedSpawnLogContext;
 import com.google.devtools.build.lib.exec.ExpandedSpawnLogContext.Encoding;
 import com.google.devtools.build.lib.exec.ModuleActionContextRegistry;
 import com.google.devtools.build.lib.exec.SpawnLogContext;
+import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
@@ -104,6 +105,10 @@ public final class SpawnLogModule extends BlazeModule {
             new CompactSpawnLogContext(
                 outputPath,
                 env.getExecRoot().asFragment(),
+                env.getWorkspaceName(),
+                env.getOptions()
+                    .getOptions(BuildLanguageOptions.class)
+                    .experimentalSiblingRepositoryLayout,
                 env.getOptions().getOptions(RemoteOptions.class),
                 env.getRuntime().getFileSystem().getDigestFunction(),
                 env.getXattrProvider());
