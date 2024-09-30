@@ -61,6 +61,9 @@ import com.google.devtools.build.lib.query2.proto.proto2api.Build.GeneratedFile;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.QueryResult;
 import com.google.devtools.build.lib.query2.proto.proto2api.Build.SourceFile;
 import com.google.devtools.build.lib.query2.query.aspectresolvers.AspectResolver;
+import com.google.devtools.build.lib.starlarkdocextract.ExtractorContext;
+import com.google.devtools.build.lib.starlarkdocextract.LabelRenderer;
+import com.google.devtools.build.lib.starlarkdocextract.RuleInfoExtractor;
 import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -68,6 +71,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -114,6 +118,9 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
   protected boolean includeAttributeSourceAspects = false;
   private HashFunction hashFunction = null;
 
+  /** Non-null if and only if --proto:rule_classes option is set. */
+  @Nullable private RuleClassInfoFormatter ruleClassInfoFormatter;
+
   @Nullable private EventHandler eventHandler;
 
   @Override
@@ -139,6 +146,7 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     this.includeDefinitionStack = options.protoIncludeDefinitionStack;
     this.includeAttributeSourceAspects = options.protoIncludeAttributeSourceAspects;
     this.hashFunction = hashFunction;
+    this.ruleClassInfoFormatter = options.protoRuleClasses ? new RuleClassInfoFormatter() : null;
   }
 
   @Override
@@ -271,6 +279,10 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
           rulePb.addDefinitionStack(
               FormatUtils.getRootRelativeLocation(fr.location, rule.getPackage()) + ": " + fr.name);
         }
+      }
+
+      if (ruleClassInfoFormatter != null) {
+        ruleClassInfoFormatter.addRuleClassKeyAndInfoIfNeeded(rulePb, rule);
       }
       targetPb.setType(RULE);
       targetPb.setRule(rulePb);
@@ -539,6 +551,33 @@ public class ProtoOutputFormatter extends AbstractUnorderedFormatter {
     }
 
     throw new AssertionError("Unknown type: " + attrType);
+  }
+
+  private static class RuleClassInfoFormatter {
+    private final HashSet<String> ruleClassKeys = new HashSet<>();
+    private final ExtractorContext extractorContext =
+        ExtractorContext.builder()
+            .labelRenderer(LabelRenderer.DEFAULT)
+            .extractNonStarlarkAttrs(true)
+            .build();
+
+    /**
+     * Sets the rule_class_key field, and if the rule class key has not been seen before, also sets
+     * the rule_class_info field.
+     */
+    public void addRuleClassKeyAndInfoIfNeeded(Build.Rule.Builder rulePb, Rule rule) {
+      String ruleClassKey = rule.getRuleClassObject().getKey();
+      rulePb.setRuleClassKey(ruleClassKey);
+      if (ruleClassKeys.add(ruleClassKey)) {
+        // TODO(b/368091415): instead of rule.getRuleClass(), we should be using the rule's public
+        // name. But to find the public name, we would need access to the globals dictionary of
+        // the compiled Starlark module in which the rule class was defined, which would have to
+        // be retrieved from skyframe.
+        rulePb.setRuleClassInfo(
+            RuleInfoExtractor.buildRuleInfo(
+                extractorContext, rule.getRuleClass(), rule.getRuleClassObject()));
+      }
+    }
   }
 
   /**
