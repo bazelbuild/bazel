@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.Serializat
 import com.google.devtools.build.lib.skyframe.util.SkyframeExecutorTestUtils;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Root;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -39,8 +38,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class RemoteConfiguredTargetValueCodecTest extends AnalysisTestCase {
 
-  // TODO: b/369822761 - Fix this test.
-  @Ignore("b/369822761")
   @Test
   public void ruleConfiguredTargetValue_roundTripsToRemoteConfiguredTargetValue() throws Exception {
     scratch.file("a/BUILD", "sh_binary(name = 'a', srcs = ['a.sh'])");

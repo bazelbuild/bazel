@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.FieldInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ObjectInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.PrimitiveInfo;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.IdentityHashMap;
@@ -133,6 +134,13 @@ public final class Fingerprinter {
             .append("]");
         return Integer.MAX_VALUE;
       }
+    }
+
+    if (WeakReference.class.isAssignableFrom(type)) {
+      // A WeakReference is always be deserialized with empty referents. No information other than
+      // the presence of the WeakReference can be expected to match upon deserialization.
+      fingerprintOut.append(WeakReference.class.getCanonicalName());
+      return Integer.MAX_VALUE;
     }
 
     if (shouldInline(type)) {
