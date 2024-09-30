@@ -25,22 +25,11 @@ class BazelWorkspaceTest(test_base.TestBase):
     test_base.TestBase.setUp(self)
     self.DisableBzlmod()
 
-  def Read(self, src_path):
-    with open(src_path, 'r') as s:
-      return s.readlines()
-
   def testWorkspaceDotBazelFileInMainRepo(self):
     # Make sure no existing MODULE.bazel file.
     os.remove("MODULE.bazel")
-    rules_python = [
-                       "load('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')"] + self.Read(
-        self.Rlocation(
-            "io_bazel/src/test/py/bazel/default_repos_stanza.txt")) + [
-                   ] + [
-                       "load('@rules_python//python:repositories.bzl', 'py_repositories')",
-                       'py_repositories()'
-                   ]
-    workspace_dot_bazel = self.ScratchFile("WORKSPACE.bazel", rules_python)
+    workspace_dot_bazel = self.ScratchFile("WORKSPACE.bazel",
+                                           self.WorkspaceContent())
     self.ScratchFile(
         "BUILD",
         [
@@ -65,15 +54,7 @@ class BazelWorkspaceTest(test_base.TestBase):
 
   def testWorkspaceDotBazelFileWithExternalRepo(self):
     self.ScratchDir("A")
-    rules_python = [
-                       "load('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')"] + self.Read(
-        self.Rlocation(
-            "io_bazel/src/test/py/bazel/default_repos_stanza.txt")) + [
-                   ] + [
-                       "load('@rules_python//python:repositories.bzl', 'py_repositories')",
-                       'py_repositories()'
-                   ]
-    self.ScratchFile("A/WORKSPACE.bazel", rules_python)
+    self.ScratchFile("A/WORKSPACE.bazel", self.WorkspaceContent())
     self.ScratchFile("A/BUILD", [
         "load('@rules_python//python:py_library.bzl', 'py_library')",
         "py_library(",
@@ -85,10 +66,10 @@ class BazelWorkspaceTest(test_base.TestBase):
     self.ScratchFile("A/lib.py")
     work_dir = self.ScratchDir("B")
     # Test WORKSPACE.bazel takes priority over WORKSPACE
-    self.ScratchFile("B/WORKSPACE", rules_python)
+    self.ScratchFile("B/WORKSPACE", self.WorkspaceContent())
     workspace_dot_bazel = self.ScratchFile(
         "B/WORKSPACE.bazel",
-        rules_python + [
+        self.WorkspaceContent() + [
             (
                 'load("@bazel_tools//tools/build_defs/repo:local.bzl",'
                 ' "local_repository")'
@@ -119,7 +100,7 @@ class BazelWorkspaceTest(test_base.TestBase):
     # Test a WORKSPACE.bazel directory won't confuse Bazel
     self.ScratchFile(
         "B/WORKSPACE",
-        rules_python + [
+        self.WorkspaceContent() + [
             (
                 'load("@bazel_tools//tools/build_defs/repo:local.bzl",'
                 ' "local_repository")'

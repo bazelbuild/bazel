@@ -25,6 +25,7 @@ import subprocess
 import sys
 import tempfile
 from absl.testing import absltest
+
 import runfiles
 
 
@@ -56,6 +57,12 @@ class TestBase(absltest.TestCase):
   _worker_stderr = None
   _worker_proc = None
   _cas_path = None
+
+  def WorkspaceContent(self):
+    with open(
+        self.Rlocation("io_bazel/src/test/py/bazel/default_repos_stanza.txt"),
+        'r') as s:
+      return s.readlines()
 
   def setUp(self):
     absltest.TestCase.setUp(self)

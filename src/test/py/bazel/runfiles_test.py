@@ -15,6 +15,7 @@
 
 import os
 from absl.testing import absltest
+
 from src.test.py.bazel import test_base
 
 
@@ -260,8 +261,9 @@ class RunfilesTest(test_base.TestBase):
   def testLegacyExternalRunfilesOption(self):
     self.DisableBzlmod()
     self.ScratchDir("A")
-    self.ScratchFile("A/WORKSPACE")
+    self.ScratchFile("A/WORKSPACE", self.WorkspaceContent())
     self.ScratchFile("A/BUILD", [
+        "load('@rules_python//python:py_library.bzl', 'py_library')",
         "py_library(",
         "  name = 'lib',",
         "  srcs = ['lib.py'],",
@@ -271,9 +273,11 @@ class RunfilesTest(test_base.TestBase):
     self.ScratchFile("A/lib.py")
     work_dir = self.ScratchDir("B")
     self.ScratchFile("B/WORKSPACE",
+                     self.WorkspaceContent() +
                      ["local_repository(name = 'A', path='../A')"])
     self.ScratchFile("B/bin.py")
     self.ScratchFile("B/BUILD", [
+        "load('@rules_python//python:py_binary.bzl', 'py_binary')",
         "py_binary(",
         "  name = 'bin',",
         "  srcs = ['bin.py'],",
@@ -292,7 +296,8 @@ class RunfilesTest(test_base.TestBase):
     bazel_output = stdout[0]
 
     self.RunBazel(
-        args=["build", "--nolegacy_external_runfiles", ":gen"], cwd=work_dir
+        args=["build", "--nolegacy_external_runfiles",
+              "--incompatible_autoload_externally=", ":gen"], cwd=work_dir
     )
     [exec_dir] = [f for f in os.listdir(bazel_output) if "exec" in f]
     if self.IsWindows():
