@@ -50,7 +50,6 @@ java_library(
         "RuleInfoExtractor.java",
     ],
     deps = [
-        ":extractionexception",
         ":labelrenderer",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",

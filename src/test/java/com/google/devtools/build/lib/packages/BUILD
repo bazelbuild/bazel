@@ -17,7 +17,10 @@ filegroup(
 
 java_library(
     name = "PackageTestsUtil",
-    srcs = ["WorkspaceFactoryTestHelper.java"],
+    srcs = [
+        "BuildTypeTestHelper.java",
+        "WorkspaceFactoryTestHelper.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
