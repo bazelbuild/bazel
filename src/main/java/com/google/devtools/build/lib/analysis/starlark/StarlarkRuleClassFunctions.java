@@ -100,7 +100,7 @@ import com.google.devtools.build.lib.packages.StarlarkDefinedAspect;
 import com.google.devtools.build.lib.packages.StarlarkExportable;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
 import com.google.devtools.build.lib.packages.StarlarkProviderIdentifier;
-import com.google.devtools.build.lib.packages.TargetRegistrationEnvironment.NameConflictException;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.Type.LabelClass;
@@ -373,7 +373,7 @@ public class StarlarkRuleClassFunctions implements StarlarkRuleFunctionsApi {
     }
 
     MacroClass.Builder builder = new MacroClass.Builder(implementation);
-    builder.addAttribute(RuleClass.NAME_ATTRIBUTE);
+    // "name" and "visibility" attributes are added automatically by the builder.
     for (Map.Entry<String, Descriptor> descriptorEntry :
         Dict.cast(attrs, String.class, Descriptor.class, "attrs").entrySet()) {
       String attrName = descriptorEntry.getKey();

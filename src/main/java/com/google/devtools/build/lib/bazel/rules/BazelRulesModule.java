@@ -61,15 +61,6 @@ public final class BazelRulesModule extends BlazeModule {
     public boolean enableFdoProfileAbsolutePath;
 
     @Option(
-        name = "incompatible_disallow_unsound_directory_outputs",
-        defaultValue = "true",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
-        effectTags = {OptionEffectTag.NO_OP},
-        help = "Deprecated. No-op.")
-    public boolean disallowUnsoundDirectoryOutputs;
-
-    @Option(
         name = "experimental_use_scheduling_middlemen",
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
@@ -559,11 +550,8 @@ public final class BazelRulesModule extends BlazeModule {
           ResourceFileLoader.loadResource(BazelRulesModule.class, "xcode_configure.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(BazelShRuleClasses.class, "sh_configure.WORKSPACE"));
-
-      // Load rules_license, which is needed for license attestations for many rules, including
-      // things in @bazel_tools
       builder.addWorkspaceFileSuffix(
-          ResourceFileLoader.loadResource(BazelRulesModule.class, "rules_license.WORKSPACE"));
+          ResourceFileLoader.loadResource(BazelRulesModule.class, "rules_suffix.WORKSPACE"));
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }

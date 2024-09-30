@@ -317,7 +317,6 @@ java_library(
         "ArtifactResolver.java",
         "ArtifactRoot.java",
         "Artifacts.java",
-        "HasExecPathString.java",
         "PathMapper.java",
     ],
     deps = [

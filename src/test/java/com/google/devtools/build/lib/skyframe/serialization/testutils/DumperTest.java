@@ -19,6 +19,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.testutils.Dum
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import org.junit.Test;
@@ -32,6 +33,13 @@ public final class DumperTest {
   @Test
   public void testNull() {
     assertThat(dumpStructure(null)).isEqualTo("null");
+  }
+
+  @Test
+  public void testWeakReference() {
+    Integer referent = 10;
+    var ref = new WeakReference<>(referent);
+    assertThat(dumpStructure(ref)).isEqualTo("java.lang.ref.WeakReference");
   }
 
   @Test

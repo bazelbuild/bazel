@@ -18,7 +18,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.io.MoreFiles;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
@@ -97,7 +96,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "register_toolchains('@rules_java//java/toolchains/javac:all')",
         "register_toolchains('@bazel_tools//tools/cpp:all')",
         "register_toolchains('@bazel_tools//tools/jdk:all')",
-        "register_toolchains('@bazel_tools//tools/android:all')",
         "register_toolchains('@bazel_tools//tools/python:autodetecting_toolchain')",
         "local_repository(name='local_config_platform',path='"
             + localConfigPlatformWorkspace
@@ -370,15 +368,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
         ")");
 
     // Create the actual SDKs.
-    ImmutableList<String> androidBuildContents = createAndroidBuildContents();
-    config.create(
-        "embedded_tools/tools/android/BUILD", androidBuildContents.toArray(new String[0]));
     config.create(
         "embedded_tools/src/tools/android/java/com/google/devtools/build/android/r8/BUILD",
         "java_library(name='r8')\n");
-    config.create(
-        "embedded_tools/tools/android/emulator/BUILD",
-        Iterables.toArray(createToolsAndroidEmulatorContents(), String.class));
     config.create(
         "android_gmaven_r8/jar/BUILD",
         """
@@ -697,75 +689,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
     pySupport().setup(config);
     ShellConfiguration.injectShellExecutableFinder(
         BazelRuleClassProvider::getDefaultPathFromOptions, BazelRuleClassProvider.SHELL_EXECUTABLE);
-  }
-
-  /** Contents of {@code //tools/android/emulator/BUILD.tools}. */
-  private ImmutableList<String> createToolsAndroidEmulatorContents() {
-    return ImmutableList.of(
-        "exports_files(['emulator_arm', 'emulator_x86', 'mksd', 'empty_snapshot_fs'])",
-        "filegroup(name = 'emulator_x86_bios', srcs = ['bios.bin', 'vgabios-cirrus.bin'])",
-        "filegroup(name = 'xvfb_support', srcs = ['support_file1', 'support_file2'])",
-        "sh_binary(name = 'unified_launcher', srcs = ['empty.sh'])",
-        "filegroup(name = 'shbase', srcs = ['googletest.sh'])",
-        "filegroup(name = 'sdk_path', srcs = ['empty.sh'])");
-  }
-
-  private ImmutableList<String> createAndroidBuildContents() {
-    ImmutableList.Builder<String> androidBuildContents = ImmutableList.builder();
-
-    androidBuildContents.add(
-        "package(default_visibility=['//visibility:public'])",
-        "toolchain_type(name = 'sdk_toolchain_type')",
-        "filegroup(name = 'android_runtime_jar', srcs = ['android.jar'])",
-        "filegroup(name = 'dx_binary', srcs = ['dx_binary.jar'])");
-
-    androidBuildContents
-        .add("sh_binary(name = 'aar_generator', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'desugar_java8', srcs = ['empty.sh'])")
-        .add("filegroup(name = 'desugar_java8_extra_bootclasspath', srcs = ['fake.jar'])")
-        .add("filegroup(name = 'java8_legacy_dex', srcs = ['java8_legacy.dex.zip'])")
-        .add("sh_binary(name = 'build_java8_legacy_dex', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'merge_proguard_maps', srcs = ['empty.sh'])")
-        .add("filegroup(name = 'desugared_java8_legacy_apis', srcs = ['fake.jar'])")
-        .add("sh_binary(name = 'aar_native_libs_zip_creator', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'resource_extractor', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'dexbuilder', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'dexbuilder_after_proguard', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'dexmerger', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'dexsharder', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'aar_import_deps_checker', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'busybox', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'merge_dexzips', srcs = ['empty.sh'])")
-        .add("filegroup(name = 'debug_keystore', srcs = ['fake.file'])")
-        .add("sh_binary(name = 'databinding_exec', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'shuffle_jars', srcs = ['empty.sh'])")
-        .add("java_binary(name = 'IdlClass',")
-        .add("            runtime_deps = [ ':idlclass_import' ],")
-        .add("            main_class = 'com.google.devtools.build.android.idlclass.IdlClass')")
-        .add("java_binary(name = 'zip_filter',")
-        .add("            main_class = 'com.google.devtools.build.android.ZipFilterAction',")
-        .add("            runtime_deps = [ ':ZipFilterAction_import' ])")
-        .add("java_import(name = 'ZipFilterAction_import',")
-        .add("            jars = [ 'ZipFilterAction_deploy.jar' ])")
-        .add("sh_binary(name = 'aar_resources_extractor', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'aar_embedded_jars_extractor', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'aar_embedded_proguard_extractor', srcs = ['empty.sh'])")
-        .add("java_import(name = 'idlclass_import',")
-        .add("            jars = [ 'idlclass.jar' ])")
-        .add("exports_files(['adb', 'adb_static'])")
-        .add("sh_binary(name = 'android_runtest', srcs = ['empty.sh'])")
-        .add("sh_binary(name = 'instrumentation_test_entry_point', srcs = ['empty.sh'])")
-        .add("java_plugin(name = 'databinding_annotation_processor',")
-        .add("    generates_api = 1,")
-        .add("    processor_class = 'android.databinding.annotationprocessor.ProcessDataBinding')")
-        .add("sh_binary(name = 'instrumentation_test_check', srcs = ['empty.sh'])")
-        .add("package_group(name = 'android_device_allowlist', packages = ['public'])")
-        .add("package_group(name = 'export_deps_allowlist', packages = ['public'])")
-        .add("package_group(name = 'allow_android_library_deps_without_srcs_allowlist',")
-        .add("    packages=['public'])")
-        .add("sh_binary(name = 'dex_list_obfuscator', srcs = ['empty.sh'])");
-
-    return androidBuildContents.build();
   }
 
   @Override

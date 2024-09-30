@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.skyframe.serialization.analysis;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.skyframe.SkyKey;
 
@@ -31,6 +33,12 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   /** Returns true if the {@link PackageIdentifier} is in the set of active directories. */
   boolean withinActiveDirectories(PackageIdentifier pkg);
+
+  /**
+   * Returns the string distinguisher to invalidate SkyValues, in addition to the corresponding
+   * SkyKey.
+   */
+  FrontierNodeVersion getSkyValueVersion() throws SerializationException;
 
   /**
    * Returns the {@link ObjectCodecs} supplier for remote analysis caching.
@@ -58,6 +66,11 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     @Override
     public boolean withinActiveDirectories(PackageIdentifier pkg) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public FrontierNodeVersion getSkyValueVersion() {
       throw new UnsupportedOperationException();
     }
 

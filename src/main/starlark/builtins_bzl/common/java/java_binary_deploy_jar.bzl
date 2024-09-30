@@ -210,7 +210,7 @@ def create_deploy_archive(
     if one_version_level != "OFF" and one_version_allowlist:
         input_files.append(one_version_allowlist)
         args.add("--enforce_one_version")
-        args.add("--one_version_whitelist", one_version_allowlist)
+        args.add("--one_version_allowlist", one_version_allowlist)
         if one_version_level == "WARNING":
             args.add("--succeed_on_found_violations")
 

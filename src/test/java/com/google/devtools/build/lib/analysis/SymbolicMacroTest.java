@@ -104,7 +104,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             print("my_macro called with name = %s" % name)
         my_macro = macro(implementation=_impl)
         """);
@@ -136,7 +136,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         my_macro(name="abc")
         """);
 
-    assertGetPackageFailsWithEvent("pkg", "_impl() got unexpected keyword argument: name");
+    assertGetPackageFailsWithEvent(
+        "pkg", "_impl() got unexpected keyword arguments: name, visibility");
   }
 
   /**
@@ -149,7 +150,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         String.format("%s/foo.bzl", pkgName),
         String.format(
             """
-            def _impl(name):
+            def _impl(name, visibility):
                 native.cc_library(name="%s")
             my_macro = macro(implementation=_impl)
             """,
@@ -228,7 +229,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             # valid names
             native.exports_files(srcs=["abc_txt"])
             native.exports_files(srcs=["abc-txt"])
@@ -273,7 +274,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
               "out4": "lib%{name}.so",
             },
         )
-        def _my_macro_impl(name):
+        def _my_macro_impl(name, visibility):
             my_rule(name=name)
         my_macro = macro(implementation=_my_macro_impl)
         """);
@@ -316,7 +317,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             native.cc_library(name = name + "_inside_macro")
         my_macro = macro(implementation=_impl)
         """);
@@ -339,7 +340,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             native.cc_library(name = name + "_target")
         my_macro = macro(implementation=_impl)
         """);
@@ -360,7 +361,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             native.cc_library(
                 name = name,
                 srcs = ["explicit_input.cc", "implicit_input.cc"],
@@ -388,7 +389,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             native.cc_library(
                 name = name,
                 srcs = ["implicit_input.cc"],
@@ -415,10 +416,10 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _inner_impl(name):
+        def _inner_impl(name, visibility):
             native.cc_library(name = name + "_lib")
         inner_macro = macro(implementation=_inner_impl)
-        def _impl(name):
+        def _impl(name, visibility):
             inner_macro(name = name + "_inner")
         my_macro = macro(implementation=_impl)
         """);
@@ -440,10 +441,10 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _inner_impl(name):
+        def _inner_impl(name, visibility):
             pass
         inner_macro = macro(implementation=_inner_impl)
-        def _impl(name, sep):
+        def _impl(name, visibility, sep):
             inner_macro(name = name + sep + "inner")
         my_macro = macro(implementation=_impl, attrs={"sep": attr.string(configurable=False)})
         """);
@@ -472,15 +473,15 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _inner_impl(name):
+        def _inner_impl(name, visibility):
             native.cc_library(name = name)
         inner_macro = macro(implementation=_inner_impl)
 
-        def _middle_impl(name):
+        def _middle_impl(name, visibility):
             inner_macro(name = name)
         middle_macro = macro(implementation=_middle_impl)
 
-        def _outer_impl(name):
+        def _outer_impl(name, visibility):
             middle_macro(name = name)
         outer_macro = macro(implementation = _outer_impl)
         """);
@@ -504,7 +505,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             native.cc_library(name = name)
             native.cc_library(name = name)
         my_macro = macro(implementation=_impl)
@@ -525,11 +526,11 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _inner_impl(name):
+        def _inner_impl(name, visibility):
             pass
         inner_macro = macro(implementation=_inner_impl)
 
-        def _impl(name):
+        def _impl(name, visibility):
             inner_macro(name = name)
             inner_macro(name = name)
         my_macro = macro(implementation=_impl)
@@ -550,13 +551,13 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _inner_impl(name):
+        def _inner_impl(name, visibility):
             # Don't define a main target; we don't want to trigger a name conflict between this and
             # the outer target.
             pass
         inner_macro = macro(implementation=_inner_impl)
 
-        def _impl(name):
+        def _impl(name, visibility):
             inner_macro(name = name)
             native.cc_library(name = name)
         my_macro = macro(implementation=_impl)
@@ -577,13 +578,13 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _inner_impl(name):
+        def _inner_impl(name, visibility):
             # Don't define a main target; we don't want to trigger a name conflict between this and
             # the outer target.
             pass
         inner_macro = macro(implementation=_inner_impl)
 
-        def _impl(name):
+        def _impl(name, visibility):
             native.cc_library(name = name)
             inner_macro(name = name)
         my_macro = macro(implementation=_impl)
@@ -607,7 +608,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         "pkg/foo.bzl",
         String.format(
             """
-            def _impl(name):
+            def _impl(name, visibility):
                 %s
             my_macro = macro(implementation=_impl)
             """,
@@ -671,7 +672,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             native.cc_binary(name = name + "_lib")
         my_macro = macro(implementation=_impl)
         def query():
@@ -696,7 +697,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             native.cc_binary(name = name + "_lib")
         my_macro = macro(implementation=_impl, finalizer=True)
         def query():
@@ -723,7 +724,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, dep):
+        def _impl(name, visibility, dep):
             print("dep is %s" % dep)
         my_macro = macro(
             implementation=_impl,
@@ -750,7 +751,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, xyz):
+        def _impl(name, visibility, xyz):
             print("xyz is %s" % xyz)
         my_macro = macro(
             implementation=_impl,
@@ -776,7 +777,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, xyz):
+        def _impl(name, visibility, xyz):
             print("xyz is %s" % xyz)
         my_macro = macro(
             implementation=_impl,
@@ -805,7 +806,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, _xyz):
+        def _impl(name, visibility, _xyz):
             print("xyz is %s" % _xyz)
         my_macro = macro(
             implementation=_impl,
@@ -831,7 +832,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, xyz):
+        def _impl(name, visibility, xyz):
             print("xyz is %s" % xyz)
         my_macro = macro(
             implementation=_impl,
@@ -860,7 +861,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(
             implementation = _impl,
@@ -888,7 +889,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name):
+        def _impl(name, visibility):
             pass
         my_macro = macro(
             implementation = _impl,
@@ -917,7 +918,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "lib/foo.bzl",
         """
-        def _impl(name, xyz, _xyz):
+        def _impl(name, visibility, xyz, _xyz):
             print("xyz is %s" % xyz)
             print("_xyz is %s" % _xyz)
         my_macro = macro(
@@ -949,7 +950,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, xyz):
+        def _impl(name, visibility, xyz):
             xyz.append(4)
         my_macro = macro(
             implementation=_impl,
@@ -977,7 +978,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, xyz):
+        def _impl(name, visibility, xyz):
             print("xyz is %s" % xyz)
         my_macro = macro(
             implementation=_impl,
@@ -1017,21 +1018,21 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, attr_using_schema_default, attr_using_hardcoded_nonnull_default,
-                  attr_using_hardcoded_null_default):
-            print("attr_using_schema_default is %s" % attr_using_schema_default)
-            print("attr_using_hardcoded_nonnull_default is %s"
-                      % attr_using_hardcoded_nonnull_default)
-            print("attr_using_hardcoded_null_default is %s" % attr_using_hardcoded_null_default)
-        my_macro = macro(
-            implementation=_impl,
-            attrs = {
-              "attr_using_schema_default": attr.string(default="some_default"),
-              "attr_using_hardcoded_nonnull_default": attr.string(),
-              "attr_using_hardcoded_null_default": attr.label(),
-            },
-        )
-        """);
+def _impl(name, visibility, attr_using_schema_default, attr_using_hardcoded_nonnull_default,
+          attr_using_hardcoded_null_default):
+    print("attr_using_schema_default is %s" % attr_using_schema_default)
+    print("attr_using_hardcoded_nonnull_default is %s"
+              % attr_using_hardcoded_nonnull_default)
+    print("attr_using_hardcoded_null_default is %s" % attr_using_hardcoded_null_default)
+my_macro = macro(
+    implementation=_impl,
+    attrs = {
+      "attr_using_schema_default": attr.string(default="some_default"),
+      "attr_using_hardcoded_nonnull_default": attr.string(),
+      "attr_using_hardcoded_null_default": attr.label(),
+    },
+)
+""");
     scratch.file(
         "pkg/BUILD",
         """
@@ -1077,7 +1078,7 @@ Label("//conditions:default"): None})""");
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, configurable_xyz, nonconfigurable_xyz):
+        def _impl(name, visibility, configurable_xyz, nonconfigurable_xyz):
             print("configurable_xyz is '%s' (type %s)" %
                 (str(configurable_xyz), type(configurable_xyz)))
             print("nonconfigurable_xyz is '%s' (type %s)" %
@@ -1115,7 +1116,7 @@ Label("//conditions:default"): None})""");
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, xyz):
+        def _impl(name, visibility, xyz):
             print("xyz is %s" % xyz)
         my_macro = macro(
             implementation=_impl,
@@ -1144,7 +1145,7 @@ Label("//conditions:default"): None})""");
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, xyz):
+        def _impl(name, visibility, xyz):
             # Allowed for now when xyz is a select().
             # In the future, we'll ban implicit conversion and only allow
             # if there's an explicit bool(xyz).
@@ -1181,7 +1182,7 @@ Label("//conditions:default"): None})""");
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, **kwargs):
+        def _impl(name, visibility, **kwargs):
             pass
         my_macro = macro(
             implementation = _impl,

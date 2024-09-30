@@ -269,16 +269,31 @@ public class AutoloadSymbols {
       if (AUTOLOAD_CONFIG.get(symbol).isRule()) {
         nativeBindings.remove(symbol);
       } else {
-        envBuilder.remove(symbol);
+        if (symbol.equals("proto_common_do_not_use")
+            && envBuilder.get("proto_common_do_not_use") instanceof StarlarkInfo) {
+          // proto_common_do_not_use can't be completely removed, because the implementation of
+          // proto rules in protobuf still relies on INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION,
+          // that reads the build language flag.
+          envBuilder.put(
+              "proto_common_do_not_use",
+              StructProvider.STRUCT.create(
+                  ImmutableMap.of(
+                      "INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION",
+                      ((StarlarkInfo) envBuilder.get("proto_common_do_not_use"))
+                          .getValue("INCOMPATIBLE_ENABLE_PROTO_TOOLCHAIN_RESOLUTION")),
+                  "no native symbol '%s'"));
+        } else {
+          envBuilder.remove(symbol);
+        }
       }
     }
 
     if (!isWithAutoloads) {
-      // In the repositories that don't have autoloads we also expose native.legacy_symbols.
+      // In the repositories that don't have autoloads we also expose native.legacy_globals.
       // Those can be used to fallback to the native symbol, whenever it's still available in Bazel.
       // Fallback using a top-level symbol doesn't work, because BzlCompileFunction would throw an
       // error when it's mentioned.
-      // legacy_symbols aren't available when autoloads are not enabled. The feature is intended to
+      // legacy_globals aren't available when autoloads are not enabled. The feature is intended to
       // be use with bazel_features repository, which can correctly report native symbols on all
       // versions of Bazel.
       ImmutableMap<String, Object> legacySymbols =
@@ -293,7 +308,7 @@ public class AutoloadSymbols {
                               ? ((GuardedValue) e.getValue()).getObject()
                               : e.getValue()));
       nativeBindings.put(
-          "legacy_symbols", StructProvider.STRUCT.create(legacySymbols, "no native symbol '%s'"));
+          "legacy_globals", StructProvider.STRUCT.create(legacySymbols, "no native symbol '%s'"));
     }
 
     envBuilder.put(
@@ -498,10 +513,6 @@ public class AutoloadSymbols {
         label, false, newName, ImmutableSet.copyOf(rdeps));
   }
 
-  private static final String[] androidRules = {
-    "aar_import", "android_binary", "android_library", "android_local_test", "android_sdk"
-  };
-
   private static final ImmutableSet<String> PREDECLARED_REPOS_DISALLOWING_AUTOLOADS =
       ImmutableSet.of(
           "protobuf",
@@ -529,7 +540,8 @@ public class AutoloadSymbols {
               symbolRedirect("@rules_cc//cc/common:cc_shared_library_hint_info.bzl", "cc_common"))
           .put(
               "cc_proto_aspect",
-              symbolRedirect("@protobuf//bazel/common:cc_proto_library.bzl", "cc_proto_library"))
+              symbolRedirect(
+                  "@protobuf//bazel/private:bazel_cc_proto_library.bzl", "cc_proto_aspect"))
           .put(
               "ProtoInfo",
               symbolRedirect(
@@ -541,7 +553,6 @@ public class AutoloadSymbols {
                   "java_proto_library",
                   "proto_lang_toolchain",
                   "java_binary",
-                  "py_extension",
                   "proto_common_do_not_use"))
           .put(
               "proto_common_do_not_use", symbolRedirect("@protobuf//bazel/common:proto_common.bzl"))
@@ -607,76 +618,6 @@ public class AutoloadSymbols {
                   "java_import",
                   "android_binary",
                   "android_library"))
-          .put("android_common", symbolRedirect("@rules_android//rules:common.bzl"))
-          .put(
-              "AndroidIdeInfo", symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put("ApkInfo", symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidInstrumentationInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidResourcesInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidNativeLibsInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidApplicationResourceInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidBinaryNativeLibsInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidSdkInfo", symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidManifestInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidAssetsInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidLibraryAarInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidProguardInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidIdlInfo", symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidPreDexJarInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidCcLinkParamsInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "DataBindingV2Info",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidLibraryResourceClassJarProvider",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidFeatureFlagSet",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "ProguardMappingInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidBinaryData",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "BaselineProfileProvider",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidNeverLinkLibrariesProvider",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidOptimizedJarInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidDexInfo", symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
-          .put(
-              "AndroidOptimizationInfo",
-              symbolRedirect("@rules_android//rules:providers.bzl", androidRules))
           .put(
               "PyInfo",
               symbolRedirect(
@@ -696,6 +637,18 @@ public class AutoloadSymbols {
                   "py_binary",
                   "py_test",
                   "py_library"))
+          // Note: AndroidIdeInfo is intended to be autoloaded for ASwBazel/IntelliJ migration
+          // purposes. It is not intended to be used by other teams and projects, and is effectively
+          // an internal implementation detail.
+          .put(
+              "AndroidIdeInfo",
+              symbolRedirect(
+                  "@rules_android//providers:providers.bzl",
+                  "aar_import",
+                  "android_binary",
+                  "android_library",
+                  "android_local_test",
+                  "android_sdk"))
           .put("aar_import", ruleRedirect("@rules_android//rules:rules.bzl"))
           .put("android_binary", ruleRedirect("@rules_android//rules:rules.bzl"))
           .put("android_library", ruleRedirect("@rules_android//rules:rules.bzl"))
@@ -735,7 +688,7 @@ public class AutoloadSymbols {
               "propeller_optimize", ruleRedirect("@rules_cc//cc/toolchains:propeller_optimize.bzl"))
           .put(
               "proto_lang_toolchain",
-              ruleRedirect("@protobuf//bazel/toolchain:proto_lang_toolchain.bzl"))
+              ruleRedirect("@protobuf//bazel/toolchains:proto_lang_toolchain.bzl"))
           .put("proto_library", ruleRedirect("@protobuf//bazel:proto_library.bzl"))
           .put("py_binary", ruleRedirect("@rules_python//python:py_binary.bzl"))
           .put("py_library", ruleRedirect("@rules_python//python:py_library.bzl"))

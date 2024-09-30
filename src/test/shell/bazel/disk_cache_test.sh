@@ -127,4 +127,43 @@ EOF
   expect_log "(cached) PASSED"
 }
 
+function test_garbage_collection() {
+  local -r CACHE_DIR="${TEST_TMPDIR}/cache"
+  rm -rf "$CACHE_DIR"
+
+  mkdir -p a
+  touch a/BUILD
+
+  # Populate the disk cache with some fake entries totalling 4 MB in size.
+  create_file_with_size_and_mtime "${CACHE_DIR}/cas/123" 1M "202401010100"
+  create_file_with_size_and_mtime "${CACHE_DIR}/ac/456"  1M "202401010200"
+  create_file_with_size_and_mtime "${CACHE_DIR}/cas/abc" 1M "202401010300"
+  create_file_with_size_and_mtime "${CACHE_DIR}/ac/def"  1M "202401010400"
+
+  # Run a build and request an immediate garbage collection.
+  # Note that this build doesn't write anything to the disk cache.
+  bazel build --disk_cache="$CACHE_DIR" \
+    --experimental_disk_cache_gc_max_size=2M \
+    --experimental_disk_cache_gc_idle_delay=0 \
+    //a:BUILD >& $TEST_log || fail "Expected build to succeed"
+
+  # Give the idle task a bit of time to run.
+  sleep 1
+
+  # Expect the two oldest entries to have been deleted to reduce size to 2 MB.
+  assert_not_exists "${CACHE_DIR}/cas/123"
+  assert_not_exists "${CACHE_DIR}/ac/456"
+  assert_exists "${CACHE_DIR}/cas/abc"
+  assert_exists "${CACHE_DIR}/ac/def"
+}
+
+function create_file_with_size_and_mtime() {
+  local -r path=$1
+  local -r size=$2
+  local -r mtime=$3
+  mkdir -p "$(dirname "$path")"
+  dd if=/dev/zero of="$path" bs="$size" count=1
+  touch -t "$mtime" "$path"
+}
+
 run_suite "disk cache test"

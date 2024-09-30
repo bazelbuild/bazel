@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.rules.android;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
 import org.junit.Before;
@@ -24,7 +25,7 @@ import org.junit.runners.JUnit4;
 
 /** Tests for {@link AndroidStarlarkCommon}. */
 @RunWith(JUnit4.class)
-public class AndroidStarlarkCommonTest extends AndroidBuildViewTestCase {
+public class AndroidStarlarkCommonTest extends BuildViewTestCase {
 
   @Before
   public void setupCcToolchain() throws Exception {

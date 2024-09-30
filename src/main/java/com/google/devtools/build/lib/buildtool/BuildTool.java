@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.DOWNLOAD;
-import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.OFF;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -97,6 +96,8 @@ import com.google.devtools.build.lib.skyframe.config.FlagSetValue;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.FrontierSerializer;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
@@ -1161,6 +1162,18 @@ public class BuildTool {
     @Override
     public boolean withinActiveDirectories(PackageIdentifier pkg) {
       return activeDirectoriesMatcher.includes(pkg.getPackageFragment());
+    }
+
+    private FrontierNodeVersion frontierNodeVersionSingleton = null;
+
+    @Override
+    public FrontierNodeVersion getSkyValueVersion() throws SerializationException {
+      if (frontierNodeVersionSingleton == null) {
+        frontierNodeVersionSingleton =
+            new FrontierNodeVersion(
+                getObjectCodecs().serializeMemoized(activeDirectoriesMatcher.toString()));
+      }
+      return frontierNodeVersionSingleton;
     }
 
     @Override

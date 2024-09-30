@@ -14,8 +14,9 @@
 package com.google.devtools.build.lib.remote.disk;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static java.util.Comparator.comparing;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ComparisonChain;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.concurrent.AbstractQueueVisitor;
 import com.google.devtools.build.lib.concurrent.ErrorClassifier;
@@ -28,9 +29,11 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * A garbage collector for the disk cache.
@@ -52,21 +55,23 @@ public final class DiskCacheGarbageCollector {
    */
   private record Entry(String path, long size, long mtime) {}
 
-  /** Determines which entries should be collected. */
-  public static final class CollectionPolicy {
-    private final Optional<Long> maxSizeBytes;
-    private final Optional<Duration> maxAge;
+  /**
+   * Determines which entries should be collected.
+   *
+   * @param maxSizeBytes the maximum total size in bytes, or empty for no size limit
+   * @param maxAge the maximum age of cache entries, or empty for no age limit
+   */
+  public record CollectionPolicy(Optional<Long> maxSizeBytes, Optional<Duration> maxAge) {
 
-    /**
-     * Creates a new policy.
-     *
-     * @param maxSizeBytes the maximum total size in bytes, or empty for no size limit
-     * @param maxAge the maximum age of cache entries, or empty for no age limit
-     */
-    CollectionPolicy(Optional<Long> maxSizeBytes, Optional<Duration> maxAge) {
-      this.maxSizeBytes = maxSizeBytes;
-      this.maxAge = maxAge;
-    }
+    // Sort older entries before newer ones, tie breaking by path. This causes AC entries to be
+    // sorted before CAS entries with the same age, making it less likely for garbage collection
+    // to break referential integrity in the event that mtime resolution is insufficient.
+    private static final Comparator<Entry> COMPARATOR =
+        (x, y) ->
+            ComparisonChain.start()
+                .compare(x.mtime(), y.mtime())
+                .compare(x.path(), y.path())
+                .result();
 
     /**
      * Returns the entries to be deleted.
@@ -74,7 +79,7 @@ public final class DiskCacheGarbageCollector {
      * @param entries the full list of entries
      */
     List<Entry> getEntriesToDelete(List<Entry> entries) {
-      entries.sort(comparing(Entry::mtime));
+      entries.sort(COMPARATOR);
 
       long excessSizeBytes = getExcessSizeBytes(entries);
       long timeCutoff = getTimeCutoff();
@@ -106,6 +111,12 @@ public final class DiskCacheGarbageCollector {
     }
   }
 
+  private record DeletionStats(long deletedEntries, long deletedBytes) {}
+
+  /** Stats for a garbage collection run. */
+  public record CollectionStats(
+      long totalEntries, long totalBytes, long deletedEntries, long deletedBytes) {}
+
   private final Path root;
   private final CollectionPolicy policy;
   private final ExecutorService executorService;
@@ -126,13 +137,31 @@ public final class DiskCacheGarbageCollector {
     this.excludedDirs = EXCLUDED_DIRS.stream().map(root::getChild).collect(toImmutableSet());
   }
 
+  @VisibleForTesting
+  public Path getRoot() {
+    return root;
+  }
+
+  @VisibleForTesting
+  public CollectionPolicy getPolicy() {
+    return policy;
+  }
+
   /**
    * Runs garbage collection.
    *
    * @throws IOException if an I/O error occurred
    * @throws InterruptedException if the thread was interrupted
    */
-  public void run() throws IOException, InterruptedException {
+  public CollectionStats run() throws IOException, InterruptedException {
+    // Acquire an exclusive lock to prevent two Bazel processes from simultaneously running
+    // garbage collection, which can waste resources and lead to incorrect results.
+    try (var lock = DiskCacheLock.getExclusive(root.getRelative("gc/lock"))) {
+      return runUnderLock();
+    }
+  }
+
+  private CollectionStats runUnderLock() throws IOException, InterruptedException {
     EntryScanner scanner = new EntryScanner();
     EntryDeleter deleter = new EntryDeleter();
 
@@ -140,10 +169,16 @@ public final class DiskCacheGarbageCollector {
     List<Entry> entriesToDelete = policy.getEntriesToDelete(allEntries);
 
     for (Entry entry : entriesToDelete) {
-      deleter.delete(root.getRelative(entry.path()));
+      deleter.delete(root.getRelative(entry.path()), entry.size());
     }
 
-    deleter.await();
+    DeletionStats deletionStats = deleter.await();
+
+    return new CollectionStats(
+        allEntries.size(),
+        allEntries.stream().mapToLong(Entry::size).sum(),
+        deletionStats.deletedEntries(),
+        deletionStats.deletedBytes());
   }
 
   /** Lists all disk cache entries, performing I/O in parallel. */
@@ -200,6 +235,9 @@ public final class DiskCacheGarbageCollector {
 
   /** Deletes disk cache entries, performing I/O in parallel. */
   private final class EntryDeleter extends AbstractQueueVisitor {
+    private final AtomicLong deletedEntries = new AtomicLong(0);
+    private final AtomicLong deletedBytes = new AtomicLong(0);
+
     EntryDeleter() {
       super(
           executorService,
@@ -209,11 +247,14 @@ public final class DiskCacheGarbageCollector {
     }
 
     /** Enqueues an entry to be deleted. */
-    void delete(Path path) {
+    void delete(Path path, long size) {
       execute(
           () -> {
             try {
-              path.delete();
+              if (path.delete()) {
+                deletedEntries.incrementAndGet();
+                deletedBytes.addAndGet(size);
+              }
             } catch (IOException e) {
               throw new IORuntimeException(e);
             }
@@ -221,12 +262,13 @@ public final class DiskCacheGarbageCollector {
     }
 
     /** Waits for all enqueued deletions to complete. */
-    void await() throws IOException, InterruptedException {
+    DeletionStats await() throws IOException, InterruptedException {
       try {
         awaitQuiescence(true);
       } catch (IORuntimeException e) {
         throw e.getCauseIOException();
       }
+      return new DeletionStats(deletedEntries.get(), deletedBytes.get());
     }
   }
 }

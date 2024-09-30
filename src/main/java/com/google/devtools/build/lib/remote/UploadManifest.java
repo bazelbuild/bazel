@@ -104,8 +104,6 @@ public class UploadManifest {
   private final DigestUtil digestUtil;
   private final RemotePathResolver remotePathResolver;
   private final ActionResult.Builder result;
-  private final boolean followSymlinks;
-  private final boolean allowDanglingSymlinks;
   private final boolean allowAbsoluteSymlinks;
   private final ConcurrentHashMap<Digest, Path> digestToFile = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<Digest, ByteString> digestToBlobs = new ConcurrentHashMap<>();
@@ -135,8 +133,6 @@ public class UploadManifest {
             digestUtil,
             remotePathResolver,
             result,
-            /* followSymlinks= */ !remoteOptions.incompatibleRemoteSymlinks,
-            /* allowDanglingSymlinks= */ remoteOptions.incompatibleRemoteDanglingSymlinks,
             /* allowAbsoluteSymlinks= */ cacheCapabilities
                 .getSymlinkAbsolutePathStrategy()
                 .equals(SymlinkAbsolutePathStrategy.Value.ALLOWED));
@@ -176,25 +172,17 @@ public class UploadManifest {
    * Create an UploadManifest from an ActionResult builder and an exec root. The ActionResult
    * builder is populated through a call to {@link #addFiles(Collection)}.
    *
-   * @param followSymlinks whether a non-dangling relative symlink should be transparently
-   *     dereferenced and uploaded as the file or directory it points to; other forms of symlink are
-   *     always uploaded as such.
-   * @param allowDanglingSymlinks whether an uploaded symlink should be allowed to dangle.
-   * @param allowAbsoluteSymlinks whether an uploaded symlink should be allowed to be absolute.
+   * @param allowAbsoluteSymlinks whether the remote allows uploading absolute symlinks
    */
   @VisibleForTesting
   public UploadManifest(
       DigestUtil digestUtil,
       RemotePathResolver remotePathResolver,
       ActionResult.Builder result,
-      boolean followSymlinks,
-      boolean allowDanglingSymlinks,
       boolean allowAbsoluteSymlinks) {
     this.digestUtil = digestUtil;
     this.remotePathResolver = remotePathResolver;
     this.result = result;
-    this.followSymlinks = followSymlinks;
-    this.allowDanglingSymlinks = allowDanglingSymlinks;
     this.allowAbsoluteSymlinks = allowAbsoluteSymlinks;
   }
 
@@ -223,9 +211,13 @@ public class UploadManifest {
    * <p>Note that the manifest describes the outcome of a spawn, not of an action. In particular,
    * it's possible for an output to be missing or to have been created with an unsuitable file type
    * for the corresponding {@link Artifact} (e.g., a directory where a file was expected, or a
-   * non-symlink where a symlink was expected). Outputs are always uploaded according to the
-   * filesystem state, possibly after applying the transformation implied by {@link followSymlinks}.
-   * A type mismatch may later cause execution to fail, but that's an action-level concern.
+   * non-symlink where a symlink was expected). Except for the oddity noted in the next paragraph,
+   * outputs are always uploaded according to the filesystem state. A type mismatch may later cause
+   * execution to fail, but that's an action-level concern.
+   *
+   * <p>For historical reasons, non-dangling absolute symlinks are uploaded as the file or directory
+   * they point to. This is inconsistent with the treatment of non-dangling relative symlinks, which
+   * are uploaded as such, but fixing it would now require an incompatible change.
    *
    * <p>All files are uploaded with the executable bit set, in accordance with input Merkle trees.
    * This does not affect correctness since we always set the output permissions to 0555 or 0755
@@ -233,9 +225,6 @@ public class UploadManifest {
    */
   @VisibleForTesting
   void addFiles(Collection<Path> files) throws ExecException, IOException, InterruptedException {
-    // TODO(tjgq): Non-dangling absolute symlinks are uploaded as the file or directory they point
-    // to even when followSymlinks is false. This is inconsistent with the treatment of relative
-    // symlinks, but fixing it would require an incompatible change.
     for (Path file : files) {
       // TODO(ulfjack): Maybe pass in a SpawnResult here, add a list of output files to that, and
       // rely on the local spawn runner to stat the files, instead of statting here.
@@ -261,7 +250,6 @@ public class UploadManifest {
         FileStatus statFollow = file.statIfFound(Symlinks.FOLLOW);
         if (statFollow == null) {
           // Symlink uploaded as a symlink. Report it as a file since we don't know any better.
-          checkDanglingSymlinkAllowed(file, target);
           if (target.isAbsolute()) {
             checkAbsoluteSymlinkAllowed(file, target);
           }
@@ -269,7 +257,7 @@ public class UploadManifest {
           continue;
         }
         if (statFollow.isFile() && !statFollow.isSpecialFile()) {
-          if (followSymlinks || target.isAbsolute()) {
+          if (target.isAbsolute()) {
             // Symlink to file uploaded as a file.
             addFile(digestUtil.compute(file, statFollow), file);
           } else {
@@ -282,7 +270,7 @@ public class UploadManifest {
           continue;
         }
         if (statFollow.isDirectory()) {
-          if (followSymlinks || target.isAbsolute()) {
+          if (target.isAbsolute()) {
             // Symlink to directory uploaded as a directory.
             addDirectory(file);
           } else {
@@ -495,11 +483,8 @@ public class UploadManifest {
         if (type == Dirent.Type.SYMLINK) {
           PathFragment target = path.readSymbolicLink();
           FileStatus statFollow = path.statIfFound(Symlinks.FOLLOW);
-          if (statFollow == null || (!followSymlinks && !target.isAbsolute())) {
+          if (statFollow == null || !target.isAbsolute()) {
             // Symlink uploaded as a symlink.
-            if (statFollow == null) {
-              checkDanglingSymlinkAllowed(path, target);
-            }
             if (target.isAbsolute()) {
               checkAbsoluteSymlinkAllowed(path, target);
             }
@@ -569,16 +554,6 @@ public class UploadManifest {
         .setIsTopologicallySorted(true);
 
     digestToBlobs.put(treeDigest, treeBlob);
-  }
-
-  private void checkDanglingSymlinkAllowed(Path file, PathFragment target) throws IOException {
-    if (!allowDanglingSymlinks) {
-      throw new IOException(
-          String.format(
-              "Spawn output %s is a dangling symbolic link to %s, which is not allowed by"
-                  + " --noincompatible_remote_dangling_symlinks",
-              file, target));
-    }
   }
 
   private void checkAbsoluteSymlinkAllowed(Path file, PathFragment target) throws IOException {

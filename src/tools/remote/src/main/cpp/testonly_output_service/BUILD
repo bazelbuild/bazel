@@ -15,6 +15,9 @@ cc_binary(
         "bazel_output_service_impl.cc",
         "bazel_output_service_impl.h",
         "main.cc",
+        "memory.cc",
+        "memory.h",
+        "memory_unix.cc",
     ],
     deps = [
         "//src/main/protobuf:bazel_output_service_cc_grpc",

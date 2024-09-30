@@ -13,7 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.actions;
 
-import com.google.common.base.Preconditions;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+
 import com.google.common.base.Strings;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -109,8 +111,12 @@ public final class FilesetManifest {
       String artifact = Strings.emptyToNull(outputSymlink.getTargetPath().getPathString());
       if (isRelativeSymlink(outputSymlink)) {
         addRelativeSymlinkEntry(artifact, fullLocation, relSymlinkBehavior, relativeLinks);
-      } else if (!entries.containsKey(fullLocation)) { // Keep consistent behavior: no overwriting.
-        entries.put(fullLocation, artifact);
+      } else {
+        // Symlinks are already deduplicated by name in SkyframeFilesetManifestAction.
+        checkState(
+            entries.put(fullLocation, artifact) == null,
+            "Duplicate fileset entry at %s",
+            fullLocation);
       }
       if (outputSymlink.getMetadata() instanceof FileArtifactValue) {
         artifactValues.put(artifact, (FileArtifactValue) outputSymlink.getMetadata());
@@ -135,11 +141,11 @@ public final class FilesetManifest {
       throws ForbiddenRelativeSymlinkException {
     switch (relSymlinkBehavior) {
       case ERROR -> throw new ForbiddenRelativeSymlinkException(artifact);
-      case RESOLVE, RESOLVE_FULLY -> {
-        if (!relativeLinks.containsKey(fullLocation)) { // Keep consistent behavior: no overwriting.
-          relativeLinks.put(fullLocation, artifact);
-        }
-      }
+      case RESOLVE, RESOLVE_FULLY ->
+          checkState(
+              relativeLinks.put(fullLocation, artifact) == null,
+              "Duplicate fileset entry at %s",
+              fullLocation);
       case IGNORE -> {
         // Do nothing.
       }
@@ -171,8 +177,8 @@ public final class FilesetManifest {
       for (Map.Entry<PathFragment, String> e : relativeLinks.entrySet()) {
         PathFragment location = e.getKey();
         Path locationPath = fs.getPath("/").getRelative(location);
-        PathFragment value = PathFragment.create(Preconditions.checkNotNull(e.getValue(), e));
-        Preconditions.checkState(!value.isAbsolute(), e);
+        PathFragment value = PathFragment.create(checkNotNull(e.getValue(), e));
+        checkState(!value.isAbsolute(), e);
 
         locationPath.getParentDirectory().createDirectoryAndParents();
         locationPath.createSymbolicLink(value);
@@ -219,8 +225,8 @@ public final class FilesetManifest {
       for (Map.Entry<PathFragment, String> e : relativeLinks.entrySet()) {
         PathFragment location = e.getKey();
         String value = e.getValue();
-        String actual = Preconditions.checkNotNull(value, e);
-        Preconditions.checkState(!actual.startsWith("/"), e);
+        String actual = checkNotNull(value, e);
+        checkState(!actual.startsWith("/"), e);
         PathFragment actualLocation = location;
 
         // Recursively resolve relative symlinks.

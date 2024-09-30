@@ -273,7 +273,8 @@ public final class ConfiguredTargetFunction implements SkyFunction {
               analysisCachingDeps.getObjectCodecs(),
               analysisCachingDeps.getFingerprintValueService(),
               key,
-              state);
+              state,
+              /* frontierNodeVersion= */ analysisCachingDeps.getSkyValueVersion());
     } catch (SerializationException e) {
       // Don't crash the build if deserialization failed. Gracefully fallback to local evaluation.
       BugReport.sendBugReport(e);

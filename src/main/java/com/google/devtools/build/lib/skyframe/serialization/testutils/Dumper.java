@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoC
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.FieldInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.ObjectInfo;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FieldInfoCache.PrimitiveInfo;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
 import java.util.Collection;
 import java.util.IdentityHashMap;
@@ -104,6 +105,14 @@ public final class Dumper {
     }
 
     var type = obj.getClass();
+
+    if (WeakReference.class.isAssignableFrom(type)) {
+      // A WeakReference is always be deserialized with empty referents. No information other than
+      // the presence of the WeakReference can be expected to match upon deserialization.
+      out.append(WeakReference.class.getCanonicalName());
+      return;
+    }
+
     if (shouldInline(type)) {
       out.append(obj);
       return;
@@ -224,6 +233,10 @@ public final class Dumper {
       }
       return false;
     }
+
+    // In theory, there could be special casing WeakReferences here, to match the handling in
+    // `outputObject`. However, since Java does not support generic arrays we don't expect to
+    // encounter an array of WeakReferences.
 
     if (shouldInline(componentType)) {
       // It's a type that should be inlined. Outputs elements delimited by commas.

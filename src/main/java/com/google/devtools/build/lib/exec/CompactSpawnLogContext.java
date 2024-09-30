@@ -234,8 +234,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         Path path = fileSystem.getPath(execRoot.getRelative(output.getExecPath()));
         if (!output.isDirectory() && !output.isSymlink() && path.isFile()) {
           builder.addOutputsBuilder().setOutputId(logFile(output, path, inputMetadataProvider));
-        } else if (!output.isSymlink() && path.isDirectory()) {
-          // TODO(tjgq): Tighten once --incompatible_disallow_unsound_directory_outputs is gone.
+        } else if (output.isDirectory() && path.isDirectory()) {
           builder
               .addOutputsBuilder()
               .setOutputId(logDirectory(output, path, inputMetadataProvider));
@@ -457,8 +456,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       ActionInput input, InputMetadataProvider inputMetadataProvider, FileSystem fileSystem)
       throws IOException, InterruptedException {
     Path path = fileSystem.getPath(execRoot.getRelative(input.getExecPath()));
-    // TODO(tjgq): Tighten once --incompatible_disallow_unsound_directory_outputs is gone.
-    if (isInputDirectory(input, path, inputMetadataProvider)) {
+    if (isInputDirectory(input, inputMetadataProvider)) {
       return logDirectory(input, path, inputMetadataProvider);
     } else if (input.isSymlink()) {
       return logUnresolvedSymlink(input, path);

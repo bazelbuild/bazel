@@ -43,9 +43,9 @@ import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
-import com.google.devtools.build.lib.packages.TargetRegistrationEnvironment.MacroFrame;
-import com.google.devtools.build.lib.packages.TargetRegistrationEnvironment.MacroNamespaceViolationException;
-import com.google.devtools.build.lib.packages.TargetRegistrationEnvironment.NameConflictException;
+import com.google.devtools.build.lib.packages.TargetRecorder.MacroFrame;
+import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
@@ -587,9 +587,7 @@ public class Package {
           String.format(
               "Target %s declared in symbolic macro '%s' violates macro naming rules and cannot be"
                   + " built. %s",
-              target.getLabel(),
-              macroNamespaceViolated,
-              TargetRegistrationEnvironment.MACRO_NAMING_RULES));
+              target.getLabel(), macroNamespaceViolated, TargetRecorder.MACRO_NAMING_RULES));
     }
   }
 
@@ -742,12 +740,12 @@ public class Package {
     this.workspaceName = builder.workspaceName;
 
     this.makeEnv = ImmutableMap.copyOf(builder.makeEnv);
-    this.targets = ImmutableSortedMap.copyOf(builder.regEnv.getTargetMap());
-    this.macros = ImmutableSortedMap.copyOf(builder.regEnv.getMacroMap());
+    this.targets = ImmutableSortedMap.copyOf(builder.recorder.getTargetMap());
+    this.macros = ImmutableSortedMap.copyOf(builder.recorder.getMacroMap());
     this.macroNamespaceViolatingTargets =
-        ImmutableMap.copyOf(builder.regEnv.getMacroNamespaceViolatingTargets());
+        ImmutableMap.copyOf(builder.recorder.getMacroNamespaceViolatingTargets());
     this.targetsToDeclaringMacros =
-        ImmutableSortedMap.copyOf(builder.regEnv.getTargetsToDeclaringMacros());
+        ImmutableSortedMap.copyOf(builder.recorder.getTargetsToDeclaringMacros());
     this.failureDetail = builder.getFailureDetail();
     this.registeredExecutionPlatforms = ImmutableList.copyOf(builder.registeredExecutionPlatforms);
     this.registeredToolchains = ImmutableList.copyOf(builder.registeredToolchains);
@@ -1049,7 +1047,7 @@ public class Package {
 
     // The container object on which targets and macro instances are added and conflicts are
     // detected.
-    private final TargetRegistrationEnvironment regEnv = new TargetRegistrationEnvironment();
+    private final TargetRecorder recorder = new TargetRecorder();
 
     // Initialized from outside but also potentially set by `workspace()` function in WORKSPACE
     // file.
@@ -1229,7 +1227,7 @@ public class Package {
 
       // Add target for the BUILD file itself.
       // (This may be overridden by an exports_file declaration.)
-      regEnv.addInputFileUnchecked(
+      recorder.addInputFileUnchecked(
           new InputFile(
               pkg,
               buildFileLabel,
@@ -1284,8 +1282,8 @@ public class Package {
       boolean bad = false;
       if (ctx instanceof Builder builder) {
         bad |= !allowBuild && !builder.isRepoRulePackage();
-        bad |= !allowFinalizers && builder.regEnv.currentlyInFinalizer();
-        bad |= !allowNonFinalizerSymbolicMacros && builder.regEnv.currentlyInNonFinalizerMacro();
+        bad |= !allowFinalizers && builder.recorder.currentlyInFinalizer();
+        bad |= !allowNonFinalizerSymbolicMacros && builder.recorder.currentlyInNonFinalizerMacro();
         bad |= !allowWorkspace && builder.isRepoRulePackage();
         if (!bad) {
           return builder;
@@ -1551,7 +1549,7 @@ public class Package {
     }
 
     public boolean containsErrors() {
-      return regEnv.containsErrors();
+      return recorder.containsErrors();
     }
 
     /**
@@ -1561,7 +1559,7 @@ public class Package {
      * the {@link Package.Builder}. The event should include a {@link FailureDetail}.
      */
     public void setContainsErrors() {
-      regEnv.setContainsErrors();
+      recorder.setContainsErrors();
     }
 
     void setIOException(IOException e, String message, DetailedExitCode detailedExitCode) {
@@ -1653,7 +1651,7 @@ public class Package {
      */
     @Nullable
     public MacroInstance currentMacro() {
-      MacroFrame frame = regEnv.getCurrentMacroFrame();
+      MacroFrame frame = recorder.getCurrentMacroFrame();
       return frame == null ? null : frame.macroInstance;
     }
 
@@ -1693,25 +1691,25 @@ public class Package {
 
     @Nullable
     public MacroFrame getCurrentMacroFrame() {
-      return regEnv.getCurrentMacroFrame();
+      return recorder.getCurrentMacroFrame();
     }
 
     @Nullable
     public MacroFrame setCurrentMacroFrame(@Nullable MacroFrame frame) {
-      return regEnv.setCurrentMacroFrame(frame);
+      return recorder.setCurrentMacroFrame(frame);
     }
 
     public boolean currentlyInNonFinalizerMacro() {
-      return regEnv.currentlyInNonFinalizerMacro();
+      return recorder.currentlyInNonFinalizerMacro();
     }
 
     @Nullable
     public Target getTarget(String name) {
-      return regEnv.getTarget(name);
+      return recorder.getTarget(name);
     }
 
     public Set<Target> getTargets() {
-      return regEnv.getTargets();
+      return recorder.getTargets();
     }
 
     void replaceTarget(Target newTarget) {
@@ -1720,7 +1718,7 @@ public class Package {
           "Replacement target belongs to package '%s', expected '%s'",
           newTarget.getPackage(),
           pkg);
-      regEnv.replaceTarget(newTarget);
+      recorder.replaceTarget(newTarget);
     }
 
     /**
@@ -1734,9 +1732,9 @@ public class Package {
     Map<String, Rule> getRulesSnapshotView() {
       if (rulesSnapshotViewForFinalizers != null) {
         return rulesSnapshotViewForFinalizers;
-      } else if (regEnv.getTargetMap() instanceof SnapshottableBiMap<?, ?>) {
+      } else if (recorder.getTargetMap() instanceof SnapshottableBiMap<?, ?>) {
         return Maps.transformValues(
-            ((SnapshottableBiMap<String, Target>) regEnv.getTargetMap()).getTrackedSnapshot(),
+            ((SnapshottableBiMap<String, Target>) recorder.getTargetMap()).getTrackedSnapshot(),
             target -> (Rule) target);
       } else {
         throw new IllegalStateException(
@@ -1757,7 +1755,7 @@ public class Package {
       if (rulesSnapshotViewForFinalizers != null) {
         return rulesSnapshotViewForFinalizers.get(name);
       } else {
-        Target target = regEnv.getTargetMap().get(name);
+        Target target = recorder.getTargetMap().get(name);
         return target instanceof Rule ? (Rule) target : null;
       }
     }
@@ -1776,7 +1774,7 @@ public class Package {
      * @throws IllegalArgumentException if the name is not a valid label
      */
     InputFile createInputFile(String targetName, Location location) throws NameConflictException {
-      Target existing = regEnv.getTargetMap().get(targetName);
+      Target existing = recorder.getTargetMap().get(targetName);
 
       if (existing instanceof InputFile) {
         return (InputFile) existing; // idempotent
@@ -1790,7 +1788,7 @@ public class Package {
             "FileTarget in package " + metadata.getName() + " has illegal name: " + targetName, e);
       }
 
-      regEnv.addTarget(inputFile);
+      recorder.addTarget(inputFile);
       return inputFile;
     }
 
@@ -1806,7 +1804,7 @@ public class Package {
     // visibility of :BUILD inside a symbolic macro.
     void setVisibilityAndLicense(InputFile inputFile, RuleVisibility visibility, License license) {
       String filename = inputFile.getName();
-      Target cacheInstance = regEnv.getTargetMap().get(filename);
+      Target cacheInstance = recorder.getTargetMap().get(filename);
       if (!(cacheInstance instanceof InputFile)) {
         throw new IllegalArgumentException(
             "Can't set visibility for nonexistent FileTarget "
@@ -1818,7 +1816,7 @@ public class Package {
       if (!((InputFile) cacheInstance).isVisibilitySpecified()
           || cacheInstance.getVisibility() != visibility
           || !Objects.equals(cacheInstance.getLicense(), license)) {
-        regEnv.replaceInputFileUnchecked(
+        recorder.replaceInputFileUnchecked(
             new VisibilityLicenseSpecifiedInputFile(
                 pkg, cacheInstance.getLabel(), cacheInstance.getLocation(), visibility, license));
       }
@@ -1853,7 +1851,7 @@ public class Package {
               repoRootMeansCurrentRepo,
               eventHandler,
               location);
-      regEnv.addTarget(group);
+      recorder.addTarget(group);
 
       if (group.containsErrors()) {
         setContainsErrors();
@@ -1903,7 +1901,7 @@ public class Package {
 
       EnvironmentGroup group =
           new EnvironmentGroup(createLabel(name), pkg, environments, defaults, location);
-      regEnv.addTarget(group);
+      recorder.addTarget(group);
 
       // Invariant: once group is inserted into targets, it must also:
       // (a) be inserted into environmentGroups, or
@@ -1938,29 +1936,29 @@ public class Package {
 
     // For Package deserialization.
     void disableNameConflictChecking() {
-      regEnv.disableNameConflictChecking();
+      recorder.disableNameConflictChecking();
     }
 
     public void addRuleUnchecked(Rule rule) {
       Preconditions.checkArgument(rule.getPackage() == pkg);
-      regEnv.addRuleUnchecked(rule);
+      recorder.addRuleUnchecked(rule);
     }
 
     public void addRule(Rule rule) throws NameConflictException {
       Preconditions.checkArgument(rule.getPackage() == pkg);
-      regEnv.addRule(rule);
+      recorder.addRule(rule);
     }
 
     public void addMacro(MacroInstance macro) throws NameConflictException {
       Preconditions.checkState(
           !isRepoRulePackage(), "Cannot instantiate symbolic macros in this context");
-      regEnv.addMacro(macro);
+      recorder.addMacro(macro);
       unexpandedMacros.add(macro.getId());
     }
 
     // For Package deserialization.
     void putAllMacroNamespaceViolatingTargets(Map<String, String> macroNamespaceViolatingTargets) {
-      regEnv.putAllMacroNamespaceViolatingTargets(macroNamespaceViolatingTargets);
+      recorder.putAllMacroNamespaceViolatingTargets(macroNamespaceViolatingTargets);
     }
 
     /**
@@ -2015,7 +2013,7 @@ public class Package {
       if (!unexpandedMacros.isEmpty()) {
         Preconditions.checkState(
             unexpandedMacros.stream()
-                .allMatch(id -> regEnv.getMacroMap().get(id).getMacroClass().isFinalizer()),
+                .allMatch(id -> recorder.getMacroMap().get(id).getMacroClass().isFinalizer()),
             "At the beginning of finalizer expansion, unexpandedMacros must contain only"
                 + " finalizers");
 
@@ -2024,14 +2022,14 @@ public class Package {
         // include any rule instantiated by a finalizer or macro called from a finalizer.
         if (rulesSnapshotViewForFinalizers == null) {
           Preconditions.checkState(
-              regEnv.getTargetMap() instanceof SnapshottableBiMap<?, ?>,
+              recorder.getTargetMap() instanceof SnapshottableBiMap<?, ?>,
               "Cannot call expandAllRemainingMacros() after beforeBuild() has been called");
           rulesSnapshotViewForFinalizers = getRulesSnapshotView();
         }
 
         while (!unexpandedMacros.isEmpty()) { // NB: collection mutated by body
           String id = unexpandedMacros.iterator().next();
-          MacroInstance macro = regEnv.getMacroMap().get(id);
+          MacroInstance macro = recorder.getMacroMap().get(id);
           MacroClass.executeMacroImplementation(macro, this, semantics);
         }
       }
@@ -2064,8 +2062,8 @@ public class Package {
       // map to the SnapshottableBiMap's underlying bimap and thus stop tracking insertion order.
       // After this point, snapshots of targets should no longer be used, and any further
       // getRulesSnapshotView calls will throw.
-      if (regEnv.getTargetMap() instanceof SnapshottableBiMap<?, ?>) {
-        regEnv.unwrapSnapshottableBiMap();
+      if (recorder.getTargetMap() instanceof SnapshottableBiMap<?, ?>) {
+        recorder.unwrapSnapshottableBiMap();
         rulesSnapshotViewForFinalizers = null;
       }
 
@@ -2074,7 +2072,7 @@ public class Package {
       // until now to obtain the current instance from the targets map.
       pkg.buildFile =
           Preconditions.checkNotNull(
-              (InputFile) regEnv.getTargetMap().get(buildFileLabel.getName()));
+              (InputFile) recorder.getTargetMap().get(buildFileLabel.getName()));
 
       // TODO(bazel-team): We run testSuiteImplicitTestsAccumulator here in beforeBuild(), but what
       // if one of the accumulated tests is later removed in PackageFunction, between the call to
@@ -2087,7 +2085,7 @@ public class Package {
       testSuiteImplicitTestsAccumulator.clearAccumulatedTests();
 
       Map<String, InputFile> newInputFiles = new HashMap<>();
-      for (Rule rule : regEnv.getRules()) {
+      for (Rule rule : recorder.getRules()) {
         if (discoverAssumedInputFiles) {
           // Labels mentioned by a rule that refer to an unknown target in the current package are
           // assumed to be InputFiles, unless they overlap a namespace owned by a macro. Create
@@ -2095,25 +2093,25 @@ public class Package {
           // since we don't want the evaluation of the macro to affect the semantics of whether or
           // not this target was created (i.e. all implicitly created files are knowable without
           // necessarily evaluating symbolic macros).
-          if (regEnv.isRuleCreatedInMacro(rule)) {
+          if (recorder.isRuleCreatedInMacro(rule)) {
             continue;
           }
           // We use a temporary map, newInputFiles, to avoid concurrent modification to this.targets
           // while iterating (via getRules() above).
-          List<Label> labels = regEnv.getRuleLabels(rule);
+          List<Label> labels = recorder.getRuleLabels(rule);
           for (Label label : labels) {
             String name = label.getName();
             if (label.getPackageIdentifier().equals(metadata.packageIdentifier())
-                && !regEnv.getTargetMap().containsKey(name)
+                && !recorder.getTargetMap().containsKey(name)
                 && !newInputFiles.containsKey(name)) {
               // Check for collision with a macro namespace. Currently this is a linear loop over
               // all symbolic macros in the package.
               // TODO(#19922): This is quadratic complexity, optimize with a trie or similar if
               // needed.
               boolean macroConflictsFound = false;
-              for (MacroInstance macro : regEnv.getMacroMap().values()) {
+              for (MacroInstance macro : recorder.getMacroMap().values()) {
                 macroConflictsFound |=
-                    TargetRegistrationEnvironment.nameIsWithinMacroNamespace(name, macro.getName());
+                    TargetRecorder.nameIsWithinMacroNamespace(name, macro.getName());
               }
               if (!macroConflictsFound) {
                 Location loc = rule.getLocation();
@@ -2136,7 +2134,7 @@ public class Package {
       testSuiteImplicitTestsAccumulator.sortTests();
 
       for (InputFile file : newInputFiles.values()) {
-        regEnv.addInputFileUnchecked(file);
+        recorder.addInputFileUnchecked(file);
       }
 
       return this;
@@ -2162,13 +2160,13 @@ public class Package {
       }
 
       // Freeze rules, compacting their attributes' representations.
-      for (Rule rule : regEnv.getRules()) {
+      for (Rule rule : recorder.getRules()) {
         rule.freeze();
       }
 
       // Now all targets have been loaded, so we validate the group's member environments.
       for (EnvironmentGroup envGroup : ImmutableSet.copyOf(environmentGroups.values())) {
-        List<Event> errors = envGroup.processMemberEnvironments(regEnv.getTargetMap());
+        List<Event> errors = envGroup.processMemberEnvironments(recorder.getTargetMap());
         if (!errors.isEmpty()) {
           Event.replayEventsOn(localEventHandler, errors);
           // TODO(bazel-team): Can't we automatically infer containsError from the presence of

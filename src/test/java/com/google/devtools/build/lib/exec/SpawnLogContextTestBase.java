@@ -1414,9 +1414,9 @@ public abstract class SpawnLogContextTestBase {
   @Test
   public void testRunfileSymlinkFileWithDirectoryContents(
       @TestParameter boolean rootSymlink, @TestParameter OutputsMode outputsMode) throws Exception {
-    Artifact genFile = ActionsTestUtil.createArtifact(outputDir, "pkg/file.txt");
-    genFile.getPath().createDirectoryAndParents();
-    writeFile(genFile.getPath().getChild("file"), "abc");
+    Artifact sourceFile = ActionsTestUtil.createArtifact(rootDir, "pkg/file.txt");
+    sourceFile.getPath().createDirectoryAndParents();
+    writeFile(sourceFile.getPath().getChild("file"), "abc");
 
     Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
 
@@ -1424,9 +1424,9 @@ public abstract class SpawnLogContextTestBase {
     RunfilesTree runfilesTree =
         createRunfilesTree(
             runfilesRoot,
-            rootSymlink ? ImmutableMap.of() : ImmutableMap.of("pkg/symlink", genFile),
+            rootSymlink ? ImmutableMap.of() : ImmutableMap.of("pkg/symlink", sourceFile),
             rootSymlink
-                ? ImmutableMap.of(WORKSPACE_NAME + "/pkg/symlink", genFile)
+                ? ImmutableMap.of(WORKSPACE_NAME + "/pkg/symlink", sourceFile)
                 : ImmutableMap.of(),
             /* legacyExternalRunfiles= */ false);
 
@@ -1436,7 +1436,7 @@ public abstract class SpawnLogContextTestBase {
 
     context.logSpawn(
         spawn,
-        createInputMetadataProvider(runfilesMiddleman, runfilesTree, genFile),
+        createInputMetadataProvider(runfilesMiddleman, runfilesTree, sourceFile),
         createInputMap(runfilesTree),
         outputsMode.getActionFileSystem(fs),
         defaultTimeout(),
@@ -1577,7 +1577,7 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
-  public void testFileOutputWithDirectoryContents(@TestParameter OutputsMode outputsMode)
+  public void testFileOutputWithInvalidType(@TestParameter OutputsMode outputsMode)
       throws Exception {
     Artifact fileOutput = ActionsTestUtil.createArtifact(outputDir, "file");
 
@@ -1600,10 +1600,6 @@ public abstract class SpawnLogContextTestBase {
         context,
         defaultSpawnExecBuilder()
             .addListedOutputs(PRODUCT_NAME + "-out/k8-fastbuild/bin/file")
-            .addActualOutputs(
-                File.newBuilder()
-                    .setPath(PRODUCT_NAME + "-out/k8-fastbuild/bin/file/file")
-                    .setDigest(getDigest("abc")))
             .build());
   }
 

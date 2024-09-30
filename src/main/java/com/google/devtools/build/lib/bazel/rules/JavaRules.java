@@ -78,11 +78,6 @@ public class JavaRules implements RuleSet {
             EXPERIMENTAL_JAVA_LIBRARY_EXPORT, Starlark.NONE));
 
     try {
-      builder.addWorkspaceFilePrefix(
-          ResourceFileLoader.loadResource(
-              BazelJavaRuleClasses.class, "rules_java_builtin.WORKSPACE"));
-      builder.addWorkspaceFileSuffix(
-          ResourceFileLoader.loadResource(BazelJavaRuleClasses.class, "jdk.WORKSPACE"));
       builder.addWorkspaceFileSuffix(
           ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
     } catch (IOException e) {

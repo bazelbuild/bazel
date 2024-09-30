@@ -1,5 +1,6 @@
 # Packaging
 
+load("@bazel_pip_dev_deps//:requirements.bzl", "requirement")
 load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
 load("@rules_python//python:defs.bzl", "py_binary", "py_library")
 load("//src:build_defs.bzl", "transition_java_language_8_archive")
@@ -26,7 +27,6 @@ md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
         "//src/main/tools:linux-sandbox",
         "//tools/osx:xcode-locator",
         "//:platforms-srcs",
-        "//:rules_java-srcs",
     ] + select({
         "//src/conditions:windows": [],
         "//conditions:default": [
@@ -247,7 +247,6 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/bazel:BazelServer_deploy.jar",
         "install_base_key" + suffix,
         "//:platforms-srcs",
-        "//:rules_java-srcs",
         # Non-ordered items follow:
         "//src/main/java/net/starlark/java/eval:cpu_profiler",
         "//src/main/tools:build-runfiles",
@@ -377,6 +376,7 @@ filegroup(
         "//src/tools/android:srcs",
         "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/bzlmod:srcs",
+        "//src/tools/diskcache:srcs",
         "//src/tools/execlog:srcs",
         "//src/tools/launcher:srcs",
         "//src/tools/one_version:srcs",
@@ -591,6 +591,7 @@ JDK_VERSIONS = [
 filegroup(
     name = "test_repos",
     srcs = [
+        requirement("bazel-runfiles"),  # Fetching the hermetic Python toolchain.
         "@android_gmaven_r8//jar:file",
         "@android_tools//:all_android_tools_deploy.jar",
         "@bazel_skylib//:WORKSPACE",

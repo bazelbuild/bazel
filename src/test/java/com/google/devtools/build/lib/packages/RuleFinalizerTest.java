@@ -62,7 +62,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, targets_of_interest):
+        def _impl(name, visibility, targets_of_interest):
             for r in native.existing_rules().values():
                 if r["name"] in [t.name for t in targets_of_interest]:
                     genrule_name = name + "_" + r["name"] + "_finalize"
@@ -98,7 +98,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl_inner(name):
+        def _impl_inner(name, visibility):
             for r in native.existing_rules().values():
                 if r["name"] == "foo":
                     genrule_name = name + "_" + r["name"] + "_finalize"
@@ -111,7 +111,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
 
         my_finalizer_inner = macro(implementation = _impl_inner, finalizer = True)
 
-        def _impl_outer(name):
+        def _impl_outer(name, visibility):
             my_finalizer_inner(name = name + "_inner")
 
         my_finalizer_outer = macro(implementation = _impl_outer, finalizer = True)
@@ -134,7 +134,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl_macro(name, deps):
+        def _impl_macro(name, visibility, deps):
             native.genrule(
                 name = name,
                 srcs = deps,
@@ -144,7 +144,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
 
         my_macro = macro(implementation = _impl_macro, attrs = {"deps": attr.label_list()})
 
-        def _impl_finalizer(name):
+        def _impl_finalizer(name, visibility):
             for r in native.existing_rules().values():
                 if r["name"] == "foo":
                     my_macro(name=name + "_" + r["name"] + "_finalize", deps = [r["name"]])
@@ -170,7 +170,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl_finalizer(name):
+        def _impl_finalizer(name, visibility):
             for r in native.existing_rules().values():
                 if r["name"] == "foo":
                     genrule_name = name + "_" + r["name"] + "_finalize"
@@ -183,7 +183,7 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
 
         my_finalizer = macro(implementation = _impl_finalizer, finalizer = True)
 
-        def _impl_macro(name):
+        def _impl_macro(name, visibility):
             my_finalizer(name = name + "_inner")
 
         my_macro = macro(implementation = _impl_macro)
@@ -232,18 +232,18 @@ public final class RuleFinalizerTest extends BuildViewTestCase {
                     fail("native.existing_rule(" + t + ") != None")
             print("native.existing_rules and native.existing_rule are as expected")
 
-        def _impl_macro(name):
+        def _impl_macro(name, visibility):
             native.cc_library(name = name + "_inner_lib")
 
         my_macro = macro(implementation = _impl_macro)
 
-        def _impl_inner_finalizer(name):
+        def _impl_inner_finalizer(name, visibility):
             native.cc_library(name = name + "_inner_lib")
             check_existing_rules()
 
         inner_finalizer = macro(implementation = _impl_inner_finalizer, finalizer = True)
 
-        def _impl_finalizer(name):
+        def _impl_finalizer(name, visibility):
             native.cc_library(name = name + "_inner_lib")
             my_macro(name = name + "_inner_macro")
             inner_finalizer(name = name + "_inner_finalizer")

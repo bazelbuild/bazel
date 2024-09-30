@@ -30,14 +30,13 @@ import com.google.devtools.build.lib.packages.Info;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.rules.java.JavaCompilationArgsProvider;
 import com.google.devtools.build.lib.rules.java.JavaInfo;
-import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidIdeInfoProviderApi;
-import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidSdkProviderApi;
 import com.google.devtools.build.lib.starlarkbuildapi.android.AndroidStarlarkCommonApi;
 import java.io.Serializable;
 import java.util.List;
-import net.starlark.java.annot.StarlarkMethod;
+import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Sequence;
+import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
 
 /** Common utilities for Starlark rules related to Android. */
@@ -127,8 +126,7 @@ public class AndroidStarlarkCommon
     if (minSdkVersion > 0) {
       commandLine.add("--min_sdk_version", Integer.toString(minSdkVersion));
     }
-    Artifact desugarGlobalsArtifact =
-        AndroidStarlarkData.fromNoneable(desugarGlobals, Artifact.class);
+    Artifact desugarGlobalsArtifact = fromNoneable(desugarGlobals, Artifact.class);
     if (desugarGlobalsArtifact != null) {
       dexmerger.addCommonInputs(ImmutableList.of(desugarGlobalsArtifact));
       commandLine.addPath("--global_synthetics_path", desugarGlobalsArtifact.getExecPath());
@@ -137,13 +135,31 @@ public class AndroidStarlarkCommon
     ruleContext.registerAction(dexmerger.build(ruleContext.getActionOwner()));
   }
 
-  @StarlarkMethod(name = AndroidIdeInfoProviderApi.NAME, structField = true, documented = false)
-  public AndroidIdeInfoProvider.Provider getAndroidIdeInfoProvider() {
-    return AndroidIdeInfoProvider.PROVIDER;
+  /**
+   * Checks if a "Noneable" object passed by Starlark is "None", which Java should treat as null.
+   */
+  private static boolean isNone(Object object) {
+    return object == Starlark.NONE;
   }
 
-  @StarlarkMethod(name = AndroidSdkProviderApi.NAME, structField = true, documented = false)
-  public AndroidSdkProvider.Provider getAndroidSdkInfoProvider() {
-    return AndroidSdkProvider.PROVIDER;
+  /**
+   * Converts a "Noneable" Object passed by Starlark to an nullable object of the appropriate type.
+   *
+   * <p>Starlark "Noneable" types are passed in as an Object that may be either the correct type or
+   * a Starlark.NONE object. Starlark will handle type checking, based on the appropriate @param
+   * annotation, but we still need to do the actual cast (or conversion to null) ourselves.
+   *
+   * @param object the Noneable object
+   * @param clazz the correct class, as defined in the @Param annotation
+   * @param <T> the type to cast to
+   * @return {@code null}, if the noneable argument was None, or the cast object, otherwise.
+   */
+  @Nullable
+  private static <T> T fromNoneable(Object object, Class<T> clazz) {
+    if (isNone(object)) {
+      return null;
+    }
+
+    return clazz.cast(object);
   }
 }

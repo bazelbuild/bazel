@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.packages;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.devtools.build.lib.packages.BuildType.NODEP_LABEL_LIST;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -23,8 +24,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.events.Event;
-import com.google.devtools.build.lib.packages.TargetRegistrationEnvironment.MacroFrame;
-import com.google.devtools.build.lib.packages.TargetRegistrationEnvironment.NameConflictException;
+import com.google.devtools.build.lib.packages.TargetRecorder.MacroFrame;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
@@ -59,6 +60,17 @@ public final class MacroClass {
   public static final ImmutableSet<String> RESERVED_MACRO_ATTR_NAMES =
       ImmutableSet.of("name", "visibility");
 
+  /**
+   * "visibility" attribute present on all symbolic macros.
+   *
+   * <p>This is similar to the visibility attribute for rules, but lacks the exec transitions.
+   */
+  public static final Attribute VISIBILITY_ATTRIBUTE =
+      Attribute.attr("visibility", NODEP_LABEL_LIST)
+          .orderIndependent()
+          .nonconfigurable("special attribute integrated more deeply into Bazel's core logic")
+          .build();
+
   private final String name;
   private final Label definingBzlLabel;
   private final StarlarkFunction implementation;
@@ -66,7 +78,7 @@ public final class MacroClass {
   private final ImmutableMap<String, Attribute> attributes;
   private final boolean isFinalizer;
 
-  public MacroClass(
+  private MacroClass(
       String name,
       Label definingBzlLabel,
       StarlarkFunction implementation,
@@ -116,6 +128,9 @@ public final class MacroClass {
 
     public Builder(StarlarkFunction implementation) {
       this.implementation = implementation;
+
+      addAttribute(RuleClass.NAME_ATTRIBUTE);
+      addAttribute(VISIBILITY_ATTRIBUTE);
     }
 
     @CanIgnoreReturnValue

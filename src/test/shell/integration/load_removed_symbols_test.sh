@@ -433,7 +433,7 @@ EOF
   bazel query --incompatible_autoload_externally=+@rules_python ':py_library' --output=build >&$TEST_log 2>&1 || fail "build failed"
 }
 
-function test_legacy_symbols() {
+function test_legacy_globals() {
   setup_module_dot_bazel
   mock_rules_java
 
@@ -446,10 +446,10 @@ def _init(specs):
   return {"specs": specs}
 
 def _proguard_spec_info():
-  if hasattr(native, "legacy_symbols"):
-    if hasattr(native.legacy_symbols, "ProguardSpecProvider"):
+  if hasattr(native, "legacy_globals"):
+    if hasattr(native.legacy_globals, "ProguardSpecProvider"):
       print("Native provider")
-      return native.legacy_symbols.ProguardSpecProvider
+      return native.legacy_globals.ProguardSpecProvider
   print("Starlark provider")
   return provider(fields = ["specs"], init = _init)[0]
 

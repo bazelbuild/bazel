@@ -888,7 +888,7 @@ public final class ModuleInfoExtractorTest {
     Module module =
         exec(
             """
-            def _my_impl(name):
+            def _my_impl(ctx):
                 pass
 
             s = struct(
@@ -908,7 +908,7 @@ public final class ModuleInfoExtractorTest {
         execWithOptions(
             ImmutableList.of("--experimental_enable_first_class_macros"),
             """
-            def _my_impl(name):
+            def _my_impl(name, visibility):
                 pass
 
             documented_macro = macro(

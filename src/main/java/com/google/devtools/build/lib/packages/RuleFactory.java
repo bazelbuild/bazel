@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
-import com.google.devtools.build.lib.packages.TargetRegistrationEnvironment.NameConflictException;
+import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.List;
@@ -297,8 +297,7 @@ public class RuleFactory {
     RuleVisibility visibility = null;
     Object uncheckedVisibilityAttr = args.getAttributeValue("visibility");
     if (uncheckedVisibilityAttr == null) {
-      // TODO: #19922 - Don't use default_visibility, we're in a symbolic macro.
-      visibility = pkgBuilder.getPartialPackageArgs().defaultVisibility();
+      visibility = RuleVisibility.PRIVATE;
     } else {
       try {
         List<Label> visibilityAttr =

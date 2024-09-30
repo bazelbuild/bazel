@@ -36,7 +36,6 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.bazel.BazelConfiguration;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
-import com.google.devtools.build.lib.bazel.rules.android.BazelAndroidSemantics;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
@@ -44,33 +43,9 @@ import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageCallable;
-import com.google.devtools.build.lib.rules.android.AndroidApplicationResourceInfo;
-import com.google.devtools.build.lib.rules.android.AndroidAssetsInfo;
-import com.google.devtools.build.lib.rules.android.AndroidBinaryDataInfo;
-import com.google.devtools.build.lib.rules.android.AndroidCcLinkParamsProvider;
 import com.google.devtools.build.lib.rules.android.AndroidConfiguration;
-import com.google.devtools.build.lib.rules.android.AndroidDexInfo;
-import com.google.devtools.build.lib.rules.android.AndroidFeatureFlagSetProvider;
-import com.google.devtools.build.lib.rules.android.AndroidIdeInfoProvider;
-import com.google.devtools.build.lib.rules.android.AndroidIdlProvider;
-import com.google.devtools.build.lib.rules.android.AndroidInstrumentationInfo;
-import com.google.devtools.build.lib.rules.android.AndroidLibraryAarInfo;
-import com.google.devtools.build.lib.rules.android.AndroidLibraryResourceClassJarProvider;
-import com.google.devtools.build.lib.rules.android.AndroidManifestInfo;
-import com.google.devtools.build.lib.rules.android.AndroidNativeLibsInfo;
-import com.google.devtools.build.lib.rules.android.AndroidNeverLinkLibrariesProvider;
-import com.google.devtools.build.lib.rules.android.AndroidOptimizationInfo;
-import com.google.devtools.build.lib.rules.android.AndroidOptimizedJarInfo;
-import com.google.devtools.build.lib.rules.android.AndroidPreDexJarProvider;
-import com.google.devtools.build.lib.rules.android.AndroidProguardInfo;
-import com.google.devtools.build.lib.rules.android.AndroidResourcesInfo;
-import com.google.devtools.build.lib.rules.android.AndroidSdkProvider;
 import com.google.devtools.build.lib.rules.android.AndroidStarlarkCommon;
-import com.google.devtools.build.lib.rules.android.ApkInfo;
-import com.google.devtools.build.lib.rules.android.BaselineProfileProvider;
 import com.google.devtools.build.lib.rules.android.BazelAndroidConfiguration;
-import com.google.devtools.build.lib.rules.android.ProguardMappingProvider;
-import com.google.devtools.build.lib.rules.android.databinding.DataBindingV2Provider;
 import com.google.devtools.build.lib.rules.config.ConfigRules;
 import com.google.devtools.build.lib.rules.core.CoreRules;
 import com.google.devtools.build.lib.rules.cpp.CcStarlarkInternal;
@@ -317,39 +292,10 @@ public class BazelRuleClassProvider {
           builder.addConfigurationFragment(AndroidConfiguration.class);
           builder.addConfigurationFragment(BazelAndroidConfiguration.class);
 
-          AndroidBootstrap bootstrap =
-              new AndroidBootstrap(
-                  new AndroidStarlarkCommon(),
-                  ApkInfo.PROVIDER,
-                  AndroidInstrumentationInfo.PROVIDER,
-                  AndroidResourcesInfo.PROVIDER,
-                  AndroidNativeLibsInfo.PROVIDER,
-                  AndroidApplicationResourceInfo.PROVIDER,
-                  AndroidSdkProvider.PROVIDER,
-                  AndroidManifestInfo.PROVIDER,
-                  AndroidAssetsInfo.PROVIDER,
-                  AndroidLibraryAarInfo.PROVIDER,
-                  AndroidProguardInfo.PROVIDER,
-                  AndroidIdlProvider.PROVIDER,
-                  AndroidIdeInfoProvider.PROVIDER,
-                  AndroidPreDexJarProvider.PROVIDER,
-                  AndroidCcLinkParamsProvider.PROVIDER,
-                  DataBindingV2Provider.PROVIDER,
-                  AndroidLibraryResourceClassJarProvider.PROVIDER,
-                  AndroidFeatureFlagSetProvider.PROVIDER,
-                  ProguardMappingProvider.PROVIDER,
-                  AndroidBinaryDataInfo.PROVIDER,
-                  BaselineProfileProvider.PROVIDER,
-                  AndroidNeverLinkLibrariesProvider.PROVIDER,
-                  AndroidOptimizedJarInfo.PROVIDER,
-                  AndroidDexInfo.PROVIDER,
-                  AndroidOptimizationInfo.PROVIDER);
+          AndroidBootstrap bootstrap = new AndroidBootstrap(new AndroidStarlarkCommon());
           builder.addStarlarkBootstrap(bootstrap);
 
           try {
-            builder.addWorkspaceFileSuffix(
-                ResourceFileLoader.loadResource(
-                    BazelAndroidSemantics.class, "android_remote_tools.WORKSPACE"));
             builder.addWorkspaceFileSuffix(
                 ResourceFileLoader.loadResource(JavaRules.class, "coverage.WORKSPACE"));
           } catch (IOException e) {

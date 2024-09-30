@@ -20,8 +20,10 @@ import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -35,6 +37,9 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @ThreadSafe
 public final class PathFragmentPrefixTrie {
+
+  private final Set<PathFragment> includedPaths = new HashSet<>();
+  private final Set<PathFragment> excludedPaths = new HashSet<>();
 
   private abstract static sealed class Segment
       permits InterimSegment, ExcludedSegment, IncludedSegment {
@@ -110,6 +115,12 @@ public final class PathFragmentPrefixTrie {
         !pathFragment.equals(PathFragment.EMPTY_FRAGMENT),
         "path fragment cannot be the empty fragment.");
 
+    if (included) {
+      includedPaths.add(pathFragment);
+    } else {
+      excludedPaths.add(pathFragment);
+    }
+
     Segment current = root;
 
     Iterator<String> segments = pathFragment.segments().iterator();
@@ -170,5 +181,14 @@ public final class PathFragmentPrefixTrie {
       }
     }
     return lastSegment instanceof IncludedSegment;
+  }
+
+  @Override
+  public String toString() {
+    return "[included: "
+        + includedPaths.stream().sorted().toList()
+        + ", excluded: "
+        + excludedPaths.stream().sorted().toList()
+        + "]";
   }
 }

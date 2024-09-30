@@ -122,4 +122,17 @@ public class PathFragmentPrefixTrieTest {
             IllegalArgumentException.class, () -> trie.put(PathFragment.create("a/b"), false));
     assertThat(e).hasMessageThat().contains("a/b has already been explicitly marked as included.");
   }
+
+  @Test
+  public void testStringRepr() {
+    PathFragmentPrefixTrie trie = new PathFragmentPrefixTrie();
+
+    trie.put(PathFragment.create("a"), true);
+    trie.put(PathFragment.create("a/b"), false);
+    trie.put(PathFragment.create("a/b/c"), true);
+    trie.put(PathFragment.create("a/b/d"), false);
+    trie.put(PathFragment.create("e"), true);
+
+    assertThat(trie.toString()).isEqualTo("[included: [a, a/b/c, e], excluded: [a/b, a/b/d]]");
+  }
 }

@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversal;
 import com.google.devtools.build.lib.actions.HasDigest;
-import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.DanglingSymlinkException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalFunction.RecursiveFilesystemTraversalException;
 import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.ResolvedFile;
 import com.google.devtools.build.lib.vfs.Path;
@@ -177,23 +176,7 @@ public final class FilesetEntryFunction implements SkyFunction {
         continue;
       }
 
-      PathFragment targetName;
-      try {
-        switch (direct.getSymlinkBehavior()) {
-          case COPY:
-            targetName = f.getTargetInSymlinkTree(false);
-            break;
-          case DEREFERENCE:
-            targetName = f.getTargetInSymlinkTree(true);
-            break;
-          default:
-            targetName = f.getPath().asPath().asFragment();
-            break;
-        }
-      } catch (DanglingSymlinkException e) {
-        throw new FilesetEntryFunctionException(e);
-      }
-
+      PathFragment targetName = f.getPath().asPath().asFragment();
       maybeStoreSymlink(
           linkName,
           targetName,

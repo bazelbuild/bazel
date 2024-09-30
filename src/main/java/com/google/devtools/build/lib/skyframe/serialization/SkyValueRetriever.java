@@ -19,6 +19,7 @@ import static com.google.common.util.concurrent.Futures.getDone;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
@@ -176,7 +177,8 @@ public final class SkyValueRetriever {
       ObjectCodecs codecs,
       FingerprintValueService fingerprintValueService,
       SkyKey key,
-      SerializationStateProvider stateProvider)
+      SerializationStateProvider stateProvider,
+      FrontierNodeVersion frontierNodeVersion)
       throws InterruptedException, SerializationException {
     SerializationState nextState = stateProvider.getSerializationState();
     try {
@@ -197,7 +199,10 @@ public final class SkyValueRetriever {
               try {
                 valueBytes =
                     fingerprintValueService.get(
-                        fingerprintValueService.fingerprint(keyBytes.getObject()));
+                        fingerprintValueService.fingerprint(
+                            Bytes.concat(
+                                keyBytes.getObject().toByteArray(),
+                                frontierNodeVersion.getDirectoryMatcherFingerprint())));
               } catch (IOException e) {
                 throw new SerializationException("key lookup failed for " + key, e);
               }
@@ -318,4 +323,20 @@ public final class SkyValueRetriever {
   record WaitingForFutureResult(ListenableFuture<?> futureResult) implements SerializationState {}
 
   private SkyValueRetriever() {}
+
+  /** A tuple representing the version of a cached SkyValue in the frontier. */
+  public static class FrontierNodeVersion {
+    public static final FrontierNodeVersion CONSTANT_FOR_TESTING =
+        new FrontierNodeVersion(ByteString.copyFrom(new byte[] {1, 2, 3}));
+    private final byte[] directoryMatcherFingerprint;
+
+    public FrontierNodeVersion(ByteString directoryMatcherFingerprint) {
+      // TODO: b/364831651 - add more fields like source and blaze versions.
+      this.directoryMatcherFingerprint = directoryMatcherFingerprint.toByteArray();
+    }
+
+    public byte[] getDirectoryMatcherFingerprint() {
+      return directoryMatcherFingerprint;
+    }
+  }
 }

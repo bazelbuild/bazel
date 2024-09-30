@@ -142,7 +142,7 @@ public final class VisibilityProviderTest extends BuildViewTestCase {
         """
         load("//rules:simple_rule.bzl", "simple_rule")
 
-        def _impl(name):
+        def _impl(name, visibility):
             simple_rule(
                 name = name + "_rule_target",
                 # No implicit input file, because they can only be created outside a symbolic
@@ -208,7 +208,7 @@ public final class VisibilityProviderTest extends BuildViewTestCase {
         """
         load("//rules:simple_rule.bzl", "simple_rule")
 
-        def _impl(name):
+        def _impl(name, visibility):
             simple_rule(
                 name = name + "_actual",
                 visibility = ["//actual_client:__pkg__"])

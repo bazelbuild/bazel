@@ -45,6 +45,8 @@ import com.google.devtools.build.lib.exec.BinTools;
 import com.google.devtools.build.lib.exec.ExecutionOptions;
 import com.google.devtools.build.lib.pkgcache.PackageOptions;
 import com.google.devtools.build.lib.remote.circuitbreaker.FailureCircuitBreaker;
+import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.CollectionPolicy;
+import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollectorIdleTask;
 import com.google.devtools.build.lib.remote.downloader.GrpcRemoteDownloader;
 import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
@@ -59,6 +61,7 @@ import com.google.devtools.build.lib.runtime.CommonCommandOptions;
 import com.google.devtools.build.lib.runtime.commands.BuildCommand;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.testutil.Scratch;
+import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
@@ -66,6 +69,7 @@ import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import com.google.devtools.common.options.Options;
 import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.ServerInterceptors;
@@ -77,6 +81,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Optional;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -565,10 +570,42 @@ public final class RemoteModuleTest {
     }
   }
 
-  private void beforeCommand() throws IOException, AbruptExitException {
+  @Test
+  public void diskCacheGarbageCollectionIdleTask_disabled() throws Exception {
+    var diskCacheDir = TestUtils.createUniqueTmpDir(null);
+    remoteOptions.diskCache = diskCacheDir.asFragment();
+
+    var env = beforeCommand();
+
+    assertThat(env.getIdleTasks()).isEmpty();
+  }
+
+  @Test
+  public void diskCacheGarbageCollectionIdleTask_enabled() throws Exception {
+    var diskCacheDir = TestUtils.createUniqueTmpDir(null);
+    remoteOptions.diskCache = diskCacheDir.asFragment();
+    remoteOptions.diskCacheGcIdleDelay = Duration.ofMinutes(2);
+    remoteOptions.diskCacheGcMaxSize = 1234567890L;
+    remoteOptions.diskCacheGcMaxAge = Duration.ofDays(7);
+
+    var env = beforeCommand();
+
+    assertThat(env.getIdleTasks()).hasSize(1);
+    assertThat(env.getIdleTasks().get(0)).isInstanceOf(DiskCacheGarbageCollectorIdleTask.class);
+    var idleTask = (DiskCacheGarbageCollectorIdleTask) env.getIdleTasks().get(0);
+    assertThat(idleTask.delay()).isEqualTo(Duration.ofMinutes(2));
+    assertThat(idleTask.getGarbageCollector().getRoot().getPathString())
+        .isEqualTo(diskCacheDir.getPathString());
+    assertThat(idleTask.getGarbageCollector().getPolicy())
+        .isEqualTo(new CollectionPolicy(Optional.of(1234567890L), Optional.of(Duration.ofDays(7))));
+  }
+
+  @CanIgnoreReturnValue
+  private CommandEnvironment beforeCommand() throws IOException, AbruptExitException {
     CommandEnvironment env = createTestCommandEnvironment(remoteModule, remoteOptions);
     remoteModule.beforeCommand(env);
     env.throwPendingException();
+    return env;
   }
 
   private void assertCircuitBreakerInstance() {

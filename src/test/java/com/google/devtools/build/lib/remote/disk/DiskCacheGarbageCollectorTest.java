@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.disk;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertThrows;
 
 import com.google.common.util.concurrent.MoreExecutors;
+import com.google.devtools.build.lib.remote.disk.DiskCacheGarbageCollector.CollectionStats;
 import com.google.devtools.build.lib.testutil.TestUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -56,8 +59,9 @@ public final class DiskCacheGarbageCollectorTest {
         Entry.of("ac/123", kbytes(1), Instant.now()),
         Entry.of("cas/456", kbytes(1), Instant.now()));
 
-    runGarbageCollector(Optional.of(kbytes(2)), Optional.empty());
+    CollectionStats stats = runGarbageCollector(Optional.of(kbytes(2)), Optional.empty());
 
+    assertThat(stats).isEqualTo(new CollectionStats(2, kbytes(2), 0, 0));
     assertFilesExist("ac/123", "cas/456");
   }
 
@@ -69,10 +73,26 @@ public final class DiskCacheGarbageCollectorTest {
         Entry.of("ac/abc", kbytes(1), daysAgo(3)),
         Entry.of("cas/def", kbytes(1), daysAgo(4)));
 
-    runGarbageCollector(Optional.of(kbytes(2)), Optional.empty());
+    CollectionStats stats = runGarbageCollector(Optional.of(kbytes(2)), Optional.empty());
 
+    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2)));
     assertFilesExist("ac/123", "cas/456");
     assertFilesDoNotExist("ac/abc", "cas/def");
+  }
+
+  @Test
+  public void sizePolicy_tieBreakByPath() throws Exception {
+    writeFiles(
+        Entry.of("ac/123", kbytes(1), daysAgo(1)),
+        Entry.of("cas/456", kbytes(1), daysAgo(1)),
+        Entry.of("ac/abc", kbytes(1), daysAgo(1)),
+        Entry.of("cas/def", kbytes(1), daysAgo(1)));
+
+    CollectionStats stats = runGarbageCollector(Optional.of(kbytes(2)), Optional.empty());
+
+    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2)));
+    assertFilesExist("cas/456", "cas/def");
+    assertFilesDoNotExist("ac/123", "ac/abc");
   }
 
   @Test
@@ -81,8 +101,9 @@ public final class DiskCacheGarbageCollectorTest {
         Entry.of("ac/123", kbytes(1), Instant.now()),
         Entry.of("cas/456", kbytes(1), Instant.now()));
 
-    runGarbageCollector(Optional.empty(), Optional.of(days(3)));
+    CollectionStats stats = runGarbageCollector(Optional.empty(), Optional.of(days(3)));
 
+    assertThat(stats).isEqualTo(new CollectionStats(2, kbytes(2), 0, 0));
     assertFilesExist("ac/123", "cas/456");
   }
 
@@ -94,8 +115,9 @@ public final class DiskCacheGarbageCollectorTest {
         Entry.of("ac/abc", kbytes(1), daysAgo(4)),
         Entry.of("cas/def", kbytes(1), daysAgo(5)));
 
-    runGarbageCollector(Optional.empty(), Optional.of(Duration.ofDays(3)));
+    CollectionStats stats = runGarbageCollector(Optional.empty(), Optional.of(Duration.ofDays(3)));
 
+    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2)));
     assertFilesExist("ac/123", "cas/456");
     assertFilesDoNotExist("ac/abc", "cas/def");
   }
@@ -106,8 +128,9 @@ public final class DiskCacheGarbageCollectorTest {
         Entry.of("ac/123", kbytes(1), Instant.now()),
         Entry.of("cas/456", kbytes(1), Instant.now()));
 
-    runGarbageCollector(Optional.of(kbytes(2)), Optional.of(days(1)));
+    CollectionStats stats = runGarbageCollector(Optional.of(kbytes(2)), Optional.of(days(1)));
 
+    assertThat(stats).isEqualTo(new CollectionStats(2, kbytes(2), 0, 0));
     assertFilesExist("ac/123", "cas/456");
   }
 
@@ -119,8 +142,9 @@ public final class DiskCacheGarbageCollectorTest {
         Entry.of("ac/abc", kbytes(1), daysAgo(3)),
         Entry.of("cas/def", kbytes(1), daysAgo(4)));
 
-    runGarbageCollector(Optional.of(kbytes(2)), Optional.of(days(4)));
+    CollectionStats stats = runGarbageCollector(Optional.of(kbytes(2)), Optional.of(days(4)));
 
+    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2)));
     assertFilesExist("ac/123", "cas/456");
     assertFilesDoNotExist("ac/abc", "cas/def");
   }
@@ -133,8 +157,9 @@ public final class DiskCacheGarbageCollectorTest {
         Entry.of("ac/abc", kbytes(1), daysAgo(3)),
         Entry.of("cas/def", kbytes(1), daysAgo(4)));
 
-    runGarbageCollector(Optional.of(kbytes(3)), Optional.of(days(3)));
+    CollectionStats stats = runGarbageCollector(Optional.of(kbytes(3)), Optional.of(days(3)));
 
+    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2)));
     assertFilesExist("ac/123", "cas/456");
     assertFilesDoNotExist("ac/abc", "cas/def");
   }
@@ -144,9 +169,21 @@ public final class DiskCacheGarbageCollectorTest {
     writeFiles(
         Entry.of("gc/foo", kbytes(1), daysAgo(1)), Entry.of("tmp/foo", kbytes(1), daysAgo(1)));
 
-    runGarbageCollector(Optional.of(1L), Optional.of(days(1)));
+    CollectionStats stats = runGarbageCollector(Optional.of(1L), Optional.of(days(1)));
 
+    assertThat(stats).isEqualTo(new CollectionStats(0, 0, 0, 0));
     assertFilesExist("gc/foo", "tmp/foo");
+  }
+
+  @Test
+  public void failsWhenLockIsAlreadyHeld() throws Exception {
+    try (var externalLock = ExternalLock.getShared(rootDir.getRelative("gc/lock"))) {
+      Exception e =
+          assertThrows(
+              Exception.class, () -> runGarbageCollector(Optional.of(1L), Optional.empty()));
+      assertThat(e).isInstanceOf(IOException.class);
+      assertThat(e).hasMessageThat().contains("failed to acquire exclusive disk cache lock");
+    }
   }
 
   private void assertFilesExist(String... relativePaths) throws IOException {
@@ -167,14 +204,15 @@ public final class DiskCacheGarbageCollectorTest {
     }
   }
 
-  private void runGarbageCollector(Optional<Long> maxSizeBytes, Optional<Duration> maxAge)
-      throws Exception {
+  private CollectionStats runGarbageCollector(
+      Optional<Long> maxSizeBytes, Optional<Duration> maxAge)
+      throws IOException, InterruptedException {
     var gc =
         new DiskCacheGarbageCollector(
             rootDir,
             executorService,
             new DiskCacheGarbageCollector.CollectionPolicy(maxSizeBytes, maxAge));
-    gc.run();
+    return gc.run();
   }
 
   private void writeFiles(Entry... entries) throws IOException {
