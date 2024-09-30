@@ -19,7 +19,10 @@ license(
     license_text = "LICENSE",
 )
 
-exports_files(["LICENSE"])
+exports_files([
+    "LICENSE",
+    "MODULE.bazel.lock",
+])
 
 filegroup(
     name = "srcs",
