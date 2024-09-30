@@ -500,7 +500,7 @@ active_directories = { "default": ["foo"] }
     assertThat(graph.getIfPresent(ctKeyOfLabel.apply("//bar:I"))).isNull();
   }
 
-  private void setupScenarioWithConfiguredTargets() throws Exception {
+  protected void setupScenarioWithConfiguredTargets() throws Exception {
     // ┌───────┐     ┌───────┐
     // │ bar:C │ ◀── │ foo:A │
     // └───────┘     └───────┘
