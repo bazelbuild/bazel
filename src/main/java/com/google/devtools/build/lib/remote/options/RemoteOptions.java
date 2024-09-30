@@ -427,29 +427,6 @@ public final class RemoteOptions extends CommonRemoteOptions {
   public PathFragment remoteGrpcLog;
 
   @Option(
-      name = "incompatible_remote_symlinks",
-      defaultValue = "true",
-      category = "remote",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If set to true, Bazel will always upload symlinks as such to a remote or disk cache."
-              + " Otherwise, non-dangling relative symlinks (and only those) will be uploaded as"
-              + " the file or directory they point to.")
-  public boolean incompatibleRemoteSymlinks;
-
-  @Option(
-      name = "incompatible_remote_dangling_symlinks",
-      defaultValue = "true",
-      category = "remote",
-      documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
-      effectTags = {OptionEffectTag.EXECUTION},
-      metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help = "If set to true, symlinks uploaded to a remote or disk cache are allowed to dangle.")
-  public boolean incompatibleRemoteDanglingSymlinks;
-
-  @Option(
       name = "remote_cache_compression",
       oldName = "experimental_remote_cache_compression",
       defaultValue = "false",

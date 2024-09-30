@@ -45,8 +45,7 @@ source "$(rlocation "io_bazel/src/test/shell/bazel/remote/remote_utils.sh")" \
   || { echo "remote_utils.sh not found!" >&2; exit 1; }
 
 function set_up() {
-  start_worker \
-        --incompatible_remote_symlinks
+  start_worker
 }
 
 function tear_down() {
