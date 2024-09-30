@@ -43,6 +43,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -168,6 +169,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "platforms_workspace",
         "local_config_platform_workspace",
         "rules_java_workspace",
+        "rules_python_workspace",
         "protobuf_workspace",
         "third_party/bazel_rules/rules_proto",
         "build_bazel_apple_support",
@@ -652,9 +654,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
         proto_library(
             name = "well_known_type_proto",
-            srcs = ["well_known_type.proto"],
-        )
-        """);
+                srcs = ["well_known_type.proto"],
+            )
+            """);
     config.create("embedded_tools/objcproto/empty.m");
     config.create("embedded_tools/objcproto/empty.cc");
     config.create("embedded_tools/objcproto/well_known_type.proto");
@@ -662,17 +664,20 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("third_party/bazel_rules/rules_proto/WORKSPACE");
     config.create("third_party/bazel_rules/rules_proto/MODULE.bazel", "module(name='rules_proto')");
 
-    config.create("third_party/bazel_rules/rules_cc/WORKSPACE");
-    config.create("third_party/bazel_rules/rules_cc/MODULE.bazel", "module(name='rules_cc')");
+    // Copies bazel_skylib from real @bazel_skylib (needed by rules_python)
+    config.copyDirectory(PathFragment.create("bazel_skylib+/"), "bazel_skylib_workspace", 5, true);
+    config.create("bazel_skylib_workspace/MODULE.bazel", "module(name = 'bazel_skylib')");
+    config.create("bazel_skylib_workspace/lib/BUILD");
+    config.create("bazel_skylib_workspace/rules/BUILD");
 
     config.create(
         "embedded_tools/tools/allowlists/function_transition_allowlist/BUILD",
         """
-        package_group(
-            name = "function_transition_allowlist",
-            packages = ["public"],
-        )
-        """);
+            package_group(
+                name = "function_transition_allowlist",
+                packages = ["public"],
+            )
+            """);
 
     config.create(
         "embedded_tools/tools/allowlists/dormant_dependency_allowlist/BUILD",
@@ -829,6 +834,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
             .put("platforms", "platforms_workspace")
             .put("local_config_platform", "local_config_platform_workspace")
             .put("rules_java", "rules_java_workspace")
+            .put("rules_python", "rules_python_workspace")
+            .put("rules_python_internal", "rules_python_internal_workspace")
+            .put("bazel_skylib", "bazel_skylib_workspace")
             .put("com_google_protobuf", "protobuf_workspace")
             .put("rules_proto", "third_party/bazel_rules/rules_proto")
             .put("build_bazel_apple_support", "build_bazel_apple_support")

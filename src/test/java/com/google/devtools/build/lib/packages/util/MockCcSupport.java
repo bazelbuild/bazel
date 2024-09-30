@@ -251,15 +251,21 @@ public abstract class MockCcSupport {
   }
 
   protected void setupRulesCc(MockToolsConfig config) throws IOException {
+    // Copies rules_cc from real @rules_cc
+    config.create("third_party/bazel_rules/rules_cc/WORKSPACE");
+    config.create("third_party/bazel_rules/rules_cc/MODULE.bazel", "module(name='rules_cc')");
+    config.copyDirectory(PathFragment.create("rules_cc+/"), "third_party/bazel_rules/rules_cc/", 5,
+        true);
+    config.create("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
+    config.create("third_party/bazel_rules/rules_cc/cc/common/BUILD");
+
     for (String path :
         ImmutableList.of(
-            "cc/BUILD",
             "cc/defs.bzl",
             "cc/action_names.bzl",
             "cc/cc_toolchain_config_lib.bzl",
             "cc/find_cc_toolchain.bzl",
-            "cc/toolchain_utils.bzl",
-            "cc/private/rules_impl/BUILD")) {
+            "cc/toolchain_utils.bzl")) {
       try {
         config.create(
             "third_party/bazel_rules/rules_cc/" + path,

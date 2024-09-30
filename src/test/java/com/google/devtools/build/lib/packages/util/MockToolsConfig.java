@@ -161,10 +161,14 @@ public final class MockToolsConfig {
   }
 
   public void copyTool(String relativePath, String dest) throws IOException {
-    // Tests are assumed to be run from the main repository only.
-    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
     PathFragment rlocationPath =
         PathFragment.create(TestConstants.WORKSPACE_NAME).getRelative(relativePath);
+    copyTool(rlocationPath, dest);
+  }
+
+  public void copyTool(PathFragment rlocationPath, String dest) throws IOException {
+    // Tests are assumed to be run from the main repository only.
+    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
     Path source =
         FileSystems.getNativeFileSystem()
             .getPath(runfiles.rlocation(rlocationPath.getPathString()));
@@ -193,10 +197,15 @@ public final class MockToolsConfig {
 
   public void copyDirectory(String relativeDirPath, int depth, boolean useEmptyBuildFiles)
       throws IOException {
+    copyDirectory(PathFragment.create(TestConstants.WORKSPACE_NAME).getRelative(relativeDirPath),
+        relativeDirPath, depth, useEmptyBuildFiles);
+  }
+
+  public void copyDirectory(PathFragment rlocationPath, String to, int depth,
+      boolean useEmptyBuildFiles)
+      throws IOException {
     // Tests are assumed to be run from the main repository only.
     Runfiles runfiles = Runfiles.preload().withSourceRepository("");
-    PathFragment rlocationPath =
-        PathFragment.create(TestConstants.WORKSPACE_NAME).getRelative(relativeDirPath);
     java.nio.file.Path source =
         FileSystems.getNativeFileSystem()
             .getPath(runfiles.rlocation(rlocationPath.getPathString()))
@@ -211,9 +220,9 @@ public final class MockToolsConfig {
               f -> {
                 try {
                   if (f.endsWith("BUILD") && useEmptyBuildFiles) {
-                    create(relativeDirPath + "/" + f);
+                    create(to + "/" + f);
                   } else {
-                    copyTool(relativeDirPath + "/" + f);
+                    copyTool(rlocationPath.getRelative(f), to + "/" + f);
                   }
                 } catch (IOException e) {
                   throw new RuntimeException(e);
