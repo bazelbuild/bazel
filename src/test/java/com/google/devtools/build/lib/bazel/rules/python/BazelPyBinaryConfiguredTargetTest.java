@@ -116,8 +116,8 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             py_binary(
                 name = "pybin",
                 srcs = ["pybin.py"],
-        )
-        """);
+            )
+            """);
     String pythonTop =
         analysisMock.pySupport().createPythonTopEntryPoint(mockToolsConfig, "//pkg:my_py_runtime");
     useConfiguration("--incompatible_use_python_toolchains=false", "--python_top=" + pythonTop);
@@ -173,8 +173,8 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
             py_binary(
                 name = "pybin",
                 srcs = ["pybin.py"],
-        )
-        """);
+            )
+            """);
     String pythonTop =
         analysisMock.pySupport().createPythonTopEntryPoint(mockToolsConfig, "//pkg:my_py_runtime");
     useConfiguration(

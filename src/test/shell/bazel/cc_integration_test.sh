@@ -1989,6 +1989,7 @@ EOF
   bazel build \
     --noenable_bzlmod \
     --enable_workspace \
+    --incompatible_autoload_externally= \
     --experimental_sibling_repository_layout \
     "@@$WORKSPACE_NAME//a:a" || fail "build failed"
 }
