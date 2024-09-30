@@ -84,11 +84,15 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
     config.create("rules_python_workspace/python/BUILD",
         "alias(name = 'toolchain_type', actual = '@bazel_tools//tools/python:toolchain_type')",
         "toolchain_type(name = 'exec_tools_toolchain_type')");
-    config.create("rules_python_workspace/python/private/BUILD");
+    config.create("rules_python_workspace/python/private/BUILD",
+        "filegroup(name = 'stage2_bootstrap_template', srcs = ['stage2_bootstrap_template.py'])",
+        "filegroup(name = 'zip_main_template', srcs = ['zip_main_template.py'])",
+        "filegroup(name = 'bootstrap_template', srcs = ['python_bootstrap_template.txt'])");
     config.create("rules_python_workspace/python/private/common/BUILD");
     config.create("rules_python_workspace/python/config_settings/BUILD",
 
-        "load(\"@bazel_skylib//rules:common_settings.bzl\", \"string_flag\")",
+        "load('@bazel_skylib//rules:common_settings.bzl', 'string_flag')",
+        "string_flag(name = 'python_version', build_setting_default = '3.11')",
         "string_flag(name = 'precompile', build_setting_default = 'auto')",
         "string_flag(name = 'pyc_collection', build_setting_default = 'disabled')",
         "string_flag(name = 'precompile_source_retention', build_setting_default = 'auto')",

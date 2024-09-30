@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProviderWrapper;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.testutil.TestConstants;
 import net.starlark.java.eval.EvalException;
 
 /** Instance of the provider type for the Python rules. */
@@ -103,7 +104,8 @@ public final class PyInfo {
       super(
           keyForBuild(
               Label.parseCanonicalUnchecked(
-                  "//third_party/bazel_rules/rules_python/python/private/common:providers.bzl")));
+                  TestConstants.RULES_PYTHON_PACKAGE_ROOT +
+                      "/python/private/common:providers.bzl")));
     }
   }
 }
