@@ -42,10 +42,32 @@ java_library(
 )
 
 java_library(
+    name = "autoload_symbols",
+    srcs = ["AutoloadSymbols.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:common",
+        "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/packages",
+        "//src/main/java/com/google/devtools/build/lib/packages/semantics",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:repository_mapping_value",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+        "//src/main/java/net/starlark/java/eval",
+        "//third_party:auto_value",
+        "//third_party:guava",
+        "//third_party:jsr305",
+    ],
+)
+
+java_library(
     name = "packages",
     srcs = glob(
         ["*.java"],
         exclude = [
+            "AutoloadSymbols.java",
             "BuilderFactoryForTesting.java",  # see builder_factory_for_testing
             "BzlVisibility.java",
             "Globber.java",
@@ -75,6 +97,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/analysis:config/transitions/transition_factory",
         "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
         "//src/main/java/com/google/devtools/build/lib/analysis:transitive_info_provider",
+        # "//src/main/java/com/google/devtools/build/lib/skyframe:precomputed_value",
+        #   "//src/main/java/com/google/devtools/build/lib/bazel/bzlmod:resolution",
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/cmdline:LabelValidator",

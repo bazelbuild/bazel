@@ -22,12 +22,17 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
+import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
+import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
+import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.skyframe.BzlLoadValue;
+import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.skyframe.SkyFunction;
 import java.util.HashSet;
@@ -83,15 +88,20 @@ public class AutoloadSymbols {
   private final boolean bzlmodEnabled;
   private final boolean autoloadsEnabled;
 
+  // Configuration of  --incompatible_load_externally
+  public static final Precomputed<AutoloadSymbols> AUTOLOAD_SYMBOLS = new Precomputed<>(
+      "autoload_symbols");
+
+
   public AutoloadSymbols(RuleClassProvider ruleClassProvider, StarlarkSemantics semantics) {
-    ImmutableList<String> symbolConfiguration =
-        ImmutableList.copyOf(semantics.get(BuildLanguageOptions.INCOMPATIBLE_AUTOLOAD_EXTERNALLY));
+    ImmutableList<String> symbolConfiguration = ImmutableList.copyOf(
+        semantics.get(BuildLanguageOptions.INCOMPATIBLE_AUTOLOAD_EXTERNALLY));
     this.bzlmodEnabled = semantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
     this.autoloadsEnabled = !symbolConfiguration.isEmpty();
 
     if (!autoloadsEnabled) {
-      ImmutableMap<String, Object> originalBuildBzlEnv =
-          ruleClassProvider.getBazelStarlarkEnvironment().getUninjectedBuildBzlEnv();
+      ImmutableMap<String, Object> originalBuildBzlEnv = ruleClassProvider.getBazelStarlarkEnvironment()
+          .getUninjectedBuildBzlEnv();
       this.uninjectedBuildBzlEnvWithAutoloads = originalBuildBzlEnv;
       this.uninjectedBuildBzlEnvWithoutAutoloads = originalBuildBzlEnv;
       this.reposDisallowingAutoloads = ImmutableSet.of();
@@ -363,23 +373,47 @@ public class AutoloadSymbols {
   @Nullable
   public ImmutableMap<String, BzlLoadValue.Key> getLoadKeys(SkyFunction.Environment env)
       throws InterruptedException {
-    RepositoryMappingValue repositoryMappingValue =
-        (RepositoryMappingValue)
-            env.getValue(RepositoryMappingValue.key(RepositoryName.BAZEL_TOOLS));
 
-    if (repositoryMappingValue == null) {
-      return null;
+    final RepoContext repoContext;
+    if (bzlmodEnabled) {
+      BazelDepGraphValue bazelDepGraphValue = (BazelDepGraphValue) env.getValue(
+          BazelDepGraphValue.KEY);
+      if (bazelDepGraphValue == null) {
+        return null;
+      }
+
+      ImmutableMap<String, ModuleKey> highestVersions = bazelDepGraphValue.getCanonicalRepoNameLookup()
+          .values().stream().collect(
+              toImmutableMap(moduleKey -> moduleKey.name(), moduleKey -> moduleKey,
+                  (m1, m2) -> m1.version().compareTo(m2.version()) >= 0 ? m1 : m1));
+      RepositoryMapping repositoryMapping = RepositoryMapping.create(
+          highestVersions.entrySet().stream().collect(toImmutableMap(entry -> entry.getKey(),
+              entry -> bazelDepGraphValue.getCanonicalRepoNameLookup().inverse()
+                  .get(entry.getValue()))), RepositoryName.MAIN);
+      repoContext = Label.RepoContext.of(RepositoryName.MAIN, repositoryMapping);
+    } else {
+      RepositoryMappingValue repositoryMappingValue = (RepositoryMappingValue) env.getValue(
+          RepositoryMappingValue.key(RepositoryName.MAIN));
+      if (repositoryMappingValue == null) {
+        return null;
+      }
+      repoContext = Label.RepoContext.of(RepositoryName.MAIN,
+          repositoryMappingValue.getRepositoryMapping());
     }
 
-    RepoContext repoContext =
-        Label.RepoContext.of(
-            RepositoryName.BAZEL_TOOLS, repositoryMappingValue.getRepositoryMapping());
-
     // Inject loads for rules and symbols removed from Bazel
-    ImmutableMap.Builder<String, BzlLoadValue.Key> loadKeysBuilder =
-        ImmutableMap.builderWithExpectedSize(autoloadedSymbols.size());
+    ImmutableMap.Builder<String, BzlLoadValue.Key> loadKeysBuilder = ImmutableMap.builderWithExpectedSize(
+        autoloadedSymbols.size());
     for (String symbol : autoloadedSymbols) {
-      loadKeysBuilder.put(symbol, AUTOLOAD_CONFIG.get(symbol).getKey(repoContext));
+      Label label = AUTOLOAD_CONFIG.get(symbol).getLabel(repoContext);
+      // Only load if the dependency is present
+      if (label.getRepository().isVisible()) {
+        loadKeysBuilder.put(symbol, BzlLoadValue.keyForBuild(label));
+      } else {
+        env.getListener().handle(Event.warn(String.format(
+            "Auto loading of symbol '%s' requested, but no dependency on module/repository '%s' found. This will result in a failure if there's a reference to the symbol.",
+            symbol, label.getRepository().getName())));
+      }
     }
     return loadKeysBuilder.buildOrThrow();
   }
@@ -465,10 +499,9 @@ public class AutoloadSymbols {
 
     public abstract ImmutableSet<String> getRdeps();
 
-    public BzlLoadValue.Key getKey(RepoContext bazelToolsRepoContext) throws InterruptedException {
+    public Label getLabel(RepoContext bazelToolsRepoContext) throws InterruptedException {
       try {
-        return BzlLoadValue.keyForBuild(
-            Label.parseWithRepoContext(getLoadLabel(), bazelToolsRepoContext));
+        return Label.parseWithRepoContext(getLoadLabel(), bazelToolsRepoContext);
       } catch (LabelSyntaxException e) {
         throw new IllegalStateException(e);
       }

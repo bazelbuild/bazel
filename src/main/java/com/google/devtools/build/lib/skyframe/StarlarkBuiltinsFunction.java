@@ -185,7 +185,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     if (starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH).isEmpty()) {
       return StarlarkBuiltinsValue.createEmpty(starlarkSemantics);
     }
-    AutoloadSymbols autoloadSymbols = PrecomputedValue.AUTOLOAD_SYMBOLS.get(env);
+    AutoloadSymbols autoloadSymbols = AutoloadSymbols.AUTOLOAD_SYMBOLS.get(env);
     if (autoloadSymbols == null) {
       return null;
     }
