@@ -17,7 +17,6 @@ java_binary(
     main_class = "diskcache.Gc",
     visibility = ["//visibility:public"],
     deps = [
-        "//java/com/google/common/util/concurrent",
         "//src/main/java/com/google/devtools/build/lib/remote/disk",
         "//src/main/java/com/google/devtools/build/lib/remote/util",
         "//src/main/java/com/google/devtools/build/lib/unix",
@@ -25,5 +24,6 @@ java_binary(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/windows",
         "//src/main/java/com/google/devtools/common/options",
+        "//third_party:guava",
     ],
 )
