@@ -377,6 +377,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:error_prone_annotations",
+        "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",

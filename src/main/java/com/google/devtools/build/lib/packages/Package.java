@@ -1684,7 +1684,8 @@ public class Package {
      * Package} associated with this {@link Builder}.
      */
     MacroInstance createMacro(
-        MacroClass macroClass, Map<String, Object> attrValues, int sameNameDepth) {
+        MacroClass macroClass, Map<String, Object> attrValues, int sameNameDepth)
+        throws EvalException {
       MacroInstance parent = currentMacro();
       return new MacroInstance(pkg, parent, macroClass, attrValues, sameNameDepth);
     }

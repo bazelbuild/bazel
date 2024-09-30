@@ -23,6 +23,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroFrame;
 import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
@@ -30,6 +31,7 @@ import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -227,6 +229,41 @@ public final class MacroClass {
       attrValues.put(attrName, value);
     }
 
+    // Special processing of the "visibility" attribute.
+    @Nullable MacroFrame parentMacroFrame = pkgBuilder.getCurrentMacroFrame();
+    @Nullable Object rawVisibility = attrValues.get("visibility");
+    RuleVisibility parsedVisibility;
+    if (rawVisibility == null) {
+      // Visibility wasn't explicitly supplied. If we're not in another symbolic macro, use the
+      // package's default visibility, otherwise use private visibility.
+      if (parentMacroFrame == null) {
+        parsedVisibility = pkgBuilder.getPartialPackageArgs().defaultVisibility();
+      } else {
+        parsedVisibility = RuleVisibility.PRIVATE;
+      }
+    } else {
+      @SuppressWarnings("unchecked")
+      List<Label> liftedVisibility =
+          (List<Label>)
+              BuildType.copyAndLiftStarlarkValue(
+                  name, VISIBILITY_ATTRIBUTE, rawVisibility, pkgBuilder.getLabelConverter());
+      parsedVisibility = RuleVisibility.parse(liftedVisibility);
+    }
+    // Concatenate the visibility (as previously populated) with the instantiation site's location.
+    PackageIdentifier instantiatingLoc;
+    if (parentMacroFrame == null) {
+      instantiatingLoc = pkgBuilder.getPackageIdentifier();
+    } else {
+      instantiatingLoc =
+          parentMacroFrame
+              .macroInstance
+              .getMacroClass()
+              .getDefiningBzlLabel()
+              .getPackageIdentifier();
+    }
+    parsedVisibility = RuleVisibility.concatWithPackage(parsedVisibility, instantiatingLoc);
+    attrValues.put("visibility", parsedVisibility.getDeclaredLabels());
+
     // Populate defaults for the rest, and validate that no mandatory attr was missed.
     for (Attribute attr : attributes.values()) {
       if (attrValues.containsKey(attr.getName())) {
@@ -272,7 +309,6 @@ public final class MacroClass {
     String name = (String) Preconditions.checkNotNull(attrValues.get("name"));
     // Determine the id for this macro. If we're in another macro by the same name, increment the
     // number, otherwise use 1 for the number.
-    @Nullable MacroFrame parentMacroFrame = pkgBuilder.getCurrentMacroFrame();
     int sameNameDepth =
         parentMacroFrame == null || !name.equals(parentMacroFrame.macroInstance.getName())
             ? 1

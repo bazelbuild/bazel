@@ -16,14 +16,17 @@ package com.google.devtools.build.lib.packages;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.BuildType.SelectorList;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
+import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 
 /**
@@ -58,16 +61,28 @@ public final class MacroInstance {
   /**
    * Instantiates the given macro class with the given attribute values.
    *
+   * <p>{@code attrValues} must have already been normalized based on the types of the attributes;
+   * see {@link MacroClass#instantiateMacro}. Values for the {@code "name"} and {@code "visibility"}
+   * attributes must exist with the correct types, and the {@code "visibility"} value must satisfy
+   * {@link RuleVisibility#validate}.
+   *
    * <p>{@code sameNameDepth} is the number of macro instances that this one is inside of that share
    * its name. For most instances it is 1, but for the main submacro of a parent macro it is one
    * more than the parent's depth.
+   *
+   * @throws EvalException if there's a problem with the attribute values (currently, only thrown if
+   *     the {@code visibility} value is invalid)
    */
+  // TODO: #19922 - Better encapsulate the invariant around attrValues, by either transitioning to
+  // storing internal-typed values (the way Rules do) instead of Starlark-typed values, or else just
+  // making the constructor private and moving instantiateMacro() to this class.
   public MacroInstance(
       Package pkg,
       @Nullable MacroInstance parent,
       MacroClass macroClass,
       Map<String, Object> attrValues,
-      int sameNameDepth) {
+      int sameNameDepth)
+      throws EvalException {
     this.pkg = pkg;
     this.parent = parent;
     this.macroClass = macroClass;
@@ -140,6 +155,22 @@ public final class MacroInstance {
   }
 
   /**
+   * Returns the visibility of this macro instance.
+   *
+   * <p>This value will be observed as the {@code visibility} parameter of the implementation
+   * function. It is not necessarily the same as the {@code visibility} value passed in when
+   * instantiating the macro, since the latter needs processing to add the call site's location and
+   * possibly apply the package's default visibility.
+   *
+   * <p>It can be assumed that the returned list satisfies {@link RuleVisibility#validate}.
+   */
+  public ImmutableList<Label> getVisibility() {
+    @SuppressWarnings("unchecked")
+    List<Label> visibility = (List<Label>) Preconditions.checkNotNull(attrValues.get("visibility"));
+    return ImmutableList.copyOf(visibility);
+  }
+
+  /**
    * Dictionary of attributes for this instance.
    *
    * <p>Contains all attributes, as seen after processing by {@link
@@ -160,6 +191,8 @@ public final class MacroInstance {
    * given value for its {@code visibility} attribute, and if the target were declared directly in
    * this macro (i.e. not in a submacro).
    */
+  // TODO: #19922 - Maybe refactor this to getDefinitionLocation and let the caller do the concat,
+  // so we don't have to basically repeat it in MacroClass#instantiateMacro.
   public RuleVisibility concatDefinitionLocationToVisibility(RuleVisibility visibility) {
     PackageIdentifier macroLocation = macroClass.getDefiningBzlLabel().getPackageIdentifier();
     return RuleVisibility.concatWithPackage(visibility, macroLocation);

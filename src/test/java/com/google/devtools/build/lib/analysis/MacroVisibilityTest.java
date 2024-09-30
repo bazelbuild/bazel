@@ -29,7 +29,7 @@ import org.junit.runner.RunWith;
  * Macro-Aware Visibility design.
  *
  * <p>This does *not* include tests of how the {@code visibility} attribute's value gets determined
- * and threaded through macros.
+ * and threaded through macros. See SymbolicMacroTest.java for that.
  */
 @RunWith(TestParameterInjector.class)
 public final class MacroVisibilityTest extends BuildViewTestCase {
@@ -821,6 +821,14 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
     assertVisibilityPermits("//pkg:foo_consumes_v2M_hardcoded", "//common:v2M_hardcoded");
     // Having an implicit dep doesn't count as the caller passing it in.
     assertVisibilityPermits("//pkg:foo_consumes_v2M_implicitdep", "//common:v2M_implicitdep");
+
+    // Theoretically another behavior we could try to demonstrate might be that having a label in
+    // the "visibility" attribute does not qualify as the caller passing it in. However, the only
+    // non-synthetic labels that can appear in visibility are package_groups or rules that imitate
+    // them by providing PackageSpecificationProvider. package_groups always have public visibility,
+    // so we can't manufacture a situation demonstrating that delegation has failed unless we make
+    // an alternate rule class for that purpose, which doens't seem worth it. See also
+    // SymbolicMacroTest#labelVisitation which covers this case at a lower level.
   }
 
   @Test
@@ -983,11 +991,6 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
   /*
    * TODO: #19922 - Tests cases to add:
    *
-   * ---- Propagating target usages from parent macro to child ----
-   *
-   * - When checking a parent macro to see if the label occurs, only normal dep attributes are
-   *   considered, not nodep labels like visibility (that's a funny test case).
-   *
    * ---- Implicit deps ----
    *
    * - If a rule's implicit dep is defined in a macro, the check of the rule's def loc against the
@@ -1003,21 +1006,9 @@ public final class MacroVisibilityTest extends BuildViewTestCase {
    *
    * ---- Visibility attr usage ----
    *
-   * - Visibility attr is passed and contains the call site's package.
-   *
-   * - Exporting via visibility = visibility works, including transitively.
-   *
-   * - Passing visibility to a macro does not force that visibility upon the macro's internal
-   *   targets that don't declare a visibility.
-   *
    * - Can compose public and private visibilities with other visibilities via concatenation.
    *   Visibility attr is normalized. (Unclear whether to apply normalization to targets defined
    *   outside symbolic macros.)
-   *
-   * ---- default_visibility ----
-   *
-   * - default_visibility affects the visibility of a top-level macro that does not set
-   *   visibility=..., and does not affect a top-level macro that does set visibility=...
    *
    * ---- Accounting for CommonPrerequisiteValidator#isSameLogicalPackage() ----
    *
