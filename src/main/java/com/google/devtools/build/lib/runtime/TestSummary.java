@@ -217,14 +217,9 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
         return 0;
       }
       switch (testCase.getStatus()) {
-        case PASSED:
-          this.summary.passedTestCases.add(testCase);
-          break;
-        case SKIPPED:
-          this.summary.skippedTestCases.add(testCase);
-          break;
-        default:
-          this.summary.failedTestCases.add(testCase);
+        case PASSED -> this.summary.passedTestCases.add(testCase);
+        case SKIPPED -> this.summary.skippedTestCases.add(testCase);
+        default -> this.summary.failedTestCases.add(testCase);
       }
 
       return 1;

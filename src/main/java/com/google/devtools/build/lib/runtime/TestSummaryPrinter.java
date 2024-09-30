@@ -229,17 +229,11 @@ public class TestSummaryPrinter {
       timeSummary = "";
     }
 
-    Mode mode;
-    switch (testCase.getStatus()) {
-      case PASSED:
-        mode = Mode.INFO;
-        break;
-      case SKIPPED:
-        mode = Mode.WARNING;
-        break;
-      default:
-        mode = Mode.ERROR;
-    }
+    Mode mode = switch (testCase.getStatus()) {
+      case PASSED -> Mode.INFO;
+      case SKIPPED -> Mode.WARNING;
+      default -> Mode.ERROR;
+    };
     terminalPrinter.print(
         "    "
             + mode
