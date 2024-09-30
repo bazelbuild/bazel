@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.packages.util;
 
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 
 /** Mock python support in Bazel. */
