@@ -24,7 +24,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.eventbus.EventBus;
-import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
@@ -146,11 +145,9 @@ public final class FrontierSerializer {
             writeStatuses.add(
                 fingerprintValueService.put(
                     fingerprintValueService.fingerprint(
-                        Bytes.concat(
-                            keyBytes.getObject().toByteArray(),
-                            dependenciesProvider
-                                .getSkyValueVersion()
-                                .getDirectoryMatcherFingerprint())),
+                        dependenciesProvider
+                            .getSkyValueVersion()
+                            .concat(keyBytes.getObject().toByteArray())),
                     valueBytes.getObject().toByteArray()));
             frontierValueCount.getAndIncrement();
             eventBus.post(new SerializedNodeEvent(key));

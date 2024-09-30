@@ -22,7 +22,6 @@ import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetri
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.ObservedFutureStatus;
@@ -164,7 +163,10 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
 
     var key = new TrivialKey("a");
     var value = new TrivialValue("abc");
-    var version = new FrontierNodeVersion(ByteString.copyFrom(new byte[] {1, 2, 3}));
+    var version =
+        new FrontierNodeVersion(
+            /* topLevelConfigChecksum= */ "42",
+            /* directoryMatcherFingerprint= */ ByteString.copyFrom(new byte[] {1, 2, 3}));
     uploadKeyValuePair(key, version, value, fingerprintValueService);
 
     RetrievalResult result =
@@ -187,7 +189,10 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
 
     var key = new TrivialKey("a");
     var value = new TrivialValue("abc");
-    var version = new FrontierNodeVersion(ByteString.copyFrom(new byte[] {1, 2, 3}));
+    var version =
+        new FrontierNodeVersion(
+            /* topLevelConfigChecksum= */ "42",
+            /* directoryMatcherFingerprint= */ ByteString.copyFrom(new byte[] {1, 2, 3}));
     uploadKeyValuePair(key, version, value, fingerprintValueService);
 
     RetrievalResult result =
@@ -199,7 +204,8 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             new TrivialKey("a"), // same key..
             /* stateProvider= */ this,
             /* frontierNodeVersion= */ new FrontierNodeVersion(
-                ByteString.copyFrom(new byte[] {7, 8, 9})));
+                /* topLevelConfigChecksum= */ "9000",
+                /* directoryMatcherFingerprint= */ ByteString.copyFrom(new byte[] {7, 8, 9})));
 
     assertThat(result).isSameInstanceAs(NO_CACHED_DATA);
   }
@@ -579,9 +585,7 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
         fingerprintValueService
             .put(
                 fingerprintValueService.fingerprint(
-                    Bytes.concat(
-                        keyBytes.getObject().toByteArray(),
-                        version.getDirectoryMatcherFingerprint())),
+                    version.concat(keyBytes.getObject().toByteArray())),
                 valueBytes.getObject().toByteArray())
             .get();
   }

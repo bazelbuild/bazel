@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.DOWNLOAD;
@@ -46,6 +47,7 @@ import com.google.devtools.build.lib.analysis.Project;
 import com.google.devtools.build.lib.analysis.Project.ProjectParseException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -853,9 +855,6 @@ public class BuildTool {
 
     switch (options.mode) {
       case UPLOAD -> {
-        if (!activeDirectoriesMatcher.isPresent()) {
-          return;
-        }
         try (SilentCloseable closeable =
             Profiler.instance().profile("serializeAndUploadFrontier")) {
           Optional<FailureDetail> maybeFailureDetail =
@@ -1097,9 +1096,7 @@ public class BuildTool {
     private final DetailedExitCode detailedExitCode;
 
     ExitException(DetailedExitCode detailedExitCode) {
-      super(
-          Preconditions.checkNotNull(detailedExitCode.getFailureDetail(), "failure detail")
-              .getMessage());
+      super(checkNotNull(detailedExitCode.getFailureDetail(), "failure detail").getMessage());
       this.detailedExitCode = detailedExitCode;
     }
 
@@ -1114,6 +1111,11 @@ public class BuildTool {
     private final FingerprintValueService fingerprintValueService;
     private final PathFragmentPrefixTrie activeDirectoriesMatcher;
     private final RemoteAnalysisCachingEventListener listener;
+
+    // Non-final because the top level BuildConfigurationValue is determined just before analysis
+    // begins in BuildView for the download/deserialization pass, which is later than when this
+    // object was created in BuildTool.
+    private BuildConfigurationValue topLevelConfig;
 
     public static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher) {
@@ -1139,6 +1141,7 @@ public class BuildTool {
           env.getBlazeWorkspace().getFingerprintValueServiceFactory().create(env.getOptions());
       this.activeDirectoriesMatcher = activeDirectoriesMatcher;
       this.listener = env.getRemoteAnalysisCachingEventListener();
+      this.topLevelConfig = env.getSkyframeBuildView().getBuildConfiguration();
     }
 
     private static ObjectCodecs initAnalysisObjectCodecs(
@@ -1169,9 +1172,12 @@ public class BuildTool {
     @Override
     public FrontierNodeVersion getSkyValueVersion() throws SerializationException {
       if (frontierNodeVersionSingleton == null) {
-        frontierNodeVersionSingleton =
-            new FrontierNodeVersion(
-                getObjectCodecs().serializeMemoized(activeDirectoriesMatcher.toString()));
+        synchronized (this) {
+          frontierNodeVersionSingleton =
+              new FrontierNodeVersion(
+                  topLevelConfig.checksum(),
+                  getObjectCodecs().serializeMemoized(activeDirectoriesMatcher.toString()));
+        }
       }
       return frontierNodeVersionSingleton;
     }
@@ -1189,6 +1195,11 @@ public class BuildTool {
     @Override
     public void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key) {
       listener.recordRetrievalResult(retrievalResult);
+    }
+
+    @Override
+    public void setTopLevelConfig(BuildConfigurationValue topLevelConfig) {
+      this.topLevelConfig = topLevelConfig;
     }
   }
 }
