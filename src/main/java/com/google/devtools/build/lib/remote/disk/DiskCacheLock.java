@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.disk;
 
+import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToExternal;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
@@ -56,7 +58,8 @@ public final class DiskCacheLock implements AutoCloseable {
     path.getParentDirectory().createDirectoryAndParents();
     FileChannel channel =
         FileChannel.open(
-            java.nio.file.Path.of(path.getPathString()),
+            // Correctly handle non-ASCII paths by converting from the internal string encoding.
+            java.nio.file.Path.of(reencodeInternalToExternal(path.getPathString())),
             StandardOpenOption.READ,
             StandardOpenOption.WRITE,
             StandardOpenOption.CREATE);
