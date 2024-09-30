@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Rule;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
@@ -40,7 +41,9 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
   @Before
   public void setUp() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
+    setBuildLanguageOptions(
+        "--experimental_enable_first_class_macros",
+        "--incompatible_simplify_unconditional_selects_in_rule_attrs");
   }
 
   /**
@@ -724,13 +727,16 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, visibility, dep):
-            print("dep is %s" % dep)
+        def _impl(name, visibility, dep_nonconfigurable, dep_configurable):
+            print("dep_nonconfigurable is %s" % dep_nonconfigurable)
+            print("dep_configurable is %s" % dep_configurable)
         my_macro = macro(
             implementation=_impl,
             attrs = {
               # Test label type, since LabelType#getDefaultValue returns null.
-              "dep": attr.label(configurable=False)
+              "dep_nonconfigurable": attr.label(configurable=False),
+              # Try it again, this time in a select().
+              "dep_configurable": attr.label(configurable=True),
             },
         )
         """);
@@ -743,7 +749,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertContainsEvent("dep is None");
+    assertContainsEvent("dep_nonconfigurable is None");
+    assertContainsEvent("dep_configurable is select({\"//conditions:default\": None})");
   }
 
   @Test
@@ -825,6 +832,42 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
     assertContainsEvent("xyz is IMPLICIT");
+  }
+
+  @Test
+  public void defaultAttrValue_wrappingMacroTakesPrecedenceOverWrappedRule() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _rule_impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _rule_impl,
+            attrs = {"dep": attr.label(default="//common:rule_default")},
+        )
+
+        def _macro_impl(name, visibility, dep):
+            my_rule(name = name, dep = dep)
+
+        my_macro = macro(
+            implementation = _macro_impl,
+            attrs = {"dep": attr.label(default="//common:macro_default")},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    Rule rule = pkg.getRule("abc");
+    assertThat(rule).isNotNull();
+    assertThat(rule.getAttr("dep"))
+        .isEqualTo(Label.parseCanonicalUnchecked("//common:macro_default"));
   }
 
   @Test

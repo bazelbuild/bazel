@@ -247,26 +247,25 @@ public final class MacroClass {
       }
     }
 
-    // Normalize and validate all attr values. (E.g., convert strings to labels, fail if bool was
-    // passed instead of label, ensure values are immutable.)
+    // Normalize and validate all attr values. (E.g., convert strings to labels, promote
+    // configurable attribute values to select()s, fail if bool was passed instead of label, ensure
+    // values are immutable.) This applies to default values, even Nones (default value of
+    // LabelType).
     for (Map.Entry<String, Object> entry : ImmutableMap.copyOf(attrValues).entrySet()) {
       String attrName = entry.getKey();
       Object value = entry.getValue();
-      // Skip auto-populated `None`s. They are not type-checked or lifted to select()s.
-      if (value != Starlark.NONE) {
-        Attribute attribute = attributes.get(attrName);
-        Object normalizedValue =
-            // copyAndLiftStarlarkValue ensures immutability.
-            BuildType.copyAndLiftStarlarkValue(
-                name, attribute, value, pkgBuilder.getLabelConverter());
-        // TODO(#19922): Validate that LABEL_LIST type attributes don't contain duplicates, to match
-        // the behavior of rules. This probably requires factoring out logic from
-        // AggregatingAttributeMapper.
-        if (attribute.isConfigurable() && !(normalizedValue instanceof SelectorList)) {
-          normalizedValue = SelectorList.wrapSingleValue(normalizedValue);
-        }
-        attrValues.put(attrName, normalizedValue);
+      Attribute attribute = attributes.get(attrName);
+      Object normalizedValue =
+          // copyAndLiftStarlarkValue ensures immutability.
+          BuildType.copyAndLiftStarlarkValue(
+              name, attribute, value, pkgBuilder.getLabelConverter());
+      // TODO(#19922): Validate that LABEL_LIST type attributes don't contain duplicates, to match
+      // the behavior of rules. This probably requires factoring out logic from
+      // AggregatingAttributeMapper.
+      if (attribute.isConfigurable() && !(normalizedValue instanceof SelectorList)) {
+        normalizedValue = SelectorList.wrapSingleValue(normalizedValue);
       }
+      attrValues.put(attrName, normalizedValue);
     }
 
     // Type and existence enforced by RuleClass.NAME_ATTRIBUTE.
