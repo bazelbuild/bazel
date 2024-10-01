@@ -113,19 +113,6 @@ index 103fe5e..21159ed 100644
      # Iterate through the list of artifacts, and generate the target declaration strings.
      for artifact in dependencies:
          artifact_path = artifact["file"]
-@@ -390,9 +398,9 @@ def _generate_imports(repository_ctx, dependencies, explicit_artifacts, neverlin
-             # Override target labels with the user provided mapping, instead of generating
-             # a jvm_import/aar_import based on information in dep_tree.
-             seen_imports[target_label] = True
--            all_imports.append(
--                "alias(\n\tname = \"%s\",\n\tactual = \"%s\",\n\tvisibility = [\"//visibility:public\"],)" % (target_label, labels_to_override.get(target_label)),
--            )
-+            alias = "alias(\n\tname = \"%s\",\n\tactual = \"%s\",\n\tvisibility = [\"//visibility:public\"],)" % (target_label, labels_to_override.get(target_label))
-+            all_imports.append(alias)
-+            vendor_targets.append(alias)
-             if repository_ctx.attr.maven_install_json:
-                 # Provide the downloaded artifact as a file target.
-                 all_imports.append(_genrule_copy_artifact_from_http_file(artifact, default_visibilities))
 @@ -412,6 +420,7 @@ def _generate_imports(repository_ctx, dependencies, explicit_artifacts, neverlin
                  testonly_artifacts,
                  default_visibilities,
