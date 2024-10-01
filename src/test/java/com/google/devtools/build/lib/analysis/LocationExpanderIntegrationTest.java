@@ -48,7 +48,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
 
         sh_library(
             name = "lib",
-            deps = [":files"],
+            srcs = [":files"],
         )
         """);
   }
@@ -81,7 +81,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
 
         sh_library(
             name = "lib",
-            deps = [":files_alias"],
+            srcs = [":files_alias"],
         )
         """);
 
@@ -112,7 +112,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
 
         sh_library(
             name = "lib",
-            deps = [":files_alias_alias"],
+            srcs = [":files_alias_alias"],
         )
         """);
 
@@ -143,7 +143,7 @@ public class LocationExpanderIntegrationTest extends BuildViewTestCase {
 
         sh_library(
             name = "lib",
-            deps = [":files"],
+            srcs = [":files"],
         )
         """);
 
