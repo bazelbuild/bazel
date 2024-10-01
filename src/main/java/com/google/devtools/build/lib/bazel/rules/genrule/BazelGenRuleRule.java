@@ -90,7 +90,7 @@ public final class BazelGenRuleRule implements RuleDefinition {
   results, including caching policies and environment variables. Tests generally need to be run
   after the build is complete and on the target architecture, whereas genrules are executed during
   the build and on the exec architecture (the two may be different). If you need a general purpose
-  testing rule, use <a href="${link sh_test}"><code>sh_test</code></a>.
+  testing rule, use <a href="shell#sh_test"><code>sh_test</code></a>.
 </p>
 
 <h4>Cross-compilation Considerations</h4>
