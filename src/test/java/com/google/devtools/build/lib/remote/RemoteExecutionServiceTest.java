@@ -2718,6 +2718,11 @@ public class RemoteExecutionServiceTest {
       public boolean isLegacyExternalRunfiles() {
         return false;
       }
+
+      @Override
+      public boolean isMappingCached() {
+        return false;
+      }
     };
   }
 
