@@ -87,7 +87,7 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
 
   // The container object on which targets and macro instances are added and conflicts are
   // detected.
-  protected final TargetRecorder recorder = new TargetRecorder();
+  protected final TargetRecorder recorder;
 
   // Initialized from outside but also potentially set by `workspace()` function in WORKSPACE
   // file.
@@ -175,7 +175,8 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
       RepositoryMapping mainRepositoryMapping,
       @Nullable Semaphore cpuBoundSemaphore,
       @Nullable ImmutableMap<Location, String> generatorMap,
-      @Nullable Globber globber) {
+      @Nullable Globber globber,
+      boolean enableNameConflictChecking) {
     super(() -> mainRepositoryMapping);
     this.metadata = metadata;
     this.pkg = pkg;
@@ -202,6 +203,8 @@ public abstract class TargetDefinitionContext extends StarlarkThreadContext {
     this.cpuBoundSemaphore = cpuBoundSemaphore;
     this.generatorMap = (generatorMap == null) ? ImmutableMap.of() : generatorMap;
     this.globber = globber;
+
+    this.recorder = new TargetRecorder(enableNameConflictChecking);
 
     // Add target for the BUILD file itself.
     // (This may be overridden by an exports_file declaration.)

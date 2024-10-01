@@ -882,7 +882,8 @@ public class Package {
       @Nullable ImmutableMap<Location, String> generatorMap,
       // TODO(bazel-team): See Builder() constructor comment about use of null for this param.
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
-      @Nullable Globber globber) {
+      @Nullable Globber globber,
+      boolean enableNameConflictChecking) {
     // Determine whether this is for a repo rule package. We shouldn't actually have to do this
     // because newPackageBuilder() is supposed to only be called for normal packages. Unfortunately
     // serialization still uses the same code path for deserializing BUILD and WORKSPACE files,
@@ -912,7 +913,8 @@ public class Package {
         cpuBoundSemaphore,
         packageOverheadEstimator,
         generatorMap,
-        globber);
+        globber,
+        enableNameConflictChecking);
   }
 
   public static Builder newExternalPackageBuilder(
@@ -944,7 +946,8 @@ public class Package {
         /* cpuBoundSemaphore= */ null,
         packageOverheadEstimator,
         /* generatorMap= */ null,
-        /* globber= */ null);
+        /* globber= */ null,
+        /* enableNameConflictChecking= */ true);
   }
 
   public static Builder newExternalPackageBuilderForBzlmod(
@@ -973,7 +976,8 @@ public class Package {
             /* cpuBoundSemaphore= */ null,
             PackageOverheadEstimator.NOOP_ESTIMATOR,
             /* generatorMap= */ null,
-            /* globber= */ null)
+            /* globber= */ null,
+            /* enableNameConflictChecking= */ true)
         .setLoads(ImmutableList.of());
   }
 
@@ -1090,7 +1094,8 @@ public class Package {
         @Nullable Semaphore cpuBoundSemaphore,
         PackageOverheadEstimator packageOverheadEstimator,
         @Nullable ImmutableMap<Location, String> generatorMap,
-        @Nullable Globber globber) {
+        @Nullable Globber globber,
+        boolean enableNameConflictChecking) {
       super(
           metadata,
           new Package(metadata),
@@ -1100,7 +1105,8 @@ public class Package {
           mainRepositoryMapping,
           cpuBoundSemaphore,
           generatorMap,
-          globber);
+          globber,
+          enableNameConflictChecking);
       this.precomputeTransitiveLoads = precomputeTransitiveLoads;
       this.noImplicitFileExport = noImplicitFileExport;
       this.packageOverheadEstimator = packageOverheadEstimator;
@@ -1420,11 +1426,6 @@ public class Package {
       } else {
         return super.getNonFinalizerInstantiatedRule(name);
       }
-    }
-
-    // For Package deserialization.
-    void disableNameConflictChecking() {
-      recorder.disableNameConflictChecking();
     }
 
     public void addRuleUnchecked(Rule rule) {
