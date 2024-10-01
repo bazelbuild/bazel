@@ -2105,7 +2105,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
         """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//test:my_glob");
-    assertContainsEvent("glob() can only be used while evaluating a BUILD file (or macro)");
+    assertContainsEvent("glob() can only be used while evaluating a BUILD file (or legacy macro)");
   }
 
   @Test

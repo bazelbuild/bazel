@@ -235,10 +235,10 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_enable_first_class_macros",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      help = "If set to true, enables the `macro()` construct for defining first-class macros.")
+      help = "If set to true, enables the `macro()` construct for defining symbolic macros.")
   public boolean experimentalEnableFirstClassMacros;
 
   @Option(
@@ -787,7 +787,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_simplify_unconditional_selects_in_rule_attrs",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -940,7 +940,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING =
       "-experimental_single_package_toolchain_binding";
   public static final String EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS =
-      "-experimental_enable_first_class_macros";
+      "+experimental_enable_first_class_macros";
   public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "+experimental_enable_scl_dialect";
   public static final String ENABLE_BZLMOD = "+enable_bzlmod";
   public static final String ENABLE_WORKSPACE = "-enable_workspace";
@@ -1012,7 +1012,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_DISALLOW_CTX_RESOLVE_TOOLS =
       "+incompatible_disallow_ctx_resolve_tools";
   public static final String INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS =
-      "-incompatible_simplify_unconditional_selects_in_rule_attrs";
+      "+incompatible_simplify_unconditional_selects_in_rule_attrs";
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");

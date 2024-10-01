@@ -2146,9 +2146,8 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   }
 
   @Test
-  public void incompatibleSimplifyUnconditionalSelectsInRuleAttrs_checksForNonconfigurableAttrs()
+  public void assigningSelectToNonconfigurableAttr_fails_evenIfSelectIsSimplifiableUnconditional()
       throws Exception {
-    setBuildLanguageOptions("--incompatible_simplify_unconditional_selects_in_rule_attrs=true");
     writeConfigRules();
     scratch.file(
         "foo/BUILD",

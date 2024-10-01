@@ -20,7 +20,6 @@ import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -33,11 +32,6 @@ import org.junit.runner.RunWith;
  */
 @RunWith(TestParameterInjector.class)
 public final class MacroVisibilityTest extends BuildViewTestCase {
-
-  @Before
-  public void setUp() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-  }
 
   @Override
   protected String getDefaultVisibility() {

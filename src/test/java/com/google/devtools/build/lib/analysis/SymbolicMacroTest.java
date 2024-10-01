@@ -35,20 +35,12 @@ import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Tests the execution of symbolic macro implementations. */
 @RunWith(TestParameterInjector.class)
 public final class SymbolicMacroTest extends BuildViewTestCase {
-
-  @Before
-  public void setUp() throws Exception {
-    setBuildLanguageOptions(
-        "--experimental_enable_first_class_macros",
-        "--incompatible_simplify_unconditional_selects_in_rule_attrs");
-  }
 
   /**
    * Returns a package by the given name (no leading "//"), or null upon {@link

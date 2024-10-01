@@ -123,9 +123,18 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
         """
         load("//test/starlark:rulestr.bzl", "my_rule", "save_dep")
 
+        # Needed to avoid select() being eliminated as trivial.
+        config_setting(
+            name = "config",
+            values = {"define": "pi=3"},
+        )
+
         my_rule(
             name = "x",
-            dep = select({"//conditions:default": None}),
+            dep = select({
+                ":config": None,
+                "//conditions:default": None,
+            }),
         )
 
         save_dep("x")
@@ -135,7 +144,8 @@ public class NativeExistingRulesTest extends BuildViewTestCase {
     assertThat(getConfiguredTarget("//test/getrule:x")).isNotNull();
 
     // We have to compare by stringification because SelectorValue has reference equality semantics.
-    assertThat(getSaved("dep").toString()).isEqualTo("select({\"//conditions:default\": None})");
+    assertThat(getSaved("dep").toString())
+        .isEqualTo("select({\":config\": None, \"//conditions:default\": None})");
   }
 
   @Test

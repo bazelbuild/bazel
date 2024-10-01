@@ -1678,8 +1678,21 @@ my_rule = rule(
     scratch.file(
         "test/BUILD",
         """
-        load('//test:aspect.bzl', 'my_rule')
-        my_rule(name = 'xxx', my_attr = select({'//conditions:default': 'foo'}))
+        load("//test:aspect.bzl", "my_rule")
+
+        # Needed to avoid the select() being eliminated as trivial.
+        config_setting(
+            name = "config",
+            values = {"defines": "something"},
+        )
+
+        my_rule(
+            name = "xxx",
+            my_attr = select({
+                ":config": "foo",
+                "//conditions:default": "bar",
+            }),
+        )
         """);
 
     reporter.removeHandler(failFastHandler);
