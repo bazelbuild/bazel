@@ -861,7 +861,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
                 The archive type of the downloaded file. By default, the archive type is \
                 determined from the file extension of the URL. If the file has no \
                 extension, you can explicitly specify either "zip", "jar", "war", \
-                "aar", "tar", "tar.gz", "tgz", "tar.xz", "txz", ".tar.zst", \
+                "aar", "nupkg", "tar", "tar.gz", "tgz", "tar.xz", "txz", ".tar.zst", \
                 ".tzst", "tar.bz2", ".tbz", ".ar", or ".deb" here.
                 """),
         @Param(
