@@ -304,11 +304,13 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     Timestamp timestamp = Timestamps.fromMillis(clock.advanceMillis(1000L));
     // Send UNAVAILABLE on streamFinished event
     fakeBesServer.setStreamEventPredicateAndResponseStatus(
-        (req) -> Objects.equals(req, BES_PROTO_UTIL.streamFinished(4, timestamp)),
+        (req) ->
+            Objects.equals(
+                req, BES_PROTO_UTIL.streamFinished(4, timestamp, req.getRetryAttemptNumber())),
         Status.UNAVAILABLE);
 
     BuildEventServiceTransport transport =
-        newBuildEventServiceTransport(/*publishLifecycleEvents=*/ false);
+        newBuildEventServiceTransport(/* publishLifecycleEvents= */ false);
     transport.sendBuildEvent(started);
     transport.sendBuildEvent(progress);
     transport.sendBuildEvent(success);
@@ -323,14 +325,14 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     assertThat(fakeBesServer.getStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
         .containsAtLeast(
             BES_PROTO_UTIL.bazelEvent(
-                1, timestamp, Any.pack(started.asStreamProto(buildEventContext))),
+                1, timestamp, 1, Any.pack(started.asStreamProto(buildEventContext))),
             BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(progress.asStreamProto(buildEventContext))),
+                2, timestamp, 1, Any.pack(progress.asStreamProto(buildEventContext))),
             BES_PROTO_UTIL.bazelEvent(
-                3, timestamp, Any.pack(success.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.streamFinished(4, timestamp),
+                3, timestamp, 1, Any.pack(success.asStreamProto(buildEventContext))),
+            BES_PROTO_UTIL.streamFinished(4, timestamp, 1),
             // Verify retry on streamFinished message
-            BES_PROTO_UTIL.streamFinished(4, timestamp))
+            BES_PROTO_UTIL.streamFinished(4, timestamp, 2))
         .inOrder();
   }
 
@@ -373,11 +375,15 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
 
     Any expectedPackedEvent = Any.pack(progress.asStreamProto(buildEventContext));
     fakeBesServer.setStreamEventPredicateAndResponseStatus(
-        (req) -> Objects.equals(req, BES_PROTO_UTIL.bazelEvent(2, timestamp, expectedPackedEvent)),
+        (req) ->
+            Objects.equals(
+                req,
+                BES_PROTO_UTIL.bazelEvent(
+                    2, timestamp, req.getRetryAttemptNumber(), expectedPackedEvent)),
         Status.CANCELLED);
 
     BuildEventServiceTransport transport =
-        newBuildEventServiceTransport(/*publishLifecycleEvents=*/ false);
+        newBuildEventServiceTransport(/* publishLifecycleEvents= */ false);
     transport.sendBuildEvent(started);
     transport.sendBuildEvent(progress);
     transport.sendBuildEvent(success);
@@ -392,30 +398,30 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     assertThat(fakeBesServer.getSuccessfulStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
         .contains(
             BES_PROTO_UTIL.bazelEvent(
-                1, timestamp, Any.pack(started.asStreamProto(buildEventContext))));
+                1, timestamp, 1, Any.pack(started.asStreamProto(buildEventContext))));
 
     assertThat(fakeBesServer.getStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
         .containsAtLeast(
             BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(progress.asStreamProto(buildEventContext))),
+                2, timestamp, 1, Any.pack(progress.asStreamProto(buildEventContext))),
             BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(progress.asStreamProto(buildEventContext))),
+                2, timestamp, 2, Any.pack(progress.asStreamProto(buildEventContext))),
             BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(progress.asStreamProto(buildEventContext))),
+                2, timestamp, 3, Any.pack(progress.asStreamProto(buildEventContext))),
             BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(progress.asStreamProto(buildEventContext))),
+                2, timestamp, 4, Any.pack(progress.asStreamProto(buildEventContext))),
             BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(progress.asStreamProto(buildEventContext))));
+                2, timestamp, 5, Any.pack(progress.asStreamProto(buildEventContext))));
   }
 
   @Test(timeout = TIMEOUT_MILLIS)
   public void testRetriesForBuildEvents_everyEventFailsOnce() throws Exception {
     Timestamp timestamp = Timestamps.fromMillis(clock.advanceMillis(1000L));
     fakeBesServer.setStreamEventPredicateAndResponseStatus(
-        everyEventFailsOnce(), Status.UNAVAILABLE);
+        everyToolEventFailsOnce(), Status.UNAVAILABLE);
 
     BuildEventServiceTransport transport =
-        newBuildEventServiceTransport(/*publishLifecycleEvents=*/ false);
+        newBuildEventServiceTransport(/* publishLifecycleEvents= */ false);
     transport.sendBuildEvent(started);
     transport.sendBuildEvent(success);
     transport.close().get();
@@ -423,23 +429,23 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
     assertThat(fakeBesServer.getSuccessfulStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
         .containsAtLeast(
             BES_PROTO_UTIL.bazelEvent(
-                1, timestamp, Any.pack(started.asStreamProto(buildEventContext))),
+                1, timestamp, 2, Any.pack(started.asStreamProto(buildEventContext))),
             BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(success.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.streamFinished(3, timestamp));
+                2, timestamp, 3, Any.pack(success.asStreamProto(buildEventContext))),
+            BES_PROTO_UTIL.streamFinished(3, timestamp, 4));
 
     assertThat(fakeBesServer.getStreamEvents(BES_PROTO_UTIL.streamId(BAZEL_EVENT)))
         .containsAtLeast(
             BES_PROTO_UTIL.bazelEvent(
-                1, timestamp, Any.pack(started.asStreamProto(buildEventContext))),
+                1, timestamp, 1, Any.pack(started.asStreamProto(buildEventContext))),
             BES_PROTO_UTIL.bazelEvent(
-                1, timestamp, Any.pack(started.asStreamProto(buildEventContext))),
+                1, timestamp, 2, Any.pack(started.asStreamProto(buildEventContext))),
             BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(success.asStreamProto(buildEventContext))),
+                2, timestamp, 2, Any.pack(success.asStreamProto(buildEventContext))),
             BES_PROTO_UTIL.bazelEvent(
-                2, timestamp, Any.pack(success.asStreamProto(buildEventContext))),
-            BES_PROTO_UTIL.streamFinished(3, timestamp),
-            BES_PROTO_UTIL.streamFinished(3, timestamp));
+                2, timestamp, 3, Any.pack(success.asStreamProto(buildEventContext))),
+            BES_PROTO_UTIL.streamFinished(3, timestamp, 3),
+            BES_PROTO_UTIL.streamFinished(3, timestamp, 4));
   }
 
   /** Tests that a successfully transmitted build event resets the retry counter. */
@@ -928,6 +934,28 @@ public abstract class AbstractBuildEventServiceTransportTest extends FoundationT
       @Override
       public boolean test(@Nullable T o) {
         return alreadyMatched.add(o);
+      }
+    };
+  }
+
+  /**
+   * Similar to everyEventFailsOnce, except we discard retry_attempt_number when comparing events.
+   */
+  private static Predicate<PublishBuildToolEventStreamRequest> everyToolEventFailsOnce() {
+    return new Predicate<PublishBuildToolEventStreamRequest>() {
+
+      private final Set<PublishBuildToolEventStreamRequest> alreadyMatched = new HashSet<>();
+
+      @Override
+      public boolean test(@Nullable PublishBuildToolEventStreamRequest req) {
+        var obEvent = req.getOrderedBuildEvent();
+        var event =
+            BES_PROTO_UTIL.bazelEvent(
+                obEvent.getSequenceNumber(),
+                obEvent.getEvent().getEventTime(),
+                0,
+                Any.pack(obEvent.getEvent()));
+        return alreadyMatched.add(event);
       }
     };
   }
