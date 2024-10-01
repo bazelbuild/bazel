@@ -379,7 +379,6 @@ java_library(
         ":spawn_strategy_registry",
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/protobuf:failure_details_java_proto",
-        "//third_party:flogger",
         "//third_party:guava",
     ],
 )
@@ -417,7 +416,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/buildeventstream/proto:build_event_stream_java_proto",
         "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
         "//src/main/java/com/google/devtools/build/lib/events",
-        "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util/io",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
