@@ -90,8 +90,9 @@ cc_binary(
     linkstatic = 1,
     visibility = ["//visibility:public"],
     deps = [
-        "options",
-        "output_jar",
+        ":combiners",
+        ":options",
+        ":output_jar",
         "//third_party/zlib",
     ],
 )
