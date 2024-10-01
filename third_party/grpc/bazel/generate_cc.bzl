@@ -141,7 +141,7 @@ def generate_cc_impl(ctx):
         use_default_shell_env = True,
     )
 
-    return struct(files = depset(out_files))
+    return DefaultInfo(files = depset(out_files))
 
 generate_cc = rule(
     attrs = {
