@@ -1,0 +1,169 @@
+// Copyright 2024 The Bazel Authors. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+edition = "2023";
+
+package devtools.skyframe;
+
+option java_multiple_files = true;
+option java_package = "com.google.devtools.build.lib.skyframe.serialization.proto";
+
+// This message contains sufficient information to invalidate Bazel file
+// dependencies against repository diffs.
+//
+// The goal is for this data to represent
+// `com.google.devtools.build.lib.vfs.FileStateKey.argument` values. However,
+// these values are represented within a structure defined by the
+// `com.google.devtools.build.lib.skyframe.FileFunction`, meaning that whenever
+// a `FileStateKey.argument` is encountered, it implies that its parent
+// directory will be present. Therefore, there's going to be significant
+// redundancy in the path information.
+//
+// This redundancy can be exploited for compactness, resulting in this implicit
+// representation.
+//
+// This value is always used in the context of a key-value store (e.g.
+// Memcached), where the key is defined as follows. Let E be some
+// Memcached-friendly encoding function, (e.g. Base64) and `:` be a delimiter in
+// the following (`:` does not occur in Base64, making it a good delimiter). Let
+// MTSV be the maximum transitive source version, a version number that is the
+// maximum version over all the transitive source files affecting an entry. In
+// the case of a file, this includes all source versions of all parent
+// directories and any symlinks needed to resolve it. The MTSV is a canonical
+// version for the file.
+//
+//   KEY = E(MTSV) : <FileValue.Key.argument path>
+//
+// Logically, the key consists of the FileValue's MTSV and unresolved path.
+// Note, in particular, the path data present in the key does not need to be
+// repeated in the value. The parent directory of this key is already the
+// `FileValue.Key.argument` path of its parent directory, so that doesn't need
+// to be repeated either. The only additional data needed to identify the
+// `FileInvalidationData` of its parent is the parent's MTSV, which is included
+// as `parent_mtsv`.
+//
+// In the common case, `FileInvalidationData` only contains `parent_mtsv` and
+// that's sufficient information to derive all the paths, assuming that the
+// parent lookups are transitively performed. The `FileStateKey.argument`
+// matches the path present in the key.
+//
+// In the presence of symlinks, special logic applies to produce the resolved
+// paths. A `symlinks` entry will be present. To unpack the symlink entry, we
+// first resolve the parent path as usual. Then, we concatenate the symlink's
+// contents to the resolved parent path and syntactically normalize it
+// (interpreting things like `..`, `.` using string manipulation). This
+// establishes a new path to be recursively resolved. `Symlink` contains another
+// `parent_mtsv` for this purpose. The resulting resolved path is another
+// implicit `FileStateKey.argument` value. If this path is itself a symlink, the
+// process is repeated.
+//
+// Note that this is only suitable for persisting information about a successful
+// build so it ignores symlink cycles.
+message FileInvalidationData {
+  // The following field is populated when the key needs to be abbreviated to
+  // its fingerprint due to Memcached's key length restriction. This field can
+  // be used to verify that no fingerprint collision has occurred.
+  string overflow_key = 1;
+
+  // The MTSV used to resolve the parent directory.
+  //
+  // Resolution means creating a key from this MTSV and the parent directory of
+  // the key of this entry, looking up the value and interpreting it.
+  //
+  // Optional. Only unset when the path has no parent, i.e. contains no '/'
+  // separators.
+  int64 parent_mtsv = 2;
+
+  // This field is repeated, with one entry for each symbolic link encountered
+  // while resolving the path.
+  repeated Symlink symlinks = 3;
+
+  // Type of the fully resolved entry.
+  //
+  // Symbolic links are not included in the DirentType enum below. They are
+  // exclusively represented using the symlinks field.
+  enum DirentType {
+    // Required by internal best practices.
+    // Not expected to occur.
+    UNDEFINED = 0;
+    // A regular file.
+    FILE = 1;
+    // A directory.
+    DIRECTORY = 2;
+    // Explicit marker for a non-existing file.
+    //
+    // Nonexistence of specific files is meaningful to Bazel, (e.g., BUILD
+    // files).
+    NON_EXISTENT = 3;
+  }
+
+  // Type of the final resolved file.
+  //
+  // Required.
+  DirentType type = 4;
+}
+
+// Invalidation information for a
+// `com.google.devtools.build.lib.skyframe.DirectoryListingValue`. Note
+// that this is designed for certain repository deltas have no directory
+// awareness. This means when a file within the directory changes, there's no
+// change notification to the directory itself. The consumer is responsible for
+// invalidating this entry when its children change in ways that would affect
+// the directory listing, like adding and deleting files or a change in their
+// type.
+//
+// This behaves very similarly to `FileInvalidationData`. The KEY is same except
+// that it uses a different delimiter, `;`.
+//
+// This induces a `FileInvalidationData` at the same path as in the key. The
+// resolved path of the `FileInvalidationData` is the real path of this
+// directory. NB: this is slightly different from `FileInvalidationData`
+// behavior which induces a `FileInvalidationData` entry of its parent.
+message DirectoryListingInvalidationData {
+  // The following field is populated when the key needs to be abbreviated to
+  // its fingerprint due to Memcached's key length restriction. This field can
+  // be used to verify that no fingerprint collision has occurred.
+  string overflow_key = 1;
+
+  // MTSV required to resolve the real directory path.
+  int64 file_mtsv = 2;
+}
+
+// Representation of symlinks in `FileInvalidationData`.
+message Symlink {
+  // The contents of the symlink.
+  //
+  // This field only stores the path specified within the symlink itself. The
+  // resolved path of the symlink's parent directory is determined based on its
+  // position within the `symlinks` field in the `FileInvalidationData` message.
+  //
+  //  * For the first `Symlink` entry in the list, the parent directory is the
+  //    same as the parent directory of the original file path being resolved.
+  //  * For subsequent `Symlink` entries, the parent directory is the directory
+  //    of the resolved target path of the preceding `Symlink` entry.
+  //
+  // Given the resolved parent directory, `contents` appended to that parent
+  // directory and then syntactically normalized, resulting in a new path.
+  //
+  // Required.
+  string contents = 1;
+
+  // The MTSV of the resolved parent directory of this symlink.
+  //
+  // This field is optional. It is only set if the resolved path formed by
+  // combining the `contents` with the parent directory results in a *different*
+  // parent directory than the one used to resolve the symlink itself.
+  //
+  // Optional.
+  int64 parent_mtsv = 2;
+}
