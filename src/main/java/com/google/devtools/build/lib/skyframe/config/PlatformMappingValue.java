@@ -71,7 +71,7 @@ public final class PlatformMappingValue implements SkyValue {
     this.platformsToFlags = checkNotNull(platformsToFlags);
     this.flagsToPlatforms = checkNotNull(flagsToPlatforms);
     this.optionsClasses = checkNotNull(optionsClasses);
-    this.mappingCache = Caffeine.newBuilder().weakKeys().build(this::computeMapping);
+    this.mappingCache = Caffeine.newBuilder().build(this::computeMapping);
   }
 
   /**
@@ -107,6 +107,11 @@ public final class PlatformMappingValue implements SkyValue {
       throwIfUnchecked(e.getCause());
       throw e;
     }
+  }
+
+  /** Clears the mapping cache to save memory. */
+  public void clearMappingCache() {
+    mappingCache.invalidateAll();
   }
 
   private BuildConfigurationKey computeMapping(BuildOptions originalOptions)
