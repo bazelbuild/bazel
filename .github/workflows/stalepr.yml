@@ -37,7 +37,7 @@ jobs:
                } else {
                    console.error("Reviews or reviews.data is undefined");
                }
-              if (approvedReview && pr.labels.name.toLowerCase() == awaitingReviewLabel.toLowerCase()) {
+              if (approvedReview && pr.labels.every(label => label.name === awaitingReviewLabel)) {
                 const fiveDaysAgo = new Date();
                 fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
 
