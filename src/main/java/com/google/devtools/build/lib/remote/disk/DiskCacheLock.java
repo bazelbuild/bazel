@@ -13,13 +13,14 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.disk;
 
-import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToExternal;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileLock;
+import java.nio.charset.Charset;
 import java.nio.file.StandardOpenOption;
 
 /** Manages shared or exclusive access to the disk cache by concurrent processes. */
@@ -59,7 +60,7 @@ public final class DiskCacheLock implements AutoCloseable {
     FileChannel channel =
         FileChannel.open(
             // Correctly handle non-ASCII paths by converting from the internal string encoding.
-            java.nio.file.Path.of(reencodeInternalToExternal(path.getPathString())),
+            java.nio.file.Path.of(getPathStringForJavaIo(path)),
             StandardOpenOption.READ,
             StandardOpenOption.WRITE,
             StandardOpenOption.CREATE);
@@ -69,6 +70,12 @@ public final class DiskCacheLock implements AutoCloseable {
           "failed to acquire %s disk cache lock".formatted(shared ? "shared" : "exclusive"));
     }
     return new DiskCacheLock(channel, lock);
+  }
+
+  private static String getPathStringForJavaIo(Path path) {
+    return new String(
+        path.getPathString().getBytes(ISO_8859_1),
+        Charset.forName(System.getProperty("sun.jnu.encoding"), ISO_8859_1));
   }
 
   @VisibleForTesting
