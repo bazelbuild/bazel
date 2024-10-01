@@ -87,6 +87,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -519,6 +520,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     private final Optional<Checksum> checksum;
     private final RepositoryFunctionException checksumValidation;
     private final Future<Path> future;
+    private final CountDownLatch doneSignal;
     private final Location location;
 
     private PendingDownload(
@@ -528,6 +530,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
         Optional<Checksum> checksum,
         RepositoryFunctionException checksumValidation,
         Future<Path> future,
+        CountDownLatch doneSignal,
         Location location) {
       this.executable = executable;
       this.allowFail = allowFail;
@@ -535,6 +538,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       this.checksum = checksum;
       this.checksumValidation = checksumValidation;
       this.future = future;
+      this.doneSignal = doneSignal;
       this.location = location;
     }
 
@@ -550,7 +554,17 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
     @Override
     public boolean cancel() {
-      return !future.cancel(true);
+      boolean alreadyDone = !future.cancel(true);
+      if (doneSignal.getCount() != 0) {
+        try (SilentCloseable c =
+            Profiler.instance().profile("Cancelling download " + outputPath.toString())) {
+          doneSignal.wait();
+        } catch (InterruptedException e) {
+          // Graceful termination aborted, let the download continue on its own.
+          Thread.currentThread().interrupt();
+        }
+      }
+      return alreadyDone;
     }
 
     @StarlarkMethod(
@@ -758,6 +772,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
       checkInOutputDirectory("write", outputPath);
       makeDirectories(outputPath.getPath());
     } catch (IOException e) {
+      CountDownLatch alreadyDoneSignal = new CountDownLatch(0);
       download =
           new PendingDownload(
               executable,
@@ -766,9 +781,11 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               checksum,
               checksumValidation,
               Futures.immediateFailedFuture(e),
+              alreadyDoneSignal,
               thread.getCallerLocation());
     }
     if (download == null) {
+      CountDownLatch doneSignal = new CountDownLatch(1);
       Future<Path> downloadFuture =
           downloadManager.startDownload(
               executorService,
@@ -781,7 +798,8 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               outputPath.getPath(),
               env.getListener(),
               envVariables,
-              identifyingStringForLogging);
+              identifyingStringForLogging,
+              doneSignal);
       download =
           new PendingDownload(
               executable,
@@ -790,6 +808,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               checksum,
               checksumValidation,
               downloadFuture,
+              doneSignal,
               thread.getCallerLocation());
       registerAsyncTask(download);
     }
@@ -996,6 +1015,7 @@ the same path on case-insensitive filesystems.
       downloadDirectory =
           workingDirectory.getFileSystem().getPath(tempDirectory.toFile().getAbsolutePath());
 
+      CountDownLatch doneSignal = new CountDownLatch(1);
       Future<Path> pendingDownload =
           downloadManager.startDownload(
               executorService,
@@ -1008,7 +1028,8 @@ the same path on case-insensitive filesystems.
               downloadDirectory,
               env.getListener(),
               envVariables,
-              identifyingStringForLogging);
+              identifyingStringForLogging,
+              doneSignal);
       // Ensure that the download is cancelled if the repo rule is restarted as it runs in its own
       // executor.
       PendingDownload pendingTask =
@@ -1019,6 +1040,7 @@ the same path on case-insensitive filesystems.
               checksum,
               checksumValidation,
               pendingDownload,
+              doneSignal,
               thread.getCallerLocation());
       registerAsyncTask(pendingTask);
       downloadedPath = downloadManager.finalizeDownload(pendingDownload);
