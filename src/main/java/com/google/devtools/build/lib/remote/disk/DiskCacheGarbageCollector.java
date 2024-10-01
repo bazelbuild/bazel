@@ -33,7 +33,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * A garbage collector for the disk cache.
@@ -235,8 +235,8 @@ public final class DiskCacheGarbageCollector {
 
   /** Deletes disk cache entries, performing I/O in parallel. */
   private final class EntryDeleter extends AbstractQueueVisitor {
-    private final AtomicLong deletedEntries = new AtomicLong(0);
-    private final AtomicLong deletedBytes = new AtomicLong(0);
+    private final LongAdder deletedEntries = new LongAdder();
+    private final LongAdder deletedBytes = new LongAdder();
 
     EntryDeleter() {
       super(
@@ -252,8 +252,8 @@ public final class DiskCacheGarbageCollector {
           () -> {
             try {
               if (path.delete()) {
-                deletedEntries.incrementAndGet();
-                deletedBytes.addAndGet(size);
+                deletedEntries.increment();
+                deletedBytes.add(size);
               }
             } catch (IOException e) {
               throw new IORuntimeException(e);
@@ -268,7 +268,7 @@ public final class DiskCacheGarbageCollector {
       } catch (IORuntimeException e) {
         throw e.getCauseIOException();
       }
-      return new DeletionStats(deletedEntries.get(), deletedBytes.get());
+      return new DeletionStats(deletedEntries.sum(), deletedBytes.sum());
     }
   }
 }
