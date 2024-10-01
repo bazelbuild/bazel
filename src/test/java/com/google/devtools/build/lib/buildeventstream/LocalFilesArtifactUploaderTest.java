@@ -42,11 +42,7 @@ public class LocalFilesArtifactUploaderTest {
         artifactUploader.upload(
             ImmutableMap.of(
                 file,
-                new LocalFile(
-                    file,
-                    LocalFileType.OUTPUT_FILE,
-                    /* artifact= */ null,
-                    /* artifactMetadata= */ null)));
+                new LocalFile(file, LocalFileType.OUTPUT_FILE, /* artifactMetadata= */ null)));
     PathConverter pathConverter = future.get();
     assertThat(pathConverter.apply(file)).isEqualTo("file:///test");
   }
@@ -59,11 +55,7 @@ public class LocalFilesArtifactUploaderTest {
         artifactUploader.upload(
             ImmutableMap.of(
                 file,
-                new LocalFile(
-                    file,
-                    LocalFileType.OUTPUT_DIRECTORY,
-                    /* artifact= */ null,
-                    /* artifactMetadata= */ null)));
+                new LocalFile(file, LocalFileType.OUTPUT_DIRECTORY, /* artifactMetadata= */ null)));
     PathConverter pathConverter = future.get();
     assertThat(pathConverter.apply(file)).isNull();
   }
@@ -76,11 +68,7 @@ public class LocalFilesArtifactUploaderTest {
         artifactUploader.upload(
             ImmutableMap.of(
                 file,
-                new LocalFile(
-                    file,
-                    LocalFileType.OUTPUT_SYMLINK,
-                    /* artifact= */ null,
-                    /* artifactMetadata= */ null)));
+                new LocalFile(file, LocalFileType.OUTPUT_SYMLINK, /* artifactMetadata= */ null)));
     PathConverter pathConverter = future.get();
     assertThat(pathConverter.apply(file)).isNull();
   }
@@ -95,12 +83,7 @@ public class LocalFilesArtifactUploaderTest {
     ListenableFuture<PathConverter> future =
         artifactUploader.upload(
             ImmutableMap.of(
-                file,
-                new LocalFile(
-                    file,
-                    LocalFileType.OUTPUT,
-                    /* artifact= */ null,
-                    /* artifactMetadata= */ null)));
+                file, new LocalFile(file, LocalFileType.OUTPUT, /* artifactMetadata= */ null)));
     PathConverter pathConverter = future.get();
     assertThat(pathConverter.apply(file)).isEqualTo("file:///test");
   }
@@ -113,9 +96,7 @@ public class LocalFilesArtifactUploaderTest {
     ListenableFuture<PathConverter> future =
         artifactUploader.upload(
             ImmutableMap.of(
-                dir,
-                new LocalFile(
-                    dir, LocalFileType.OUTPUT, /*artifact=*/ null, /*artifactMetadata=*/ null)));
+                dir, new LocalFile(dir, LocalFileType.OUTPUT, /* artifactMetadata= */ null)));
     PathConverter pathConverter = future.get();
     assertThat(pathConverter.apply(dir)).isNull();
   }

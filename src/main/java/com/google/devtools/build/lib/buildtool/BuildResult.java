@@ -339,13 +339,7 @@ public final class BuildResult {
     public BuildToolLogCollection addLocalFile(
         String name, Path path, LocalFileType localFileType, LocalFileCompression compression) {
       return addLocalFile(
-          name,
-          new LocalFile(
-              path,
-              localFileType,
-              compression,
-              /* artifact= */ null,
-              /* artifactMetadata= */ null));
+          name, new LocalFile(path, localFileType, compression, /* artifactMetadata= */ null));
     }
 
     @CanIgnoreReturnValue

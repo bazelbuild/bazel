@@ -76,8 +76,6 @@ public final class LocalInstrumentationOutputTest {
     assertThat(buildToolLogCollection.getLocalFiles())
         .containsExactly(
             new LogFileEntry(
-                "local",
-                new LocalFile(
-                    path, LocalFileType.LOG, /* artifact= */ null, /* artifactMetadata= */ null)));
+                "local", new LocalFile(path, LocalFileType.LOG, /* artifactMetadata= */ null)));
   }
 }

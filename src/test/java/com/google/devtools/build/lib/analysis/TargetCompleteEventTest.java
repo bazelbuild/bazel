@@ -77,8 +77,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
             /* announceTargetSummary= */ false);
 
     assertThat(event.referencedLocalFiles())
-        .containsExactly(
-            new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_FILE, artifact, metadata));
+        .containsExactly(new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_FILE, metadata));
   }
 
   @Test
@@ -101,7 +100,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
     assertThat(event.referencedLocalFiles())
         .containsExactly(
-            new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_DIRECTORY, artifact, metadata));
+            new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_DIRECTORY, metadata));
   }
 
   @Test
@@ -150,9 +149,8 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
 
     assertThat(event.referencedLocalFiles())
         .containsExactly(
-            new LocalFile(fileChild.getPath(), LocalFileType.OUTPUT_FILE, fileChild, fileMetadata),
-            new LocalFile(
-                dirChild.getPath(), LocalFileType.OUTPUT_DIRECTORY, dirChild, dirMetadata));
+            new LocalFile(fileChild.getPath(), LocalFileType.OUTPUT_FILE, fileMetadata),
+            new LocalFile(dirChild.getPath(), LocalFileType.OUTPUT_DIRECTORY, dirMetadata));
   }
 
   @Test
@@ -189,8 +187,7 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
             /* announceTargetSummary= */ false);
 
     assertThat(event.referencedLocalFiles())
-        .containsExactly(
-            new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_SYMLINK, artifact, metadata));
+        .containsExactly(new LocalFile(artifact.getPath(), LocalFileType.OUTPUT_SYMLINK, metadata));
   }
 
   /** Regression test for b/165671166. */
@@ -273,7 +270,6 @@ public class TargetCompleteEventTest extends AnalysisTestCase {
             new LocalFile(
                 baselineCoverageArtifact.getPath(),
                 LocalFileType.COVERAGE_OUTPUT,
-                baselineCoverageArtifact,
                 baselineCoverageMetadata));
   }
 

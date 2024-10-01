@@ -22,6 +22,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
+import com.google.devtools.build.lib.util.HashCodes;
 import com.google.devtools.build.lib.vfs.Path;
 import java.util.Collection;
 import javax.annotation.Nullable;
@@ -100,28 +101,20 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
     public final Path path;
     public final LocalFileType type;
     public final LocalFileCompression compression;
-    // TODO(b/199940216): use when possible to get source artifact canonical path.
-    @Nullable public final Artifact artifact;
     @Nullable public final FileArtifactValue artifactMetadata;
 
-    public LocalFile(
-        Path path,
-        LocalFileType type,
-        @Nullable Artifact artifact,
-        @Nullable FileArtifactValue artifactMetadata) {
-      this(path, type, LocalFileCompression.NONE, artifact, artifactMetadata);
+    public LocalFile(Path path, LocalFileType type, @Nullable FileArtifactValue artifactMetadata) {
+      this(path, type, LocalFileCompression.NONE, artifactMetadata);
     }
 
     public LocalFile(
         Path path,
         LocalFileType type,
         LocalFileCompression compression,
-        @Nullable Artifact artifact,
         @Nullable FileArtifactValue artifactMetadata) {
       this.path = Preconditions.checkNotNull(path);
       this.type = Preconditions.checkNotNull(type);
       this.compression = Preconditions.checkNotNull(compression);
-      this.artifact = artifact;
       this.artifactMetadata = artifactMetadata;
     }
 
@@ -130,28 +123,26 @@ public interface BuildEvent extends ChainableEvent, ExtendedEventHandler.Postabl
       if (this == o) {
         return true;
       }
-      if (o == null || getClass() != o.getClass()) {
+      if (!(o instanceof LocalFile that)) {
         return false;
       }
-      LocalFile localFile = (LocalFile) o;
-      return Objects.equal(path, localFile.path)
-          && type == localFile.type
-          && Objects.equal(artifact, localFile.artifact)
-          && Objects.equal(artifactMetadata, localFile.artifactMetadata)
-          && compression == localFile.compression;
+      return path.equals(that.path)
+          && type == that.type
+          && compression == that.compression
+          && Objects.equal(artifactMetadata, that.artifactMetadata);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hashCode(path, type, compression);
+      return HashCodes.hashObjects(path, type, compression, artifactMetadata);
     }
 
     @Override
     public String toString() {
-      return MoreObjects.toStringHelper(LocalFile.class)
+      return MoreObjects.toStringHelper(this)
           .add("path", path)
           .add("type", type)
-          .add("artifact", artifact)
+          .add("compression", compression)
           .add("artifactMetadata", artifactMetadata)
           .toString();
     }

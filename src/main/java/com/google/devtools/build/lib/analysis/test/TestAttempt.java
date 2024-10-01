@@ -231,12 +231,7 @@ public class TestAttempt implements BuildEventWithOrderConstraint {
     for (Map.Entry<String, Path> file : files.entries()) {
       if (file.getValue() != null) {
         // TODO(b/199940216): Can we populate metadata for these files?
-        localFiles.add(
-            new LocalFile(
-                file.getValue(),
-                localFileType,
-                /* artifact= */ null,
-                /* artifactMetadata= */ null));
+        localFiles.add(new LocalFile(file.getValue(), localFileType, /* artifactMetadata= */ null));
       }
     }
     return localFiles.build();

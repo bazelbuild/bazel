@@ -141,7 +141,7 @@ public final class AspectCompleteEvent
     return TargetCompleteEvent.toReportedArtifacts(
         artifactOutputGroups,
         completionContext,
-        /* baselineCoverage= */ null,
+        /* baselineCoverageArtifact= */ null,
         outputGroupFileModes);
   }
 
@@ -152,7 +152,10 @@ public final class AspectCompleteEvent
     builder.setSuccess(!failed());
     builder.addAllOutputGroup(
         TargetCompleteEvent.toOutputGroupProtos(
-            artifactOutputGroups, /* baselineCoverage= */ null, completionContext, converters));
+            artifactOutputGroups,
+            /* baselineCoverageArtifact= */ null,
+            completionContext,
+            converters));
     return GenericBuildEvent.protoChaining(this).setCompleted(builder.build()).build();
   }
 
