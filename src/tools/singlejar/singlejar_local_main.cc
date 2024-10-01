@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "src/tools/singlejar/combiners.h"
+#include "src/tools/singlejar/log4j2_plugin_dat_combiner.h"
 #include "src/tools/singlejar/desugar_checking.h"
 #include "src/tools/singlejar/diag.h"
 #include "src/tools/singlejar/options.h"
