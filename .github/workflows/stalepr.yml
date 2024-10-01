@@ -31,7 +31,7 @@ jobs:
                })
                ).data;
               console.log("review details: ", reviews);
-              const approvedReview;
+              let approvedReview;
               if (reviews) {
                    console.log("review 1: ");
                    approvedReview = reviews.find(review => review.state === "APPROVED");
