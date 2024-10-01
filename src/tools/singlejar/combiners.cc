@@ -29,77 +29,6 @@
 
 Combiner::~Combiner() {}
 
-void *outputEntryFromBuffer(const std::string filename,
-                            std::unique_ptr<TransientBytes> &buffer,
-                            bool compress) {
-  // Allocate a contiguous buffer for the local file header and
-  // deflated data. We assume that deflate decreases the size, so if
-  // the deflater reports overflow, we just save original data.
-  size_t deflated_buffer_size =
-      sizeof(LH) + filename.size() + buffer->data_size();
-
-  // Huge entry (>4GB) needs Zip64 extension field with 64-bit original
-  // and compressed size values.
-  uint8_t
-      zip64_extension_buffer[sizeof(Zip64ExtraField) + 2 * sizeof(uint64_t)];
-  bool huge_buffer = ziph::zfield_needs_ext64(buffer->data_size());
-  if (huge_buffer) {
-    deflated_buffer_size += sizeof(zip64_extension_buffer);
-  }
-  LH *lh = reinterpret_cast<LH *>(malloc(deflated_buffer_size));
-  if (lh == nullptr) {
-    return nullptr;
-  }
-  lh->signature();
-  lh->version(20);
-  lh->bit_flag(0x0);
-  lh->last_mod_file_time(1);                     // 00:00:01
-  lh->last_mod_file_date(30 << 9 | 1 << 5 | 1);  // 2010-01-01
-  lh->crc32(0x12345678);
-  lh->compressed_file_size32(0);
-  lh->file_name(filename.c_str(), filename.size());
-
-  if (huge_buffer) {
-    // Add Z64 extension if this is a huge entry.
-    lh->uncompressed_file_size32(0xFFFFFFFF);
-    Zip64ExtraField *z64 =
-        reinterpret_cast<Zip64ExtraField *>(zip64_extension_buffer);
-    z64->signature();
-    z64->payload_size(2 * sizeof(uint64_t));
-    z64->attr64(0, buffer->data_size());
-    lh->extra_fields(reinterpret_cast<uint8_t *>(z64), z64->size());
-  } else {
-    lh->uncompressed_file_size32(buffer->data_size());
-    lh->extra_fields(nullptr, 0);
-  }
-
-  uint32_t checksum;
-  uint64_t compressed_size;
-  uint16_t method;
-  if (compress) {
-    method = buffer->CompressOut(lh->data(), &checksum, &compressed_size);
-  } else {
-    buffer->CopyOut(lh->data(), &checksum);
-    method = Z_NO_COMPRESSION;
-    compressed_size = buffer->data_size();
-  }
-  lh->crc32(checksum);
-  lh->compression_method(method);
-  if (huge_buffer) {
-    lh->compressed_file_size32(ziph::zfield_needs_ext64(compressed_size)
-                                   ? 0xFFFFFFFF
-                                   : compressed_size);
-    // Not sure if this has to be written in the small case, but it shouldn't
-    // hurt.
-    const_cast<Zip64ExtraField *>(lh->zip64_extra_field())
-        ->attr64(1, compressed_size);
-  } else {
-    // If original data is <4GB, the compressed one is, too.
-    lh->compressed_file_size32(compressed_size);
-  }
-  return reinterpret_cast<void *>(lh);
-}
-
 Concatenator::~Concatenator() {}
 
 bool Concatenator::Merge(const CDH *cdh, const LH *lh) {
@@ -126,7 +55,72 @@ void *Concatenator::OutputEntry(bool compress) {
     return nullptr;
   }
 
-  return outputEntryFromBuffer(filename_, buffer_, compress);
+  // Allocate a contiguous buffer for the local file header and
+  // deflated data. We assume that deflate decreases the size, so if
+  //  the deflater reports overflow, we just save original data.
+  size_t deflated_buffer_size =
+      sizeof(LH) + filename_.size() + buffer_->data_size();
+
+  // Huge entry (>4GB) needs Zip64 extension field with 64-bit original
+  // and compressed size values.
+  uint8_t
+      zip64_extension_buffer[sizeof(Zip64ExtraField) + 2 * sizeof(uint64_t)];
+  bool huge_buffer = ziph::zfield_needs_ext64(buffer_->data_size());
+  if (huge_buffer) {
+    deflated_buffer_size += sizeof(zip64_extension_buffer);
+  }
+  LH *lh = reinterpret_cast<LH *>(malloc(deflated_buffer_size));
+  if (lh == nullptr) {
+    return nullptr;
+  }
+  lh->signature();
+  lh->version(20);
+  lh->bit_flag(0x0);
+  lh->last_mod_file_time(1);                     // 00:00:01
+  lh->last_mod_file_date(30 << 9 | 1 << 5 | 1);  // 2010-01-01
+  lh->crc32(0x12345678);
+  lh->compressed_file_size32(0);
+  lh->file_name(filename_.c_str(), filename_.size());
+
+  if (huge_buffer) {
+    // Add Z64 extension if this is a huge entry.
+    lh->uncompressed_file_size32(0xFFFFFFFF);
+    Zip64ExtraField *z64 =
+        reinterpret_cast<Zip64ExtraField *>(zip64_extension_buffer);
+    z64->signature();
+    z64->payload_size(2 * sizeof(uint64_t));
+    z64->attr64(0, buffer_->data_size());
+    lh->extra_fields(reinterpret_cast<uint8_t *>(z64), z64->size());
+  } else {
+    lh->uncompressed_file_size32(buffer_->data_size());
+    lh->extra_fields(nullptr, 0);
+  }
+
+  uint32_t checksum;
+  uint64_t compressed_size;
+  uint16_t method;
+  if (compress) {
+    method = buffer_->CompressOut(lh->data(), &checksum, &compressed_size);
+  } else {
+    buffer_->CopyOut(lh->data(), &checksum);
+    method = Z_NO_COMPRESSION;
+    compressed_size = buffer_->data_size();
+  }
+  lh->crc32(checksum);
+  lh->compression_method(method);
+  if (huge_buffer) {
+    lh->compressed_file_size32(ziph::zfield_needs_ext64(compressed_size)
+                                   ? 0xFFFFFFFF
+                                   : compressed_size);
+    // Not sure if this has to be written in the small case, but it shouldn't
+    // hurt.
+    const_cast<Zip64ExtraField *>(lh->zip64_extra_field())
+        ->attr64(1, compressed_size);
+  } else {
+    // If original data is <4GB, the compressed one is, too.
+    lh->compressed_file_size32(compressed_size);
+  }
+  return reinterpret_cast<void *>(lh);
 }
 
 NullCombiner::~NullCombiner() {}
@@ -327,42 +321,41 @@ std::string readUTFString(std::istringstream &stream) {
   return result;
 }
 
-void writeBoolean(TransientBytes &buffer, bool value) {
+void writeBoolean(std::vector<uint8_t> &buffer, bool value) {
   uint8_t byte = value ? 1 : 0;
-  buffer.Append(&byte, sizeof(byte));
+  buffer.push_back(byte);
 }
 
-void writeInt(TransientBytes &buffer, int value) {
+void writeInt(std::vector<uint8_t> &buffer, int value) {
   value = swapByteOrder(value);
-  uint8_t data[sizeof(value)];
-  std::memcpy(data, &value, sizeof(value));
-  buffer.Append(data, sizeof(value));
+  const uint8_t* data = reinterpret_cast<const uint8_t*>(&value);
+  buffer.insert(buffer.end(), data, data + sizeof(value));
 }
 
-void writeUTFString(TransientBytes &buffer, const std::string &str) {
+void writeUTFString(std::vector<uint8_t> &buffer, const std::string &str) {
   uint16_t length = swapByteOrder(static_cast<uint16_t>(str.size()));
-  buffer.Append(reinterpret_cast<const uint8_t *>(&length), sizeof(length));
-  buffer.Append(reinterpret_cast<const uint8_t *>(str.data()), str.size());
+  const uint8_t* lengthData = reinterpret_cast<const uint8_t*>(&length);
+  buffer.insert(buffer.end(), lengthData, lengthData + sizeof(length));
+  buffer.insert(buffer.end(), str.begin(), str.end());
 }
 
 // Write Log4j2 plugin cache file.
 //
 // Modeled after the Java canonical implementation here:
 // https://github.com/apache/logging-log4j2/blob/8573ef778d2fad2bbec50a687955dccd2a616cc5/log4j-core/src/main/java/org/apache/logging/log4j/core/config/plugins/processor/PluginCache.java#L66-L85
-std::unique_ptr<TransientBytes> writeLog4j2PluginCacheFile(std::map<std::string, std::map<std::string, PluginEntry>> categories) {
-  std::unique_ptr<TransientBytes> buffer;
-  buffer.reset(new TransientBytes());
-  writeInt(*buffer, static_cast<int>(categories.size()));
+std::vector<uint8_t> writeLog4j2PluginCacheFile(const std::map<std::string, std::map<std::string, PluginEntry>>& categories) {
+  std::vector<uint8_t> buffer;
+  writeInt(buffer, static_cast<int>(categories.size()));
   for (const auto &categoryPair : categories) {
-    writeUTFString(*buffer, categoryPair.first);
-    writeInt(*buffer, static_cast<int>(categoryPair.second.size()));
+    writeUTFString(buffer, categoryPair.first);
+    writeInt(buffer, static_cast<int>(categoryPair.second.size()));
     for (const auto &pluginPair : categoryPair.second) {
       const PluginEntry &plugin = pluginPair.second;
-      writeUTFString(*buffer, plugin.key);
-      writeUTFString(*buffer, plugin.className);
-      writeUTFString(*buffer, plugin.name);
-      writeBoolean(*buffer, plugin.printable);
-      writeBoolean(*buffer, plugin.defer);
+      writeUTFString(buffer, plugin.key);
+      writeUTFString(buffer, plugin.className);
+      writeUTFString(buffer, plugin.name);
+      writeBoolean(buffer, plugin.printable);
+      writeBoolean(buffer, plugin.defer);
     }
   }
 
@@ -404,7 +397,7 @@ Log4J2PluginDatCombiner::~Log4J2PluginDatCombiner() {}
 bool Log4J2PluginDatCombiner::Merge(const CDH *cdh, const LH *lh) {
   TransientBytes bytes_;
   if (lh->compression_method() == Z_NO_COMPRESSION) {
-    bytes_.ReadEntryContents(lh);
+    bytes_.ReadEntryContents(cdh, lh);
   } else if (lh->compression_method() == Z_DEFLATED) {
     if (!inflater_) {
       inflater_.reset(new Inflater());
@@ -442,5 +435,6 @@ bool Log4J2PluginDatCombiner::Merge(const CDH *cdh, const LH *lh) {
 
 void *Log4J2PluginDatCombiner::OutputEntry(bool compress) {
   auto buffer = writeLog4j2PluginCacheFile(categories_);
-  return outputEntryFromBuffer(filename_, buffer, compress);
+  concatenator_->Append(reinterpret_cast<const char*>(buffer.data()), buffer.size());
+  return concatenator_->OutputEntry(compress);
 }
