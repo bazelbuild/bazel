@@ -321,11 +321,12 @@ static jmethodID getConstructorID(JNIEnv *env, jclass clazz,
 static jobject NewFileStatus(JNIEnv *env,
                              const portable_stat_struct &stat_ref) {
   return env->NewObject(
-      file_status_class, file_status_class_ctor, stat_ref.st_mode,
-      StatSeconds(stat_ref, STAT_ATIME), StatNanoSeconds(stat_ref, STAT_ATIME),
-      StatSeconds(stat_ref, STAT_MTIME), StatNanoSeconds(stat_ref, STAT_MTIME),
-      StatSeconds(stat_ref, STAT_CTIME), StatNanoSeconds(stat_ref, STAT_CTIME),
-      static_cast<jlong>(stat_ref.st_size), static_cast<int>(stat_ref.st_dev),
+      file_status_class, file_status_class_ctor,
+      static_cast<jint>(stat_ref.st_mode),
+      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_ATIME)),
+      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_MTIME)),
+      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_CTIME)),
+      static_cast<jlong>(stat_ref.st_size), static_cast<jint>(stat_ref.st_dev),
       static_cast<jlong>(stat_ref.st_ino));
 }
 
@@ -338,11 +339,11 @@ static jobject NewErrnoFileStatus(JNIEnv *env,
   }
   return env->NewObject(
       errno_file_status_class, errno_file_status_class_no_error_ctor,
-      stat_ref.st_mode, StatSeconds(stat_ref, STAT_ATIME),
-      StatNanoSeconds(stat_ref, STAT_ATIME), StatSeconds(stat_ref, STAT_MTIME),
-      StatNanoSeconds(stat_ref, STAT_MTIME), StatSeconds(stat_ref, STAT_CTIME),
-      StatNanoSeconds(stat_ref, STAT_CTIME),
-      static_cast<jlong>(stat_ref.st_size), static_cast<int>(stat_ref.st_dev),
+      static_cast<jint>(stat_ref.st_mode),
+      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_ATIME)),
+      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_MTIME)),
+      static_cast<jlong>(StatEpochMilliseconds(stat_ref, STAT_CTIME)),
+      static_cast<jlong>(stat_ref.st_size), static_cast<jint>(stat_ref.st_dev),
       static_cast<jlong>(stat_ref.st_ino));
 }
 
@@ -381,9 +382,9 @@ Java_com_google_devtools_build_lib_unix_NativePosixFiles_initJNIClasses(
   errno_file_status_class = makeStaticClass(
       env, "com/google/devtools/build/lib/unix/ErrnoFileStatus");
   file_status_class_ctor =
-      getConstructorID(env, file_status_class, "(IIIIIIIJIJ)V");
+      getConstructorID(env, file_status_class, "(IJJJJIJ)V");
   errno_file_status_class_no_error_ctor =
-      getConstructorID(env, errno_file_status_class, "(IIIIIIIJIJ)V");
+      getConstructorID(env, errno_file_status_class, "(IJJJJIJ)V");
   errno_file_status_class_errorno_ctor =
       getConstructorID(env, errno_file_status_class, "(I)V");
   dirents_class = makeStaticClass(

@@ -72,8 +72,11 @@ public interface FileStatus {
   long getLastModifiedTime() throws IOException;
 
   /**
-   * Returns the last change time of this file, where change means any change
-   * to the file, including metadata changes (milliseconds since UNIX epoch).
+   * Returns the last change time of this file, where change means any change to the file, including
+   * metadata changes (milliseconds since UNIX epoch).
+   *
+   * <p>On systems where the last change time is not supported, the last modified time will be
+   * returned instead.
    */
   long getLastChangeTime() throws IOException;
 
