@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
+import static com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction.VENDOR_DIRECTORY;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.CharStreams;
 import com.google.common.io.LineProcessor;
@@ -82,7 +84,17 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
       }
 
       if (repositoryName.isMain()) {
+        PathFragment vendorDir = null;
+        if (VENDOR_DIRECTORY.get(env).isPresent()) {
+          vendorDir = VENDOR_DIRECTORY.get(env).get().asFragment();
+        }
+
         for (Root packagePathEntry : pkgLocator.getPathEntries()) {
+          PathFragment workspaceRoot = packagePathEntry.asPath().asFragment();
+          if (vendorDir != null && vendorDir.startsWith(workspaceRoot)) {
+            ignoredPackagePrefixesBuilder.add(vendorDir.relativeTo(workspaceRoot));
+          }
+
           RootedPath rootedPatternFile =
               RootedPath.toRootedPath(packagePathEntry, ignoredPackagePrefixesFile);
           FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));

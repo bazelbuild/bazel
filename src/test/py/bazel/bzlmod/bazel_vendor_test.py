@@ -671,6 +671,49 @@ class BazelVendorTest(test_base.TestBase):
     self.assertIn('bbb~', os.listdir(self._test_cwd + '/vendor'))
     self.assertNotIn('ccc~', os.listdir(self._test_cwd + '/vendor'))
 
+  def testVendorDirIsIgnored(self):
+    self.main_registry.createCcModule('aaa', '1.0')
+    self.ScratchFile(
+        'MODULE.bazel',
+        ['bazel_dep(name = "aaa", version = "1.0")'],
+    )
+    self.ScratchFile(
+        'BUILD',
+        [
+            'cc_binary(',
+            '  name = "main",',
+            '  srcs = ["main.cc"],',
+            '  deps = [',
+            '    "@aaa//:lib_aaa",',
+            '  ],',
+            ')',
+        ],
+    )
+    self.ScratchFile(
+        'main.cc',
+        [
+            '#include "aaa.h"',
+            'int main() {',
+            '    hello_aaa("Hello there!");',
+            '}',
+        ],
+    )
+
+    self.RunBazel([
+        'vendor',
+        '//...',
+        '--vendor_dir=vendor',
+    ])
+    # Assert aaa is vendored
+    self.assertIn('aaa+', os.listdir(self._test_cwd + '/vendor'))
+
+    # bazel build //... should succeed because vendor dir is ignored.
+    self.RunBazel([
+        'build',
+        '//...',
+        '--vendor_dir=vendor',
+    ])
+
   def testBuildVendoredTargetOffline(self):
     self.main_registry.createCcModule('aaa', '1.0').createCcModule(
         'bbb', '1.0', {'aaa': '1.0'}
