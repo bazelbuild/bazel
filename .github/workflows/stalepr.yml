@@ -33,17 +33,11 @@ jobs:
               console.log("review details: ", reviews);
               let approvedReview;
               if (reviews) {
-                   console.log("review 1: ");
                    approvedReview = reviews.find(review => review.state === "APPROVED");
-                   // Do something with approvedReview
-               } else if (Array.isArray(reviews)) {
-                   console.log("review 2: ");
-                   const approvedReview = reviews.find(review => review.state === "APPROVED");
-                   // Do something with approvedReview
                } else {
                    console.error("Reviews or reviews.data is undefined");
                }
-              if (approvedReview) {
+              if (approvedReview && pr.labels.name.toLowerCase() == awaitingReviewLabel.toLowerCase()) {
                 const fiveDaysAgo = new Date();
                 fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
 
