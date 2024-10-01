@@ -31,13 +31,13 @@ jobs:
                })
                ).data;
               console.log("review details: ", reviews);
-              if (reviews && reviews.data) {
+              if (reviews) {
                    console.log("review 1: ");
-                   const approvedReview = reviews.data.find(review => review.state === "APPROVED");
+                   const approvedReview = reviews.find(review => review.state === "APPROVED");
                    // Do something with approvedReview
-               } else if (Array.isArray(reviews.data)) {
+               } else if (Array.isArray(reviews)) {
                    console.log("review 2: ");
-                   const approvedReview = reviews.data.find(review => review.state === "APPROVED");
+                   const approvedReview = reviews.find(review => review.state === "APPROVED");
                    // Do something with approvedReview
                } else {
                    console.error("Reviews or reviews.data is undefined");
