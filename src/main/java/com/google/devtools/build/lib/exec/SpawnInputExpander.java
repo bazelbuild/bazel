@@ -193,10 +193,7 @@ public final class SpawnInputExpander {
 
     for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
       String value = mapping.getValue();
-      ActionInput artifact =
-          value == null
-              ? VirtualActionInput.EMPTY_MARKER
-              : ActionInputHelper.fromPath(execRoot.getRelative(value).asFragment());
+      ActionInput artifact = ActionInputHelper.fromPath(execRoot.getRelative(value).asFragment());
       // TODO(bazel-team): Add path mapping support for filesets.
       addMapping(inputMap, mapping.getKey(), artifact, baseDirectory);
     }

@@ -16,11 +16,9 @@ package com.google.devtools.build.lib.exec;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior.ERROR;
 import static com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior.IGNORE;
-import static com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior.RESOLVE;
 import static com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior.RESOLVE_FULLY;
 import static org.junit.Assert.assertThrows;
 
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior;
@@ -29,11 +27,12 @@ import com.google.devtools.build.lib.exec.FilesetManifestTest.ManifestCommonTest
 import com.google.devtools.build.lib.exec.FilesetManifestTest.OneOffManifestTests;
 import com.google.devtools.build.lib.exec.FilesetManifestTest.ResolvingManifestTests;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.testing.junit.testparameterinjector.TestParameter;
+import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.junit.runners.Parameterized;
 import org.junit.runners.Suite;
 
 /** Tests for {@link FilesetManifest}. */
@@ -53,22 +52,10 @@ public final class FilesetManifestTest {
   }
 
   /** Manifest tests that apply to all relative symlink behavior. */
-  @RunWith(Parameterized.class)
+  @RunWith(TestParameterInjector.class)
   public static final class ManifestCommonTests {
-    private final RelativeSymlinkBehavior behavior;
 
-    @Parameterized.Parameters
-    public static ImmutableCollection<Object[]> behaviors() {
-      return ImmutableList.of(
-          new Object[] {ERROR},
-          new Object[] {RESOLVE},
-          new Object[] {IGNORE},
-          new Object[] {RESOLVE_FULLY});
-    }
-
-    public ManifestCommonTests(RelativeSymlinkBehavior behavior) {
-      this.behavior = behavior;
-    }
+    @TestParameter private RelativeSymlinkBehavior behavior;
 
     @Test
     public void testEmptyManifest() throws Exception {
@@ -118,18 +105,6 @@ public final class FilesetManifestTest {
 
       assertThat(manifest.getEntries())
           .containsExactly(PathFragment.create("out/foo/bar"), "/some");
-    }
-
-    /** Regression test: code was previously crashing in this case. */
-    @Test
-    public void testManifestWithEmptyPath() throws Exception {
-      List<FilesetOutputSymlink> symlinks = ImmutableList.of(filesetSymlink("bar", ""));
-
-      FilesetManifest manifest =
-          FilesetManifest.constructFilesetManifest(
-              symlinks, PathFragment.create("out/foo"), behavior);
-
-      assertThat(manifest.getEntries()).containsExactly(PathFragment.create("out/foo/bar"), null);
     }
 
     @Test
@@ -196,18 +171,11 @@ public final class FilesetManifestTest {
   }
 
   /** Manifest tests that apply resolving relative symlink behavior. */
-  @RunWith(Parameterized.class)
+  @RunWith(TestParameterInjector.class)
   public static final class ResolvingManifestTests {
-    private final RelativeSymlinkBehavior behavior;
 
-    @Parameterized.Parameters
-    public static ImmutableCollection<Object[]> behaviors() {
-      return ImmutableList.of(new Object[] {RESOLVE}, new Object[] {RESOLVE_FULLY});
-    }
-
-    public ResolvingManifestTests(RelativeSymlinkBehavior behavior) {
-      this.behavior = behavior;
-    }
+    @TestParameter({"RESOLVE", "RESOLVE_FULLY"})
+    private RelativeSymlinkBehavior behavior;
 
     @Test
     public void testManifestWithResolvedRelativeSymlink() throws Exception {

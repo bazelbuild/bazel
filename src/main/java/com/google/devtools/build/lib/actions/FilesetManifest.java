@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.actions;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.base.Strings;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -30,7 +29,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /**
  * Representation of a Fileset manifest.
@@ -108,18 +106,18 @@ public final class FilesetManifest {
     Map<String, FileArtifactValue> artifactValues = new HashMap<>();
     for (FilesetOutputSymlink outputSymlink : outputSymlinks) {
       PathFragment fullLocation = targetPrefix.getRelative(outputSymlink.getName());
-      String artifact = Strings.emptyToNull(outputSymlink.getTargetPath().getPathString());
+      String targetPath = outputSymlink.getTargetPath().getPathString();
       if (isRelativeSymlink(outputSymlink)) {
-        addRelativeSymlinkEntry(artifact, fullLocation, relSymlinkBehavior, relativeLinks);
+        addRelativeSymlinkEntry(targetPath, fullLocation, relSymlinkBehavior, relativeLinks);
       } else {
         // Symlinks are already deduplicated by name in SkyframeFilesetManifestAction.
         checkState(
-            entries.put(fullLocation, artifact) == null,
+            entries.put(fullLocation, targetPath) == null,
             "Duplicate fileset entry at %s",
             fullLocation);
       }
       if (outputSymlink.getMetadata() instanceof FileArtifactValue) {
-        artifactValues.put(artifact, (FileArtifactValue) outputSymlink.getMetadata());
+        artifactValues.put(targetPath, (FileArtifactValue) outputSymlink.getMetadata());
       }
     }
     resolveRelativeSymlinks(entries, relativeLinks, targetPrefix.isAbsolute(), relSymlinkBehavior);
@@ -127,23 +125,21 @@ public final class FilesetManifest {
   }
 
   private static boolean isRelativeSymlink(FilesetOutputSymlink symlink) {
-    return !symlink.getTargetPath().isEmpty()
-        && !symlink.getTargetPath().isAbsolute()
-        && !symlink.isRelativeToExecRoot();
+    return !symlink.getTargetPath().isAbsolute() && !symlink.isRelativeToExecRoot();
   }
 
   /** Potentially adds the relative symlink to the map, depending on {@code relSymlinkBehavior}. */
   private static void addRelativeSymlinkEntry(
-      @Nullable String artifact,
+      String targetPath,
       PathFragment fullLocation,
       RelativeSymlinkBehavior relSymlinkBehavior,
       Map<PathFragment, String> relativeLinks)
       throws ForbiddenRelativeSymlinkException {
     switch (relSymlinkBehavior) {
-      case ERROR -> throw new ForbiddenRelativeSymlinkException(artifact);
+      case ERROR -> throw new ForbiddenRelativeSymlinkException(targetPath);
       case RESOLVE, RESOLVE_FULLY ->
           checkState(
-              relativeLinks.put(fullLocation, artifact) == null,
+              relativeLinks.put(fullLocation, targetPath) == null,
               "Duplicate fileset entry at %s",
               fullLocation);
       case IGNORE -> {
@@ -172,7 +168,7 @@ public final class FilesetManifest {
         PathFragment location = e.getKey();
         Path locationPath = root.getRelative(location);
         locationPath.getParentDirectory().createDirectoryAndParents();
-        FileSystemUtils.writeContentAsLatin1(locationPath, Strings.nullToEmpty(e.getValue()));
+        FileSystemUtils.writeContentAsLatin1(locationPath, e.getValue());
       }
       for (Map.Entry<PathFragment, String> e : relativeLinks.entrySet()) {
         PathFragment location = e.getKey();
@@ -198,9 +194,7 @@ public final class FilesetManifest {
           addSymlinks(path, entries, absolute);
         } else {
           String contents = new String(FileSystemUtils.readContentAsLatin1(path));
-          entries.put(
-              absolute ? path.asFragment() : path.asFragment().toRelative(),
-              Strings.emptyToNull(contents));
+          entries.put(absolute ? path.asFragment() : path.asFragment().toRelative(), contents);
         }
       } catch (IOException e) {
         logger.atWarning().log("Symlink %s is dangling or cyclic: %s", path, e.getMessage());
@@ -279,7 +273,6 @@ public final class FilesetManifest {
    * <ul>
    *   <li>An absolute path.
    *   <li>A relative path, which should be considered relative to the exec root.
-   *   <li>{@code null}, which represents an empty file.
    * </ul>
    */
   public Map<PathFragment, String> getEntries() {

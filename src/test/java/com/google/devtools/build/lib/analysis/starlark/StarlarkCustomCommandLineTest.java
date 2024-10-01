@@ -392,7 +392,9 @@ public final class StarlarkCustomCommandLineTest {
 
   private FilesetOutputSymlink createFilesetSymlink(String relativePath) {
     return FilesetOutputSymlink.createForTesting(
-        PathFragment.create(relativePath), PathFragment.EMPTY_FRAGMENT, execRoot.asFragment());
+        PathFragment.create(relativePath),
+        execRoot.asFragment().getRelative("some/target"),
+        execRoot.asFragment());
   }
 
   private SpecialArtifact createTreeArtifact(String relativePath) {
