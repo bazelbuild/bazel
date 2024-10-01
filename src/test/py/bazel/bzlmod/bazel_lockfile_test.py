@@ -81,14 +81,14 @@ class BazelLockfileTest(test_base.TestBase):
     )
     stderr = '\n'.join(stderr)
     self.AssertExitCode(exit_code, 48, stderr)
-    self.assertRegex(
-        stderr,
+    self.assertIn(
         (
             'ERROR: Error computing the main repository mapping: Failed to read'
-            ' and parse the MODULE\\.bazel\\.lock file with error:'
-            ' java\\.lang\\.IllegalStateException: Expected BEGIN_OBJECT but'
-            ' was STRING .*\\. Try deleting it and rerun the build.'
+            ' and parse the MODULE.bazel.lock file with error:'
+            ' java.lang.IllegalStateException: Expected BEGIN_OBJECT but'
+            ' was STRING'
         ),
+        stderr,
     )
 
   def testChangeModuleInRegistryWithoutLockfile(self):

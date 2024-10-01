@@ -23,7 +23,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/grpc-java:grpc-jar",
-        "@googleapis//:google_devtools_build_v1_publish_build_event_java_grpc",
-        "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
+        "@googleapis//google/devtools/build/v1:build_java_grpc",
+        "@googleapis//google/devtools/build/v1:build_java_proto",
     ],
 )
