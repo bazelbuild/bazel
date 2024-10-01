@@ -16,6 +16,7 @@ The command will display the external dependency graph or parts thereof, structu
     - show_repo <module>...: Prints the rule that generated the specified repos (i.e. http_archive()). The arguments may refer to extension-generated repos.
     - show_extension <extension>...: Prints information about the given extension(s). Usages can be filtered down to only those from modules in --extension_usage.
     - dump_repo_mapping <canonical_repo_name>...: Prints the mappings from apparent repo names to canonical repo names for the given repos in NDJSON format. The order of entries within each JSON object is unspecified. This command is intended for use by tools such as IDEs and Starlark language servers.
+    - lock: Evaluates all module extensions. Use with --lockfile_mode=update or --lockfile_mode=refresh to update the lockfile.
 
 
 <module> arguments must be one of the following:
