@@ -61,7 +61,7 @@ public class BaseSpawn implements Spawn {
   }
 
   @Override
-  public ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> getFilesetMappings() {
+  public ImmutableMap<Artifact, FilesetOutputTree> getFilesetMappings() {
     return ImmutableMap.of();
   }
 

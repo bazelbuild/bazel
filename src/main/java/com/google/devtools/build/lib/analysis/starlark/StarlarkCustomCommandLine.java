@@ -471,7 +471,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
         throws CommandLineExpansionException {
       ImmutableList<FilesetOutputSymlink> expandedFileSet;
       try {
-        expandedFileSet = artifactExpander.expandFileset(fileset);
+        expandedFileSet = artifactExpander.expandFileset(fileset).symlinks();
       } catch (MissingExpansionException e) {
         throw new CommandLineExpansionException(
             String.format(

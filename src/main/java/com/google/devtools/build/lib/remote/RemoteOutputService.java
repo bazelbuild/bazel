@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactPathResolver;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
@@ -117,7 +117,7 @@ public class RemoteOutputService implements OutputService {
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector injector,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
+      ImmutableMap<Artifact, FilesetOutputTree> filesets) {
     ((RemoteActionFileSystem) actionFileSystem).updateContext(action);
   }
 
@@ -229,7 +229,7 @@ public class RemoteOutputService implements OutputService {
       ImmutableList<Root> pathEntries,
       ActionInputMap actionInputMap,
       Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeArtifacts,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
+      Map<Artifact, FilesetOutputTree> filesets) {
     FileSystem remoteFileSystem =
         new RemoteActionFileSystem(
             fileSystem,

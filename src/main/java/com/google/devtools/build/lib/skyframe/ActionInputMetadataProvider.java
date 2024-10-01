@@ -25,7 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -61,19 +61,19 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
   ActionInputMetadataProvider(
       PathFragment execRoot,
       ActionInputMap inputArtifactData,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
+      Map<Artifact, FilesetOutputTree> filesets) {
     this.execRoot = execRoot;
     this.inputArtifactData = inputArtifactData;
     this.filesetMapping = Suppliers.memoize(() -> createFilesetMapping(filesets, execRoot));
   }
 
   private static ImmutableMap<String, FileArtifactValue> createFilesetMapping(
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets, PathFragment execRoot) {
+      Map<Artifact, FilesetOutputTree> filesets, PathFragment execRoot) {
     Map<String, FileArtifactValue> filesetMap = new HashMap<>();
-    for (ImmutableList<FilesetOutputSymlink> links : filesets.values()) {
+    for (FilesetOutputTree filesetOutput : filesets.values()) {
       FilesetManifest manifest =
           FilesetManifest.constructFilesetManifestWithoutError(
-              links, execRoot, RelativeSymlinkBehaviorWithoutError.RESOLVE);
+              filesetOutput.symlinks(), execRoot, RelativeSymlinkBehaviorWithoutError.RESOLVE);
       manifest
           .getArtifactValues()
           .forEach(

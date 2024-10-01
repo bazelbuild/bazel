@@ -155,6 +155,7 @@ java_library(
         ":execution_requirements",
         ":file_metadata",
         ":fileset_output_symlink",
+        ":fileset_output_tree",
         ":localhost_capacity",
         ":middleman_type",
         ":package_roots",
@@ -359,7 +360,7 @@ java_library(
     srcs = ["ArtifactExpander.java"],
     deps = [
         ":artifacts",
-        ":fileset_output_symlink",
+        ":fileset_output_tree",
         "//third_party:guava",
         "//third_party:jsr305",
     ],
@@ -396,6 +397,15 @@ java_library(
         "UserExecException.java",
     ],
     deps = ["//src/main/protobuf:failure_details_java_proto"],
+)
+
+java_library(
+    name = "fileset_output_tree",
+    srcs = ["FilesetOutputTree.java"],
+    deps = [
+        ":fileset_output_symlink",
+        "//third_party:guava",
+    ],
 )
 
 java_library(

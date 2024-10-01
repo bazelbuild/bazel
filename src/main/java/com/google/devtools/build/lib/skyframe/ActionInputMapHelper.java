@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.ActionAnalysisMetadata;
 import com.google.devtools.build.lib.actions.ActionInputMapSink;
 import com.google.devtools.build.lib.actions.ActionLookupData;
@@ -26,7 +25,7 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.Artifact.DerivedArtifact;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue.ArchivedRepresentation;
@@ -44,8 +43,8 @@ final class ActionInputMapHelper {
   static void addToMap(
       ActionInputMapSink inputMap,
       BiConsumer<Artifact, TreeArtifactValue> treeArtifactConsumer,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
+      Map<Artifact, FilesetOutputTree> filesetsInsideRunfiles,
+      Map<Artifact, FilesetOutputTree> topLevelFilesets,
       Artifact key,
       SkyValue value,
       Environment env)
@@ -68,8 +67,8 @@ final class ActionInputMapHelper {
   static void addToMap(
       ActionInputMapSink inputMap,
       BiConsumer<Artifact, TreeArtifactValue> treeArtifactConsumer,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetsInsideRunfiles,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets,
+      Map<Artifact, FilesetOutputTree> filesetsInsideRunfiles,
+      Map<Artifact, FilesetOutputTree> topLevelFilesets,
       Artifact key,
       SkyValue value,
       Environment env,
@@ -84,11 +83,10 @@ final class ActionInputMapHelper {
           (artifact, metadata) -> {
             inputMap.put(artifact, metadata, /* depOwner= */ key);
             if (artifact.isFileset()) {
-              ImmutableList<FilesetOutputSymlink> expandedFileset =
-                  getFilesets(env, (SpecialArtifact) artifact);
-              if (expandedFileset != null) {
-                filesetsInsideRunfiles.put(artifact, expandedFileset);
-                consumer.accumulate(expandedFileset);
+              FilesetOutputTree filesetOutput = getFilesetOutput(env, (SpecialArtifact) artifact);
+              if (filesetOutput != null) {
+                filesetsInsideRunfiles.put(artifact, filesetOutput);
+                consumer.accumulate(filesetOutput);
               }
             } else {
               consumer.accumulate(metadata);
@@ -123,10 +121,10 @@ final class ActionInputMapHelper {
       FileArtifactValue metadata = ((ActionExecutionValue) value).getExistingFileArtifactValue(key);
       inputMap.put(key, metadata, key);
       if (key.isFileset()) {
-        ImmutableList<FilesetOutputSymlink> filesets = getFilesets(env, (SpecialArtifact) key);
-        if (filesets != null) {
-          topLevelFilesets.put(key, filesets);
-          consumer.accumulate(filesets);
+        FilesetOutputTree filesetOutput = getFilesetOutput(env, (SpecialArtifact) key);
+        if (filesetOutput != null) {
+          topLevelFilesets.put(key, filesetOutput);
+          consumer.accumulate(filesetOutput);
         }
       } else {
         consumer.accumulate(metadata);
@@ -140,8 +138,8 @@ final class ActionInputMapHelper {
   }
 
   @Nullable
-  private static ImmutableList<FilesetOutputSymlink> getFilesets(
-      Environment env, SpecialArtifact actionInput) throws InterruptedException {
+  private static FilesetOutputTree getFilesetOutput(Environment env, SpecialArtifact actionInput)
+      throws InterruptedException {
     checkState(actionInput.isFileset(), actionInput);
     ActionLookupData generatingActionKey = actionInput.getGeneratingActionKey();
     ActionLookupKey filesetActionLookupKey = generatingActionKey.getActionLookupKey();
@@ -190,7 +188,7 @@ final class ActionInputMapHelper {
       // SkyframeFilesetManifestAction whose ActionExecutionValue (filesetValue) is needed here.
       return null;
     }
-    return filesetValue.getOutputSymlinks();
+    return filesetValue.getFilesetOutput();
   }
 
   private static void expandTreeArtifactAndPopulateArtifactData(

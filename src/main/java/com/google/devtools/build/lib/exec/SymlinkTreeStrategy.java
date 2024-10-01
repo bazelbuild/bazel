@@ -85,7 +85,8 @@ public final class SymlinkTreeStrategy implements SymlinkTreeActionContext {
               filesetLinks =
                   actionExecutionContext
                       .getArtifactExpander()
-                      .expandFileset(action.getInputManifest());
+                      .expandFileset(action.getInputManifest())
+                      .symlinks();
             } catch (MissingExpansionException e) {
               throw new IllegalStateException(e);
             }

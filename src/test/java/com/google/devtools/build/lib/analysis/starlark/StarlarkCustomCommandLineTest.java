@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.CommandLine.SimpleArgChunk;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
@@ -236,7 +237,8 @@ public final class StarlarkCustomCommandLineTest {
     ArtifactExpander artifactExpander =
         createArtifactExpander(
             /* treeExpansions= */ ImmutableMap.of(),
-            ImmutableMap.of(fileset, ImmutableList.of(symlink1, symlink2)));
+            ImmutableMap.of(
+                fileset, FilesetOutputTree.create(ImmutableList.of(symlink1, symlink2))));
 
     commandLine.addToFingerprint(
         actionKeyContext, artifactExpander, CoreOptions.OutputPathsMode.OFF, fingerprint);
@@ -313,7 +315,8 @@ public final class StarlarkCustomCommandLineTest {
     ArtifactExpander artifactExpander =
         createArtifactExpander(
             /* treeExpansions= */ ImmutableMap.of(),
-            ImmutableMap.of(fileset, ImmutableList.of(symlink1, symlink2)));
+            ImmutableMap.of(
+                fileset, FilesetOutputTree.create(ImmutableList.of(symlink1, symlink2))));
 
     Iterable<String> arguments = commandLine.arguments(artifactExpander, PathMapper.NOOP);
 
@@ -413,7 +416,7 @@ public final class StarlarkCustomCommandLineTest {
 
   private static ArtifactExpander createArtifactExpander(
       ImmutableMap<SpecialArtifact, ImmutableSortedSet<TreeFileArtifact>> treeExpansions,
-      ImmutableMap<SpecialArtifact, ImmutableList<FilesetOutputSymlink>> filesetExpansions) {
+      ImmutableMap<SpecialArtifact, FilesetOutputTree> filesetExpansions) {
     return new ArtifactExpander() {
       @Override
       public ImmutableSortedSet<TreeFileArtifact> expandTreeArtifact(Artifact treeArtifact)
@@ -427,14 +430,13 @@ public final class StarlarkCustomCommandLineTest {
       }
 
       @Override
-      public ImmutableList<FilesetOutputSymlink> expandFileset(Artifact artifact)
-          throws MissingExpansionException {
+      public FilesetOutputTree expandFileset(Artifact artifact) throws MissingExpansionException {
         //noinspection SuspiciousMethodCalls
-        ImmutableList<FilesetOutputSymlink> filesetLinks = filesetExpansions.get(artifact);
-        if (filesetLinks == null) {
+        FilesetOutputTree filesetOutput = filesetExpansions.get(artifact);
+        if (filesetOutput == null) {
           throw new MissingExpansionException("Cannot expand " + artifact);
         }
-        return filesetLinks;
+        return filesetOutput;
       }
     };
   }

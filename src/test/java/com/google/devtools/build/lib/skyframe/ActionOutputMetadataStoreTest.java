@@ -34,6 +34,7 @@ import com.google.devtools.build.lib.actions.ArtifactRoot.RootType;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.actions.HasDigest.ByteStringDigest;
 import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
@@ -395,7 +396,7 @@ public final class ActionOutputMetadataStoreTest {
     // child is missing, getExistingFileArtifactValue will throw.
     ActionExecutionValue actionExecutionValue =
         ActionExecutionValue.createFromOutputMetadataStore(
-            store, /* outputSymlinks= */ ImmutableList.of(), new NullAction());
+            store, FilesetOutputTree.EMPTY, new NullAction());
     tree.getChildren().forEach(actionExecutionValue::getExistingFileArtifactValue);
   }
 
@@ -566,8 +567,8 @@ public final class ActionOutputMetadataStoreTest {
     Artifact artifact =
         ActionsTestUtil.createArtifactWithRootRelativePath(
             outputRoot, PathFragment.create("foo/bar"));
-    ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets =
-        ImmutableMap.of(artifact, symlinks);
+    ImmutableMap<Artifact, FilesetOutputTree> expandedFilesets =
+        ImmutableMap.of(artifact, FilesetOutputTree.create(symlinks));
 
     ActionInputMetadataProvider inputMetadataProvider =
         new ActionInputMetadataProvider(
