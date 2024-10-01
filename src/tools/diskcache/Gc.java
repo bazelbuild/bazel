@@ -13,7 +13,6 @@
 // limitations under the License.
 package diskcache;
 
-import static com.google.devtools.build.lib.remote.util.Utils.bytesCountToDisplayString;
 import static java.lang.Math.min;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
@@ -111,13 +110,7 @@ public final class Gc {
 
     CollectionStats stats = gc.run();
 
-    System.out.printf(
-        "Deleted %d of %d files, reclaimed %s of %s\n",
-        stats.deletedEntries(),
-        stats.totalEntries(),
-        bytesCountToDisplayString(stats.deletedBytes()),
-        bytesCountToDisplayString(stats.totalBytes()));
-
+    System.out.println(stats.displayString());
     System.exit(0);
   }
 

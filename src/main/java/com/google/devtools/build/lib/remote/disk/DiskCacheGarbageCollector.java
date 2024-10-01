@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.remote.disk;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.devtools.build.lib.remote.util.Utils.bytesCountToDisplayString;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ComparisonChain;
@@ -33,6 +34,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
 
 /**
@@ -111,11 +113,27 @@ public final class DiskCacheGarbageCollector {
     }
   }
 
-  private record DeletionStats(long deletedEntries, long deletedBytes) {}
+  private record DeletionStats(long deletedEntries, long deletedBytes, boolean concurrentUpdate) {}
 
   /** Stats for a garbage collection run. */
   public record CollectionStats(
-      long totalEntries, long totalBytes, long deletedEntries, long deletedBytes) {}
+      long totalEntries,
+      long totalBytes,
+      long deletedEntries,
+      long deletedBytes,
+      boolean concurrentUpdate) {
+
+    /** Returns a human-readable summary. */
+    public String displayString() {
+      return "Deleted %d of %d files, reclaimed %s of %s%s"
+          .formatted(
+              deletedEntries(),
+              totalEntries(),
+              bytesCountToDisplayString(deletedBytes()),
+              bytesCountToDisplayString(totalBytes()),
+              concurrentUpdate() ? " (concurrent update detected)" : "");
+    }
+  }
 
   private final Path root;
   private final CollectionPolicy policy;
@@ -169,7 +187,7 @@ public final class DiskCacheGarbageCollector {
     List<Entry> entriesToDelete = policy.getEntriesToDelete(allEntries);
 
     for (Entry entry : entriesToDelete) {
-      deleter.delete(root.getRelative(entry.path()), entry.size());
+      deleter.delete(entry);
     }
 
     DeletionStats deletionStats = deleter.await();
@@ -178,7 +196,8 @@ public final class DiskCacheGarbageCollector {
         allEntries.size(),
         allEntries.stream().mapToLong(Entry::size).sum(),
         deletionStats.deletedEntries(),
-        deletionStats.deletedBytes());
+        deletionStats.deletedBytes(),
+        deletionStats.concurrentUpdate());
   }
 
   /** Lists all disk cache entries, performing I/O in parallel. */
@@ -209,7 +228,7 @@ public final class DiskCacheGarbageCollector {
         for (Dirent dirent : path.readdir(Symlinks.NOFOLLOW)) {
           Path childPath = path.getChild(dirent.getName());
           if (dirent.getType().equals(Dirent.Type.FILE)) {
-            // The file may be gone by the time we open it.
+            // The file may be gone by the time we stat it.
             FileStatus status = childPath.statIfFound();
             if (status != null) {
               Entry entry =
@@ -237,6 +256,7 @@ public final class DiskCacheGarbageCollector {
   private final class EntryDeleter extends AbstractQueueVisitor {
     private final LongAdder deletedEntries = new LongAdder();
     private final LongAdder deletedBytes = new LongAdder();
+    private final AtomicBoolean concurrentUpdate = new AtomicBoolean(false);
 
     EntryDeleter() {
       super(
@@ -247,13 +267,28 @@ public final class DiskCacheGarbageCollector {
     }
 
     /** Enqueues an entry to be deleted. */
-    void delete(Path path, long size) {
+    void delete(Entry entry) {
       execute(
           () -> {
+            Path path = root.getRelative(entry.path());
             try {
+              FileStatus status = path.statIfFound();
+              if (status == null) {
+                // The entry is already gone.
+                concurrentUpdate.set(true);
+                return;
+              }
+              if (status.getLastModifiedTime() != entry.mtime()) {
+                // The entry was likely accessed by a build since we statted it.
+                concurrentUpdate.set(true);
+                return;
+              }
               if (path.delete()) {
                 deletedEntries.increment();
-                deletedBytes.add(size);
+                deletedBytes.add(entry.size());
+              } else {
+                // The entry is already gone.
+                concurrentUpdate.set(true);
               }
             } catch (IOException e) {
               throw new IORuntimeException(e);
@@ -268,7 +303,7 @@ public final class DiskCacheGarbageCollector {
       } catch (IORuntimeException e) {
         throw e.getCauseIOException();
       }
-      return new DeletionStats(deletedEntries.sum(), deletedBytes.sum());
+      return new DeletionStats(deletedEntries.sum(), deletedBytes.sum(), concurrentUpdate.get());
     }
   }
 }
