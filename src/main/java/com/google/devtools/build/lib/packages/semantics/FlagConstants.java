@@ -21,7 +21,7 @@ class FlagConstants {
 
   private FlagConstants() {}
 
-  public static final String DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY = "+@rules_python";
+  public static final String DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY = "+@rules_python,+@rules_android";
 
   public static final String DEFAULT_INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX = "true";
   public static final String DEFAULT_INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX = "true";

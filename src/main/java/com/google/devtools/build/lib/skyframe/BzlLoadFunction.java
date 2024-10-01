@@ -610,7 +610,7 @@ public class BzlLoadFunction implements SkyFunction {
       }
       return StarlarkBuiltinsValue.createEmpty(starlarkSemantics);
     }
-    AutoloadSymbols autoloadSymbols = PrecomputedValue.AUTOLOAD_SYMBOLS.get(env);
+    AutoloadSymbols autoloadSymbols = AutoloadSymbols.AUTOLOAD_SYMBOLS.get(env);
     if (autoloadSymbols == null) {
       return null;
     }
