@@ -78,7 +78,7 @@ public final class SpawnLogModule extends BlazeModule {
     if (numFormats > 1) {
       String message =
           "Must specify at most one of --execution_log_binary_file, --execution_log_json_file and"
-              + " --experimental_execution_log_compact_file";
+              + " --execution_log_compact_file";
       env.getBlazeModuleEnvironment()
           .exit(
               new AbruptExitException(

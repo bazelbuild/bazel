@@ -442,7 +442,9 @@ public class ExecutionOptions extends OptionsBase {
       converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
           "Log the executed spawns into this file as length-delimited SpawnExec protos, according"
-              + " to src/main/protobuf/spawn.proto. Related flags:"
+              + " to src/main/protobuf/spawn.proto. Prefer --execution_log_compact_file, which is"
+              + " significantly smaller and cheaper to produce. Related flags:"
+              + " --execution_log_compact_file (compact format; mutually exclusive),"
               + " --execution_log_json_file (text JSON format; mutually exclusive),"
               + " --execution_log_sort (whether to sort the execution log),"
               + " --subcommands (for displaying subcommands in terminal output).")
@@ -457,14 +459,18 @@ public class ExecutionOptions extends OptionsBase {
       converter = OptionsUtils.EmptyToNullPathFragmentConverter.class,
       help =
           "Log the executed spawns into this file as newline-delimited JSON representations of"
-              + " SpawnExec protos, according to src/main/protobuf/spawn.proto. Related flags:"
+              + " SpawnExec protos, according to src/main/protobuf/spawn.proto. Prefer"
+              + " --execution_log_compact_file, which is significantly smaller and cheaper to"
+              + " produce. Related flags:"
+              + " --execution_log_compact_file (compact format; mutually exclusive),"
               + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
               + " --execution_log_sort (whether to sort the execution log),"
               + " --subcommands (for displaying subcommands in terminal output).")
   public PathFragment executionLogJsonFile;
 
   @Option(
-      name = "experimental_execution_log_compact_file",
+      name = "execution_log_compact_file",
+      oldName = "experimental_execution_log_compact_file",
       defaultValue = "null",
       category = "verbosity",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
@@ -473,8 +479,7 @@ public class ExecutionOptions extends OptionsBase {
       help =
           "Log the executed spawns into this file as length-delimited ExecLogEntry protos,"
               + " according to src/main/protobuf/spawn.proto. The entire file is zstd compressed."
-              + " This is an experimental format under active development, and may change at any"
-              + " time. Related flags:"
+              + " Related flags:"
               + " --execution_log_binary_file (binary protobuf format; mutually exclusive),"
               + " --execution_log_json_file (text JSON format; mutually exclusive),"
               + " --subcommands (for displaying subcommands in terminal output).")
