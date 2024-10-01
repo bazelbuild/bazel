@@ -44,7 +44,8 @@ public class JsonOutputFormatter extends OutputFormatter {
     seenExtensions = new HashSet<>();
     JsonObject root = printModule(ModuleKey.ROOT, null, IsExpanded.TRUE, IsIndirect.FALSE);
     root.addProperty("root", true);
-    printer.println(new GsonBuilder().setPrettyPrinting().create().toJson(root));
+    printer.println(
+        new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create().toJson(root));
   }
 
   public String printKey(ModuleKey key) {
