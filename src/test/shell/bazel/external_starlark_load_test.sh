@@ -230,7 +230,7 @@ EOF
 
 cat > rule.bzl <<EOF
 def test_aspect_impl(target, ctx):
-  return struct()
+  return []
 
 test_aspect = aspect(
     attrs = {
@@ -243,7 +243,7 @@ test_aspect = aspect(
 )
 
 def test_rule_impl(ctx):
-  return struct()
+  return []
 
 test_rule = rule(
     attrs = {

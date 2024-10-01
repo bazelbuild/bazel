@@ -245,10 +245,10 @@ def _impl(ctx):
     strict_deps = "ERROR",
     java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
   )
-  return struct(
-    files = depset([output_jar]),
-    providers = [compilation_provider]
-  )
+  return [
+    DefaultInfo(files = depset([output_jar])),
+    compilation_provider,
+  ]
 
 java_custom_library = rule(
   implementation = _impl,
