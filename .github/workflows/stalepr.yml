@@ -32,6 +32,17 @@ jobs:
                ).data;
               console.log("review details: ", reviews);
               const approvedReview = reviews.data.find(review => review.state === "APPROVED");
+              if (reviews && reviews.data) {
+                   console.log("review 1: ");
+                   const approvedReview = reviews.data.find(review => review.state === "APPROVED");
+                   // Do something with approvedReview
+               } else if (Array.isArray(reviews.data)) {
+                   console.log("review 2: ");
+                   const approvedReview = reviews.data.find(review => review.state === "APPROVED");
+                   // Do something with approvedReview
+               } else {
+                   console.error("Reviews or reviews.data is undefined");
+               }
               if (approvedReview) {
                 const fiveDaysAgo = new Date();
                 fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
