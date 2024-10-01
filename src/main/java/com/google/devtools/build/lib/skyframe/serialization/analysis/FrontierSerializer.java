@@ -21,18 +21,19 @@ import static com.google.devtools.build.lib.skyframe.serialization.analysis.Fron
 import static java.util.concurrent.ForkJoinPool.commonPool;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.eventbus.EventBus;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.Reporter;
-import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching;
 import com.google.devtools.build.lib.server.FailureDetails.RemoteAnalysisCaching.Code;
 import com.google.devtools.build.lib.skyframe.AspectKeyCreator.AspectBaseKey;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
@@ -85,8 +86,9 @@ public final class FrontierSerializer {
     var stopwatch = new ResettingStopwatch(Stopwatch.createStarted());
     InMemoryGraph graph = skyframeExecutor.getEvaluator().getInMemoryGraph();
 
-    ConcurrentHashMap<ActionLookupKey, SelectionMarking> selection =
+    ConcurrentHashMap<SkyKey, SelectionMarking> selection =
         computeSelection(graph, dependenciesProvider::withinActiveDirectories);
+
     reporter.handle(
         Event.info(
             String.format("Found %d active or frontier keys in %s", selection.size(), stopwatch)));
@@ -116,10 +118,6 @@ public final class FrontierSerializer {
           if (!marking.equals(FRONTIER_CANDIDATE)) {
             return;
           }
-          Preconditions.checkState(
-              !dependenciesProvider.withinActiveDirectories(key.getLabel().getPackageIdentifier()),
-              "frontier candidates cannot include any node in the active set, but got %s",
-              key);
 
           try {
             SerializationResult<ByteString> keyBytes =
@@ -129,7 +127,7 @@ public final class FrontierSerializer {
               writeStatuses.add(keyWriteStatus);
             }
 
-            InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(key));
+            InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(key), key);
             SerializationResult<ByteString> valueBytes =
                 codecs.serializeMemoizedAndBlocking(
                     fingerprintValueService, node.getValue(), profileCollector);
@@ -204,22 +202,44 @@ public final class FrontierSerializer {
   }
 
   @VisibleForTesting
-  static ConcurrentHashMap<ActionLookupKey, SelectionMarking> computeSelection(
+  static ConcurrentHashMap<SkyKey, SelectionMarking> computeSelection(
       InMemoryGraph graph, Predicate<PackageIdentifier> matcher) {
-    var selection = new ConcurrentHashMap<ActionLookupKey, SelectionMarking>();
+    ConcurrentHashMap<SkyKey, SelectionMarking> selection = new ConcurrentHashMap<>();
     graph.parallelForEach(
         node -> {
-          if (!(node.getKey() instanceof ActionLookupKey actionLookupKey)) {
-            return;
+          switch (node.getKey()) {
+            case ActionLookupKey key when key.getLabel() != null -> {
+              if (matcher.test(key.getLabel().getPackageIdentifier())) {
+                markActiveAndTraverseEdges(graph, key, selection);
+              }
+            }
+            case ActionLookupData data -> {
+              if (data.valueIsShareable()) {
+                selection.putIfAbsent(data, FRONTIER_CANDIDATE);
+              } else {
+                // If this is UnshareableActionLookupData, then its value will never be shared and
+                // the ActionExecutionFunction will be re-evaluated locally. To evaluate it locally,
+                // it will need the corresponding full ActionLookupKey's value, so that cannot be
+                // cached as well. So, mark the ActionLookupKey (and its rdeps) as active,
+                // so the deserializing build will not incorrectly cache hit on a CT/Aspect
+                // that owns such actions, which should be evaluated locally then.
+                markActiveAndTraverseEdges(graph, data.getActionLookupKey(), selection);
+              }
+            }
+            case Artifact key when key.valueIsShareable() -> {
+              // Artifact#key is the canonical function to produce the SkyKey that will build this
+              // artifact. We want to avoid serializing ordinary DerivedArtifacts, which
+              // are never built by Skyframe directly, and the function will return
+              // ActionLookupData as the canonical key for those artifacts instead.
+              SkyKey aKey = Artifact.key(key);
+              if (Artifact.key(key) instanceof ActionLookupData) {
+                // Already handled in the ActionLookupData switch case above.
+                return;
+              }
+              selection.putIfAbsent(aKey, FRONTIER_CANDIDATE);
+            }
+            default -> {}
           }
-          Label label = actionLookupKey.getLabel();
-          if (label == null) {
-            return;
-          }
-          if (!matcher.test(label.getPackageIdentifier())) {
-            return;
-          }
-          markActiveAndTraverseEdges(graph, actionLookupKey, selection);
         });
     return selection;
   }
@@ -227,7 +247,7 @@ public final class FrontierSerializer {
   private static void markActiveAndTraverseEdges(
       InMemoryGraph graph,
       ActionLookupKey root,
-      ConcurrentHashMap<ActionLookupKey, SelectionMarking> selection) {
+      ConcurrentHashMap<SkyKey, SelectionMarking> selection) {
     Label label = root.getLabel();
     if (label == null) {
       return;
@@ -243,6 +263,7 @@ public final class FrontierSerializer {
       // This is possible when an aspect is in the UTC of an active node via an attribute label.
       markActiveAndTraverseEdges(graph, aspectKey.getBaseConfiguredTargetKey(), selection);
     }
+
     InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(root), root);
     for (SkyKey dep : node.getDirectDeps()) {
       if (!(dep instanceof ActionLookupKey child)) {
@@ -287,8 +308,7 @@ public final class FrontierSerializer {
   public static FailureDetail createFailureDetail(String message, Code detailedCode) {
     return FailureDetail.newBuilder()
         .setMessage(message)
-        .setRemoteAnalysisCaching(
-            FailureDetails.RemoteAnalysisCaching.newBuilder().setCode(detailedCode))
+        .setRemoteAnalysisCaching(RemoteAnalysisCaching.newBuilder().setCode(detailedCode))
         .build();
   }
 }

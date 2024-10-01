@@ -876,9 +876,15 @@ public class BuildTool {
             .handle(
                 Event.info(
                     String.format(
-                        "Analysis caching stats: %s/%s configured targets cached.",
-                        listener.getCacheHits(),
-                        listener.getCacheHits() + listener.getCacheMisses())));
+                        "Remote analysis caching stats: %s cache hits (%s analysis, %s execution),"
+                            + " %s cache misses (%s analysis, %s execution).",
+                        listener.getAnalysisNodeCacheHits() + listener.getExecutionNodeCacheHits(),
+                        listener.getAnalysisNodeCacheHits(),
+                        listener.getExecutionNodeCacheHits(),
+                        listener.getAnalysisNodeCacheMisses()
+                            + listener.getExecutionNodeCacheMisses(),
+                        listener.getAnalysisNodeCacheMisses(),
+                        listener.getExecutionNodeCacheMisses())));
       }
       case OFF -> {}
     }
@@ -1194,7 +1200,7 @@ public class BuildTool {
 
     @Override
     public void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key) {
-      listener.recordRetrievalResult(retrievalResult);
+      listener.recordRetrievalResult(retrievalResult, key);
     }
 
     @Override

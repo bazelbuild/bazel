@@ -16,6 +16,8 @@ package com.google.devtools.build.lib.skyframe;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.maybeFetchSkyValueRemotely;
+import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
@@ -89,6 +91,11 @@ import com.google.devtools.build.lib.skyframe.ArtifactNestedSetFunction.Artifact
 import com.google.devtools.build.lib.skyframe.SkyframeActionExecutor.ActionPostprocessing;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindException;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationState;
+import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationStateProvider;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator;
 import com.google.devtools.build.lib.util.Pair;
@@ -156,6 +163,7 @@ public final class ActionExecutionFunction implements SkyFunction {
   private final Supplier<TimestampGranularityMonitor> tsgm;
   private final BugReporter bugReporter;
   private final Supplier<ConsumedArtifactsTracker> consumedArtifactsTrackerSupplier;
+  private final Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier;
 
   public ActionExecutionFunction(
       ActionRewindStrategy actionRewindStrategy,
@@ -164,6 +172,7 @@ public final class ActionExecutionFunction implements SkyFunction {
       BlazeDirectories directories,
       Supplier<TimestampGranularityMonitor> tsgm,
       BugReporter bugReporter,
+      Supplier<RemoteAnalysisCachingDependenciesProvider> cachingDependenciesSupplier,
       Supplier<ConsumedArtifactsTracker> consumedArtifactsTrackerSupplier) {
     this.actionRewindStrategy = checkNotNull(actionRewindStrategy);
     this.skyframeActionExecutor = checkNotNull(skyframeActionExecutor);
@@ -171,6 +180,7 @@ public final class ActionExecutionFunction implements SkyFunction {
     this.directories = checkNotNull(directories);
     this.tsgm = checkNotNull(tsgm);
     this.bugReporter = checkNotNull(bugReporter);
+    this.cachingDependenciesSupplier = cachingDependenciesSupplier;
     this.consumedArtifactsTrackerSupplier = consumedArtifactsTrackerSupplier;
   }
 
@@ -181,6 +191,22 @@ public final class ActionExecutionFunction implements SkyFunction {
     skyframeActionExecutor.maybeAcquireActionExecutionSemaphore();
     try {
       ActionLookupData actionLookupData = (ActionLookupData) skyKey.argument();
+      if (cachingDependenciesSupplier.get() != null
+          && cachingDependenciesSupplier.get().enabled()
+          && actionLookupData.getLabel() != null) {
+        var state = env.getState(() -> new StateWithSerializationStateProvider());
+        RetrievalResult retrievalResult =
+            maybeFetchSkyValueRemotely(
+                actionLookupData, env, cachingDependenciesSupplier.get(), state);
+        switch (retrievalResult) {
+          case SkyValueRetriever.Restart unused:
+            return null;
+          case SkyValueRetriever.RetrievedValue v:
+            return v.value();
+          case SkyValueRetriever.NoCachedData unused:
+            break;
+        }
+      }
       Action action = ActionUtils.getActionForLookupData(env, actionLookupData);
       if (action == null) {
         return null;
@@ -1451,6 +1477,21 @@ public final class ActionExecutionFunction implements SkyFunction {
     }
     return new LabelCause(
         MoreObjects.firstNonNull(input.getOwner(), actionLabel), detailedExitCode);
+  }
+
+  private static class StateWithSerializationStateProvider extends InputDiscoveryState
+      implements SerializationStateProvider {
+    private SerializationState serializationState = INITIAL_STATE;
+
+    @Override
+    public SerializationState getSerializationState() {
+      return serializationState;
+    }
+
+    @Override
+    public void setSerializationState(SerializationState state) {
+      this.serializationState = state;
+    }
   }
 
   /**

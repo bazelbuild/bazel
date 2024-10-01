@@ -797,7 +797,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new ArtifactFunction(
             () -> !skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem(),
             sourceArtifactsSeen,
-            syscallCache));
+            syscallCache,
+            getSkyframeBuildView()::getRemoteAnalysisCachingDependenciesProvider));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
     map.put(SkyFunctions.ACTION_EXECUTION, newActionExecutionFunction());
@@ -864,6 +865,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         directories,
         tsgm::get,
         bugReporter,
+        getSkyframeBuildView()::getRemoteAnalysisCachingDependenciesProvider,
         this::getConsumedArtifactsTracker);
   }
 

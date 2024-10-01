@@ -190,6 +190,7 @@ java_library(
         ":skyframe_executor_repository_helpers_holder",
         ":skyframe_incremental_build_monitor",
         ":skyframe_stats",
+        ":skyvalue_retriever_utils",
         ":starlark_builtins_value",
         ":state_informing_sky_function_environment",
         ":target_completion_value",
@@ -671,6 +672,21 @@ java_library(
 )
 
 java_library(
+    name = "skyvalue_retriever_utils",
+    srcs = ["SkyValueRetrieverUtils.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",
+        "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_key",
+        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
+        "//src/main/java/com/google/devtools/build/lib/bugreport",
+        "//src/main/java/com/google/devtools/build/lib/cmdline",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:dependencies_provider",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
+    ],
+)
+
+java_library(
     name = "artifact_function",
     srcs = ["ArtifactFunction.java"],
     deps = [
@@ -680,6 +696,7 @@ java_library(
         ":detailed_exceptions",
         ":metadata_consumer_for_metrics",
         ":recursive_filesystem_traversal",
+        ":skyvalue_retriever_utils",
         ":source_directory_event",
         ":track_source_directories_flag",
         ":tree_artifact_value",
@@ -692,6 +709,8 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bugreport",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/analysis:dependencies_provider",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/util:detailed_exit_code",
         "//src/main/java/com/google/devtools/build/lib/vfs",
