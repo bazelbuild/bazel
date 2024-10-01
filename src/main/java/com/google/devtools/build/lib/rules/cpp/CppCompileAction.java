@@ -1467,10 +1467,6 @@ public class CppCompileAction extends AbstractAction implements IncludeScannable
 
     updateActionInputs(discoveredInputs);
 
-    // hdrs_check: This cannot be switched off for C++ build actions,
-    // because doing so would allow for incorrect builds.
-    // HeadersCheckingMode.NONE should only be used for ObjC build actions.
-    validateInclusions(actionExecutionContext, discoveredInputs);
     return ActionResult.create(spawnResults);
   }
 
