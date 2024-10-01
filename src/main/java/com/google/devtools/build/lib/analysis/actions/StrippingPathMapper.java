@@ -202,6 +202,11 @@ public final class StrippingPathMapper implements PathMapper {
   }
 
   @Override
+  public String mapHeuristically(String arg) {
+    return argStripper.strip(arg);
+  }
+
+  @Override
   public FileRootApi mapRoot(Artifact artifact) {
     if (Objects.equals(artifact.getRoot(), outputArtifactRoot)) {
       // The mapped root's path does not depend on the artifact, so we can share an instance.
