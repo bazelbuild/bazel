@@ -1128,9 +1128,9 @@ public abstract class PackageFunction implements SkyFunction {
               configSettingVisibilityPolicy,
               globber);
 
-      pkgBuilder
-          .mergePackageArgsFrom(PackageArgs.builder().setDefaultVisibility(defaultVisibility))
-          .mergePackageArgsFrom(repoFileValue.packageArgs());
+      pkgBuilder.mergePackageArgsFrom(
+          PackageArgs.builder().setDefaultVisibility(defaultVisibility));
+      pkgBuilder.mergePackageArgsFrom(repoFileValue.packageArgs());
 
       if (compiled.ok()) {
         packageFactory.executeBuildFile(
