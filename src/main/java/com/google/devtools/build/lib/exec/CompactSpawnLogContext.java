@@ -262,9 +262,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       builder.setTimeoutMillis(timeout.toMillis());
       builder.setMetrics(getSpawnMetricsProto(result));
 
-      try (SilentCloseable c1 = Profiler.instance().profile("logEntry")) {
-        logEntryWithoutId(() -> ExecLogEntry.newBuilder().setSpawn(builder));
-      }
+      logEntryWithoutId(() -> ExecLogEntry.newBuilder().setSpawn(builder));
     }
   }
 
@@ -288,9 +286,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       }
       builder.setMnemonic(action.getMnemonic());
 
-      try (SilentCloseable c1 = Profiler.instance().profile("logEntry")) {
-        logEntryWithoutId(() -> ExecLogEntry.newBuilder().setSymlinkAction(builder));
-      }
+      logEntryWithoutId(() -> ExecLogEntry.newBuilder().setSymlinkAction(builder));
     }
   }
 
@@ -651,9 +647,18 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    *
    * @param supplier called to compute the entry; may cause other entries to be logged
    */
-  private synchronized void logEntryWithoutId(ExecLogEntrySupplier supplier)
+  private void logEntryWithoutId(ExecLogEntrySupplier supplier)
       throws IOException, InterruptedException {
-    outputStream.write(supplier.get().build());
+    try (SilentCloseable c = Profiler.instance().profile("logEntryWithoutId")) {
+      logEntryWithoutIdSynchronized(supplier);
+    }
+  }
+
+  private synchronized void logEntryWithoutIdSynchronized(ExecLogEntrySupplier supplier)
+      throws IOException, InterruptedException {
+    try (SilentCloseable c = Profiler.instance().profile("logEntryWithoutId/synchronized")) {
+      outputStream.write(supplier.get().build());
+    }
   }
 
   /**
@@ -667,7 +672,14 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * @return the entry ID
    */
   @CheckReturnValue
-  private synchronized int logEntry(@Nullable Object key, ExecLogEntrySupplier supplier)
+  private int logEntry(@Nullable Object key, ExecLogEntrySupplier supplier)
+      throws IOException, InterruptedException {
+    try (SilentCloseable c = Profiler.instance().profile("logEntry")) {
+      return logEntrySynchronized(key, supplier);
+    }
+  }
+
+  private synchronized int logEntrySynchronized(@Nullable Object key, ExecLogEntrySupplier supplier)
       throws IOException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile("logEntry/synchronized")) {
       if (key == null) {
