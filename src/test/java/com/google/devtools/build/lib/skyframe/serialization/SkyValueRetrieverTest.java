@@ -22,6 +22,7 @@ import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetri
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.hash.HashCode;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.FrontierNodeVersion;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.ObservedFutureStatus;
@@ -166,7 +167,8 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
     var version =
         new FrontierNodeVersion(
             /* topLevelConfigChecksum= */ "42",
-            /* directoryMatcherFingerprint= */ ByteString.copyFrom(new byte[] {1, 2, 3}));
+            /* directoryMatcherFingerprint= */ ByteString.copyFrom(new byte[] {1, 2, 3}),
+            /* blazeInstallMD5= */ HashCode.fromInt(42));
     uploadKeyValuePair(key, version, value, fingerprintValueService);
 
     RetrievalResult result =
@@ -192,7 +194,8 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
     var version =
         new FrontierNodeVersion(
             /* topLevelConfigChecksum= */ "42",
-            /* directoryMatcherFingerprint= */ ByteString.copyFrom(new byte[] {1, 2, 3}));
+            /* directoryMatcherFingerprint= */ ByteString.copyFrom(new byte[] {1, 2, 3}),
+            /* blazeInstallMD5= */ HashCode.fromInt(42));
     uploadKeyValuePair(key, version, value, fingerprintValueService);
 
     RetrievalResult result =
@@ -205,7 +208,8 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
             /* stateProvider= */ this,
             /* frontierNodeVersion= */ new FrontierNodeVersion(
                 /* topLevelConfigChecksum= */ "9000",
-                /* directoryMatcherFingerprint= */ ByteString.copyFrom(new byte[] {7, 8, 9})));
+                /* directoryMatcherFingerprint= */ ByteString.copyFrom(new byte[] {7, 8, 9}),
+                /* blazeInstallMD5= */ HashCode.fromInt(9000)));
 
     assertThat(result).isSameInstanceAs(NO_CACHED_DATA);
   }

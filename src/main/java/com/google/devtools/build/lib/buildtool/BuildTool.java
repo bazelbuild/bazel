@@ -36,6 +36,7 @@ import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -1117,6 +1118,7 @@ public class BuildTool {
     private final FingerprintValueService fingerprintValueService;
     private final PathFragmentPrefixTrie activeDirectoriesMatcher;
     private final RemoteAnalysisCachingEventListener listener;
+    private final HashCode blazeInstallMD5;
 
     // Non-final because the top level BuildConfigurationValue is determined just before analysis
     // begins in BuildView for the download/deserialization pass, which is later than when this
@@ -1148,6 +1150,7 @@ public class BuildTool {
       this.activeDirectoriesMatcher = activeDirectoriesMatcher;
       this.listener = env.getRemoteAnalysisCachingEventListener();
       this.topLevelConfig = env.getSkyframeBuildView().getBuildConfiguration();
+      this.blazeInstallMD5 = requireNonNull(env.getDirectories().getInstallMD5());
     }
 
     private static ObjectCodecs initAnalysisObjectCodecs(
@@ -1182,7 +1185,8 @@ public class BuildTool {
           frontierNodeVersionSingleton =
               new FrontierNodeVersion(
                   topLevelConfig.checksum(),
-                  getObjectCodecs().serializeMemoized(activeDirectoriesMatcher.toString()));
+                  getObjectCodecs().serializeMemoized(activeDirectoriesMatcher.toString()),
+                  blazeInstallMD5);
         }
       }
       return frontierNodeVersionSingleton;

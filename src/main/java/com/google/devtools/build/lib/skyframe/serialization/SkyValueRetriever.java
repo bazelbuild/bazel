@@ -20,6 +20,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -326,18 +327,26 @@ public final class SkyValueRetriever {
   /** A tuple representing the version of a cached SkyValue in the frontier. */
   public static final class FrontierNodeVersion {
     public static final FrontierNodeVersion CONSTANT_FOR_TESTING =
-        new FrontierNodeVersion("123", ByteString.copyFrom(new byte[] {1, 2, 3}));
+        new FrontierNodeVersion(
+            "123", ByteString.copyFrom(new byte[] {1, 2, 3}), HashCode.fromInt(42));
     private final byte[] topLevelConfigFingerprint;
     private final byte[] directoryMatcherFingerprint;
+    private final byte[] blazeInstallMD5Fingerprint;
     private final byte[] precomputedFingerprint;
 
     public FrontierNodeVersion(
-        String topLevelConfigChecksum, ByteString directoryMatcherFingerprint) {
+        String topLevelConfigChecksum,
+        ByteString directoryMatcherFingerprint,
+        HashCode blazeInstallMD5) {
       // TODO: b/364831651 - add more fields like source and blaze versions.
       this.topLevelConfigFingerprint = topLevelConfigChecksum.getBytes(UTF_8);
       this.directoryMatcherFingerprint = directoryMatcherFingerprint.toByteArray();
+      this.blazeInstallMD5Fingerprint = blazeInstallMD5.asBytes();
       this.precomputedFingerprint =
-          Bytes.concat(topLevelConfigFingerprint, this.directoryMatcherFingerprint);
+          Bytes.concat(
+              this.topLevelConfigFingerprint,
+              this.directoryMatcherFingerprint,
+              this.blazeInstallMD5Fingerprint);
     }
 
     @SuppressWarnings("unused")
