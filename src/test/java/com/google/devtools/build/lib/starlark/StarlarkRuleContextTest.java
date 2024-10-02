@@ -1906,7 +1906,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             'symlink_' + f.short_path: f
             for f in ctx.files.symlink
           }
-          return struct(
+          return DefaultInfo(
             runfiles = ctx.runfiles(
               symlinks=symlinks,
             )
@@ -2007,7 +2007,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
             'root_symlink_' + f.short_path: f
             for f in ctx.files.root_symlink
           }
-          return struct(
+          return DefaultInfo(
             runfiles = ctx.runfiles(
               root_symlinks=root_symlinks,
             )

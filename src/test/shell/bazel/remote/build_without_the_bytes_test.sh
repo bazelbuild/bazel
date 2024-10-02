@@ -963,7 +963,7 @@ function test_downloads_minimal_bep_partially_failed_aspect() {
   cat > semifailingaspect.bzl <<'EOF'
 def _semifailing_aspect_impl(target, ctx):
     if not ctx.rule.attr.outs:
-        return struct(output_groups = {})
+        return [OutputGroupInfo()]
     bad_outputs = list()
     good_outputs = list()
     for out in ctx.rule.attr.outs:

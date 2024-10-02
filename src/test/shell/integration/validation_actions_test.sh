@@ -254,8 +254,7 @@ def _simple_aspect_impl(target, ctx):
     ctx.actions.write(
         output=aspect_out,
         content = "Hello from aspect")
-    return struct(output_groups={
-        "aspect-out" : depset([aspect_out]) })
+    return [OutputGroupInfo(aspect_out=depset([aspect_out]))]
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
@@ -264,7 +263,7 @@ EOF
       --show_result=2 \
       --experimental_use_validation_aspect \
       --aspects=validation_actions/simpleaspect.bzl%simple_aspect \
-      --output_groups=+aspect-out \
+      --output_groups=+aspect_out \
       //validation_actions:foo0 >& "$TEST_log" || fail "Expected build to succeed"
 
   expect_log "Target //validation_actions:foo0 up-to-date:"

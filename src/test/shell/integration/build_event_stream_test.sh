@@ -116,8 +116,7 @@ def _simple_aspect_impl(target, ctx):
         ctx.actions.write(
             output=aspect_out,
             content = "Hello from aspect")
-    return struct(output_groups={
-        "aspect-out" : depset([aspect_out]) })
+    return [OutputGroupInfo(aspect_out=depset([aspect_out]))]
 
 simple_aspect = aspect(implementation=_simple_aspect_impl)
 EOF
@@ -130,15 +129,14 @@ def _failing_aspect_impl(target, ctx):
             outputs = [aspect_out],
             command = "false",
         )
-    return struct(output_groups={
-        "aspect-out" : depset([aspect_out]) })
+    return [OutputGroupInfo(aspect_out=depset([aspect_out]))]
 
 failing_aspect = aspect(implementation=_failing_aspect_impl)
 EOF
 cat > semifailingaspect.bzl <<'EOF'
 def _semifailing_aspect_impl(target, ctx):
     if not ctx.rule.attr.outs:
-        return struct(output_groups = {})
+        return [OutputGroupInfo()]
     bad_outputs = list()
     good_outputs = list()
     mixed_outputs = list()
@@ -791,10 +789,10 @@ EOF
 function test_aspect_artifacts() {
   bazel build --build_event_text_file=$TEST_log \
     --aspects=simpleaspect.bzl%simple_aspect \
-    --output_groups=aspect-out \
+    --output_groups=aspect_out \
     pkg:output_files_and_tags || fail "bazel build failed"
   expect_log 'aspect.*simple_aspect'
-  expect_log 'name.*aspect-out'
+  expect_log 'name.*aspect_out'
   expect_log 'name.*out1.txt.aspect'
   expect_not_log 'aborted'
   expect_log_n '^configured' 2
@@ -806,7 +804,7 @@ function test_aspect_target_summary() {
   bazel build --build_event_text_file=$TEST_log \
     --experimental_bep_target_summary \
     --aspects=simpleaspect.bzl%simple_aspect \
-    --output_groups=aspect-out \
+    --output_groups=aspect_out \
     pkg:output_files_and_tags || fail "bazel build failed"
   expect_not_log 'aborted'
   expect_log_n '^configured' 2
@@ -820,7 +818,7 @@ function test_aspect_target_summary() {
 function test_failing_aspect() {
   bazel build --build_event_text_file=$TEST_log \
     --aspects=failingaspect.bzl%failing_aspect \
-    --output_groups=aspect-out \
+    --output_groups=aspect_out \
     pkg:output_files_and_tags && fail "expected failure" || true
   expect_log 'aspect.*failing_aspect'
   expect_log '^finished'
@@ -832,7 +830,7 @@ function test_aspect_analysis_failure_no_target_summary() {
   bazel build -k --build_event_text_file=$TEST_log \
     --experimental_bep_target_summary \
     --aspects=failingaspect.bzl%failing_aspect \
-    --output_groups=aspect-out \
+    --output_groups=aspect_out \
     pkg:output_files_and_tags && fail "expected failure" || true
   expect_log 'aspect.*failing_aspect'
   expect_log '^finished'

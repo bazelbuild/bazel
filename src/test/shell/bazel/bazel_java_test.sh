@@ -245,10 +245,10 @@ def _impl(ctx):
     strict_deps = "ERROR",
     java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
   )
-  return struct(
-    files = depset([output_jar]),
-    providers = [compilation_provider]
-  )
+  return [
+    DefaultInfo(files = depset([output_jar])),
+    compilation_provider,
+  ]
 
 java_custom_library = rule(
   implementation = _impl,
@@ -426,10 +426,10 @@ def _impl(ctx):
     strict_deps = "ERROR",
     java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
   )
-  return struct(
-    files = depset([output_jar]),
-    providers = [compilation_provider]
-  )
+  return [
+    DefaultInfo(files = depset([output_jar])),
+    compilation_provider
+  ]
 
 java_custom_library = rule(
   implementation = _impl,
@@ -497,10 +497,10 @@ def _impl(ctx):
     strict_deps = "ERROR",
     java_toolchain = ctx.attr._java_toolchain[java_common.JavaToolchainInfo],
   )
-  return struct(
-    files = depset([output_jar]),
-    providers = [compilation_provider]
-  )
+  return [
+    DefaultInfo(files = depset([output_jar])),
+    compilation_provider,
+  ]
 
 java_custom_library = rule(
   implementation = _impl,
@@ -1405,10 +1405,10 @@ def _impl(ctx):
   print(final_provider.outputs.jars[0].class_jar)
   print(final_provider.outputs.jars[1].class_jar)
 
-  return struct(
-    files = depset([compiled_jar, imported_jar]),
-    providers = [final_provider]
-  )
+  return [
+    DefaultInfo(files = depset([compiled_jar, imported_jar])),
+    final_provider,
+  ]
 
 java_custom_library = rule(
   implementation = _impl,

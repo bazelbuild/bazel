@@ -183,7 +183,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
         """
         def _aspect_impl(target, ctx):
             if not getattr(ctx.rule.attr, "outs", None):
-                return struct(output_groups = {})
+                return  [OutputGroupInfo()]
             conflict_outputs = list()
             for out in ctx.rule.attr.outs:
                 if out.name[1:] == ".bad":
@@ -271,7 +271,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
         """
         def _aspect_impl(target, ctx):
             if not getattr(ctx.rule.attr, "outs", None):
-                return struct(output_groups = {})
+                return [OutputGroupInfo()]
             conflict_outputs = list()
             for out in ctx.rule.attr.outs:
                 if out.name[1:] == ".bad":
@@ -501,7 +501,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
         """
         def _aspect_impl(target, ctx):
             if not getattr(ctx.rule.attr, "outs", None):
-                return struct(output_groups = {})
+                return [OutputGroupInfo()]
             conflict_outputs = list()
             for out in ctx.rule.attr.outs:
                 if out.name[1:] == ".bad":
@@ -713,7 +713,7 @@ public class OutputArtifactConflictTest extends BuildIntegrationTestCase {
         """
         def _aspect_impl(target, ctx):
             if not getattr(ctx.rule.attr, "outs", None):
-                return struct(output_groups = {})
+                return [OutputGroupInfo()]
             conflict_outputs = list()
             for out in ctx.rule.attr.outs:
                 if out.name[1:] == ".bad":

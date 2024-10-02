@@ -710,7 +710,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         """
         def custom_rule_impl(ctx):
           rf = ctx.runfiles()
-          return struct(runfiles = rf, default_runfiles = rf)
+          return DefaultInfo(runfiles = rf, default_runfiles = rf)
 
         custom_rule = rule(implementation = custom_rule_impl)
         """);
@@ -3563,7 +3563,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         "test/starlark/extension.bzl",
         """
         def custom_rule_impl(ctx):
-          return struct()
+          return struct() # intentional
 
         custom_rule = rule(implementation = custom_rule_impl)
         """);
@@ -3597,7 +3597,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
           print(ctx.attr.dep.my_info)
         def _dep_rule_impl(ctx):
           my_info = MyProvider(foo = 'bar')
-          return struct(my_info = my_info, providers = [my_info])
+          return [my_info]
         my_rule = rule(
           implementation = _my_rule_impl,
           attrs = {
@@ -3639,7 +3639,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
           print(ctx.attr.dep.actions)
         def _dep_rule_impl(ctx):
           my_info = MyProvider(foo = 'bar')
-          return struct(my_info = my_info, providers = [my_info])
+          return [my_info]
         my_rule = rule(
           implementation = _my_rule_impl,
           attrs = {
@@ -3673,7 +3673,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
           print(ctx.attr.dep.my_info)
         def _dep_rule_impl(ctx):
           my_info = MyProvider(foo = 'bar')
-          return struct(my_info = my_info, providers = [my_info])
+          return struct(my_info = my_info, providers = [my_info])  # intentional
         my_rule = rule(
           implementation = _my_rule_impl,
           attrs = {
@@ -3733,7 +3733,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
           ctx.actions.run_shell(outputs=[exe], command='touch exe')
           runfile = ctx.actions.declare_file('rrr')
           ctx.actions.run_shell(outputs=[runfile], command='touch rrr')
-          return struct(executable = exe, default_runfiles = ctx.runfiles(files = [runfile]))
+          return DefaultInfo(executable = exe, default_runfiles = ctx.runfiles(files = [runfile]))
         my_rule = rule(implementation = _my_rule_impl, executable = True)
         """);
     scratch.file(
@@ -4404,7 +4404,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
         """
         def _impl(target, ctx):
            print('This aspect does nothing')
-           return struct()
+           return []
         MyAspect = aspect(implementation=_impl)
         """);
 

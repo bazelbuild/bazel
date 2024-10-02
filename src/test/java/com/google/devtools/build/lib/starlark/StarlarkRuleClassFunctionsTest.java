@@ -3329,9 +3329,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "r/def.bzl",
         """
         load(":create.bzl", "create")
-
+        Info = provider()
         def f(ctx):
-            return struct(value = "NEW")
+            return Info(value = "NEW")
 
         r = create(f)
         """);
