@@ -1362,6 +1362,7 @@ sh_test(
 
 sh_test(
     name = "path_mapping_test",
+    size = "large",
     srcs = ["path_mapping_test.sh"],
     data = [
         ":test-deps",
