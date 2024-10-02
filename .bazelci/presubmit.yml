@@ -236,6 +236,10 @@ tasks:
       - "-//src/test/shell/bazel:bazel_determinism_test"
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_tar_test"
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
+      # Temporarily disable python and shell integration tests
+      # TODO(pcloudy): Re-enable these tests after fixing https://github.com/bazelbuild/bazel/issues/23726
+      - "-//src/test/shell/..."
+      - "-//src/test/py/..."
     include_json_profile:
       - build
       - test
