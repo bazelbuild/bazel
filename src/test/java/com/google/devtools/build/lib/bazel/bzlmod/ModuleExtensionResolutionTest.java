@@ -268,7 +268,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             .set(BuildLanguageOptions.INCOMPATIBLE_AUTOLOAD_EXTERNALLY, ImmutableList.of())
             .build();
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, semantics);
-    PrecomputedValue.AUTOLOAD_SYMBOLS.set(
+    AutoloadSymbols.AUTOLOAD_SYMBOLS.set(
         differencer, new AutoloadSymbols(ruleClassProvider, semantics));
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(

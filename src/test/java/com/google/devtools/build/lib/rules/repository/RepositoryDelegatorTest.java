@@ -279,7 +279,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
     StarlarkSemantics semantics =
         StarlarkSemantics.builder().setBool(BuildLanguageOptions.ENABLE_BZLMOD, true).build();
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, semantics);
-    PrecomputedValue.AUTOLOAD_SYMBOLS.set(
+    AutoloadSymbols.AUTOLOAD_SYMBOLS.set(
         differencer, new AutoloadSymbols(ruleClassProvider, semantics));
     RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE.set(
         differencer, Optional.empty());
