@@ -18,11 +18,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Harden Runner
-        uses: step-security/harden-runner@5c7944e73c4c2a096b17a9cb74d65b6c2bbafbde
+        uses: step-security/harden-runner@91182cccc01eb5e619899d80e4e971d6181294a7
         with:
           egress-policy: audit
       - name: Update lockfile(s) on closed PR
-        uses: bazelbuild/continuous-integration/actions/update-lockfile@40accd1e24b7d296e87b573002ed0903828c0cf0
+        uses: bazelbuild/continuous-integration/actions/update-lockfile@312ab25f6994b2fac89dc6910b3ebd6cb93cfa74
         with:
           release-branch: ${{ github.base_ref }}
           is-prod: True
