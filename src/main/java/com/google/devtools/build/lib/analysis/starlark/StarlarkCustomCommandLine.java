@@ -194,25 +194,31 @@ public class StarlarkCustomCommandLine extends CommandLine {
     @Nullable private final StarlarkSemantics starlarkSemantics;
     // Null unless map_each is a global function.
     @Nullable private final StarlarkFunction mapEachGlobalFunction;
+    // Null unless map_each is present.
+    @Nullable private final Location location;
 
     private VectorArg(
         int features,
         StringificationType stringificationType,
         @Nullable StarlarkSemantics starlarkSemantics,
-        @Nullable StarlarkFunction mapEachGlobalFunction) {
+        @Nullable StarlarkFunction mapEachGlobalFunction,
+        @Nullable Location location) {
       this.features = features;
       this.stringificationType = stringificationType;
       this.starlarkSemantics = starlarkSemantics;
       this.mapEachGlobalFunction = mapEachGlobalFunction;
+      this.location = location;
     }
 
     private static VectorArg create(
         int features,
         StringificationType stringificationType,
         @Nullable StarlarkSemantics starlarkSemantics,
-        @Nullable StarlarkFunction mapEachGlobalFunction) {
+        @Nullable StarlarkFunction mapEachGlobalFunction,
+        @Nullable Location location) {
       return intern(
-          new VectorArg(features, stringificationType, starlarkSemantics, mapEachGlobalFunction));
+          new VectorArg(
+              features, stringificationType, starlarkSemantics, mapEachGlobalFunction, location));
     }
 
     @VisibleForSerialization
@@ -251,12 +257,10 @@ public class StarlarkCustomCommandLine extends CommandLine {
               features,
               arg.nestedSetStringificationType,
               arg.mapEach != null ? starlarkSemantics : null,
-              mapEachGlobalFunction));
-      if (arg.mapEach != null) {
-        if (mapEachGlobalFunction == null) {
-          arguments.add(arg.mapEach);
-        }
-        arguments.add(arg.location);
+              mapEachGlobalFunction,
+              arg.location));
+      if (arg.mapEach != null && mapEachGlobalFunction == null) {
+        arguments.add(arg.mapEach);
       }
       if (arg.nestedSet != null) {
         arguments.add(arg.nestedSet);
@@ -316,14 +320,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
         @Nullable RepositoryMapping mainRepoMapping)
         throws CommandLineExpansionException, InterruptedException {
       StarlarkCallable mapEach = null;
-      Location location = null;
       if ((features & HAS_MAP_EACH) != 0) {
         if (mapEachGlobalFunction != null) {
           mapEach = mapEachGlobalFunction;
         } else {
           mapEach = (StarlarkCallable) arguments.get(argi++);
         }
-        location = (Location) arguments.get(argi++);
       }
 
       List<Object> originalValues;
@@ -517,14 +519,12 @@ public class StarlarkCustomCommandLine extends CommandLine {
         CoreOptions.OutputPathsMode outputPathsMode)
         throws CommandLineExpansionException, InterruptedException {
       StarlarkCallable mapEach = null;
-      Location location = null;
       if ((features & HAS_MAP_EACH) != 0) {
         if (mapEachGlobalFunction != null) {
           mapEach = mapEachGlobalFunction;
         } else {
           mapEach = (StarlarkCallable) arguments.get(argi++);
         }
-        location = (Location) arguments.get(argi++);
       }
 
       // NestedSets and lists never result in the same fingerprint as the
@@ -757,12 +757,13 @@ public class StarlarkCustomCommandLine extends CommandLine {
           // Use reference equality to avoid resurrecting a weakly-reachable but value-equal
           // StarlarkFunction instance. Value-equal instances may be created when a .bzl file is
           // re-evaluated.
-          && mapEachGlobalFunction == that.mapEachGlobalFunction;
+          && mapEachGlobalFunction == that.mapEachGlobalFunction
+          && Objects.equals(location, that.location);
     }
 
     @Override
     public int hashCode() {
-      int result = HashCodes.hashObjects(stringificationType, starlarkSemantics);
+      int result = HashCodes.hashObjects(stringificationType, starlarkSemantics, location);
       result = 31 * result + Integer.hashCode(features);
       result = 31 * result + System.identityHashCode(mapEachGlobalFunction);
       return result;
