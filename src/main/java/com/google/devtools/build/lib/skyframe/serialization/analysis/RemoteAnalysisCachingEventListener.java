@@ -21,6 +21,7 @@ import com.google.common.eventbus.AllowConcurrentEvents;
 import com.google.common.eventbus.Subscribe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.NoCachedData;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Restart;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.RetrievalResult;
@@ -52,6 +53,7 @@ public class RemoteAnalysisCachingEventListener {
   private final AtomicInteger analysisCacheMisses = new AtomicInteger();
   private final AtomicInteger executionCacheHits = new AtomicInteger();
   private final AtomicInteger executionCacheMisses = new AtomicInteger();
+  private final Set<SerializationException> serializationExceptions = ConcurrentHashMap.newKeySet();
 
   @Subscribe
   @AllowConcurrentEvents
@@ -135,5 +137,17 @@ public class RemoteAnalysisCachingEventListener {
    */
   public int getExecutionNodeCacheMisses() {
     return executionCacheMisses.get();
+  }
+
+  /** Records a {@link SerializationException} encountered during SkyValue retrievals. */
+  public void recordSerializationException(SerializationException e) {
+    serializationExceptions.add(e);
+  }
+
+  /**
+   * Returns the number of {@link SerializationException}s that were thrown during this invocation.
+   */
+  public int getSerializationExceptionCounts() {
+    return serializationExceptions.size();
   }
 }

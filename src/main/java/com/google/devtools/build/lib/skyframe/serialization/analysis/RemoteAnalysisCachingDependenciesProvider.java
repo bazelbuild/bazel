@@ -53,6 +53,8 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
   void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key);
 
+  void recordSerializationException(SerializationException e);
+
   void setTopLevelConfig(BuildConfigurationValue topLevelConfig);
 
   /** A stub dependencies provider for when analysis caching is disabled. */
@@ -89,6 +91,11 @@ public interface RemoteAnalysisCachingDependenciesProvider {
 
     @Override
     public void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void recordSerializationException(SerializationException e) {
       throw new UnsupportedOperationException();
     }
 

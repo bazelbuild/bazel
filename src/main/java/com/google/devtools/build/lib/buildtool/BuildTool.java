@@ -1208,6 +1208,11 @@ public class BuildTool {
     }
 
     @Override
+    public void recordSerializationException(SerializationException e) {
+      listener.recordSerializationException(e);
+    }
+
+    @Override
     public void setTopLevelConfig(BuildConfigurationValue topLevelConfig) {
       this.topLevelConfig = topLevelConfig;
     }

@@ -18,7 +18,6 @@ import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetri
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever;
@@ -66,7 +65,7 @@ public final class SkyValueRetrieverUtils {
               /* frontierNodeVersion= */ analysisCachingDeps.getSkyValueVersion());
     } catch (SerializationException e) {
       // Don't crash the build if deserialization failed. Gracefully fallback to local evaluation.
-      BugReport.sendBugReport(e);
+      analysisCachingDeps.recordSerializationException(e);
       return NO_CACHED_DATA;
     }
     analysisCachingDeps.recordRetrievalResult(retrievalResult, key);
