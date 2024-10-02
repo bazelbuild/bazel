@@ -55,12 +55,20 @@ public interface RuleVisibility {
   @SerializationConstant
   Label PRIVATE_LABEL = Label.parseCanonicalUnchecked("//visibility:private");
 
+  // Constant for memory efficiency; see b/370873477.
+  @SerializationConstant
+  ImmutableList<Label> PUBLIC_DECLARED_LABELS = ImmutableList.of(PUBLIC_LABEL);
+
+  // Constant for memory efficiency; see b/370873477.
+  @SerializationConstant
+  ImmutableList<Label> PRIVATE_DECLARED_LABELS = ImmutableList.of(PRIVATE_LABEL);
+
   @SerializationConstant
   RuleVisibility PUBLIC =
       new RuleVisibility() {
         @Override
         public ImmutableList<Label> getDeclaredLabels() {
-          return ImmutableList.of(PUBLIC_LABEL);
+          return PUBLIC_DECLARED_LABELS;
         }
 
         @Override
@@ -79,7 +87,7 @@ public interface RuleVisibility {
       new RuleVisibility() {
         @Override
         public ImmutableList<Label> getDeclaredLabels() {
-          return ImmutableList.of(PRIVATE_LABEL);
+          return PRIVATE_DECLARED_LABELS;
         }
 
         @Override
@@ -175,17 +183,22 @@ public interface RuleVisibility {
       }
     }
     if (hasPublicLabel) {
-      return PUBLIC.getDeclaredLabels();
+      return PUBLIC_DECLARED_LABELS;
     }
     if (numPrivateLabels == labels.size()) {
-      return PRIVATE.getDeclaredLabels();
+      return PRIVATE_DECLARED_LABELS;
     }
     if (numPrivateLabels == 0) {
       return labels;
     }
-    return labels.stream()
-        .filter(label -> !label.equals(PRIVATE_LABEL))
-        .collect(ImmutableList.toImmutableList());
+    ImmutableList.Builder<Label> withoutPrivateLabels =
+        ImmutableList.builderWithExpectedSize(labels.size() - numPrivateLabels);
+    for (Label label : labels) {
+      if (!label.equals(PRIVATE_LABEL)) {
+        withoutPrivateLabels.add(label);
+      }
+    }
+    return withoutPrivateLabels.build();
   }
 
   /**
