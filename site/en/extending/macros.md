@@ -1,237 +1,281 @@
 Project: /_project.yaml
 Book: /_book.yaml
+{# disableFinding("Currently") #}
+{# disableFinding(TODO) #}
 
 # Macros
-
-{% include "_buttons.html" %}
 
 This page covers the basics of using macros and includes typical use cases,
 debugging, and conventions.
 
 A macro is a function called from the `BUILD` file that can instantiate rules.
-Macros are mainly used for encapsulation and code reuse of existing rules
-and other macros. By the end of the
-[loading phase](/extending/concepts#evaluation-model), macros don't exist anymore,
-and Bazel sees only the concrete set of instantiated rules.
+Macros are mainly used for encapsulation and code reuse of existing rules and
+other macros.
+
+Macros come in two flavors: symbolic macros, which are described on this page,
+and [legacy macros](legacy-macros.md). Where possible, we recommend using
+symbolic macros for code clarity.
+
+Symbolic macros offer typed arguments (string to label conversion, relative to
+where the macro was called) and the ability to restrict and specify the
+visibility of targets created. They are designed to be amenable to lazy
+evaluation (which will be added in a future Bazel release). Symbolic macros are
+available by default in Bazel 8. Where this document mentions `macros`, it's
+referring to **symbolic macros**.
 
 ## Usage {:#usage}
 
-The typical use case for a macro is when you want to reuse a rule.
+Macros are defined in `.bzl` files by calling the `macro()` function with two
+parameters: `attrs` and `implementation`.
 
-For example, genrule in a `BUILD` file generates a file using
-`//:generator` with a `some_arg` argument hardcoded in the command:
+### Attributes {:#attributes}
 
-```python
-genrule(
-    name = "file",
-    outs = ["file.txt"],
-    cmd = "$(location //:generator) some_arg > $@",
-    tools = ["//:generator"],
+`attrs` accepts a dictionary of attribute name to [attribute
+types](https://bazel.build/rules/lib/toplevel/attr#members), which represents
+the arguments to the macro. Two common attributes - name and visibility - are
+implicitly added to all macros and are not included in the dictionary passed to
+attrs.
+
+```starlark
+# macro/macro.bzl
+my_macro = macro(
+    attrs = {
+        "deps": attr.label_list(mandatory = True, doc = "The dependencies passed to the inner cc_binary and cc_test targets"),
+        "create_test": attr.bool(default = False, configurable = False, doc = "If true, creates a test target"),
+    },
+    implementation = _my_macro_impl,
 )
 ```
 
-Note: `$@` is a [Make variable](/reference/be/make-variables#predefined_genrule_variables)
-that refers to the execution-time locations of the files in the `outs` attribute list.
-It is equivalent to `$(locations :file.txt)`.
+Attribute type declarations accept the
+[parameters](https://bazel.build/rules/lib/toplevel/attr#parameters),
+`mandatory`, `default`, and `doc`. Most attribute types also accept the
+`configurable` parameter, which determines wheher the attribute accepts
+`select`s. If an attribute is `configurable`, it will parse non-`select` values
+as an unconfigurable `select` - `"foo"` will become
+`select({"//conditions:default": "foo"})`. Learn more in [selects](#selects).
 
-If you want to generate more files with different arguments, you may want to
-extract this code to a macro function. Let's call the macro `file_generator`, which
-has `name` and `arg` parameters. Replace the genrule with the following:
+### Implementation {:#implementation}
 
-```python
-load("//path:generator.bzl", "file_generator")
+`implementation` accepts a function which contains the logic of the macro.
+Implementation functions often create targets by calling one or more rules, and
+they are are usually private (named with a leading underscore). Conventionally,
+they are named the same as their macro, but prefixed with `_` and suffixed with
+`_impl`.
 
-file_generator(
-    name = "file",
-    arg = "some_arg",
-)
+Unlike rule implementation functions, which take a single argument (`ctx`) that
+contains a reference to the attributes, macro implementation functions accept a
+parameter for each argument.
 
-file_generator(
-    name = "file-two",
-    arg = "some_arg_two",
-)
+```starlark
+# macro/macro.bzl
+def _my_macro_impl(name, deps, create_test):
+    cc_library(
+        name = name + "_cc_lib",
+        deps = deps,
+    )
 
-file_generator(
-    name = "file-three",
-    arg = "some_arg_three",
-)
+    if create_test:
+        cc_test(
+            name = name + "_test",
+            srcs = ["my_test.cc"],
+            deps = deps,
+        )
 ```
 
-Here, you load the `file_generator` symbol from a `.bzl` file located
-in the `//path` package. By putting macro function definitions in a separate
-`.bzl` file, you keep your `BUILD` files clean and declarative, The `.bzl`
-file can be loaded from any package in the workspace.
+### Declaration {:#declaration}
 
-Finally, in `path/generator.bzl`, write the definition of the macro to
-encapsulate and parameterize the original genrule definition:
+Macros are declared by loading and calling their definition in a `BUILD` file.
+```starlark
 
-```python
-def file_generator(name, arg, visibility=None):
-  native.genrule(
-    name = name,
-    outs = [name + ".txt"],
-    cmd = "$(location //:generator) %s > $@" % arg,
-    tools = ["//:generator"],
-    visibility = visibility,
-  )
-```
+# pkg/BUILD
 
-You can also use macros to chain rules together. This example shows chained
-genrules, where a genrule uses the outputs of a previous genrule as inputs:
-
-```python
-def chained_genrules(name, visibility=None):
-  native.genrule(
-    name = name + "-one",
-    outs = [name + ".one"],
-    cmd = "$(location :tool-one) $@",
-    tools = [":tool-one"],
-    visibility = ["//visibility:private"],
-  )
-
-  native.genrule(
-    name = name + "-two",
-    srcs = [name + ".one"],
-    outs = [name + ".two"],
-    cmd = "$(location :tool-two) $< $@",
-    tools = [":tool-two"],
-    visibility = visibility,
-  )
-```
-
-The example only assigns a visibility value to the second genrule. This allows
-macro authors to hide the outputs of intermediate rules from being depended upon
-by other targets in the workspace.
-
-Note: Similar to `$@` for outputs, `$<` expands to the locations of files in
-the `srcs` attribute list.
-
-## Expanding macros {:#expanding-macros}
-
-When you want to investigate what a macro does, use the `query` command with
-`--output=build` to see the expanded form:
-
-```
-$ bazel query --output=build :file
-# /absolute/path/test/ext.bzl:42:3
-genrule(
-  name = "file",
-  tools = ["//:generator"],
-  outs = ["//test:file.txt"],
-  cmd = "$(location //:generator) some_arg > $@",
+my_macro(
+    name = "macro_instance",
+    deps = ["src.cc"] + select(
+        {
+            "//config_setting:special": ["special_source.cc"],
+            "//conditions:default": [],
+        },
+    ),
+    create_tests = True,
 )
 ```
 
-## Instantiating native rules {:#instantiating-native-rules}
+This would create targets
+`//pkg:macro_instance_cc_lib` and`//pkg:macro_instance_test`.
 
-Native rules (rules that don't need a `load()` statement) can be
-instantiated from the [native](/rules/lib/toplevel/native) module:
+## Details {:#usage-details}
 
-```python
-def my_macro(name, visibility=None):
-  native.cc_library(
-    name = name,
-    srcs = ["main.cc"],
-    visibility = visibility,
-  )
+### naming conventions for targets created {:#naming}
+
+The names of any targets or submacros created by a symbolic macro must
+either match the macro's `name` parameter or must be prefixed by `name` followed
+by `_` (preferred), `.` or `-`. For example, `my_macro(name = "foo")` may only
+create files or targets named `foo`, or prefixed by `foo_`, `foo-` or `foo.`,
+for example, `foo_bar`.
+
+Targets or files that violate macro naming convention can be declared, but
+cannot be built and cannot be used as dependencies.
+
+Non-macro files and targets within the same package as a macro instance should
+*not* have names that conflict with potential macro target names, though this
+exclusivity is not enforced. We are in the progress of implementing
+[lazy evaluation](#laziness) as a performance improvement for Symbolic macros,
+which will be impaired in packages that violate the naming schema.
+
+### restrictions {:#restrictions}
+
+Symbolic macros have some additional restrictions compared to legacy macros.
+
+Symbolic macros
+
+*   must take a `name` argument and a `visibility` argument
+*   must have an `implementation` function
+*   may not return values
+*   may not mutate their `args`
+*   may not call `native.existing_rules()` unless they are special `finalizer`
+    macros
+*   may not call `native.package()`
+*   may not call `glob()`
+*   may not call `native.environment_group()`
+*   must create targets whose names adhere to the [naming schema](#naming)
+*   can't refer to input files that weren't declared or passed in as an argument
+    (see [visibility](#visibility) for more details).
+
+### Visibility {:#visibility}
+
+TODO: Expand this section
+
+#### Target visibility {:#target-visibility}
+
+At default, targets created by symbolic macros are visible to the package in
+which they are created. They also accept a `visibility` attribute, which can
+expand that visibility to the caller of the macro (by passing the `visibility`
+attribute directly from the macro call to the target created) and to other
+packages (by explicitly specifying them in the target's visibility).
+
+#### Dependency visibility {:#dependency-visibility}
+
+Macros must have visibility to the files and targets they refer to. They can do
+so in one of the following ways:
+
+*   Explicitly passed in as an `attr` value to the macro
+
+```starlark
+
+# pkg/BUILD
+my_macro(... deps = ["//other_package:my_tool"] )
 ```
 
-If you need to know the package name (for example, which `BUILD` file is calling the
-macro), use the function [native.package_name()](/rules/lib/toplevel/native#package_name).
-Note that `native` can only be used in `.bzl` files, and not in `BUILD` files.
+*   Implicit default of an `attr` value
 
-## Label resolution in macros {:#label-resolution}
-
-Since macros are evaluated in the [loading phase](concepts.md#evaluation-model),
-label strings such as `"//foo:bar"` that occur in a macro are interpreted
-relative to the `BUILD` file in which the macro is used rather than relative to
-the `.bzl` file in which it is defined. This behavior is generally undesirable
-for macros that are meant to be used in other repositories, such as because they
-are part of a published Starlark ruleset.
-
-To get the same behavior as for Starlark rules, wrap the label strings with the
-[`Label`](/rules/lib/builtins/Label#Label) constructor:
-
-```python
-# @my_ruleset//rules:defs.bzl
-def my_cc_wrapper(name, deps = [], **kwargs):
-  native.cc_library(
-    name = name,
-    deps = deps + select({
-      # Due to the use of Label, this label is resolved within @my_ruleset,
-      # regardless of its site of use.
-      Label("//config:needs_foo"): [
-        # Due to the use of Label, this label will resolve to the correct target
-        # even if the canonical name of @dep_of_my_ruleset should be different
-        # in the main repo, such as due to repo mappings.
-        Label("@dep_of_my_ruleset//tools:foo"),
-      ],
-      "//conditions:default": [],
-    }),
-    **kwargs,
-  )
+```starlark
+# my_macro:macro.bzl
+my_macro = macro(
+  attrs = {"deps" : attr.label_list(default = ["//other_package:my_tool"])} )
 ```
 
-## Debugging {:#debugging}
+*   Already visible to the macro definition
 
-*   `bazel query --output=build //my/path:all` will show you how the `BUILD` file
-    looks after evaluation. All macros, globs, loops are expanded. Known
-    limitation: `select` expressions are currently not shown in the output.
-
-*   You may filter the output based on `generator_function` (which function
-    generated the rules) or `generator_name` (the name attribute of the macro):
-    ```bash
-    $ bazel query --output=build 'attr(generator_function, my_macro, //my/path:all)'
-    ```
-
-*   To find out where exactly the rule `foo` is generated in a `BUILD` file, you
-    can try the following trick. Insert this line near the top of the `BUILD`
-    file: `cc_library(name = "foo")`. Run Bazel. You will get an exception when
-    the rule `foo` is created (due to a name conflict), which will show you the
-    full stack trace.
-
-*   You can also use [print](/rules/lib/globals/all#print) for debugging. It displays
-    the message as a `DEBUG` log line during the loading phase. Except in rare
-    cases, either remove `print` calls, or make them conditional under a
-    `debugging` parameter that defaults to `False` before submitting the code to
-    the depot.
-
-## Errors {:#errors}
-
-If you want to throw an error, use the [fail](/rules/lib/globals/all#fail) function.
-Explain clearly to the user what went wrong and how to fix their `BUILD` file.
-It is not possible to catch an error.
-
-```python
-def my_macro(name, deps, visibility=None):
-  if len(deps) < 2:
-    fail("Expected at least two values in deps")
-  # ...
+```starlark
+# other_package/BUILD
+cc_binary(
+    name = "my_tool",
+    visibility = "//my_macro:\\__pkg__",
+)
 ```
 
-## Conventions {:#conventions}
+### Selects {:#selects}
 
-*   All public functions (functions that don't start with underscore) that
-    instantiate rules must have a `name` argument. This argument should not be
-    optional (don't give a default value).
+If an attribute is `configurable`, then the macro implementation function will
+always see the attribute value as `select`-valued. For example, consider the
+following macro:
 
-*   Public functions should use a docstring following [Python
-    conventions](https://www.python.org/dev/peps/pep-0257/#one-line-docstrings){: .external}.
+```starlark
+my_macro = macro(
+    attrs = {"deps": attr.label_list()},  # configurable unless specified otherwise
+    implementation = _my_macro_impl,
+)
+```
 
-*   In `BUILD` files, the `name` argument of the macros must be a keyword
-    argument (not a positional argument).
+If `my_macro` is invoked with `deps = ["//a"]`, that will cause `_my_macro_impl`
+to be invoked with its `deps` parameter set to `select({"//conditions:default":
+["//a"]})`.
 
-*   The `name` attribute of rules generated by a macro should include the name
-    argument as a prefix. For example, `macro(name = "foo")` can generate a
-    `cc_library` `foo` and a genrule `foo_gen`.
+Rule targets reverse this transformation, and store trivial `select`s as their
+unconditional values; in this example, if `_my_macro_impl` declares a rule
+target `my_rule(..., deps = deps)`, that rule target's `deps` will be stored as
+`["//a"]`.
 
-*   In most cases, optional parameters should have a default value of `None`.
-    `None` can be passed directly to native rules, which treat it the same as if
-    you had not passed in any argument. Thus, there is no need to replace it
-    with `0`, `False`, or `[]` for this purpose. Instead, the macro should defer
-    to the rules it creates, as their defaults may be complex or may change over
-    time. Additionally, a parameter that is explicitly set to its default value
-    looks different than one that is never set (or set to `None`) when accessed
-    through the query language or build-system internals.
+## Finalizers {:#finalizers}
 
-*   Macros should have an optional `visibility` argument.
+A rule finalizer is a special symbolic macro which - regardless of its lexical
+position in a BUILD file - is evaluated in the final stage of loading a package,
+after all non-finalizer targets have been defined. Unlike ordinary symbolic
+macros, a finalizer can call `native.existing_rules()`, where it behaves
+slightly differently than in legacy macros: it only returns the set of
+non-finalizer rule targets. The finalizer may assert on the state of that set or
+define new targets.
+
+To declare a finalizer, call `macro()` with `finalizer = True`:
+
+```starlark
+def _my_finalizer_impl(name, visibility, tags_filter):
+    for r in native.existing_rules().values():
+        for tag in r.get("tags", []):
+            if tag in tags_filter:
+                my_test(
+                    name = name + "_" + r["name"] + "_finalizer_test",
+                    deps = [r["name"]],
+                    data = r["srcs"],
+                    ...
+                )
+                continue
+
+my_finalizer = macro(
+    attrs = {"tags_filter": attr.string_list(configurable = False)},
+    implementation = _impl,
+    finalizer = True,
+)
+```
+
+## Laziness {:#laziness}
+
+IMPORTANT: We are in the process of implementing lazy macro expansion and
+evaluation. This feature is not available yet.
+
+Currently, all macros are evaluated as soon as the BUILD file is loaded, which
+can negatively impact performance for targets in packages that also have costly
+unrelated macros. In the future, non-finalizer symbolic macros will only be
+evaluated if they're required for the build. The prefix naming schema helps
+Bazel determine which macro to expand given a requested target.
+
+## Migration troubleshooting {:#troubleshooting}
+
+Here are some common migration headaches and how to fix them.
+
+*   Legacy macro calls `glob()`
+
+Move the `glob()` call to your BUILD file (or to a legacy macro called from the
+BUILD file), and pass the `glob()` value to the symbolic macro using a
+label-list attribute:
+
+```starlark
+# BUILD file
+my_macro(
+    ...,
+    deps = glob(...),
+)
+```
+
+*   Legacy macro has a parameter that isn't a valid starlark `attr` type.
+
+Pull as much logic as possible into a nested symbolic macro, but keep the
+top level macro a legacy macro.
+
+*  Legacy macro calls a rule that creates a target that breaks the naming schema
+
+That's okay, just don't depend on the "offending" target. The naming check will
+be quietly ignored.
+
