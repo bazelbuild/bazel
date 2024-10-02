@@ -91,61 +91,41 @@ public final class TargetRecorder {
     }
   }
 
-  private enum NameConflictCheckingPolicy {
-    UNKNOWN,
-    NOT_GUARANTEED,
-    ENABLED;
-  }
-
-  /**
-   * Whether to do all validation checks for name clashes among targets, macros, and output file
-   * prefixes.
-   *
-   * <p>The {@code NOT_GUARANTEED} value should only be used when the package data has already been
-   * validated, e.g. in package deserialization.
-   *
-   * <p>Setting it to {@code NOT_GUARANTEED} does not necessarily turn off *all* checking, just some
-   * of the more expensive ones. Do not rely on being able to violate these checks.
-   */
-  private NameConflictCheckingPolicy nameConflictCheckingPolicy =
-      NameConflictCheckingPolicy.UNKNOWN;
-
   /**
    * Stores labels for each rule so that we don't have to call the costly {@link Rule#getLabels}
    * twice (once for {@link Package.Builder#checkForInputOutputConflicts} and once for {@link
    * Package.Builder#beforeBuild}).
    *
-   * <p>This field is null if name conflict checking is disabled. It is also null after the package
-   * is built.
+   * <p>This field is null if name conflict checking is disabled.
    */
   // TODO(#19922): Technically we don't need to store entries for rules that were created by
   // macros; see rulesCreatedInMacros, below.
-  @Nullable private Map<Rule, List<Label>> ruleLabels = new HashMap<>();
+  @Nullable private final Map<Rule, List<Label>> ruleLabels;
 
   /**
    * Stores labels of rule targets that were created in symbolic macros. We don't implicitly create
    * input files on behalf of such targets (though they may still be created on behalf of other
    * targets not in macros).
    *
-   * <p>This field is null if name conflict checking is disabled. It is also null after the package
-   * is built.
+   * <p>This field is null if name conflict checking is disabled.
    */
   // TODO(#19922): This can be eliminated once we have Targets directly store a reference to the
   // MacroInstance that instantiated them. (This is a little nontrivial because we'd like to avoid
   // simply adding a new field to Target subclasses, and instead want to combine it with the
   // existing Package-typed field.)
-  @Nullable private Set<Rule> rulesCreatedInMacros = new HashSet<>();
+  @Nullable private final Set<Rule> rulesCreatedInMacros;
 
   /**
    * A map from names of targets declared in a symbolic macro which violate macro naming rules, such
    * as "lib%{name}-src.jar" implicit outputs in java rules, to the name of the macro instance where
    * they were declared.
    *
-   * <p>This field is null if name conflict checking is disabled. The content of the map is
-   * manipulated only in {@link #checkRuleAndOutputs}.
+   * <p>Outside of package deserialization, the content of the map is manipulated only in {@link
+   * #checkRuleAndOutputs}. During deserialization, this map may also be populated by calling {@link
+   * #putAllMacroNamespaceViolatingTargets}.
    */
-  @Nullable
-  private LinkedHashMap<String, String> macroNamespaceViolatingTargets = new LinkedHashMap<>();
+  private final LinkedHashMap<String, String> macroNamespaceViolatingTargets =
+      new LinkedHashMap<>();
 
   /**
    * A map from target name to the (innermost) macro instance that declared it. See {@link
@@ -158,10 +138,31 @@ public final class TargetRecorder {
    * The collection of the prefixes of every output file. Maps each prefix to an arbitrary output
    * file having that prefix. Used for error reporting.
    *
-   * <p>This field is null if name conflict checking is disabled. It is also null after the package
-   * is built. The content of the map is manipulated only in {@link #checkRuleAndOutputs}.
+   * <p>This field is null if name conflict checking is disabled. The content of the map is
+   * manipulated only in {@link #checkRuleAndOutputs}.
    */
-  @Nullable private Map<String, OutputFile> outputFilePrefixes = new HashMap<>();
+  @Nullable private final Map<String, OutputFile> outputFilePrefixes;
+
+  /**
+   * Constructs a {@link TargetRecorder}.
+   *
+   * @param enableNameConflictChecking whether to perform all validation checks for name clashes
+   *     among targets, macros, and output file prefixes. This should only be disabled when the
+   *     package has already been validated, e.g. in package deserialization. Setting it to false
+   *     does not necessarily turn off *all* checking, just some of the more expensive ones. Do not
+   *     rely on being able to violate these checks.
+   */
+  public TargetRecorder(boolean enableNameConflictChecking) {
+    if (enableNameConflictChecking) {
+      this.ruleLabels = new HashMap<>();
+      this.rulesCreatedInMacros = new HashSet<>();
+      this.outputFilePrefixes = new HashMap<>();
+    } else {
+      this.ruleLabels = null;
+      this.rulesCreatedInMacros = null;
+      this.outputFilePrefixes = null;
+    }
+  }
 
   public Map<String, Target> getTargetMap() {
     return targetMap;
@@ -222,6 +223,10 @@ public final class TargetRecorder {
 
   public boolean containsErrors() {
     return containsErrors;
+  }
+
+  private boolean isNameConflictCheckingEnabled() {
+    return ruleLabels != null;
   }
 
   /**
@@ -296,12 +301,14 @@ public final class TargetRecorder {
    *
    * <p>There must already be an existing target by the same name.
    *
-   * <p>Requires that {@link #disableNameConflictChecking} was not called.
+   * <p>Requires that the constructor was called with {@code enableNameConflictChecking} set to
+   * true.
    *
    * <p>A hack needed for {@link WorkspaceFactoryHelper}.
    */
   public void replaceTarget(Target newTarget) {
-    ensureNameConflictChecking();
+    Preconditions.checkState(
+        isNameConflictCheckingEnabled(), "Expected name conflict checking to be enabled");
 
     Preconditions.checkArgument(
         targetMap.containsKey(newTarget.getName()),
@@ -337,32 +344,6 @@ public final class TargetRecorder {
   }
 
   /**
-   * Turns off (some) conflict checking for name clashes between targets, macros, and output file
-   * prefixes. (It is not guaranteed to disable all checks, since it is intended as an optimization
-   * and not for semantic effect.)
-   *
-   * <p>This should only be done for data that has already been validated, e.g. during package
-   * deserialization. Do not call this unless you know what you're doing.
-   *
-   * <p>This method must be called prior to {@link #addRuleUnchecked}. It may not be called, neither
-   * before nor after, a call to {@link #addRule} or {@link #replaceTarget}.
-   */
-  public void disableNameConflictChecking() {
-    Preconditions.checkState(nameConflictCheckingPolicy == NameConflictCheckingPolicy.UNKNOWN);
-    this.nameConflictCheckingPolicy = NameConflictCheckingPolicy.NOT_GUARANTEED;
-    this.ruleLabels = null;
-    this.rulesCreatedInMacros = null;
-    this.macroNamespaceViolatingTargets = null;
-    this.outputFilePrefixes = null;
-  }
-
-  public void ensureNameConflictChecking() {
-    Preconditions.checkState(
-        nameConflictCheckingPolicy != NameConflictCheckingPolicy.NOT_GUARANTEED);
-    this.nameConflictCheckingPolicy = NameConflictCheckingPolicy.ENABLED;
-  }
-
-  /**
    * Adds a rule and its outputs to the targets map, and propagates the error bit from the rule to
    * the package.
    */
@@ -377,21 +358,22 @@ public final class TargetRecorder {
   }
 
   /**
-   * Adds a rule without certain validation checks. Requires that {@link
-   * #disableNameConflictChecking} was already called.
+   * Adds a rule without certain validation checks. Requires that the constructor was called with
+   * {@code enableNameConflictChecking} set to false.
    */
   public void addRuleUnchecked(Rule rule) {
     Preconditions.checkState(
-        nameConflictCheckingPolicy == NameConflictCheckingPolicy.NOT_GUARANTEED);
+        !isNameConflictCheckingEnabled(), "Expected name conflict checking to be disabled");
     addRuleInternal(rule);
   }
 
   /**
-   * Adds a rule, subject to the usual validation checks. Requires that {@link
-   * #disableNameConflictChecking} was not called.
+   * Adds a rule, subject to the usual validation checks. Requires that the constructor was called
+   * with {@code enableNameConflictChecking} set to true.
    */
   public void addRule(Rule rule) throws NameConflictException {
-    ensureNameConflictChecking();
+    Preconditions.checkState(
+        isNameConflictCheckingEnabled(), "Expected name conflict checking to be enabled");
 
     List<Label> labels = rule.getLabels();
     checkRuleAndOutputs(rule, labels);
@@ -601,9 +583,6 @@ public final class TargetRecorder {
    */
   public void putAllMacroNamespaceViolatingTargets(
       Map<String, String> macroNamespaceViolatingTargets) {
-    if (this.macroNamespaceViolatingTargets == null) {
-      this.macroNamespaceViolatingTargets = new LinkedHashMap<>();
-    }
     this.macroNamespaceViolatingTargets.putAll(macroNamespaceViolatingTargets);
   }
 

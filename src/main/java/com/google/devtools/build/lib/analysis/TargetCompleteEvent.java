@@ -121,6 +121,7 @@ public final class TargetCompleteEvent
   private final ImmutableList<BuildEventId> postedAfter;
   private final CompletionContext completionContext;
   private final ImmutableMap<String, ArtifactsInOutputGroup> outputs;
+  @Nullable private final Artifact baselineCoverageArtifact;
   @Nullable private final LocalFile baselineCoverage;
   // The label as appeared in the BUILD file.
   private final Label originalLabel;
@@ -170,28 +171,26 @@ public final class TargetCompleteEvent
         isTest
             ? targetAndData.getConfiguredTarget().getProvider(TestProvider.class).getTestParams()
             : null;
-    this.baselineCoverage = baselineCoverage(targetAndData, completionContext);
+    this.baselineCoverageArtifact = baselineCoverageArtifact(targetAndData);
+    this.baselineCoverage =
+        baselineCoverageArtifact == null
+            ? null
+            : new LocalFile(
+                completionContext.pathResolver().toPath(baselineCoverageArtifact),
+                LocalFileType.COVERAGE_OUTPUT,
+                completionContext.getBaselineCoverageValue());
     this.postedAfter = postedAfterBuilder.build();
     this.tags = targetAndData.getRuleTags();
   }
 
   @Nullable
-  private static LocalFile baselineCoverage(
-      ConfiguredTargetAndData targetAndData, CompletionContext completionContext) {
+  private static Artifact baselineCoverageArtifact(ConfiguredTargetAndData targetAndData) {
     InstrumentedFilesInfo instrumentedFilesProvider =
         targetAndData.getConfiguredTarget().get(InstrumentedFilesInfo.STARLARK_CONSTRUCTOR);
     if (instrumentedFilesProvider == null) {
       return null;
     }
-    Artifact baselineCoverage = instrumentedFilesProvider.getBaselineCoverageArtifact();
-    if (baselineCoverage == null) {
-      return null;
-    }
-    return new LocalFile(
-        completionContext.pathResolver().toPath(baselineCoverage),
-        LocalFileType.COVERAGE_OUTPUT,
-        baselineCoverage,
-        completionContext.getBaselineCoverageValue());
+    return instrumentedFilesProvider.getBaselineCoverageArtifact();
   }
 
   /** Construct a successful target completion event. */
@@ -426,7 +425,6 @@ public final class TargetCompleteEvent
                     new LocalFile(
                         completionContext.pathResolver().toPath(artifact),
                         LocalFileType.forArtifact(artifact, metadata),
-                        artifact,
                         metadata));
               }
 
@@ -485,7 +483,7 @@ public final class TargetCompleteEvent
             builder::addImportantOutput,
             artifact -> BASELINE_COVERAGE,
             converters,
-            ImmutableList.of(baselineCoverage.artifact));
+            ImmutableList.of(baselineCoverageArtifact));
       }
     }
 
@@ -500,7 +498,8 @@ public final class TargetCompleteEvent
 
   @Override
   public ReportedArtifacts reportedArtifacts(OutputGroupFileModes outputGroupFileModes) {
-    return toReportedArtifacts(outputs, completionContext, baselineCoverage, outputGroupFileModes);
+    return toReportedArtifacts(
+        outputs, completionContext, baselineCoverageArtifact, outputGroupFileModes);
   }
 
   @Override
@@ -511,7 +510,7 @@ public final class TargetCompleteEvent
   static ReportedArtifacts toReportedArtifacts(
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
       CompletionContext completionContext,
-      @Nullable LocalFile baselineCoverage,
+      @Nullable Artifact baselineCoverageArtifact,
       OutputGroupFileModes outputGroupFileModes) {
     ImmutableSet.Builder<NestedSet<Artifact>> builder = ImmutableSet.builder();
     for (var entry : outputs.entrySet()) {
@@ -525,10 +524,10 @@ public final class TargetCompleteEvent
         }
       }
     }
-    if (baselineCoverage != null) {
+    if (baselineCoverageArtifact != null) {
       OutputGroupFileMode mode = outputGroupFileModes.getMode(BASELINE_COVERAGE);
       if (mode == OutputGroupFileMode.NAMED_SET_OF_FILES_ONLY || mode == OutputGroupFileMode.BOTH) {
-        builder.add(NestedSetBuilder.create(Order.STABLE_ORDER, baselineCoverage.artifact));
+        builder.add(NestedSetBuilder.create(Order.STABLE_ORDER, baselineCoverageArtifact));
       }
     }
     return new ReportedArtifacts(builder.build(), completionContext);
@@ -540,13 +539,13 @@ public final class TargetCompleteEvent
   }
 
   private ImmutableList<OutputGroup> getOutputFilesByGroup(BuildEventContext converters) {
-    return toOutputGroupProtos(outputs, baselineCoverage, completionContext, converters);
+    return toOutputGroupProtos(outputs, baselineCoverageArtifact, completionContext, converters);
   }
 
   /** Returns {@link OutputGroup} protos for given output groups and optional coverage artifacts. */
   static ImmutableList<OutputGroup> toOutputGroupProtos(
       ImmutableMap<String, ArtifactsInOutputGroup> outputs,
-      @Nullable LocalFile baselineCoverage,
+      @Nullable Artifact baselineCoverageArtifact,
       CompletionContext completionContext,
       BuildEventContext converters) {
     ImmutableList.Builder<OutputGroup> groups = ImmutableList.builder();
@@ -565,15 +564,15 @@ public final class TargetCompleteEvent
                   () -> artifacts,
                   artifacts::toList));
         });
-    if (baselineCoverage != null) {
+    if (baselineCoverageArtifact != null) {
       groups.add(
           makeOutputGroupProto(
               completionContext,
               converters,
               BASELINE_COVERAGE,
               /* outputGroupIncomplete= */ false,
-              () -> NestedSetBuilder.create(Order.STABLE_ORDER, baselineCoverage.artifact),
-              () -> ImmutableList.of(baselineCoverage.artifact)));
+              () -> NestedSetBuilder.create(Order.STABLE_ORDER, baselineCoverageArtifact),
+              () -> ImmutableList.of(baselineCoverageArtifact)));
     }
     return groups.build();
   }

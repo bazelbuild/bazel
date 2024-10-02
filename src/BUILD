@@ -399,7 +399,6 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/skyframe:dist_jars",
-        "@googleapis//:dist_jars",
         "@remoteapis//:dist_jars",
     ],
     outs = ["derived_java_srcs.zip"],

@@ -48,9 +48,7 @@ java_library(
         "//third_party/grpc-java:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
-        "@googleapis//:google_devtools_build_v1_build_events_java_proto",
-        "@googleapis//:google_devtools_build_v1_build_status_java_proto",
-        "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
+        "@googleapis//google/devtools/build/v1:build_java_proto",
     ],
 )
 
@@ -72,10 +70,8 @@ java_test(
         "//third_party/grpc-java:grpc-jar",
         "//third_party/protobuf:protobuf_java",
         "//third_party/protobuf:protobuf_java_util",
-        "@googleapis//:google_devtools_build_v1_build_events_java_proto",
-        "@googleapis//:google_devtools_build_v1_build_status_java_proto",
-        "@googleapis//:google_devtools_build_v1_publish_build_event_java_grpc",
-        "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
+        "@googleapis//google/devtools/build/v1:build_java_grpc",
+        "@googleapis//google/devtools/build/v1:build_java_proto",
     ],
 )
 
@@ -92,8 +88,8 @@ java_test(
         "//third_party:junit4",
         "//third_party/grpc-java:grpc-jar",
         "//third_party/protobuf:protobuf_java",
-        "@googleapis//:google_devtools_build_v1_publish_build_event_java_grpc",
-        "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
+        "@googleapis//google/devtools/build/v1:build_java_grpc",
+        "@googleapis//google/devtools/build/v1:build_java_proto",
     ],
 )
 
@@ -130,9 +126,8 @@ java_test(
         "//third_party:truth",
         "//third_party/grpc-java:grpc-jar",
         "//third_party/protobuf:protobuf_java",
-        "@googleapis//:google_devtools_build_v1_build_events_java_proto",
-        "@googleapis//:google_devtools_build_v1_publish_build_event_java_grpc",
-        "@googleapis//:google_devtools_build_v1_publish_build_event_java_proto",
+        "@googleapis//google/devtools/build/v1:build_java_grpc",
+        "@googleapis//google/devtools/build/v1:build_java_proto",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],

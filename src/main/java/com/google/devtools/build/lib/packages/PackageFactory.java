@@ -257,7 +257,8 @@ public final class PackageFactory {
         packageOverheadEstimator,
         generatorMap,
         configSettingVisibilityPolicy,
-        globber);
+        globber,
+        /* enableNameConflictChecking= */ true);
   }
 
   /** Returns a new {@link NonSkyframeGlobber}. */

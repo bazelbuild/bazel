@@ -373,7 +373,7 @@ message ExecLogEntry {
     // Entry ID of the set of inputs. Unset means empty.
     uint32 input_set_id = 4;
 
-    // Entry ID of the set of tool inputs. Unset means empty.
+    // Entry ID of the subset of inputs that are tools. Unset means empty.
     uint32 tool_set_id = 5;
 
     // The set of outputs.

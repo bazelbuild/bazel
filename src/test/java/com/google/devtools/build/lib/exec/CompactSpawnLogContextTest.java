@@ -14,6 +14,8 @@
 package com.google.devtools.build.lib.exec;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.testutil.TestConstants.PRODUCT_NAME;
+import static com.google.devtools.build.lib.testutil.TestConstants.WORKSPACE_NAME;
 
 import com.github.luben.zstd.ZstdInputStream;
 import com.google.common.collect.ImmutableList;
@@ -22,6 +24,8 @@ import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionOwner;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
+import com.google.devtools.build.lib.actions.RunfilesTree;
+import com.google.devtools.build.lib.actions.Spawn;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.actions.SymlinkAction;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos;
@@ -35,6 +39,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.testing.junit.testparameterinjector.TestParameter;
@@ -130,17 +135,8 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
 
     SpawnLogContext context = createSpawnLogContext();
     context.logSymlinkAction(symlinkAction);
-    context.close();
 
-    var entries = new ArrayList<Protos.ExecLogEntry>();
-    try (InputStream in = logPath.getInputStream();
-        ZstdInputStream zstdIn = new ZstdInputStream(in)) {
-      Protos.ExecLogEntry entry;
-      while ((entry = Protos.ExecLogEntry.parseDelimitedFrom(zstdIn)) != null) {
-        entries.add(entry);
-      }
-    }
-
+    var entries = closeAndReadCompactLog(context);
     assertThat(entries)
         .containsExactly(
             Protos.ExecLogEntry.newBuilder()
@@ -158,6 +154,87 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
                         .setMnemonic("Symlink")
                         .setTargetLabel("//pkg:symlink"))
                 .build());
+  }
+
+  @Test
+  public void testRunfilesTreeReusedForTool() throws Exception {
+    Artifact tool = ActionsTestUtil.createArtifact(rootDir, "data.txt");
+    writeFile(tool, "abc");
+    Artifact toolRunfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
+    RunfilesTree runfilesTree = createRunfilesTree(runfilesRoot, tool);
+
+    Artifact firstInput = ActionsTestUtil.createArtifact(rootDir, "first_input");
+    writeFile(firstInput, "def");
+    Artifact secondInput = ActionsTestUtil.createArtifact(rootDir, "second_input");
+    writeFile(secondInput, "ghi");
+
+    Spawn firstSpawn =
+        defaultSpawnBuilder()
+            .withTool(toolRunfilesMiddleman)
+            .withInputs(firstInput, toolRunfilesMiddleman)
+            .build();
+    Spawn secondSpawn =
+        defaultSpawnBuilder()
+            .withTool(toolRunfilesMiddleman)
+            .withInputs(secondInput, toolRunfilesMiddleman)
+            .build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        firstSpawn,
+        createInputMetadataProvider(toolRunfilesMiddleman, runfilesTree, firstInput),
+        createInputMap(runfilesTree, firstInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+    context.logSpawn(
+        secondSpawn,
+        createInputMetadataProvider(toolRunfilesMiddleman, runfilesTree, secondInput),
+        createInputMap(runfilesTree, secondInput),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    var entries = closeAndReadCompactLog(context);
+    assertThat(entries.stream().filter(Protos.ExecLogEntry::hasRunfilesTree)).hasSize(1);
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        PRODUCT_NAME
+                            + "-out/k8-fastbuild/bin/foo.runfiles/"
+                            + WORKSPACE_NAME
+                            + "/data.txt")
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(true))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("first_input")
+                    .setDigest(getDigest("def"))
+                    .setIsTool(false))
+            .build(),
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        PRODUCT_NAME
+                            + "-out/k8-fastbuild/bin/foo.runfiles/"
+                            + WORKSPACE_NAME
+                            + "/data.txt")
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(true))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("second_input")
+                    .setDigest(getDigest("ghi"))
+                    .setIsTool(false))
+            .build());
   }
 
   @Override
@@ -178,7 +255,7 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
 
   @Override
   protected void closeAndAssertLog(SpawnLogContext context, SpawnExec... expected)
-      throws IOException, InterruptedException {
+      throws IOException {
     context.close();
 
     ArrayList<SpawnExec> actual = new ArrayList<>();
@@ -191,5 +268,20 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     }
 
     assertThat(actual).containsExactlyElementsIn(expected).inOrder();
+  }
+
+  private ImmutableList<Protos.ExecLogEntry> closeAndReadCompactLog(SpawnLogContext context)
+      throws IOException {
+    context.close();
+
+    ImmutableList.Builder<Protos.ExecLogEntry> entries = ImmutableList.builder();
+    try (InputStream in = logPath.getInputStream();
+        ZstdInputStream zstdIn = new ZstdInputStream(in)) {
+      Protos.ExecLogEntry entry;
+      while ((entry = Protos.ExecLogEntry.parseDelimitedFrom(zstdIn)) != null) {
+        entries.add(entry);
+      }
+    }
+    return entries.build();
   }
 }

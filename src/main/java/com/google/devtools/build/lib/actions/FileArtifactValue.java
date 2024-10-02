@@ -870,44 +870,37 @@ public abstract class FileArtifactValue implements SkyValue, HasDigest {
    */
   public static final class SourceFileArtifactValue extends FileArtifactValue {
     private final PathFragment path;
-    private final PathFragment execPath;
     private final byte[] digest;
     private final long size;
 
-    public SourceFileArtifactValue(
-        PathFragment path, PathFragment execPath, byte[] digest, long size) {
+    public SourceFileArtifactValue(PathFragment path, byte[] digest, long size) {
       Preconditions.checkArgument(path.isAbsolute(), "path %s isn't absolute", path);
-      Preconditions.checkArgument(
-          path.endsWith(execPath), "path %s doesn't end with execPath %s", path, execPath);
       this.path = path;
-      this.execPath = Preconditions.checkNotNull(execPath);
       this.digest = Preconditions.checkNotNull(digest);
       this.size = size;
     }
 
     @Override
     public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
       if (!(o instanceof SourceFileArtifactValue that)) {
         return false;
       }
-
-      return Objects.equals(path, that.path)
-          && Objects.equals(execPath, that.execPath)
-          && Arrays.equals(digest, that.digest)
-          && size == that.size;
+      return path.equals(that.path) && Arrays.equals(digest, that.digest) && size == that.size;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(path, execPath, Arrays.hashCode(digest), size);
+      int result = path.hashCode();
+      result = 31 * result + Arrays.hashCode(digest);
+      result = 31 * result + Long.hashCode(size);
+      return result;
     }
 
     public PathFragment getPath() {
       return path;
-    }
-
-    public PathFragment getExecPath() {
-      return execPath;
     }
 
     @Override

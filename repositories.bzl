@@ -31,7 +31,9 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "blake3",
     "c-ares",
     "com_github_grpc_grpc",
-    "com_google_protobuf",
+    # "com_google_protobuf", # for now, this is an archive_override with special treatment. see distdir.bzl
+    "googleapis",
+    "grpc-java",
     "io_bazel_skydoc",
     "platforms",
     "rules_cc",
@@ -44,19 +46,22 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "rules_pkg",
     "rules_proto",
     "rules_python",
-    "upb",
     "zlib",
     "zstd-jni",
-]] + [(get_canonical_repo_name("com_github_grpc_grpc") + suffix) for suffix in [
+]] + [(get_canonical_repo_name("com_github_grpc_grpc") + "+grpc_repo_deps_ext+" + suffix) for suffix in [
     # Extra grpc dependencies introduced via its module extension
-    "+grpc_repo_deps_ext+bazel_gazelle",  # TODO: Should be a bazel_dep
-    "+grpc_repo_deps_ext+bazel_skylib",  # TODO: Should be removed
-    "+grpc_repo_deps_ext+com_envoyproxy_protoc_gen_validate",
-    "+grpc_repo_deps_ext+com_github_cncf_udpa",
-    "+grpc_repo_deps_ext+com_google_googleapis",
-    "+grpc_repo_deps_ext+envoy_api",
-    "+grpc_repo_deps_ext+rules_cc",  # TODO: Should be removed
-]] + ["bazel_features+"]
+    "com_envoyproxy_protoc_gen_validate",
+    "com_github_cncf_xds",
+    "envoy_api",
+    "google_cloud_cpp",
+    "io_opencensus_cpp",
+]] + [
+    "bazel_features+",
+    "rules_apple+",
+    "rules_foreign_cc+",
+    "rules_fuzzing+",
+    "rules_swift+",
+]
 
 ##################################################################################
 #

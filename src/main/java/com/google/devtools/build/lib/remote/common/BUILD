@@ -62,7 +62,7 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/protobuf:protobuf_java",
-        "@googleapis//:google_longrunning_operations_java_proto",
+        "@googleapis//google/longrunning:longrunning_java_proto",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
     ],
 )

@@ -646,19 +646,11 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
     // TODO(b/199940216): Can we populate metadata for these files?
     for (Path path : getFailedLogs()) {
       localFiles.add(
-          new LocalFile(
-              path,
-              LocalFileType.FAILED_TEST_OUTPUT,
-              /*artifact=*/ null,
-              /*artifactMetadata=*/ null));
+          new LocalFile(path, LocalFileType.FAILED_TEST_OUTPUT, /* artifactMetadata= */ null));
     }
     for (Path path : getPassedLogs()) {
       localFiles.add(
-          new LocalFile(
-              path,
-              LocalFileType.SUCCESSFUL_TEST_OUTPUT,
-              /*artifact=*/ null,
-              /*artifactMetadata=*/ null));
+          new LocalFile(path, LocalFileType.SUCCESSFUL_TEST_OUTPUT, /* artifactMetadata= */ null));
     }
     return localFiles.build();
   }

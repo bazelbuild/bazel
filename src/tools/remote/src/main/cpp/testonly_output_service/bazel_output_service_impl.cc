@@ -14,10 +14,13 @@
 
 #include "src/tools/remote/src/main/cpp/testonly_output_service/bazel_output_service_impl.h"
 
-#include <iostream>
-#include <memory>
-#include <string>
+#include <stdint.h>
+#include <stdio.h>
 
+#include <memory>
+
+#include "src/tools/remote/src/main/cpp/testonly_output_service/memory.h"
+#include "src/tools/remote/src/main/cpp/testonly_output_service/string.h"
 #include "grpcpp/security/server_credentials.h"
 #include "grpcpp/server_builder.h"
 #include "grpcpp/server_context.h"
@@ -65,18 +68,59 @@ grpc::Status BazelOutputServiceImpl::BatchStat(
   return grpc::Status(grpc::StatusCode::UNIMPLEMENTED, "");
 }
 
+constexpr uint16_t kDefaultPort = 8080;
+
+struct ParsedCommandLine {
+  Str8 error;
+  uint16_t port;
+};
+
+static ParsedCommandLine* ParseCommandLine(Arena* arena, int argc,
+                                           char** argv) {
+  TemporaryMemory scratch = BeginScratch(arena);
+  ParsedCommandLine* result = PushArray(arena, ParsedCommandLine, 1);
+  result->port = kDefaultPort;
+  Str8 port_prefix = Str8FromCStr("--port=");
+  for (int i = 1; i < argc; ++i) {
+    Str8 arg = Str8FromCStr(argv[i]);
+    if (StartsWithStr8(arg, port_prefix)) {
+      Str8 port_str = PushSubStr8(scratch.arena, arg, port_prefix.len);
+      ParsedUInt32 port = ParseUInt32(port_str);
+      if (port.value) {
+        result->port = port.value;
+      } else {
+        result->error = PushStr8F(arena, "Not a valid port: %s", port_str.ptr);
+        break;
+      }
+    } else {
+      result->error = PushStr8F(arena, "Unknown command line: %s", arg.ptr);
+      break;
+    }
+  }
+  EndScratch(scratch);
+  return result;
+}
+
 int RunServer(int argc, char** argv) {
-  BazelOutputServiceImpl service;
+  int exit_code = 0;
+  TemporaryMemory scratch = BeginScratch(0);
+  ParsedCommandLine* command_line = ParseCommandLine(scratch.arena, argc, argv);
+  if (IsEmptyStr8(command_line->error)) {
+    BazelOutputServiceImpl service;
 
-  std::string server_address = "0.0.0.0:8080";
+    Str8 address = PushStr8F(scratch.arena, "0.0.0.0:%d", command_line->port);
+    grpc::ServerBuilder builder;
+    builder.AddListeningPort((char*)address.ptr,
+                             grpc::InsecureServerCredentials());
+    builder.RegisterService(&service);
+    std::unique_ptr<grpc::Server> server = builder.BuildAndStart();
+    fprintf(stderr, "Server listening on port %d...\n", command_line->port);
 
-  grpc::ServerBuilder builder;
-  builder.AddListeningPort(server_address, grpc::InsecureServerCredentials());
-  builder.RegisterService(&service);
-  std::unique_ptr<grpc::Server> server(builder.BuildAndStart());
-  std::cerr << "Server listening on " << server_address << std::endl;
-
-  server->Wait();
-
-  return 0;
+    server->Wait();
+  } else {
+    fprintf(stderr, "%s\n", command_line->error.ptr);
+    exit_code = 1;
+  }
+  EndScratch(scratch);
+  return exit_code;
 }

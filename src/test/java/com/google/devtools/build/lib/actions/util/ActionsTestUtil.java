@@ -57,6 +57,7 @@ import com.google.devtools.build.lib.actions.BuildConfigurationEvent;
 import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MiddlemanType;
 import com.google.devtools.build.lib.actions.PackageRootResolver;
@@ -241,7 +242,7 @@ public final class ActionsTestUtil {
     return ActionExecutionValue.createFromOutputMetadataStore(
         artifactData,
         treeArtifactData,
-        /* outputSymlinks= */ ImmutableList.of(),
+        FilesetOutputTree.EMPTY,
         /* discoveredModules= */ NestedSetBuilder.emptySet(Order.STABLE_ORDER));
   }
 

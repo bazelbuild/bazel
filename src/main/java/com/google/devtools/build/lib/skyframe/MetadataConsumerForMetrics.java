@@ -13,10 +13,9 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileStateType;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.buildeventstream.BuildEventStreamProtos.BuildMetrics.ArtifactMetrics;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -34,14 +33,14 @@ public interface MetadataConsumerForMetrics {
         public void accumulate(TreeArtifactValue treeArtifactValue) {}
 
         @Override
-        public void accumulate(ImmutableList<FilesetOutputSymlink> filesetOutputSymlinks) {}
+        public void accumulate(FilesetOutputTree filesetOutput) {}
       };
 
   void accumulate(FileArtifactValue metadata);
 
   void accumulate(TreeArtifactValue treeArtifactValue);
 
-  void accumulate(ImmutableList<FilesetOutputSymlink> filesetOutputSymlinks);
+  void accumulate(FilesetOutputTree filesetOutput);
 
   /** Accumulates file metadata for later export to a {@link ArtifactMetrics.FilesMetric} object. */
   class FilesMetricConsumer implements MetadataConsumerForMetrics {
@@ -69,11 +68,11 @@ public interface MetadataConsumerForMetrics {
     }
 
     @Override
-    public void accumulate(ImmutableList<FilesetOutputSymlink> filesetOutputSymlinks) {
+    public void accumulate(FilesetOutputTree filesetOutput) {
       // This is a bit of a fudge: we include the symlinks as a count, but don't count their
       // targets' sizes, because (a) plumbing the data is hard, (b) it would double-count symlinks
       // to output files, and (c) it's not even uniquely generated content for input files.
-      count.addAndGet(filesetOutputSymlinks.size());
+      count.addAndGet(filesetOutput.size());
     }
 
     @ThreadSafety.ThreadSafe

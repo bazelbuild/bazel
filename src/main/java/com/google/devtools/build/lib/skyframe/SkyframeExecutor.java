@@ -79,7 +79,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.PackageRoots;
@@ -527,7 +527,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     public ArtifactPathResolver createPathResolverForArtifactValues(
         ActionInputMap actionInputMap,
         Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeArtifacts,
-        Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets,
+        Map<Artifact, FilesetOutputTree> filesets,
         String workspaceName) {
       checkState(shouldCreatePathResolverForArtifactValues());
       return outputService.createPathResolverForArtifactValues(

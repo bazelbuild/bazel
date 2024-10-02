@@ -69,9 +69,10 @@ public class WorkspaceGlobals implements WorkspaceGlobalsApi {
     }
     // Add entry in repository map from "@name" --> "@" to avoid issue where bazel
     // treats references to @name as a separate external repo
-    Package.Builder.fromOrFailAllowWorkspaceOnly(thread, "workspace()")
-        .setWorkspaceName(name)
-        .addRepositoryMappingEntry(RepositoryName.MAIN, name, RepositoryName.MAIN);
+    Package.Builder pkgBuilder =
+        Package.Builder.fromOrFailAllowWorkspaceOnly(thread, "workspace()");
+    pkgBuilder.setWorkspaceName(name);
+    pkgBuilder.addRepositoryMappingEntry(RepositoryName.MAIN, name, RepositoryName.MAIN);
   }
 
   private static RepositoryName getCurrentRepoName(StarlarkThread thread) {

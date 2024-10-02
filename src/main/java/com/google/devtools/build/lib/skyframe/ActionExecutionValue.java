@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
@@ -31,7 +30,7 @@ import com.google.devtools.build.lib.actions.Artifact.OwnerlessArtifactWrapper;
 import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
@@ -47,7 +46,6 @@ import com.google.errorprone.annotations.FormatString;
 import java.util.Collection;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.function.BiFunction;
 import javax.annotation.Nullable;
 
@@ -62,7 +60,7 @@ public abstract class ActionExecutionValue implements SkyValue {
   public static ActionExecutionValue createFromOutputMetadataStore(
       ImmutableMap<Artifact, FileArtifactValue> artifactData,
       ImmutableMap<Artifact, TreeArtifactValue> treeArtifactData,
-      ImmutableList<FilesetOutputSymlink> outputSymlinks,
+      FilesetOutputTree filesetOutput,
       NestedSet<Artifact> discoveredModules) {
     // Use forEach instead of entrySet to avoid instantiating an EntrySet in ImmutableMap.
     artifactData.forEach(
@@ -93,7 +91,7 @@ public abstract class ActionExecutionValue implements SkyValue {
                           tree));
         });
 
-    if (!outputSymlinks.isEmpty()) {
+    if (!filesetOutput.isEmpty()) {
       checkArgument(
           artifactData.size() == 1,
           "Fileset actions should have a single output file (the manifest): %s",
@@ -106,7 +104,7 @@ public abstract class ActionExecutionValue implements SkyValue {
           discoveredModules.isEmpty(),
           "Fileset actions do not discover modules: %s",
           discoveredModules);
-      return new Fileset(artifactData, outputSymlinks);
+      return new Fileset(artifactData, filesetOutput);
     }
 
     if (!discoveredModules.isEmpty()) {
@@ -135,12 +133,12 @@ public abstract class ActionExecutionValue implements SkyValue {
 
   static ActionExecutionValue createFromOutputMetadataStore(
       ActionOutputMetadataStore actionOutputMetadataStore,
-      ImmutableList<FilesetOutputSymlink> outputSymlinks,
+      FilesetOutputTree filesetOutput,
       Action action) {
     return createFromOutputMetadataStore(
         actionOutputMetadataStore.getAllArtifactData(),
         actionOutputMetadataStore.getAllTreeArtifactData(),
-        outputSymlinks,
+        filesetOutput,
         action instanceof IncludeScannable includeScannable
             ? includeScannable.getDiscoveredModules()
             : NestedSetBuilder.emptySet(Order.STABLE_ORDER));
@@ -203,8 +201,8 @@ public abstract class ActionExecutionValue implements SkyValue {
     return ImmutableMap.of();
   }
 
-  public ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
-    return ImmutableList.of();
+  public FilesetOutputTree getFilesetOutput() {
+    return FilesetOutputTree.EMPTY;
   }
 
   public NestedSet<Artifact> getDiscoveredModules() {
@@ -229,7 +227,7 @@ public abstract class ActionExecutionValue implements SkyValue {
     }
     return getAllFileValues().equals(o.getAllFileValues())
         && getAllTreeArtifactValues().equals(o.getAllTreeArtifactValues())
-        && Objects.equals(getOutputSymlinks(), o.getOutputSymlinks())
+        && getFilesetOutput().equals(o.getFilesetOutput())
         // We use shallowEquals to avoid materializing the nested sets just for change-pruning. This
         // makes change-pruning potentially less effective, but never incorrect.
         && getDiscoveredModules().shallowEquals(o.getDiscoveredModules());
@@ -239,7 +237,7 @@ public abstract class ActionExecutionValue implements SkyValue {
   public final int hashCode() {
     return 31
             * HashCodes.hashObjects(
-                getAllFileValues(), getAllTreeArtifactValues(), getOutputSymlinks())
+                getAllFileValues(), getAllTreeArtifactValues(), getFilesetOutput())
         + getDiscoveredModules().shallowHashCode();
   }
 
@@ -316,7 +314,7 @@ public abstract class ActionExecutionValue implements SkyValue {
         transformMap(artifactData, newArtifactMap, action, (newArtifact, value) -> value),
         transformMap(
             treeArtifactData, newArtifactMap, action, ActionExecutionValue::transformSharedTree),
-        getOutputSymlinks(),
+        getFilesetOutput(),
         // Discovered modules come from the action's inputs, and so don't need to be transformed.
         getDiscoveredModules());
   }
@@ -368,18 +366,17 @@ public abstract class ActionExecutionValue implements SkyValue {
    * com.google.devtools.build.lib.view.fileset.SkyframeFilesetManifestAction}.
    */
   private static final class Fileset extends SingleOutputFile {
-    private final ImmutableList<FilesetOutputSymlink> outputSymlinks;
+    private final FilesetOutputTree filesetOutput;
 
     Fileset(
-        ImmutableMap<Artifact, FileArtifactValue> artifactData,
-        ImmutableList<FilesetOutputSymlink> outputSymlinks) {
+        ImmutableMap<Artifact, FileArtifactValue> artifactData, FilesetOutputTree filesetOutput) {
       super(artifactData);
-      this.outputSymlinks = outputSymlinks;
+      this.filesetOutput = filesetOutput;
     }
 
     @Override
-    public ImmutableList<FilesetOutputSymlink> getOutputSymlinks() {
-      return outputSymlinks;
+    public FilesetOutputTree getFilesetOutput() {
+      return filesetOutput;
     }
   }
 

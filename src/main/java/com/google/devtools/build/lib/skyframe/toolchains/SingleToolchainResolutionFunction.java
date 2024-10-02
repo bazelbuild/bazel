@@ -94,7 +94,9 @@ public class SingleToolchainResolutionFunction implements SkyFunction {
     if (debug
         && toolchains.rejectedToolchains() != null
         && !toolchains.rejectedToolchains().isEmpty()) {
-      for (Map.Entry<Label, String> entry : toolchains.rejectedToolchains().entrySet()) {
+      ImmutableMap<Label, String> rejectedToolchainImplementations =
+          toolchains.rejectedToolchains().row(key.toolchainType().toolchainType());
+      for (Map.Entry<Label, String> entry : rejectedToolchainImplementations.entrySet()) {
         Label toolchainLabel = entry.getKey();
         String message = entry.getValue();
         debugMessage(

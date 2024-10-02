@@ -14,17 +14,13 @@
 
 package com.google.devtools.build.lib.packages;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Interner;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext;
 import com.google.devtools.build.lib.cmdline.BazelModuleContext.LoadGraphVisitor;
@@ -36,14 +32,10 @@ import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import com.google.devtools.build.lib.cmdline.TargetPattern;
-import com.google.devtools.build.lib.collect.CollectionUtils;
-import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadCompatible;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.EventKind;
-import com.google.devtools.build.lib.events.StoredEventHandler;
 import com.google.devtools.build.lib.packages.Package.Builder.PackageSettings;
-import com.google.devtools.build.lib.packages.TargetRecorder.MacroFrame;
 import com.google.devtools.build.lib.packages.TargetRecorder.MacroNamespaceViolationException;
 import com.google.devtools.build.lib.packages.TargetRecorder.NameConflictException;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue.WorkspaceFileKey;
@@ -67,18 +59,15 @@ import com.google.protobuf.CodedOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
@@ -893,7 +882,8 @@ public class Package {
       @Nullable ImmutableMap<Location, String> generatorMap,
       // TODO(bazel-team): See Builder() constructor comment about use of null for this param.
       @Nullable ConfigSettingVisibilityPolicy configSettingVisibilityPolicy,
-      @Nullable Globber globber) {
+      @Nullable Globber globber,
+      boolean enableNameConflictChecking) {
     // Determine whether this is for a repo rule package. We shouldn't actually have to do this
     // because newPackageBuilder() is supposed to only be called for normal packages. Unfortunately
     // serialization still uses the same code path for deserializing BUILD and WORKSPACE files,
@@ -923,7 +913,8 @@ public class Package {
         cpuBoundSemaphore,
         packageOverheadEstimator,
         generatorMap,
-        globber);
+        globber,
+        enableNameConflictChecking);
   }
 
   public static Builder newExternalPackageBuilder(
@@ -955,7 +946,8 @@ public class Package {
         /* cpuBoundSemaphore= */ null,
         packageOverheadEstimator,
         /* generatorMap= */ null,
-        /* globber= */ null);
+        /* globber= */ null,
+        /* enableNameConflictChecking= */ true);
   }
 
   public static Builder newExternalPackageBuilderForBzlmod(
@@ -984,7 +976,8 @@ public class Package {
             /* cpuBoundSemaphore= */ null,
             PackageOverheadEstimator.NOOP_ESTIMATOR,
             /* generatorMap= */ null,
-            /* globber= */ null)
+            /* globber= */ null,
+            /* enableNameConflictChecking= */ true)
         .setLoads(ImmutableList.of());
   }
 
@@ -994,7 +987,7 @@ public class Package {
    * A builder for {@link Package} objects. Only intended to be used by {@link PackageFactory} and
    * {@link com.google.devtools.build.lib.skyframe.PackageFunction}.
    */
-  public static class Builder extends StarlarkThreadContext {
+  public static class Builder extends TargetDefinitionContext {
 
     /**
      * A bundle of options affecting package construction, that is not specific to any particular
@@ -1033,61 +1026,16 @@ public class Package {
       PackageSettings DEFAULTS = new PackageSettings() {};
     }
 
-    private final SymbolGenerator<?> symbolGenerator;
-
-    // Same as pkg.metadata.
-    private final Metadata metadata;
-
-    /**
-     * The output instance for this builder. Needs to be instantiated and available with name info
-     * throughout initialization. All other settings are applied during {@link #build}. See {@link
-     * Package#Package} and {@link Package#finishInit} for details.
-     */
-    private final Package pkg;
-
-    // The container object on which targets and macro instances are added and conflicts are
-    // detected.
-    private final TargetRecorder recorder = new TargetRecorder();
-
-    // Initialized from outside but also potentially set by `workspace()` function in WORKSPACE
-    // file.
-    private String workspaceName;
-
-    private final Label buildFileLabel;
-
     private final boolean precomputeTransitiveLoads;
     private final boolean noImplicitFileExport;
-    private final boolean simplifyUnconditionalSelectsInRuleAttrs;
 
     // The map from each repository to that repository's remappings map.
     // This is only used in the //external package, it is an empty map for all other packages.
     private final HashMap<RepositoryName, HashMap<String, RepositoryName>>
         externalPackageRepositoryMappings = new HashMap<>();
 
-    /** Converts label literals to Label objects within this package. */
-    private final LabelConverter labelConverter;
-
     /** Estimates the package overhead of this package. */
     private final PackageOverheadEstimator packageOverheadEstimator;
-
-    /**
-     * Semaphore held by the Skyframe thread when performing CPU work.
-     *
-     * <p>This should be released when performing I/O.
-     */
-    @Nullable // Only non-null when inside PackageFunction.compute and the semaphore is enabled.
-    private final Semaphore cpuBoundSemaphore;
-
-    // TreeMap so that the iteration order of variables is consistent regardless of insertion order
-    // (which may change due to serialization). This is useful so that the serialized representation
-    // is deterministic.
-    private final TreeMap<String, String> makeEnv = new TreeMap<>();
-
-    private final StoredEventHandler localEventHandler = new StoredEventHandler();
-
-    @Nullable private String ioExceptionMessage = null;
-    @Nullable private IOException ioException = null;
-    @Nullable private DetailedExitCode ioExceptionDetailedExitCode = null;
 
     // A package's FailureDetail field derives from the events on its Builder's event handler.
     // During package deserialization, those events are unavailable, because those events aren't
@@ -1100,12 +1048,6 @@ public class Package {
     // [*] Not in the context of the package, anyway. Skyframe values containing a package may
     // serialize events emitted during its construction/evaluation.
     @Nullable private FailureDetail failureDetailOverride = null;
-
-    // Used by glob(). Null for contexts where glob() is disallowed, including WORKSPACE files and
-    // some tests.
-    @Nullable private final Globber globber;
-
-    private final Map<Label, EnvironmentGroup> environmentGroups = new HashMap<>();
 
     // The snapshot of {@link #targets} for use in rule finalizer macros. Contains all
     // non-finalizer-instantiated rule targets (i.e. all rule targets except for those instantiated
@@ -1139,48 +1081,6 @@ public class Package {
      */
     private OptionalInt firstWorkspaceSuffixRegisteredToolchain = OptionalInt.empty();
 
-    /** True iff the "package" function has already been called in this package. */
-    private boolean packageFunctionUsed;
-
-    private final Interner<ImmutableList<?>> listInterner = new ThreadCompatibleInterner<>();
-
-    private final ImmutableMap<Location, String> generatorMap;
-
-    private final TestSuiteImplicitTestsAccumulator testSuiteImplicitTestsAccumulator =
-        new TestSuiteImplicitTestsAccumulator();
-
-    /** Returns the "generator_name" to use for a given call site location in a BUILD file. */
-    @Nullable
-    String getGeneratorNameByLocation(Location loc) {
-      return generatorMap.get(loc);
-    }
-
-    /**
-     * Returns the value to use for {@code test_suite}s' {@code $implicit_tests} attribute, as-is,
-     * when the {@code test_suite} doesn't specify an explicit, non-empty {@code tests} value. The
-     * returned list is mutated by the package-building process - it may be observed to be empty or
-     * incomplete before package loading is complete. When package loading is complete it will
-     * contain the label of each non-manual test matching the provided tags in the package, in label
-     * order.
-     *
-     * <p>This method <b>MUST</b> be called before the package is built - otherwise the requested
-     * implicit tests won't be accumulated.
-     */
-    List<Label> getTestSuiteImplicitTestsRef(List<String> tags) {
-      return testSuiteImplicitTestsAccumulator.getTestSuiteImplicitTestsRefForTags(tags);
-    }
-
-    @ThreadCompatible
-    private static final class ThreadCompatibleInterner<T> implements Interner<T> {
-      private final Map<T, T> interns = new HashMap<>();
-
-      @Override
-      public T intern(T sample) {
-        T existing = interns.putIfAbsent(sample, sample);
-        return firstNonNull(existing, sample);
-      }
-    }
-
     private boolean alreadyBuilt = false;
 
     private Builder(
@@ -1194,48 +1094,22 @@ public class Package {
         @Nullable Semaphore cpuBoundSemaphore,
         PackageOverheadEstimator packageOverheadEstimator,
         @Nullable ImmutableMap<Location, String> generatorMap,
-        @Nullable Globber globber) {
-      super(() -> mainRepositoryMapping);
-      this.metadata = metadata;
-      this.pkg = new Package(metadata);
-      this.symbolGenerator = symbolGenerator;
-      this.workspaceName = Preconditions.checkNotNull(workspaceName);
-
-      try {
-        this.buildFileLabel =
-            Label.create(
-                metadata.packageIdentifier(),
-                metadata.buildFilename().getRootRelativePath().getBaseName());
-      } catch (LabelSyntaxException e) {
-        // This can't actually happen.
-        throw new AssertionError(
-            "Package BUILD file has an illegal name: " + metadata.buildFilename(), e);
-      }
-
+        @Nullable Globber globber,
+        boolean enableNameConflictChecking) {
+      super(
+          metadata,
+          new Package(metadata),
+          symbolGenerator,
+          simplifyUnconditionalSelectsInRuleAttrs,
+          workspaceName,
+          mainRepositoryMapping,
+          cpuBoundSemaphore,
+          generatorMap,
+          globber,
+          enableNameConflictChecking);
       this.precomputeTransitiveLoads = precomputeTransitiveLoads;
       this.noImplicitFileExport = noImplicitFileExport;
-      this.simplifyUnconditionalSelectsInRuleAttrs = simplifyUnconditionalSelectsInRuleAttrs;
-      this.labelConverter =
-          new LabelConverter(metadata.packageIdentifier(), metadata.repositoryMapping());
-      if (metadata.getName().startsWith("javatests/")) {
-        mergePackageArgsFrom(PackageArgs.builder().setDefaultTestOnly(true));
-      }
-      this.cpuBoundSemaphore = cpuBoundSemaphore;
       this.packageOverheadEstimator = packageOverheadEstimator;
-      this.generatorMap = (generatorMap == null) ? ImmutableMap.of() : generatorMap;
-      this.globber = globber;
-
-      // Add target for the BUILD file itself.
-      // (This may be overridden by an exports_file declaration.)
-      recorder.addInputFileUnchecked(
-          new InputFile(
-              pkg,
-              buildFileLabel,
-              Location.fromFile(metadata.buildFilename().asPath().toString())));
-    }
-
-    SymbolGenerator<?> getSymbolGenerator() {
-      return symbolGenerator;
     }
 
     /** Retrieves this object from a Starlark thread. Returns null if not present. */
@@ -1391,46 +1265,6 @@ public class Package {
           /* allowWorkspace= */ false);
     }
 
-    PackageIdentifier getPackageIdentifier() {
-      return metadata.packageIdentifier();
-    }
-
-    /**
-     * Determine whether this package should contain build rules (returns {@code false}) or repo
-     * rules (returns {@code true}).
-     */
-    public boolean isRepoRulePackage() {
-      return metadata.isRepoRulePackage();
-    }
-
-    /**
-     * Returns the name of the workspace this package is in. Used as a prefix for the runfiles
-     * directory. This can be set in the WORKSPACE file. This must be a valid target name.
-     */
-    String getWorkspaceName() {
-      // Current value is stored in the builder field, final value is copied to the Package in
-      // finishInit().
-      return workspaceName;
-    }
-
-    /**
-     * Returns the name of the Bzlmod module associated with the repo this package is in. If this
-     * package is not from a Bzlmod repo, this is empty. For repos generated by module extensions,
-     * this is the name of the module hosting the extension.
-     */
-    Optional<String> getAssociatedModuleName() {
-      return metadata.associatedModuleName();
-    }
-
-    /**
-     * Returns the version of the Bzlmod module associated with the repo this package is in. If this
-     * package is not from a Bzlmod repo, this is empty. For repos generated by module extensions,
-     * this is the version of the module hosting the extension.
-     */
-    Optional<String> getAssociatedModuleVersion() {
-      return metadata.associatedModuleVersion();
-    }
-
     /**
      * Updates the externalPackageRepositoryMappings entry for {@code repoWithin}. Adds new entry
      * from {@code localName} to {@code mappedName} in {@code repoWithin}'s map.
@@ -1468,18 +1302,6 @@ public class Package {
       return this;
     }
 
-    public LabelConverter getLabelConverter() {
-      return labelConverter;
-    }
-
-    Interner<ImmutableList<?>> getListInterner() {
-      return listInterner;
-    }
-
-    public Label getBuildFileLabel() {
-      return buildFileLabel;
-    }
-
     /**
      * Return a read-only copy of the name mapping of external repositories for a given repository.
      * Reading that mapping directly from the builder allows to also take mappings into account that
@@ -1495,78 +1317,24 @@ public class Package {
       }
     }
 
-    RootedPath getFilename() {
-      return metadata.buildFilename();
-    }
-
-    /** Returns the {@link StoredEventHandler} associated with this builder. */
-    public StoredEventHandler getLocalEventHandler() {
-      return localEventHandler;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder setMakeVariable(String name, String value) {
-      makeEnv.put(name, value);
-      return this;
-    }
-
-    @CanIgnoreReturnValue
-    public Builder mergePackageArgsFrom(PackageArgs packageArgs) {
+    @Override
+    public void mergePackageArgsFrom(PackageArgs packageArgs) {
       pkg.packageArgs = pkg.packageArgs.mergeWith(packageArgs);
-      return this;
     }
 
-    @CanIgnoreReturnValue
-    public Builder mergePackageArgsFrom(PackageArgs.Builder builder) {
-      return mergePackageArgsFrom(builder.build());
+    @Override
+    public void mergePackageArgsFrom(PackageArgs.Builder builder) {
+      mergePackageArgsFrom(builder.build());
     }
 
-    /** Called partial b/c in builder and thus subject to mutation and updates */
+    @Override
     public PackageArgs getPartialPackageArgs() {
       return pkg.packageArgs;
-    }
-
-    /** Uses the workspace name from {@code //external} to set this package's workspace name. */
-    @CanIgnoreReturnValue
-    @VisibleForTesting
-    public Builder setWorkspaceName(String workspaceName) {
-      this.workspaceName = workspaceName;
-      return this;
-    }
-
-    /** Returns whether the "package" function has been called yet */
-    boolean isPackageFunctionUsed() {
-      return packageFunctionUsed;
-    }
-
-    void setPackageFunctionUsed() {
-      packageFunctionUsed = true;
     }
 
     /** Sets the number of Starlark computation steps executed by this BUILD file. */
     void setComputationSteps(long n) {
       pkg.computationSteps = n;
-    }
-
-    public boolean containsErrors() {
-      return recorder.containsErrors();
-    }
-
-    /**
-     * Declares that errors were encountering while loading this package.
-     *
-     * <p>If this method is called, then there should also be an ERROR event added to the handler on
-     * the {@link Package.Builder}. The event should include a {@link FailureDetail}.
-     */
-    public void setContainsErrors() {
-      recorder.setContainsErrors();
-    }
-
-    void setIOException(IOException e, String message, DetailedExitCode detailedExitCode) {
-      this.ioException = e;
-      this.ioExceptionMessage = message;
-      this.ioExceptionDetailedExitCode = detailedExitCode;
-      setContainsErrors();
     }
 
     void setFailureDetailOverride(FailureDetail failureDetail) {
@@ -1628,87 +1396,6 @@ public class Package {
           pkg.transitiveLoads == null, "Transitive loads already set: %s", pkg.transitiveLoads);
     }
 
-    /**
-     * Returns the {@link Globber} used to implement {@code glob()} functionality during BUILD
-     * evaluation. Null for contexts where globbing is not possible, including WORKSPACE files and
-     * some tests.
-     */
-    @Nullable
-    public Globber getGlobber() {
-      return globber;
-    }
-
-    /**
-     * Returns true if values of conditional rule attributes which only contain unconditional
-     * selects should be simplified and stored as a non-select value.
-     */
-    public boolean simplifyUnconditionalSelectsInRuleAttrs() {
-      return this.simplifyUnconditionalSelectsInRuleAttrs;
-    }
-
-    /**
-     * Returns the innermost currently executing symbolic macro, or null if not in a symbolic macro.
-     */
-    @Nullable
-    public MacroInstance currentMacro() {
-      MacroFrame frame = recorder.getCurrentMacroFrame();
-      return frame == null ? null : frame.macroInstance;
-    }
-
-    /**
-     * Creates a new {@link Rule} {@code r} where {@code r.getPackage()} is the {@link Package}
-     * associated with this {@link Builder}.
-     *
-     * <p>The created {@link Rule} will have no output files and therefore will be in an invalid
-     * state.
-     */
-    Rule createRule(
-        Label label, RuleClass ruleClass, List<StarlarkThread.CallStackEntry> callstack) {
-      return createRule(
-          label,
-          ruleClass,
-          callstack.isEmpty() ? Location.BUILTIN : callstack.get(0).location,
-          CallStack.compactInterior(callstack));
-    }
-
-    Rule createRule(
-        Label label,
-        RuleClass ruleClass,
-        Location location,
-        @Nullable CallStack.Node interiorCallStack) {
-      return new Rule(pkg, label, ruleClass, location, interiorCallStack);
-    }
-
-    /**
-     * Creates a new {@link MacroInstance} {@code m} where {@code m.getPackage()} is the {@link
-     * Package} associated with this {@link Builder}.
-     */
-    MacroInstance createMacro(
-        MacroClass macroClass, Map<String, Object> attrValues, int sameNameDepth)
-        throws EvalException {
-      MacroInstance parent = currentMacro();
-      return new MacroInstance(pkg, parent, macroClass, attrValues, sameNameDepth);
-    }
-
-    @Nullable
-    public MacroFrame getCurrentMacroFrame() {
-      return recorder.getCurrentMacroFrame();
-    }
-
-    @Nullable
-    public MacroFrame setCurrentMacroFrame(@Nullable MacroFrame frame) {
-      return recorder.setCurrentMacroFrame(frame);
-    }
-
-    public boolean currentlyInNonFinalizerMacro() {
-      return recorder.currentlyInNonFinalizerMacro();
-    }
-
-    @Nullable
-    public Target getTarget(String name) {
-      return recorder.getTarget(name);
-    }
-
     public Set<Target> getTargets() {
       return recorder.getTargets();
     }
@@ -1722,222 +1409,23 @@ public class Package {
       recorder.replaceTarget(newTarget);
     }
 
-    /**
-     * Returns a lightweight snapshot view of the names of all rule targets belonging to this
-     * package at the time of this call; in finalizer expansion stage, returns a lightweight
-     * snapshot view of only the non-finalizer-instantiated rule targets.
-     *
-     * @throws IllegalStateException if this method is called after {@link #beforeBuild} has been
-     *     called.
-     */
+    @Override
     Map<String, Rule> getRulesSnapshotView() {
       if (rulesSnapshotViewForFinalizers != null) {
         return rulesSnapshotViewForFinalizers;
-      } else if (recorder.getTargetMap() instanceof SnapshottableBiMap<?, ?>) {
-        return Maps.transformValues(
-            ((SnapshottableBiMap<String, Target>) recorder.getTargetMap()).getTrackedSnapshot(),
-            target -> (Rule) target);
       } else {
-        throw new IllegalStateException(
-            "getRulesSnapshotView() cannot be used after beforeBuild() has been called");
+        return super.getRulesSnapshotView();
       }
     }
 
-    /**
-     * Returns a non-finalizer-instantiated rule target with the provided name belonging to this
-     * package at the time of this call. If such a rule target cannot be returned, returns null.
-     */
-    // TODO(https://github.com/bazelbuild/bazel/issues/23765): when we restrict
-    // native.existing_rule() to be usable only in finalizer context, we can replace this method
-    // with {@code getRulesSnapshotView().get(name)}; we don't do so at present because we do not
-    // want to make unnecessary snapshots.
+    @Override
     @Nullable
     Rule getNonFinalizerInstantiatedRule(String name) {
       if (rulesSnapshotViewForFinalizers != null) {
         return rulesSnapshotViewForFinalizers.get(name);
       } else {
-        Target target = recorder.getTargetMap().get(name);
-        return target instanceof Rule ? (Rule) target : null;
+        return super.getNonFinalizerInstantiatedRule(name);
       }
-    }
-
-    /**
-     * Creates an input file target in this package with the specified name, if it does not yet
-     * exist.
-     *
-     * <p>This operation is idempotent.
-     *
-     * @param targetName name of the input file. This must be a valid target name as defined by
-     *     {@link com.google.devtools.build.lib.cmdline.LabelValidator#validateTargetName}.
-     * @return the newly-created {@code InputFile}, or the old one if it already existed.
-     * @throws NameConflictException if the name was already taken by another target that is not an
-     *     input file
-     * @throws IllegalArgumentException if the name is not a valid label
-     */
-    InputFile createInputFile(String targetName, Location location) throws NameConflictException {
-      Target existing = recorder.getTargetMap().get(targetName);
-
-      if (existing instanceof InputFile) {
-        return (InputFile) existing; // idempotent
-      }
-
-      InputFile inputFile;
-      try {
-        inputFile = new InputFile(pkg, createLabel(targetName), location);
-      } catch (LabelSyntaxException e) {
-        throw new IllegalArgumentException(
-            "FileTarget in package " + metadata.getName() + " has illegal name: " + targetName, e);
-      }
-
-      recorder.addTarget(inputFile);
-      return inputFile;
-    }
-
-    /**
-     * Sets the visibility and license for an input file. The input file must already exist as a
-     * member of this package.
-     *
-     * @throws IllegalArgumentException if the input file doesn't exist in this package's target
-     *     map.
-     */
-    // TODO: #19922 - Don't allow exports_files() to modify visibility of targets that the current
-    // symbolic macro did not create. Fun pathological example: exports_files() modifying the
-    // visibility of :BUILD inside a symbolic macro.
-    void setVisibilityAndLicense(InputFile inputFile, RuleVisibility visibility, License license) {
-      String filename = inputFile.getName();
-      Target cacheInstance = recorder.getTargetMap().get(filename);
-      if (!(cacheInstance instanceof InputFile)) {
-        throw new IllegalArgumentException(
-            "Can't set visibility for nonexistent FileTarget "
-                + filename
-                + " in package "
-                + metadata.getName()
-                + ".");
-      }
-      if (!((InputFile) cacheInstance).isVisibilitySpecified()
-          || cacheInstance.getVisibility() != visibility
-          || !Objects.equals(cacheInstance.getLicense(), license)) {
-        recorder.replaceInputFileUnchecked(
-            new VisibilityLicenseSpecifiedInputFile(
-                pkg, cacheInstance.getLabel(), cacheInstance.getLocation(), visibility, license));
-      }
-    }
-
-    /**
-     * Creates a label for a target inside this package.
-     *
-     * @throws LabelSyntaxException if the {@code targetName} is invalid
-     */
-    Label createLabel(String targetName) throws LabelSyntaxException {
-      return Label.create(metadata.packageIdentifier(), targetName);
-    }
-
-    /** Adds a package group to the package. */
-    void addPackageGroup(
-        String name,
-        Collection<String> packages,
-        Collection<Label> includes,
-        boolean allowPublicPrivate,
-        boolean repoRootMeansCurrentRepo,
-        EventHandler eventHandler,
-        Location location)
-        throws NameConflictException, LabelSyntaxException {
-      PackageGroup group =
-          new PackageGroup(
-              createLabel(name),
-              pkg,
-              packages,
-              includes,
-              allowPublicPrivate,
-              repoRootMeansCurrentRepo,
-              eventHandler,
-              location);
-      recorder.addTarget(group);
-
-      if (group.containsErrors()) {
-        setContainsErrors();
-      }
-    }
-
-    /**
-     * Returns true if any labels in the given list appear multiple times, reporting an appropriate
-     * error message if so.
-     *
-     * <p>TODO(bazel-team): apply this to all build functions (maybe automatically?), possibly
-     * integrate with RuleClass.checkForDuplicateLabels.
-     */
-    private static boolean hasDuplicateLabels(
-        List<Label> labels,
-        String owner,
-        String attrName,
-        Location location,
-        EventHandler eventHandler) {
-      Set<Label> dupes = CollectionUtils.duplicatedElementsOf(labels);
-      for (Label dupe : dupes) {
-        eventHandler.handle(
-            error(
-                location,
-                String.format(
-                    "label '%s' is duplicated in the '%s' list of '%s'", dupe, attrName, owner),
-                Code.DUPLICATE_LABEL));
-      }
-      return !dupes.isEmpty();
-    }
-
-    /** Adds an environment group to the package. Not valid within symbolic macros. */
-    void addEnvironmentGroup(
-        String name,
-        List<Label> environments,
-        List<Label> defaults,
-        EventHandler eventHandler,
-        Location location)
-        throws NameConflictException, LabelSyntaxException {
-      Preconditions.checkState(currentMacro() == null);
-
-      if (hasDuplicateLabels(environments, name, "environments", location, eventHandler)
-          || hasDuplicateLabels(defaults, name, "defaults", location, eventHandler)) {
-        setContainsErrors();
-        return;
-      }
-
-      EnvironmentGroup group =
-          new EnvironmentGroup(createLabel(name), pkg, environments, defaults, location);
-      recorder.addTarget(group);
-
-      // Invariant: once group is inserted into targets, it must also:
-      // (a) be inserted into environmentGroups, or
-      // (b) have its group.processMemberEnvironments called.
-      // Otherwise it will remain uninitialized,
-      // causing crashes when it is later toString-ed.
-
-      for (Event error : group.validateMembership()) {
-        eventHandler.handle(error);
-        setContainsErrors();
-      }
-
-      // For each declared environment, make sure it doesn't also belong to some other group.
-      for (Label environment : group.getEnvironments()) {
-        EnvironmentGroup otherGroup = environmentGroups.get(environment);
-        if (otherGroup != null) {
-          eventHandler.handle(
-              error(
-                  location,
-                  String.format(
-                      "environment %s belongs to both %s and %s",
-                      environment, group.getLabel(), otherGroup.getLabel()),
-                  Code.ENVIRONMENT_IN_MULTIPLE_GROUPS));
-          setContainsErrors();
-          // Ensure the orphan gets (trivially) initialized.
-          group.processMemberEnvironments(ImmutableMap.of());
-        } else {
-          environmentGroups.put(environment, group);
-        }
-      }
-    }
-
-    // For Package deserialization.
-    void disableNameConflictChecking() {
-      recorder.disableNameConflictChecking();
     }
 
     public void addRuleUnchecked(Rule rule) {
@@ -1945,15 +1433,9 @@ public class Package {
       recorder.addRuleUnchecked(rule);
     }
 
-    public void addRule(Rule rule) throws NameConflictException {
-      Preconditions.checkArgument(rule.getPackage() == pkg);
-      recorder.addRule(rule);
-    }
-
+    @Override
     public void addMacro(MacroInstance macro) throws NameConflictException {
-      Preconditions.checkState(
-          !isRepoRulePackage(), "Cannot instantiate symbolic macros in this context");
-      recorder.addMacro(macro);
+      super.addMacro(macro);
       unexpandedMacros.add(macro.getId());
     }
 
@@ -2201,11 +1683,6 @@ public class Package {
       }
       beforeBuild(discoverAssumedInputFiles);
       return finishBuild();
-    }
-
-    @Nullable
-    public Semaphore getCpuBoundSemaphore() {
-      return cpuBoundSemaphore;
     }
   }
 
