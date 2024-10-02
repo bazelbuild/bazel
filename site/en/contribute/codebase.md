@@ -552,9 +552,10 @@ Configuration transitions can also be implemented in Starlark (documentation
 ### Transitive info providers {:#transitive-info-providers}
 
 Transitive info providers are a way (and the _only _way) for configured targets
-to tell things about other configured targets that depend on it. The reason why
-"transitive" is in their name is that this is usually some sort of roll-up of
-the transitive closure of a configured target.
+to learn things about other configured targets that they depend on, and the only
+way to tell things about themselves to other configured targets that depend on
+them. The reason why "transitive" is in their name is that this is usually some
+sort of roll-up of the transitive closure of a configured target.
 
 There is generally a 1:1 correspondence between Java transitive info providers
 and Starlark ones (the exception is `DefaultInfo` which is an amalgamation of
@@ -599,7 +600,7 @@ Some binaries need data files to run. A prominent example is tests that need
 input files. This is represented in Bazel by the concept of "runfiles". A
 "runfiles tree" is a directory tree of the data files for a particular binary.
 It is created in the file system as a symlink tree with individual symlinks
-pointing to the files in the source of output trees.
+pointing to the files in the source or output trees.
 
 A set of runfiles is represented as a `Runfiles` instance. It is conceptually a
 map from the path of a file in the runfiles tree to the `Artifact` instance that
@@ -790,14 +791,13 @@ contain references to it. The attribute that governs this is called
 
 These rules are a legacy mechanism and are not widely used.
 
-All build rules can declare which "environments" they can be built for, where a
+All build rules can declare which "environments" they can be built for, where an
 "environment" is an instance of the `environment()` rule.
 
 There are various ways supported environments can be specified for a rule:
 
 1.  Through the `restricted_to=` attribute. This is the most direct form of
-    specification; it declares the exact set of environments the rule supports
-    for this group.
+    specification; it declares the exact set of environments the rule supports.
 2.  Through the `compatible_with=` attribute. This declares environments a rule
     supports in addition to "standard" environments that are supported by
     default.
@@ -833,7 +833,7 @@ The implementation of the constraint check is in
 
 The current "official" way to describe what platforms a target is compatible
 with is by using the same constraints used to describe toolchains and platforms.
-It's under review in pull request
+It was implemented in pull request
 [#10945](https://github.com/bazelbuild/bazel/pull/10945){: .external}.
 
 ### Visibility {:#visibility}
@@ -844,8 +844,8 @@ code. Otherwise, as per [Hyrum's law](https://www.hyrumslaw.com/){: .external},
 people _will_ come to rely on behaviors that you considered to be implementation
 details.
 
-Bazel supports this by the mechanism called _visibility_: you can declare that a
-particular target can only be depended on using the
+Bazel supports this by the mechanism called _visibility_: you can limit which
+targets can depend on a particular target using the
 [visibility](/reference/be/common-definitions#common-attributes) attribute. This
 attribute is a little special because, although it holds a list of labels, these
 labels may encode a pattern over package names rather than a pointer to any
@@ -933,15 +933,9 @@ implementation that kind of works which is enabled by the
 `BAZEL_TRACK_SOURCE_DIRECTORIES=1` JVM property)
 
 A notable kind of `Artifact` are middlemen. They are indicated by `Artifact`
-instances that are the outputs of `MiddlemanAction`. They are used to
-special-case some things:
+instances that are the outputs of `MiddlemanAction`. They are used for one
+special case:
 
-*   Aggregating middlemen are used to group artifacts together. This is so that
-    if a lot of actions use the same large set of inputs, we don't have N\*M
-    dependency edges, only N+M (they are being replaced with nested sets)
-*   Scheduling dependency middlemen ensure that an action runs before another.
-    They are mostly used for linting but also for C++ compilation (see
-    `CcCompilationContext.createMiddleman()` for an explanation)
 *   Runfiles middlemen are used to ensure the presence of a runfiles tree so
     that one does not separately need to depend on the output manifest and every
     single artifact referenced by the runfiles tree.
