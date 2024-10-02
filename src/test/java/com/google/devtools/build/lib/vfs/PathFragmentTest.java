@@ -146,6 +146,20 @@ public final class PathFragmentTest {
   }
 
   @Test
+  public void getRelative_absolutePathArgument_returnsSameInstance(
+      @TestParameter({"/c/d", "c/d"}) String basePath) {
+    PathFragment absolute = PathFragment.create("/a/b");
+    assertThat(PathFragment.create(basePath).getRelative(absolute)).isSameInstanceAs(absolute);
+  }
+
+  @Test
+  public void getRelative_emptyBasePath_returnsSameInstance(
+      @TestParameter({"/a/b", "a/b"}) String argument) {
+    PathFragment instance = PathFragment.create(argument);
+    assertThat(EMPTY_FRAGMENT.getRelative(instance)).isSameInstanceAs(instance);
+  }
+
+  @Test
   public void testIsNormalizedRelativePath() {
     assertThat(PathFragment.isNormalizedRelativePath("/a")).isFalse();
     assertThat(PathFragment.isNormalizedRelativePath("a///b")).isFalse();
