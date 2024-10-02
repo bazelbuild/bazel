@@ -123,9 +123,9 @@ pkg_tar(
     srcs = [
         "//third_party/googleapis:dist_jars",
         "//third_party/grpc-java:grpc_jars",
-        "@com_google_protobuf//:protobuf_java",
-        "@com_google_protobuf//:protobuf_java_util",
-        "@com_google_protobuf//:protobuf_javalite",
+        "@protobuf//:protobuf_java",
+        "@protobuf//:protobuf_java_util",
+        "@protobuf//:protobuf_javalite",
         "@zstd-jni//:zstd-jni",
     ],
     package_dir = "derived/jars",

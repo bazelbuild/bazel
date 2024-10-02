@@ -594,7 +594,7 @@ filegroup(
         "@android_gmaven_r8//jar:file",
         "@android_tools//:all_android_tools_deploy.jar",
         "@bazel_skylib//:WORKSPACE",
-        "@com_google_protobuf//:LICENSE",
+        "@protobuf//:LICENSE",
         "@remote_coverage_tools//:all_lcov_merger_lib",
         "@remote_java_tools//:GenClass",
         "@remote_java_tools_darwin_arm64//:java_tools/src/tools/singlejar/singlejar_local",

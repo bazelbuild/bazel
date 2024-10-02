@@ -1733,8 +1733,7 @@ public abstract class AbstractQueryTest<T> {
     helper.writeFile("/workspace/rules_java_workspace/MODULE.bazel", "module(name='rules_java')");
     helper.writeFile("/workspace/protobuf_workspace/BUILD");
     helper.writeFile("/workspace/protobuf_workspace/WORKSPACE");
-    helper.writeFile(
-        "/workspace/protobuf_workspace/MODULE.bazel", "module(name='com_google_protobuf')");
+    helper.writeFile("/workspace/protobuf_workspace/MODULE.bazel", "module(name='protobuf')");
     helper.writeFile("/workspace/local_config_platform_workspace/BUILD");
     helper.writeFile("/workspace/local_config_platform_workspace/WORKSPACE");
     helper.writeFile(

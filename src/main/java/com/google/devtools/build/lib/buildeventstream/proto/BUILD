@@ -1,4 +1,4 @@
-load("@com_google_protobuf//bazel:proto_library.bzl", "proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
 load("@rules_java//java:defs.bzl", "java_proto_library")
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")
 
@@ -30,8 +30,8 @@ proto_library(
         "//src/main/protobuf:command_line_proto",
         "//src/main/protobuf:failure_details_proto",
         "//src/main/protobuf:invocation_policy_proto",
-        "@com_google_protobuf//:any_proto",
-        "@com_google_protobuf//:duration_proto",
-        "@com_google_protobuf//:timestamp_proto",
+        "@protobuf//:any_proto",
+        "@protobuf//:duration_proto",
+        "@protobuf//:timestamp_proto",
     ],
 )

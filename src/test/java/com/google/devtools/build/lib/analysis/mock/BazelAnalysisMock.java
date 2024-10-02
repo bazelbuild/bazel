@@ -87,7 +87,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
             + bazelPlatformsWorkspace
             + "')",
         "local_repository(name = 'local_config_xcode', path = '" + xcodeWorkspace + "')",
-        "local_repository(name = 'com_google_protobuf', path = '" + protobufWorkspace + "')",
+        "local_repository(name = 'protobuf', path = '" + protobufWorkspace + "')",
         "local_repository(name = 'rules_java', path = '" + rulesJavaWorkspace + "')",
         "local_repository(name = 'rules_java_builtin', path = '" + rulesJavaWorkspace + "')",
         "local_repository(name = 'android_gmaven_r8', path = '" + androidGmavenR8Workspace + "')",
@@ -107,7 +107,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
   public ImmutableList<String> getWorkspaceRepos() {
     return ImmutableList.of(
         "android_gmaven_r8",
-        "com_google_protobuf",
+        "protobuf",
         "local_config_platform",
         "local_config_xcode",
         "internal_platforms_do_not_use",
@@ -140,7 +140,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
         ])
         """);
     config.create("protobuf_workspace/WORKSPACE");
-    config.create("protobuf_workspace/MODULE.bazel", "module(name='com_google_protobuf')");
+    config.create("protobuf_workspace/MODULE.bazel", "module(name='protobuf')");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[0]));
     config.overwrite(
         "MODULE.bazel",
@@ -570,22 +570,22 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
         alias(
             name = "protoc",
-            actual = "@com_google_protobuf//:protoc",
+            actual = "@protobuf//:protoc",
         )
 
         alias(
             name = "javalite_toolchain",
-            actual = "@com_google_protobuf//:javalite_toolchain",
+            actual = "@protobuf//:javalite_toolchain",
         )
 
         alias(
             name = "java_toolchain",
-            actual = "@com_google_protobuf//:java_toolchain",
+            actual = "@protobuf//:java_toolchain",
         )
 
         alias(
             name = "cc_toolchain",
-            actual = "@com_google_protobuf//:cc_toolchain",
+            actual = "@protobuf//:cc_toolchain",
         )
         """);
 
@@ -829,7 +829,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
             .put("platforms", "platforms_workspace")
             .put("local_config_platform", "local_config_platform_workspace")
             .put("rules_java", "rules_java_workspace")
-            .put("com_google_protobuf", "protobuf_workspace")
+            .put("protobuf", "protobuf_workspace")
             .put("rules_proto", "third_party/bazel_rules/rules_proto")
             .put("build_bazel_apple_support", "build_bazel_apple_support")
             .put("local_config_xcode", "local_config_xcode_workspace")

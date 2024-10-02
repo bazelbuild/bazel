@@ -13,30 +13,30 @@ exports_files([
 
 alias(
     name = "protoc",
-    actual = "@com_google_protobuf//:protoc",
+    actual = "@protobuf//:protoc",
     visibility = ["//visibility:public"],
 )
 
 alias(
     name = "protobuf_java",
-    actual = "@com_google_protobuf//:protobuf_java",
+    actual = "@protobuf//:protobuf_java",
     visibility = ["//visibility:public"],
 )
 
 alias(
     name = "protobuf_java_util",
-    actual = "@com_google_protobuf//:protobuf_java_util",
+    actual = "@protobuf//:protobuf_java_util",
     visibility = ["//visibility:public"],
 )
 
 alias(
     name = "protobuf_python",
-    actual = "@com_google_protobuf//:protobuf_python",
+    actual = "@protobuf//:protobuf_python",
     visibility = ["//visibility:public"],
 )
 
 alias(
     name = "protoc_lib",
-    actual = "@com_google_protobuf//:protoc_lib",
+    actual = "@protobuf//:protoc_lib",
     visibility = ["//visibility:public"],
 )

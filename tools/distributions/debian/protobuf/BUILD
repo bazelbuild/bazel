@@ -8,19 +8,19 @@ filegroup(
 )
 
 # Protobuf targets needed for building //src:bazel_nojdk
-# @com_google_protobuf//:protobuf_headers
-# @com_google_protobuf//:protobuf_java
-# @com_google_protobuf//:protobuf_java_util
-# @com_google_protobuf//:protoc
-# @com_google_protobuf//:protoc_lib
-# @com_google_protobuf//:any_proto
-# @com_google_protobuf//:descriptor_proto
-# @com_google_protobuf//:duration_proto
-# @com_google_protobuf//:empty_proto
-# @com_google_protobuf//:timestamp_proto
-# @com_google_protobuf//:wrappers_proto
-# @com_google_protobuf//:cc_toolchain
-# @com_google_protobuf//:java_toolchain
+# @protobuf//:protobuf_headers
+# @protobuf//:protobuf_java
+# @protobuf//:protobuf_java_util
+# @protobuf//:protoc
+# @protobuf//:protoc_lib
+# @protobuf//:any_proto
+# @protobuf//:descriptor_proto
+# @protobuf//:duration_proto
+# @protobuf//:empty_proto
+# @protobuf//:timestamp_proto
+# @protobuf//:wrappers_proto
+# @protobuf//:cc_toolchain
+# @protobuf//:java_toolchain
 
 # This could be empty because all headers are installed at /usr/include
 # which is the default search path for gcc on Debian.

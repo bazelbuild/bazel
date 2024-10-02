@@ -62,7 +62,7 @@ _java_grpc_gensource = rule(
             default = False,
         ),
         "_protoc": attr.label(
-            default = Label("@com_google_protobuf//:protoc"),
+            default = Label("@protobuf//:protoc"),
             executable = True,
             cfg = "exec",
             allow_single_file = True,
@@ -116,7 +116,7 @@ def java_grpc_library(name, srcs, deps, enable_deprecated = None, visibility = N
             Label("//third_party:jsr305"),
             Label("//third_party/grpc-java:grpc-jar"),
             Label("//third_party:guava"),
-            "@com_google_protobuf//:protobuf_java",
+            "@protobuf//:protobuf_java",
         ] + deps,
         **kwargs
     )
