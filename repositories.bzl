@@ -44,7 +44,6 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "rules_kotlin",
     "rules_license",
     "rules_pkg",
-    "rules_proto",
     "rules_python",
     "zlib",
     "zstd-jni",

@@ -605,7 +605,6 @@ filegroup(
         "@rules_java//:WORKSPACE",
         "@rules_license//:WORKSPACE",
         "@rules_pkg//:WORKSPACE",
-        "@rules_proto//proto:defs",
         "@rules_python//:WORKSPACE",
         "@rules_testing//:LICENSE",
     ] + select({

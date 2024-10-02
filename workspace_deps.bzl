@@ -29,13 +29,6 @@ WORKSPACE_REPOS = {
         "sha256": "dfbadbb37a79eb9e1cc1e156ecb8f817edf3899b28bc02410a6c1eb88b1a6862",
         "urls": ["https://github.com/bazelbuild/rules_java/releases/download/7.12.1/rules_java-7.12.1.tar.gz"],
     },
-    # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
-    "rules_proto": {
-        "archive": "5.3.0-21.7.tar.gz",
-        "sha256": "dc3fb206a2cb3441b485eb1e423165b231235a1ea9b031b4433cf7bc1fa460dd",
-        "strip_prefix": "rules_proto-5.3.0-21.7",
-        "urls": ["https://github.com/bazelbuild/rules_proto/archive/refs/tags/5.3.0-21.7.tar.gz"],
-    },
     "bazel_skylib": {
         "archive": "bazel-skylib-1.6.1.tar.gz",
         "sha256": "9f38886a40548c6e96c106b752f242130ee11aaa068a56ba7e56f4511f33e4f2",
