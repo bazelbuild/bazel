@@ -285,7 +285,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, true)
             .build();
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, semantics);
-    PrecomputedValue.AUTOLOAD_SYMBOLS.set(
+    AutoloadSymbols.AUTOLOAD_SYMBOLS.set(
         differencer, new AutoloadSymbols(ruleClassProvider, semantics));
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(

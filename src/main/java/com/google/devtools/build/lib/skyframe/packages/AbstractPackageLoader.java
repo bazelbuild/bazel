@@ -344,7 +344,7 @@ public abstract class AbstractPackageLoader implements PackageLoader {
     PrecomputedValue.CONFIG_SETTING_VISIBILITY_POLICY
         .set(injectable, ConfigSettingVisibilityPolicy.LEGACY_OFF);
     PrecomputedValue.STARLARK_SEMANTICS.set(injectable, starlarkSemantics);
-    PrecomputedValue.AUTOLOAD_SYMBOLS.set(
+    AutoloadSymbols.AUTOLOAD_SYMBOLS.set(
         injectable, new AutoloadSymbols(ruleClassProvider, starlarkSemantics));
     return new ImmutableDiff(ImmutableList.of(), valuesToInject);
   }

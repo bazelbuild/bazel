@@ -475,7 +475,7 @@ public class PackageFunction implements SkyFunction {
     StarlarkBuiltinsValue starlarkBuiltinsValue;
     try {
       // Bazel: we do autoloads for all BUILD files if enabled
-      AutoloadSymbols autoloadSymbols = PrecomputedValue.AUTOLOAD_SYMBOLS.get(env);
+      AutoloadSymbols autoloadSymbols = AutoloadSymbols.AUTOLOAD_SYMBOLS.get(env);
       if (autoloadSymbols == null) {
         return null;
       }

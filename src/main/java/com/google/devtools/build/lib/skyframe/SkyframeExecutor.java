@@ -1263,7 +1263,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private void setAutoloadsConfiguration(AutoloadSymbols autoloadSymbols) {
-    PrecomputedValue.AUTOLOAD_SYMBOLS.set(injectable(), autoloadSymbols);
+    AutoloadSymbols.AUTOLOAD_SYMBOLS.set(injectable(), autoloadSymbols);
   }
 
   public void setBaselineConfiguration(BuildOptions buildOptions) {
