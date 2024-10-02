@@ -29,6 +29,8 @@ import com.google.devtools.common.options.Converter;
 import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Converters.AssignmentConverter;
 import com.google.devtools.common.options.Converters.BooleanConverter;
+import com.google.devtools.common.options.Converters.ByteSizeConverter;
+import com.google.devtools.common.options.Converters.DurationConverter;
 import com.google.devtools.common.options.EnumConverter;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
@@ -370,6 +372,47 @@ public final class RemoteOptions extends CommonRemoteOptions {
           "A path to a directory where Bazel can read and write actions and action outputs. "
               + "If the directory does not exist, it will be created.")
   public PathFragment diskCache;
+
+  @Option(
+      name = "experimental_disk_cache_gc_idle_delay",
+      defaultValue = "5m",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = DurationConverter.class,
+      help =
+          "How long the server must remain idle before a garbage collection of the disk cache"
+              + " occurs. To specify the garbage collection policy, set"
+              + " --experimental_disk_cache_gc_max_size and/or"
+              + " --experimental_disk_cache_gc_max_age.")
+  public Duration diskCacheGcIdleDelay;
+
+  @Option(
+      name = "experimental_disk_cache_gc_max_size",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = ByteSizeConverter.class,
+      help =
+          "If set to a positive value, the disk cache will be periodically garbage collected to"
+              + " stay under this size. If set in conjunction with"
+              + " --experimental_disk_cache_gc_max_age, both criteria are applied. Garbage"
+              + " collection occurrs in the background once the server has become idle, as"
+              + " determined by the --experimental_disk_cache_gc_idle_delay flag.")
+  public long diskCacheGcMaxSize;
+
+  @Option(
+      name = "experimental_disk_cache_gc_max_age",
+      defaultValue = "0",
+      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+      effectTags = {OptionEffectTag.UNKNOWN},
+      converter = DurationConverter.class,
+      help =
+          "If set to a positive value, the disk cache will be periodically garbage collected to"
+              + " remove entries older than this age. If set in conjunction with"
+              + " --experimental_disk_cache_gc_max_size, both criteria are applied. Garbage"
+              + " collection occurrs in the background once the server has become idle, as"
+              + " determined by the --experimental_disk_cache_gc_idle_delay flag.")
+  public Duration diskCacheGcMaxAge;
 
   @Option(
       name = "experimental_guard_against_concurrent_changes",
