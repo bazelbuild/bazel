@@ -190,22 +190,29 @@ public class StarlarkCustomCommandLine extends CommandLine {
 
     private final int features;
     private final StringificationType stringificationType;
-    @Nullable private final StarlarkSemantics starlarkSemantics; // Null unless map_each is present.
+    // Null unless map_each is present.
+    @Nullable private final StarlarkSemantics starlarkSemantics;
+    // Null unless map_each is a global function.
+    @Nullable private final StarlarkFunction mapEachGlobalFunction;
 
     private VectorArg(
         int features,
         StringificationType stringificationType,
-        @Nullable StarlarkSemantics starlarkSemantics) {
+        @Nullable StarlarkSemantics starlarkSemantics,
+        @Nullable StarlarkFunction mapEachGlobalFunction) {
       this.features = features;
       this.stringificationType = stringificationType;
       this.starlarkSemantics = starlarkSemantics;
+      this.mapEachGlobalFunction = mapEachGlobalFunction;
     }
 
     private static VectorArg create(
         int features,
         StringificationType stringificationType,
-        @Nullable StarlarkSemantics starlarkSemantics) {
-      return intern(new VectorArg(features, stringificationType, starlarkSemantics));
+        @Nullable StarlarkSemantics starlarkSemantics,
+        @Nullable StarlarkFunction mapEachGlobalFunction) {
+      return intern(
+          new VectorArg(features, stringificationType, starlarkSemantics, mapEachGlobalFunction));
     }
 
     @VisibleForSerialization
@@ -234,13 +241,21 @@ public class StarlarkCustomCommandLine extends CommandLine {
       features |= arg.formatJoined != null ? HAS_FORMAT_JOINED : 0;
       features |= arg.terminateWith != null ? HAS_TERMINATE_WITH : 0;
       features |= arg.nestedSet == null && arg.list.size() == 1 ? HAS_SINGLE_ARG : 0;
+      // Intern global Starlark functions in the VectorArg as they can be reused for all rule
+      // instances (and possibly even across multiple Args.add_all calls), saving a slot in
+      // arguments.
+      StarlarkFunction mapEachGlobalFunction =
+          arg.mapEach instanceof StarlarkFunction sfn && sfn.isGlobal() ? sfn : null;
       arguments.add(
           VectorArg.create(
               features,
               arg.nestedSetStringificationType,
-              arg.mapEach != null ? starlarkSemantics : null));
+              arg.mapEach != null ? starlarkSemantics : null,
+              mapEachGlobalFunction));
       if (arg.mapEach != null) {
-        arguments.add(arg.mapEach);
+        if (mapEachGlobalFunction == null) {
+          arguments.add(arg.mapEach);
+        }
         arguments.add(arg.location);
       }
       if (arg.nestedSet != null) {
@@ -303,7 +318,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
       StarlarkCallable mapEach = null;
       Location location = null;
       if ((features & HAS_MAP_EACH) != 0) {
-        mapEach = (StarlarkCallable) arguments.get(argi++);
+        if (mapEachGlobalFunction != null) {
+          mapEach = mapEachGlobalFunction;
+        } else {
+          mapEach = (StarlarkCallable) arguments.get(argi++);
+        }
         location = (Location) arguments.get(argi++);
       }
 
@@ -500,7 +519,11 @@ public class StarlarkCustomCommandLine extends CommandLine {
       StarlarkCallable mapEach = null;
       Location location = null;
       if ((features & HAS_MAP_EACH) != 0) {
-        mapEach = (StarlarkCallable) arguments.get(argi++);
+        if (mapEachGlobalFunction != null) {
+          mapEach = mapEachGlobalFunction;
+        } else {
+          mapEach = (StarlarkCallable) arguments.get(argi++);
+        }
         location = (Location) arguments.get(argi++);
       }
 
@@ -720,6 +743,7 @@ public class StarlarkCustomCommandLine extends CommandLine {
     }
 
     @Override
+    @SuppressWarnings("ReferenceEquality")
     public boolean equals(Object o) {
       if (this == o) {
         return true;
@@ -729,13 +753,19 @@ public class StarlarkCustomCommandLine extends CommandLine {
       }
       return features == that.features
           && stringificationType.equals(that.stringificationType)
-          && Objects.equals(starlarkSemantics, that.starlarkSemantics);
+          && Objects.equals(starlarkSemantics, that.starlarkSemantics)
+          // Use reference equality to avoid resurrecting a weakly-reachable but value-equal
+          // StarlarkFunction instance. Value-equal instances may be created when a .bzl file is
+          // re-evaluated.
+          && mapEachGlobalFunction == that.mapEachGlobalFunction;
     }
 
     @Override
     public int hashCode() {
-      return 31 * HashCodes.hashObjects(stringificationType, starlarkSemantics)
-          + Integer.hashCode(features);
+      int result = HashCodes.hashObjects(stringificationType, starlarkSemantics);
+      result = 31 * result + Integer.hashCode(features);
+      result = 31 * result + System.identityHashCode(mapEachGlobalFunction);
+      return result;
     }
   }
 
