@@ -1031,7 +1031,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
     public boolean getJavaResourcesFromOptimizedJar;
   }
 
-  private final Label sdk;
   private final ConfigurationDistinguisher configurationDistinguisher;
   private final boolean incrementalDexing;
   private final int incrementalDexingShardsAfterProguard;
@@ -1079,7 +1078,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
 
   public AndroidConfiguration(BuildOptions buildOptions) throws InvalidConfigurationException {
     Options options = buildOptions.get(Options.class);
-    this.sdk = options.sdk;
     this.configurationDistinguisher = options.configurationDistinguisher;
     this.incrementalDexing = options.incrementalDexing;
     this.incrementalDexingShardsAfterProguard = options.incrementalDexingShardsAfterProguard;
@@ -1147,14 +1145,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
       throw new InvalidConfigurationException(
           "Java 8 library support requires --desugar_java8 to be enabled.");
     }
-  }
-
-  @StarlarkConfigurationField(
-      name = "android_sdk_label",
-      doc = "Returns the target denoted by the value of the --android_sdk flag",
-      defaultInToolRepository = true)
-  public Label getSdk() {
-    return sdk;
   }
 
   /** Returns whether to use incremental dexing. */
