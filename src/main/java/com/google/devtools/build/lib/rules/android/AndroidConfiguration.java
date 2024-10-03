@@ -235,22 +235,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + "'off' means that all libraries will be linked in mostly static mode.")
     public DynamicMode dynamicMode;
 
-    // Label of filegroup combining all Android tools used as implicit dependencies of
-    // android_* rules
-    // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
-    @Option(
-        name = "android_sdk",
-        defaultValue = "null",
-        converter = LabelConverter.class,
-        documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
-        effectTags = {
-          OptionEffectTag.CHANGES_INPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        help = "Specifies Android SDK/platform that is used to build Android applications.")
-    public Label sdk;
-
     // TODO(bazel-team): Maybe merge this with --android_cpu above.
     // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
     @Option(
