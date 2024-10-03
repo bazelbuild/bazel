@@ -1,12 +1,14 @@
 # Execution Log Parser
 
-This tool is used to inspect and parse the Bazel execution logs.
+This tool is used to inspect and parse the Bazel execution logs. Currently
+supported formats are `binary`, `json`, and `compact`.
+
 To generate the execution log, run e.g.:
 
         bazel build \
-            --execution_log_binary_file=/tmp/exec.log :hello_world
+            --execution_log_compact_file=/tmp/exec.log :hello_world
 
-Then build the parser and run it.
+Then build the parser and run it:
 
         bazel build src/tools/execlog:parser
         bazel-bin/src/tools/execlog/parser --log_path=/tmp/exec.log
