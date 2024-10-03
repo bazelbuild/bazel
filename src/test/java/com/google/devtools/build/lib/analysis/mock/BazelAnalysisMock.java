@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.analysis.mock;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static java.lang.Short.MAX_VALUE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.ImmutableList;
@@ -43,6 +44,7 @@ import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -168,13 +170,14 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "platforms_workspace",
         "local_config_platform_workspace",
         "rules_java_workspace",
+        "rules_python_workspace",
         "protobuf_workspace",
         "third_party/bazel_rules/rules_proto",
         "build_bazel_apple_support",
         "local_config_xcode_workspace",
         "third_party/bazel_rules/rules_cc");
 
-    Runfiles runfiles = Runfiles.create();
+    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
     for (String filename :
         Arrays.asList("tools/jdk/java_toolchain_alias.bzl", "tools/jdk/java_stub_template.txt")) {
       java.nio.file.Path path = Paths.get(runfiles.rlocation("io_bazel/" + filename));
@@ -652,8 +655,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
 
         proto_library(
             name = "well_known_type_proto",
-            srcs = ["well_known_type.proto"],
-        )
+                srcs = ["well_known_type.proto"],
+            )
         """);
     config.create("embedded_tools/objcproto/empty.m");
     config.create("embedded_tools/objcproto/empty.cc");
@@ -662,8 +665,13 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("third_party/bazel_rules/rules_proto/WORKSPACE");
     config.create("third_party/bazel_rules/rules_proto/MODULE.bazel", "module(name='rules_proto')");
 
-    config.create("third_party/bazel_rules/rules_cc/WORKSPACE");
-    config.create("third_party/bazel_rules/rules_cc/MODULE.bazel", "module(name='rules_cc')");
+    // Copies bazel_skylib from real @bazel_skylib (needed by rules_python)
+    PathFragment path = PathFragment.create(runfiles.rlocation("bazel_skylib/lib/paths.bzl"));
+    config.copyDirectory(
+        path.getParentDirectory().getParentDirectory(), "bazel_skylib_workspace", MAX_VALUE, true);
+    config.overwrite("bazel_skylib_workspace/MODULE.bazel", "module(name = 'bazel_skylib')");
+    config.overwrite("bazel_skylib_workspace/lib/BUILD");
+    config.overwrite("bazel_skylib_workspace/rules/BUILD");
 
     config.create(
         "embedded_tools/tools/allowlists/function_transition_allowlist/BUILD",
@@ -829,6 +837,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
             .put("platforms", "platforms_workspace")
             .put("local_config_platform", "local_config_platform_workspace")
             .put("rules_java", "rules_java_workspace")
+            .put("rules_python", "rules_python_workspace")
+            .put("rules_python_internal", "rules_python_internal_workspace")
+            .put("bazel_skylib", "bazel_skylib_workspace")
             .put("protobuf", "protobuf_workspace")
             .put("rules_proto", "third_party/bazel_rules/rules_proto")
             .put("build_bazel_apple_support", "build_bazel_apple_support")

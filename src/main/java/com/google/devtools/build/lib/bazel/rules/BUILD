@@ -136,6 +136,8 @@ gen_workspace_stanza(
         load("@rules_java//java:repositories.bzl", "rules_java_dependencies", "rules_java_toolchains")
         rules_java_dependencies()
         rules_java_toolchains()
+        load("@rules_python//python:repositories.bzl", "py_repositories")
+        py_repositories()
     """,
     preamble = """
         load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")

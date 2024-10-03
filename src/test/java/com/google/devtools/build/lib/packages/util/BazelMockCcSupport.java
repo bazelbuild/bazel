@@ -13,12 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages.util;
 
+import static java.lang.Integer.MAX_VALUE;
+
 import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
 
 /**
@@ -70,6 +74,16 @@ public final class BazelMockCcSupport extends MockCcSupport {
     config.append(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/cpp/BUILD",
         "alias(name='host_xcodes',actual='@local_config_xcode//:host_xcodes')");
+
+    // Copies rules_cc from real @rules_cc
+    config.create("third_party/bazel_rules/rules_cc/WORKSPACE");
+    config.create("third_party/bazel_rules/rules_cc/MODULE.bazel", "module(name='rules_cc')");
+    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
+    PathFragment path = PathFragment.create(runfiles.rlocation("rules_cc/cc/defs.bzl"));
+    config.copyDirectory(
+        path.getParentDirectory(), "third_party/bazel_rules/rules_cc/cc", MAX_VALUE, true);
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/toolchains/BUILD");
+    config.overwrite("third_party/bazel_rules/rules_cc/cc/common/BUILD");
   }
 
   @Override

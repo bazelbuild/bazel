@@ -127,8 +127,10 @@ public class TestConstants {
   /* Prefix for loads from rules_cc */
   public static final String RULES_CC = "@rules_cc//cc";
 
-  /** The repo/package rules_python is rooted at. If empty, builtin rules are used. */
-  public static final String RULES_PYTHON_PACKAGE_ROOT = "";
+  /**
+   * The repo/package rules_python is rooted at. If empty, builtin rules are used.
+   */
+  public static final String RULES_PYTHON_PACKAGE_ROOT = "@@rules_python+/";
 
   public static final ImmutableList<String> DOCS_RULES_PATHS = ImmutableList.of(
       "src/main/java/com/google/devtools/build/lib/rules");

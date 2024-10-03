@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.rules.python;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 import static net.starlark.java.eval.Starlark.NONE;
 
 import com.google.devtools.build.lib.analysis.platform.ToolchainInfo;
@@ -76,6 +77,7 @@ public class PythonToolchainTest extends BuildViewTestCase {
     // A toolchain implementation and an instance of the rule that will use it.
     scratch.file(
         "pkg/BUILD",
+        getPyLoad("py_runtime"),
         "load('" + TOOLCHAIN_BZL + "', 'py_runtime_pair')",
         "load(':rules.bzl', 'myrule')",
         "py_runtime(",

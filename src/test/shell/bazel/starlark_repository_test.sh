@@ -2327,7 +2327,9 @@ EOF
   expect_log "Failed to download repository @.*: download is disabled"
 }
 
-function test_disable_download_should_allow_distdir() {
+# The test is disabled because it downlaods rules_python, used in rules_suffix.WORKSPACE
+# while we can mock_rules_java_to_avoid_downloading, we can't rules_python
+function disabled_test_disable_download_should_allow_distdir() {
   mkdir x
   echo 'exports_files(["file.txt"])' > x/BUILD
   echo 'Hello World' > x/file.txt
@@ -2358,7 +2360,9 @@ EOF
   bazel build --distdir="." --repository_disable_download --repository_cache= --enable_workspace --noenable_bzlmod --incompatible_autoload_externally= //:it || fail "Failed to build"
 }
 
-function test_disable_download_should_allow_local_repository() {
+# The test is disabled because it downlaods rules_python, used in rules_suffix.WORKSPACE
+# while we can mock_rules_java_to_avoid_downloading, we can't rules_python
+function disabled_test_disable_download_should_allow_local_repository() {
   mkdir x
   echo 'exports_files(["file.txt"])' > x/BUILD
   echo 'Hello World' > x/file.txt

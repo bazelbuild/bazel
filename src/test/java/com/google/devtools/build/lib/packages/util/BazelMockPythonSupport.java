@@ -14,9 +14,12 @@
 
 package com.google.devtools.build.lib.packages.util;
 
+import static java.lang.Integer.MAX_VALUE;
+
 import com.google.devtools.build.lib.analysis.Runfiles;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 
 /** Mock python support in Bazel. */
@@ -75,6 +78,51 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "    toolchain_type = ':toolchain_type',",
         ")",
         "exports_files(['precompile.py'])");
+
+    // Copies and mock rules_python from real @rules_python
+    com.google.devtools.build.runfiles.Runfiles runfiles =
+        com.google.devtools.build.runfiles.Runfiles.preload().withSourceRepository("");
+    PathFragment path = PathFragment.create(runfiles.rlocation("rules_python/python/defs.bzl"));
+    config.copyDirectory(
+        path.getParentDirectory().getParentDirectory(), "rules_python_workspace", MAX_VALUE, true);
+
+    config.overwrite(
+        "rules_python_workspace/python/BUILD",
+        "alias(name = 'toolchain_type', actual = '@bazel_tools//tools/python:toolchain_type')",
+        "toolchain_type(name = 'exec_tools_toolchain_type')");
+    config.overwrite("rules_python_workspace/WORKSPACE", "workspace(name = 'rules_python')");
+    config.overwrite("rules_python_workspace/MODULE.bazel", "module(name = 'rules_python')");
+    config.overwrite(
+        "rules_python_workspace/python/private/BUILD",
+        "filegroup(name = 'stage2_bootstrap_template', srcs = ['stage2_bootstrap_template.py'])",
+        "filegroup(name = 'zip_main_template', srcs = ['zip_main_template.py'])",
+        "filegroup(name = 'bootstrap_template', srcs = ['python_bootstrap_template.txt'])");
+    config.overwrite("rules_python_workspace/python/private/common/BUILD");
+    config.overwrite(
+        "rules_python_workspace/python/config_settings/BUILD",
+        "load('@bazel_skylib//rules:common_settings.bzl', 'string_flag')",
+        "string_flag(name = 'python_version', build_setting_default = '3.11')",
+        "string_flag(name = 'precompile', build_setting_default = 'auto')",
+        "string_flag(name = 'pyc_collection', build_setting_default = 'disabled')",
+        "string_flag(name = 'precompile_source_retention', build_setting_default = 'auto')",
+        "string_flag(name = 'bootstrap_impl', build_setting_default = 'system_python')",
+        "string_flag(name = 'precompile_add_to_runfiles', build_setting_default = 'always')");
+
+    config.overwrite("rules_python_workspace/tools/build_defs/python/private/BUILD");
+    config.overwrite("rules_python_workspace/tools/launcher/BUILD", "filegroup(name = 'launcher')");
+
+    config.create(
+        "rules_python_internal_workspace/MODULE.bazel", "module(name = 'rules_python_internal')");
+    config.create("rules_python_internal_workspace/BUILD");
+    config.create(
+        "rules_python_internal_workspace/rules_python_config.bzl",
+        "config = struct(enable_pystar = True)");
+
+    config.create(
+        "rules_python_internal_workspace/py_internal.bzl",
+        "load('@rules_python//tools/build_defs/python/private:py_internal_renamed.bzl',"
+            + " 'py_internal_renamed')",
+        "py_internal_impl = py_internal_renamed");
   }
 
   @Override

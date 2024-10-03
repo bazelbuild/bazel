@@ -58,7 +58,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
     MockProtoSupport.setup(mockToolsConfig);
-    scratch.file(
+    scratch.overwriteFile(
         "third_party/bazel_rules/rules_cc/cc/proto/BUILD",
         "toolchain_type(name = 'toolchain_type', visibility = ['//visibility:public'])");
     scratch.file("protobuf/WORKSPACE");

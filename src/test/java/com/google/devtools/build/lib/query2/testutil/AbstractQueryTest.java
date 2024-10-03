@@ -1731,6 +1731,19 @@ public abstract class AbstractQueryTest<T> {
     helper.writeFile("/workspace/rules_java_workspace/BUILD");
     helper.writeFile("/workspace/rules_java_workspace/WORKSPACE");
     helper.writeFile("/workspace/rules_java_workspace/MODULE.bazel", "module(name='rules_java')");
+    helper.writeFile("/workspace/rules_python_workspace/BUILD");
+    helper.writeFile("/workspace/rules_python_workspace/WORKSPACE");
+    helper.writeFile(
+        "/workspace/rules_python_workspace/MODULE.bazel", "module(name='rules_python')");
+    helper.writeFile("/workspace/rules_python_internal_workspace/BUILD");
+    helper.writeFile("/workspace/rules_python_internal_workspace/WORKSPACE");
+    helper.writeFile(
+        "/workspace/rules_python_internal_workspace/MODULE.bazel",
+        "module(name='rules_python_internal')");
+    helper.writeFile("/workspace/bazel_skylib_workspace/BUILD");
+    helper.writeFile("/workspace/bazel_skylib_workspace/WORKSPACE");
+    helper.writeFile(
+        "/workspace/bazel_skylib_workspace/MODULE.bazel", "module(name='bazel_skylib')");
     helper.writeFile("/workspace/protobuf_workspace/BUILD");
     helper.writeFile("/workspace/protobuf_workspace/WORKSPACE");
     helper.writeFile("/workspace/protobuf_workspace/MODULE.bazel", "module(name='protobuf')");

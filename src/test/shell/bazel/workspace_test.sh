@@ -401,6 +401,8 @@ function test_package_loading_with_remapping_changes() {
   #     oak/
   #       BUILD (:oak)
 
+  echo 'workspace(name="main")' > WORKSPACE  # clean main workspace
+
   mkdir -p flower/daisy
   echo 'workspace(name="flower")' > flower/WORKSPACE
   echo 'sh_library(name="daisy")' > flower/daisy/BUILD

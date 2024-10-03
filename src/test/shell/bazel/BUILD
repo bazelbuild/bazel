@@ -992,8 +992,8 @@ sh_test(
     ],
     shard_count = 22,
     tags = [
-        "block-network",
         "no_windows",
+        "requires-network",  # rules_python are needed and are hard to mock out
     ],
 )
 

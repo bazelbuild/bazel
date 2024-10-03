@@ -57,6 +57,13 @@ class TestBase(absltest.TestCase):
   _worker_proc = None
   _cas_path = None
 
+  def WorkspaceContent(self):
+    with open(
+        self.Rlocation('io_bazel/src/test/py/bazel/default_repos_stanza.txt'),
+        'r',
+    ) as s:
+      return s.readlines()
+
   def setUp(self):
     absltest.TestCase.setUp(self)
     if self._runfiles is None:

@@ -46,7 +46,11 @@ py_library(
 gen_workspace_stanza(
     name = "default_repos_stanza",
     out = "default_repos_stanza.txt",
+    postamble = "load('@rules_python//python:repositories.bzl', 'py_repositories')\n" +
+                "py_repositories()",
+    preamble = "load('@bazel_tools//tools/build_defs/repo:http.bzl', 'http_archive')",
     repos = [
+        "bazel_skylib",
         "rules_license",
         "rules_cc",
         "rules_python",

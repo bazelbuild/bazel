@@ -19,10 +19,10 @@ WORKSPACE_REPOS = {
     # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_cc": {
-        "archive": "rules_cc-0.0.9.tar.gz",
-        "sha256": "2037875b9a4456dce4a79d112a8ae885bbc4aad968e6587dca6e64f3a0900cdf",
-        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.9/rules_cc-0.0.9.tar.gz"],
-        "strip_prefix": "rules_cc-0.0.9",
+        "archive": "rules_cc-0.0.10.tar.gz",
+        "sha256": "65b67b81c6da378f136cc7e7e14ee08d5b9375973427eceb8c773a4f69fa7e49",
+        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.10/rules_cc-0.0.10.tar.gz"],
+        "strip_prefix": "rules_cc-0.0.10",
     },
     "rules_java": {
         "archive": "rules_java-7.12.1.tar.gz",
@@ -47,10 +47,10 @@ WORKSPACE_REPOS = {
         "urls": ["https://github.com/bazelbuild/rules_license/releases/download/0.0.7/rules_license-0.0.7.tar.gz"],
     },
     "rules_python": {
-        "archive": "rules_python-0.24.0.tar.gz",
-        "sha256": "0a8003b044294d7840ac7d9d73eef05d6ceb682d7516781a4ec62eeb34702578",
-        "strip_prefix": "rules_python-0.24.0",
-        "urls": ["https://github.com/bazelbuild/rules_python/releases/download/0.24.0/rules_python-0.24.0.tar.gz"],
+        "archive": "rules_python-0.36.0.tar.gz",
+        "sha256": "ca77768989a7f311186a29747e3e95c936a41dffac779aff6b443db22290d913",
+        "strip_prefix": "rules_python-0.36.0",
+        "urls": ["https://github.com/bazelbuild/rules_python/releases/download/0.36.0/rules_python-0.36.0.tar.gz"],
     },
     "rules_pkg": {
         "archive": "rules_pkg-0.9.1.tar.gz",
