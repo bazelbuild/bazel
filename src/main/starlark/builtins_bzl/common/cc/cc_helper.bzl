@@ -924,7 +924,7 @@ def _expand_make_variables_for_copts(ctx, tokenization, unexpanded_tokens, addit
                 tokens.append(_expand(ctx, token, additional_make_variable_substitutions, targets = targets))
     return tokens
 
-def _get_copts(ctx, attr, feature_configuration, additional_make_variable_substitutions):
+def _get_copts(ctx, feature_configuration, additional_make_variable_substitutions, attr = "copts"):
     if not hasattr(ctx.attr, attr):
         fail("could not find rule attribute named: '{}'".format(attr))
     attribute_copts = getattr(ctx.attr, attr)
