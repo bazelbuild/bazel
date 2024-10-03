@@ -33,6 +33,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 
 /** Fetches remotely stored {@link SkyValue}s by {@link SkyKey}. */
@@ -349,18 +350,28 @@ public final class SkyValueRetriever {
               this.blazeInstallMD5Fingerprint);
     }
 
-    @SuppressWarnings("unused")
-    public byte[] getTopLevelConfigFingerprint() {
-      return topLevelConfigFingerprint;
-    }
-
-    @SuppressWarnings("unused")
-    public byte[] getDirectoryMatcherFingerprint() {
-      return directoryMatcherFingerprint;
+    public byte[] getPrecomputedFingerprint() {
+      return precomputedFingerprint;
     }
 
     public byte[] concat(byte[] input) {
       return Bytes.concat(precomputedFingerprint, input);
+    }
+
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(precomputedFingerprint);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof FrontierNodeVersion that)) {
+        return false;
+      }
+      return Arrays.equals(precomputedFingerprint, that.precomputedFingerprint);
     }
   }
 }

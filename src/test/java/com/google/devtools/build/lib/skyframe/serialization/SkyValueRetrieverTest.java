@@ -544,6 +544,50 @@ public final class SkyValueRetrieverTest implements SerializationStateProvider {
     assertThat(thrown).hasCauseThat().hasMessageThat().contains("error setting value");
   }
 
+  @Test
+  public void frontierNodeVersions_areEqual_ifTupleComponentsAreEqual() {
+    var first =
+        new FrontierNodeVersion("foo", ByteString.copyFromUtf8("bar"), HashCode.fromInt(42));
+    var second =
+        new FrontierNodeVersion("foo", ByteString.copyFromUtf8("bar"), HashCode.fromInt(42));
+
+    assertThat(first.getPrecomputedFingerprint()).isEqualTo(second.getPrecomputedFingerprint());
+    assertThat(first).isEqualTo(second);
+  }
+
+  @Test
+  public void frontierNodeVersions_areNotEqual_ifTopLevelConfigChecksumIsDifferent() {
+    var first =
+        new FrontierNodeVersion("foo", ByteString.copyFromUtf8("bar"), HashCode.fromInt(42));
+    var second =
+        new FrontierNodeVersion("CHANGED", ByteString.copyFromUtf8("bar"), HashCode.fromInt(42));
+
+    assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
+    assertThat(first).isNotEqualTo(second);
+  }
+
+  @Test
+  public void frontierNodeVersions_areNotEqual_ifActiveDirectoriesAreDifferent() {
+    var first =
+        new FrontierNodeVersion("foo", ByteString.copyFromUtf8("bar"), HashCode.fromInt(42));
+    var second =
+        new FrontierNodeVersion("foo", ByteString.copyFromUtf8("CHANGED"), HashCode.fromInt(42));
+
+    assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
+    assertThat(first).isNotEqualTo(second);
+  }
+
+  @Test
+  public void frontierNodeVersions_areNotEqual_ifBlazeInstallMD5IsDifferent() {
+    var first =
+        new FrontierNodeVersion("foo", ByteString.copyFromUtf8("bar"), HashCode.fromInt(42));
+    var second =
+        new FrontierNodeVersion("foo", ByteString.copyFromUtf8("bar"), HashCode.fromInt(9000));
+
+    assertThat(first.getPrecomputedFingerprint()).isNotEqualTo(second.getPrecomputedFingerprint());
+    assertThat(first).isNotEqualTo(second);
+  }
+
   // ---------- Begin SerializationStateProvider implementation ----------
   @Override
   public SerializationState getSerializationState() {
