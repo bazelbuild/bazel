@@ -73,11 +73,11 @@ import com.google.devtools.build.lib.packages.Aspect;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.Target;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.ReportedException;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetEvaluationExceptions.UnreportedException;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
@@ -792,13 +792,14 @@ public final class DependencyResolver {
     }
 
     var configuration = targetAndConfiguration.getConfiguration();
+    var ruleClass = rule.getRuleClassObject();
     boolean useAutoExecGroups =
-        rule.isAttrDefined("$use_auto_exec_groups", Type.BOOLEAN)
-            ? (boolean) rule.getAttr("$use_auto_exec_groups")
-            : configuration.useAutoExecGroups();
+        ruleClass
+            .getAutoExecGroupsMode()
+            .isEnabled(RawAttributeMapper.of(rule), configuration.useAutoExecGroups());
     var platformConfig = configuration.getFragment(PlatformConfiguration.class);
     var defaultExecConstraintLabels = getExecutionPlatformConstraints(rule, platformConfig);
-    var ruleClass = rule.getRuleClassObject();
+
     var processedExecGroups =
         ExecGroupCollection.process(
             ruleClass.getExecGroups(),

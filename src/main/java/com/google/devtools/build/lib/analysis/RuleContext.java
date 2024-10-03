@@ -1080,16 +1080,10 @@ public class RuleContext extends TargetContext
   }
 
   public boolean useAutoExecGroups() {
-    return usesAutoExecGroups(attributes(), getConfiguration());
-  }
-
-  protected static boolean usesAutoExecGroups(
-      AttributeMap attributes, BuildConfigurationValue configuration) {
-    if (attributes.has("$use_auto_exec_groups")) {
-      return attributes.get("$use_auto_exec_groups", Type.BOOLEAN);
-    } else {
-      return configuration.useAutoExecGroups();
-    }
+    return getRule()
+        .getRuleClassObject()
+        .getAutoExecGroupsMode()
+        .isEnabled(attributes(), getConfiguration().useAutoExecGroups());
   }
 
   /**

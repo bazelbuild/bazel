@@ -170,7 +170,7 @@ public final class AspectContext extends RuleContext {
    * from the underlying rule and base aspects prerequisites.
    */
   private static AspectContext createAspectContextWithSeparatedPrerequisites(
-      RuleContext.Builder builder,
+      RuleContext.Builder ruleContextBuilder,
       AttributeMap ruleAttributes,
       ImmutableListMultimap<DependencyKind, ConfiguredTargetAndData> prerequisitesMap,
       ExecGroupCollection execGroupCollection,
@@ -180,7 +180,7 @@ public final class AspectContext extends RuleContext {
     ImmutableSortedKeyListMultimap.Builder<String, ConfiguredTargetAndData>
         ruleAndBaseAspectsPrerequisites = ImmutableSortedKeyListMultimap.builder();
 
-    Aspect mainAspect = Iterables.getLast(builder.getAspects());
+    Aspect mainAspect = Iterables.getLast(ruleContextBuilder.getAspects());
 
     for (Map.Entry<DependencyKind, Collection<ConfiguredTargetAndData>> entry :
         prerequisitesMap.asMap().entrySet()) {
@@ -194,24 +194,28 @@ public final class AspectContext extends RuleContext {
     }
 
     boolean targetUsesAutoExecGroups =
-        RuleContext.usesAutoExecGroups(ruleAttributes, builder.getConfiguration());
+        ruleContextBuilder
+            .getRule()
+            .getRuleClassObject()
+            .getAutoExecGroupsMode()
+            .isEnabled(ruleAttributes, ruleContextBuilder.getConfiguration().useAutoExecGroups());
 
     return new AspectContext(
-        builder,
+        ruleContextBuilder,
         new AspectAwareAttributeMapper(
-            ruleAttributes, mergeAspectsAttributes(builder.getAspects())),
+            ruleAttributes, mergeAspectsAttributes(ruleContextBuilder.getAspects())),
         new PrerequisitesCollection(
             ruleAndBaseAspectsPrerequisites.build(),
-            mergeRuleAndBaseAspectsAttributes(ruleAttributes, builder.getAspects()),
-            builder.getErrorConsumer(),
-            builder.getRule(),
-            builder.getRuleClassNameForLogging()),
+            mergeRuleAndBaseAspectsAttributes(ruleAttributes, ruleContextBuilder.getAspects()),
+            ruleContextBuilder.getErrorConsumer(),
+            ruleContextBuilder.getRule(),
+            ruleContextBuilder.getRuleClassNameForLogging()),
         new PrerequisitesCollection(
             mainAspectPrerequisites.build(),
             mainAspect.getDefinition().getAttributes(),
-            builder.getErrorConsumer(),
-            builder.getRule(),
-            builder.getRuleClassNameForLogging()),
+            ruleContextBuilder.getErrorConsumer(),
+            ruleContextBuilder.getRule(),
+            ruleContextBuilder.getRuleClassNameForLogging()),
         execGroupCollection,
         baseTargetToolchainContexts,
         targetUsesAutoExecGroups);
@@ -265,6 +269,7 @@ public final class AspectContext extends RuleContext {
 
   @Override
   public boolean useAutoExecGroups() {
+    // TODO: b/370558813 - Use AutoExecGroupsMode for aspects, as well.
     ImmutableMap<String, Attribute> aspectAttributes =
         getMainAspect().getDefinition().getAttributes();
     if (aspectAttributes.containsKey("$use_auto_exec_groups")) {
