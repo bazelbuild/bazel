@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.AutoExecGroupsMode;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.util.FileTypeSet;
 
@@ -43,6 +44,7 @@ public class GenRuleBaseRule implements RuleDefinition {
   public RuleClass build(
       RuleClass.Builder builder, RuleDefinitionEnvironment env) {
     return builder
+        .autoExecGroupsMode(AutoExecGroupsMode.DISABLED)
 
         /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(srcs) -->
         A list of inputs for this rule, such as source files to process.
