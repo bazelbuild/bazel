@@ -32,6 +32,7 @@ filegroup(
         ":test-deps-wo-bazel",
         "//src:bazel",
         "//src/test/shell:bin/bazel",
+        "//third_party/protobuf:remove_rules_rust.patch",
     ],
     visibility = [
         "//src/main/starlark/tests/builtins_bzl:__subpackages__",

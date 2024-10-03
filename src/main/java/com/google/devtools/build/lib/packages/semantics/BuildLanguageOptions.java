@@ -727,9 +727,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, proto lang rules define toolchains from rules_proto, rules_java, rules_cc"
-              + " repositories.")
+      help = "If true, proto lang rules define toolchains from protobuf repository.")
   public boolean incompatibleEnableProtoToolchainResolution;
 
   // Flip when java_single_jar is feature complete

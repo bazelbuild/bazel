@@ -356,6 +356,7 @@ public final class MockProtoSupport {
   }
 
   public static void setupWorkspace(MockToolsConfig config) throws IOException {
+    // TODO - ilist@: Remove after Google proto_library doesn't depend on rules_proto
     config.create(
         "third_party/bazel_rules/rules_proto/proto/BUILD",
         """
@@ -367,25 +368,24 @@ public final class MockProtoSupport {
         )
         """);
     config.create(
-        "third_party/bazel_rules/rules_proto/proto/defs.bzl",
+        "protobuf_workspace/bazel/private/BUILD",
         """
-        load(":proto_lang_toolchain.bzl", _proto_lang_toolchain = "proto_lang_toolchain")
+        licenses(["notice"])
 
-        def _add_tags(kargs):
-            if "tags" in kargs:
-                kargs["tags"] += ["__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__"]
-            else:
-                kargs["tags"] = ["__PROTO_RULES_MIGRATION_DO_NOT_USE_WILL_BREAK__"]
-            return kargs
-
+        toolchain_type(
+            name = "proto_toolchain_type",
+            visibility = ["//visibility:public"],
+        )
+        """);
+    config.create("protobuf_workspace/bazel/BUILD");
+    config.create(
+        "protobuf_workspace/bazel/proto_library.bzl",
+        """
         def proto_library(**kargs):
-            native.proto_library(**_add_tags(kargs))
-
-        def proto_lang_toolchain(**kargs):
-            _proto_lang_toolchain(**_add_tags(kargs))
+            native.proto_library(**kargs)
         """);
     config.create(
-        "third_party/bazel_rules/rules_proto/proto/proto_toolchain.bzl",
+        "protobuf_workspace/bazel/toolchains/proto_toolchain.bzl",
         "load(':proto_toolchain_rule.bzl', _proto_toolchain_rule = 'proto_toolchain')",
         "def proto_toolchain(*, name, proto_compiler, exec_compatible_with = []):",
         "  _proto_toolchain_rule(name = name, proto_compiler = proto_compiler)",
@@ -396,8 +396,9 @@ public final class MockProtoSupport {
         "    target_compatible_with = [],",
         "    toolchain = name,",
         "  )");
+    config.create("protobuf_workspace/bazel/toolchains/BUILD");
     config.create(
-        "third_party/bazel_rules/rules_proto/proto/proto_toolchain_rule.bzl",
+        "protobuf_workspace/bazel/toolchains/proto_toolchain_rule.bzl",
         """
 ProtoLangToolchainInfo = proto_common_do_not_use.ProtoLangToolchainInfo
 
@@ -419,7 +420,7 @@ def _impl(ctx):
                 mnemonic = ctx.attr.mnemonic,
                 allowlist_different_package = None,
                 toolchain_type =
-                    "//third_party/bazel_rules/rules_proto/proto:toolchain_type",
+                    "//protobuf/bazel/private:proto_toolchain_type",
             ),
         ),
     ]
@@ -446,7 +447,7 @@ proto_toolchain = rule(
 )
 """);
     config.create(
-        "third_party/bazel_rules/rules_proto/proto/proto_lang_toolchain.bzl",
+        "protobuf_workspace/bazel/toolchains/proto_lang_toolchain.bzl",
         """
         def proto_lang_toolchain(
                 *,

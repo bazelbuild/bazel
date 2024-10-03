@@ -24,12 +24,12 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 public class TestConstants {
 
   public static final String LOAD_PROTO_LIBRARY =
-      "load('@rules_proto//proto:defs.bzl', 'proto_library')";
-  public static final String PROTO_TOOLCHAIN =  "@rules_proto//proto:toolchain_type";
+      "load('@protobuf//bazel:proto_library.bzl', 'proto_library')";
+  public static final String PROTO_TOOLCHAIN = "@protobuf//bazel/private:proto_toolchain_type";
   public static final String LOAD_PROTO_TOOLCHAIN =
-      "load('@rules_proto//proto:proto_toolchain.bzl', 'proto_toolchain')";
+      "load('@protobuf//bazel/toolchains:proto_toolchain.bzl', 'proto_toolchain')";
   public static final String LOAD_PROTO_LANG_TOOLCHAIN =
-      "load('@rules_proto//proto:defs.bzl', 'proto_lang_toolchain')";
+      "load('@protobuf//bazel/toolchains:proto_lang_toolchain.bzl', 'proto_lang_toolchain')";
 
   private TestConstants() {
   }

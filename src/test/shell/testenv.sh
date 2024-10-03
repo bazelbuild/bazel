@@ -583,6 +583,7 @@ function add_rules_python() {
   add_bazel_dep "rules_python" "$1"
 }
 
+# Needed only for java_tools
 function add_rules_proto() {
   add_bazel_dep "rules_proto" "$1"
 }
@@ -593,6 +594,22 @@ function add_rules_license() {
 
 function add_protobuf() {
   add_bazel_dep "protobuf" "$1"
+  mkdir -p third_party/protobuf
+  touch third_party/protobuf/BUILD
+  cp "$(rlocation io_bazel/third_party/protobuf/remove_rules_rust.patch)" third_party/protobuf/remove_rules_rust.patch
+  cat >> "$1" <<EOF
+archive_override(
+    module_name = "protobuf",
+    integrity = "sha256-zF1Z3SMnHqcP1QKIeAoGGZDEARNXRWRgZi70eKldVlc=",
+    patch_strip = 1,
+    # Temporarily patch out rules_rust stuff from protobuf. Not just because we don't need it,
+    # but also because it introduces huge dependency bloat: rules_rust -> aspect_rules_js ->
+    # aspect_rules_lint -> rules_buf.
+    patches = ["//third_party/protobuf:remove_rules_rust.patch"],
+    strip_prefix = "protobuf-3b62052186d39775090fb074adcba078ea622f54",
+    urls = ["https://github.com/protocolbuffers/protobuf/archive/3b62052186d39775090fb074adcba078ea622f54.zip"],
+)
+EOF
 }
 
 function add_rules_testing() {
