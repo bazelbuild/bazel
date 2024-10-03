@@ -33,9 +33,9 @@ function test_verify_lock_file() {
   rm -f MODULE.bazel
   touch MODULE.bazel
   echo 'common --incompatible_use_plus_in_repo_names' > .bazelrc
-  cp $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) MODULE.bazel.lock
-  echo "Running: bazel mod deps --lockfile_mode=error"
-  bazel mod deps --lockfile_mode=error || fail "Default lockfile for empty workspace is no longer in sync with MODULE.tools. Please run \"bazel run //src/test/tools/bzlmod:update_default_lock_file\""
+  echo "Running: bazel mod deps --lockfile_mode=update to generate the lockfile."
+  bazel mod deps --lockfile_mode=update
+  diff -u $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) MODULE.bazel.lock || fail "Default lockfile for empty workspace is no longer in sync with MODULE.tools. Please run \"bazel run //src/test/tools/bzlmod:update_default_lock_file\""
 
   # Verify if python toolchain version matches Bazel's lock file to ensure it's cached in integration tests.
   # Check strings like `"default_version": "3.11"`` for default python version.
@@ -49,6 +49,12 @@ function test_verify_lock_file() {
   if [ "$python_version" != "$python_version_root" ]; then
     fail "Python version in default lockfile does not match root lockfile. Please update Python toolchain version in the root MODULE.bazel file to match."
   fi
+
+  # Verify MODULE.tools with --check_direct_dependencies=error
+  echo "Running: bazel mod deps --check_direct_dependencies for MODULE.tools"
+  cp $(rlocation io_bazel/src/MODULE.tools) MODULE.bazel
+  sed -i.bak '/module(name = "bazel_tools")/d' MODULE.bazel
+  bazel mod deps --check_direct_dependencies=error || fail "Please update MODULE.tools to match the resolved versions."
 }
 
 run_suite "test_verify_lock_file"

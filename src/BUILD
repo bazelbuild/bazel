@@ -10,7 +10,10 @@ load(":rule_size_test.bzl", "rule_size_test")
 
 package(default_applicable_licenses = ["@io_bazel//:license"])
 
-exports_files(["jdeps_modules.golden"])
+exports_files([
+    "jdeps_modules.golden",
+    "MODULE.tools",
+])
 
 md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
 

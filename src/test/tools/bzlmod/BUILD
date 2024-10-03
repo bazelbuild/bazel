@@ -21,6 +21,7 @@ sh_test(
     data = [
         ":MODULE.bazel.lock",
         "//:MODULE.bazel.lock",
+        "//src:MODULE.tools",
         "//src:bazel",
         "//src/test/shell/bazel:test-deps",
     ],
