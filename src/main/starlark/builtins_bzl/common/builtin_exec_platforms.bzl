@@ -110,7 +110,6 @@ def _exec_transition_impl(fragments):
 
 bazel_fragments["AndroidConfiguration.Options"] = fragment(
     propagate = [
-        "//command_line_option:android_sdk",
         "//command_line_option:desugar_for_android",
         "//command_line_option:desugar_java8_libs",
         "//command_line_option:experimental_check_desugar_deps",
