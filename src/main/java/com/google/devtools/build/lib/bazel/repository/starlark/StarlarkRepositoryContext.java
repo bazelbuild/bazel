@@ -169,7 +169,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
 
   private StarlarkPath externalPath(String method, Object pathObject)
       throws EvalException, InterruptedException {
-    StarlarkPath starlarkPath = getPath(method, pathObject);
+    StarlarkPath starlarkPath = getPath(pathObject);
     Path path = starlarkPath.getPath();
     if (packageLocator.getPathEntries().stream().noneMatch(root -> path.startsWith(root.asPath()))
         || path.startsWith(workingDirectory)) {
@@ -212,8 +212,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       })
   public void symlink(Object target, Object linkName, StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath targetPath = getPath("symlink()", target);
-    StarlarkPath linkPath = getPath("symlink()", linkName);
+    StarlarkPath targetPath = getPath(target);
+    StarlarkPath linkPath = getPath(linkName);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newSymlinkEvent(
             targetPath.toString(),
@@ -304,8 +304,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       String watchTemplate,
       StarlarkThread thread)
       throws RepositoryFunctionException, EvalException, InterruptedException {
-    StarlarkPath p = getPath("template()", path);
-    StarlarkPath t = getPath("template()", template);
+    StarlarkPath p = getPath(path);
+    StarlarkPath t = getPath(template);
     Map<String, String> substitutionMap =
         Dict.cast(substitutions, String.class, String.class, "substitutions");
     WorkspaceRuleEvent w =
@@ -442,7 +442,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   public void patch(Object patchFile, StarlarkInt stripI, String watchPatch, StarlarkThread thread)
       throws EvalException, RepositoryFunctionException, InterruptedException {
     int strip = Starlark.toInt(stripI, "strip");
-    StarlarkPath starlarkPath = getPath("patch()", patchFile);
+    StarlarkPath starlarkPath = getPath(patchFile);
     WorkspaceRuleEvent w =
         WorkspaceRuleEvent.newPatchEvent(
             starlarkPath.toString(),
@@ -487,7 +487,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       })
   public void watchTree(Object path)
       throws EvalException, InterruptedException, RepositoryFunctionException {
-    StarlarkPath p = getPath("watch_tree()", path);
+    StarlarkPath p = getPath(path);
     if (!p.isDir()) {
       throw Starlark.errorf("can't call watch_tree() on non-directory %s", p);
     }
