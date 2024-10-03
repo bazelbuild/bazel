@@ -52,7 +52,8 @@ import net.starlark.java.eval.StarlarkSemantics;
  *   <li>Boolean semantic flags can toggle StarlarkMethod-annotated Java methods (or their
  *       parameters) on or off, making them selectively invisible to Starlark. To do this, add a new
  *       entry to {@link BuildLanguageOptions}, then specify the identifier in {@link
- *       StarlarkMethod#enableOnlyWithFlag} or {@link StarlarkMethod#disableWithFlag}.
+ *       net.starlark.java.annot.StarlarkMethod#enableOnlyWithFlag} or {@link
+ *       net.starlark.java.annot.StarlarkMethod#disableWithFlag}.
  * </ul>
  */
 public final class BuildLanguageOptions extends OptionsBase {
@@ -236,6 +237,20 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " href=\"https://bazel.build/rules/lib/globals/module#use_extension\"><code>use_extension</code></a>"
               + " function.")
   public boolean experimentalIsolatedExtensionUsages;
+
+  @Option(
+      name = "incompatible_no_implicit_watch_label",
+      defaultValue = "false",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+      help =
+          "If true, then methods on <code>repository_ctx</code> that are passed a Label will no"
+              + " longer automatically watch the file under that label for changes even if"
+              + " <code>watch = \"no\"</code>, and <code>repository_ctx.path</code> no longer"
+              + " causes the returned path to be watched. Use <code>repository_ctx.watch</code>"
+              + " instead.")
+  public boolean incompatibleNoImplicitWatchLabel;
 
   @Option(
       name = "incompatible_existing_rules_immutable_view",
@@ -788,6 +803,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, experimentalIsolatedExtensionUsages)
             .setBool(
                 INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW, incompatibleExistingRulesImmutableView)
+            .setBool(INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, incompatibleNoImplicitWatchLabel)
             .setBool(EXPERIMENTAL_ACTION_RESOURCE_SET, experimentalActionResourceSet)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
             .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
@@ -902,6 +918,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-experimental_isolated_extension_usages";
   public static final String INCOMPATIBLE_EXISTING_RULES_IMMUTABLE_VIEW =
       "+incompatible_existing_rules_immutable_view";
+  public static final String INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL =
+      "-incompatible_no_implicit_watch_label";
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";
   public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "-experimental_repo_remote_exec";
