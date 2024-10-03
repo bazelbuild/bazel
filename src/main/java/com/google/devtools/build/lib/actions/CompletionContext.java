@@ -18,13 +18,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
+import com.google.devtools.build.lib.actions.FilesetOutputTree.FilesetManifest;
+import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.skyframe.TreeArtifactValue;
@@ -174,10 +174,9 @@ public final class CompletionContext implements ArtifactExpander {
   }
 
   private void visitFileset(Artifact filesetArtifact, ArtifactReceiver receiver) {
-    ImmutableList<FilesetOutputSymlink> links = filesets.get(filesetArtifact).symlinks();
+    FilesetOutputTree filesetOutput = filesets.get(filesetArtifact);
     FilesetManifest filesetManifest =
-        FilesetManifest.constructFilesetManifestWithoutError(
-            links,
+        filesetOutput.constructFilesetManifestWithoutError(
             PathFragment.EMPTY_FRAGMENT,
             fullyResolveFilesetLinks
                 ? RelativeSymlinkBehaviorWithoutError.RESOLVE_FULLY

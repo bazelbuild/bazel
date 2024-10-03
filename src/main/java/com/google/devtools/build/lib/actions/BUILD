@@ -95,10 +95,8 @@ java_library(
         "ExecException.java",
         "Executor.java",
         "FailAction.java",
-        "FilesetManifest.java",
         "FilesetTraversalParams.java",
         "FilesetTraversalParamsFactory.java",
-        "ForbiddenActionInputException.java",
         "FullSpawnMetrics.java",
         "HasDigest.java",
         "InputFileErrorException.java",
@@ -154,7 +152,6 @@ java_library(
         ":commandline_item",
         ":execution_requirements",
         ":file_metadata",
-        ":fileset_output_symlink",
         ":fileset_output_tree",
         ":localhost_capacity",
         ":middleman_type",
@@ -205,7 +202,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//src/main/java/com/google/devtools/common/options",
         "//src/main/java/net/starlark/java/eval",
@@ -403,7 +399,13 @@ java_library(
     name = "fileset_output_tree",
     srcs = ["FilesetOutputTree.java"],
     deps = [
+        ":file_metadata",
         ":fileset_output_symlink",
+        ":forbidden_action_input_exception",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
+        "//third_party:flogger",
         "//third_party:guava",
     ],
 )
@@ -419,6 +421,11 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
     ],
+)
+
+java_library(
+    name = "forbidden_action_input_exception",
+    srcs = ["ForbiddenActionInputException.java"],
 )
 
 java_library(

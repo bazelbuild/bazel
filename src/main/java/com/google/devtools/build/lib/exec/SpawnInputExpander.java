@@ -27,10 +27,10 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionException;
-import com.google.devtools.build.lib.actions.FilesetManifest;
-import com.google.devtools.build.lib.actions.FilesetManifest.ForbiddenRelativeSymlinkException;
-import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.FilesetOutputTree.FilesetManifest;
+import com.google.devtools.build.lib.actions.FilesetOutputTree.ForbiddenRelativeSymlinkException;
+import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehavior;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -189,8 +189,7 @@ public final class SpawnInputExpander {
       throws ForbiddenRelativeSymlinkException {
     Preconditions.checkArgument(filesetArtifact.isFileset(), filesetArtifact);
     FilesetManifest filesetManifest =
-        FilesetManifest.constructFilesetManifest(
-            filesetOutput.symlinks(), location, relSymlinkBehavior);
+        filesetOutput.constructFilesetManifest(location, relSymlinkBehavior);
 
     for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
       String value = mapping.getValue();

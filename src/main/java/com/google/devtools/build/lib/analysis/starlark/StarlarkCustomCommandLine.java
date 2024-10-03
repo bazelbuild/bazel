@@ -37,9 +37,9 @@ import com.google.devtools.build.lib.actions.CommandLineItem;
 import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
-import com.google.devtools.build.lib.actions.FilesetManifest;
-import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehaviorWithoutError;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.FilesetOutputTree.FilesetManifest;
+import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
 import com.google.devtools.build.lib.analysis.actions.PathMappers;
@@ -488,20 +488,19 @@ public class StarlarkCustomCommandLine extends CommandLine {
         List<Object> expandedValues,
         PathMapper pathMapper)
         throws CommandLineExpansionException {
-      ImmutableList<FilesetOutputSymlink> expandedFileSet;
+      FilesetOutputTree filesetOutput;
       try {
-        expandedFileSet = artifactExpander.expandFileset(fileset).symlinks();
+        filesetOutput = artifactExpander.expandFileset(fileset);
       } catch (MissingExpansionException e) {
         throw new CommandLineExpansionException(
             String.format(
-                "Could not expand fileset: %s. Did you forget to add it as an input of the"
-                    + " action?",
+                "Could not expand fileset: %s. Did you forget to add it as an input of the action?",
                 fileset),
             e);
       }
       FilesetManifest filesetManifest =
-          FilesetManifest.constructFilesetManifestWithoutError(
-              expandedFileSet, fileset.getExecPath(), RelativeSymlinkBehaviorWithoutError.IGNORE);
+          filesetOutput.constructFilesetManifestWithoutError(
+              fileset.getExecPath(), RelativeSymlinkBehaviorWithoutError.IGNORE);
       for (PathFragment relativePath : filesetManifest.getEntries().keySet()) {
         PathFragment mappedRelativePath = pathMapper.map(relativePath);
         expandedValues.add(new FilesetSymlinkFile(fileset, mappedRelativePath));
