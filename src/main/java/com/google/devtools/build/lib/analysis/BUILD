@@ -454,8 +454,8 @@ java_library(
         "//third_party:flogger",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
+        "@protobuf//:protobuf_java",
+        "@protobuf//:protobuf_java_util",
     ],
 )
 
@@ -1406,7 +1406,7 @@ java_library(
     srcs = ["actions/ByteStringDeterministicWriter.java"],
     deps = [
         ":actions/deterministic_writer",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -1441,7 +1441,7 @@ java_library(
 java_library(
     name = "actions/deterministic_writer",
     srcs = ["actions/DeterministicWriter.java"],
-    deps = ["//third_party/protobuf:protobuf_java"],
+    deps = ["@protobuf//:protobuf_java"],
 )
 
 java_library(
@@ -1557,7 +1557,7 @@ java_library(
     srcs = ["actions/ProtoDeterministicWriter.java"],
     deps = [
         ":actions/deterministic_writer",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -1764,7 +1764,7 @@ java_library(
         "//third_party:error_prone_annotations",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -2617,7 +2617,7 @@ java_library(
         "//src/main/java/net/starlark/java/annot",
         "//src/main/java/net/starlark/java/eval",
         "//third_party:error_prone_annotations",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 

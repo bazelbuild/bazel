@@ -147,7 +147,7 @@ cc_library(
         "java_tools/ijar/ijar.cc",
     ],
     copts = SUPRESSED_WARNINGS,
-    linkstatic = 1, # provides main()
+    linkstatic = 1,  # provides main()
     deps = [":zip"],
     alwayslink = 1,
 )
@@ -381,7 +381,7 @@ cc_library(
         ":openbsd": ["-lm"],
         "//conditions:default": [],
     }),
-    linkstatic = 1, # provides main()
+    linkstatic = 1,  # provides main()
     deps = [
         ":combiners",
         ":diag",
@@ -394,8 +394,8 @@ cc_library(
 
 cc_binary(
     name = "singlejar_cc_bin",
-    visibility = ["//visibility:public"],
     linkstatic = 1,
+    visibility = ["//visibility:public"],
     deps = [":singlejar_cc_bin_main"],
 )
 
@@ -600,12 +600,12 @@ cc_library(
         ":openbsd": ["-lm"],
         "//conditions:default": [],
     }),
-    linkstatic = 1, # provides main()
+    linkstatic = 1,  # provides main()
     deps = [
         ":allowlist",
         ":duplicate_class_collector",
-        ":one_version",
         ":input_jar",
+        ":one_version",
         ":token_stream",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
@@ -617,8 +617,8 @@ cc_library(
 
 cc_binary(
     name = "one_version_cc_bin",
-    visibility = ["//visibility:public"],
     linkstatic = 1,
+    visibility = ["//visibility:public"],
     deps = [":one_version_cc_bin_main"],
 )
 

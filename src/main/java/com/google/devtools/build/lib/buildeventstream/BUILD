@@ -39,8 +39,8 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:netty",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
+        "@protobuf//:protobuf_java",
+        "@protobuf//:protobuf_java_util",
     ],
 )
 

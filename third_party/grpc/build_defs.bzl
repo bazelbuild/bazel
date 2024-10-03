@@ -3,9 +3,9 @@ You need to load the rules in your BUILD file for use, like:
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 """
 
+load("@protobuf//bazel/common:proto_info.bzl", "ProtoInfo")
 load("@rules_cc//cc:defs.bzl", "cc_library")
 load("@rules_java//java:defs.bzl", "java_library")
-load("@rules_proto//proto:defs.bzl", "ProtoInfo")
 
 def _path_ignoring_repository(f):
     if (len(f.owner.workspace_root) == 0):

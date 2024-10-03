@@ -1,6 +1,6 @@
 load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
 load("@protobuf//bazel:proto_library.bzl", "proto_library")
-load("@rules_python//python:proto.bzl", "py_proto_library")
+load("@protobuf//bazel:py_proto_library.bzl", "py_proto_library")
 load("//third_party/grpc:build_defs.bzl", "java_grpc_library")
 load("//third_party/grpc/bazel:cc_grpc_library.bzl", "cc_grpc_library")
 load("//tools/build_rules:utilities.bzl", "java_library_srcs")

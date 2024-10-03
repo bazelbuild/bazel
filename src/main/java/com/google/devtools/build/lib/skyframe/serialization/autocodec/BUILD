@@ -23,7 +23,7 @@ java_library(
         # Generated classes have the following dependencies.
         ":registered-singleton",
         ":runtime-helpers",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/unsafe:unsafe-provider",
     ],
@@ -136,6 +136,6 @@ java_library(
         "//third_party:guava",
         "//third_party:jsr305",
         "//third_party/java/javapoet",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )

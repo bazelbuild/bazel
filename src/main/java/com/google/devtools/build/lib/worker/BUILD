@@ -22,7 +22,7 @@ java_library(
     deps = [
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:gson",
-        "//third_party/protobuf:protobuf_java_util",
+        "@protobuf//:protobuf_java_util",
     ],
 )
 
@@ -82,7 +82,7 @@ java_library(
         "//src/main/protobuf:worker_protocol_java_proto",
         "//third_party:flogger",
         "//third_party:guava",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -135,8 +135,8 @@ java_11_library(
         "//third_party:error_prone_annotations",
         "//third_party:gson",
         "//third_party:guava",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
+        "@protobuf//:protobuf_java",
+        "@protobuf//:protobuf_java_util",
     ],
 )
 

@@ -142,12 +142,12 @@ java_library(
         "//third_party:netty",
         "//third_party:rxjava3",
         "//third_party/grpc-java:grpc-jar",
-        "//third_party/protobuf:protobuf_java",
-        "//third_party/protobuf:protobuf_java_util",
         "@googleapis//google/bytestream:bytestream_java_grpc",
         "@googleapis//google/bytestream:bytestream_java_proto",
         "@googleapis//google/longrunning:longrunning_java_proto",
         "@googleapis//google/rpc:rpc_java_proto",
+        "@protobuf//:protobuf_java",
+        "@protobuf//:protobuf_java_util",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_grpc",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",
         "@remoteapis//:build_bazel_semver_semver_java_proto",
@@ -273,7 +273,7 @@ java_library(
         "//src/main/protobuf:remote_scrubbing_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 

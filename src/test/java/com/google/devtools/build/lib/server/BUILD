@@ -43,7 +43,6 @@ java_library(
         "//third_party:mockito",
         "//third_party:truth",
         "//third_party/grpc-java:grpc-jar",
-        "//third_party/protobuf:protobuf_java",
         "@protobuf//:protobuf_java",
     ],
 )
