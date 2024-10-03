@@ -1254,6 +1254,7 @@ public final class CcCompilationHelper {
     if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
         || CppFileTypes.CPP_HEADER.matches(sourceFilename)
         || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
+        || CppFileTypes.OBJCPP_SOURCE.matches(sourceFilename)
         || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)) {
       flagsBuilder.addAll(config.getCxxopts());
     }
