@@ -2036,7 +2036,9 @@ public class ModuleFileFunctionTest extends FoundationTestCase {
         ERROR /workspace/MODULE.bazel:5:9: Traceback (most recent call last):
         \tFile "/workspace/MODULE.bazel", line 5, column 9, in <toplevel>
         \t\tuse_repo(ext, bar = 'foo')
-        Error in use_repo: Cannot import repo 'foo' that has been injected into module extension 'ext' at /workspace/MODULE.bazel:4:12. Please refer to @my_repo directly.\
+        Error in use_repo: Cannot import repo 'foo' that has been injected into \
+        module extension 'ext' at /workspace/MODULE.bazel:4:12. Please refer \
+        to @my_repo directly.\
         """);
   }
 }
