@@ -1,3 +1,4 @@
+load("@rules_java//java:defs.bzl", "java_binary", "java_import", "java_plugin")
 load("@rules_python//python:defs.bzl", "py_binary")
 load(":defs.bzl", "run_ijar", "run_singlejar")
 

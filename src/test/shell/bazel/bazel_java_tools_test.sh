@@ -82,6 +82,7 @@ EOF
   # Dependencies of java_tools
   add_platforms "MODULE.bazel"
   add_rules_cc "MODULE.bazel"
+  add_rules_java "MODULE.bazel"
   # TODO - ilist@: point java_tools to protobuf; requires coordinated release of rules_java and java_tools
   add_rules_proto "MODULE.bazel"
   add_rules_license "MODULE.bazel"
