@@ -26,6 +26,7 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.AutoProfiler;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
+import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.worker.Worker;
 import com.google.devtools.build.lib.worker.WorkerKey;
 import com.google.devtools.build.lib.worker.WorkerPool;
@@ -38,7 +39,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -368,7 +368,7 @@ public class ResourceManager implements ResourceEstimator {
    */
   public ResourceHandle acquireResources(
       ActionExecutionMetadata owner, ResourceSet resources, ResourcePriority priority)
-      throws InterruptedException, IOException {
+      throws InterruptedException, IOException, ExecException {
     Preconditions.checkNotNull(
         resources, "acquireResources called with resources == NULL during %s", owner);
     Preconditions.checkState(
@@ -376,6 +376,8 @@ public class ResourceManager implements ResourceEstimator {
 
     ResourceLatch resourceLatch = null;
 
+    // Validate requested resources exist before creating a request.
+    assertResourcesTracked(resources);
     ResourceRequest request =
         new ResourceRequest(owner, resources, priority, requestIdGenerator.getAndIncrement());
 
@@ -590,12 +592,24 @@ public class ResourceManager implements ResourceEstimator {
   }
 
   /** Throws an exception if requested extra resource isn't being tracked */
-  private void assertResourcesTracked(ResourceSet resources) throws NoSuchElementException {
+  private void assertResourcesTracked(ResourceSet resources) throws ExecException {
     for (Map.Entry<String, Double> resource : resources.getResources().entrySet()) {
       String key = resource.getKey();
       if (!availableResources.getResources().containsKey(key)) {
-        throw new NoSuchElementException(
-            "Resource " + key + " is not tracked in this resource set.");
+        StringBuilder message = new StringBuilder();
+        message.append("Resource ");
+        message.append(key);
+        message.append(" is not being tracked by the resource manager.");
+        message.append(" Available resources are: ");
+        message.append(String.join(", ", availableResources.getResources().keySet()));
+        throw new UserExecException(
+            FailureDetails.FailureDetail.newBuilder()
+                .setMessage(message.toString())
+                .setLocalExecution(
+                    FailureDetails.LocalExecution.newBuilder()
+                        .setCode(FailureDetails.LocalExecution.Code.UNTRACKED_RESOURCE)
+                        .build())
+                .build());
       }
     }
   }
@@ -624,10 +638,6 @@ public class ResourceManager implements ResourceEstimator {
     if (workerKey != null && !this.workerPool.hasAvailableQuota(workerKey)) {
       return false;
     }
-
-    // We test for tracking of extra resources whenever acquired and throw an
-    // exception before acquiring any untracked resource.
-    assertResourcesTracked(resources);
 
     if (usedResources.isEmpty() && usedLocalTestCount == 0) {
       return true;
