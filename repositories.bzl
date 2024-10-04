@@ -15,7 +15,7 @@
 
 """
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 
 ##################################################################################
@@ -123,13 +123,4 @@ def embedded_jdk_repositories():
         sha256 = "975603e684f2ec5a525b3b5336d6aa0b09b5b7d2d0d9e271bd6a9892ad550181",
         downloaded_file_path = "zulu-win-arm64.zip",
         url = "https://aka.ms/download-jdk/microsoft-jdk-21.0.0-windows-aarch64.zip",
-    )
-
-def android_deps_repos():
-    """Required by building the android tools."""
-    http_archive(
-        name = "desugar_jdk_libs",
-        sha256 = "ef71be474fbb3b3b7bd70cda139f01232c63b9e1bbd08c058b00a8d538d4db17",
-        strip_prefix = "desugar_jdk_libs-24dcd1dead0b64aae3d7c89ca9646b5dc4068009",
-        url = "https://github.com/google/desugar_jdk_libs/archive/24dcd1dead0b64aae3d7c89ca9646b5dc4068009.zip",
     )
