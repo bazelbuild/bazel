@@ -163,7 +163,7 @@ is prepended with <code>-D</code> and added to the compile command line for this
 but not to its dependents.
 """),
     "copts": attr.string_list(doc = """
-Add these options to the C++ compilation command.
+Add these options to the C/C++ compilation command.
 Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
 <a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
 <p>
@@ -178,6 +178,16 @@ Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
   <code>no_copts_tokenization</code>, Bourne shell tokenization applies only to strings
   that consist of a single "Make" variable.
 </p>
+"""),
+    "conlyopts": attr.string_list(doc = """
+Add these options to the C compilation command.
+Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
+<a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
+"""),
+    "cxxopts": attr.string_list(doc = """
+Add these options to the C++ compilation command.
+Subject to <a href="${link make-variables}">"Make variable"</a> substitution and
+<a href="${link common-definitions#sh-tokenization}">Bourne shell tokenization</a>.
 """),
     "hdrs_check": attr.string(
         doc = "Deprecated, no-op.",
