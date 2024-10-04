@@ -47,7 +47,6 @@ filegroup(
         exclude = ["fastutil.proguard"],
     ) + [
         "//tools/allowlists:srcs",
-        "//tools/android:embedded_tools",
         "//tools/bash:embedded_tools",
         "//tools/build_defs:embedded_tools",
         "//tools/build_rules:embedded_tools_srcs",
@@ -79,7 +78,6 @@ filegroup(
     name = "bzl_srcs",
     srcs = [
         "//tools:build_defs.bzl",
-        "//tools/android:bzl_srcs",
         "//tools/build_defs:bzl_srcs",
         "//tools/build_rules:bzl_srcs",
         "//tools/cpp:bzl_srcs",

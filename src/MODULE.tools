@@ -35,12 +35,6 @@ register_toolchains("@local_config_sh//:local_sh_toolchain")
 remote_coverage_tools_extension = use_extension("//tools/test:extensions.bzl", "remote_coverage_tools_extension")
 use_repo(remote_coverage_tools_extension, "remote_coverage_tools")
 
-remote_android_extensions = use_extension("//tools/android:android_extensions.bzl", "remote_android_tools_extensions")
-use_repo(remote_android_extensions, "android_gmaven_r8", "android_tools")
-
-android_sdk_proxy_extensions = use_extension("//tools/android:android_extensions.bzl", "android_sdk_proxy_extensions")
-use_repo(android_sdk_proxy_extensions, "android_external")
-
 # Used by bazel mod tidy (see BazelModTidyFunction).
 buildozer_binary = use_extension("@buildozer//:buildozer_binary.bzl", "buildozer_binary")
 use_repo(buildozer_binary, "buildozer_binary")

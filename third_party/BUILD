@@ -46,11 +46,6 @@ filegroup(
 )
 
 alias(
-    name = "android-annotations",
-    actual = "@maven_android//:com_android_tools_annotations",
-)
-
-alias(
     name = "apache_commons_collections",
     actual = "@maven//:commons_collections_commons_collections",
 )
