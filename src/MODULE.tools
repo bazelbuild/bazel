@@ -5,7 +5,6 @@
 module(name = "bazel_tools")
 
 bazel_dep(name = "rules_license", version = "0.0.7")
-bazel_dep(name = "rules_proto", version = "6.0.2")
 
 bazel_dep(name = "buildozer", version = "7.1.2")
 bazel_dep(name = "platforms", version = "0.0.10")

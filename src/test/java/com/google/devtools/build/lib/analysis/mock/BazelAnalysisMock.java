@@ -172,7 +172,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "rules_java_workspace",
         "rules_python_workspace",
         "protobuf_workspace",
-        "third_party/bazel_rules/rules_proto",
         "build_bazel_apple_support",
         "local_config_xcode_workspace",
         "third_party/bazel_rules/rules_cc");
@@ -662,9 +661,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("embedded_tools/objcproto/empty.cc");
     config.create("embedded_tools/objcproto/well_known_type.proto");
 
-    config.create("third_party/bazel_rules/rules_proto/WORKSPACE");
-    config.create("third_party/bazel_rules/rules_proto/MODULE.bazel", "module(name='rules_proto')");
-
     // Copies bazel_skylib from real @bazel_skylib (needed by rules_python)
     PathFragment path = PathFragment.create(runfiles.rlocation("bazel_skylib/lib/paths.bzl"));
     config.copyDirectory(
@@ -841,7 +837,6 @@ public final class BazelAnalysisMock extends AnalysisMock {
             .put("rules_python_internal", "rules_python_internal_workspace")
             .put("bazel_skylib", "bazel_skylib_workspace")
             .put("protobuf", "protobuf_workspace")
-            .put("rules_proto", "third_party/bazel_rules/rules_proto")
             .put("build_bazel_apple_support", "build_bazel_apple_support")
             .put("local_config_xcode", "local_config_xcode_workspace")
             .put("rules_cc", "third_party/bazel_rules/rules_cc")
