@@ -373,7 +373,7 @@ sh_test(
     name = "modify_execution_info_test",
     srcs = ["modify_execution_info_test.sh"],
     data = [
-        ":rules_proto_stanza.txt",
+        ":protobuf_stanza.txt",
         ":test-deps",
         "//third_party/zlib",
         "@bazel_tools//tools/bash/runfiles",
