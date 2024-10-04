@@ -927,6 +927,7 @@ java_test(
     name = "StarlarkBuiltinsFunctionTest",
     timeout = "short",
     srcs = ["StarlarkBuiltinsFunctionTest.java"],
+    shard_count = 5,
     deps = [
         ":testutil",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
