@@ -30,7 +30,6 @@ filegroup(
         ["*"],
         exclude = [
             "MODULE.bazel.lock",  # Use MODULE.bazel.lock.dist instead
-            "WORKSPACE.bzlmod",  # Needs to be filtered.
             "bazel-*",  # convenience symlinks
             "out",  # IntelliJ with setup-intellij.sh
             "output",  # output of compile.sh
@@ -38,7 +37,6 @@ filegroup(
         ],
     ) + [
         "//:MODULE.bazel.lock.dist",
-        "//:WORKSPACE.bzlmod.filtered",
         "//examples:srcs",
         "//scripts:srcs",
         "//site:srcs",
@@ -76,17 +74,6 @@ filegroup(
     visibility = [
         "//scripts/packages:__subpackages__",
     ],
-)
-
-genrule(
-    name = "filtered_WORKSPACE",
-    srcs = ["WORKSPACE.bzlmod"],
-    outs = ["WORKSPACE.bzlmod.filtered"],
-    cmd = "\n".join([
-        "cp $< $@",
-        # Comment out the android repos if they exist.
-        "sed -i.bak -e 's/^android_sdk_repository/# android_sdk_repository/' $@",
-    ]),
 )
 
 genrule(
@@ -178,7 +165,6 @@ pkg_tar(
     # TODO(aiuto): Replace with pkg_filegroup when that is available.
     remap_paths = {
         "MODULE.bazel.lock.dist": "MODULE.bazel.lock",
-        "WORKSPACE.bzlmod.filtered": "WORKSPACE.bzlmod",
     },
     strip_prefix = ".",
     # Public but bazel-only visibility.

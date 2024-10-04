@@ -1284,7 +1284,7 @@
     },
     "@@rules_jvm_external+//:extensions.bzl%maven": {
       "general": {
-        "bzlTransitiveDigest": "jeCqJtbejhsER95k9iTcgSqPQBA237FL7V92F15xKNU=",
+        "bzlTransitiveDigest": "6gDYyySuiGewh893nm2Hweq//l1UzIzMRE42K/CxHdc=",
         "usagesDigest": "qKJYV6etgoFANCOF3VJdkgrjFDZ5RDxRLZDWAxccQig=",
         "recordedFileInputs": {
           "@@rules_jvm_external+//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
