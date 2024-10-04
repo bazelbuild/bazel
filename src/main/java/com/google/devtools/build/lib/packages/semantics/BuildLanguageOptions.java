@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.packages.semantics;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -1038,7 +1040,11 @@ public final class BuildLanguageOptions extends OptionsBase {
           FlagConstants.DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY.isEmpty()
               ? ImmutableList.of()
               : ImmutableList.copyOf(
-                  FlagConstants.DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY.split(",")));
+                      FlagConstants.DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY.split(","))
+                  .stream()
+                  .distinct()
+                  .sorted()
+                  .collect(toImmutableList()));
   public static final StarlarkSemantics.Key<List<String>> REPOSITORIES_WITHOUT_AUTOLOAD =
       new StarlarkSemantics.Key<>("repositories_without_autoloads", ImmutableList.of());
   public static final StarlarkSemantics.Key<List<String>> EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE =
