@@ -1,0 +1,59 @@
+diff --git a/python/internal.bzl b/python/internal.bzl
+index 8f99becec..8c667e1ae 100644
+--- a/python/internal.bzl
++++ b/python/internal.bzl
+@@ -1,6 +1,7 @@
+ """
+ Internal helpers for building the Python protobuf runtime.
+ """
++load("@rules_python//python:py_test.bzl", "py_test")
+ 
+ def _remove_cross_repo_path(path):
+     components = path.split("/")
+@@ -123,7 +124,7 @@ def internal_py_test(deps = [], **kwargs):
+       deps: any additional dependencies of the test.
+       **kwargs: arguments forwarded to py_test.
+     """
+-    native.py_test(
++    py_test(
+         imports = ["."],
+         deps = deps + ["//python:python_test_lib"],
+         target_compatible_with = select({
+diff --git a/python/pb_unit_tests/pyproto_test_wrapper.bzl b/python/pb_unit_tests/pyproto_test_wrapper.bzl
+index b5f474d3d..1e2b5daa2 100644
+--- a/python/pb_unit_tests/pyproto_test_wrapper.bzl
++++ b/python/pb_unit_tests/pyproto_test_wrapper.bzl
+@@ -1,8 +1,10 @@
+ """Wrapper for another py_test to run with upb, possibly with a set of expected failures."""
+ 
++load("@rules_python//python:py_test.bzl", "py_test")
++
+ def pyproto_test_wrapper(name, deps = []):
+     src = name + "_wrapper.py"
+-    native.py_test(
++    py_test(
+         name = name,
+         srcs = [src],
+         legacy_create_init = False,
+diff --git a/upb/cmake/build_defs.bzl b/upb/cmake/build_defs.bzl
+index 325189c7f..c7a7a4558 100644
+--- a/upb/cmake/build_defs.bzl
++++ b/upb/cmake/build_defs.bzl
+@@ -7,6 +7,8 @@
+ 
+ """Bazel support functions related to CMake support."""
+ 
++load("@rules_python//python:py_test.bzl", "py_test")
++
+ def staleness_test(name, outs, generated_pattern, target_files = None, tags = [], **kwargs):
+     """Tests that checked-in file(s) match the contents of generated file(s).
+ 
+@@ -46,7 +48,7 @@ def staleness_test(name, outs, generated_pattern, target_files = None, tags = []
+               "sed -i.bak -e 's|INSERT_FILE_LIST_HERE|" + "\\\n  ".join(file_list) + "|' $@",
+     )
+ 
+-    native.py_test(
++    py_test(
+         name = name,
+         srcs = [script_name],
+         data = existing_outs + [generated_pattern % file for file in outs],

@@ -9,6 +9,7 @@ filegroup(
 exports_files([
     "BUILD",
     "remove_rules_rust.patch",
+    "add_python_loads.patch",
 ])
 
 alias(

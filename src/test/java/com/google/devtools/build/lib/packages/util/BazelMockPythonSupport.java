@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.packages.util;
 
+import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
 import static java.lang.Integer.MAX_VALUE;
 
 import com.google.devtools.build.lib.analysis.Runfiles;
@@ -46,8 +47,9 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
     config.create(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/python/BUILD",
         "package(default_visibility=['//visibility:public'])",
+        getPyLoad("py_runtime"),
+        getPyLoad("py_runtime_pair"),
         "load(':python_version.bzl', 'define_python_version_flag')",
-        "load('//tools/python:toolchain.bzl', 'py_runtime_pair')",
         "define_python_version_flag(",
         "    name = 'python_version',",
         ")",
@@ -77,7 +79,7 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "    toolchain = ':default_py_runtime_pair',",
         "    toolchain_type = ':toolchain_type',",
         ")",
-        "exports_files(['precompile.py'])");
+        "exports_files(['precompile.py', 'python_bootstrap_template.txt'])");
 
     // Copies and mock rules_python from real @rules_python
     com.google.devtools.build.runfiles.Runfiles runfiles =
@@ -94,9 +96,11 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
     config.overwrite("rules_python_workspace/MODULE.bazel", "module(name = 'rules_python')");
     config.overwrite(
         "rules_python_workspace/python/private/BUILD",
+        "load('@bazel_skylib//rules:common_settings.bzl', 'bool_setting')",
         "filegroup(name = 'stage2_bootstrap_template', srcs = ['stage2_bootstrap_template.py'])",
         "filegroup(name = 'zip_main_template', srcs = ['zip_main_template.py'])",
-        "filegroup(name = 'bootstrap_template', srcs = ['python_bootstrap_template.txt'])");
+        "filegroup(name = 'bootstrap_template', srcs = ['python_bootstrap_template.txt'])",
+        "bool_setting(name = 'visible_for_testing', build_setting_default = False)");
     config.overwrite("rules_python_workspace/python/private/common/BUILD");
     config.overwrite(
         "rules_python_workspace/python/config_settings/BUILD",
@@ -107,7 +111,7 @@ public final class BazelMockPythonSupport extends MockPythonSupport {
         "string_flag(name = 'precompile_source_retention', build_setting_default = 'auto')",
         "string_flag(name = 'bootstrap_impl', build_setting_default = 'system_python')",
         "string_flag(name = 'precompile_add_to_runfiles', build_setting_default = 'always')");
-
+    config.overwrite("rules_python_workspace/python/private/python_bootstrap_template.txt");
     config.overwrite("rules_python_workspace/tools/build_defs/python/private/BUILD");
     config.overwrite("rules_python_workspace/tools/launcher/BUILD", "filegroup(name = 'launcher')");
 

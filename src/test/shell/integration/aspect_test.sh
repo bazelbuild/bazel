@@ -55,11 +55,6 @@ else
   declare -r EXE_EXT=""
 fi
 
-# Tests in this file do not actually start a Python interpreter, but plug in a
-# fake stub executable to serve as the "interpreter".
-
-use_fake_python_runtimes_for_testsuite
-
 #### TESTS #############################################################
 
 # Tests that a cycle reached via a command-line aspect does not crash.
