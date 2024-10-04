@@ -50,7 +50,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
   def setUp(self):
     test_base.TestBase.setUp(self)
     for f in [
-        'six-1.10.0.tar.gz',
+        'hello-1.0.0.tar.gz',
         'archive_with_symlink.zip',
         'archive_with_symlink.tar.gz',
         'sparse_archive.tar',
@@ -72,45 +72,45 @@ class BazelExternalRepositoryTest(test_base.TestBase):
             ' "http_archive")'
         ),
         'http_archive(',
-        '    name = "six_archive",',
-        '    urls = ["http://%s:%s/six-1.10.0.tar.gz"],' % (ip, port),
+        '    name = "hello_archive",',
+        '    urls = ["http://%s:%s/hello-1.0.0.tar.gz"],' % (ip, port),
         (
             '    sha256 = '
-            '"105f8d68616f8248e24bf0e9372ef04d3cc10104f1980f54d57b2ce73a5ad56a",'
+            '"6d5419eaf96bd5b0667e37df059484aef42b05bbea62cb49ea359ae7b03f2cd3",'
         ),
-        '    strip_prefix = "six-1.10.0",',
-        '    build_file = "@//third_party:six.BUILD",',
+        '    strip_prefix = "hello-1.0.0",',
+        '    build_file = "@//third_party:hello.BUILD",',
         ')',
     ]
     build_file = [
         'py_library(',
-        '  name = "six",',
-        '  srcs = ["six.py"],',
+        '  name = "hello",',
+        '  srcs = ["hello.py"],',
         ')',
     ]
     self.ScratchFile('MODULE.bazel', rule_definition)
     self.ScratchFile('BUILD')
     self.ScratchFile('third_party/BUILD')
-    self.ScratchFile('third_party/six.BUILD', build_file)
+    self.ScratchFile('third_party/hello.BUILD', build_file)
 
-    self.RunBazel(['build', '@six_archive//...'])
+    self.RunBazel(['build', '@hello_archive//...'])
 
     fetching_disabled_msg = 'fetching is disabled'
 
     # Changing the mtime of the BUILD file shouldn't invalidate it.
-    os.utime(self.Path('third_party/six.BUILD'), (100, 200))
-    _, _, stderr = self.RunBazel(['build', '--nofetch', '@six_archive//...'])
+    os.utime(self.Path('third_party/hello.BUILD'), (100, 200))
+    _, _, stderr = self.RunBazel(['build', '--nofetch', '@hello_archive//...'])
     self.assertNotIn(fetching_disabled_msg, os.linesep.join(stderr))
 
     # Check that --nofetch prints a warning if the BUILD file is changed.
-    self.ScratchFile('third_party/six.BUILD', build_file + ['"a noop string"'])
-    _, _, stderr = self.RunBazel(['build', '--nofetch', '@six_archive//...'])
+    self.ScratchFile('third_party/hello.BUILD', build_file + ['"a noop string"'])
+    _, _, stderr = self.RunBazel(['build', '--nofetch', '@hello_archive//...'])
     self.assertIn(fetching_disabled_msg, os.linesep.join(stderr))
 
     # Test repository reloading after BUILD file changes.
-    self.ScratchFile('third_party/six.BUILD', build_file + ['foobar'])
+    self.ScratchFile('third_party/hello.BUILD', build_file + ['foobar'])
     exit_code, _, stderr = self.RunBazel(
-        ['build', '@six_archive//...'], allow_failure=True
+        ['build', '@hello_archive//...'], allow_failure=True
     )
     self.assertEqual(exit_code, 1, os.linesep.join(stderr))
     self.assertIn('name \'foobar\' is not defined', os.linesep.join(stderr))
