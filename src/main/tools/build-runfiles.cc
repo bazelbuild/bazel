@@ -54,15 +54,10 @@
 #include <unistd.h>
 
 #include <map>
-#include <regex>
 #include <string>
 
 // program_invocation_short_name is not portable.
 static const char *argv0;
-
-static const std::regex kEscapedBackslash(R"(\\b)");
-static const std::regex kEscapedNewline(R"(\\n)");
-static const std::regex kEscapedSpace(R"(\\s)");
 
 const char *input_filename;
 const char *output_base_dir;
@@ -107,6 +102,39 @@ struct FileInfo {
 };
 
 typedef std::map<std::string, FileInfo> FileInfoMap;
+
+// Replaces \s, \n, and \b with their respective characters.
+std::string Unescape(const std::string &path) {
+  std::string result;
+  result.reserve(path.size());
+  for (size_t i = 0; i < path.size(); ++i) {
+    if (path[i] == '\\' && i + 1 < path.size()) {
+      switch (path[i + 1]) {
+        case 's': {
+          result.push_back(' ');
+          break;
+        }
+        case 'n': {
+          result.push_back('\n');
+          break;
+        }
+        case 'b': {
+          result.push_back('\\');
+          break;
+        }
+        default: {
+          result.push_back(path[i]);
+          result.push_back(path[i + 1]);
+          break;
+        }
+      }
+      ++i;
+    } else {
+      result.push_back(path[i]);
+    }
+  }
+  return result;
+}
 
 class RunfilesCreator {
  public:
@@ -170,13 +198,8 @@ class RunfilesCreator {
         if (!s) {
           DIE("missing field delimiter at line %d: '%s'\n", lineno, buf);
         }
-        link = std::string(buf + 1, s);
-        link = std::regex_replace(link, kEscapedSpace, " ");
-        link = std::regex_replace(link, kEscapedNewline, "\n");
-        link = std::regex_replace(link, kEscapedBackslash, "\\");
-        target = s + 1;
-        target = std::regex_replace(target, kEscapedNewline, "\n");
-        target = std::regex_replace(target, kEscapedBackslash, "\\");
+        link = Unescape(std::string(buf + 1, s));
+        target = Unescape(s + 1);
       } else {
         // The line is of the form "foo /target/path", with only a single space
         // in the link path.

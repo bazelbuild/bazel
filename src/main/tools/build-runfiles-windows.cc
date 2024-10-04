@@ -20,7 +20,6 @@
 
 #include <fstream>
 #include <iostream>
-#include <regex>
 #include <sstream>
 #include <string>
 #include <unordered_map>
@@ -41,10 +40,6 @@ using std::wstring;
 #endif
 
 namespace {
-
-const std::regex kEscapedBackslash(R"(\\b)");
-const std::regex kEscapedNewline(R"(\\n)");
-const std::regex kEscapedSpace(R"(\\s)");
 
 const wchar_t* manifest_filename;
 const wchar_t* runfiles_base_dir;
@@ -129,6 +124,39 @@ bool ReadSymlink(const wstring& abs_path, wstring* target, wstring* error) {
   return false;
 }
 
+// Replaces \s, \n, and \b with their respective characters.
+std::string Unescape(const std::string &path) {
+  std::string result;
+  result.reserve(path.size());
+  for (size_t i = 0; i < path.size(); ++i) {
+    if (path[i] == '\\' && i + 1 < path.size()) {
+      switch (path[i + 1]) {
+        case 's': {
+          result.push_back(' ');
+          break;
+        }
+        case 'n': {
+          result.push_back('\n');
+          break;
+        }
+        case 'b': {
+          result.push_back('\\');
+          break;
+        }
+        default: {
+          result.push_back(path[i]);
+          result.push_back(path[i + 1]);
+          break;
+        }
+      }
+      ++i;
+    } else {
+      result.push_back(path[i]);
+    }
+  }
+  return result;
+}
+
 }  // namespace
 
 class RunfilesCreator {
@@ -172,14 +200,9 @@ class RunfilesCreator {
         if (idx == string::npos) {
           die(L"Missing separator in manifest line: %hs", line.c_str());
         }
-        std::string link_path = line.substr(1, idx - 1);
-        link_path = std::regex_replace(link_path, kEscapedSpace, " ");
-        link_path = std::regex_replace(link_path, kEscapedNewline, "\n");
-        link_path = std::regex_replace(link_path, kEscapedBackslash, "\\");
+        std::string link_path = Unescape(line.substr(1, idx - 1));
         link = blaze_util::CstringToWstring(link_path);
-        std::string target_path = line.substr(idx + 1);
-        target_path = std::regex_replace(target_path, kEscapedNewline, "\n");
-        target_path = std::regex_replace(target_path, kEscapedBackslash, " ");
+        std::string target_path = Unescape(line.substr(idx + 1));
         target = blaze_util::CstringToWstring(target_path);
       } else {
         string::size_type idx = line.find(' ');

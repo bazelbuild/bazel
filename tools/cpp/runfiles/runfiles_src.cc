@@ -29,7 +29,6 @@
 #include <fstream>
 #include <functional>
 #include <map>
-#include <regex>
 #include <sstream>
 #include <vector>
 
@@ -49,10 +48,6 @@ using std::string;
 using std::vector;
 
 namespace {
-
-const std::regex kEscapedBackslash("\\\\b");
-const std::regex kEscapedNewline("\\\\n");
-const std::regex kEscapedSpace("\\\\s");
 
 bool starts_with(const string& s, const char* prefix) {
   if (!prefix || !*prefix) {
@@ -184,6 +179,39 @@ string GetEnv(const string& key) {
 #endif
 }
 
+// Replaces \s, \n, and \b with their respective characters.
+string Unescape(const string &path) {
+  string result;
+  result.reserve(path.size());
+  for (size_t i = 0; i < path.size(); ++i) {
+    if (path[i] == '\\' && i + 1 < path.size()) {
+      switch (path[i + 1]) {
+        case 's': {
+          result.push_back(' ');
+          break;
+        }
+        case 'n': {
+          result.push_back('\n');
+          break;
+        }
+        case 'b': {
+          result.push_back('\\');
+          break;
+        }
+        default: {
+          result.push_back(path[i]);
+          result.push_back(path[i + 1]);
+          break;
+        }
+      }
+      ++i;
+    } else {
+      result.push_back(path[i]);
+    }
+  }
+  return result;
+}
+
 string Runfiles::Rlocation(const string& path) const {
   return Rlocation(path, source_repository_);
 }
@@ -274,13 +302,8 @@ bool ParseManifest(const string& path, map<string, string>* result,
         }
         return false;
       }
-      source = line.substr(1, idx - 1);
-      source = std::regex_replace(source, kEscapedSpace, " ");
-      source = std::regex_replace(source, kEscapedNewline, "\n");
-      source = std::regex_replace(source, kEscapedBackslash, "\\");
-      target = line.substr(idx + 1);
-      target = std::regex_replace(target, kEscapedNewline, "\n");
-      target = std::regex_replace(target, kEscapedBackslash, "\\");
+      source = Unescape(line.substr(1, idx - 1));
+      target = Unescape(line.substr(idx + 1));
     } else {
       string::size_type idx = line.find(' ');
       if (idx == string::npos) {
