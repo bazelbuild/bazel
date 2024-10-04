@@ -270,6 +270,8 @@ public final class CcCompilationHelper {
   private final List<CppModuleMap> additionalCppModuleMaps = new ArrayList<>();
   private final LinkedHashMap<Artifact, CppSource> compilationUnitSources = new LinkedHashMap<>();
   private ImmutableList<String> copts = ImmutableList.of();
+  private ImmutableList<String> conlyopts = ImmutableList.of();
+  private ImmutableList<String> cxxopts = ImmutableList.of();
   private CoptsFilter coptsFilter = CoptsFilter.alwaysPasses();
   private final Set<String> defines = new LinkedHashSet<>();
   private final Set<String> localDefines = new LinkedHashSet<>();
@@ -592,6 +594,18 @@ public final class CcCompilationHelper {
   /** Sets a pattern that is used to filter copts; set to {@code null} for no filtering. */
   public void setCoptsFilter(CoptsFilter coptsFilter) {
     this.coptsFilter = Preconditions.checkNotNull(coptsFilter);
+  }
+
+  @CanIgnoreReturnValue
+  public CcCompilationHelper setConlyopts(ImmutableList<String> copts) {
+    this.conlyopts = Preconditions.checkNotNull(copts);
+    return this;
+  }
+
+  @CanIgnoreReturnValue
+  public CcCompilationHelper setCxxopts(ImmutableList<String> copts) {
+    this.cxxopts = Preconditions.checkNotNull(copts);
+    return this;
   }
 
   /**
@@ -1247,9 +1261,21 @@ public final class CcCompilationHelper {
 
   private ImmutableList<String> getCopts(Artifact sourceFile, Label sourceLabel) {
     ImmutableList.Builder<String> coptsList = ImmutableList.builder();
-    coptsList.addAll(
-        getCoptsFromOptions(cppConfiguration, semantics, sourceFile.getExecPathString()));
+    String sourceFilename = sourceFile.getExecPathString();
+    coptsList.addAll(getCoptsFromOptions(cppConfiguration, semantics, sourceFilename));
     coptsList.addAll(copts);
+
+    if (CppFileTypes.C_SOURCE.matches(sourceFilename)) {
+      coptsList.addAll(conlyopts);
+    }
+
+    if (CppFileTypes.CPP_SOURCE.matches(sourceFilename)
+        || CppFileTypes.CPP_HEADER.matches(sourceFilename)
+        || CppFileTypes.CPP_MODULE_MAP.matches(sourceFilename)
+        || CppFileTypes.CLIF_INPUT_PROTO.matches(sourceFilename)) {
+      coptsList.addAll(cxxopts);
+    }
+
     if (sourceFile != null && sourceLabel != null) {
       coptsList.addAll(collectPerFileCopts(sourceFile, sourceLabel));
     }

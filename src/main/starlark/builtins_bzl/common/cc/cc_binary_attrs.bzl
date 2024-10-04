@@ -35,6 +35,8 @@ cc_binary_attrs = {
     ),
     "linkopts": attr.string_list(),
     "copts": attr.string_list(),
+    "conlyopts": attr.string_list(),
+    "cxxopts": attr.string_list(),
     "defines": attr.string_list(),
     "local_defines": attr.string_list(),
     "includes": attr.string_list(),
