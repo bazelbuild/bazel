@@ -147,11 +147,6 @@ EOF
 # The specific issue #5104 was caused by file permissions being lost when
 # unzipping runfiles, which led to an unexecutable runtime.
 function test_build_python_zip_works_with_workspace_runtime() {
-  cat > MODULE.bazel << EOF
-module(name="pyzip")
-bazel_dep(name = "rules_python", version = "0.19.0")
-EOF
-
   mkdir -p test
 
   # The runfiles interpreter is either a sh script or bat script depending on
@@ -163,8 +158,7 @@ EOF
   fi
 
   cat > test/BUILD << EOF
-load("@rules_python//python:py_runtime.bzl", "py_runtime")
-load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 
 py_binary(
     name = "pybin",

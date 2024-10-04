@@ -501,7 +501,7 @@ function maybe_setup_python_windows_tools() {
 
   mkdir -p tools/python/windows
   cat > tools/python/windows/BUILD << EOF
-load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -597,7 +597,6 @@ function add_protobuf() {
   mkdir -p third_party/protobuf
   touch third_party/protobuf/BUILD
   cp "$(rlocation io_bazel/third_party/protobuf/remove_rules_rust.patch)" third_party/protobuf/remove_rules_rust.patch
-  cp "$(rlocation io_bazel/third_party/protobuf/add_python_loads.patch)" third_party/protobuf/add_python_loads.patch
   cat >> "$1" <<EOF
 archive_override(
     module_name = "protobuf",
@@ -606,7 +605,7 @@ archive_override(
     # Temporarily patch out rules_rust stuff from protobuf. Not just because we don't need it,
     # but also because it introduces huge dependency bloat: rules_rust -> aspect_rules_js ->
     # aspect_rules_lint -> rules_buf.
-    patches = ["//third_party/protobuf:remove_rules_rust.patch", "//third_party/protobuf:add_python_loads.patch"],
+    patches = ["//third_party/protobuf:remove_rules_rust.patch"],
     strip_prefix = "protobuf-3b62052186d39775090fb074adcba078ea622f54",
     urls = ["https://github.com/protocolbuffers/protobuf/archive/3b62052186d39775090fb074adcba078ea622f54.zip"],
 )
@@ -808,8 +807,7 @@ function use_fake_python_runtimes_for_testsuite() {
   mkdir -p tools/python
 
   cat > tools/python/BUILD << EOF
-load("@rules_python//python:py_runtime.bzl", "py_runtime")
-load("@rules_python//python:py_runtime_pair.bzl", "py_runtime_pair")
+load("@bazel_tools//tools/python:toolchain.bzl", "py_runtime_pair")
 
 package(default_visibility=["//visibility:public"])
 

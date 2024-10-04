@@ -21,6 +21,7 @@ load("@_builtins//:common/java/java_plugin.bzl", "java_plugin")
 load("@_builtins//:common/java/proto/java_proto_library.bzl", "java_proto_library")
 load("@_builtins//:common/proto/proto_library.bzl", "proto_library")
 load("@_builtins//:common/python/py_internal.bzl", "py_internal")
+load("@_builtins//:common/python/py_runtime_macro.bzl", "py_runtime")  # still used in @bazel_tools
 load(":bazel/java/bazel_java_binary.bzl", "java_test")
 load(":bazel/java/bazel_java_binary_wrapper.bzl", "java_binary")
 load(":bazel/sh/sh_library.bzl", "sh_library")
@@ -51,6 +52,7 @@ exported_rules = {
     "java_package_configuration": java_package_configuration,
     "java_runtime": java_runtime,
     "java_toolchain": java_toolchain,
+    "py_runtime": py_runtime,
     "sh_library": sh_library,
 }
 exported_to_java = {}

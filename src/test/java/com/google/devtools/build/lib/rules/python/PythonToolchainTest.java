@@ -35,6 +35,8 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class PythonToolchainTest extends BuildViewTestCase {
 
+  private static final String TOOLCHAIN_BZL =
+      TestConstants.TOOLS_REPOSITORY + "//tools/python:toolchain.bzl";
 
   private static final String TOOLCHAIN_TYPE =
       TestConstants.TOOLS_REPOSITORY + "//tools/python:toolchain_type";
@@ -76,7 +78,7 @@ public class PythonToolchainTest extends BuildViewTestCase {
     scratch.file(
         "pkg/BUILD",
         getPyLoad("py_runtime"),
-        getPyLoad("py_runtime_pair"),
+        "load('" + TOOLCHAIN_BZL + "', 'py_runtime_pair')",
         "load(':rules.bzl', 'myrule')",
         "py_runtime(",
         "    name = 'my_py3_runtime',",
@@ -108,7 +110,7 @@ public class PythonToolchainTest extends BuildViewTestCase {
   public void okToOmitRuntimes() throws Exception {
     scratch.file(
         "pkg/BUILD",
-        getPyLoad("py_runtime_pair"),
+        "load('" + TOOLCHAIN_BZL + "', 'py_runtime_pair')",
         "py_runtime_pair(",
         "    name = 'my_py_runtime_pair',",
         ")");
@@ -123,7 +125,7 @@ public class PythonToolchainTest extends BuildViewTestCase {
     reporter.removeHandler(failFastHandler);
     scratch.file(
         "pkg/BUILD",
-        getPyLoad("py_runtime_pair"),
+        "load('" + TOOLCHAIN_BZL + "', 'py_runtime_pair')",
         "sh_binary(",
         "    name = 'not_a_runtime',",
         "    srcs = ['not_a_runtime.sh'],",

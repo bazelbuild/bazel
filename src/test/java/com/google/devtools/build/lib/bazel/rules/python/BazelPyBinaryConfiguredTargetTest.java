@@ -37,6 +37,9 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
 
+  private static final String TOOLCHAIN_BZL =
+      TestConstants.TOOLS_REPOSITORY + "//tools/python:toolchain.bzl";
+
   private static final String TOOLCHAIN_TYPE =
       TestConstants.TOOLS_REPOSITORY + "//tools/python:toolchain_type";
 
@@ -191,8 +194,7 @@ public class BazelPyBinaryConfiguredTargetTest extends BuildViewTestCase {
   private void defineToolchains() throws Exception {
     scratch.file(
         "toolchains/BUILD",
-        getPyLoad("py_runtime"),
-        getPyLoad("py_runtime_pair"),
+        "load('" + TOOLCHAIN_BZL + "', 'py_runtime_pair')",
         "py_runtime(",
         "    name = 'py3_runtime',",
         "    interpreter_path = '/system/python3',",

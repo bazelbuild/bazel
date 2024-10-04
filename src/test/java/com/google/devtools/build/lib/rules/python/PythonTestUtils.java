@@ -52,7 +52,13 @@ public class PythonTestUtils {
 
   public static String getPyLoad(String symbolName) {
     if (RULES_PYTHON_PACKAGE_ROOT.isEmpty()) {
-      return "";
+      if (symbolName.equals("py_runtime_pair")) {
+        return String.format(
+            "load('%s//tools/python:toolchain.bzl', 'py_runtime_pair')",
+            TestConstants.TOOLS_REPOSITORY);
+      } else {
+        return "";
+      }
     }
     String bzlFilename;
     switch (symbolName) {

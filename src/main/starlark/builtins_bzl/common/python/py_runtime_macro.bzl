@@ -11,24 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""Contains constants that vary between Bazel and Google-internal"""
+"""Macro to wrap the py_runtime rule."""
 
-IMPORTS_ATTR_SUPPORTED = True
+load(":common/python/py_runtime_rule.bzl", py_runtime_rule = "py_runtime")
 
-TOOLS_REPO = "bazel_tools"
-PLATFORMS_LOCATION = "@platforms/"
-
-SRCS_ATTR_ALLOW_FILES = [".py", ".py3"]
-
-DEPS_ATTR_ALLOW_RULES = None
-
-PY_RUNTIME_ATTR_NAME = "_py_interpreter"
-
-BUILD_DATA_SYMLINK_PATH = None
-
-IS_BAZEL = True
-
-NATIVE_RULES_MIGRATION_HELP_URL = "https://github.com/bazelbuild/bazel/issues/17773"
-NATIVE_RULES_MIGRATION_FIX_CMD = "add_python_loads"
-
-ALLOWED_MAIN_EXTENSIONS = [".py"]
+# NOTE: The function name is purposefully selected to match the underlying
+# rule name so that e.g. 'generator_function' shows as the same name so
+# that it is less confusing to users.
+def py_runtime(**kwargs):
+    py_runtime_rule(**kwargs)

@@ -32,7 +32,6 @@ filegroup(
         ":test-deps-wo-bazel",
         "//src:bazel",
         "//src/test/shell:bin/bazel",
-        "//third_party/protobuf:add_python_loads.patch",
         "//third_party/protobuf:remove_rules_rust.patch",
     ],
     visibility = [
