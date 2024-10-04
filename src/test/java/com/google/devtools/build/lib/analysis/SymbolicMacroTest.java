@@ -685,6 +685,11 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     doCannotCallApiTest("existing_rules()", "native.existing_rules()");
   }
 
+  @Test
+  public void macroCannotCallEnvironmentRuleFunction() throws Exception {
+    doCannotCallApiTest("environment rule", "native.environment(name = 'foo')");
+  }
+
   // There are other symbols that must not be called from within symbolic macros, but we don't test
   // them because they can't be obtained from a symbolic macro implementation anyway, since they are
   // not under `native` (at least, for BUILD-loaded .bzl files) and because symbolic macros can't

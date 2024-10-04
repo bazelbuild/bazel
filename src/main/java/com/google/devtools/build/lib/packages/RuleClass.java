@@ -362,9 +362,10 @@ public class RuleClass implements RuleClassData {
       },
 
       /**
-       * Normal rules are instantiable by BUILD files. Their names must therefore obey the rules for
-       * identifiers in the BUILD language. In addition, {@link TargetUtils#isTestRuleName} must
-       * return false for the name.
+       * Normal rules are instantiable by BUILD files, possibly via a macro (symbolic or legacy), in
+       * which case the rule's symbol is namespaced under {@code native}. Normal rule names must
+       * therefore obey the rules for identifiers in the BUILD language. In addition, {@link
+       * TargetUtils#isTestRuleName} must return false for the name.
        */
       NORMAL {
         @Override
@@ -390,6 +391,22 @@ public class RuleClass implements RuleClassData {
                 attribute.getName(),
                 attribute.getType());
           }
+        }
+      },
+
+      /**
+       * Normal rules with the additional restriction that they can only be instantiated by BUILD
+       * files or legacy macros - but not symbolic macros.
+       */
+      BUILD_ONLY {
+        @Override
+        public void checkName(String name) {
+          NORMAL.checkName(name);
+        }
+
+        @Override
+        public void checkAttributes(Map<String, Attribute> attributes) {
+          NORMAL.checkAttributes(attributes);
         }
       },
 
