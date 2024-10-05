@@ -469,7 +469,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
     scratch.file(
         "x/BUILD",
         """
-        java_test(name='j', tags = ['nodeployjar'])
+        sh_test(name='s', srcs = ['foo.sh'])
         test_suite(name='t1')
         test_suite(name='t2', tests=[])
         test_suite(name='t3', tests=['//foo'])
@@ -480,15 +480,15 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
 
     // Things to note:
     // - The '$implicit_tests' attribute is unset unless the 'tests' attribute is unset or empty.
-    // - The '$implicit_tests' attribute's value for t1 and t2 is magically able to contain both j
+    // - The '$implicit_tests' attribute's value for t1 and t2 is magically able to contain both s
     //    and c, even though c is instantiated after t1 and t2 are.
 
     assertThat(attributes(pkg.getRule("t1")).get("$implicit_tests", BuildType.LABEL_LIST))
         .containsExactlyElementsIn(
-            Sets.newHashSet(Label.parseCanonical("//x:c"), Label.parseCanonical("//x:j")));
+            Sets.newHashSet(Label.parseCanonical("//x:c"), Label.parseCanonical("//x:s")));
     assertThat(attributes(pkg.getRule("t2")).get("$implicit_tests", BuildType.LABEL_LIST))
         .containsExactlyElementsIn(
-            Sets.newHashSet(Label.parseCanonical("//x:c"), Label.parseCanonical("//x:j")));
+            Sets.newHashSet(Label.parseCanonical("//x:c"), Label.parseCanonical("//x:s")));
     assertThat(attributes(pkg.getRule("t3")).get("$implicit_tests", BuildType.LABEL_LIST))
         .isEmpty();
     assertThat(attributes(pkg.getRule("t4")).get("$implicit_tests", BuildType.LABEL_LIST))

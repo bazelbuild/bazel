@@ -145,6 +145,7 @@ public final class StarlarkRuleImplementationFunctionsTest extends BuildViewTest
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         genrule(name = 'foo',
           cmd = 'dummy_cmd',
           srcs = ['a.txt', 'b.img'],

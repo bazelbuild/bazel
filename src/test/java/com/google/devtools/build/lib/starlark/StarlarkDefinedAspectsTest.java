@@ -94,7 +94,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
            return []
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
@@ -113,7 +116,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
            return foo()
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
@@ -140,7 +146,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
            return [foo(), bar()]
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
@@ -170,7 +179,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
            return [foo(), bar()]
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
@@ -207,7 +219,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
            return []
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("//test:aspect.bzl%MyAspect"), "//test:xxx");
@@ -233,7 +248,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
         """);
     scratch.file("local/repo/BUILD");
 
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("@local//:aspect.bzl%MyAspect"), "//test:xxx");
@@ -258,7 +276,10 @@ public class StarlarkDefinedAspectsTest extends AnalysisTestCase {
            return []
         MyAspect = aspect(implementation=_impl, fragments=['java'])
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     AnalysisResult analysisResult =
         update(ImmutableList.of("test/aspect.bzl%MyAspect"), "//test:xxx");
@@ -297,6 +318,7 @@ MyAspect = aspect(
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'yyy',
         )
@@ -443,6 +465,7 @@ MyAspect = aspect(
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'xxx',
              srcs = ['A.java'],
@@ -487,6 +510,7 @@ MyAspect = aspect(
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'xxx',
              srcs = ['A.java'],
@@ -551,6 +575,7 @@ my_rule = rule(
         "test/BUILD",
         """
         load('//test:aspect.bzl', 'my_rule')
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'yyy',
         )
@@ -594,6 +619,7 @@ my_rule = rule(
         "test/BUILD",
         """
         load('//test:aspect.bzl', 'my_rule')
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'yyy',
         )
@@ -634,6 +660,7 @@ my_rule = rule(
         "test/BUILD",
         """
         load('//test:inc.bzl', 'r')
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(name = 'j')
         r(name = 'test', a = [':j'])
         """);
@@ -669,6 +696,7 @@ my_rule = rule(
         "test/BUILD",
         """
         load('//test:rule.bzl', 'my_rule')
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'yyy',
         )
@@ -721,6 +749,7 @@ my_rule = rule(
         "test/BUILD",
         """
         load('//test:aspect.bzl', 'my_rule')
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'yyy',
         )
@@ -765,6 +794,7 @@ my_rule = rule(
         "test/BUILD",
         """
         load('//test:aspect.bzl', 'my_rule')
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'yyy',
         )
@@ -798,6 +828,7 @@ my_rule = rule(
         "test/BUILD",
         """
         exports_files(['zzz.jar'])
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'xxx',
              srcs = ['A.java'],
@@ -828,6 +859,7 @@ my_rule = rule(
         "test/BUILD",
         """
         exports_files(['zzz.jar'])
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
              name = 'xxx',
              srcs = ['A.java'],
@@ -854,7 +886,10 @@ my_rule = rule(
 
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -867,7 +902,7 @@ my_rule = rule(
     // Stack doesn't include source lines because we haven't told EvalException
     // how to read from scratch.
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:1:13: in "
+        "ERROR /workspace/test/BUILD:2:13: in "
             + "//test:aspect.bzl%MyAspect aspect on java_library rule //test:xxx: \n"
             + "Traceback (most recent call last):\n"
             + "\tFile \"/workspace/test/aspect.bzl\", line 2, column 13, in _impl\n"
@@ -885,7 +920,10 @@ my_rule = rule(
 
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -911,7 +949,10 @@ my_rule = rule(
 
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -922,7 +963,7 @@ my_rule = rule(
       // expect to fail.
     }
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:1:13: in "
+        "ERROR /workspace/test/BUILD:2:13: in "
             + "//test:aspect.bzl%MyAspect aspect on java_library rule //test:xxx: \n"
             + "The following files have no generating action:\n"
             + "test/missing_in_action.txt");
@@ -1036,7 +1077,10 @@ my_rule = rule(
   @Test
   public void topLevelAspectIsNotAnAspect() throws Exception {
     scratch.file("test/aspect.bzl", "MyAspect = 4");
-    scratch.file("test/BUILD", "java_library(name = 'xxx')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx')");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -1454,7 +1498,10 @@ my_rule = rule(
   @Test
   public void topLevelAspectDoesNotExist() throws Exception {
     scratch.file("test/aspect.bzl", "");
-    scratch.file("test/BUILD", "java_library(name = 'xxx')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx')");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -1469,7 +1516,10 @@ my_rule = rule(
 
   @Test
   public void topLevelAspectDoesNotExist2() throws Exception {
-    scratch.file("test/BUILD", "java_library(name = 'xxx')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx')");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -1484,7 +1534,10 @@ my_rule = rule(
 
   @Test
   public void topLevelAspectDoesNotExistNoBuildFile() throws Exception {
-    scratch.file("test/BUILD", "java_library(name = 'xxx')");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx')");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -2268,6 +2321,7 @@ my_rule = rule(
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         extra_action(
             name = 'xa',
             cmd = 'echo $(EXTRA_ACTION_FILE) > $(output file.xa)',
@@ -2302,6 +2356,7 @@ my_rule = rule(
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         extra_action(
             name = 'xa',
             cmd = 'echo $(EXTRA_ACTION_FILE) > $(output file.xa)',
@@ -2351,6 +2406,7 @@ my_rule = rule(
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = 'tool',
         )
@@ -2699,7 +2755,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
         my_aspect = aspect(_impl, provides = ['foo'])
         a_dict = { 'foo' : attr.label_list(aspects = [my_aspect]) }
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     reporter.removeHandler(failFastHandler);
     try {
@@ -9768,7 +9827,10 @@ r = rule(_r_impl, attrs = { 'dep' : attr.label(aspects = [a])})
            return []
         MyAspect = aspect(implementation=_impl)
         """);
-    scratch.file("test/BUILD", "java_library(name = 'xxx',)");
+    scratch.file(
+        "test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
+        "java_library(name = 'xxx',)");
 
     // Runs a basic analysis to prime test/aspect.bzl in Skyframe.
     AnalysisResult unusedAnalysisResult =
