@@ -683,7 +683,7 @@
     },
     "@@rules_apple+//apple:apple.bzl%provisioning_profile_repository_extension": {
       "general": {
-        "bzlTransitiveDigest": "1+sDjrOFRQw+m/bJZyHjGevTvUxeQHDMmttbwxRuDI8=",
+        "bzlTransitiveDigest": "WM4aEYbCicvHye9kExngAjkF8cLuv2l3GKi74G2eQmA=",
         "usagesDigest": "UhBm5PZa1fF3JVvE+MP5KJ54NVoMseygsrNckeQsUag=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
@@ -1284,11 +1284,10 @@
     },
     "@@rules_jvm_external+//:extensions.bzl%maven": {
       "general": {
-        "bzlTransitiveDigest": "jeCqJtbejhsER95k9iTcgSqPQBA237FL7V92F15xKNU=",
-        "usagesDigest": "TxwWwvPhX2laRh3nyc7qyXrz4mKY0/zGy9fgoMyV50A=",
+        "bzlTransitiveDigest": "6gDYyySuiGewh893nm2Hweq//l1UzIzMRE42K/CxHdc=",
+        "usagesDigest": "qKJYV6etgoFANCOF3VJdkgrjFDZ5RDxRLZDWAxccQig=",
         "recordedFileInputs": {
           "@@rules_jvm_external+//rules_jvm_external_deps_install.json": "cafb5d2d8119391eb2b322ce3840d3352ea82d496bdb8cbd4b6779ec4d044dda",
-          "@@//src/tools/android/maven_android_install.json": "09bff3e33d291336046f7c9201630fb5e014f0e60b78b6f09b84e4f5f73ed04f",
           "@@stardoc+//maven_install.json": "25f3c138ca52c61e0e7a564fe21f5709261b33d78d35427b6c18d7aa202d973b",
           "@@//maven_install.json": "fd1fd0dbe7307e679aa66b8808247d56f683328a65b9ce7768f42b6b293d5e4d"
         },
@@ -1434,30 +1433,6 @@
               "downloaded_file_path": "v1/com/google/api/gax-grpc/2.32.0/gax-grpc-2.32.0.jar"
             }
           },
-          "com_google_jimfs_jimfs_1_1": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "c4828e28d7c0a930af9387510b3bada7daa5c04d7c25a75c7b8b081f1c257ddd",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/google/jimfs/jimfs/1.1/jimfs-1.1.jar",
-                "https://repo1.maven.org/maven2/com/google/jimfs/jimfs/1.1/jimfs-1.1.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/jimfs/jimfs/1.1/jimfs-1.1.jar"
-            }
-          },
-          "com_googlecode_json_simple_json_simple_1_1": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "2d9484f4c649f708f47f9a479465fc729770ee65617dca3011836602264f6439",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/googlecode/json-simple/json-simple/1.1/json-simple-1.1.jar",
-                "https://repo1.maven.org/maven2/com/googlecode/json-simple/json-simple/1.1/json-simple-1.1.jar"
-              ],
-              "downloaded_file_path": "v1/com/googlecode/json-simple/json-simple/1.1/json-simple-1.1.jar"
-            }
-          },
           "com_github_kevinstern_software_and_algorithms_1_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -1494,18 +1469,6 @@
               "downloaded_file_path": "v1/org/reactivestreams/reactive-streams/1.0.3/reactive-streams-1.0.3.jar"
             }
           },
-          "com_android_tools_annotations_30_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "630ab4c6f211fa1c0f5c884152cb6311360f1b796442196c287a658645a99645",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/annotations/30.1.3/annotations-30.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/annotations/30.1.3/annotations-30.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/annotations/30.1.3/annotations-30.1.3.jar"
-            }
-          },
           "com_google_escapevelocity_escapevelocity_1_1": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -1526,18 +1489,6 @@
                 "https://repo1.maven.org/maven2/io/grpc/grpc-api/1.56.1/grpc-api-1.56.1.jar"
               ],
               "downloaded_file_path": "v1/io/grpc/grpc-api/1.56.1/grpc-api-1.56.1.jar"
-            }
-          },
-          "org_ow2_asm_asm_util_9_1": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "380e2ecd16f7cc0f1a76ba9ba049179b5760a57b282a87a4c653caeff2cd5bd6",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/ow2/asm/asm-util/9.1/asm-util-9.1.jar",
-                "https://repo1.maven.org/maven2/org/ow2/asm/asm-util/9.1/asm-util-9.1.jar"
-              ],
-              "downloaded_file_path": "v1/org/ow2/asm/asm-util/9.1/asm-util-9.1.jar"
             }
           },
           "org_ow2_asm_asm_util_9_2": {
@@ -1610,18 +1561,6 @@
               "downloaded_file_path": "v1/javax/activation/javax.activation-api/1.2.0/javax.activation-api-1.2.0.jar"
             }
           },
-          "it_unimi_dsi_fastutil_8_4_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "2ad2824a4a0a0eb836b52ee2fc84ba2134f44bce7bfa54015ae3f31c710a3071",
-              "urls": [
-                "https://dl.google.com/android/maven2/it/unimi/dsi/fastutil/8.4.0/fastutil-8.4.0.jar",
-                "https://repo1.maven.org/maven2/it/unimi/dsi/fastutil/8.4.0/fastutil-8.4.0.jar"
-              ],
-              "downloaded_file_path": "v1/it/unimi/dsi/fastutil/8.4.0/fastutil-8.4.0.jar"
-            }
-          },
           "io_netty_netty_tcnative_classes_2_0_61_Final": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -1632,30 +1571,6 @@
                 "https://repo.maven.apache.org/maven2/io/netty/netty-tcnative-classes/2.0.61.Final/netty-tcnative-classes-2.0.61.Final.jar"
               ],
               "downloaded_file_path": "v1/io/netty/netty-tcnative-classes/2.0.61.Final/netty-tcnative-classes-2.0.61.Final.jar"
-            }
-          },
-          "com_android_tools_build_manifest_merger_30_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "fb04445bd588ccd27dacd5e139abed42246f55e6785eebf66659857233207fac",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/build/manifest-merger/30.1.3/manifest-merger-30.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/build/manifest-merger/30.1.3/manifest-merger-30.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/build/manifest-merger/30.1.3/manifest-merger-30.1.3.jar"
-            }
-          },
-          "org_glassfish_jaxb_jaxb_runtime_2_3_2": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "e6e0a1e89fb6ff786279e6a0082d5cef52dc2ebe67053d041800737652b4fd1b",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.jar",
-                "https://repo1.maven.org/maven2/org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.jar"
-              ],
-              "downloaded_file_path": "v1/org/glassfish/jaxb/jaxb-runtime/2.3.2/jaxb-runtime-2.3.2.jar"
             }
           },
           "com_google_guava_guava_31_1_jre": {
@@ -1738,18 +1653,6 @@
               "downloaded_file_path": "v1/com/google/testparameterinjector/test-parameter-injector/1.16/test-parameter-injector-1.16.jar"
             }
           },
-          "org_apache_httpcomponents_httpcore_4_4_10": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "78ba1096561957db1b55200a159b648876430342d15d461277e62360da19f6fd",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/apache/httpcomponents/httpcore/4.4.10/httpcore-4.4.10.jar",
-                "https://repo1.maven.org/maven2/org/apache/httpcomponents/httpcore/4.4.10/httpcore-4.4.10.jar"
-              ],
-              "downloaded_file_path": "v1/org/apache/httpcomponents/httpcore/4.4.10/httpcore-4.4.10.jar"
-            }
-          },
           "io_grpc_grpc_stub_1_66_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -1760,30 +1663,6 @@
                 "https://repo.maven.apache.org/maven2/io/grpc/grpc-stub/1.66.0/grpc-stub-1.66.0.jar"
               ],
               "downloaded_file_path": "v1/io/grpc/grpc-stub/1.66.0/grpc-stub-1.66.0.jar"
-            }
-          },
-          "com_android_tools_build_builder_model_7_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "232604983a99b8372eb1a93e5183d48fc8fc69239e5e6229170be0e3320df430",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/build/builder-model/7.1.3/builder-model-7.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/build/builder-model/7.1.3/builder-model-7.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/build/builder-model/7.1.3/builder-model-7.1.3.jar"
-            }
-          },
-          "com_android_zipflinger_7_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "c6ed9458f3a85c847f168a7e3719bbd1e7484b97ec00096122ac8a9c4141665f",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/zipflinger/7.1.3/zipflinger-7.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/zipflinger/7.1.3/zipflinger-7.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/zipflinger/7.1.3/zipflinger-7.1.3.jar"
             }
           },
           "io_netty_netty_handler_4_1_100_Final": {
@@ -1841,18 +1720,6 @@
                 "https://repo.maven.apache.org/maven2/org/apache/commons/commons-math3/3.6.1/commons-math3-3.6.1.jar"
               ],
               "downloaded_file_path": "v1/org/apache/commons/commons-math3/3.6.1/commons-math3-3.6.1.jar"
-            }
-          },
-          "com_android_tools_build_builder_7_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "4b33ed3941563ffc67f8aeedc480aafd958ec6cd1fe661f0b2b5b0d9c1423649",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/build/builder/7.1.3/builder-7.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/build/builder/7.1.3/builder-7.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/build/builder/7.1.3/builder-7.1.3.jar"
             }
           },
           "software_amazon_awssdk_auth_2_20_128": {
@@ -1917,30 +1784,6 @@
               "aar_import_bzl_label": "@build_bazel_rules_android//android:rules.bzl",
               "duplicate_version_warning": "warn",
               "ignore_empty_files": false
-            }
-          },
-          "com_sun_istack_istack_commons_runtime_3_0_8": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "4ffabb06be454a05e4398e20c77fa2b6308d4b88dfbef7ca30a76b5b7d5505ef",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/sun/istack/istack-commons-runtime/3.0.8/istack-commons-runtime-3.0.8.jar",
-                "https://repo1.maven.org/maven2/com/sun/istack/istack-commons-runtime/3.0.8/istack-commons-runtime-3.0.8.jar"
-              ],
-              "downloaded_file_path": "v1/com/sun/istack/istack-commons-runtime/3.0.8/istack-commons-runtime-3.0.8.jar"
-            }
-          },
-          "com_google_protobuf_protobuf_java_3_10_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "161d7d61a8cb3970891c299578702fd079646e032329d6c2cabf998d191437c9",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/google/protobuf/protobuf-java/3.10.0/protobuf-java-3.10.0.jar",
-                "https://repo1.maven.org/maven2/com/google/protobuf/protobuf-java/3.10.0/protobuf-java-3.10.0.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/protobuf/protobuf-java/3.10.0/protobuf-java-3.10.0.jar"
             }
           },
           "io_grpc_grpc_netty_shaded_1_56_1": {
@@ -2239,18 +2082,6 @@
               "downloaded_file_path": "v1/com/google/auto/value/auto-value-annotations/1.11.0/auto-value-annotations-1.11.0.jar"
             }
           },
-          "com_android_tools_analytics_library_protos_30_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "6c7c2fc5ea590797db1532d7879b717cdd6328c8f74c0e32ddccdf392e94ffe6",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/analytics-library/protos/30.1.3/protos-30.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/analytics-library/protos/30.1.3/protos-30.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/analytics-library/protos/30.1.3/protos-30.1.3.jar"
-            }
-          },
           "org_checkerframework_checker_qual_3_42_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -2273,18 +2104,6 @@
                 "https://repo.maven.apache.org/maven2/org/ow2/asm/asm/9.6/asm-9.6.jar"
               ],
               "downloaded_file_path": "v1/org/ow2/asm/asm/9.6/asm-9.6.jar"
-            }
-          },
-          "com_android_signflinger_7_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "899a4da318f83e6e8e64d3a51bf97add91b4c642a52f7162d3333c2f74ff4555",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/signflinger/7.1.3/signflinger-7.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/signflinger/7.1.3/signflinger-7.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/signflinger/7.1.3/signflinger-7.1.3.jar"
             }
           },
           "com_google_api_gax_httpjson_2_32_0": {
@@ -2321,18 +2140,6 @@
               "downloaded_file_path": "v1/org/checkerframework/checker-compat-qual/2.5.3/checker-compat-qual-2.5.3.jar"
             }
           },
-          "com_android_tools_repository_30_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "11e2489f49f45b7709d080c2a82691ba42cfe8e13d3ac55487592fb550adb597",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/repository/30.1.3/repository-30.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/repository/30.1.3/repository-30.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/repository/30.1.3/repository-30.1.3.jar"
-            }
-          },
           "software_amazon_awssdk_apache_client_2_20_128": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -2350,7 +2157,6 @@
             "attributes": {
               "sha256": "cda4de455fab48ff0bcb7c48b4639447d4de859a7afc30a094a986f0936beba2",
               "urls": [
-                "https://dl.google.com/android/maven2/org/ow2/asm/asm/9.1/asm-9.1.jar",
                 "https://repo1.maven.org/maven2/org/ow2/asm/asm/9.1/asm-9.1.jar"
               ],
               "downloaded_file_path": "v1/org/ow2/asm/asm/9.1/asm-9.1.jar"
@@ -2391,18 +2197,6 @@
               "downloaded_file_path": "v1/com/google/oauth-client/google-oauth-client/1.34.1/google-oauth-client-1.34.1.jar"
             }
           },
-          "org_bouncycastle_bcprov_jdk15on_1_56": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "963e1ee14f808ffb99897d848ddcdb28fa91ddda867eb18d303e82728f878349",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/bouncycastle/bcprov-jdk15on/1.56/bcprov-jdk15on-1.56.jar",
-                "https://repo1.maven.org/maven2/org/bouncycastle/bcprov-jdk15on/1.56/bcprov-jdk15on-1.56.jar"
-              ],
-              "downloaded_file_path": "v1/org/bouncycastle/bcprov-jdk15on/1.56/bcprov-jdk15on-1.56.jar"
-            }
-          },
           "com_google_flogger_flogger_system_backend_0_5_1": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -2425,18 +2219,6 @@
                 "https://repo.maven.apache.org/maven2/io/grpc/grpc-netty/1.66.0/grpc-netty-1.66.0.jar"
               ],
               "downloaded_file_path": "v1/io/grpc/grpc-netty/1.66.0/grpc-netty-1.66.0.jar"
-            }
-          },
-          "org_jetbrains_kotlin_kotlin_reflect_1_4_32": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "dbf19e9cdaa9c3c170f3f6f6ce3922f38dfc1d7fa1cab5b7c23a19da8b5eec5b",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/jetbrains/kotlin/kotlin-reflect/1.4.32/kotlin-reflect-1.4.32.jar",
-                "https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-reflect/1.4.32/kotlin-reflect-1.4.32.jar"
-              ],
-              "downloaded_file_path": "v1/org/jetbrains/kotlin/kotlin-reflect/1.4.32/kotlin-reflect-1.4.32.jar"
             }
           },
           "com_google_cloud_google_cloud_core_grpc_2_22_0": {
@@ -2474,18 +2256,6 @@
               "downloaded_file_path": "v1/net/sf/jopt-simple/jopt-simple/5.0.4/jopt-simple-5.0.4.jar"
             }
           },
-          "androidx_databinding_databinding_compiler_3_4_0_alpha10": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "2d741da6cc20a3f0136b6fdce6babf92d8b5115b37b05c61dd8ce6832499d629",
-              "urls": [
-                "https://dl.google.com/android/maven2/androidx/databinding/databinding-compiler/3.4.0-alpha10/databinding-compiler-3.4.0-alpha10.jar",
-                "https://repo1.maven.org/maven2/androidx/databinding/databinding-compiler/3.4.0-alpha10/databinding-compiler-3.4.0-alpha10.jar"
-              ],
-              "downloaded_file_path": "v1/androidx/databinding/databinding-compiler/3.4.0-alpha10/databinding-compiler-3.4.0-alpha10.jar"
-            }
-          },
           "io_netty_netty_transport_classes_kqueue_4_1_100_Final": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -2498,18 +2268,6 @@
               "downloaded_file_path": "v1/io/netty/netty-transport-classes-kqueue/4.1.100.Final/netty-transport-classes-kqueue-4.1.100.Final.jar"
             }
           },
-          "net_sf_jopt_simple_jopt_simple_4_9": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "26c5856e954b5f864db76f13b86919b59c6eecf9fd930b96baa8884626baf2f5",
-              "urls": [
-                "https://dl.google.com/android/maven2/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.jar",
-                "https://repo1.maven.org/maven2/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.jar"
-              ],
-              "downloaded_file_path": "v1/net/sf/jopt-simple/jopt-simple/4.9/jopt-simple-4.9.jar"
-            }
-          },
           "com_google_cloud_google_cloud_storage_2_26_1": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -2519,18 +2277,6 @@
                 "https://repo1.maven.org/maven2/com/google/cloud/google-cloud-storage/2.26.1/google-cloud-storage-2.26.1.jar"
               ],
               "downloaded_file_path": "v1/com/google/cloud/google-cloud-storage/2.26.1/google-cloud-storage-2.26.1.jar"
-            }
-          },
-          "jakarta_activation_jakarta_activation_api_1_2_1": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "8b0a0f52fa8b05c5431921a063ed866efaa41dadf2e3a7ee3e1961f2b0d9645b",
-              "urls": [
-                "https://dl.google.com/android/maven2/jakarta/activation/jakarta.activation-api/1.2.1/jakarta.activation-api-1.2.1.jar",
-                "https://repo1.maven.org/maven2/jakarta/activation/jakarta.activation-api/1.2.1/jakarta.activation-api-1.2.1.jar"
-              ],
-              "downloaded_file_path": "v1/jakarta/activation/jakarta.activation-api/1.2.1/jakarta.activation-api-1.2.1.jar"
             }
           },
           "org_osgi_org_osgi_service_repository_1_1_0": {
@@ -2567,30 +2313,6 @@
               "downloaded_file_path": "v1/software/amazon/awssdk/utils/2.20.128/utils-2.20.128.jar"
             }
           },
-          "com_android_tools_common_30_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "194ea15f8b182cca975544fb97d92bc1c6ceb6059f35250a5971ac3c306ebdcc",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/common/30.1.3/common-30.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/common/30.1.3/common-30.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/common/30.1.3/common-30.1.3.jar"
-            }
-          },
-          "org_apache_httpcomponents_httpmime_4_5_6": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "0b2b1102c18d3c7e05a77214b9b7501a6f6056174ae5604e0e256776eda7553e",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.jar",
-                "https://repo1.maven.org/maven2/org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.jar"
-              ],
-              "downloaded_file_path": "v1/org/apache/httpcomponents/httpmime/4.5.6/httpmime-4.5.6.jar"
-            }
-          },
           "io_netty_netty_resolver_4_1_94_Final": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -2614,18 +2336,6 @@
               "downloaded_file_path": "v1/com/github/ben-manes/caffeine/caffeine/3.0.5/caffeine-3.0.5.jar"
             }
           },
-          "org_apache_httpcomponents_httpclient_4_5_6": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "c03f813195e7a80e3608d0ddd8da80b21696a4c92a6a2298865bf149071551c7",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/apache/httpcomponents/httpclient/4.5.6/httpclient-4.5.6.jar",
-                "https://repo1.maven.org/maven2/org/apache/httpcomponents/httpclient/4.5.6/httpclient-4.5.6.jar"
-              ],
-              "downloaded_file_path": "v1/org/apache/httpcomponents/httpclient/4.5.6/httpclient-4.5.6.jar"
-            }
-          },
           "org_threeten_threetenbp_1_6_8": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -2647,18 +2357,6 @@
                 "https://repo.maven.apache.org/maven2/com/google/re2j/re2j/1.7/re2j-1.7.jar"
               ],
               "downloaded_file_path": "v1/com/google/re2j/re2j/1.7/re2j-1.7.jar"
-            }
-          },
-          "com_google_errorprone_error_prone_annotations_2_3_4": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "baf7d6ea97ce606c53e11b6854ba5f2ce7ef5c24dddf0afa18d1260bd25b002c",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/google/errorprone/error_prone_annotations/2.3.4/error_prone_annotations-2.3.4.jar",
-                "https://repo1.maven.org/maven2/com/google/errorprone/error_prone_annotations/2.3.4/error_prone_annotations-2.3.4.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/errorprone/error_prone_annotations/2.3.4/error_prone_annotations-2.3.4.jar"
             }
           },
           "org_osgi_org_osgi_util_tracker_1_5_4": {
@@ -2795,7 +2493,6 @@
             "attributes": {
               "sha256": "21af30c92267bd6122c0e0b4d20cccb6641a37eaf956c6540ec471d584e64a7b",
               "urls": [
-                "https://dl.google.com/android/maven2/com/google/j2objc/j2objc-annotations/1.3/j2objc-annotations-1.3.jar",
                 "https://repo1.maven.org/maven2/com/google/j2objc/j2objc-annotations/1.3/j2objc-annotations-1.3.jar"
               ],
               "downloaded_file_path": "v1/com/google/j2objc/j2objc-annotations/1.3/j2objc-annotations-1.3.jar"
@@ -2884,30 +2581,6 @@
               "downloaded_file_path": "v1/org/ow2/asm/asm-tree/9.2/asm-tree-9.2.jar"
             }
           },
-          "org_ow2_asm_asm_tree_9_1": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "fd00afa49e9595d7646205b09cecb4a776a8ff0ba06f2d59b8f7bf9c704b4a73",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/ow2/asm/asm-tree/9.1/asm-tree-9.1.jar",
-                "https://repo1.maven.org/maven2/org/ow2/asm/asm-tree/9.1/asm-tree-9.1.jar"
-              ],
-              "downloaded_file_path": "v1/org/ow2/asm/asm-tree/9.1/asm-tree-9.1.jar"
-            }
-          },
-          "androidx_databinding_databinding_compiler_common_3_4_0_alpha10": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "7e1ffef1c21064f2b065b17a69bc217270e14b6723311cf795f4276a05b83750",
-              "urls": [
-                "https://dl.google.com/android/maven2/androidx/databinding/databinding-compiler-common/3.4.0-alpha10/databinding-compiler-common-3.4.0-alpha10.jar",
-                "https://repo1.maven.org/maven2/androidx/databinding/databinding-compiler-common/3.4.0-alpha10/databinding-compiler-common-3.4.0-alpha10.jar"
-              ],
-              "downloaded_file_path": "v1/androidx/databinding/databinding-compiler-common/3.4.0-alpha10/databinding-compiler-common-3.4.0-alpha10.jar"
-            }
-          },
           "com_google_api_client_google_api_client_2_2_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -2992,30 +2665,6 @@
               "downloaded_file_path": "v1/org/apache/commons/commons-lang3/3.14.0/commons-lang3-3.14.0.jar"
             }
           },
-          "org_apache_commons_commons_compress_1_20": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "0aeb625c948c697ea7b205156e112363b59ed5e2551212cd4e460bdb72c7c06e",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/apache/commons/commons-compress/1.20/commons-compress-1.20.jar",
-                "https://repo1.maven.org/maven2/org/apache/commons/commons-compress/1.20/commons-compress-1.20.jar"
-              ],
-              "downloaded_file_path": "v1/org/apache/commons/commons-compress/1.20/commons-compress-1.20.jar"
-            }
-          },
-          "org_checkerframework_checker_qual_3_5_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "729990b3f18a95606fc2573836b6958bcdb44cb52bfbd1b7aa9c339cff35a5a4",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/checkerframework/checker-qual/3.5.0/checker-qual-3.5.0.jar",
-                "https://repo1.maven.org/maven2/org/checkerframework/checker-qual/3.5.0/checker-qual-3.5.0.jar"
-              ],
-              "downloaded_file_path": "v1/org/checkerframework/checker-qual/3.5.0/checker-qual-3.5.0.jar"
-            }
-          },
           "software_amazon_awssdk_crt_core_2_20_128": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -3073,79 +2722,6 @@
               "downloaded_file_path": "v1/com/google/code/java-allocation-instrumenter/java-allocation-instrumenter/3.3.0/java-allocation-instrumenter-3.3.0.jar"
             }
           },
-          "org_jetbrains_kotlin_kotlin_stdlib_jdk7_1_4_32": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "5f801e75ca27d8791c14b07943c608da27620d910a8093022af57f543d5d98b6",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.4.32/kotlin-stdlib-jdk7-1.4.32.jar",
-                "https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.4.32/kotlin-stdlib-jdk7-1.4.32.jar"
-              ],
-              "downloaded_file_path": "v1/org/jetbrains/kotlin/kotlin-stdlib-jdk7/1.4.32/kotlin-stdlib-jdk7-1.4.32.jar"
-            }
-          },
-          "maven_android": {
-            "bzlFile": "@@rules_jvm_external+//:coursier.bzl",
-            "ruleClassName": "pinned_coursier_fetch",
-            "attributes": {
-              "user_provided_name": "maven_android",
-              "repositories": [
-                "{ \"repo_url\": \"https://dl.google.com/android/maven2\" }",
-                "{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"
-              ],
-              "artifacts": [
-                "{ \"group\": \"androidx.databinding\", \"artifact\": \"databinding-compiler\", \"version\": \"3.4.0-alpha10\" }",
-                "{ \"group\": \"com.android.tools.build\", \"artifact\": \"builder\", \"version\": \"7.1.3\" }",
-                "{ \"group\": \"com.android.tools.build\", \"artifact\": \"manifest-merger\", \"version\": \"30.1.3\" }",
-                "{ \"group\": \"com.android.tools\", \"artifact\": \"sdk-common\", \"version\": \"30.1.3\" }",
-                "{ \"group\": \"com.android.tools\", \"artifact\": \"annotations\", \"version\": \"30.1.3\" }",
-                "{ \"group\": \"com.android.tools.layoutlib\", \"artifact\": \"layoutlib-api\", \"version\": \"30.1.3\" }",
-                "{ \"group\": \"com.android.tools\", \"artifact\": \"common\", \"version\": \"30.1.3\" }",
-                "{ \"group\": \"com.android.tools\", \"artifact\": \"repository\", \"version\": \"30.1.3\" }"
-              ],
-              "fetch_sources": false,
-              "fetch_javadoc": false,
-              "generate_compat_repositories": false,
-              "maven_install_json": "@@//src/tools/android:maven_android_install.json",
-              "override_targets": {
-                "com.google.protobuf:protobuf-java": "'@@protobuf+//:protobuf_java'",
-                "com.google.protobuf:protobuf-java-util": "'@@protobuf+//:protobuf_java_util'",
-                "com.google.protobuf:protobuf-javalite": "'@@protobuf+//:protobuf_javalite'",
-                "io.grpc:grpc-alts": "'@@grpc-java+//alts:alts'",
-                "io.grpc:grpc-api": "'@@grpc-java+//api:api'",
-                "io.grpc:grpc-auth": "'@@grpc-java+//auth:auth'",
-                "io.grpc:grpc-census": "'@@grpc-java+//census:census'",
-                "io.grpc:grpc-context": "'@@grpc-java+//context:context'",
-                "io.grpc:grpc-core": "'@@grpc-java+//core:core_maven'",
-                "io.grpc:grpc-googleapis": "'@@grpc-java+//googleapis:googleapis'",
-                "io.grpc:grpc-grpclb": "'@@grpc-java+//grpclb:grpclb'",
-                "io.grpc:grpc-inprocess": "'@@grpc-java+//inprocess:inprocess'",
-                "io.grpc:grpc-netty": "'@@grpc-java+//netty:netty'",
-                "io.grpc:grpc-netty-shaded": "'@@grpc-java+//netty:shaded_maven'",
-                "io.grpc:grpc-okhttp": "'@@grpc-java+//okhttp:okhttp'",
-                "io.grpc:grpc-protobuf": "'@@grpc-java+//protobuf:protobuf'",
-                "io.grpc:grpc-protobuf-lite": "'@@grpc-java+//protobuf-lite:protobuf-lite'",
-                "io.grpc:grpc-rls": "'@@grpc-java+//rls:rls'",
-                "io.grpc:grpc-services": "'@@grpc-java+//services:services_maven'",
-                "io.grpc:grpc-stub": "'@@grpc-java+//stub:stub'",
-                "io.grpc:grpc-testing": "'@@grpc-java+//testing:testing'",
-                "io.grpc:grpc-xds": "'@@grpc-java+//xds:xds_maven'",
-                "io.grpc:grpc-util": "'@@grpc-java+//util:util'"
-              },
-              "strict_visibility": false,
-              "strict_visibility_value": [
-                "@@//visibility:private"
-              ],
-              "additional_netrc_lines": [],
-              "fail_if_repin_required": true,
-              "use_starlark_android_rules": false,
-              "aar_import_bzl_label": "@build_bazel_rules_android//android:rules.bzl",
-              "duplicate_version_warning": "warn",
-              "excluded_artifacts": [],
-              "repin_instructions": ""
-            }
-          },
           "com_google_errorprone_error_prone_type_annotations_2_32_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -3170,18 +2746,6 @@
               "downloaded_file_path": "v1/com/google/guava/guava/33.2.1-jre/guava-33.2.1-jre.jar"
             }
           },
-          "com_google_code_gson_gson_2_8_6": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "c8fb4839054d280b3033f800d1f5a97de2f028eb8ba2eb458ad287e536f3f25f",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/google/code/gson/gson/2.8.6/gson-2.8.6.jar",
-                "https://repo1.maven.org/maven2/com/google/code/gson/gson/2.8.6/gson-2.8.6.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/code/gson/gson/2.8.6/gson-2.8.6.jar"
-            }
-          },
           "com_google_auto_service_auto_service_annotations_1_0_1": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -3204,30 +2768,6 @@
                 "https://repo.maven.apache.org/maven2/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final-osx-aarch_64.jar"
               ],
               "downloaded_file_path": "v1/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final-osx-aarch_64.jar"
-            }
-          },
-          "org_jetbrains_kotlin_kotlin_stdlib_1_4_32": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "13e9fd3e69dc7230ce0fc873a92a4e5d521d179bcf1bef75a6705baac3bfecba",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.4.32/kotlin-stdlib-1.4.32.jar",
-                "https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib/1.4.32/kotlin-stdlib-1.4.32.jar"
-              ],
-              "downloaded_file_path": "v1/org/jetbrains/kotlin/kotlin-stdlib/1.4.32/kotlin-stdlib-1.4.32.jar"
-            }
-          },
-          "com_android_tools_layoutlib_layoutlib_api_30_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "14d7ffdcedeea701c7316d6eba58ae32d329293de215c3b7218d14711ecfffaf",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/layoutlib/layoutlib-api/30.1.3/layoutlib-api-30.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/layoutlib/layoutlib-api/30.1.3/layoutlib-api-30.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/layoutlib/layoutlib-api/30.1.3/layoutlib-api-30.1.3.jar"
             }
           },
           "junit_junit_4_13_2": {
@@ -3276,18 +2816,6 @@
                 "https://repo.maven.apache.org/maven2/io/grpc/grpc-api/1.66.0/grpc-api-1.66.0.jar"
               ],
               "downloaded_file_path": "v1/io/grpc/grpc-api/1.66.0/grpc-api-1.66.0.jar"
-            }
-          },
-          "com_android_tools_sdklib_30_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "edf456a67ada3154c9fd23f9829699e8b654dc7f33f2430b50839d6904760b48",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/sdklib/30.1.3/sdklib-30.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/sdklib/30.1.3/sdklib-30.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/sdklib/30.1.3/sdklib-30.1.3.jar"
             }
           },
           "com_guardsquare_proguard_core_9_1_4": {
@@ -3347,18 +2875,6 @@
                 "https://repo.maven.apache.org/maven2/org/osgi/org.osgi.resource/1.0.0/org.osgi.resource-1.0.0.jar"
               ],
               "downloaded_file_path": "v1/org/osgi/org.osgi.resource/1.0.0/org.osgi.resource-1.0.0.jar"
-            }
-          },
-          "com_android_tools_sdk_common_30_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "6c44d6ffa3b1b34505fcb05422f08bd293391648dc974cc252ddc541fd9b27f5",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/sdk-common/30.1.3/sdk-common-30.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/sdk-common/30.1.3/sdk-common-30.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/sdk-common/30.1.3/sdk-common-30.1.3.jar"
             }
           },
           "org_checkerframework_checker_qual_3_33_0": {
@@ -3564,18 +3080,6 @@
               "downloaded_file_path": "v1/com/google/auth/google-auth-library-credentials/1.23.0/google-auth-library-credentials-1.23.0.jar"
             }
           },
-          "com_googlecode_juniversalchardet_juniversalchardet_1_0_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "757bfe906193b8b651e79dc26cd67d6b55d0770a2cdfb0381591504f779d4a76",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.jar",
-                "https://repo1.maven.org/maven2/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/googlecode/juniversalchardet/juniversalchardet/1.0.3/juniversalchardet-1.0.3.jar"
-            }
-          },
           "io_opencensus_opencensus_contrib_http_util_0_31_1": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -3621,18 +3125,6 @@
                 "https://repo.maven.apache.org/maven2/org/jetbrains/kotlin/kotlin-metadata-jvm/2.0.0/kotlin-metadata-jvm-2.0.0.jar"
               ],
               "downloaded_file_path": "v1/org/jetbrains/kotlin/kotlin-metadata-jvm/2.0.0/kotlin-metadata-jvm-2.0.0.jar"
-            }
-          },
-          "com_sun_activation_javax_activation_1_2_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "993302b16cd7056f21e779cc577d175a810bb4900ef73cd8fbf2b50f928ba9ce",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.jar",
-                "https://repo1.maven.org/maven2/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.jar"
-              ],
-              "downloaded_file_path": "v1/com/sun/activation/javax.activation/1.2.0/javax.activation-1.2.0.jar"
             }
           },
           "org_apache_logging_log4j_log4j_api_2_19_0": {
@@ -3750,18 +3242,6 @@
               "downloaded_file_path": "v1/com/google/truth/truth/1.1.3/truth-1.1.3.jar"
             }
           },
-          "com_google_guava_guava_30_1_jre": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "e6dd072f9d3fe02a4600688380bd422bdac184caf6fe2418cfdd0934f09432aa",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/google/guava/guava/30.1-jre/guava-30.1-jre.jar",
-                "https://repo1.maven.org/maven2/com/google/guava/guava/30.1-jre/guava-30.1-jre.jar"
-              ],
-              "downloaded_file_path": "v1/com/google/guava/guava/30.1-jre/guava-30.1-jre.jar"
-            }
-          },
           "net_bytebuddy_byte_buddy_agent_1_14_5": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -3831,18 +3311,6 @@
               "downloaded_file_path": "v1/com/google/turbine/turbine/0.7.0/turbine-0.7.0.jar"
             }
           },
-          "net_java_dev_jna_jna_platform_5_6_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "9ecea8bf2b1b39963939d18b70464eef60c508fed8820f9dcaba0c35518eabf7",
-              "urls": [
-                "https://dl.google.com/android/maven2/net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.jar",
-                "https://repo1.maven.org/maven2/net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.jar"
-              ],
-              "downloaded_file_path": "v1/net/java/dev/jna/jna-platform/5.6.0/jna-platform-5.6.0.jar"
-            }
-          },
           "com_google_auto_value_auto_value_annotations_1_8_1": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -3863,18 +3331,6 @@
                 "https://repo1.maven.org/maven2/io/grpc/grpc-xds/1.56.1/grpc-xds-1.56.1.jar"
               ],
               "downloaded_file_path": "v1/io/grpc/grpc-xds/1.56.1/grpc-xds-1.56.1.jar"
-            }
-          },
-          "com_android_tools_analytics_library_shared_30_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "7c7d19727641e1fbbb61e8569712b3a0229e4e0352636b5745049d41e1a71e00",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/analytics-library/shared/30.1.3/shared-30.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/analytics-library/shared/30.1.3/shared-30.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/analytics-library/shared/30.1.3/shared-30.1.3.jar"
             }
           },
           "com_google_code_findbugs_jsr305_3_0_2": {
@@ -4036,7 +3492,6 @@
             "attributes": {
               "sha256": "a171ee4c734dd2da837e4b16be9df4661afab72a41adaf31eb84dfdaf936ca26",
               "urls": [
-                "https://dl.google.com/android/maven2/com/google/guava/failureaccess/1.0.1/failureaccess-1.0.1.jar",
                 "https://repo1.maven.org/maven2/com/google/guava/failureaccess/1.0.1/failureaccess-1.0.1.jar"
               ],
               "downloaded_file_path": "v1/com/google/guava/failureaccess/1.0.1/failureaccess-1.0.1.jar"
@@ -4195,18 +3650,6 @@
               "downloaded_file_path": "v1/org/osgi/org.osgi.framework/1.8.0/org.osgi.framework-1.8.0.jar"
             }
           },
-          "com_android_tools_build_apksig_7_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "095885c56af3e52e9c7d2ac9b6cf07a8e3bf7fedfbab3914c75c39677d346ada",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/build/apksig/7.1.3/apksig-7.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/build/apksig/7.1.3/apksig-7.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/build/apksig/7.1.3/apksig-7.1.3.jar"
-            }
-          },
           "com_beust_jcommander_1_82": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -4240,18 +3683,6 @@
                 "https://repo1.maven.org/maven2/software/amazon/awssdk/metrics-spi/2.20.128/metrics-spi-2.20.128.jar"
               ],
               "downloaded_file_path": "v1/software/amazon/awssdk/metrics-spi/2.20.128/metrics-spi-2.20.128.jar"
-            }
-          },
-          "androidx_databinding_databinding_common_3_4_0_alpha10": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "1b2cfc3beaf6139e1851dd4a888cda8192ba0ad4be3de43450d5f30569845303",
-              "urls": [
-                "https://dl.google.com/android/maven2/androidx/databinding/databinding-common/3.4.0-alpha10/databinding-common-3.4.0-alpha10.jar",
-                "https://repo1.maven.org/maven2/androidx/databinding/databinding-common/3.4.0-alpha10/databinding-common-3.4.0-alpha10.jar"
-              ],
-              "downloaded_file_path": "v1/androidx/databinding/databinding-common/3.4.0-alpha10/databinding-common-3.4.0-alpha10.jar"
             }
           },
           "org_codehaus_mojo_animal_sniffer_annotations_1_23": {
@@ -4360,18 +3791,6 @@
               "downloaded_file_path": "v1/com/google/protobuf/protobuf-javalite/3.25.3/protobuf-javalite-3.25.3.jar"
             }
           },
-          "com_android_databinding_baseLibrary_3_4_0_alpha10": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "1aed4f3e46bf83c80a1722ce6cc64a8133c4554a668c483f6b3d0f2c06dd7461",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/databinding/baseLibrary/3.4.0-alpha10/baseLibrary-3.4.0-alpha10.jar",
-                "https://repo1.maven.org/maven2/com/android/databinding/baseLibrary/3.4.0-alpha10/baseLibrary-3.4.0-alpha10.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/databinding/baseLibrary/3.4.0-alpha10/baseLibrary-3.4.0-alpha10.jar"
-            }
-          },
           "software_amazon_awssdk_json_utils_2_20_128": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -4404,18 +3823,6 @@
                 "https://repo.maven.apache.org/maven2/commons-lang/commons-lang/2.6/commons-lang-2.6.jar"
               ],
               "downloaded_file_path": "v1/commons-lang/commons-lang/2.6/commons-lang-2.6.jar"
-            }
-          },
-          "org_antlr_antlr4_4_5_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "a32de739cfdf515774e696f91aa9697d2e7731e5cb5045ca8a4b657f8b1b4fb4",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/antlr/antlr4/4.5.3/antlr4-4.5.3.jar",
-                "https://repo1.maven.org/maven2/org/antlr/antlr4/4.5.3/antlr4-4.5.3.jar"
-              ],
-              "downloaded_file_path": "v1/org/antlr/antlr4/4.5.3/antlr4-4.5.3.jar"
             }
           },
           "com_google_api_grpc_proto_google_common_protos_2_23_0": {
@@ -4510,18 +3917,6 @@
               "downloaded_file_path": "v1/software/amazon/awssdk/aws-xml-protocol/2.20.128/aws-xml-protocol-2.20.128.jar"
             }
           },
-          "org_ow2_asm_asm_analysis_9_1": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "81a88041b1b8beda5a8a99646098046c48709538270c49def68abff25ac3be34",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/ow2/asm/asm-analysis/9.1/asm-analysis-9.1.jar",
-                "https://repo1.maven.org/maven2/org/ow2/asm/asm-analysis/9.1/asm-analysis-9.1.jar"
-              ],
-              "downloaded_file_path": "v1/org/ow2/asm/asm-analysis/9.1/asm-analysis-9.1.jar"
-            }
-          },
           "com_squareup_javapoet_1_12_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -4532,68 +3927,6 @@
                 "https://repo.maven.apache.org/maven2/com/squareup/javapoet/1.12.0/javapoet-1.12.0.jar"
               ],
               "downloaded_file_path": "v1/com/squareup/javapoet/1.12.0/javapoet-1.12.0.jar"
-            }
-          },
-          "unpinned_maven_android": {
-            "bzlFile": "@@rules_jvm_external+//:coursier.bzl",
-            "ruleClassName": "coursier_fetch",
-            "attributes": {
-              "user_provided_name": "maven_android",
-              "repositories": [
-                "{ \"repo_url\": \"https://dl.google.com/android/maven2\" }",
-                "{ \"repo_url\": \"https://repo1.maven.org/maven2\" }"
-              ],
-              "artifacts": [
-                "{ \"group\": \"androidx.databinding\", \"artifact\": \"databinding-compiler\", \"version\": \"3.4.0-alpha10\" }",
-                "{ \"group\": \"com.android.tools.build\", \"artifact\": \"builder\", \"version\": \"7.1.3\" }",
-                "{ \"group\": \"com.android.tools.build\", \"artifact\": \"manifest-merger\", \"version\": \"30.1.3\" }",
-                "{ \"group\": \"com.android.tools\", \"artifact\": \"sdk-common\", \"version\": \"30.1.3\" }",
-                "{ \"group\": \"com.android.tools\", \"artifact\": \"annotations\", \"version\": \"30.1.3\" }",
-                "{ \"group\": \"com.android.tools.layoutlib\", \"artifact\": \"layoutlib-api\", \"version\": \"30.1.3\" }",
-                "{ \"group\": \"com.android.tools\", \"artifact\": \"common\", \"version\": \"30.1.3\" }",
-                "{ \"group\": \"com.android.tools\", \"artifact\": \"repository\", \"version\": \"30.1.3\" }"
-              ],
-              "fail_on_missing_checksum": true,
-              "fetch_sources": false,
-              "fetch_javadoc": false,
-              "excluded_artifacts": [],
-              "generate_compat_repositories": false,
-              "version_conflict_policy": "default",
-              "override_targets": {
-                "com.google.protobuf:protobuf-java": "'@@protobuf+//:protobuf_java'",
-                "com.google.protobuf:protobuf-java-util": "'@@protobuf+//:protobuf_java_util'",
-                "com.google.protobuf:protobuf-javalite": "'@@protobuf+//:protobuf_javalite'",
-                "io.grpc:grpc-alts": "'@@grpc-java+//alts:alts'",
-                "io.grpc:grpc-api": "'@@grpc-java+//api:api'",
-                "io.grpc:grpc-auth": "'@@grpc-java+//auth:auth'",
-                "io.grpc:grpc-census": "'@@grpc-java+//census:census'",
-                "io.grpc:grpc-context": "'@@grpc-java+//context:context'",
-                "io.grpc:grpc-core": "'@@grpc-java+//core:core_maven'",
-                "io.grpc:grpc-googleapis": "'@@grpc-java+//googleapis:googleapis'",
-                "io.grpc:grpc-grpclb": "'@@grpc-java+//grpclb:grpclb'",
-                "io.grpc:grpc-inprocess": "'@@grpc-java+//inprocess:inprocess'",
-                "io.grpc:grpc-netty": "'@@grpc-java+//netty:netty'",
-                "io.grpc:grpc-netty-shaded": "'@@grpc-java+//netty:shaded_maven'",
-                "io.grpc:grpc-okhttp": "'@@grpc-java+//okhttp:okhttp'",
-                "io.grpc:grpc-protobuf": "'@@grpc-java+//protobuf:protobuf'",
-                "io.grpc:grpc-protobuf-lite": "'@@grpc-java+//protobuf-lite:protobuf-lite'",
-                "io.grpc:grpc-rls": "'@@grpc-java+//rls:rls'",
-                "io.grpc:grpc-services": "'@@grpc-java+//services:services_maven'",
-                "io.grpc:grpc-stub": "'@@grpc-java+//stub:stub'",
-                "io.grpc:grpc-testing": "'@@grpc-java+//testing:testing'",
-                "io.grpc:grpc-xds": "'@@grpc-java+//xds:xds_maven'",
-                "io.grpc:grpc-util": "'@@grpc-java+//util:util'"
-              },
-              "strict_visibility": false,
-              "strict_visibility_value": [
-                "@@//visibility:private"
-              ],
-              "maven_install_json": "@@//src/tools/android:maven_android_install.json",
-              "resolve_timeout": 600,
-              "use_starlark_android_rules": false,
-              "aar_import_bzl_label": "@build_bazel_rules_android//android:rules.bzl",
-              "duplicate_version_warning": "warn",
-              "ignore_empty_files": false
             }
           },
           "software_amazon_awssdk_s3_2_20_128": {
@@ -4617,18 +3950,6 @@
                 "https://repo.maven.apache.org/maven2/org/apache/commons/commons-compress/1.26.1/commons-compress-1.26.1.jar"
               ],
               "downloaded_file_path": "v1/org/apache/commons/commons-compress/1.26.1/commons-compress-1.26.1.jar"
-            }
-          },
-          "com_squareup_javapoet_1_8_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "8e108c92027bb428196f10fa11cffbe589f7648a6af2016d652279385fdfd789",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/squareup/javapoet/1.8.0/javapoet-1.8.0.jar",
-                "https://repo1.maven.org/maven2/com/squareup/javapoet/1.8.0/javapoet-1.8.0.jar"
-              ],
-              "downloaded_file_path": "v1/com/squareup/javapoet/1.8.0/javapoet-1.8.0.jar"
             }
           },
           "io_netty_netty_codec_http2_4_1_94_Final": {
@@ -4711,18 +4032,6 @@
               "downloaded_file_path": "v1/software/amazon/awssdk/third-party-jackson-core/2.20.128/third-party-jackson-core-2.20.128.jar"
             }
           },
-          "com_squareup_javawriter_2_5_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "fcfb09fb0ea0aa97d3cfe7ea792398081348e468f126b3603cb3803f240197f0",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.jar",
-                "https://repo1.maven.org/maven2/com/squareup/javawriter/2.5.0/javawriter-2.5.0.jar"
-              ],
-              "downloaded_file_path": "v1/com/squareup/javawriter/2.5.0/javawriter-2.5.0.jar"
-            }
-          },
           "org_apache_httpcomponents_httpclient_4_5_14": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -4755,18 +4064,6 @@
                 "https://repo.maven.apache.org/maven2/io/netty/netty-transport-classes-epoll/4.1.100.Final/netty-transport-classes-epoll-4.1.100.Final.jar"
               ],
               "downloaded_file_path": "v1/io/netty/netty-transport-classes-epoll/4.1.100.Final/netty-transport-classes-epoll-4.1.100.Final.jar"
-            }
-          },
-          "net_sf_kxml_kxml2_2_3_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "f264dd9f79a1fde10ce5ecc53221eff24be4c9331c830b7d52f2f08a7b633de2",
-              "urls": [
-                "https://dl.google.com/android/maven2/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.jar",
-                "https://repo1.maven.org/maven2/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.jar"
-              ],
-              "downloaded_file_path": "v1/net/sf/kxml/kxml2/2.3.0/kxml2-2.3.0.jar"
             }
           },
           "io_grpc_grpc_core_1_56_1": {
@@ -4814,18 +4111,6 @@
               "downloaded_file_path": "v1/software/amazon/awssdk/regions/2.20.128/regions-2.20.128.jar"
             }
           },
-          "jakarta_xml_bind_jakarta_xml_bind_api_2_3_2": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "69156304079bdeed9fc0ae3b39389f19b3cc4ba4443bc80508995394ead742ea",
-              "urls": [
-                "https://dl.google.com/android/maven2/jakarta/xml/bind/jakarta.xml.bind-api/2.3.2/jakarta.xml.bind-api-2.3.2.jar",
-                "https://repo1.maven.org/maven2/jakarta/xml/bind/jakarta.xml.bind-api/2.3.2/jakarta.xml.bind-api-2.3.2.jar"
-              ],
-              "downloaded_file_path": "v1/jakarta/xml/bind/jakarta.xml.bind-api/2.3.2/jakarta.xml.bind-api-2.3.2.jar"
-            }
-          },
           "com_google_api_grpc_grpc_google_cloud_storage_v2_2_26_1_alpha": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -4849,18 +4134,6 @@
               "downloaded_file_path": "v1/io/opencensus/opencensus-contrib-grpc-metrics/0.31.0/opencensus-contrib-grpc-metrics-0.31.0.jar"
             }
           },
-          "xerces_xercesImpl_2_12_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "b50d3a4ca502faa4d1c838acb8aa9480446953421f7327e338c5dda3da5e76d0",
-              "urls": [
-                "https://dl.google.com/android/maven2/xerces/xercesImpl/2.12.0/xercesImpl-2.12.0.jar",
-                "https://repo1.maven.org/maven2/xerces/xercesImpl/2.12.0/xercesImpl-2.12.0.jar"
-              ],
-              "downloaded_file_path": "v1/xerces/xercesImpl/2.12.0/xercesImpl-2.12.0.jar"
-            }
-          },
           "org_codehaus_plexus_plexus_utils_3_5_1": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -4881,18 +4154,6 @@
                 "https://repo1.maven.org/maven2/io/netty/netty-handler/4.1.94.Final/netty-handler-4.1.94.Final.jar"
               ],
               "downloaded_file_path": "v1/io/netty/netty-handler/4.1.94.Final/netty-handler-4.1.94.Final.jar"
-            }
-          },
-          "com_android_tools_analytics_library_tracker_30_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "c30e3634f83d524680f3aba2861078fb14bd347e6f9f0e5c079fba6142eec7e9",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/analytics-library/tracker/30.1.3/tracker-30.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/analytics-library/tracker/30.1.3/tracker-30.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/analytics-library/tracker/30.1.3/tracker-30.1.3.jar"
             }
           },
           "com_google_http_client_google_http_client_1_43_3": {
@@ -4977,37 +4238,12 @@
               "downloaded_file_path": "v1/commons-io/commons-io/2.15.1/commons-io-2.15.1.jar"
             }
           },
-          "org_jetbrains_annotations_13_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "ace2a10dc8e2d5fd34925ecac03e4988b2c0f851650c94b8cef49ba1bd111478",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/jetbrains/annotations/13.0/annotations-13.0.jar",
-                "https://repo1.maven.org/maven2/org/jetbrains/annotations/13.0/annotations-13.0.jar"
-              ],
-              "downloaded_file_path": "v1/org/jetbrains/annotations/13.0/annotations-13.0.jar"
-            }
-          },
-          "org_jvnet_staxex_stax_ex_1_8_1": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "20522549056e9e50aa35ef0b445a2e47a53d06be0b0a9467d704e2483ffb049a",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/jvnet/staxex/stax-ex/1.8.1/stax-ex-1.8.1.jar",
-                "https://repo1.maven.org/maven2/org/jvnet/staxex/stax-ex/1.8.1/stax-ex-1.8.1.jar"
-              ],
-              "downloaded_file_path": "v1/org/jvnet/staxex/stax-ex/1.8.1/stax-ex-1.8.1.jar"
-            }
-          },
           "commons_logging_commons_logging_1_2": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
               "sha256": "daddea1ea0be0f56978ab3006b8ac92834afeefbd9b7e4e6316fca57df0fa636",
               "urls": [
-                "https://dl.google.com/android/maven2/commons-logging/commons-logging/1.2/commons-logging-1.2.jar",
                 "https://repo1.maven.org/maven2/commons-logging/commons-logging/1.2/commons-logging-1.2.jar"
               ],
               "downloaded_file_path": "v1/commons-logging/commons-logging/1.2/commons-logging-1.2.jar"
@@ -5023,18 +4259,6 @@
                 "https://repo.maven.apache.org/maven2/com/google/api-client/google-api-client-gson/1.35.2/google-api-client-gson-1.35.2.jar"
               ],
               "downloaded_file_path": "v1/com/google/api-client/google-api-client-gson/1.35.2/google-api-client-gson-1.35.2.jar"
-            }
-          },
-          "com_sun_xml_fastinfoset_FastInfoset_1_2_16": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "056f3a1e144409f21ed16afc26805f58e9a21f3fce1543c42d400719d250c511",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/sun/xml/fastinfoset/FastInfoset/1.2.16/FastInfoset-1.2.16.jar",
-                "https://repo1.maven.org/maven2/com/sun/xml/fastinfoset/FastInfoset/1.2.16/FastInfoset-1.2.16.jar"
-              ],
-              "downloaded_file_path": "v1/com/sun/xml/fastinfoset/FastInfoset/1.2.16/FastInfoset-1.2.16.jar"
             }
           },
           "com_google_errorprone_error_prone_annotations_2_18_0": {
@@ -5058,18 +4282,6 @@
                 "https://repo.maven.apache.org/maven2/org/osgi/osgi.annotation/8.0.1/osgi.annotation-8.0.1.jar"
               ],
               "downloaded_file_path": "v1/org/osgi/osgi.annotation/8.0.1/osgi.annotation-8.0.1.jar"
-            }
-          },
-          "commons_io_commons_io_2_4": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "cc6a41dc3eaacc9e440a6bd0d2890b20d36b4ee408fe2d67122f328bb6e01581",
-              "urls": [
-                "https://dl.google.com/android/maven2/commons-io/commons-io/2.4/commons-io-2.4.jar",
-                "https://repo1.maven.org/maven2/commons-io/commons-io/2.4/commons-io-2.4.jar"
-              ],
-              "downloaded_file_path": "v1/commons-io/commons-io/2.4/commons-io-2.4.jar"
             }
           },
           "io_netty_netty_codec_4_1_94_Final": {
@@ -5201,18 +4413,6 @@
               "downloaded_file_path": "v1/com/google/protobuf/protobuf-java/3.23.2/protobuf-java-3.23.2.jar"
             }
           },
-          "org_ow2_asm_asm_commons_9_1": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "afcb26dc1fc12c0c4a99ada670908dd82e18dfc488caf5ee92546996b470c00c",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/ow2/asm/asm-commons/9.1/asm-commons-9.1.jar",
-                "https://repo1.maven.org/maven2/org/ow2/asm/asm-commons/9.1/asm-commons-9.1.jar"
-              ],
-              "downloaded_file_path": "v1/org/ow2/asm/asm-commons/9.1/asm-commons-9.1.jar"
-            }
-          },
           "org_apache_logging_log4j_log4j_core_2_19_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -5223,18 +4423,6 @@
                 "https://repo.maven.apache.org/maven2/org/apache/logging/log4j/log4j-core/2.19.0/log4j-core-2.19.0.jar"
               ],
               "downloaded_file_path": "v1/org/apache/logging/log4j/log4j-core/2.19.0/log4j-core-2.19.0.jar"
-            }
-          },
-          "com_android_tools_dvlib_30_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "50886691517d30762c571f585a07f384e6a8cca5fcbea9d46660ba078b613bfa",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/dvlib/30.1.3/dvlib-30.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/dvlib/30.1.3/dvlib-30.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/dvlib/30.1.3/dvlib-30.1.3.jar"
             }
           },
           "io_netty_netty_buffer_4_1_94_Final": {
@@ -5270,18 +4458,6 @@
                 "https://repo.maven.apache.org/maven2/io/reactivex/rxjava3/rxjava/3.1.2/rxjava-3.1.2.jar"
               ],
               "downloaded_file_path": "v1/io/reactivex/rxjava3/rxjava/3.1.2/rxjava-3.1.2.jar"
-            }
-          },
-          "com_android_tools_build_apkzlib_7_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "5c10846c4a325b4313cdfcb236505ce1defa68f55d1a4259b503be115453c661",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/build/apkzlib/7.1.3/apkzlib-7.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/build/apkzlib/7.1.3/apkzlib-7.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/build/apkzlib/7.1.3/apkzlib-7.1.3.jar"
             }
           },
           "io_github_java_diff_utils_java_diff_utils_4_12": {
@@ -5554,30 +4730,6 @@
               "downloaded_file_path": "v1/org/openjdk/jmh/jmh-core/1.37/jmh-core-1.37.jar"
             }
           },
-          "org_bouncycastle_bcpkix_jdk15on_1_56": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "7043dee4e9e7175e93e0b36f45b1ec1ecb893c5f755667e8b916eb8dd201c6ca",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/bouncycastle/bcpkix-jdk15on/1.56/bcpkix-jdk15on-1.56.jar",
-                "https://repo1.maven.org/maven2/org/bouncycastle/bcpkix-jdk15on/1.56/bcpkix-jdk15on-1.56.jar"
-              ],
-              "downloaded_file_path": "v1/org/bouncycastle/bcpkix-jdk15on/1.56/bcpkix-jdk15on-1.56.jar"
-            }
-          },
-          "com_android_tools_build_builder_test_api_7_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "6259c32a8602d9a18fc9a5abb274b915dbba32837c5ce91ac07a2d229460078a",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/build/builder-test-api/7.1.3/builder-test-api-7.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/build/builder-test-api/7.1.3/builder-test-api-7.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/build/builder-test-api/7.1.3/builder-test-api-7.1.3.jar"
-            }
-          },
           "com_google_http_client_google_http_client_jackson2_1_43_3": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -5657,18 +4809,6 @@
                 "https://repo.maven.apache.org/maven2/joda-time/joda-time/2.10.10/joda-time-2.10.10.jar"
               ],
               "downloaded_file_path": "v1/joda-time/joda-time/2.10.10/joda-time-2.10.10.jar"
-            }
-          },
-          "com_android_tools_ddms_ddmlib_30_1_3": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "b88ba88a1a8f0156c9a056eb0c83a181321541bdbb78e834bf837fd1dd07e4f3",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/ddms/ddmlib/30.1.3/ddmlib-30.1.3.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/ddms/ddmlib/30.1.3/ddmlib-30.1.3.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/ddms/ddmlib/30.1.3/ddmlib-30.1.3.jar"
             }
           },
           "org_jspecify_jspecify_1_0_0": {
@@ -5909,18 +5049,6 @@
               "downloaded_file_path": "v1/io/netty/netty-common/4.1.100.Final/netty-common-4.1.100.Final.jar"
             }
           },
-          "org_jetbrains_kotlin_kotlin_stdlib_common_1_4_32": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "e1ff6f55ee9e7591dcc633f7757bac25a7edb1cc7f738b37ec652f10f66a4145",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/jetbrains/kotlin/kotlin-stdlib-common/1.4.32/kotlin-stdlib-common-1.4.32.jar",
-                "https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-common/1.4.32/kotlin-stdlib-common-1.4.32.jar"
-              ],
-              "downloaded_file_path": "v1/org/jetbrains/kotlin/kotlin-stdlib-common/1.4.32/kotlin-stdlib-common-1.4.32.jar"
-            }
-          },
           "com_google_truth_extensions_truth_java8_extension_1_4_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -5931,30 +5059,6 @@
                 "https://repo.maven.apache.org/maven2/com/google/truth/extensions/truth-java8-extension/1.4.0/truth-java8-extension-1.4.0.jar"
               ],
               "downloaded_file_path": "v1/com/google/truth/extensions/truth-java8-extension/1.4.0/truth-java8-extension-1.4.0.jar"
-            }
-          },
-          "org_jetbrains_intellij_deps_trove4j_1_0_20181211": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "affb7c85a3c87bdcf69ff1dbb84de11f63dc931293934bc08cd7ab18de083601",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/jetbrains/intellij/deps/trove4j/1.0.20181211/trove4j-1.0.20181211.jar",
-                "https://repo1.maven.org/maven2/org/jetbrains/intellij/deps/trove4j/1.0.20181211/trove4j-1.0.20181211.jar"
-              ],
-              "downloaded_file_path": "v1/org/jetbrains/intellij/deps/trove4j/1.0.20181211/trove4j-1.0.20181211.jar"
-            }
-          },
-          "org_jetbrains_kotlin_kotlin_stdlib_jdk8_1_4_32": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "adc43e54757b106e0cd7b3b7aa257dff471b61efdabe067fc02b2f57e2396262",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.4.32/kotlin-stdlib-jdk8-1.4.32.jar",
-                "https://repo1.maven.org/maven2/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.4.32/kotlin-stdlib-jdk8-1.4.32.jar"
-              ],
-              "downloaded_file_path": "v1/org/jetbrains/kotlin/kotlin-stdlib-jdk8/1.4.32/kotlin-stdlib-jdk8-1.4.32.jar"
             }
           },
           "javax_inject_javax_inject_1": {
@@ -5993,18 +5097,6 @@
               "downloaded_file_path": "v1/io/netty/netty-transport-native-unix-common/4.1.100.Final/netty-transport-native-unix-common-4.1.100.Final-linux-x86_64.jar"
             }
           },
-          "commons_codec_commons_codec_1_10": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "4241dfa94e711d435f29a4604a3e2de5c4aa3c165e23bd066be6fc1fc4309569",
-              "urls": [
-                "https://dl.google.com/android/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.jar",
-                "https://repo1.maven.org/maven2/commons-codec/commons-codec/1.10/commons-codec-1.10.jar"
-              ],
-              "downloaded_file_path": "v1/commons-codec/commons-codec/1.10/commons-codec-1.10.jar"
-            }
-          },
           "com_google_code_gson_gson_2_11_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -6040,42 +5132,6 @@
               "downloaded_file_path": "v1/commons-codec/commons-codec/1.15/commons-codec-1.15.jar"
             }
           },
-          "xml_apis_xml_apis_1_4_01": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "a840968176645684bb01aed376e067ab39614885f9eee44abe35a5f20ebe7fad",
-              "urls": [
-                "https://dl.google.com/android/maven2/xml-apis/xml-apis/1.4.01/xml-apis-1.4.01.jar",
-                "https://repo1.maven.org/maven2/xml-apis/xml-apis/1.4.01/xml-apis-1.4.01.jar"
-              ],
-              "downloaded_file_path": "v1/xml-apis/xml-apis/1.4.01/xml-apis-1.4.01.jar"
-            }
-          },
-          "com_android_tools_build_jetifier_jetifier_core_1_0_0_beta02": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "ef61f84302f8b41dce3858c1fc7e7a90ec74a263a0213b1f65e80c56145a4793",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/build/jetifier/jetifier-core/1.0.0-beta02/jetifier-core-1.0.0-beta02.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/build/jetifier/jetifier-core/1.0.0-beta02/jetifier-core-1.0.0-beta02.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/build/jetifier/jetifier-core/1.0.0-beta02/jetifier-core-1.0.0-beta02.jar"
-            }
-          },
-          "org_glassfish_jaxb_txw2_2_3_2": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "4a6a9f483388d461b81aa9a28c685b8b74c0597993bf1884b04eddbca95f48fe",
-              "urls": [
-                "https://dl.google.com/android/maven2/org/glassfish/jaxb/txw2/2.3.2/txw2-2.3.2.jar",
-                "https://repo1.maven.org/maven2/org/glassfish/jaxb/txw2/2.3.2/txw2-2.3.2.jar"
-              ],
-              "downloaded_file_path": "v1/org/glassfish/jaxb/txw2/2.3.2/txw2-2.3.2.jar"
-            }
-          },
           "org_checkerframework_checker_qual_3_13_0": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -6085,18 +5141,6 @@
                 "https://repo1.maven.org/maven2/org/checkerframework/checker-qual/3.13.0/checker-qual-3.13.0.jar"
               ],
               "downloaded_file_path": "v1/org/checkerframework/checker-qual/3.13.0/checker-qual-3.13.0.jar"
-            }
-          },
-          "com_android_tools_build_aapt2_proto_7_0_0_beta04_7396180": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "1ca4f1b0f550c6c25f63c1916da84f6e7a92c66b7ad38ab1d5d49a20552a5984",
-              "urls": [
-                "https://dl.google.com/android/maven2/com/android/tools/build/aapt2-proto/7.0.0-beta04-7396180/aapt2-proto-7.0.0-beta04-7396180.jar",
-                "https://repo1.maven.org/maven2/com/android/tools/build/aapt2-proto/7.0.0-beta04-7396180/aapt2-proto-7.0.0-beta04-7396180.jar"
-              ],
-              "downloaded_file_path": "v1/com/android/tools/build/aapt2-proto/7.0.0-beta04-7396180/aapt2-proto-7.0.0-beta04-7396180.jar"
             }
           },
           "software_amazon_awssdk_annotations_2_20_128": {
@@ -6119,18 +5163,6 @@
                 "https://repo1.maven.org/maven2/io/netty/netty-transport-native-unix-common/4.1.94.Final/netty-transport-native-unix-common-4.1.94.Final.jar"
               ],
               "downloaded_file_path": "v1/io/netty/netty-transport-native-unix-common/4.1.94.Final/netty-transport-native-unix-common-4.1.94.Final.jar"
-            }
-          },
-          "net_java_dev_jna_jna_5_6_0": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "sha256": "5557e235a8aa2f9766d5dc609d67948f2a8832c2d796cea9ef1d6cbe0b3b7eaf",
-              "urls": [
-                "https://dl.google.com/android/maven2/net/java/dev/jna/jna/5.6.0/jna-5.6.0.jar",
-                "https://repo1.maven.org/maven2/net/java/dev/jna/jna/5.6.0/jna-5.6.0.jar"
-              ],
-              "downloaded_file_path": "v1/net/java/dev/jna/jna/5.6.0/jna-5.6.0.jar"
             }
           }
         },
@@ -6214,7 +5246,7 @@
     },
     "@@rules_python+//python/private/pypi:pip.bzl%pip_internal": {
       "general": {
-        "bzlTransitiveDigest": "7aenf1d++oZqxjYi796daumhDSwf8x013aCFWVd5yFU=",
+        "bzlTransitiveDigest": "p2nocTxFfxP06l4zN/9W0KY+FRitVkLipbETxkCaq+8=",
         "usagesDigest": "Uu+eQolCXDoyIgvFjLDBDgjgBSkRuuldwUQnjKYjsz8=",
         "recordedFileInputs": {
           "@@rules_python+//tools/publish/requirements_windows.txt": "15472d5a28e068d31ba9e2dc389459698afaff366e9db06e15890283a3ea252e",

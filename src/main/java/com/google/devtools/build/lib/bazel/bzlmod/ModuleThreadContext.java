@@ -91,14 +91,21 @@ public class ModuleThreadContext extends StarlarkThreadContext {
     }
   }
 
-  record RepoNameUsage(String how, Location where) {}
+  record RepoNameUsage(String how, ImmutableList<StarlarkThread.CallStackEntry> stack) {
+    Location location() {
+      // Skip over the override_repo builtin frame.
+      return stack.reverse().get(1).location;
+    }
+  }
 
-  public void addRepoNameUsage(String repoName, String how, Location where) throws EvalException {
-    RepoNameUsage collision = repoNameUsages.put(repoName, new RepoNameUsage(how, where));
+  public void addRepoNameUsage(
+      String repoName, String how, ImmutableList<StarlarkThread.CallStackEntry> stack)
+      throws EvalException {
+    RepoNameUsage collision = repoNameUsages.put(repoName, new RepoNameUsage(how, stack));
     if (collision != null) {
       throw Starlark.errorf(
           "The repo name '%s' is already being used %s at %s",
-          repoName, collision.how(), collision.where());
+          repoName, collision.how(), collision.location());
     }
   }
 
@@ -176,16 +183,20 @@ public class ModuleThreadContext extends StarlarkThreadContext {
           && !this.isolate;
     }
 
-    void addImport(String localRepoName, String exportedName, String byWhat, Location location)
+    void addImport(
+        String localRepoName,
+        String exportedName,
+        String byWhat,
+        ImmutableList<StarlarkThread.CallStackEntry> stack)
         throws EvalException {
       RepositoryName.validateUserProvidedRepoName(localRepoName);
       RepositoryName.validateUserProvidedRepoName(exportedName);
-      context.addRepoNameUsage(localRepoName, byWhat, location);
+      context.addRepoNameUsage(localRepoName, byWhat, stack);
       if (imports.containsValue(exportedName)) {
         String collisionRepoName = imports.inverse().get(exportedName);
         throw Starlark.errorf(
             "The repo exported as '%s' by module extension '%s' is already imported at %s",
-            exportedName, extensionName, context.repoNameUsages.get(collisionRepoName).where());
+            exportedName, extensionName, context.repoNameUsages.get(collisionRepoName).location());
       }
       imports.put(localRepoName, exportedName);
     }
@@ -250,6 +261,16 @@ public class ModuleThreadContext extends StarlarkThreadContext {
         }
         String importedAs = imports.inverse().get(overriddenRepoName);
         if (importedAs != null) {
+          if (!override.getValue().mustExist) {
+            throw Starlark.errorf(
+                    "Cannot import repo '%s' that has been injected into module extension '%s' at"
+                        + " %s. Please refer to @%s directly.",
+                    overriddenRepoName,
+                    extensionName,
+                    override.getValue().location(),
+                    overridingRepoName)
+                .withCallStack(context.repoNameUsages.get(importedAs).stack);
+          }
           context.overriddenRepos.put(importedAs, override.getValue());
         }
         context.overridingRepos.put(overridingRepoName, override.getValue());
@@ -308,7 +329,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
       }
       deps.put(builtinModule, DepSpec.create(builtinModule, Version.EMPTY, -1));
       try {
-        addRepoNameUsage(builtinModule, "as a built-in dependency", Location.BUILTIN);
+        addRepoNameUsage(builtinModule, "as a built-in dependency", ImmutableList.of());
       } catch (EvalException e) {
         throw new EvalException(
             e.getMessage()

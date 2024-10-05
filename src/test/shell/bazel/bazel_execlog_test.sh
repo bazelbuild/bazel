@@ -183,6 +183,26 @@ EOF
   grep "listedOutputs" output.json || fail "log does not contain listed outputs"
 }
 
+function test_nested_directory() {
+  mkdir d
+  cat > d/BUILD <<'EOF'
+genrule(
+      name = "action",
+      outs = ["out.txt"],
+      cmd = "echo hello > $(location out.txt)",
+      tags = ["no-remote-cache"],
+)
+EOF
+
+  cd d
+  bazel build //d:action --execution_log_json_file=%workspace%/output.json 2>&1 >> $TEST_log || fail "could not build"
+  [[ -e ../output.json ]] || fail "no json log produced"
+  bazel build //d:action --execution_log_binary_file=%workspace%/output.binary 2>&1 >> $TEST_log || fail "could not build"
+  [[ -e ../output.binary ]] || fail "no binary log produced"
+  bazel build //d:action --execution_log_compact_file=%workspace%/output.compact 2>&1 >> $TEST_log || fail "could not build"
+  [[ -e ../output.compact ]] || fail "no compact log produced"
+}
+
 function test_no_remote_cache() {
   cat > BUILD <<'EOF'
 genrule(

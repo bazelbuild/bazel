@@ -323,7 +323,8 @@ public class RuleFactory {
     for (String ruleClassName : ruleClassMap.keySet()) {
       RuleClass cl = ruleClassMap.get(ruleClassName);
       if (cl.getRuleClassType() == RuleClassType.NORMAL
-          || cl.getRuleClassType() == RuleClassType.TEST) {
+          || cl.getRuleClassType() == RuleClassType.TEST
+          || cl.getRuleClassType() == RuleClassType.BUILD_ONLY) {
         result.put(ruleClassName, new BuiltinRuleFunction(cl));
       }
     }
@@ -347,7 +348,10 @@ public class RuleFactory {
         throw Starlark.errorf("unexpected positional arguments");
       }
       try {
-        Package.Builder pkgBuilder = Package.Builder.fromOrFail(thread, "rules");
+        Package.Builder pkgBuilder =
+            ruleClass.getRuleClassType() != RuleClassType.BUILD_ONLY
+                ? Package.Builder.fromOrFail(thread, "rules")
+                : Package.Builder.fromOrFailAllowBuildOnly(thread, ruleClass.getName() + " rule");
         RuleFactory.createAndAddRule(
             pkgBuilder,
             ruleClass,

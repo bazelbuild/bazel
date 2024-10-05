@@ -49,7 +49,6 @@ import net.starlark.java.eval.StarlarkThread;
 import net.starlark.java.eval.StarlarkValue;
 import net.starlark.java.eval.Structure;
 import net.starlark.java.eval.Tuple;
-import net.starlark.java.syntax.Location;
 
 /** A collection of global Starlark build API functions that apply to MODULE.bazel files. */
 @GlobalMethods(environment = Environment.MODULE)
@@ -171,11 +170,10 @@ public class ModuleFileGlobals {
     }
     if (repoName.isEmpty()) {
       repoName = name;
-      context.addRepoNameUsage(name, "as the current module name", thread.getCallerLocation());
+      context.addRepoNameUsage(name, "as the current module name", thread.getCallStack());
     } else {
       RepositoryName.validateUserProvidedRepoName(repoName);
-      context.addRepoNameUsage(
-          repoName, "as the module's own repo name", thread.getCallerLocation());
+      context.addRepoNameUsage(repoName, "as the module's own repo name", thread.getCallStack());
     }
     Version parsedVersion;
     try {
@@ -293,7 +291,7 @@ public class ModuleFileGlobals {
               name, parsedVersion, maxCompatibilityLevel.toInt("max_compatibility_level")));
     }
 
-    context.addRepoNameUsage(repoName, "by a bazel_dep", thread.getCallerLocation());
+    context.addRepoNameUsage(repoName, "by a bazel_dep", thread.getCallStack());
   }
 
   @StarlarkMethod(
@@ -541,9 +539,13 @@ public class ModuleFileGlobals {
       usageBuilder.addProxyBuilder(proxyBuilder);
     }
 
-    void addImport(String localRepoName, String exportedName, String byWhat, Location location)
+    void addImport(
+        String localRepoName,
+        String exportedName,
+        String byWhat,
+        ImmutableList<StarlarkThread.CallStackEntry> stack)
         throws EvalException {
-      usageBuilder.addImport(localRepoName, exportedName, byWhat, location);
+      usageBuilder.addImport(localRepoName, exportedName, byWhat, stack);
       proxyBuilder.addImport(localRepoName, exportedName);
     }
 
@@ -635,13 +637,13 @@ public class ModuleFileGlobals {
       throws EvalException {
     ModuleThreadContext context = ModuleThreadContext.fromOrFail(thread, "use_repo()");
     context.setNonModuleCalled();
-    Location location = thread.getCallerLocation();
+    ImmutableList<StarlarkThread.CallStackEntry> stack = thread.getCallStack();
     for (String arg : Sequence.cast(args, String.class, "args")) {
-      extensionProxy.addImport(arg, arg, "by a use_repo() call", location);
+      extensionProxy.addImport(arg, arg, "by a use_repo() call", stack);
     }
     for (Map.Entry<String, String> entry :
         Dict.cast(kwargs, String.class, String.class, "kwargs").entrySet()) {
-      extensionProxy.addImport(entry.getKey(), entry.getValue(), "by a use_repo() call", location);
+      extensionProxy.addImport(entry.getKey(), entry.getValue(), "by a use_repo() call", stack);
     }
   }
 
@@ -829,7 +831,7 @@ public class ModuleFileGlobals {
                   .setContainingModuleFilePath(
                       usageBuilder.getContext().getCurrentModuleFilePath()));
       extensionProxy.getValue(tagName).call(kwargs, thread);
-      extensionProxy.addImport(name, name, "by a repo rule", thread.getCallerLocation());
+      extensionProxy.addImport(name, name, "by a repo rule", thread.getCallStack());
     }
   }
 

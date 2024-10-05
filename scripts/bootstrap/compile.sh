@@ -303,11 +303,6 @@ EOF
   mkdir -p ${BAZEL_TOOLS_REPO}/tools/python
   link_file "${PWD}/tools/python/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/python/BUILD"
 
-  # Create @bazel_tools/tools/android/BUILD
-  mkdir -p ${BAZEL_TOOLS_REPO}/tools/android
-  link_file "${PWD}/tools/android/BUILD.tools" "${BAZEL_TOOLS_REPO}/tools/android/BUILD"
-  link_children "${PWD}" tools/android "${BAZEL_TOOLS_REPO}"
-
   # Create the rest of @bazel_tools//tools/...
   link_children "${PWD}" tools/cpp "${BAZEL_TOOLS_REPO}"
   mv -f ${BAZEL_TOOLS_REPO}/tools/cpp/BUILD.tools ${BAZEL_TOOLS_REPO}/tools/cpp/BUILD

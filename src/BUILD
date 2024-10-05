@@ -145,7 +145,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 465,
+    expect = 408,
     margin = 5,  # percentage
 )
 
@@ -374,7 +374,6 @@ filegroup(
         "//src/test/testdata/test_tls_certificate",
         "//src/test/tools:srcs",
         "//src/test/tools/bzlmod:srcs",
-        "//src/tools/android:srcs",
         "//src/tools/bzlmod:srcs",
         "//src/tools/diskcache:srcs",
         "//src/tools/execlog:srcs",
@@ -591,8 +590,6 @@ filegroup(
     name = "test_repos",
     srcs = [
         requirement("bazel-runfiles"),  # Fetching the hermetic Python toolchain.
-        "@android_gmaven_r8//jar:file",
-        "@android_tools//:all_android_tools_deploy.jar",
         "@bazel_skylib//:WORKSPACE",
         "@protobuf//:LICENSE",
         "@remote_coverage_tools//:all_lcov_merger_lib",
@@ -605,7 +602,6 @@ filegroup(
         "@rules_java//:WORKSPACE",
         "@rules_license//:WORKSPACE",
         "@rules_pkg//:WORKSPACE",
-        "@rules_proto//proto:defs",
         "@rules_python//:WORKSPACE",
         "@rules_testing//:LICENSE",
     ] + select({

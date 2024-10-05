@@ -150,7 +150,7 @@ index 103fe5e..21159ed 100644
 
 -    return ("\n".join(all_imports), jar_versionless_target_labels)
 +    all_imports.append("filegroup(\n\tname = \"srcs\",\n\tsrcs = [\n\t\t%s,\n\t],\n\tvisibility = [\"//visibility:public\"],\n)" %
-+                       (",\n\t\t".join(["\"BUILD.vendor\"", "\"defs.bzl\"", "\"WORKSPACE\""] + artifact_paths)))
++                       (",\n\t\t".join(["\"BUILD.vendor\"", "\"defs.bzl\"", "\"REPO.bazel\""] + artifact_paths)))
 +
 +    return ("\n".join(all_imports), jar_versionless_target_labels, "\n".join(vendor_targets))
 

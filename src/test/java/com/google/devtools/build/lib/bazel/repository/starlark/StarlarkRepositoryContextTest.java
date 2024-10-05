@@ -516,7 +516,11 @@ public final class StarlarkRepositoryContextTest {
 
   @Test
   public void testNoIncompatibleNoImplicitWatchLabel() throws Exception {
-    setUpContextForRule("test");
+    setUpContextForRule(
+        "test",
+        StarlarkSemantics.DEFAULT.toBuilder()
+            .setBool(BuildLanguageOptions.INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, false)
+            .build());
     scratch.file(root.getRelative("foo").getPathString());
     StarlarkPath unusedPath = context.getPath(fakeFileLabel);
     String unusedRead = context.readFile(fakeFileLabel, "no", thread);

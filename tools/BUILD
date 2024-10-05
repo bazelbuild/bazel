@@ -21,7 +21,6 @@ filegroup(
         "//tools/def_parser:srcs",
         "//tools/distributions:srcs",
         "//tools/genrule:srcs",
-        "//tools/j2objc:srcs",
         "//tools/java:srcs",
         "//tools/jdk:srcs",
         "//tools/launcher:srcs",
@@ -48,7 +47,6 @@ filegroup(
         exclude = ["fastutil.proguard"],
     ) + [
         "//tools/allowlists:srcs",
-        "//tools/android:embedded_tools",
         "//tools/bash:embedded_tools",
         "//tools/build_defs:embedded_tools",
         "//tools/build_rules:embedded_tools_srcs",
@@ -57,7 +55,6 @@ filegroup(
         "//tools/cpp:embedded_tools",
         "//tools/def_parser:srcs",
         "//tools/genrule:srcs",
-        "//tools/j2objc:srcs",
         "//tools/java:embedded_tools",
         "//tools/java:java_stub_template.txt",
         "//tools/jdk:package-srcs",
@@ -81,7 +78,6 @@ filegroup(
     name = "bzl_srcs",
     srcs = [
         "//tools:build_defs.bzl",
-        "//tools/android:bzl_srcs",
         "//tools/build_defs:bzl_srcs",
         "//tools/build_rules:bzl_srcs",
         "//tools/cpp:bzl_srcs",

@@ -13,65 +13,9 @@ filegroup(
     visibility = ["//src:__subpackages__"],
 )
 
-java_test(
-    name = "BazelJ2ObjcLibraryTest",
-    tags = ["no_windows"],
-    runtime_deps = [":BazelJ2ObjcLibraryTest_lib"],
-)
-
-java_library(
-    name = "BazelJ2ObjcLibraryTest_lib",
-    srcs = ["BazelJ2ObjcLibraryTest.java"],
-    deps = [
-        ":J2ObjcLibraryTest",
-        "//src/main/java/com/google/devtools/build/lib/actions",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/actions:thread_state_receiver",
-        "//src/main/java/com/google/devtools/build/lib/analysis:actions/parameter_file_write_action",
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/main/java/com/google/devtools/build/lib/cmdline",
-        "//src/main/java/com/google/devtools/build/lib/collect/nestedset",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
-        "//src/main/java/com/google/devtools/build/lib/vfs",
-        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
-        "//src/test/java/com/google/devtools/build/lib/actions/util",
-        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/rules/python:PythonTestUtils",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:guava",
-        "//third_party:jsr305",
-        "//third_party:junit4",
-        "//third_party:truth",
-    ],
-)
-
-java_library(
-    name = "J2ObjcLibraryTest",
-    srcs = ["J2ObjcLibraryTest.java"],
-    deps = [
-        ":ObjcRulesTests_lib",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifact_expander",
-        "//src/main/java/com/google/devtools/build/lib/actions:artifacts",
-        "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
-        "//src/test/java/com/google/devtools/build/lib/packages:testutil",
-        "//src/test/java/com/google/devtools/build/lib/testutil:TestConstants",
-        "//third_party:guava",
-        "//third_party:junit4",
-    ],
-)
-
 java_library(
     name = "ObjcRulesTests_lib",
-    srcs = glob(
-        ["*.java"],
-        exclude = [
-            "J2ObjcLibraryTest.java",
-            "BazelJ2ObjcLibraryTest.java",
-        ],
-    ),
+    srcs = glob(["*.java"]),
     deps = [
         "//src/main/java/com/google/devtools/build/lib/actions",
         "//src/main/java/com/google/devtools/build/lib/actions:action_lookup_data",

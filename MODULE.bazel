@@ -389,39 +389,3 @@ register_toolchains("@local_config_winsdk//:all")
 register_toolchains("//src/main/res:empty_rc_toolchain")
 
 register_toolchains("@graalvm_toolchains//:gvm")
-
-# =========================================
-# Android tools dependencies
-# =========================================
-
-maven_android = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
-maven_android.install(
-    name = "maven_android",
-    artifacts = [
-        "androidx.databinding:databinding-compiler:3.4.0-alpha10",
-        "com.android.tools.build:builder:7.1.3",
-        "com.android.tools.build:manifest-merger:30.1.3",
-        "com.android.tools:sdk-common:30.1.3",
-        "com.android.tools:annotations:30.1.3",
-        "com.android.tools.layoutlib:layoutlib-api:30.1.3",
-        "com.android.tools:common:30.1.3",
-        "com.android.tools:repository:30.1.3",
-    ],
-    # Don't forget to change this to back to True before submitting your change.
-    fail_if_repin_required = True,
-    lock_file = "//src/tools/android:maven_android_install.json",
-    repositories = [
-        "https://dl.google.com/android/maven2",
-        "https://repo1.maven.org/maven2",
-    ],
-)
-use_repo(maven_android, "maven_android", "unpinned_maven_android")
-
-bazel_android_deps = use_extension("//:extensions.bzl", "bazel_android_deps")
-use_repo(bazel_android_deps, "desugar_jdk_libs")
-
-remote_android_extensions = use_extension("//tools/android:android_extensions.bzl", "remote_android_tools_extensions")
-use_repo(remote_android_extensions, "android_gmaven_r8", "android_tools")
-
-android_sdk_proxy_extensions = use_extension("//tools/android:android_extensions.bzl", "android_sdk_proxy_extensions")
-use_repo(android_sdk_proxy_extensions, "android_external")
