@@ -274,13 +274,13 @@ function test_packages_cleared() {
   # is still low (external packages don't contribute there). We can lower this
   # number again once we remove WORKSPACE logic and move repo rules to not use
   # Package anymore.
-  [[ "$package_count" -le 50 ]] \
+  [[ "$package_count" -le 51 ]] \
       || fail "package count $package_count too high"
   globs_count="$(extract_histogram_count "$histo_file" "GlobsValue$")"
   [[ "$globs_count" -le 1 ]] \
       || fail "globs count $globs_count too high"
   module_count="$(extract_histogram_count "$histo_file" 'eval.Module$')"
-  [[ "$module_count" -lt 215 ]] \
+  [[ "$module_count" -le 265 ]] \
       || fail "Module count $module_count too high"
   ct_count="$(extract_histogram_count "$histo_file" \
        'RuleConfiguredTarget$')"

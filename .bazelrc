@@ -2,6 +2,9 @@ common --enable_platform_specific_config
 common --incompatible_use_plus_in_repo_names
 common --experimental_google_legacy_api # needed by protobuf
 
+# @rules_java
+common --experimental_rule_extension_api
+
 # Shared configuration flags to build and test Bazel on RBE.
 build:remote_shared --remote_instance_name=projects/bazel-untrusted/instances/default_instance
 build:remote_shared --remote_executor=grpcs://remotebuildexecution.googleapis.com

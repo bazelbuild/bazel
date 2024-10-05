@@ -24,10 +24,16 @@ WORKSPACE_REPOS = {
         "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.10/rules_cc-0.0.10.tar.gz"],
         "strip_prefix": "rules_cc-0.0.10",
     },
+    "protobuf": {
+        "archive": "v27.0.zip",
+        "sha256": "a7e735f510520b41962d07459f6f5b99dd594c7ed4690bf1191b9924bec094a2",
+        "urls": ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v27.0.zip"],
+        "strip_prefix": "protobuf-27.0",
+    },
     "rules_java": {
-        "archive": "rules_java-7.12.1.tar.gz",
-        "sha256": "dfbadbb37a79eb9e1cc1e156ecb8f817edf3899b28bc02410a6c1eb88b1a6862",
-        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/7.12.1/rules_java-7.12.1.tar.gz"],
+        "archive": "rules_java-8.0.0-rc2.tar.gz",
+        "sha256": "7bfdbb51bb362ecdca5d989efa3c77683ce4d431e82e2d2d7aadca33a8c35ca7",
+        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/8.0.0-rc2/rules_java-8.0.0-rc2.tar.gz"],
     },
     "bazel_skylib": {
         "archive": "bazel-skylib-1.6.1.tar.gz",

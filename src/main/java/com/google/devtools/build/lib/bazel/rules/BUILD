@@ -145,6 +145,7 @@ gen_workspace_stanza(
     """,
     repos = [
         "bazel_skylib",  # Dependency of other rules
+        "protobuf",  # Dependency of rules_java
         "rules_java",  # For auto-load java rules symbols
         "rules_cc",  # For auto-load cc rules symbols
         "rules_python",  # For auto-load python rules symbols

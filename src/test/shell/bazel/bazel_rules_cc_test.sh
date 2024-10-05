@@ -83,9 +83,14 @@ EOF
 function test_rules_cc_repository_builds_itself() {
   add_rules_cc "MODULE.bazel"
   write_default_bazelrc
-
+  # can be removed with protobuf v28.x onwards
+  if $is_windows; then
+    CXXOPTS=""
+  else
+    CXXOPTS="--cxxopt=-Wno-deprecated-declarations --host_cxxopt=-Wno-deprecated-declarations"
+  fi
   # We test that a built-in @rules_cc repository is buildable.
-  bazel build @rules_cc//cc/... &> $TEST_log \
+  bazel build $CXXOPTS @rules_cc//cc/... &> $TEST_log \
       || fail "Build failed unexpectedly"
 }
 

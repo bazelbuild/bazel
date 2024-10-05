@@ -8,6 +8,7 @@ filegroup(
 
 exports_files([
     "BUILD",
+    "proto_info_bzl_deps.patch",
     "remove_rules_rust.patch",
 ])
 
