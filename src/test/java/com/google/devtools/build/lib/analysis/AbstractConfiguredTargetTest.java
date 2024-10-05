@@ -44,6 +44,7 @@ public class AbstractConfiguredTargetTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "java/a",
             "a",
+            "load('@rules_java//java:defs.bzl', 'java_binary', 'java_library')",
             "java_binary(name='a', srcs=['A.java'], deps=[':b'])",
             "java_library(name='b', srcs=['B.java'])");
 

@@ -217,6 +217,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "embedded_tools/tools/jdk/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_import", "java_toolchain")
         load(
             ":java_toolchain_alias.bzl",
             "java_host_runtime_alias",
@@ -372,19 +373,14 @@ public final class BazelAnalysisMock extends AnalysisMock {
     // Create the actual SDKs.
     config.create(
         "embedded_tools/src/tools/android/java/com/google/devtools/build/android/r8/BUILD",
-        "java_library(name='r8')\n");
+        """
+        filegroup(name='r8', srcs = [])
+        """);
     config.create(
         "android_gmaven_r8/jar/BUILD",
         """
-        java_import(
-            name = "jar",
-            jars = ["r8.jar"],
-        )
-
-        filegroup(
-            name = "file",
-            srcs = [],
-        )
+        filegroup(name = "jar", srcs = ["r8.jar"])
+        filegroup(name = "file", srcs = [])
         """);
     config.create("android_gmaven_r8/WORKSPACE");
 

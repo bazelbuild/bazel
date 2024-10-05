@@ -86,6 +86,7 @@ public final class MockProtoSupport {
       config.create(
           "java/com/google/io/protocol/BUILD",
           """
+          load("@rules_java//java:defs.bzl", "java_import")
           package(default_visibility = ["//visibility:public"])
 
           java_import(
@@ -96,6 +97,7 @@ public final class MockProtoSupport {
       config.create(
           "java/com/google/io/protocol2/BUILD",
           """
+          load("@rules_java//java:defs.bzl", "java_import")
           package(default_visibility = ["//visibility:public"])
 
           java_import(
@@ -114,6 +116,7 @@ public final class MockProtoSupport {
       config.create(
           "java/com/google/io/protocol/BUILD",
           """
+          load("@rules_java//java:defs.bzl", "java_library")
           package(default_visibility = ["//visibility:public"])
 
           java_library(
@@ -125,6 +128,7 @@ public final class MockProtoSupport {
       config.create(
           "java/com/google/io/protocol2/BUILD",
           """
+          load("@rules_java//java:defs.bzl", "java_library")
           package(default_visibility = ["//visibility:public"])
 
           java_library(
@@ -249,6 +253,7 @@ public final class MockProtoSupport {
     config.create(
         "java/com/google/net/rpc/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         package(default_visibility = ["//visibility:public"])
 
         java_library(
@@ -264,6 +269,7 @@ public final class MockProtoSupport {
     config.create(
         "java/com/google/net/rpc3/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         package(default_visibility = ["//visibility:public"])
 
         java_library(
@@ -332,6 +338,7 @@ public final class MockProtoSupport {
     config.create(
         "third_party/java/jsr250_annotations/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         package(default_visibility = ["//visibility:public"])
 
         licenses(["notice"])

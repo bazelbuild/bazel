@@ -51,6 +51,9 @@ msys*|mingw*|cygwin*)
 esac
 
 function test_rules_cc_can_be_overridden() {
+  # rules_java relies on rules_cc contents
+  mock_rules_java_to_avoid_downloading
+
   # The bazelrc file might contain an --override_repository flag for rules_cc,
   # which would cause this test to fail to override the repo via a WORKSPACE file.
   sed -i.bak '/override_repository=rules_cc/d' $TEST_TMPDIR/bazelrc

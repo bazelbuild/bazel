@@ -939,6 +939,7 @@ public class AspectTest extends AnalysisTestCase {
     setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg(
         "a",
+        "load('@rules_java//java:defs.bzl', 'java_binary')",
         "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])"
     );
 
@@ -975,6 +976,7 @@ public class AspectTest extends AnalysisTestCase {
     setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
     pkg(
         "a",
+        "load('@rules_java//java:defs.bzl', 'java_binary')",
         "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])"
     );
     scratch.file("a/x.java", "");
@@ -992,6 +994,7 @@ public class AspectTest extends AnalysisTestCase {
     pkg("b");
     pkg(
         "a",
+        "load('@rules_java//java:defs.bzl', 'java_binary')",
         "package_group(name = 'group', packages = ['//b'])",
         "java_binary(name = 'x', main_class = 'x.F', srcs = ['x.java'], visibility = [':group'])");
     scratch.file("a/x.java", "");
@@ -1010,7 +1013,9 @@ public class AspectTest extends AnalysisTestCase {
   public void duplicateTopLevelAspects_duplicateAspectsNotAllowed() throws Exception {
     AspectApplyingToFiles aspectApplyingToFiles = new AspectApplyingToFiles();
     setRulesAndAspectsAvailableInTests(ImmutableList.of(aspectApplyingToFiles), ImmutableList.of());
-    pkg("a", "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
+    pkg("a",
+        "load('@rules_java//java:defs.bzl', 'java_binary')",
+        "java_binary(name = 'x', main_class = 'x.FooBar', srcs = ['x.java'])");
     reporter.removeHandler(failFastHandler);
 
     assertThrows(

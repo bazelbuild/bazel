@@ -189,6 +189,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
   @Test
   public void testBasicActionListener() throws Exception {
     write("nobuild/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'javalib',",
         "             srcs=[])",
         "extra_action(name = 'baz',",
@@ -214,6 +215,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
    @Test
    public void testActionListenerThatRequiresActionOutputs() throws Exception {
     write("nobuild/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'javalib',",
         "             srcs=[])",
         "extra_action(name = 'baz',",
@@ -240,6 +242,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
   @Test
   public void testFilteredActionListener() throws Exception {
     write("filtered/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'a',",
         "             srcs=[])",
         "java_library(name= 'b',",
@@ -269,6 +272,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
   @Test
   public void testTopLevelOnlyActionListener() throws Exception {
     write("filtered/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'a',",
         "             srcs=[])",
         "java_library(name= 'b',",
@@ -391,6 +395,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
   @Test
   public void testActionListenerNotEnabled() throws Exception {
     write("nobuild/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name= 'javalib',",
         "             srcs=[])",
         "extra_action(name = 'baz',",
@@ -437,6 +442,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
     write(
         "nobuild/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "javalib1",
             srcs = [],
@@ -464,6 +470,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
     write(
         "nobuild/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "javalib",
             srcs = [],
@@ -493,6 +500,7 @@ public final class ActionListenerIntegrationTest extends BuildIntegrationTestCas
     write(
         "nobuild/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "javalib",
             srcs = [],

@@ -858,6 +858,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = 'hi',
             data = ['//helpers:default'],
@@ -1521,6 +1522,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = 'a',
             runtime_deps = ['//hello/b'],
@@ -1529,6 +1531,7 @@ public class ConstraintsTest extends AbstractConstraintsTest {
     scratch.file(
         "hello/b/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = 'b',
             runtime_deps = select({'//hello/c': []}),

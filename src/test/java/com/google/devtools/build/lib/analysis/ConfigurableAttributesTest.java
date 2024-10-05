@@ -65,6 +65,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
 
   private void writeHelloRules(boolean includeDefaultCondition) throws IOException {
     scratch.file("java/hello/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_binary', 'java_library')",
         "java_binary(",
         "    name = 'hello',",
         "    srcs = ['hello.java'],",
@@ -233,6 +234,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void depsWithDuplicatesInDifferentBranches() throws Exception {
     writeConfigRules();
     scratch.file("java/hello/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_binary', 'java_library')",
         "java_binary(",
         "    name = 'hello',",
         "    srcs = ['hello.java'],",
@@ -265,6 +267,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
   public void depsWithDuplicatesInSameBranch() throws Exception {
     writeConfigRules();
     scratch.file("java/hello/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_binary', 'java_library')",
         "java_binary(",
         "    name = 'hello',",
         "    srcs = ['hello.java'],",
@@ -302,6 +305,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/hello/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = 'hello',
             srcs = select({
@@ -332,6 +336,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/hello/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = 'hello',
             srcs = select({
@@ -358,6 +363,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/hello/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = 'hello',
             srcs = select({
@@ -450,6 +456,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = 'int_key',
             srcs = select({123: ['a.java']})
@@ -465,6 +472,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = 'bool_key',
             srcs = select({True: ['a.java']})
@@ -480,6 +488,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = 'none_key',
             srcs = select({None: ['a.java']})
@@ -719,6 +728,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_library")
         java_binary(
             name = 'binary',
             srcs = ['binary.java'],
@@ -803,6 +813,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_library")
         java_binary(
             name = 'binary',
             srcs = ['binary.java'],
@@ -860,6 +871,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/hello/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = 'hello_default_no_match_error',
             srcs = select({
@@ -925,6 +937,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_library")
         load(':rule.bzl', 'myrule')
         myrule(
             name = 'mytarget',
@@ -983,6 +996,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_library")
         load(':rule.bzl', 'myrule')
         myrule(
             name = 'mytarget',
@@ -1040,6 +1054,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary", "java_library")
         load(':rule.bzl', 'myrule')
         myrule(
             name = 'mytarget',
@@ -1112,6 +1127,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(':rule.bzl', 'myrule')
         myrule(
             name = 'mytarget',
@@ -1164,6 +1180,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = 'binary',
             srcs = select({
@@ -1185,6 +1202,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = 'binary',
             srcs = glob(['globbed/*.java']) + select({
@@ -1230,6 +1248,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = 'binary',
             srcs = ['binary.java'] + select({
@@ -2099,6 +2118,7 @@ public class ConfigurableAttributesTest extends BuildViewTestCase {
     scratch.file(
         "java/foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load('//java:macros.bzl', 'my_java_binary')
         my_java_binary(
             name = 'binary',

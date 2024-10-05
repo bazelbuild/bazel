@@ -40,7 +40,8 @@ public class BindTest extends BuildViewTestCase {
 
   @Before
   public final void createFiles() throws Exception {
-    analysisMock.javaSupport().setupRulesJava(mockToolsConfig, Function.identity());
+    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
+    analysisMock.javaSupport().setupRulesJava(mockToolsConfig, runfiles::rlocation);
     setupStarlarkRules(scratch);
     scratch.file(
         "test/BUILD",
@@ -64,6 +65,7 @@ public class BindTest extends BuildViewTestCase {
     // mock Java setup.
     scratch.overwriteFile(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/jdk/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_runtime')",
         "load(':java_toolchain_alias.bzl', 'java_runtime_alias')",
         "package(default_visibility = ['//visibility:public'])",
         "java_runtime_alias(name = 'current_java_runtime')",

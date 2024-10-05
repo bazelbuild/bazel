@@ -104,7 +104,9 @@ public class CircularDependencyTest extends BuildViewTestCase {
   public void testOneRuleImplicitCycleJava() throws Exception {
     Package pkg =
         createScratchPackageForImplicitCycle(
-            "cycle", "java_library(name='jcyc',", "      srcs = ['libjcyc.jar', 'foo.java'])");
+            "cycle",
+            "load('@rules_java//java:defs.bzl', 'java_library')",
+            "java_library(name='jcyc',", "      srcs = ['libjcyc.jar', 'foo.java'])");
     assertThrows(NoSuchTargetException.class, () -> pkg.getTarget("jcyc"));
     assertThat(pkg.containsErrors()).isTrue();
     assertContainsEvent("rule 'jcyc' has file 'libjcyc.jar' as both an" + " input and an output");
@@ -148,6 +150,7 @@ public class CircularDependencyTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "x",
             deps = ["y"],

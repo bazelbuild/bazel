@@ -54,9 +54,15 @@ public abstract class BuildViewTestBase extends AnalysisTestCase {
     scratch.file("java/a/BUILD",
         "exports_files(['A.java'])");
     scratch.file("java/b/BUILD",
-        "java_library(name = 'b', srcs = ['//java/a:A.java'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(name = 'b', srcs = ['//java/a:A.java'])
+        """);
     scratch.file("java/c/BUILD",
-        "java_library(name = 'c', exports = ['//java/b:b'])");
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(name = 'c', exports = ['//java/b:b'])
+        """);
     reporter.setOutputFilter(RegexOutputFilter.forPattern(outputFilter));
     update("//java/c:c");
   }

@@ -400,10 +400,13 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
   @Test
   public void testNoWarningWhenDeprecatedDependsOnDeprecatedRule() throws Exception {
     scratch.file("foo/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name='foo', srcs=['foo.java'], deps=['//bar:bar'])");
     scratch.file("bar/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name='bar', srcs=['bar.java'], deps=['//baz:baz'], deprecation='BAR')");
     scratch.file("baz/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name='baz', srcs=['baz.java'], deprecation='BAZ')");
 
     reporter.removeHandler(failFastHandler); // expect errors
@@ -424,17 +427,20 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
             // error:
             getErrorNonExistingTarget("srcs", "java_library", "//x:x", "//x:a.cc"),
             // build file:
+            "load('@rules_java//java:defs.bzl', 'java_library')",
             "# blank line",
             "java_library(name = 'x',",
             "           srcs = ['a.cc'])");
-    assertThat(e.getLocation().toString()).isEqualTo("/workspace/x/BUILD:2:13");
+    assertThat(e.getLocation().toString()).isEqualTo("/workspace/x/BUILD:3:13");
   }
 
   @Test
   public void testJavatestsIsTestonly() throws Exception {
     scratch.file("java/x/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
                 "java_library(name='x', exports=['//javatests/y'])");
     scratch.file("javatests/y/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
                 "java_library(name='y')");
     reporter.removeHandler(failFastHandler); // expect warning
     ConfiguredTarget target = getConfiguredTarget("//java/x");
@@ -448,6 +454,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/banana/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "banana",
             visibility = ["//javatests/plantain:chips"],
@@ -471,6 +478,7 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file("x/y.java", "foo");
     checkError("x", "x", getErrorMsgMisplacedFiles(
         "deps", "java_library", "//x:x", "//x:y.java"),
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name='x', srcs=['x.java'], deps=['y.java'])");
   }
 
@@ -479,13 +487,15 @@ public final class RuleConfiguredTargetTest extends BuildViewTestCase {
     scratch.file("x/y.java");
     checkError("x", "x", getErrorMsgMisplacedFiles(
         "deps", "java_library", "//x:x", "//x:y.java"),
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name='x', srcs=['x.java'], deps=['y.java'])");
   }
 
   @Test
   public void testGetArtifactForImplicitOutput() throws Exception {
     scratch.file("java/x/BUILD",
-                "java_binary(name='x', srcs=['x.java'])");
+        "load('@rules_java//java:defs.bzl', 'java_binary')",
+        "java_binary(name='x', srcs=['x.java'])");
 
     ConfiguredTarget javaBinary = getConfiguredTarget("//java/x:x");
     Artifact classJarArtifact = getFileConfiguredTarget("//java/x:x.jar").getArtifact();

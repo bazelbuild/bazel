@@ -78,6 +78,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "A",
             srcs = ["A.java"],
@@ -94,6 +95,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "A",
             srcs = ["A.java"],
@@ -114,6 +116,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "A",
             srcs = ["A.java"],
@@ -131,6 +134,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "A",
             srcs = ["A.java"],
@@ -153,6 +157,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "A",
             srcs = ["A.java"],
@@ -162,6 +167,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/b/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "b",
             srcs = ["B.java"],
@@ -172,6 +178,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.overwriteFile(
         "java/b/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "b",
             srcs = ["C.java"],
@@ -247,6 +254,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "A",
             srcs = ["A.java"],
@@ -256,6 +264,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/b/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "b",
             srcs = ["B.java"],
@@ -266,6 +275,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.overwriteFile(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "A",
             srcs = ["A.java"],
@@ -640,6 +650,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "A",
             srcs = ["A.java"],
@@ -649,6 +660,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/b/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "b",
             srcs = ["B.java"],
@@ -658,6 +670,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/c/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "c",
             srcs = ["C.java"],
@@ -672,6 +685,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.overwriteFile(
         "java/b/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "b",
             srcs = ["B.java"],
@@ -694,6 +708,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "A",
             srcs = ["A.java"],
@@ -709,6 +724,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "x",
             srcs = ["A.java"],
@@ -735,6 +751,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         # It's important that all targets are of the same rule class, otherwise the second update
         # call might analyze more than one extra target because of potential implicit dependencies.
         java_library(
@@ -769,8 +786,16 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   @Test
   public void testExtraActions() throws Exception {
-    scratch.file("java/com/google/a/BUILD", "java_library(name='a', srcs=['A.java'])");
-    scratch.file("java/com/google/b/BUILD", "java_library(name='b', srcs=['B.java'])");
+    scratch.file("java/com/google/a/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(name='a', srcs=['A.java'])
+        """);
+    scratch.file("java/com/google/b/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(name='b', srcs=['B.java'])
+        """);
     scratch.file(
         "extra/BUILD",
         """
@@ -794,7 +819,11 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
 
   @Test
   public void testExtraActionsCaching() throws Exception {
-    scratch.file("java/a/BUILD", "java_library(name='a', srcs=['A.java'])");
+    scratch.file("java/a/BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_library")
+        java_library(name='a', srcs=['A.java'])
+        """);
     scratch.file(
         "extra/BUILD",
         """
@@ -853,6 +882,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "A",
             srcs = ["A.java"],
@@ -865,6 +895,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.overwriteFile(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "A",
             srcs = ["B.java"],
@@ -885,6 +916,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "A",
             srcs = ["A.java"],
@@ -894,6 +926,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/b/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "B",
             srcs = ["B.java"],
@@ -910,6 +943,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.overwriteFile(
         "java/b/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "B",
             srcs = ["C.java"],
@@ -942,6 +976,7 @@ public class AnalysisCachingTest extends AnalysisCachingTestBase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "x",
             srcs = ["A.java"],

@@ -191,6 +191,7 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
   @Test
   public void testBuildAllAndParsingError() throws Exception {
     write("pkg/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_binary')",
           "java_binary(",
           "name = \"foo\",",
           "  syntax error here",
@@ -268,6 +269,7 @@ public class MiscAnalysisTest extends BuildIntegrationTestCase {
     write(
         "pkg/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = "foo",
             srcs = unknown_value,

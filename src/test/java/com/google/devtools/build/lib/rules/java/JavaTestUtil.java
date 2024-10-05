@@ -41,6 +41,7 @@ public class JavaTestUtil {
     scratch.file("java/com/google/test/tzdata.jar");
     scratch.overwriteFile(
         "java/com/google/test/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_runtime', 'java_toolchain')",
         "java_toolchain(name = 'toolchain',",
         "    source_version = '6',",
         "    target_version = '6',",

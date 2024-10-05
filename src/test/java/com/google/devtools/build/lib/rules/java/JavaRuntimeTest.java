@@ -42,6 +42,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
     scratch.file(
         "jvm/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_runtime")
         java_runtime(
             name = "jvm-k8",
             srcs = [
@@ -73,6 +74,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   @Test
   public void absoluteJavaHomeWithSrcs() throws Exception {
     scratch.file("a/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_runtime')",
         "java_runtime(name='jvm', srcs=[':dummy'], java_home='/absolute/path')");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:jvm");
@@ -82,7 +84,9 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   @Test
   public void absoluteJavaHomeWithJava() throws Exception {
     scratch.file(
-        "a/BUILD", "java_runtime(name='jvm', java='bin/java', java_home='/absolute/path')");
+        "a/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_runtime')",
+        "java_runtime(name='jvm', java='bin/java', java_home='/absolute/path')");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:jvm");
     assertContainsEvent("'java_home' with an absolute path requires 'java' to be empty.");
@@ -90,7 +94,9 @@ public class JavaRuntimeTest extends BuildViewTestCase {
 
   @Test
   public void binJavaPathName() throws Exception {
-    scratch.file("BUILD", "java_runtime(name='jvm', java='java')");
+    scratch.file("BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_runtime')",
+        "java_runtime(name='jvm', java='java')");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//:jvm");
     assertContainsEvent("the path to 'java' must end in 'bin/java'.");
@@ -99,6 +105,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   @Test
   public void absoluteJavaHome() throws Exception {
     scratch.file("a/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_runtime')",
         "java_runtime(name='jvm', srcs=[], java_home='/absolute/path')");
     reporter.removeHandler(failFastHandler);
     ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
@@ -108,6 +115,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   @Test
   public void relativeJavaHome() throws Exception {
     scratch.file("a/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_runtime')",
         "java_runtime(name='jvm', srcs=[], java_home='b/c')");
     reporter.removeHandler(failFastHandler);
     ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
@@ -131,6 +139,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   @Test
   public void javaHomeWithMakeVariables() throws Exception {
     scratch.file("a/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_runtime')",
         "java_runtime(name='jvm', srcs=[], java_home='/opt/$(CMDLINE)')");
     useConfiguration("--define=CMDLINE=foo/bar");
     ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
@@ -140,6 +149,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   @Test
   public void javaHomeWithInvalidMakeVariables() throws Exception {
     scratch.file("a/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_runtime')",
         "java_runtime(name='jvm', srcs=[], java_home='/opt/$(WTF)')");
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:jvm");
@@ -149,6 +159,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   @Test
   public void makeVariables() throws Exception {
     scratch.file("a/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_runtime')",
         "java_runtime(name='jvm', srcs=[], java_home='/foo/bar')");
     ImmutableMap<String, String> runtime = getConfiguredTarget("//a:jvm")
         .get(TemplateVariableInfo.PROVIDER).getVariables();
@@ -158,7 +169,9 @@ public class JavaRuntimeTest extends BuildViewTestCase {
 
   @Test
   public void noSrcs() throws Exception {
-    scratch.file("a/BUILD", "java_runtime(name='jvm', java_home='/opt/jvm')");
+    scratch.file("a/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_runtime')",
+        "java_runtime(name='jvm', java_home='/opt/jvm')");
     ConfiguredTarget jvm = getConfiguredTarget("//a:jvm");
     JavaRuntimeInfo provider = getJavaRuntimeInfo(jvm);
     assertThat(provider.javaHome()).isEqualTo("/opt/jvm");
@@ -169,6 +182,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
   public void invalidJavaBase() throws Exception {
     scratch.file(
         "a/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_binary')",
         "java_binary(name='a', srcs=['A.java'])",
         "filegroup(name='fg')",
         "toolchain(",
@@ -189,6 +203,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_runtime")
         genrule(
             name = "gen",
             outs = ["generated_java_home/bin/java"],
@@ -211,6 +226,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_runtime")
         genrule(
             name = "gen",
             outs = ["generated_java_home/bin/java"],
@@ -313,6 +329,7 @@ public class JavaRuntimeTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         load(":defs.bzl", "r")
 
         java_binary(
