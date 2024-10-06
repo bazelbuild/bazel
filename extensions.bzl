@@ -18,7 +18,7 @@
 
 load("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
 load("//:distdir.bzl", "distdir_tar", "repo_cache_tar")
-load("//:repositories.bzl", "DIST_ARCHIVE_REPOS", "android_deps_repos", "embedded_jdk_repositories")
+load("//:repositories.bzl", "DIST_ARCHIVE_REPOS", "embedded_jdk_repositories")
 load("//:workspace_deps.bzl", "WORKSPACE_REPOS")
 load("//src/main/res:winsdk_configure.bzl", "winsdk_configure")
 load("//src/test/shell/bazel:list_source_repository.bzl", "list_source_repository")
@@ -36,7 +36,6 @@ def _bazel_build_deps(ctx):
         dirname = "derived/repository_cache",
         module_files = [
             "//:MODULE.bazel",
-            "//third_party/googleapis:MODULE.bazel",
             "//third_party/remoteapis:MODULE.bazel",
             "//src:MODULE.tools",
         ],
@@ -61,10 +60,3 @@ def _bazel_test_deps(ctx):
     return ctx.extension_metadata(reproducible = True)
 
 bazel_test_deps = module_extension(implementation = _bazel_test_deps)
-
-### Dependencies for Bazel Android tools
-def _bazel_android_deps(ctx):
-    android_deps_repos()
-    return ctx.extension_metadata(reproducible = True)
-
-bazel_android_deps = module_extension(implementation = _bazel_android_deps)

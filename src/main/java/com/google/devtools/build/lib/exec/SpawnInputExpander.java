@@ -18,6 +18,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.ActionInputHelper;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -26,10 +27,10 @@ import com.google.devtools.build.lib.actions.Artifact.SpecialArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionException;
-import com.google.devtools.build.lib.actions.FilesetManifest;
-import com.google.devtools.build.lib.actions.FilesetManifest.ForbiddenRelativeSymlinkException;
-import com.google.devtools.build.lib.actions.FilesetManifest.RelativeSymlinkBehavior;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
+import com.google.devtools.build.lib.actions.FilesetOutputTree.FilesetManifest;
+import com.google.devtools.build.lib.actions.FilesetOutputTree.ForbiddenRelativeSymlinkException;
+import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehavior;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.PathMapper;
@@ -151,14 +152,14 @@ public final class SpawnInputExpander {
           }
         }
       } else if (artifact.isFileset()) {
-        ImmutableList<FilesetOutputSymlink> filesetLinks;
+        FilesetOutputTree filesetOutput;
         try {
-          filesetLinks = artifactExpander.expandFileset(artifact);
+          filesetOutput = artifactExpander.expandFileset(artifact);
         } catch (MissingExpansionException e) {
           throw new IllegalStateException(e);
         }
         // TODO(bazel-team): Add path mapping support for filesets.
-        addFilesetManifest(location, artifact, filesetLinks, inputMap, baseDirectory);
+        addFilesetManifest(location, artifact, filesetOutput, inputMap, baseDirectory);
       } else {
         // TODO: b/7075837 - If we want to prohibit directory inputs, we can check if
         //  localArtifact is a directory and, if so, throw a ForbiddenActionInputException.
@@ -169,12 +170,11 @@ public final class SpawnInputExpander {
 
   @VisibleForTesting
   void addFilesetManifests(
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
+      Map<Artifact, FilesetOutputTree> filesetMappings,
       Map<PathFragment, ActionInput> inputMap,
       PathFragment baseDirectory)
       throws ForbiddenRelativeSymlinkException {
-    for (Map.Entry<Artifact, ImmutableList<FilesetOutputSymlink>> entry :
-        filesetMappings.entrySet()) {
+    for (Map.Entry<Artifact, FilesetOutputTree> entry : filesetMappings.entrySet()) {
       Artifact fileset = entry.getKey();
       addFilesetManifest(fileset.getExecPath(), fileset, entry.getValue(), inputMap, baseDirectory);
     }
@@ -183,20 +183,17 @@ public final class SpawnInputExpander {
   private void addFilesetManifest(
       PathFragment location,
       Artifact filesetArtifact,
-      ImmutableList<FilesetOutputSymlink> filesetLinks,
+      FilesetOutputTree filesetOutput,
       Map<PathFragment, ActionInput> inputMap,
       PathFragment baseDirectory)
       throws ForbiddenRelativeSymlinkException {
     Preconditions.checkArgument(filesetArtifact.isFileset(), filesetArtifact);
     FilesetManifest filesetManifest =
-        FilesetManifest.constructFilesetManifest(filesetLinks, location, relSymlinkBehavior);
+        filesetOutput.constructFilesetManifest(location, relSymlinkBehavior);
 
     for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
       String value = mapping.getValue();
-      ActionInput artifact =
-          value == null
-              ? VirtualActionInput.EMPTY_MARKER
-              : ActionInputHelper.fromPath(execRoot.getRelative(value).asFragment());
+      ActionInput artifact = ActionInputHelper.fromPath(execRoot.getRelative(value).asFragment());
       // TODO(bazel-team): Add path mapping support for filesets.
       addMapping(inputMap, mapping.getKey(), artifact, baseDirectory);
     }
@@ -336,7 +333,7 @@ public final class SpawnInputExpander {
         spawn.getPathMapper(),
         visitor);
 
-    Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings = spawn.getFilesetMappings();
+    ImmutableMap<Artifact, FilesetOutputTree> filesetMappings = spawn.getFilesetMappings();
     // filesetMappings is assumed to be very small, so no need to implement visitNonLeaves() for
     // improved runtime.
     visitor.visit(

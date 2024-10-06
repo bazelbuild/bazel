@@ -212,6 +212,11 @@ public final class RunfilesSupport {
     }
 
     @Override
+    public boolean isMappingCached() {
+      return cachedMapping != null;
+    }
+
+    @Override
     public RunfileSymlinksMode getSymlinksMode() {
       return runfileSymlinksMode;
     }

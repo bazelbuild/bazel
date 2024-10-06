@@ -13,6 +13,8 @@
 // limitations under the License.
 package com.google.devtools.build.lib.packages;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -29,16 +31,31 @@ public abstract class PackageGroupsRuleVisibility implements RuleVisibility {
   @Override
   public abstract ImmutableList<Label> getDeclaredLabels();
 
-  /** Creates a {@link PackageGroupsRuleVisibility} from a list of labels. */
-  public static PackageGroupsRuleVisibility create(List<Label> labels) {
+  /**
+   * Creates a {@link PackageGroupsRuleVisibility} from a non-empty list of labels, which must have
+   * been previously validated and simplified by {@link RuleVisibility#validateAndSimplify}, and
+   * which must not be ["//visibility:public"] or ["//visibility:private"].
+   *
+   * <p>To parse a public or private visibility, use {@link RuleVisibility#parseIfConstant}.
+   */
+  static PackageGroupsRuleVisibility create(List<Label> labels) {
     ImmutableList.Builder<PackageSpecification> directPackageBuilder = ImmutableList.builder();
     ImmutableList.Builder<Label> packageGroupBuilder = ImmutableList.builder();
 
+    checkArgument(!labels.isEmpty(), "labels must not be empty");
     for (Label label : labels) {
       PackageSpecification specification = PackageSpecification.fromLabel(label);
       if (specification != null) {
         directPackageBuilder.add(specification);
       } else {
+        checkArgument(
+            !label.equals(RuleVisibility.PUBLIC_LABEL)
+                && !label.equals(RuleVisibility.PRIVATE_LABEL),
+            "labels list %s must %s",
+            labels,
+            labels.size() == 1
+                ? "not equal [\"//visibility:public\"] or [\"//visibility:private\"]"
+                : "be validated and simplified");
         packageGroupBuilder.add(label);
       }
     }

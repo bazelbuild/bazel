@@ -660,9 +660,18 @@ public class StarlarkOptionsParsingTest extends StarlarkOptionsTestCase {
     scratch.file(
         "test/pkg/BUILD",
         """
+        # Needed to avoid select() being eliminated as trivial.
+        config_setting(
+            name = "config",
+            values = {"define": "pi=3"},
+        )
+
         alias(
             name = "two",
-            actual = select({"//conditions:default": "//test:three"}),
+            actual = select({
+                ":config": "//test:three",
+                "//conditions:default": "//test:three",
+            }),
         )
         """);
 

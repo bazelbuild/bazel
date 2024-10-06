@@ -61,7 +61,7 @@ public final class DiskCacheGarbageCollectorTest {
 
     CollectionStats stats = runGarbageCollector(Optional.of(kbytes(2)), Optional.empty());
 
-    assertThat(stats).isEqualTo(new CollectionStats(2, kbytes(2), 0, 0));
+    assertThat(stats).isEqualTo(new CollectionStats(2, kbytes(2), 0, 0, false));
     assertFilesExist("ac/123", "cas/456");
   }
 
@@ -75,7 +75,7 @@ public final class DiskCacheGarbageCollectorTest {
 
     CollectionStats stats = runGarbageCollector(Optional.of(kbytes(2)), Optional.empty());
 
-    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2)));
+    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2), false));
     assertFilesExist("ac/123", "cas/456");
     assertFilesDoNotExist("ac/abc", "cas/def");
   }
@@ -90,7 +90,7 @@ public final class DiskCacheGarbageCollectorTest {
 
     CollectionStats stats = runGarbageCollector(Optional.of(kbytes(2)), Optional.empty());
 
-    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2)));
+    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2), false));
     assertFilesExist("cas/456", "cas/def");
     assertFilesDoNotExist("ac/123", "ac/abc");
   }
@@ -103,7 +103,7 @@ public final class DiskCacheGarbageCollectorTest {
 
     CollectionStats stats = runGarbageCollector(Optional.empty(), Optional.of(days(3)));
 
-    assertThat(stats).isEqualTo(new CollectionStats(2, kbytes(2), 0, 0));
+    assertThat(stats).isEqualTo(new CollectionStats(2, kbytes(2), 0, 0, false));
     assertFilesExist("ac/123", "cas/456");
   }
 
@@ -117,7 +117,7 @@ public final class DiskCacheGarbageCollectorTest {
 
     CollectionStats stats = runGarbageCollector(Optional.empty(), Optional.of(Duration.ofDays(3)));
 
-    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2)));
+    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2), false));
     assertFilesExist("ac/123", "cas/456");
     assertFilesDoNotExist("ac/abc", "cas/def");
   }
@@ -130,7 +130,7 @@ public final class DiskCacheGarbageCollectorTest {
 
     CollectionStats stats = runGarbageCollector(Optional.of(kbytes(2)), Optional.of(days(1)));
 
-    assertThat(stats).isEqualTo(new CollectionStats(2, kbytes(2), 0, 0));
+    assertThat(stats).isEqualTo(new CollectionStats(2, kbytes(2), 0, 0, false));
     assertFilesExist("ac/123", "cas/456");
   }
 
@@ -144,7 +144,7 @@ public final class DiskCacheGarbageCollectorTest {
 
     CollectionStats stats = runGarbageCollector(Optional.of(kbytes(2)), Optional.of(days(4)));
 
-    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2)));
+    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2), false));
     assertFilesExist("ac/123", "cas/456");
     assertFilesDoNotExist("ac/abc", "cas/def");
   }
@@ -159,7 +159,7 @@ public final class DiskCacheGarbageCollectorTest {
 
     CollectionStats stats = runGarbageCollector(Optional.of(kbytes(3)), Optional.of(days(3)));
 
-    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2)));
+    assertThat(stats).isEqualTo(new CollectionStats(4, kbytes(4), 2, kbytes(2), false));
     assertFilesExist("ac/123", "cas/456");
     assertFilesDoNotExist("ac/abc", "cas/def");
   }
@@ -171,7 +171,7 @@ public final class DiskCacheGarbageCollectorTest {
 
     CollectionStats stats = runGarbageCollector(Optional.of(1L), Optional.of(days(1)));
 
-    assertThat(stats).isEqualTo(new CollectionStats(0, 0, 0, 0));
+    assertThat(stats).isEqualTo(new CollectionStats(0, 0, 0, 0, false));
     assertFilesExist("gc/foo", "tmp/foo");
   }
 

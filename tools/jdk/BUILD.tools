@@ -1,5 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
+load("@rules_java//java:defs.bzl", "java_import")
 load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 load(":launcher_flag_alias.bzl", "launcher_flag_alias")
 

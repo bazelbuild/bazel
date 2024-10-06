@@ -10,7 +10,10 @@ load(":rule_size_test.bzl", "rule_size_test")
 
 package(default_applicable_licenses = ["@io_bazel//:license"])
 
-exports_files(["jdeps_modules.golden"])
+exports_files([
+    "jdeps_modules.golden",
+    "MODULE.tools",
+])
 
 md5_cmd = "set -e -o pipefail && %s $(SRCS) | %s | %s > $@"
 
@@ -97,7 +100,6 @@ JAVA_TOOLS = [
                "//src/main/cpp/util:embedded_tools",
                "//src/main/native:embedded_tools",
                "//src/main/protobuf:srcs",
-               "//src/tools/android/java/com/google/devtools/build/android:embedded_tools",
                "//src/tools/launcher:srcs",
                "//third_party:gpl-srcs",
                "//third_party/def_parser:srcs",
@@ -143,7 +145,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 465,
+    expect = 408,
     margin = 5,  # percentage
 )
 
@@ -358,7 +360,6 @@ filegroup(
         "//src/main/tools:srcs",
         "//src/test/cpp:srcs",
         "//src/test/gen:srcs",
-        "//src/test/java/com/google/devtools/build/android:srcs",
         "//src/test/java/com/google/devtools/build/docgen:srcs",
         "//src/test/java/com/google/devtools/build/lib:srcs",
         "//src/test/java/com/google/devtools/build/lib/shell:srcs",
@@ -373,8 +374,6 @@ filegroup(
         "//src/test/testdata/test_tls_certificate",
         "//src/test/tools:srcs",
         "//src/test/tools/bzlmod:srcs",
-        "//src/tools/android:srcs",
-        "//src/tools/android/java/com/google/devtools/build/android:srcs",
         "//src/tools/bzlmod:srcs",
         "//src/tools/diskcache:srcs",
         "//src/tools/execlog:srcs",
@@ -399,7 +398,6 @@ genrule(
         "//src/main/java/com/google/devtools/build/lib/skyframe/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/lib/starlarkdebug/proto:dist_jars",
         "//src/main/java/com/google/devtools/build/skyframe:dist_jars",
-        "@googleapis//:dist_jars",
         "@remoteapis//:dist_jars",
     ],
     outs = ["derived_java_srcs.zip"],
@@ -592,10 +590,8 @@ filegroup(
     name = "test_repos",
     srcs = [
         requirement("bazel-runfiles"),  # Fetching the hermetic Python toolchain.
-        "@android_gmaven_r8//jar:file",
-        "@android_tools//:all_android_tools_deploy.jar",
         "@bazel_skylib//:WORKSPACE",
-        "@com_google_protobuf//:LICENSE",
+        "@protobuf//:LICENSE",
         "@remote_coverage_tools//:all_lcov_merger_lib",
         "@remote_java_tools//:GenClass",
         "@remote_java_tools_darwin_arm64//:java_tools/src/tools/singlejar/singlejar_local",
@@ -606,7 +602,6 @@ filegroup(
         "@rules_java//:WORKSPACE",
         "@rules_license//:WORKSPACE",
         "@rules_pkg//:WORKSPACE",
-        "@rules_proto//proto:defs",
         "@rules_python//:WORKSPACE",
         "@rules_testing//:LICENSE",
     ] + select({

@@ -253,6 +253,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
       effectTags = {OptionEffectTag.EXECUTION},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If this option is enabled, filesets will treat all output artifacts as regular files. "
               + "They will not traverse directories or be sensitive to symlinks.")
@@ -488,6 +489,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       name = "experimental_collect_code_coverage_for_generated_files",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "If specified, Bazel will also generate collect coverage information for generated"
@@ -518,6 +520,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       name = "experimental_correct_runfiles_middleman_paths",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help =
           "If set, the path of runfiles middlemen represents the real path of the runfiles tree.")
@@ -949,6 +952,7 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "When set, select functions with no matching clause will return an empty value, instead"
               + " of failing. This is to help use cquery diagnose failures in select.")

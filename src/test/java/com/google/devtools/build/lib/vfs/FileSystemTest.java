@@ -1171,12 +1171,21 @@ public abstract class FileSystemTest {
   // Test the date functions
 
   @Test
-  public void testSetLastModifiedTime() throws Exception {
+  public void testSetLastModifiedTime_32bit() throws Exception {
     Path file = absolutize("file");
     FileSystemUtils.createEmptyFile(file);
 
-    file.setLastModifiedTime(1234567890L);
-    assertThat(file.getLastModifiedTime()).isEqualTo(1234567890L);
+    file.setLastModifiedTime(1 << 30);
+    assertThat(file.getLastModifiedTime()).isEqualTo(1 << 30);
+  }
+
+  @Test
+  public void testSetLastModifiedTime_64bit() throws Exception {
+    Path file = absolutize("file");
+    FileSystemUtils.createEmptyFile(file);
+
+    file.setLastModifiedTime(1L << 34);
+    assertThat(file.getLastModifiedTime()).isEqualTo(1L << 34);
   }
 
   @Test

@@ -12,30 +12,59 @@ module(
 # Bazel module dependencies
 # =========================================
 
-bazel_dep(name = "rules_license", version = "0.0.7")
+bazel_dep(name = "rules_license", version = "1.0.0")
 bazel_dep(name = "bazel_skylib", version = "1.7.1")
-bazel_dep(name = "protobuf", version = "21.7", repo_name = "com_google_protobuf")
-bazel_dep(name = "grpc", version = "1.48.1.bcr.1", repo_name = "com_github_grpc_grpc")
+bazel_dep(name = "grpc", version = "1.66.0.bcr.2", repo_name = "com_github_grpc_grpc")
+bazel_dep(name = "grpc-java", version = "1.66.0")
+bazel_dep(name = "googleapis", version = "0.0.0-20240819-fe8ba054a")
 bazel_dep(name = "platforms", version = "0.0.10")
-bazel_dep(name = "rules_pkg", version = "0.9.1")
+bazel_dep(name = "rules_pkg", version = "1.0.1")
 bazel_dep(name = "stardoc", version = "0.7.1", repo_name = "io_bazel_skydoc")
 bazel_dep(name = "zstd-jni", version = "1.5.2-3.bcr.1")
 bazel_dep(name = "blake3", version = "1.5.1.bcr.1")
 bazel_dep(name = "zlib", version = "1.3.1.bcr.3")
 bazel_dep(name = "rules_cc", version = "0.0.10")
-bazel_dep(name = "rules_java", version = "7.11.1")
+bazel_dep(name = "rules_java", version = "8.0.0-rc2")
 bazel_dep(name = "rules_graalvm", version = "0.11.1")
 bazel_dep(name = "rules_proto", version = "6.0.2")
 bazel_dep(name = "rules_jvm_external", version = "6.0")
 bazel_dep(name = "rules_python", version = "0.36.0")
 bazel_dep(name = "rules_testing", version = "0.6.0")
-bazel_dep(name = "googletest", version = "1.14.0.bcr.1", repo_name = "com_google_googletest")
+bazel_dep(name = "googletest", version = "1.15.2", repo_name = "com_google_googletest")
 bazel_dep(name = "with_cfg.bzl", version = "0.2.4")
-bazel_dep(name = "abseil-cpp", version = "20230802.1")
+bazel_dep(name = "abseil-cpp", version = "20240722.0")
 
-# TODO(pcloudy): Add remoteapis and googleapis as Bazel modules in the BCR.
+# TODO: wyv@ - use release 29.0 when that's out
+bazel_dep(name = "protobuf", version = "29.0-rc1")
+archive_override(
+    module_name = "protobuf",
+    integrity = "sha256-tSay4N4FspF+VnsNCTGtMH3xV4ZrtHioxNeB/bjQhsI=",
+    patch_strip = 1,
+    # Temporarily patch out rules_rust stuff from protobuf. Not just because we don't need it,
+    # but also because it introduces huge dependency bloat: rules_rust -> aspect_rules_js ->
+    # aspect_rules_lint -> rules_buf.
+    patches = [
+        "//third_party/protobuf:proto_info_bzl_deps.patch",
+        "//third_party/protobuf:remove_rules_rust.patch",
+        "//third_party/protobuf:add_python_loads.patch",
+    ],
+    strip_prefix = "protobuf-29.0-rc1",
+    urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v29.0-rc1/protobuf-29.0-rc1.zip"],
+)
+
+# TODO: wyv@ - add remoteapis to the BCR
 bazel_dep(name = "remoteapis", version = "")
-bazel_dep(name = "googleapis", version = "")
+
+# TODO: wyv@ - eventually this part should be unnecessary (after we fix up the googleapis module
+#   in the BCR)
+switched_rules = use_extension("@googleapis//:extensions.bzl", "switched_rules")
+switched_rules.use_languages(
+    cc = True,
+    go = True,
+    grpc = True,
+    java = True,
+    python = True,
+)
 
 single_version_override(
     module_name = "rules_jvm_external",
@@ -49,41 +78,12 @@ local_path_override(
     path = "./third_party/remoteapis",
 )
 
-local_path_override(
-    module_name = "googleapis",
-    path = "./third_party/googleapis",
-)
-
-single_version_override(
-    module_name = "grpc",
-    patch_strip = 1,
-    patches = [
-        "//third_party/grpc:00_disable_layering_check.patch",
-    ],
-)
-
-single_version_override(
-    module_name = "protobuf",
-    version = "21.7",
-    patch_strip = 1,
-    patches = ["//third_party:protobuf_21.7.patch"],
-)
-
 # The following Bazel modules are not direct dependencies for building Bazel,
 # but are required for visibility from DIST_ARCHIVE_REPOS in repositories.bzl
-bazel_dep(name = "apple_support", version = "1.8.1")
+bazel_dep(name = "apple_support", version = "1.15.1")
 bazel_dep(name = "c-ares", version = "1.15.0")
-bazel_dep(name = "rules_go", version = "0.39.1")
+bazel_dep(name = "rules_go", version = "0.48.0")
 bazel_dep(name = "rules_kotlin", version = "1.9.6")
-bazel_dep(name = "upb", version = "0.0.0-20220923-a547704")
-single_version_override(
-    module_name = "upb",
-    patch_strip = 1,
-    patches = [
-        "//third_party/upb:00_remove_toolchain_transition.patch",
-        "//third_party/upb:01_remove_werror.patch",
-    ],
-)
 
 # =========================================
 # Java dependencies
@@ -117,7 +117,7 @@ maven.install(
         "com.google.flogger:flogger-system-backend:0.5.1",
         "com.google.flogger:google-extensions:0.5.1",
         "com.google.guava:failureaccess:1.0.1",
-        "com.google.guava:guava:33.0.0-jre",
+        "com.google.guava:guava:33.2.1-jre",
         "com.google.http-client:google-http-client:1.42.0",
         "com.google.http-client:google-http-client-gson:1.42.0",
         "com.google.j2objc:j2objc-annotations:1.3",
@@ -130,41 +130,42 @@ maven.install(
         "commons-collections:commons-collections:3.2.2",
         "commons-lang:commons-lang:2.6",
         "io.github.java-diff-utils:java-diff-utils:4.12",
-        "io.grpc:grpc-api:1.48.1",
-        "io.grpc:grpc-auth:1.48.1",
-        "io.grpc:grpc-context:1.48.1",
-        "io.grpc:grpc-core:1.48.1",
-        "io.grpc:grpc-netty:1.48.1",
-        "io.grpc:grpc-protobuf:1.48.1",
-        "io.grpc:grpc-protobuf-lite:1.48.1",
-        "io.grpc:grpc-stub:1.48.1",
-        "io.netty:netty-buffer:4.1.93.Final",
-        "io.netty:netty-codec:4.1.93.Final",
-        "io.netty:netty-codec-http:4.1.93.Final",
-        "io.netty:netty-codec-http2:4.1.93.Final",
-        "io.netty:netty-common:4.1.93.Final",
-        "io.netty:netty-handler:4.1.93.Final",
-        "io.netty:netty-handler-proxy:4.1.93.Final",
-        "io.netty:netty-resolver:4.1.93.Final",
-        "io.netty:netty-resolver-dns:4.1.93.Final",
+        "io.grpc:grpc-api:1.66.0",
+        "io.grpc:grpc-auth:1.66.0",
+        "io.grpc:grpc-context:1.66.0",
+        "io.grpc:grpc-core:1.66.0",
+        "io.grpc:grpc-inprocess:1.66.0",
+        "io.grpc:grpc-netty:1.66.0",
+        "io.grpc:grpc-protobuf:1.66.0",
+        "io.grpc:grpc-protobuf-lite:1.66.0",
+        "io.grpc:grpc-stub:1.66.0",
+        "io.netty:netty-buffer:4.1.100.Final",
+        "io.netty:netty-codec:4.1.100.Final",
+        "io.netty:netty-codec-http:4.1.100.Final",
+        "io.netty:netty-codec-http2:4.1.100.Final",
+        "io.netty:netty-common:4.1.100.Final",
+        "io.netty:netty-handler:4.1.100.Final",
+        "io.netty:netty-handler-proxy:4.1.100.Final",
+        "io.netty:netty-resolver:4.1.100.Final",
+        "io.netty:netty-resolver-dns:4.1.100.Final",
         "io.netty:netty-tcnative-boringssl-static:jar:linux-aarch_64:2.0.56.Final",
         "io.netty:netty-tcnative-boringssl-static:jar:linux-x86_64:2.0.56.Final",
         "io.netty:netty-tcnative-boringssl-static:jar:osx-aarch_64:2.0.56.Final",
         "io.netty:netty-tcnative-boringssl-static:jar:osx-x86_64:2.0.56.Final",
         "io.netty:netty-tcnative-boringssl-static:jar:windows-x86_64:2.0.56.Final",
         "io.netty:netty-tcnative-classes:2.0.56.Final",
-        "io.netty:netty-transport:4.1.93.Final",
-        "io.netty:netty-transport-classes-epoll:4.1.93.Final",
-        "io.netty:netty-transport-classes-kqueue:4.1.93.Final",
-        "io.netty:netty-transport-native-epoll:jar:linux-aarch_64:4.1.93.Final",
-        "io.netty:netty-transport-native-epoll:jar:linux-x86_64:4.1.93.Final",
-        "io.netty:netty-transport-native-kqueue:jar:osx-aarch_64:4.1.93.Final",
-        "io.netty:netty-transport-native-kqueue:jar:osx-x86_64:4.1.93.Final",
-        "io.netty:netty-transport-native-unix-common:4.1.93.Final",
-        "io.netty:netty-transport-native-unix-common:jar:linux-aarch_64:4.1.93.Final",
-        "io.netty:netty-transport-native-unix-common:jar:linux-x86_64:4.1.93.Final",
-        "io.netty:netty-transport-native-unix-common:jar:osx-aarch_64:4.1.93.Final",
-        "io.netty:netty-transport-native-unix-common:jar:osx-x86_64:4.1.93.Final",
+        "io.netty:netty-transport:4.1.100.Final",
+        "io.netty:netty-transport-classes-epoll:4.1.100.Final",
+        "io.netty:netty-transport-classes-kqueue:4.1.100.Final",
+        "io.netty:netty-transport-native-epoll:jar:linux-aarch_64:4.1.100.Final",
+        "io.netty:netty-transport-native-epoll:jar:linux-x86_64:4.1.100.Final",
+        "io.netty:netty-transport-native-kqueue:jar:osx-aarch_64:4.1.100.Final",
+        "io.netty:netty-transport-native-kqueue:jar:osx-x86_64:4.1.100.Final",
+        "io.netty:netty-transport-native-unix-common:4.1.100.Final",
+        "io.netty:netty-transport-native-unix-common:jar:linux-aarch_64:4.1.100.Final",
+        "io.netty:netty-transport-native-unix-common:jar:linux-x86_64:4.1.100.Final",
+        "io.netty:netty-transport-native-unix-common:jar:osx-aarch_64:4.1.100.Final",
+        "io.netty:netty-transport-native-unix-common:jar:osx-x86_64:4.1.100.Final",
         "io.reactivex.rxjava3:rxjava:3.1.2",
         "it.unimi.dsi:fastutil:7.2.1",
         "javax.activation:javax.activation-api:1.2.0",
@@ -199,11 +200,7 @@ maven.install(
         "org.apache.httpcomponents:httpclient",
         "org.apache.httpcomponents:httpcore",
         "org.eclipse.jgit:org.eclipse.jgit",
-        # We build protobuf Java library from source, exclude protobuf jars to be safe.
-        "com.google.protobuf:protobuf-java",
-        "com.google.protobuf:protobuf-javalite",
     ],
-    # Don't forget to change this to back to True before submitting your change.
     fail_if_repin_required = True,
     lock_file = "//:maven_install.json",
     repositories = [
@@ -221,7 +218,7 @@ maven.install(
         version = version,
     )
     for group, artifact, version in [coord.split(":") for coord in [
-        "com.google.guava:guava-testlib:33.0.0-jre",
+        "com.google.guava:guava-testlib:33.2.1-jre",
         "com.google.jimfs:jimfs:1.2",
         "com.google.testing.compile:compile-testing:0.18",
         "com.google.testparameterinjector:test-parameter-injector:1.16",
@@ -233,7 +230,7 @@ maven.install(
     ]]
 ]
 
-use_repo(maven, "maven", "unpinned_maven")
+use_repo(maven, "maven")
 
 java_toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
 use_repo(
@@ -396,39 +393,3 @@ register_toolchains("@local_config_winsdk//:all")
 register_toolchains("//src/main/res:empty_rc_toolchain")
 
 register_toolchains("@graalvm_toolchains//:gvm")
-
-# =========================================
-# Android tools dependencies
-# =========================================
-
-maven_android = use_extension("@rules_jvm_external//:extensions.bzl", "maven")
-maven_android.install(
-    name = "maven_android",
-    artifacts = [
-        "androidx.databinding:databinding-compiler:3.4.0-alpha10",
-        "com.android.tools.build:builder:7.1.3",
-        "com.android.tools.build:manifest-merger:30.1.3",
-        "com.android.tools:sdk-common:30.1.3",
-        "com.android.tools:annotations:30.1.3",
-        "com.android.tools.layoutlib:layoutlib-api:30.1.3",
-        "com.android.tools:common:30.1.3",
-        "com.android.tools:repository:30.1.3",
-    ],
-    # Don't forget to change this to back to True before submitting your change.
-    fail_if_repin_required = True,
-    lock_file = "//src/tools/android:maven_android_install.json",
-    repositories = [
-        "https://dl.google.com/android/maven2",
-        "https://repo1.maven.org/maven2",
-    ],
-)
-use_repo(maven_android, "maven_android", "unpinned_maven_android")
-
-bazel_android_deps = use_extension("//:extensions.bzl", "bazel_android_deps")
-use_repo(bazel_android_deps, "desugar_jdk_libs")
-
-remote_android_extensions = use_extension("//tools/android:android_extensions.bzl", "remote_android_tools_extensions")
-use_repo(remote_android_extensions, "android_gmaven_r8", "android_tools")
-
-android_sdk_proxy_extensions = use_extension("//tools/android:android_extensions.bzl", "android_sdk_proxy_extensions")
-use_repo(android_sdk_proxy_extensions, "android_external")

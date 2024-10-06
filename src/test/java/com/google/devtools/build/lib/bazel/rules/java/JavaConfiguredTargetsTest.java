@@ -77,6 +77,7 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = "bin",
             srcs = ["Foo.java"],
@@ -98,6 +99,7 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
   public void javaTestSetsSecurityManagerPropertyOnVersion17() throws Exception {
     scratch.file(
         "a/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_test', 'java_runtime')",
         "java_runtime(",
         "    name = 'jvm',",
         "    java = 'java_home/bin/java',",
@@ -124,7 +126,12 @@ public final class JavaConfiguredTargetsTest extends BuildViewTestCase {
   // regression test for https://github.com/bazelbuild/bazel/issues/20378
   @Test
   public void javaTestInvalidTestClassAtRootPackage() throws Exception {
-    scratch.file("BUILD", "java_test(name = 'some_test', srcs = ['SomeTest.java'])");
+    scratch.file(
+        "BUILD",
+        """
+        load("@rules_java//java:defs.bzl", "java_test")
+        java_test(name = 'some_test', srcs = ['SomeTest.java'])
+        """);
     invalidatePackages();
 
     AssertionError error =

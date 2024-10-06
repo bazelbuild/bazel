@@ -58,7 +58,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
     MockProtoSupport.setup(mockToolsConfig);
-    scratch.file(
+    scratch.overwriteFile(
         "third_party/bazel_rules/rules_cc/cc/proto/BUILD",
         "toolchain_type(name = 'toolchain_type', visibility = ['//visibility:public'])");
     scratch.file("protobuf/WORKSPACE");
@@ -81,9 +81,9 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         ")");
     scratch.appendFile(
         "WORKSPACE",
-        "register_toolchains('@com_google_protobuf//:all')",
+        "register_toolchains('@protobuf//:all')",
         "local_repository(",
-        "    name = 'com_google_protobuf',",
+        "    name = 'protobuf',",
         "    path = 'protobuf_workspace',",
         ")");
     invalidatePackages(); // A dash of magic to re-evaluate the WORKSPACE file.
@@ -191,7 +191,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         TestConstants.LOAD_PROTO_LIBRARY,
-        "cc_proto_library(name = 'any_cc_proto', deps = ['@com_google_protobuf//:any_proto'])");
+        "cc_proto_library(name = 'any_cc_proto', deps = ['@protobuf//:any_proto'])");
 
     CcCompilationContext ccCompilationContext =
         getConfiguredTarget("//x:any_cc_proto").get(CcInfo.PROVIDER).getCcCompilationContext();
@@ -207,7 +207,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "proto_library(",
         "    name = 'foo_proto',",
         "    srcs = ['foo.proto'],",
-        "    deps = ['@com_google_protobuf//:any_proto'],",
+        "    deps = ['@protobuf//:any_proto'],",
         ")");
 
     CcCompilationContext ccCompilationContext =

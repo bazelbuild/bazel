@@ -30,6 +30,9 @@ sh_test(
         "@bazel_tools//tools/bash/runfiles",
     ],
     shard_count = 5,
+    tags = [
+        "requires-network",  # for Bzlmod (apple_support)
+    ],
 )
 
 sh_test(

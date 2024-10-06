@@ -79,7 +79,33 @@ local_path_override(
 EOF
 }
 
-function disabled_test_removed_rule_loaded() {
+function test_missing_necessary_bzlmod_dep() {
+  # Intentionally not adding rules_android to MODULE.bazel
+  cat > BUILD << EOF
+aar_import(
+    name = 'aar',
+    aar = 'aar.file',
+    deps = [],
+)
+EOF
+  bazel build --incompatible_autoload_externally=aar_import :aar >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
+  expect_log "name 'aar_import' is not defined"
+  expect_log "WARNING: Couldn't auto load rules or symbols, because no dependency on module/repository 'rules_android' found. This will result in a failure if there's a reference to those rules or symbols."
+}
+
+function test_missing_unnecessary_bzmod_dep() {
+  # Intentionally not adding rules_android to MODULE.bazel
+  cat > BUILD << EOF
+filegroup(
+    name = 'filegroup',
+    srcs = [],
+)
+EOF
+  bazel build --incompatible_autoload_externally=aar_import :filegroup >&$TEST_log 2>&1 || fail "build failed"
+  expect_log "WARNING: Couldn't auto load rules or symbols, because no dependency on module/repository 'rules_android' found. This will result in a failure if there's a reference to those rules or symbols."
+}
+
+function test_removed_rule_loaded() {
   setup_module_dot_bazel
   mock_rules_android
 
@@ -94,7 +120,7 @@ EOF
   # TODO(b/355260271): add test with workspace enabled
 }
 
-function disabled_test_removed_rule_loaded_from_bzl() {
+function test_removed_rule_loaded_from_bzl() {
   setup_module_dot_bazel
   mock_rules_android
 
@@ -385,7 +411,7 @@ EOF
   expect_log "Duplicated symbol 'py_library' in --incompatible_autoload_externally"
 }
 
-function disabled_test_missing_symbol_error() {
+function test_missing_symbol_error() {
   setup_module_dot_bazel
   mock_rules_android
   rules_android_workspace="${TEST_TMPDIR}/rules_android_workspace"
@@ -404,7 +430,7 @@ EOF
   expect_log "Failed to apply symbols loaded externally: The toplevel symbol 'aar_import' set by --incompatible_load_symbols_externally couldn't be loaded. 'aar_import' not found in auto loaded '@rules_android//rules:rules.bzl'."
 }
 
-function disabled_test_missing_bzlfile_error() {
+function test_missing_bzlfile_error() {
   setup_module_dot_bazel
   mock_rules_android
   rules_android_workspace="${TEST_TMPDIR}/rules_android_workspace"

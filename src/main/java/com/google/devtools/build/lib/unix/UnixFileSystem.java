@@ -66,8 +66,8 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   /**
    * Eager implementation of FileStatus for file systems that have an atomic stat(2) syscall. A
-   * proxy for {@link com.google.devtools.build.lib.unix.FileStatus}. Note that isFile and
-   * getLastModifiedTime have slightly different meanings between UNIX and VFS.
+   * proxy for {@link com.google.devtools.build.lib.unix.FileStatus}. Note that isFile has a
+   * slightly different meaning between UNIX and VFS.
    */
   @VisibleForTesting
   protected static class UnixFileStatus implements FileStatus {
@@ -105,13 +105,12 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
     @Override
     public long getLastModifiedTime() {
-      return (status.getLastModifiedTime() * 1000)
-          + (status.getFractionalLastModifiedTime() / 1000000);
+      return status.getLastModifiedTime();
     }
 
     @Override
     public long getLastChangeTime() {
-      return (status.getLastChangeTime() * 1000) + (status.getFractionalLastChangeTime() / 1000000);
+      return status.getLastChangeTime();
     }
 
     @Override

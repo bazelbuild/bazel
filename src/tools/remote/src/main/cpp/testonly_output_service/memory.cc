@@ -42,6 +42,7 @@ Arena *AllocArena(size_t reserve_size) {
 }
 
 void FreeArena(Arena *arena) {
+  assert(arena->temp_memory_count == 0 && "Temporary memory still in use");
   size_t reserved_size = arena->reserved - (uint8_t *)arena;
   ReleaseMemory(arena, reserved_size);
 }
@@ -72,4 +73,51 @@ void *PushArena(Arena *arena, size_t size) {
 void PopArena(Arena *arena, size_t size) {
   arena->top -= size;
   assert(arena->top >= GetArenaBase(arena));
+}
+
+TemporaryMemory BeginTemporaryMemory(Arena *arena) {
+  TemporaryMemory temp;
+  temp.arena = arena;
+  temp.top = arena->top;
+  ++arena->temp_memory_count;
+  return temp;
+}
+
+void EndTemporaryMempory(TemporaryMemory temp) {
+  Arena *arena = temp.arena;
+  assert(arena->temp_memory_count > 0 && temp.top <= arena->top);
+  PopArena(arena, arena->top - temp.top);
+  assert(arena->top == temp.top);
+  --arena->temp_memory_count;
+}
+
+constexpr size_t kScratchArenaCount = 2;
+thread_local Arena *t_scratch_arenas[kScratchArenaCount];
+
+Arena *GetScratchArena(Arena **conflicts, size_t count) {
+  Arena *result = 0;
+  for (size_t i = 0; i < kScratchArenaCount; ++i) {
+    Arena *candidate = t_scratch_arenas[i];
+    if (!candidate) {
+      result = AllocArena();
+      t_scratch_arenas[i] = result;
+      break;
+    }
+
+    bool conflict = false;
+    for (size_t j = 0; j < count; ++j) {
+      if (candidate == conflicts[j]) {
+        conflict = true;
+        break;
+      }
+    }
+
+    if (!conflict) {
+      result = candidate;
+      break;
+    }
+  }
+
+  assert(result && "No scratch arena available");
+  return result;
 }

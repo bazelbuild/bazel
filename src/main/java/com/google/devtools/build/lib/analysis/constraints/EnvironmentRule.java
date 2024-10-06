@@ -23,6 +23,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.analysis.config.transitions.NoConfigTransition;
 import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
 import com.google.devtools.build.lib.packages.Types;
 import com.google.devtools.build.lib.util.FileTypeSet;
@@ -72,6 +73,9 @@ public class EnvironmentRule implements RuleDefinition {
   public Metadata getMetadata() {
     return RuleDefinition.Metadata.builder()
         .name(ConstraintConstants.ENVIRONMENT_RULE)
+        // Not allowed in symbolic macros: lazy expansion of symbolic macros could hide environment
+        // targets from environment groups.
+        .type(RuleClassType.BUILD_ONLY)
         .ancestors(BaseRuleClasses.NativeBuildRule.class)
         .factoryClass(Environment.class)
         .build();

@@ -161,7 +161,7 @@ public class BzlCompileFunction implements SkyFunction {
 
       // Takes into account --incompatible_autoload_externally, similarly to the comment above, this
       // only defines the correct set of symbols, but does not load them yet.
-      AutoloadSymbols autoloadSymbols = PrecomputedValue.AUTOLOAD_SYMBOLS.get(env);
+      AutoloadSymbols autoloadSymbols = AutoloadSymbols.AUTOLOAD_SYMBOLS.get(env);
       if (autoloadSymbols == null) {
         return null;
       }

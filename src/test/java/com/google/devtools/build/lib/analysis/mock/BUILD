@@ -20,8 +20,12 @@ java_library(
     ]),
     data = [
         "//tools/jdk:srcs",
-        "@rules_java//java:rules",
+        "@rules_cc//cc:srcs",
+        "@rules_cc//cc/common:srcs",
+        "@rules_cc//cc/toolchains:srcs",
+        "@rules_java//java:for_bazel_tests",
         "@rules_java//toolchains:srcs",
+        "@rules_python//python:defs_bzl",
     ],
     resources = [
         "cc_toolchain_config.bzl",
@@ -38,6 +42,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/rules",
         "//src/main/java/com/google/devtools/build/lib/rules:repository/repository_function",
         "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
         "//src/test/java/com/google/devtools/build/lib/analysis/util:util_internal",
         "//src/test/java/com/google/devtools/build/lib/packages:testutil",
         "//src/test/java/com/google/devtools/build/lib/testutil",

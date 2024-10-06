@@ -381,6 +381,15 @@ public final class BazelRulesModule extends BlazeModule {
             + " migration directions";
 
     @Option(
+        name = "android_sdk",
+        defaultValue = "",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help = "No-op",
+        deprecationWarning = ANDROID_FLAG_DEPRECATION)
+    public String sdk;
+
+    @Option(
         name = "android_cpu",
         defaultValue = "",
         documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,

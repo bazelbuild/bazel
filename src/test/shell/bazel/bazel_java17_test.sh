@@ -61,6 +61,8 @@ override_java_tools "${RULES_JAVA_REPO_NAME}" "${JAVA_TOOLS_ZIP}" "${JAVA_TOOLS_
 add_to_bazelrc "build --java_runtime_version=11"
 add_to_bazelrc "build --tool_java_runtime_version=11"
 
+add_protobuf "MODULE.bazel"
+
 # Java source files version shall match --java_language_version_flag version.
 function test_java17_text_block() {
   mkdir -p java/main

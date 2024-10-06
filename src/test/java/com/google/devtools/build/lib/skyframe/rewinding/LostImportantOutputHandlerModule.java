@@ -174,7 +174,7 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
       if (output.isFileset()) {
         ImmutableList<FilesetOutputSymlink> links;
         try {
-          links = expander.expandFileset(output);
+          links = expander.expandFileset(output).symlinks();
         } catch (MissingExpansionException e) {
           throw new IllegalStateException(e);
         }

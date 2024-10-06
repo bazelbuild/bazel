@@ -349,10 +349,7 @@ public final class ModuleInfoExtractor {
       // inject the name attribute; addDocumentableAttributes skips non-Starlark-defined attributes.
       macroInfoBuilder.addAttribute(AttributeInfoExtractor.IMPLICIT_MACRO_NAME_ATTRIBUTE_INFO);
       AttributeInfoExtractor.addDocumentableAttributes(
-          context,
-          macroClass.getAttributes().values(),
-          macroInfoBuilder::addAttribute,
-          "macro " + qualifiedName);
+          context, macroClass.getAttributes().values(), macroInfoBuilder::addAttribute);
 
       moduleInfoBuilder.addMacroInfo(macroInfoBuilder);
     }
@@ -425,10 +422,7 @@ public final class ModuleInfoExtractor {
       aspectInfoBuilder.addAttribute(
           AttributeInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO); // name comes first
       AttributeInfoExtractor.addDocumentableAttributes(
-          context,
-          aspect.getAttributes(),
-          aspectInfoBuilder::addAttribute,
-          "aspect " + qualifiedName);
+          context, aspect.getAttributes(), aspectInfoBuilder::addAttribute);
       moduleInfoBuilder.addAspectInfo(aspectInfoBuilder);
     }
 
@@ -452,10 +446,7 @@ public final class ModuleInfoExtractor {
         tagClassInfoBuilder.setTagName(entry.getKey());
         entry.getValue().getDoc().ifPresent(tagClassInfoBuilder::setDocString);
         AttributeInfoExtractor.addDocumentableAttributes(
-            context,
-            entry.getValue().getAttributes(),
-            tagClassInfoBuilder::addAttribute,
-            String.format("module extension %s tag class %s", qualifiedName, entry.getKey()));
+            context, entry.getValue().getAttributes(), tagClassInfoBuilder::addAttribute);
         moduleExtensionInfoBuilder.addTagClass(tagClassInfoBuilder);
       }
       moduleInfoBuilder.addModuleExtensionInfo(moduleExtensionInfoBuilder);
@@ -477,10 +468,7 @@ public final class ModuleInfoExtractor {
                       context.labelRenderer().render(repositoryRuleFunction.getExtensionLabel())))
           .addAllAttribute(IMPLICIT_REPOSITORY_RULE_ATTRIBUTES);
       AttributeInfoExtractor.addDocumentableAttributes(
-          context,
-          ruleClass.getAttributes(),
-          repositoryRuleInfoBuilder::addAttribute,
-          "repository rule " + qualifiedName);
+          context, ruleClass.getAttributes(), repositoryRuleInfoBuilder::addAttribute);
       if (ruleClass.hasAttr("$environ", Types.STRING_LIST)) {
         repositoryRuleInfoBuilder.addAllEnviron(
             Types.STRING_LIST.cast(ruleClass.getAttributeByName("$environ").getDefaultValue(null)));

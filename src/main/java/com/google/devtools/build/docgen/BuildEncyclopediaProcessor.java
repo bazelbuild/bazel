@@ -137,7 +137,9 @@ public abstract class BuildEncyclopediaProcessor {
     List<RuleFamily> ruleFamilies = new ArrayList<>(ruleFamilyNames.size());
     for (String name : ruleFamilyNames) {
       ListMultimap<RuleType, RuleDocumentation> ruleTypeMap = ruleMapping.get(name);
-      ruleFamilies.add(new RuleFamily(ruleTypeMap, name, familySummary.get(name).toString()));
+      ruleFamilies.add(
+          new RuleFamily(
+              ruleTypeMap, name, familySummary.getOrDefault(name, new StringBuilder()).toString()));
     }
     return ruleFamilies;
   }

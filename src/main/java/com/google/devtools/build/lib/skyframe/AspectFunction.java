@@ -14,9 +14,9 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.skyframe.ConfiguredTargetFunction.maybeFetchSkyValueRemotely;
 import static com.google.devtools.build.lib.skyframe.DependencyResolver.createDefaultToolchainContextKey;
 import static com.google.devtools.build.lib.skyframe.DependencyResolver.getPrioritizedDetailedExitCode;
+import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.maybeFetchSkyValueRemotely;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
 
 import com.google.common.base.Preconditions;
@@ -843,6 +843,7 @@ final class AspectFunction implements SkyFunction {
 
   private static boolean shouldUseAutoExecGroups(
       AspectDefinition aspectDefinition, BuildConfigurationValue configuration) {
+    // TODO: b/370558813 - Use AutoExecGroupsMode for aspects, as well.
     ImmutableMap<String, Attribute> aspectAttributes = aspectDefinition.getAttributes();
     if (aspectAttributes.containsKey("$use_auto_exec_groups")) {
       return (boolean) aspectAttributes.get("$use_auto_exec_groups").getDefaultValueUnchecked();

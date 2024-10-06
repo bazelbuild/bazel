@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <errno.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -47,28 +48,16 @@ int portable_fstatat(
   return fstatat64(dirfd, name, statbuf, flags);
 }
 
-int StatSeconds(const portable_stat_struct &statbuf, StatTimes t) {
+uint64_t StatEpochMilliseconds(const portable_stat_struct &statbuf,
+                               StatTimes t) {
   switch (t) {
     case STAT_ATIME:
-      return statbuf.st_atim.tv_sec;
+      return statbuf.st_atim.tv_sec * 1000L + statbuf.st_atim.tv_nsec / 1000000;
     case STAT_CTIME:
-      return statbuf.st_ctim.tv_sec;
+      return statbuf.st_ctim.tv_sec * 1000L + statbuf.st_ctim.tv_nsec / 1000000;
     case STAT_MTIME:
-      return statbuf.st_mtim.tv_sec;
+      return statbuf.st_mtim.tv_sec * 1000L + statbuf.st_mtim.tv_nsec / 1000000;
   }
-  return 0;
-}
-
-int StatNanoSeconds(const portable_stat_struct &statbuf, StatTimes t) {
-  switch (t) {
-    case STAT_ATIME:
-      return statbuf.st_atim.tv_nsec;
-    case STAT_CTIME:
-      return statbuf.st_ctim.tv_nsec;
-    case STAT_MTIME:
-      return statbuf.st_mtim.tv_nsec;
-  }
-  return 0;
 }
 
 ssize_t portable_getxattr(const char *path, const char *name, void *value,

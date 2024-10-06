@@ -663,7 +663,8 @@ public class RegisteredToolchainsFunctionTest extends ToolchainTestCase {
     RegisteredToolchainsValue registeredToolchainsValue = result.get(toolchainsKey);
     assertThat(registeredToolchainsValue.rejectedToolchains()).isNotNull();
     assertThat(registeredToolchainsValue.rejectedToolchains())
-        .containsEntry(
+        .containsCell(
+            testToolchainTypeLabel,
             Label.parseCanonicalUnchecked("//extra:extra_toolchain_impl"),
             "mismatching config settings: optimized");
   }

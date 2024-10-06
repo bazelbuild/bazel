@@ -15,6 +15,8 @@
 
 package com.google.devtools.build.lib.packages.semantics;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Interner;
 import com.google.devtools.build.lib.concurrent.BlazeInterners;
@@ -53,7 +55,8 @@ import net.starlark.java.eval.StarlarkSemantics;
  *   <li>Boolean semantic flags can toggle StarlarkMethod-annotated Java methods (or their
  *       parameters) on or off, making them selectively invisible to Starlark. To do this, add a new
  *       entry to {@link BuildLanguageOptions}, then specify the identifier in {@link
- *       StarlarkMethod#enableOnlyWithFlag} or {@link StarlarkMethod#disableWithFlag}.
+ *       net.starlark.java.annot.StarlarkMethod#enableOnlyWithFlag} or {@link
+ *       net.starlark.java.annot.StarlarkMethod#disableWithFlag}.
  * </ul>
  */
 public final class BuildLanguageOptions extends OptionsBase {
@@ -235,10 +238,10 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_enable_first_class_macros",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = OptionEffectTag.BUILD_FILE_SEMANTICS,
-      help = "If set to true, enables the `macro()` construct for defining first-class macros.")
+      help = "If set to true, enables the `macro()` construct for defining symbolic macros.")
   public boolean experimentalEnableFirstClassMacros;
 
   @Option(
@@ -281,6 +284,20 @@ public final class BuildLanguageOptions extends OptionsBase {
               + " href=\"https://bazel.build/rules/lib/globals/module#use_extension\"><code>use_extension</code></a>"
               + " function.")
   public boolean experimentalIsolatedExtensionUsages;
+
+  @Option(
+      name = "incompatible_no_implicit_watch_label",
+      defaultValue = "true",
+      documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
+      metadataTags = OptionMetadataTag.INCOMPATIBLE_CHANGE,
+      effectTags = OptionEffectTag.LOADING_AND_ANALYSIS,
+      help =
+          "If true, then methods on <code>repository_ctx</code> that are passed a Label will no"
+              + " longer automatically watch the file under that label for changes even if"
+              + " <code>watch = \"no\"</code>, and <code>repository_ctx.path</code> no longer"
+              + " causes the returned path to be watched. Use <code>repository_ctx.watch</code>"
+              + " instead.")
+  public boolean incompatibleNoImplicitWatchLabel;
 
   @Option(
       name = "incompatible_stop_exporting_build_file_path",
@@ -481,7 +498,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_disallow_struct_provider_syntax",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -727,9 +744,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
-      help =
-          "If true, proto lang rules define toolchains from rules_proto, rules_java, rules_cc"
-              + " repositories.")
+      help = "If true, proto lang rules define toolchains from protobuf repository.")
   public boolean incompatibleEnableProtoToolchainResolution;
 
   // Flip when java_single_jar is feature complete
@@ -787,7 +802,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "incompatible_simplify_unconditional_selects_in_rule_attrs",
-      defaultValue = "false",
+      defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
       metadataTags = {OptionMetadataTag.INCOMPATIBLE_CHANGE},
@@ -833,6 +848,7 @@ public final class BuildLanguageOptions extends OptionsBase {
             .setBool(ENABLE_BZLMOD, enableBzlmod)
             .setBool(ENABLE_WORKSPACE, enableWorkspace)
             .setBool(EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, experimentalIsolatedExtensionUsages)
+            .setBool(INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL, incompatibleNoImplicitWatchLabel)
             .setBool(EXPERIMENTAL_ACTION_RESOURCE_SET, experimentalActionResourceSet)
             .setBool(EXPERIMENTAL_GOOGLE_LEGACY_API, experimentalGoogleLegacyApi)
             .setBool(EXPERIMENTAL_PLATFORMS_API, experimentalPlatformsApi)
@@ -940,12 +956,14 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String EXPERIMENTAL_SINGLE_PACKAGE_TOOLCHAIN_BINDING =
       "-experimental_single_package_toolchain_binding";
   public static final String EXPERIMENTAL_ENABLE_FIRST_CLASS_MACROS =
-      "-experimental_enable_first_class_macros";
+      "+experimental_enable_first_class_macros";
   public static final String EXPERIMENTAL_ENABLE_SCL_DIALECT = "+experimental_enable_scl_dialect";
   public static final String ENABLE_BZLMOD = "+enable_bzlmod";
   public static final String ENABLE_WORKSPACE = "-enable_workspace";
   public static final String EXPERIMENTAL_ISOLATED_EXTENSION_USAGES =
       "-experimental_isolated_extension_usages";
+  public static final String INCOMPATIBLE_NO_IMPLICIT_WATCH_LABEL =
+      "+incompatible_no_implicit_watch_label";
   public static final String EXPERIMENTAL_GOOGLE_LEGACY_API = "-experimental_google_legacy_api";
   public static final String EXPERIMENTAL_PLATFORMS_API = "-experimental_platforms_api";
   public static final String EXPERIMENTAL_REPO_REMOTE_EXEC = "-experimental_repo_remote_exec";
@@ -960,7 +978,7 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_disable_target_provider_fields";
   public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "-incompatible_disallow_empty_glob";
   public static final String INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX =
-      "-incompatible_disallow_struct_provider_syntax";
+      "+incompatible_disallow_struct_provider_syntax";
   public static final String INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX =
       FlagConstants.INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX;
   public static final String INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX =
@@ -1012,7 +1030,7 @@ public final class BuildLanguageOptions extends OptionsBase {
   public static final String INCOMPATIBLE_DISALLOW_CTX_RESOLVE_TOOLS =
       "+incompatible_disallow_ctx_resolve_tools";
   public static final String INCOMPATIBLE_SIMPLIFY_UNCONDITIONAL_SELECTS_IN_RULE_ATTRS =
-      "-incompatible_simplify_unconditional_selects_in_rule_attrs";
+      "+incompatible_simplify_unconditional_selects_in_rule_attrs";
   // non-booleans
   public static final StarlarkSemantics.Key<String> EXPERIMENTAL_BUILTINS_BZL_PATH =
       new StarlarkSemantics.Key<>("experimental_builtins_bzl_path", "%bundled%");
@@ -1022,7 +1040,11 @@ public final class BuildLanguageOptions extends OptionsBase {
           FlagConstants.DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY.isEmpty()
               ? ImmutableList.of()
               : ImmutableList.copyOf(
-                  FlagConstants.DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY.split(",")));
+                      FlagConstants.DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY.split(","))
+                  .stream()
+                  .distinct()
+                  .sorted()
+                  .collect(toImmutableList()));
   public static final StarlarkSemantics.Key<List<String>> REPOSITORIES_WITHOUT_AUTOLOAD =
       new StarlarkSemantics.Key<>("repositories_without_autoloads", ImmutableList.of());
   public static final StarlarkSemantics.Key<List<String>> EXPERIMENTAL_BUILTINS_INJECTION_OVERRIDE =

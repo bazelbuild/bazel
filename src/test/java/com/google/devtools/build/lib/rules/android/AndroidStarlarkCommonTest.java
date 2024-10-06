@@ -58,6 +58,7 @@ public class AndroidStarlarkCommonTest extends BuildViewTestCase {
     scratch.file(
         "java/android/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
         load(":compatible.bzl", "my_rule")
 
         java_plugin(

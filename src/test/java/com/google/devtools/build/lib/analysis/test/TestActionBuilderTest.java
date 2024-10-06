@@ -125,6 +125,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     scratch.file(
         "javatests/jt/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "RGT",
             srcs = ["RGT.java"],
@@ -173,6 +174,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     scratch.file(
         "a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         sh_test(
             name = "sh",
             srcs = ["a.sh"],
@@ -329,6 +331,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     scratch.file(
         "javatests/timeouts/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "small_no_timeout",
             size = "small",
@@ -361,6 +364,7 @@ public class TestActionBuilderTest extends BuildViewTestCase {
     scratch.file(
         "javatests/jt/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(
             name = "RGT",
             srcs = ["RGT.java"],

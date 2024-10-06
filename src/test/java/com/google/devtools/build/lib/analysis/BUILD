@@ -368,7 +368,7 @@ java_test(
 java_test(
     name = "SymbolicMacroTest",
     srcs = ["SymbolicMacroTest.java"],
-    shard_count = 8,
+    shard_count = 12,
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:configured_target",
         "//src/main/java/com/google/devtools/build/lib/analysis:test/analysis_failure",
@@ -377,6 +377,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/packages",
         "//src/test/java/com/google/devtools/build/lib/analysis/util",
         "//third_party:error_prone_annotations",
+        "//third_party:guava",
         "//third_party:jsr305",
         "//third_party:junit4",
         "//third_party:truth",

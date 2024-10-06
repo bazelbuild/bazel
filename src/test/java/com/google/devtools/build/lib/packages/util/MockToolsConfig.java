@@ -161,10 +161,14 @@ public final class MockToolsConfig {
   }
 
   public void copyTool(String relativePath, String dest) throws IOException {
-    // Tests are assumed to be run from the main repository only.
-    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
     PathFragment rlocationPath =
         PathFragment.create(TestConstants.WORKSPACE_NAME).getRelative(relativePath);
+    copyTool(rlocationPath, dest);
+  }
+
+  public void copyTool(PathFragment rlocationPath, String dest) throws IOException {
+    // Tests are assumed to be run from the main repository only.
+    Runfiles runfiles = Runfiles.preload().withSourceRepository("");
     Path source =
         FileSystems.getNativeFileSystem()
             .getPath(runfiles.rlocation(rlocationPath.getPathString()));
@@ -193,15 +197,23 @@ public final class MockToolsConfig {
 
   public void copyDirectory(String relativeDirPath, int depth, boolean useEmptyBuildFiles)
       throws IOException {
-    // Tests are assumed to be run from the main repository only.
     Runfiles runfiles = Runfiles.preload().withSourceRepository("");
-    PathFragment rlocationPath =
-        PathFragment.create(TestConstants.WORKSPACE_NAME).getRelative(relativeDirPath);
+    copyDirectory(
+        PathFragment.create(
+            runfiles.rlocation(
+                PathFragment.create(TestConstants.WORKSPACE_NAME)
+                    .getRelative(relativeDirPath)
+                    .getPathString())),
+        relativeDirPath,
+        depth,
+        useEmptyBuildFiles);
+  }
+
+  public void copyDirectory(PathFragment path, String to, int depth, boolean useEmptyBuildFiles)
+      throws IOException {
+    // Tests are assumed to be run from the main repository only.
     java.nio.file.Path source =
-        FileSystems.getNativeFileSystem()
-            .getPath(runfiles.rlocation(rlocationPath.getPathString()))
-            .getPathFile()
-            .toPath();
+        FileSystems.getNativeFileSystem().getPath(path).getPathFile().toPath();
     try (Stream<java.nio.file.Path> stream = Files.walk(source, depth)) {
       stream
           .filter(f -> f.toFile().isFile())
@@ -211,9 +223,9 @@ public final class MockToolsConfig {
               f -> {
                 try {
                   if (f.endsWith("BUILD") && useEmptyBuildFiles) {
-                    create(relativeDirPath + "/" + f);
+                    create(to + "/" + f);
                   } else {
-                    copyTool(relativeDirPath + "/" + f);
+                    copyTool(path.getRelative(f), to + "/" + f);
                   }
                 } catch (IOException e) {
                   throw new RuntimeException(e);

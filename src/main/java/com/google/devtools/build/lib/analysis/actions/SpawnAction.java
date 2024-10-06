@@ -51,7 +51,7 @@ import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.CommandLineAndParamFileInfo;
 import com.google.devtools.build.lib.actions.CommandLines.ExpandedCommandLines;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.ParamFileInfo;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.ResourceSetOrBuilder;
@@ -403,6 +403,11 @@ public class SpawnAction extends AbstractAction implements CommandAction {
       message.append(ShellEscaper.escapeString(var));
       message.append('\n');
     }
+    for (Map.Entry<String, String> entry : getExecutionInfo().entrySet()) {
+      message.append("  Execution info: ");
+      message.append(entry.getKey()).append('=').append(entry.getValue());
+      message.append('\n');
+    }
     try {
       for (String argument : ShellEscaper.escapeAll(getArguments())) {
         message.append("  Argument: ");
@@ -490,7 +495,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
   /** A spawn instance that is tied to a specific SpawnAction. */
   private static final class ActionSpawn extends BaseSpawn {
     private final NestedSet<ActionInput> inputs;
-    private final Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings;
+    private final Map<Artifact, FilesetOutputTree> filesetMappings;
     private final ImmutableMap<String, String> effectiveEnvironment;
     private final boolean reportOutputs;
     private final PathMapper pathMapper;
@@ -508,7 +513,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
         boolean envResolved,
         NestedSet<Artifact> inputs,
         Iterable<? extends ActionInput> additionalInputs,
-        Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings,
+        Map<Artifact, FilesetOutputTree> filesetMappings,
         boolean reportOutputs,
         PathMapper pathMapper)
         throws CommandLineExpansionException {
@@ -540,7 +545,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     private static void addNonFilesetInputs(
         NestedSetBuilder<ActionInput> builder,
         NestedSet<Artifact> inputs,
-        Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesetMappings) {
+        Map<Artifact, FilesetOutputTree> filesetMappings) {
       if (filesetMappings.isEmpty()) {
         // Keep the original nested set intact. This aids callers that exploit the nested set
         // structure to perform optimizations (see SpawnInputExpander#walkInputs and its callers).
@@ -565,7 +570,7 @@ public class SpawnAction extends AbstractAction implements CommandAction {
     }
 
     @Override
-    public ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> getFilesetMappings() {
+    public ImmutableMap<Artifact, FilesetOutputTree> getFilesetMappings() {
       return ImmutableMap.copyOf(filesetMappings);
     }
 

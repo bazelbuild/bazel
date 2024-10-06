@@ -75,8 +75,12 @@ enum AttributeType {
 
 // Representation of a Starlark rule definition.
 message RuleInfo {
-  // The name under which the rule is made accessible to a user of this module,
-  // including any structs it is nested in, for example "foo.foo_library".
+  // In Stardoc and starlark_doc_extract output, this is the name under which
+  // the rule is made accessible to a user of this module, including any structs
+  // it is nested in, for example "foo.foo_library".
+  //
+  // In query output, this is the name under which the rule was defined (which
+  // might be a private symbol prefixed with "_").
   string rule_name = 1;
 
   // The documentation string of the rule.

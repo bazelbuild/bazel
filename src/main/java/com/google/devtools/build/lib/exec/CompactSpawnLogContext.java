@@ -262,9 +262,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       builder.setTimeoutMillis(timeout.toMillis());
       builder.setMetrics(getSpawnMetricsProto(result));
 
-      try (SilentCloseable c1 = Profiler.instance().profile("logEntry")) {
-        logEntryWithoutId(() -> ExecLogEntry.newBuilder().setSpawn(builder));
-      }
+      logEntryWithoutId(() -> ExecLogEntry.newBuilder().setSpawn(builder));
     }
   }
 
@@ -288,9 +286,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       }
       builder.setMnemonic(action.getMnemonic());
 
-      try (SilentCloseable c1 = Profiler.instance().profile("logEntry")) {
-        logEntryWithoutId(() -> ExecLogEntry.newBuilder().setSymlinkAction(builder));
-      }
+      logEntryWithoutId(() -> ExecLogEntry.newBuilder().setSymlinkAction(builder));
     }
   }
 
@@ -325,7 +321,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         additionalDirectoryIds.build(),
         inputMetadataProvider,
         fileSystem,
-        /* shared= */ false);
+        /* shared= */ false,
+        "TestRunner".equals(spawn.getMnemonic()));
   }
 
   /**
@@ -342,7 +339,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
         ImmutableList.of(),
         inputMetadataProvider,
         fileSystem,
-        /* shared= */ true);
+        /* shared= */ true,
+        "TestRunner".equals(spawn.getMnemonic()));
   }
 
   /**
@@ -352,6 +350,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * @param additionalDirectoryIds the entry IDs of additional {@link ExecLogEntry.Directory}
    *     entries to include as direct members
    * @param shared whether this nested set is likely to be a transitive member of other sets
+   * @param isTestRunnerSpawn whether this nested set is logged for a test runner spawn
    * @return the entry ID of the {@link ExecLogEntry.InputSet} describing the nested set, or 0 if
    *     the nested set is empty.
    */
@@ -360,7 +359,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
       Collection<Integer> additionalDirectoryIds,
       InputMetadataProvider inputMetadataProvider,
       FileSystem fileSystem,
-      boolean shared)
+      boolean shared,
+      boolean isTestRunnerSpawn)
       throws IOException, InterruptedException {
     if (set.isEmpty() && additionalDirectoryIds.isEmpty()) {
       return 0;
@@ -380,7 +380,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                     /* additionalDirectoryIds= */ ImmutableList.of(),
                     inputMetadataProvider,
                     fileSystem,
-                    /* shared= */ true));
+                    /* shared= */ true,
+                    isTestRunnerSpawn));
           }
 
           for (ActionInput input : set.getLeaves()) {
@@ -392,10 +393,11 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                       runfilesTree,
                       inputMetadataProvider,
                       fileSystem,
-                      // If the nested set containing the runfiles tree isn't shared (i.e., it
-                      // contains inputs, not tools), the runfiles are also likely not shared. This
-                      // avoids storing the runfiles tree of a test.
-                      shared));
+                      // Runfiles of non-test spawns are tool inputs and thus potentially reused
+                      // between spawns. Runfiles of test spawns are reused if the test is attempted
+                      // multiple times in the same build; in this case, the runfiles tree caches
+                      // its mapping.
+                      !isTestRunnerSpawn || runfilesTree.isMappingCached()));
               continue;
             }
 
@@ -559,7 +561,10 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                   fileSystem,
                   // The runfiles tree itself is shared, but the nested set is unique to the tree as
                   // it contains the executable.
-                  /* shared= */ false));
+                  /* shared= */ false,
+                  // This value only matters for nested sets that may contain runfiles trees, but
+                  // these are never nested.
+                  /* isTestRunnerSpawn= */ false));
           builder.setSymlinksId(
               logSymlinkEntries(
                   runfilesTree.getSymlinksForLogging(), inputMetadataProvider, fileSystem));
@@ -651,9 +656,18 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    *
    * @param supplier called to compute the entry; may cause other entries to be logged
    */
-  private synchronized void logEntryWithoutId(ExecLogEntrySupplier supplier)
+  private void logEntryWithoutId(ExecLogEntrySupplier supplier)
       throws IOException, InterruptedException {
-    outputStream.write(supplier.get().build());
+    try (SilentCloseable c = Profiler.instance().profile("logEntryWithoutId")) {
+      logEntryWithoutIdSynchronized(supplier);
+    }
+  }
+
+  private synchronized void logEntryWithoutIdSynchronized(ExecLogEntrySupplier supplier)
+      throws IOException, InterruptedException {
+    try (SilentCloseable c = Profiler.instance().profile("logEntryWithoutId/synchronized")) {
+      outputStream.write(supplier.get().build());
+    }
   }
 
   /**
@@ -667,7 +681,14 @@ public class CompactSpawnLogContext extends SpawnLogContext {
    * @return the entry ID
    */
   @CheckReturnValue
-  private synchronized int logEntry(@Nullable Object key, ExecLogEntrySupplier supplier)
+  private int logEntry(@Nullable Object key, ExecLogEntrySupplier supplier)
+      throws IOException, InterruptedException {
+    try (SilentCloseable c = Profiler.instance().profile("logEntry")) {
+      return logEntrySynchronized(key, supplier);
+    }
+  }
+
+  private synchronized int logEntrySynchronized(@Nullable Object key, ExecLogEntrySupplier supplier)
       throws IOException, InterruptedException {
     try (SilentCloseable c = Profiler.instance().profile("logEntry/synchronized")) {
       if (key == null) {

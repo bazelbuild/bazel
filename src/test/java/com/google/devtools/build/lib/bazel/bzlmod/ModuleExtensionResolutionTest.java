@@ -268,7 +268,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
             .set(BuildLanguageOptions.INCOMPATIBLE_AUTOLOAD_EXTERNALLY, ImmutableList.of())
             .build();
     PrecomputedValue.STARLARK_SEMANTICS.set(differencer, semantics);
-    PrecomputedValue.AUTOLOAD_SYMBOLS.set(
+    AutoloadSymbols.AUTOLOAD_SYMBOLS.set(
         differencer, new AutoloadSymbols(ruleClassProvider, semantics));
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
@@ -2048,6 +2048,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         "  'dev_as_non_dev_dep',",
         "  my_direct_dep = 'direct_dep',",
         ")",
+        "inject_repo(ext, my_data_repo = 'data_repo')",
         "ext_dev = use_extension('@ext//:defs.bzl', 'ext', dev_dependency = True)",
         "use_repo(",
         "  ext_dev,",
@@ -3250,7 +3251,7 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
         """
         bazel_dep(name = "data_repo", version = "1.0")
         ext = use_extension("//:defs.bzl","ext")
-        use_repo(ext, "bar", module_foo = "foo")
+        use_repo(ext, "bar")
         data_repo = use_repo_rule("@data_repo//:defs.bzl", "data_repo")
         data_repo(name = "foo", data = "overridden_data")
         inject_repo(ext, "foo")
@@ -3309,74 +3310,5 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
     Object fooData = result.get(skyKey).getModule().getGlobal("foo_data");
     assertThat(fooData).isInstanceOf(String.class);
     assertThat(fooData).isEqualTo("overridden_data");
-  }
-
-  @Test
-  public void overrideRepo_inject_onExistingRepoFails() throws Exception {
-    scratch.file(
-        workspaceRoot.getRelative("MODULE.bazel").getPathString(),
-        """
-        bazel_dep(name = "data_repo", version = "1.0")
-        ext = use_extension("//:defs.bzl","ext")
-        use_repo(ext, "bar", module_foo = "foo")
-        data_repo = use_repo_rule("@data_repo//:defs.bzl", "data_repo")
-        data_repo(name = "override", data = "overridden_data")
-        inject_repo(ext, foo = "override")
-        """);
-    scratch.file(workspaceRoot.getRelative("BUILD").getPathString());
-    scratch.file(
-        workspaceRoot.getRelative("data.bzl").getPathString(),
-        """
-        load("@bar//:list.bzl", _bar_list = "list")
-        load("@override//:data.bzl", _override_data = "data")
-        load("@module_foo//:data.bzl", _foo_data = "data")
-        bar_list = _bar_list
-        foo_data = _foo_data
-        override_data = _override_data
-        """);
-    scratch.file(
-        workspaceRoot.getRelative("defs.bzl").getPathString(),
-        """
-        load("@data_repo//:defs.bzl", "data_repo")
-        def _list_repo_impl(ctx):
-          ctx.file("WORKSPACE")
-          ctx.file("BUILD")
-          labels = [str(Label(l)) for l in ctx.attr.labels]
-          labels += [str(Label("@module_foo//:target3"))]
-          ctx.file("list.bzl", "list = " + repr(labels) + " + [str(Label('@foo//:target4'))]")
-        list_repo = repository_rule(
-          implementation = _list_repo_impl,
-          attrs = {
-            "labels": attr.label_list(),
-          },
-        )
-        def _fail_repo_impl(ctx):
-          fail("This rule should not be evaluated")
-        fail_repo = repository_rule(implementation = _fail_repo_impl)
-        def _ext_impl(ctx):
-          fail_repo(name = "foo")
-          list_repo(
-            name = "bar",
-            labels = [
-              # lazy extension implementation function repository mapping
-              "@foo//:target1",
-              # module repo repository mapping
-              "@module_foo//:target2",
-            ],
-          )
-        ext = module_extension(implementation = _ext_impl)
-        """);
-
-    SkyKey skyKey = BzlLoadValue.keyForBuild(Label.parseCanonical("//:data.bzl"));
-    reporter.removeHandler(failFastHandler);
-    EvaluationResult<BzlLoadValue> result =
-        evaluator.evaluate(ImmutableList.of(skyKey), evaluationContext);
-    assertThat(result.hasError()).isTrue();
-    assertThat(result.getError().getException())
-        .hasMessageThat()
-        .isEqualTo(
-            "module extension \"ext\" from \"//:defs.bzl\" generates repository \"foo\", yet it is"
-                + " injected via inject_repo() at /ws/MODULE.bazel:6:12. Use override_repo()"
-                + " instead to override an existing repository.");
   }
 }

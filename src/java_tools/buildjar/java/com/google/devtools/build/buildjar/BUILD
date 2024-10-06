@@ -67,7 +67,7 @@ java_library(
         "//third_party:auto_value",
         "//third_party:guava",
         "//third_party:jsr305",
-        "//third_party/protobuf:protobuf_java",
+        "@protobuf//:protobuf_java",
     ],
 )
 
@@ -173,7 +173,6 @@ bootstrap_java_library(
         "//third_party:bootstrap_guava_and_error_prone-jars",
         "//third_party:jsr305-jars",
         "//third_party/java/jacoco:core-jars",
-        "//third_party/grpc-java:bootstrap-grpc-jars",
         "//third_party:tomcat_annotations_api-jars",
     ],
     neverlink_jars = ["//third_party:auto_value-jars"],

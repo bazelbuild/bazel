@@ -26,7 +26,7 @@ import com.google.devtools.build.lib.actions.ArtifactPathResolver;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.ExecException;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.LostInputsActionExecutionException;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.actions.cache.MetadataInjector;
@@ -215,7 +215,7 @@ public interface OutputService {
       FileSystem actionFileSystem,
       Environment env,
       MetadataInjector injector,
-      ImmutableMap<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {}
+      ImmutableMap<Artifact, FilesetOutputTree> filesets) {}
 
   /**
    * Checks the filesystem returned by {@link #createActionFileSystem} for errors attributable to
@@ -235,7 +235,7 @@ public interface OutputService {
       ImmutableList<Root> pathEntries,
       ActionInputMap actionInputMap,
       Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeArtifacts,
-      Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets) {
+      Map<Artifact, FilesetOutputTree> filesets) {
     throw new IllegalStateException("Path resolver not supported by this class");
   }
 

@@ -33,11 +33,9 @@ public final class RuleInfoExtractor {
    *     Starlark rule defined in a .bzl file, this would typically be the name under which users of
    *     the module would use the rule
    * @param ruleClass a rule class; if it is a repository rule class, it must be an exported one
-   * @throws ExtractionException if extraction failed
    */
   public static RuleInfo buildRuleInfo(
-      ExtractorContext context, String qualifiedName, RuleClass ruleClass)
-      throws ExtractionException {
+      ExtractorContext context, String qualifiedName, RuleClass ruleClass) {
     RuleInfo.Builder ruleInfoBuilder = RuleInfo.newBuilder();
     // Record the name under which this symbol is made accessible, which may differ from the
     // symbol's exported name
@@ -77,7 +75,7 @@ public final class RuleInfoExtractor {
     ruleInfoBuilder.addAttribute(
         AttributeInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO); // name comes first
     AttributeInfoExtractor.addDocumentableAttributes(
-        context, ruleClass.getAttributes(), ruleInfoBuilder::addAttribute, "rule " + qualifiedName);
+        context, ruleClass.getAttributes(), ruleInfoBuilder::addAttribute);
     ImmutableSet<StarlarkProviderIdentifier> advertisedProviders =
         ruleClass.getAdvertisedProviders().getStarlarkProviders();
     if (!advertisedProviders.isEmpty()) {

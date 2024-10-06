@@ -905,8 +905,7 @@ public final class ModuleInfoExtractorTest {
   @Test
   public void macroDocstring() throws Exception {
     Module module =
-        execWithOptions(
-            ImmutableList.of("--experimental_enable_first_class_macros"),
+        exec(
             """
             def _my_impl(name, visibility):
                 pass
@@ -940,8 +939,7 @@ public final class ModuleInfoExtractorTest {
   @Test
   public void macroAttributes() throws Exception {
     Module module =
-        execWithOptions(
-            ImmutableList.of("--experimental_enable_first_class_macros"),
+        exec(
             """
             def _my_impl(name):
                 pass
@@ -977,8 +975,7 @@ public final class ModuleInfoExtractorTest {
   @Test
   public void unexportedMacro_notDocumented() throws Exception {
     Module module =
-        execWithOptions(
-            ImmutableList.of("--experimental_enable_first_class_macros"),
+        exec(
             """
             def _my_impl(name):
                 pass

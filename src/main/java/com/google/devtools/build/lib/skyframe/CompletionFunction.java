@@ -36,7 +36,7 @@ import com.google.devtools.build.lib.actions.CompletionContext.PathResolverFacto
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileArtifactValue.RemoteFileArtifactValue;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.ImportantOutputException;
 import com.google.devtools.build.lib.actions.ImportantOutputHandler.LostArtifacts;
@@ -222,8 +222,8 @@ public final class CompletionFunction<
     // TODO: b/239184359 - Can we just get the tree artifacts from the ActionInputMap?
     Map<Artifact, TreeArtifactValue> treeArtifacts = new HashMap<>();
 
-    Map<Artifact, ImmutableList<FilesetOutputSymlink>> expandedFilesets = new HashMap<>();
-    Map<Artifact, ImmutableList<FilesetOutputSymlink>> topLevelFilesets = new HashMap<>();
+    Map<Artifact, FilesetOutputTree> expandedFilesets = new HashMap<>();
+    Map<Artifact, FilesetOutputTree> topLevelFilesets = new HashMap<>();
 
     ActionExecutionException firstActionExecutionException = null;
     NestedSetBuilder<Cause> rootCausesBuilder = NestedSetBuilder.stableOrder();

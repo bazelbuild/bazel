@@ -20,7 +20,6 @@ import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import javax.annotation.Nullable;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -28,11 +27,6 @@ import org.junit.runners.JUnit4;
 /** Tests the execution of symbolic macro implementations. */
 @RunWith(JUnit4.class)
 public final class RuleFinalizerTest extends BuildViewTestCase {
-
-  @Before
-  public void setUp() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-  }
 
   /**
    * Returns a package by the given name (no leading "//"), or null upon {@link

@@ -547,7 +547,7 @@ public class ExecutionOptions extends OptionsBase {
       // TODO: when this flag is moved to non-experimental, rename it to a more general name
       // to reflect the new logic - it's not only about cache evictions.
       name = "experimental_remote_cache_eviction_retries",
-      defaultValue = "0",
+      defaultValue = "5",
       documentationCategory = OptionDocumentationCategory.REMOTE,
       effectTags = {OptionEffectTag.EXECUTION},
       help =

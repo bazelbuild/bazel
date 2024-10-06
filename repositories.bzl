@@ -15,7 +15,7 @@
 
 """
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive", "http_file")
+load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 load("//src/tools/bzlmod:utils.bzl", "get_canonical_repo_name")
 
 ##################################################################################
@@ -31,7 +31,9 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "blake3",
     "c-ares",
     "com_github_grpc_grpc",
-    "com_google_protobuf",
+    # "com_google_protobuf", # for now, this is an archive_override with special treatment. see distdir.bzl
+    "googleapis",
+    "grpc-java",
     "io_bazel_skydoc",
     "platforms",
     "rules_cc",
@@ -44,19 +46,22 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "rules_pkg",
     "rules_proto",
     "rules_python",
-    "upb",
     "zlib",
     "zstd-jni",
-]] + [(get_canonical_repo_name("com_github_grpc_grpc") + suffix) for suffix in [
+]] + [(get_canonical_repo_name("com_github_grpc_grpc") + "+grpc_repo_deps_ext+" + suffix) for suffix in [
     # Extra grpc dependencies introduced via its module extension
-    "+grpc_repo_deps_ext+bazel_gazelle",  # TODO: Should be a bazel_dep
-    "+grpc_repo_deps_ext+bazel_skylib",  # TODO: Should be removed
-    "+grpc_repo_deps_ext+com_envoyproxy_protoc_gen_validate",
-    "+grpc_repo_deps_ext+com_github_cncf_udpa",
-    "+grpc_repo_deps_ext+com_google_googleapis",
-    "+grpc_repo_deps_ext+envoy_api",
-    "+grpc_repo_deps_ext+rules_cc",  # TODO: Should be removed
-]] + ["bazel_features+"]
+    "com_envoyproxy_protoc_gen_validate",
+    "com_github_cncf_xds",
+    "envoy_api",
+    "google_cloud_cpp",
+    "io_opencensus_cpp",
+]] + [
+    "bazel_features+",
+    "rules_apple+",
+    "rules_foreign_cc+",
+    "rules_fuzzing+",
+    "rules_swift+",
+]
 
 ##################################################################################
 #
@@ -118,13 +123,4 @@ def embedded_jdk_repositories():
         sha256 = "975603e684f2ec5a525b3b5336d6aa0b09b5b7d2d0d9e271bd6a9892ad550181",
         downloaded_file_path = "zulu-win-arm64.zip",
         url = "https://aka.ms/download-jdk/microsoft-jdk-21.0.0-windows-aarch64.zip",
-    )
-
-def android_deps_repos():
-    """Required by building the android tools."""
-    http_archive(
-        name = "desugar_jdk_libs",
-        sha256 = "ef71be474fbb3b3b7bd70cda139f01232c63b9e1bbd08c058b00a8d538d4db17",
-        strip_prefix = "desugar_jdk_libs-24dcd1dead0b64aae3d7c89ca9646b5dc4068009",
-        url = "https://github.com/google/desugar_jdk_libs/archive/24dcd1dead0b64aae3d7c89ca9646b5dc4068009.zip",
     )

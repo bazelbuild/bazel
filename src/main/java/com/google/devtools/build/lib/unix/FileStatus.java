@@ -14,57 +14,43 @@
 package com.google.devtools.build.lib.unix;
 
 /**
- * <p>Equivalent to UNIX's "struct stat", a FileStatus instance contains
- * various bits of metadata about a directory entry.
+ * Equivalent to UNIX's "struct stat", a FileStatus instance contains various bits of metadata about
+ * a directory entry.
  *
- * <p>The Java SDK provides access to some but not all of the information
- * available via the stat(2) and lstat(2) syscalls, but often requires that
- * multiple calls be made to obtain it.  By reifying stat buffers as Java
- * objects and providing a wrapper around the stat/lstat calls, we give client
- * applications access to the richer file metadata and enable a reduction in
- * the number of system calls, which is critical for high-performance tools.
+ * <p>The Java SDK provides access to some but not all of the information available via the stat(2)
+ * and lstat(2) syscalls, but often requires that multiple calls be made to obtain it. By reifying
+ * stat buffers as Java objects and providing a wrapper around the stat/lstat calls, we give client
+ * applications access to the richer file metadata and enable a reduction in the number of system
+ * calls, which is critical for high-performance tools.
  *
- * <p>This class is optimized for memory usage.  Operations that are not yet
- * required for any client are intentionally unimplemented to save space.
- * Currently, we only support these fields: st_mode, st_size, st_atime,
- * st_atimensec, st_mtime, st_mtimensec, st_ctime, st_ctimensec, st_dev, st_ino.
- * Methods that require other fields throw UnsupportedOperationException.
+ * <p>This class is optimized for memory usage. Fields not required by Bazel are omitted.
  */
 public class FileStatus {
 
-  private final int st_mode;
-  private final int st_atime; // (unsigned)
-  private final int st_atimensec; // (unsigned)
-  private final int st_mtime; // (unsigned)
-  private final int st_mtimensec; // (unsigned)
-  private final int st_ctime; // (unsigned)
-  private final int st_ctimensec; // (unsigned)
-  private final long st_size;
-  private final int st_dev;
-  private final long st_ino;
+  private final int mode;
+  private final long atime; // milliseconds since Unix epoch
+  private final long mtime; // milliseconds since Unix epoch
+  private final long ctime; // milliseconds since Unix epoch
+  private final long size;
+  private final int dev;
+  private final long ino;
 
-  /**
-   * Constructs a FileStatus instance.  (Called only from JNI code.)
-   */
-  protected FileStatus(int st_mode, int st_atime, int st_atimensec, int st_mtime, int st_mtimensec,
-                       int st_ctime, int st_ctimensec, long st_size, int st_dev, long st_ino) {
-    this.st_mode = st_mode;
-    this.st_atime = st_atime;
-    this.st_atimensec = st_atimensec;
-    this.st_mtime = st_mtime;
-    this.st_mtimensec = st_mtimensec;
-    this.st_ctime = st_ctime;
-    this.st_ctimensec = st_ctimensec;
-    this.st_size = st_size;
-    this.st_dev = st_dev;
-    this.st_ino = st_ino;
+  /** Constructs a FileStatus instance. (Called only from ErrnoFileStatus and JNI code.) */
+  protected FileStatus(int mode, long atime, long mtime, long ctime, long size, int dev, long ino) {
+    this.mode = mode;
+    this.atime = atime;
+    this.mtime = mtime;
+    this.ctime = ctime;
+    this.size = size;
+    this.dev = dev;
+    this.ino = ino;
   }
 
   /**
    * Returns the device number of this inode.
    */
   public int getDeviceNumber() {
-    return st_dev;
+    return dev;
   }
 
   /**
@@ -72,19 +58,19 @@ public class FileStatus {
    * a given device.
    */
   public long getInodeNumber() {
-    return st_ino;
+    return ino;
   }
 
   /**
    * Returns true iff this file is a regular file.
    */
   public boolean isRegularFile() {
-    return (st_mode & S_IFMT) == S_IFREG;
+    return (mode & S_IFMT) == S_IFREG;
   }
 
   /** Returns true iff this file is a directory. */
   public boolean isDirectory() {
-    return (st_mode & S_IFMT) == S_IFDIR;
+    return (mode & S_IFMT) == S_IFDIR;
   }
 
   public static boolean isDirectory(int rawType) {
@@ -94,7 +80,7 @@ public class FileStatus {
 
   /** Returns true iff this file is a symbolic link. */
   public boolean isSymbolicLink() {
-    return (st_mode & S_IFMT) == S_IFLNK;
+    return (mode & S_IFMT) == S_IFLNK;
   }
 
   public static boolean isSymbolicLink(int rawType) {
@@ -106,42 +92,40 @@ public class FileStatus {
    * Returns true iff this file is a character device.
    */
   public boolean isCharacterDevice() {
-    return (st_mode & S_IFMT) == S_IFCHR;
+    return (mode & S_IFMT) == S_IFCHR;
   }
 
   /**
    * Returns true iff this file is a block device.
    */
   public boolean isBlockDevice() {
-    return (st_mode & S_IFMT) == S_IFBLK;
+    return (mode & S_IFMT) == S_IFBLK;
   }
 
-  /**
-   * Returns true iff this file is a FIFO.
-   */
-  public boolean isFIFO() {
-    return (st_mode & S_IFMT) == S_IFIFO;
+  /** Returns true iff this file is a FIFO. */
+  public boolean isFifo() {
+    return (mode & S_IFMT) == S_IFIFO;
   }
 
   /**
    * Returns true iff this file is a UNIX-domain socket.
    */
   public boolean isSocket() {
-    return (st_mode & S_IFMT) == S_IFSOCK;
+    return (mode & S_IFMT) == S_IFSOCK;
   }
 
   /**
    * Returns true iff this file has its "set UID" bit set.
    */
   public boolean isSetUserId() {
-    return (st_mode & S_ISUID) != 0;
+    return (mode & S_ISUID) != 0;
   }
 
   /**
    * Returns true iff this file has its "set GID" bit set.
    */
   public boolean isSetGroupId() {
-    return (st_mode & S_ISGID) != 0;
+    return (mode & S_ISGID) != 0;
   }
 
   /**
@@ -149,78 +133,46 @@ public class FileStatus {
    * explanation.
    */
   public boolean isSticky() {
-    return (st_mode & S_ISVTX) != 0;
+    return (mode & S_ISVTX) != 0;
   }
 
   /**
-   * Returns the user/group/other permissions part of the mode bits (i.e.
-   * st_mode masked with 0777), interpreted according to longstanding UNIX
-   * tradition.
+   * Returns the user/group/other permissions part of the mode bits (i.e. mode masked with 0777),
+   * interpreted according to longstanding UNIX tradition.
    */
   public int getPermissions() {
-    return st_mode & S_IRWXA;
+    return mode & S_IRWXA;
   }
 
   /**
    * Returns the total size, in bytes, of this file.
    */
   public long getSize() {
-    return st_size;
+    return size;
   }
 
-  /**
-   * Returns the last access time of this file (seconds since UNIX epoch).
-   */
+  /** Returns the last access time of this file (milliseconds since UNIX epoch). */
   public long getLastAccessTime() {
-    return unsignedIntToLong(st_atime);
+    return atime;
   }
 
-  /**
-   * Returns the fractional part of the last access time of this file (nanoseconds).
-   */
-  public long getFractionalLastAccessTime() {
-    return unsignedIntToLong(st_atimensec);
-  }
-
-  /**
-   * Returns the last modified time of this file (seconds since UNIX epoch).
-   */
+  /** Returns the last modified time of this file (milliseconds since UNIX epoch). */
   public long getLastModifiedTime() {
-    return unsignedIntToLong(st_mtime);
+    return mtime;
   }
 
-  /**
-   * Returns the fractional part of the last modified time of this file (nanoseconds).
-   */
-  public long getFractionalLastModifiedTime() {
-    return unsignedIntToLong(st_mtimensec);
-  }
-
-  /**
-   * Returns the last change time of this file (seconds since UNIX epoch).
-   */
+  /** Returns the last change time of this file (milliseconds since UNIX epoch). */
   public long getLastChangeTime() {
-    return unsignedIntToLong(st_ctime);
-  }
-
-  /**
-   * Returns the fractional part of the last change time of this file (nanoseconds).
-   */
-  public long getFractionalLastChangeTime() {
-    return unsignedIntToLong(st_ctimensec);
+    return ctime;
   }
 
   ////////////////////////////////////////////////////////////////////////
 
   @Override
   public String toString() {
-    return String.format("FileStatus(mode=0%06o,size=%d,mtime=%d)",
-                         st_mode, st_size, st_mtime);
-  }
-
-  @Override
-  public int hashCode() {
-    return st_mode;
+    return String.format(
+        "FileStatus(mode=0%06o,atime=%d,mtime=%d,ctime=%d,size=%d,device=%d,ino=%d)",
+        mode, atime, mtime, ctime, size, dev, ino);
   }
 
   ////////////////////////////////////////////////////////////////////////
@@ -260,10 +212,6 @@ public class FileStatus {
   public static final int S_IXOTH =  00001; // others have execute permission
 
   public static final int S_IEXEC =  00111; // owner, group, world execute
-
-  static long unsignedIntToLong(int i) {
-    return (i & 0x7FFFFFFF) - (long) (i & 0x80000000);
-  }
 
   public static boolean isFile(int rawType) {
     int type = rawType & S_IFMT;

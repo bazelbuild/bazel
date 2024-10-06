@@ -170,6 +170,33 @@ public class RuleClass implements RuleClassData {
     ToolchainResolutionMode DISABLED = (unused) -> false;
   }
 
+  /** Enum to determine whether a rule class uses auto exec groups. */
+  public enum AutoExecGroupsMode {
+    /** The rule class does not support auto exec groups. */
+    DISABLED,
+    /** The rule class uses auto exec groups regardless of other settings in the configuration. */
+    ENABLED,
+    /**
+     * The rule class uses auto exec groups if configured using the {@code _use_auto_exec_groups}
+     * attribute and {@code --incompatible_auto_exec_groups} flag.
+     */
+    DYNAMIC;
+
+    public boolean isEnabled(AttributeMap attributes, boolean isAllowedByConfiguration) {
+      return switch (this) {
+        case DISABLED -> false;
+        case ENABLED -> true;
+        case DYNAMIC -> {
+          if (attributes.has("$use_auto_exec_groups")) {
+            yield attributes.get("$use_auto_exec_groups", Type.BOOLEAN);
+          } else {
+            yield isAllowedByConfiguration;
+          }
+        }
+      };
+    }
+  }
+
   /** A factory or builder class for rule implementations. */
   public interface ConfiguredTargetFactory<
       ConfiguredTargetT, ContextT, ActionConflictExceptionT extends Throwable> {
@@ -335,9 +362,10 @@ public class RuleClass implements RuleClassData {
       },
 
       /**
-       * Normal rules are instantiable by BUILD files. Their names must therefore obey the rules for
-       * identifiers in the BUILD language. In addition, {@link TargetUtils#isTestRuleName} must
-       * return false for the name.
+       * Normal rules are instantiable by BUILD files, possibly via a macro (symbolic or legacy), in
+       * which case the rule's symbol is namespaced under {@code native}. Normal rule names must
+       * therefore obey the rules for identifiers in the BUILD language. In addition, {@link
+       * TargetUtils#isTestRuleName} must return false for the name.
        */
       NORMAL {
         @Override
@@ -363,6 +391,22 @@ public class RuleClass implements RuleClassData {
                 attribute.getName(),
                 attribute.getType());
           }
+        }
+      },
+
+      /**
+       * Normal rules with the additional restriction that they can only be instantiated by BUILD
+       * files or legacy macros - but not symbolic macros.
+       */
+      BUILD_ONLY {
+        @Override
+        public void checkName(String name) {
+          NORMAL.checkName(name);
+        }
+
+        @Override
+        public void checkAttributes(Map<String, Attribute> attributes) {
+          NORMAL.checkAttributes(attributes);
         }
       },
 
@@ -710,6 +754,7 @@ public class RuleClass implements RuleClassData {
     private final Set<Label> executionPlatformConstraints = new HashSet<>();
     private OutputFile.Kind outputFileKind = OutputFile.Kind.FILE;
     private final Map<String, ExecGroup> execGroups = new HashMap<>();
+    private AutoExecGroupsMode autoExecGroupsMode = AutoExecGroupsMode.DYNAMIC;
 
     /**
      * Constructs a new {@link RuleClass.Builder} using all attributes from all parent rule classes.
@@ -764,6 +809,8 @@ public class RuleClass implements RuleClassData {
                       + " requirements in %s ruleclass",
                   e.getDuplicateGroup(), name));
         }
+
+        this.autoExecGroupsMode = parent.getAutoExecGroupsMode();
 
         for (Attribute attribute : parent.getAttributes()) {
           String attrName = attribute.getName();
@@ -929,6 +976,7 @@ public class RuleClass implements RuleClassData {
           toolchainResolutionMode,
           executionPlatformConstraints,
           execGroups,
+          autoExecGroupsMode,
           outputFileKind,
           ImmutableList.copyOf(attributes.values()),
           buildSetting,
@@ -1546,6 +1594,7 @@ public class RuleClass implements RuleClassData {
      * Cause rules of this type to request the specified toolchains be available via toolchain
      * resolution when a target is configured.
      */
+    @CanIgnoreReturnValue
     public Builder addToolchainTypes(ToolchainTypeRequirement... toolchainTypes) {
       return addToolchainTypes(ImmutableList.copyOf(toolchainTypes));
     }
@@ -1595,6 +1644,13 @@ public class RuleClass implements RuleClassData {
     /** Checks whether the rule class has an exec group with the given name. */
     public boolean hasExecGroup(String name) {
       return this.execGroups.containsKey(name);
+    }
+
+    /** Sets how this rule class uses auto exec groups. */
+    @CanIgnoreReturnValue
+    public Builder autoExecGroupsMode(AutoExecGroupsMode autoExecGroupsMode) {
+      this.autoExecGroupsMode = autoExecGroupsMode;
+      return this;
     }
 
     /**
@@ -1756,6 +1812,7 @@ public class RuleClass implements RuleClassData {
   private final ToolchainResolutionMode toolchainResolutionMode;
   private final ImmutableSet<Label> executionPlatformConstraints;
   private final ImmutableMap<String, ExecGroup> execGroups;
+  private final AutoExecGroupsMode autoExecGroupsMode;
 
   /**
    * Constructs an instance of RuleClass whose name is 'name', attributes are 'attributes'. The
@@ -1818,6 +1875,7 @@ public class RuleClass implements RuleClassData {
       ToolchainResolutionMode toolchainResolutionMode,
       Set<Label> executionPlatformConstraints,
       Map<String, ExecGroup> execGroups,
+      AutoExecGroupsMode autoExecGroupsMode,
       OutputFile.Kind outputFileKind,
       ImmutableList<Attribute> attributes,
       @Nullable BuildSetting buildSetting,
@@ -1861,6 +1919,7 @@ public class RuleClass implements RuleClassData {
     this.toolchainResolutionMode = toolchainResolutionMode;
     this.executionPlatformConstraints = ImmutableSet.copyOf(executionPlatformConstraints);
     this.execGroups = ImmutableMap.copyOf(execGroups);
+    this.autoExecGroupsMode = autoExecGroupsMode;
     this.buildSetting = buildSetting;
     this.subrules = ImmutableSet.copyOf(subrules);
     // Create the index and collect non-configurable attributes while doing some validation checks.
@@ -2239,7 +2298,7 @@ public class RuleClass implements RuleClassData {
         @SuppressWarnings("unchecked")
         List<Label> vis = (List<Label>) nativeAttributeValue;
         try {
-          RuleVisibility.validate(vis);
+          nativeAttributeValue = RuleVisibility.validateAndSimplify(vis);
         } catch (EvalException e) {
           rule.reportError(rule.getLabel() + " " + e.getMessage(), eventHandler);
         }
@@ -2709,6 +2768,10 @@ public class RuleClass implements RuleClassData {
 
   public ImmutableMap<String, ExecGroup> getExecGroups() {
     return execGroups;
+  }
+
+  public AutoExecGroupsMode getAutoExecGroupsMode() {
+    return autoExecGroupsMode;
   }
 
   OutputFile.Kind getOutputFileKind() {

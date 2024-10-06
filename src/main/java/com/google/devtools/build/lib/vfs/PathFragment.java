@@ -51,7 +51,7 @@ import javax.annotation.Nullable;
  * <p>Mac and Windows path fragments are case insensitive.
  */
 @Immutable
-public abstract class PathFragment
+public abstract sealed class PathFragment
     implements Comparable<PathFragment>, FileType.HasFileType, PathStrippable {
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
 
@@ -62,6 +62,7 @@ public abstract class PathFragment
   private static final char ADDITIONAL_SEPARATOR_CHAR = OS.additionalSeparator();
 
   private final String normalizedPath;
+
   // DON'T add more fields here unless you know what you are doing. Adding another field will
   // increase the shallow heap of a PathFragment instance beyond the current value of 16 bytes.
   // Blaze's heap typically has many instances.
@@ -116,7 +117,7 @@ public abstract class PathFragment
     return normalizedPath;
   }
 
-  public boolean isEmpty() {
+  public final boolean isEmpty() {
     return normalizedPath.isEmpty();
   }
 
@@ -193,7 +194,10 @@ public abstract class PathFragment
    */
   public PathFragment getRelative(PathFragment other) {
     Preconditions.checkNotNull(other);
-    // Fast-path: The path fragment is already normal, use cheaper normalization check
+    if (isEmpty() || other.isAbsolute()) {
+      return other;
+    }
+    // The path fragment is already normal, use cheaper normalization check.
     String otherStr = other.normalizedPath;
     return getRelative(otherStr, other.getDriveStrLength(), OS.needsToNormalizeSuffix(otherStr));
   }
@@ -210,7 +214,7 @@ public abstract class PathFragment
   }
 
   private PathFragment getRelative(String other, int otherDriveStrLength, int normalizationLevel) {
-    if (normalizedPath.isEmpty()) {
+    if (isEmpty()) {
       return create(other);
     }
     if (other.isEmpty()) {
@@ -281,7 +285,7 @@ public abstract class PathFragment
       }
     } else {
       if (lastSeparator == -1) {
-        if (!normalizedPath.isEmpty()) {
+        if (!isEmpty()) {
           return EMPTY_FRAGMENT;
         } else {
           return null;
@@ -380,7 +384,7 @@ public abstract class PathFragment
       return false;
     }
     return normalizedPath.length() == other.normalizedPath.length()
-        || other.normalizedPath.isEmpty()
+        || other.isEmpty()
         || normalizedPath.charAt(normalizedPath.length() - other.normalizedPath.length() - 1)
             == SEPARATOR_CHAR;
   }
@@ -608,7 +612,7 @@ public abstract class PathFragment
 
   /** Returns the path string, or '.' if the path is empty. */
   public String getSafePathString() {
-    return !normalizedPath.isEmpty() ? normalizedPath : ".";
+    return !isEmpty() ? normalizedPath : ".";
   }
 
   /**
@@ -622,7 +626,7 @@ public abstract class PathFragment
   public String getCallablePathString() {
     if (isAbsolute()) {
       return normalizedPath;
-    } else if (normalizedPath.isEmpty()) {
+    } else if (isEmpty()) {
       return ".";
     } else if (normalizedPath.indexOf(SEPARATOR_CHAR) == -1) {
       return "." + SEPARATOR_CHAR + normalizedPath;

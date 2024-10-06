@@ -27,14 +27,12 @@ load("@_builtins//:common/cc/cc_toolchain.bzl", "cc_toolchain")
 load("@_builtins//:common/cc/cc_toolchain_alias.bzl", "cc_toolchain_alias")
 load("@_builtins//:common/cc/experimental_cc_static_library.bzl", "cc_static_library")
 load("@_builtins//:common/java/proto/java_lite_proto_library.bzl", "java_lite_proto_library")
-load("@_builtins//:common/objc/j2objc_library.bzl", "j2objc_library")
 load("@_builtins//:common/objc/objc_import.bzl", "objc_import")
 load("@_builtins//:common/objc/objc_library.bzl", "objc_library")
 load("@_builtins//:common/proto/proto_common.bzl", "proto_common_do_not_use")
 load("@_builtins//:common/proto/proto_info.bzl", "ProtoInfo")
 load("@_builtins//:common/proto/proto_lang_toolchain.bzl", "proto_lang_toolchain")
 load("@_builtins//:common/python/providers.bzl", "PyCcLinkParamsProvider", "PyInfo", "PyRuntimeInfo")
-load("@_builtins//:common/python/py_runtime_macro.bzl", "py_runtime")
 load("@_builtins//:common/xcode/available_xcodes.bzl", "available_xcodes")
 load("@_builtins//:common/xcode/xcode_config.bzl", "xcode_config")
 load("@_builtins//:common/xcode/xcode_config_alias.bzl", "xcode_config_alias")
@@ -78,14 +76,12 @@ exported_rules = {
     "java_lite_proto_library": java_lite_proto_library,
     "objc_import": objc_import,
     "objc_library": objc_library,
-    "j2objc_library": j2objc_library,
     "cc_shared_library": cc_shared_library,
     "cc_static_library": cc_static_library,
     "cc_binary": cc_binary,
     "cc_test": cc_test,
     "cc_library": cc_library,
     "proto_lang_toolchain": proto_lang_toolchain,
-    "py_runtime": py_runtime,
     "cc_toolchain_alias": cc_toolchain_alias,
     "cc_toolchain": cc_toolchain,
     "fdo_prefetch_hints": fdo_prefetch_hints,

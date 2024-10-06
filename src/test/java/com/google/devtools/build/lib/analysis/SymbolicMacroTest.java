@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.analysis;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailure;
 import com.google.devtools.build.lib.analysis.test.AnalysisFailureInfo;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
@@ -24,24 +26,21 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.MacroInstance;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.Package;
+import com.google.devtools.build.lib.packages.Rule;
+import com.google.devtools.build.lib.packages.Target;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import com.google.testing.junit.testparameterinjector.TestParameters;
 import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.Nullable;
 import org.junit.Assert;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 /** Tests the execution of symbolic macro implementations. */
 @RunWith(TestParameterInjector.class)
 public final class SymbolicMacroTest extends BuildViewTestCase {
-
-  @Before
-  public void setUp() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-  }
 
   /**
    * Returns a package by the given name (no leading "//"), or null upon {@link
@@ -60,6 +59,37 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   private void assertPackageNotInError(@Nullable Package pkg) {
     assertThat(pkg).isNotNull();
     assertThat(pkg.containsErrors()).isFalse();
+  }
+
+  /** Retrieves the macro with the given id, which must exist in the package. */
+  private static MacroInstance getMacroById(Package pkg, String id) {
+    MacroInstance macro = pkg.getMacrosById().get(id);
+    assertThat(macro).isNotNull();
+    return macro;
+  }
+
+  /** Maps a list of labels to a more convenient list of strings. */
+  private static ImmutableList<String> asStringList(List<Label> labelList) {
+    return labelList.stream().map(Label::getCanonicalForm).collect(toImmutableList());
+  }
+
+  /**
+   * Retrieves the visibility labels of the target with the given name, which must exist in the
+   * package.
+   */
+  private static ImmutableList<String> getTargetVisibility(Package pkg, String name)
+      throws Exception {
+    Target target = pkg.getTarget(name);
+    assertThat(target).isNotNull();
+    return asStringList(target.getVisibility().getDeclaredLabels());
+  }
+
+  /**
+   * Retrieves the visibility labels of the macro with the given id, which must exist in the
+   * package.
+   */
+  private static ImmutableList<String> getMacroVisibility(Package pkg, String id) throws Exception {
+    return asStringList(getMacroById(pkg, id).getVisibility());
   }
 
   /**
@@ -655,6 +685,11 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     doCannotCallApiTest("existing_rules()", "native.existing_rules()");
   }
 
+  @Test
+  public void macroCannotCallEnvironmentRuleFunction() throws Exception {
+    doCannotCallApiTest("environment rule", "native.environment(name = 'foo')");
+  }
+
   // There are other symbols that must not be called from within symbolic macros, but we don't test
   // them because they can't be obtained from a symbolic macro implementation anyway, since they are
   // not under `native` (at least, for BUILD-loaded .bzl files) and because symbolic macros can't
@@ -724,13 +759,16 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, visibility, dep):
-            print("dep is %s" % dep)
+        def _impl(name, visibility, dep_nonconfigurable, dep_configurable):
+            print("dep_nonconfigurable is %s" % dep_nonconfigurable)
+            print("dep_configurable is %s" % dep_configurable)
         my_macro = macro(
-            implementation=_impl,
+            implementation = _impl,
             attrs = {
               # Test label type, since LabelType#getDefaultValue returns null.
-              "dep": attr.label(configurable=False)
+              "dep_nonconfigurable": attr.label(configurable=False),
+              # Try it again, this time in a select().
+              "dep_configurable": attr.label(configurable=True),
             },
         )
         """);
@@ -743,7 +781,8 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    assertContainsEvent("dep is None");
+    assertContainsEvent("dep_nonconfigurable is None");
+    assertContainsEvent("dep_configurable is select({\"//conditions:default\": None})");
   }
 
   @Test
@@ -754,7 +793,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         def _impl(name, visibility, xyz):
             print("xyz is %s" % xyz)
         my_macro = macro(
-            implementation=_impl,
+            implementation = _impl,
             attrs = {
               "xyz": attr.string(default="DEFAULT", configurable=False)
             },
@@ -780,7 +819,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         def _impl(name, visibility, xyz):
             print("xyz is %s" % xyz)
         my_macro = macro(
-            implementation=_impl,
+            implementation = _impl,
             attrs = {
               "xyz": attr.string(default="DEFAULT", configurable=False)
             },
@@ -809,7 +848,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         def _impl(name, visibility, _xyz):
             print("xyz is %s" % _xyz)
         my_macro = macro(
-            implementation=_impl,
+            implementation = _impl,
             attrs = {
               "_xyz": attr.string(default="IMPLICIT", configurable=False)
             },
@@ -828,6 +867,42 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
   }
 
   @Test
+  public void defaultAttrValue_wrappingMacroTakesPrecedenceOverWrappedRule() throws Exception {
+    scratch.file(
+        "pkg/foo.bzl",
+        """
+        def _rule_impl(ctx):
+            pass
+
+        my_rule = rule(
+            implementation = _rule_impl,
+            attrs = {"dep": attr.label(default="//common:rule_default")},
+        )
+
+        def _macro_impl(name, visibility, dep):
+            my_rule(name = name, dep = dep)
+
+        my_macro = macro(
+            implementation = _macro_impl,
+            attrs = {"dep": attr.label(default="//common:macro_default")},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":foo.bzl", "my_macro")
+        my_macro(name="abc")
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+    Rule rule = pkg.getRule("abc");
+    assertThat(rule).isNotNull();
+    assertThat(rule.getAttr("dep"))
+        .isEqualTo(Label.parseCanonicalUnchecked("//common:macro_default"));
+  }
+
+  @Test
   public void noneAttrValue_doesNotOverrideDefault() throws Exception {
     scratch.file(
         "pkg/foo.bzl",
@@ -835,7 +910,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         def _impl(name, visibility, xyz):
             print("xyz is %s" % xyz)
         my_macro = macro(
-            implementation=_impl,
+            implementation = _impl,
             attrs = {
               "xyz": attr.string(default="DEFAULT", configurable=False)
             },
@@ -922,7 +997,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
             print("xyz is %s" % xyz)
             print("_xyz is %s" % _xyz)
         my_macro = macro(
-            implementation=_impl,
+            implementation = _impl,
             attrs = {
               "xyz": attr.label(configurable = False),
               "_xyz": attr.label(default=":BUILD", configurable=False)
@@ -953,7 +1028,7 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         def _impl(name, visibility, xyz):
             xyz.append(4)
         my_macro = macro(
-            implementation=_impl,
+            implementation = _impl,
             attrs = {
               "xyz": attr.int_list(configurable=False),
             },
@@ -974,14 +1049,13 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
 
   @Test
   public void attrsAllowSelectsByDefault() throws Exception {
-    scratch.file("lib/BUILD");
     scratch.file(
         "pkg/foo.bzl",
         """
         def _impl(name, visibility, xyz):
             print("xyz is %s" % xyz)
         my_macro = macro(
-            implementation=_impl,
+            implementation = _impl,
             attrs = {
               "xyz": attr.string(),
             },
@@ -1025,7 +1099,7 @@ def _impl(name, visibility, attr_using_schema_default, attr_using_hardcoded_nonn
               % attr_using_hardcoded_nonnull_default)
     print("attr_using_hardcoded_null_default is %s" % attr_using_hardcoded_null_default)
 my_macro = macro(
-    implementation=_impl,
+    implementation = _impl,
     attrs = {
       "attr_using_schema_default": attr.string(default="some_default"),
       "attr_using_hardcoded_nonnull_default": attr.string(),
@@ -1074,7 +1148,6 @@ Label("//conditions:default"): None})""");
 
   @Test
   public void configurableAttrValuesArePromotedToSelects() throws Exception {
-    scratch.file("lib/BUILD");
     scratch.file(
         "pkg/foo.bzl",
         """
@@ -1085,7 +1158,7 @@ Label("//conditions:default"): None})""");
                     (str(nonconfigurable_xyz), type(nonconfigurable_xyz)))
 
         my_macro = macro(
-            implementation=_impl,
+            implementation = _impl,
             attrs = {
               "configurable_xyz": attr.string(),
               "nonconfigurable_xyz": attr.string(configurable=False),
@@ -1112,14 +1185,13 @@ Label("//conditions:default"): None})""");
 
   @Test
   public void nonconfigurableAttrValuesProhibitSelects() throws Exception {
-    scratch.file("lib/BUILD");
     scratch.file(
         "pkg/foo.bzl",
         """
         def _impl(name, visibility, xyz):
             print("xyz is %s" % xyz)
         my_macro = macro(
-            implementation=_impl,
+            implementation = _impl,
             attrs = {
               "xyz": attr.string(configurable=False),
             },
@@ -1141,7 +1213,6 @@ Label("//conditions:default"): None})""");
   // TODO(b/331193690): Prevent selects from being evaluated as bools
   @Test
   public void selectableAttrCanBeEvaluatedAsBool() throws Exception {
-    scratch.file("lib/BUILD");
     scratch.file(
         "pkg/foo.bzl",
         """
@@ -1155,7 +1226,7 @@ Label("//conditions:default"): None})""");
               print("xyz evaluates to False")
 
         my_macro = macro(
-            implementation=_impl,
+            implementation = _impl,
             attrs = {
               "xyz": attr.string(),
             },
@@ -1216,16 +1287,17 @@ Label("//conditions:default"): None})""");
                 "//conditions:default": "//D:D",
             }),
             configurable_withdefault = select({"//conditions:default": None}),
+            visibility = ["//common:my_package_group"],
         )
         """);
 
     Package pkg = getPackage("pkg");
     assertPackageNotInError(pkg);
-    MacroInstance macroInstance = pkg.getMacrosById().get("abc:1");
+    MacroInstance macroInstance = getMacroById(pkg, "abc:1");
     ArrayList<Label> labels = new ArrayList<>();
     macroInstance.visitExplicitAttributeLabels(labels::add);
     // Order is the same as the attribute definition order.
-    assertThat(labels.stream().map(Label::toString))
+    assertThat(asStringList(labels))
         .containsExactly(
             "//A:A",
             "//A:A", // duplicate not pruned
@@ -1238,7 +1310,134 @@ Label("//conditions:default"): None})""");
             // `omitted` ignored, it has no default
             // `_implicit_default` ignored because it's implicit
             "//common:explicit_default" // from attr default
+            // `visibility` ignored, it's a NODEP label list
             )
         .inOrder();
+  }
+
+  @Test
+  public void macrosThreadVisibilityAttrThroughWithCallsiteLocationAdded() throws Exception {
+    // Don't use test machinery's convenience setup that makes everything public by default.
+    setPackageOptions("--default_visibility=private");
+
+    // Submacro defines two targets, one exported (visibility = visibility) and one internal
+    // (private to the submacro's package).
+    scratch.file("lib1/BUILD");
+    scratch.file(
+        "lib1/macro.bzl",
+        """
+        def _impl(name, visibility):
+            native.cc_library(
+                name = name + "_exported",
+                visibility = visibility)
+            native.cc_library(name = name + "_internal")
+
+        submacro = macro(implementation=_impl)
+        """);
+    // Outer macro also defines two targets, but in addition calls the submacro twice, as an
+    // exported submacro and an internal one. So a total of six targets across three macro
+    // instances.
+    scratch.file("lib2/BUILD");
+    scratch.file(
+        "lib2/macro.bzl",
+        """
+        load("//lib1:macro.bzl", "submacro")
+
+        def _impl(name, visibility):
+            native.cc_library(
+                name = name + "_exported",
+                visibility = visibility)
+            native.cc_library(name = name + "_internal")
+            submacro(name=name + "_subexported", visibility = visibility)
+            submacro(name=name + "_subinternal")
+
+
+        outer_macro = macro(implementation=_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//lib2:macro.bzl", "outer_macro")
+        outer_macro(name="abc")
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+
+    // Outer macro visible to BUILD file.
+    assertThat(getMacroVisibility(pkg, "abc:1")).containsExactly("//pkg:__pkg__");
+
+    // The outer macro's exported target and the exported submacro are visible to both the BUILD
+    // file and the outer macro.
+    assertThat(getTargetVisibility(pkg, "abc_exported"))
+        .containsExactly("//pkg:__pkg__", "//lib2:__pkg__");
+    assertThat(getMacroVisibility(pkg, "abc_subexported:1"))
+        .containsExactly("//pkg:__pkg__", "//lib2:__pkg__");
+
+    // The outer macro's internal target and the internal submacro are visible only to the outer
+    // macro.
+    assertThat(getTargetVisibility(pkg, "abc_internal")).containsExactly("//lib2:__pkg__");
+    assertThat(getMacroVisibility(pkg, "abc_subinternal:1")).containsExactly("//lib2:__pkg__");
+
+    // The exported submacro's exported target is visible to everything (exports all the way down).
+    assertThat(getTargetVisibility(pkg, "abc_subexported_exported"))
+        .containsExactly("//pkg:__pkg__", "//lib2:__pkg__", "//lib1:__pkg__");
+
+    // The internal submacro's exported target is visible to the outer macro and submacro.
+    assertThat(getTargetVisibility(pkg, "abc_subinternal_exported"))
+        .containsExactly("//lib2:__pkg__", "//lib1:__pkg__");
+
+    // Finally, the internal targets of both the exported and internal submacros are visible only to
+    // the submacro.
+    assertThat(getTargetVisibility(pkg, "abc_subexported_internal"))
+        .containsExactly("//lib1:__pkg__");
+    assertThat(getTargetVisibility(pkg, "abc_subinternal_internal"))
+        .containsExactly("//lib1:__pkg__");
+  }
+
+  @Test
+  public void defaultVisibilityAppliesOnlyToTopLevelMacros() throws Exception {
+    scratch.file("lib/BUILD");
+    scratch.file(
+        "lib/macro.bzl",
+        """
+        def _sub_impl(name, visibility):
+            pass
+
+        submacro = macro(implementation=_sub_impl)
+
+        def _impl(name, visibility):
+            submacro(name=name + "_sub")
+
+        outer_macro = macro(implementation=_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load("//lib:macro.bzl", "outer_macro")
+
+        package(default_visibility=["//defaulted:__pkg__"])
+
+        outer_macro(
+            name = "macro_with_explicit_vis",
+            visibility = ["//explicit:__pkg__"],
+        )
+        outer_macro(name="macro_without_explicit_vis")
+        """);
+
+    Package pkg = getPackage("pkg");
+    assertPackageNotInError(pkg);
+
+    // Default visibility only applies when visibility is not specified.
+    assertThat(getMacroVisibility(pkg, "macro_with_explicit_vis:1"))
+        .containsExactly("//explicit:__pkg__", "//pkg:__pkg__");
+    // When it does apply, we still append the callsite location.
+    assertThat(getMacroVisibility(pkg, "macro_without_explicit_vis:1"))
+        .containsExactly("//defaulted:__pkg__", "//pkg:__pkg__");
+    // Default visibility never applies inside a symbolic macro (i.e. to submacros).
+    assertThat(getMacroVisibility(pkg, "macro_with_explicit_vis_sub:1"))
+        .containsExactly("//lib:__pkg__");
+    assertThat(getMacroVisibility(pkg, "macro_without_explicit_vis_sub:1"))
+        .containsExactly("//lib:__pkg__");
   }
 }

@@ -32,7 +32,6 @@ tasks:
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
-      - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/compliance/..."
       - "//tools/python/..."
@@ -43,7 +42,6 @@ tasks:
       - "-//src/test/shell/bazel:bazel_coverage_cc_head_test_gcc"
       - "-//src/test/shell/bazel:bazel_coverage_sh_test"
       # Disable some Android tests since we are moving Android rules out of the Bazel repo.
-      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
       - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
@@ -85,12 +83,10 @@ tasks:
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
-      - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
       # Disable some Android tests since we are moving Android rules out of the Bazel repo.
-      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
       - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
@@ -142,12 +138,10 @@ tasks:
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
-      - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
       # Disable some Android tests since we are moving Android rules out of the Bazel repo.
-      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
       - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build
@@ -177,7 +171,6 @@ tasks:
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
-      - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
@@ -187,9 +180,6 @@ tasks:
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # Disable android tests since we are moving Android rules out of the Bazel repo.
-      - "-//src/tools/android/java/com/google/devtools/build/android/..."
-      - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
-      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
       # ServerTests frequently runs into deadlocks on Intel Macs
       - "-//src/test/java/com/google/devtools/build/lib/server:ServerTests"
       # Add back a few Apple specific tests
@@ -220,22 +210,21 @@ tasks:
       - "//src/tools/singlejar/..."
       - "//src/tools/workspacelog/..."
       - "//third_party/ijar/..."
-      - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
       # https://github.com/bazelbuild/bazel/issues/17410
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # Disable android tests since we are moving Android rules out of Bazel repo.
-      - "-//src/test/shell/bazel/android/..."
-      - "-//src/tools/android/java/com/google/devtools/build/android/..."
-      - "-//src/test/java/com/google/devtools/build/android/dexer:AllTests"
-      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
       - "-//src/test/shell/bazel:bazel_android_tools_test"
       # https://github.com/bazelbuild/bazel/issues/23726
       - "-//src/test/shell/bazel:bazel_determinism_test"
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_tar_test"
       - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
+      # Temporarily disable python and shell integration tests
+      # TODO(pcloudy): Re-enable these tests after fixing https://github.com/bazelbuild/bazel/issues/23726
+      - "-//src/test/shell/..."
+      - "-//src/test/py/..."
     include_json_profile:
       - build
       - test
@@ -259,7 +248,6 @@ tasks:
       - "//src:embedded_tools_size_test"
       - "//src/main/starlark/tests/builtins_bzl/..."
       - "//src/test/cpp/..."
-      - "//src/test/java/com/google/devtools/build/android/..."
       - "//src/test/java/com/google/devtools/build/lib/..."
       - "//src/test/java/com/google/devtools/build/skyframe/..."
       - "//src/test/java/com/google/devtools/common/options/..."
@@ -271,7 +259,6 @@ tasks:
       - "//src/tools/one_version/..."
       - "//src/tools/singlejar/..."
       - "//third_party/def_parser/..."
-      - "//tools/android/..."
       - "//tools/aquery_differ/..."
       - "//tools/bash/..."
       - "//tools/build_defs/..."
@@ -282,7 +269,6 @@ tasks:
       - "//tools/test/..."
       # Re-enable the following tests on Windows:
       # https://github.com/bazelbuild/bazel/issues/4292
-      - "-//src/test/java/com/google/devtools/build/android/r8/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/cquery/..."
       - "-//src/test/java/com/google/devtools/build/lib/query2/engine/..."
       - "-//src/test/java/com/google/devtools/build/lib/versioning/..."
@@ -343,7 +329,6 @@ tasks:
       - "//tools/aquery_differ/..."
       - "//tools/python/..."
       - "//tools/bash/..."
-      - "//tools/android/..."
       # See https://github.com/bazelbuild/bazel/issues/8033
       - "-//src/tools/singlejar:output_jar_simple_test"
       - "-//src/test/shell/bazel:external_integration_test"
@@ -364,7 +349,6 @@ tasks:
       # https://github.com/bazelbuild/continuous-integration/issues/1631
       - "-//src/test/shell/bazel:bazel_sandboxing_networking_test"
       # Disable some Android tests since we are moving Android rules out of the Bazel repo.
-      - "-//src/test/java/com/google/devtools/build/android/r8:AllTests"
       - "-//src/test/shell/bazel:bazel_android_tools_test"
     include_json_profile:
       - build

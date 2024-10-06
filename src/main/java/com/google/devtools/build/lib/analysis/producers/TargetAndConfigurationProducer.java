@@ -57,12 +57,12 @@ import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
 import com.google.devtools.build.lib.packages.NoSuchThingException;
 import com.google.devtools.build.lib.packages.NonconfigurableAttributeMapper;
+import com.google.devtools.build.lib.packages.RawAttributeMapper;
 import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.RuleTransitionData;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.packages.TargetUtils;
-import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.server.FailureDetails.Analysis;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
@@ -316,13 +316,15 @@ public final class TargetAndConfigurationProducer
           getExecutionPlatformConstraints(rule, platformConfiguration);
       var ruleClass = rule.getRuleClassObject();
       boolean useAutoExecGroups =
-          rule.isAttrDefined("$use_auto_exec_groups", Type.BOOLEAN)
-              ? (boolean) rule.getAttr("$use_auto_exec_groups")
-              : preRuleTransitionKey
-                  .getConfigurationKey()
-                  .getOptions()
-                  .get(CoreOptions.class)
-                  .useAutoExecGroups;
+          rule.getRuleClassObject()
+              .getAutoExecGroupsMode()
+              .isEnabled(
+                  RawAttributeMapper.of(rule),
+                  preRuleTransitionKey
+                      .getConfigurationKey()
+                      .getOptions()
+                      .get(CoreOptions.class)
+                      .useAutoExecGroups);
 
       var processedExecGroups =
           ExecGroupCollection.process(

@@ -14,30 +14,6 @@ filegroup(
 exports_files(["java_stub_template.txt"])
 
 java_library(
-    name = "java",
-    srcs = glob(
-        ["*.java"],
-        exclude = ["BazelJavaSemantics.java"],
-    ),
-    resources = glob(
-        [
-            "*.txt",
-        ],
-    ),
-    deps = [
-        "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
-        "//src/main/java/com/google/devtools/build/lib/analysis:config/execution_transition_factory",
-        "//src/main/java/com/google/devtools/build/lib/analysis:rule_definition_environment",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/rules/cpp",
-        "//src/main/java/com/google/devtools/build/lib/rules/java:java-compilation",
-        "//src/main/java/com/google/devtools/build/lib/util:filetype",
-        "//third_party:guava",
-    ],
-)
-
-java_library(
     name = "bazel_java_semantics",
     srcs = ["BazelJavaSemantics.java"],
     deps = [

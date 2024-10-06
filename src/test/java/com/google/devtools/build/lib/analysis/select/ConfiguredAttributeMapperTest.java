@@ -306,7 +306,20 @@ public class ConfiguredAttributeMapperTest extends BuildViewTestCase {
 
   @Test
   public void testNoneValueOnMandatoryAttribute() throws Exception {
-    scratch.file("a/BUILD", "alias(name='a', actual=select({'//conditions:default': None}))");
+    scratch.file(
+        "a/BUILD",
+        """
+        # Needed to avoid select() being eliminated as trivial.
+        config_setting(
+            name = "config",
+            values = {"define": "pi=3"},
+        )
+
+        alias(
+            name = "a",
+            actual = select({":config": None, "//conditions:default": None}),
+        )
+        """);
     reporter.removeHandler(failFastHandler);
     getConfiguredTarget("//a:a");
     assertContainsEvent("Mandatory attribute 'actual' resolved to 'None'");

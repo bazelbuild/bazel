@@ -178,9 +178,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       out.close();
       blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
       filesToUpload.put(
-          file,
-          new LocalFile(
-              file, LocalFileType.OUTPUT, /* artifact= */ null, /* artifactMetadata= */ null));
+          file, new LocalFile(file, LocalFileType.OUTPUT, /* artifactMetadata= */ null));
     }
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
 
@@ -221,9 +219,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       out.close();
       blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
       filesToUpload.put(
-          file,
-          new LocalFile(
-              file, LocalFileType.OUTPUT, /* artifact= */ null, /* artifactMetadata= */ null));
+          file, new LocalFile(file, LocalFileType.OUTPUT, /* artifactMetadata= */ null));
     }
     serviceRegistry.addService(new MaybeFailOnceUploadService(blobsByHash));
 
@@ -254,12 +250,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     Path dir = fs.getPath("/dir");
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(
-        dir,
-        new LocalFile(
-            dir,
-            LocalFileType.OUTPUT_DIRECTORY,
-            /* artifact= */ null,
-            /* artifactMetadata= */ null));
+        dir, new LocalFile(dir, LocalFileType.OUTPUT_DIRECTORY, /* artifactMetadata= */ null));
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
@@ -276,9 +267,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     Path sym = fs.getPath("/sym");
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(
-        sym,
-        new LocalFile(
-            sym, LocalFileType.OUTPUT_SYMLINK, /* artifact= */ null, /* artifactMetadata= */ null));
+        sym, new LocalFile(sym, LocalFileType.OUTPUT_SYMLINK, /* artifactMetadata= */ null));
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
@@ -296,9 +285,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     file.getOutputStream().close();
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(
-        file,
-        new LocalFile(
-            file, LocalFileType.OUTPUT, /* artifact= */ null, /* artifactMetadata= */ null));
+        file, new LocalFile(file, LocalFileType.OUTPUT, /* artifactMetadata= */ null));
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
@@ -322,9 +309,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     file.getOutputStream().close();
     Map<Path, LocalFile> filesToUpload = new HashMap<>();
     filesToUpload.put(
-        file,
-        new LocalFile(
-            file, LocalFileType.OUTPUT, /* artifact= */ null, /* artifactMetadata= */ null));
+        file, new LocalFile(file, LocalFileType.OUTPUT, /* artifactMetadata= */ null));
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
@@ -351,20 +336,13 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     var filesToUpload =
         ImmutableMap.of(
             dir,
-            new LocalFile(
-                dir, LocalFileType.OUTPUT, /* artifact= */ null, /* artifactMetadata= */ null),
+            new LocalFile(dir, LocalFileType.OUTPUT, /* artifactMetadata= */ null),
             successfulTest,
             new LocalFile(
-                successfulTest,
-                LocalFileType.SUCCESSFUL_TEST_OUTPUT,
-                /* artifact= */ null,
-                /* artifactMetadata= */ null),
+                successfulTest, LocalFileType.SUCCESSFUL_TEST_OUTPUT, /* artifactMetadata= */ null),
             failedTest,
             new LocalFile(
-                failedTest,
-                LocalFileType.FAILED_TEST_OUTPUT,
-                /* artifact= */ null,
-                /* artifactMetadata= */ null));
+                failedTest, LocalFileType.FAILED_TEST_OUTPUT, /* artifactMetadata= */ null));
     RemoteRetrier retrier =
         TestUtils.newRemoteRetrier(() -> new FixedBackoff(1, 0), (e) -> true, retryService);
     ReferenceCountedChannel refCntChannel = new ReferenceCountedChannel(channelConnectionFactory);
@@ -399,9 +377,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
       out.close();
       blobsByHash.put(HashCode.fromString(DIGEST_UTIL.compute(file).getHash()), blob);
       filesToUpload.put(
-          file,
-          new LocalFile(
-              file, LocalFileType.OUTPUT, /* artifact= */ null, /* artifactMetadata= */ null));
+          file, new LocalFile(file, LocalFileType.OUTPUT, /* artifactMetadata= */ null));
     }
     String hashOfBlobThatShouldFail = blobsByHash.keySet().iterator().next().toString();
     serviceRegistry.addService(
@@ -484,9 +460,7 @@ public class ByteStreamBuildEventArtifactUploaderTest {
             actionInputFetcher);
     Path remotePath = remoteFs.getPath(artifact.getPath().getPathString());
     assertThat(remotePath.getFileSystem()).isEqualTo(remoteFs);
-    LocalFile file =
-        new LocalFile(
-            remotePath, LocalFileType.OUTPUT, /* artifact= */ null, /* artifactMetadata= */ null);
+    LocalFile file = new LocalFile(remotePath, LocalFileType.OUTPUT, /* artifactMetadata= */ null);
 
     // act
 
@@ -536,17 +510,9 @@ public class ByteStreamBuildEventArtifactUploaderTest {
     Map<Path, LocalFile> files =
         ImmutableMap.of(
             remoteFile,
-            new LocalFile(
-                remoteFile,
-                LocalFileType.OUTPUT,
-                /* artifact= */ null,
-                /* artifactMetadata= */ null),
+            new LocalFile(remoteFile, LocalFileType.OUTPUT, /* artifactMetadata= */ null),
             localFile,
-            new LocalFile(
-                localFile,
-                LocalFileType.OUTPUT,
-                /* artifact= */ null,
-                /* artifactMetadata= */ null));
+            new LocalFile(localFile, LocalFileType.OUTPUT, /* artifactMetadata= */ null));
     PathConverter pathConverter = artifactUploader.upload(files).get();
 
     // assert

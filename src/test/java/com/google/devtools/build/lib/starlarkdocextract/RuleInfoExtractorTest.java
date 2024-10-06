@@ -14,10 +14,13 @@
 package com.google.devtools.build.lib.starlarkdocextract;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.devtools.build.lib.packages.Attribute.attr;
 import static com.google.devtools.build.lib.packages.Types.STRING_LIST;
 
+import com.google.devtools.build.lib.packages.BuildTypeTestHelper;
 import com.google.devtools.build.lib.packages.RuleClass;
+import com.google.devtools.build.lib.packages.Type;
 import com.google.devtools.build.lib.packages.util.PackageLoadingTestCase;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeInfo;
 import com.google.devtools.build.lib.starlarkdocextract.StardocOutputProtos.AttributeType;
@@ -69,6 +72,17 @@ public final class RuleInfoExtractorTest extends PackageLoadingTestCase {
   }
 
   @Test
+  public void allBuiltinAttributeTypesSupported() throws Exception {
+    ExtractorContext context =
+        ExtractorContext.builder().labelRenderer(LabelRenderer.DEFAULT).build();
+    for (Type<?> type : BuildTypeTestHelper.getAllBuildTypes(/* publicOnly= */ true)) {
+      assertWithMessage("attr type '%s'", type)
+          .that(AttributeInfoExtractor.getAttributeType(context, type, "test_attr"))
+          .isNotEqualTo(AttributeType.UNKNOWN);
+    }
+  }
+
+  @Test
   public void allNativeRulesAreSupported() throws Exception {
     ExtractorContext extractorContext =
         ExtractorContext.builder()
@@ -80,11 +94,18 @@ public final class RuleInfoExtractorTest extends PackageLoadingTestCase {
           RuleInfoExtractor.buildRuleInfo(extractorContext, ruleClass.getName(), ruleClass);
       assertThat(ruleInfo.getRuleName()).isEqualTo(ruleClass.getName());
       assertThat(ruleInfo.getOriginKey().getName()).isEqualTo(ruleClass.getName());
-      assertThat(ruleInfo.getOriginKey().getFile()).isEqualTo("<native>");
-      assertThat(ruleInfo.getAttributeList().getFirst())
+      assertWithMessage("rule '%s'", ruleClass.getName())
+          .that(ruleInfo.getOriginKey().getFile())
+          .isEqualTo("<native>");
+      assertWithMessage("rule '%s'", ruleClass.getName())
+          .that(ruleInfo.getAttributeList().getFirst())
           .isEqualTo(AttributeInfoExtractor.IMPLICIT_NAME_ATTRIBUTE_INFO);
-      assertThat(ruleInfo.getAttributeList().stream().map(AttributeInfo::getName))
+      assertWithMessage("rule '%s'", ruleClass.getName())
+          .that(ruleInfo.getAttributeList().stream().map(AttributeInfo::getName))
           .containsNoDuplicates();
+      assertWithMessage("rule '%s'", ruleClass.getName())
+          .that(ruleInfo.getAttributeList().stream().map(AttributeInfo::getDefaultValue))
+          .doesNotContain(AttributeInfoExtractor.UNREPRESENTABLE_VALUE);
     }
   }
 }

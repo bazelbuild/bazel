@@ -27,10 +27,13 @@ class BazelWorkspaceTest(test_base.TestBase):
   def testWorkspaceDotBazelFileInMainRepo(self):
     # Make sure no existing MODULE.bazel file.
     os.remove("MODULE.bazel")
-    workspace_dot_bazel = self.ScratchFile("WORKSPACE.bazel")
+    workspace_dot_bazel = self.ScratchFile(
+        "WORKSPACE.bazel", self.WorkspaceContent()
+    )
     self.ScratchFile(
         "BUILD",
         [
+            "load('@rules_python//python:py_binary.bzl', 'py_binary')",
             "py_binary(",
             "  name = 'bin',",
             "  srcs = ['bin.py'],",
@@ -38,7 +41,7 @@ class BazelWorkspaceTest(test_base.TestBase):
         ],
     )
     self.ScratchFile("bin.py")
-    self.RunBazel(["build", "//:bin"])
+    self.RunBazel(["build", "--incompatible_autoload_externally=", "//:bin"])
 
     # If WORKSPACE.bazel is deleted and no WORKSPACE exists,
     # the build should fail.
@@ -47,25 +50,30 @@ class BazelWorkspaceTest(test_base.TestBase):
         ["build", "//:bin"], allow_failure=True
     )
     # this test is supposed to fail
-    self.AssertExitCode(exit_code, 0, stderr)
+    self.AssertExitCode(exit_code, 2, stderr)
 
   def testWorkspaceDotBazelFileWithExternalRepo(self):
     self.ScratchDir("A")
-    self.ScratchFile("A/WORKSPACE.bazel")
-    self.ScratchFile("A/BUILD", [
-        "py_library(",
-        "  name = 'lib',",
-        "  srcs = ['lib.py'],",
-        "  visibility = ['//visibility:public'],",
-        ")",
-    ])
+    self.ScratchFile("A/WORKSPACE.bazel", self.WorkspaceContent())
+    self.ScratchFile(
+        "A/BUILD",
+        [
+            "load('@rules_python//python:py_library.bzl', 'py_library')",
+            "py_library(",
+            "  name = 'lib',",
+            "  srcs = ['lib.py'],",
+            "  visibility = ['//visibility:public'],",
+            ")",
+        ],
+    )
     self.ScratchFile("A/lib.py")
     work_dir = self.ScratchDir("B")
     # Test WORKSPACE.bazel takes priority over WORKSPACE
-    self.ScratchFile("B/WORKSPACE")
+    self.ScratchFile("B/WORKSPACE", self.WorkspaceContent())
     workspace_dot_bazel = self.ScratchFile(
         "B/WORKSPACE.bazel",
-        [
+        self.WorkspaceContent()
+        + [
             (
                 'load("@bazel_tools//tools/build_defs/repo:local.bzl",'
                 ' "local_repository")'
@@ -74,14 +82,21 @@ class BazelWorkspaceTest(test_base.TestBase):
         ],
     )
     self.ScratchFile("B/bin.py")
-    self.ScratchFile("B/BUILD", [
-        "py_binary(",
-        "  name = 'bin',",
-        "  srcs = ['bin.py'],",
-        "  deps = ['@A//:lib'],",
-        ")",
-    ])
-    self.RunBazel(args=["build", ":bin"], cwd=work_dir)
+    self.ScratchFile(
+        "B/BUILD",
+        [
+            "load('@rules_python//python:py_binary.bzl', 'py_binary')",
+            "py_binary(",
+            "  name = 'bin',",
+            "  srcs = ['bin.py'],",
+            "  deps = ['@A//:lib'],",
+            ")",
+        ],
+    )
+    self.RunBazel(
+        args=["build", "--incompatible_autoload_externally=", ":bin"],
+        cwd=work_dir,
+    )
 
     # Test WORKSPACE takes effect after deleting WORKSPACE.bazel
     os.remove(workspace_dot_bazel)
@@ -94,7 +109,8 @@ class BazelWorkspaceTest(test_base.TestBase):
     # Test a WORKSPACE.bazel directory won't confuse Bazel
     self.ScratchFile(
         "B/WORKSPACE",
-        [
+        self.WorkspaceContent()
+        + [
             (
                 'load("@bazel_tools//tools/build_defs/repo:local.bzl",'
                 ' "local_repository")'
@@ -103,7 +119,10 @@ class BazelWorkspaceTest(test_base.TestBase):
         ],
     )
     self.ScratchDir("B/WORKSPACE.bazel")
-    self.RunBazel(args=["build", ":bin"], cwd=work_dir)
+    self.RunBazel(
+        args=["build", "--incompatible_autoload_externally=", ":bin"],
+        cwd=work_dir,
+    )
 
 
 if __name__ == "__main__":

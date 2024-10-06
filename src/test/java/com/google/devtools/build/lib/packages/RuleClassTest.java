@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.packages.Attribute.StarlarkComputedDefaultTemplate.CannotPrecomputeDefaultsException;
 import com.google.devtools.build.lib.packages.ImplicitOutputsFunction.SafeImplicitOutputsFunction;
+import com.google.devtools.build.lib.packages.RuleClass.AutoExecGroupsMode;
 import com.google.devtools.build.lib.packages.RuleClass.Builder.RuleClassType;
 import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory;
 import com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode;
@@ -1060,6 +1061,7 @@ public final class RuleClassTest extends PackageLoadingTestCase {
         /* toolchainResolutionMode= */ ToolchainResolutionMode.ENABLED,
         /* executionPlatformConstraints= */ ImmutableSet.of(),
         /* execGroups= */ ImmutableMap.of(),
+        AutoExecGroupsMode.DYNAMIC,
         OutputFile.Kind.FILE,
         attributes.length > 0 && attributes[0].equals(RuleClass.NAME_ATTRIBUTE)
             ? ImmutableList.copyOf(attributes)

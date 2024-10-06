@@ -32,7 +32,6 @@ public final class VisibilityProviderTest extends BuildViewTestCase {
   @Before
   public void setUp() throws Exception {
     setBuildLanguageOptions(
-        "--experimental_enable_first_class_macros",
         // Let's test the case where input files have proper visibilities by default.
         "--incompatible_no_implicit_file_export");
 

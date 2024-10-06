@@ -1,56 +1,13 @@
-## Release 8.0.0-pre.20240911.1 (2024-09-20)
+## Release 8.0.0-pre.20240925.4 (2024-10-03)
 
 ```
-Baseline: ad2ea0736eca30ef1f5ad0b46292cb03e43eec5c
-```
-
-Incompatible changes:
-
-  - --legacy_important_outputs is flipped to false. See #14353 for
-    details
-
-Important changes:
-
-  - Uploading local action results to a disk or remote cache now
-    occurs in the background whenever possible, potentially
-    unblocking the execution of followup actions. Set
-    `--noremote_cache_async` to revert to the previous behavior.
-  - Overrides in the root MODULE.bazel file are now ignored with
-    `--ignore_dev_dependency`. (Overrides in non-root modules are
-    already ignored.)
-  - Added support for using a remote cache that evicts blobs and
-    doesn't have AC integrity check (e.g. HTTP cache).
-
-This release contains contributions from many people at Google, as well as Benjamin Peterson, Fabian Meumertzheim, Jacob Van De Weert, John Millikin.
-
-## Release 8.0.0-pre.20240909.1 (2024-09-19)
-
-```
-Baseline: 29f7c863d859b2a19b0c6f58cd59c9d74aa188c1
+Baseline: f4d92d45be3617b72c21ad5ce8912fa548472e50
 
 Cherry picks:
 
-   + b637c473249e8ff971fd410b4018ef70569c2833:
-     Release 8.0.0-pre.20240909.1 (2024-09-19)
-   + 5166a571e013c7f45e682f22e177e94f3d9c9e21:
-     Release 8.0.0-pre.20240909.1 (2024-09-19)
-   + 5b5cf0245ce8f7c688f88a7728d9c9b4ed95dd21:
-     Release 8.0.0-pre.20240909.1 (2024-09-19)
-```
-
-This release contains contributions from many people at Google, as well as .
-
-## Release 8.0.0-pre.20240909.1 (2024-09-19)
-
-```
-Baseline: 29f7c863d859b2a19b0c6f58cd59c9d74aa188c1
-
-Cherry picks:
-
-   + b637c473249e8ff971fd410b4018ef70569c2833:
-     Release 8.0.0-pre.20240909.1 (2024-09-19)
-   + 5166a571e013c7f45e682f22e177e94f3d9c9e21:
-     Release 8.0.0-pre.20240909.1 (2024-09-19)
+   + 99434b16ba41677b92f7eb79d5d8dcb1130d7c47:
+     Automated rollback of commit
+     4607ad439fe8869c8e8951d953e2d3adb613e6d6.
 ```
 
 Incompatible changes:
@@ -74,9 +31,22 @@ Incompatible changes:
     undeclared test outputs (i.e., files written to
     `$TEST_UNDECLARED_OUTPUTS_DIR` by a test) to be produced as a
     directory instead of a zip file.
+  - --legacy_important_outputs is flipped to false. See #14353 for
+    details
+
+New features:
+
+  - Bazel can now parse .scl files, a dialect of Starlark without
+    Bazel-specific symbols.
+  - Dormant dependencies and materializer functions are now available
+    with the --experimental_dormant_deps flag.
 
 Important changes:
 
+  - Deleted native Android mobile-install
+  - Repository rules instantiated in the same module extensions can
+    now refer to each other by their extension-specified names in
+    label attributes.
   - A new experimental flag,
     `--experimental_build_event_output_group_mode`, allows users to
     change how a given output group's files are reported in BEP. The
@@ -117,65 +87,41 @@ Important changes:
     `TargetComplete` event. To disable this behavior, pass
     `--experimental_build_event_output_group_mode=baseline.lcov=named_
     set_of_files_only`.
+  - Uploading local action results to a disk or remote cache now
+    occurs in the background whenever possible, potentially
+    unblocking the execution of followup actions. Set
+    `--noremote_cache_async` to revert to the previous behavior.
+  - Overrides in the root MODULE.bazel file are now ignored with
+    `--ignore_dev_dependency`. (Overrides in non-root modules are
+    already ignored.)
+  - Added support for using a remote cache that evicts blobs and
+    doesn't have AC integrity check (e.g. HTTP cache).
+  - Undeclared test outputs are now reported individually in the BEP,
+    unless zipping is enabled via `--zip_undeclared_test_outputs`.
+  - The native version of android_tools_defaults_jar is no longer in
+    Bazel. Use https://github.com/bazelbuild/rules_android instead.
+  - Bazel fetch and vendor command now supports --target_pattern_file
+    for specifying target patterns.
+  - The compact execution log now stores runfiles in a more compact
+    representation that should reduce the memory overhead and log
+    output size, in particular for test spawns. This change required
+    breaking changes to the (experimental) log format.
+  - `override_repo` and `inject_repo` can be used to override and
+    inject repos in module extensions.
+  - Patches to the module file in `single_version_override` are now
+    effective as long as the patch file lies in the root module.
+  - If `--allowed_cpu_values` is set, the `--cpu` flag value is
+    validated against it.
 
-This release contains contributions from many people at Google, as well as Adam Azarchs, Alessandro Patti, Benjamin Peterson, Cornelius Riemenschneider, Fabian Meumertzheim, Jordan Mele, PikachuHy, Xdng Yng, xinyu.wang.
+This release contains contributions from many people at Google, as well as Adam Azarchs, Alessandro Patti, Benjamin Peterson, Cornelius Riemenschneider, dependabot[bot], Fabian Meumertzheim, Fil-Den, George Gensure, hvd, Jacob Van De Weert, James Sharpe, Javier Maestro, Jay Conrod, John Millikin, Jordan Mele, Jordan Mele, Keith Smiley, Lior Gorelik, Luis Padron, Michael Siegrist, Nils Wireklint, PikachuHy, Sangita.Nalkar, Son Luong Ngoc, Thi Doan, Xdng Yng, xinyu.wang.
 
-## Release 8.0.0-pre.20240826.1 (2024-09-06)
-
-```
-Baseline: 39481ad142469d3ed16d283694c76091b271d523
-```
-
-Important changes:
-
-  - Repository rules instantiated in the same module extensions can
-    now refer to each other by their extension-specified names in
-    label attributes.
-
-This release contains contributions from many people at Google, as well as Alessandro Patti, Cornelius Riemenschneider, dependabot[bot], Fabian Meumertzheim, George Gensure, Jay Conrod, Keith Smiley, Michael Siegrist, Xdng Yng, xinyu.wang.
-
-## Release 8.0.0-pre.20240821.2 (2024-08-27)
-
-```
-Baseline: 04f0ef76938057f143562e9faeb2f47defa30939
-
-Cherry picks:
-
-   + 0000000000000000000000000000000000000000:
-     
-```
-
-This release contains contributions from many people at Google, as well as Fabian Meumertzheim.
-
-## Release 8.0.0-pre.20240819.2 (2024-08-22)
+## Release 7.3.2 (2024-10-01)
 
 ```
-Baseline: ffdf41acfd4d82bdfd3f855b8f4aa3840d918eba
 
-Cherry picks:
-
-   + 0000000000000000000000000000000000000000:
-     
-```
-
-This release contains contributions from many people at Google, as well as dependabot[bot], Fabian Meumertzheim, Jordan Mele, Jordan Mele.
-
-## Release 8.0.0-pre.20240814.2 (2024-08-20)
+Release Notes:
 
 ```
-Baseline: 9d86712432fa7c6276ad5620a3185557631f36f1
-
-Cherry picks:
-
-   + 0000000000000000000000000000000000000000:
-     
-```
-
-Important changes:
-
-  - Deleted native Android mobile-install
-
-This release contains contributions from many people at Google, as well as Fabian Meumertzheim, Javier Maestro.
 
 ## Release 7.3.1 (2024-08-19)
 

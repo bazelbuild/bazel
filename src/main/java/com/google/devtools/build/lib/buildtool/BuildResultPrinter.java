@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.Artifact;
+import com.google.devtools.build.lib.analysis.AspectCollection;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
@@ -389,7 +390,7 @@ class BuildResultPrinter {
     var aspectsToPrintBuilder = ImmutableSet.<AspectKey>builder();
     var validationAspectsBuilder = ImmutableList.<AspectKey>builder();
     for (AspectKey key : keys) {
-      if (Objects.equals(key.getAspectClass().getName(), BuildRequest.VALIDATION_ASPECT_NAME)) {
+      if (Objects.equals(key.getAspectClass().getName(), AspectCollection.VALIDATION_ASPECT_NAME)) {
         validationAspectsBuilder.add(key);
       } else {
         aspectsToPrintBuilder.add(key);

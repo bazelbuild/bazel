@@ -12,6 +12,10 @@ starlark_doc_extract(
 starlark_doc_extract(
     name = "gen_be_java_stardoc_proto",
     src = "java.bzl",
+    deps = [
+        "@protobuf//bazel/common:proto_info_bzl",
+        "@rules_java//java/bazel/rules",
+    ],
 )
 
 starlark_doc_extract(

@@ -17,8 +17,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getRootCause;
 import static com.google.common.util.concurrent.Futures.getDone;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.hash.HashCode;
 import com.google.common.primitives.Bytes;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -31,6 +33,7 @@ import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.concurrent.ExecutionException;
 
 /** Fetches remotely stored {@link SkyValue}s by {@link SkyKey}. */
@@ -200,9 +203,7 @@ public final class SkyValueRetriever {
                 valueBytes =
                     fingerprintValueService.get(
                         fingerprintValueService.fingerprint(
-                            Bytes.concat(
-                                keyBytes.getObject().toByteArray(),
-                                frontierNodeVersion.getDirectoryMatcherFingerprint())));
+                            frontierNodeVersion.concat(keyBytes.getObject().toByteArray())));
               } catch (IOException e) {
                 throw new SerializationException("key lookup failed for " + key, e);
               }
@@ -325,18 +326,52 @@ public final class SkyValueRetriever {
   private SkyValueRetriever() {}
 
   /** A tuple representing the version of a cached SkyValue in the frontier. */
-  public static class FrontierNodeVersion {
+  public static final class FrontierNodeVersion {
     public static final FrontierNodeVersion CONSTANT_FOR_TESTING =
-        new FrontierNodeVersion(ByteString.copyFrom(new byte[] {1, 2, 3}));
+        new FrontierNodeVersion(
+            "123", ByteString.copyFrom(new byte[] {1, 2, 3}), HashCode.fromInt(42));
+    private final byte[] topLevelConfigFingerprint;
     private final byte[] directoryMatcherFingerprint;
+    private final byte[] blazeInstallMD5Fingerprint;
+    private final byte[] precomputedFingerprint;
 
-    public FrontierNodeVersion(ByteString directoryMatcherFingerprint) {
+    public FrontierNodeVersion(
+        String topLevelConfigChecksum,
+        ByteString directoryMatcherFingerprint,
+        HashCode blazeInstallMD5) {
       // TODO: b/364831651 - add more fields like source and blaze versions.
+      this.topLevelConfigFingerprint = topLevelConfigChecksum.getBytes(UTF_8);
       this.directoryMatcherFingerprint = directoryMatcherFingerprint.toByteArray();
+      this.blazeInstallMD5Fingerprint = blazeInstallMD5.asBytes();
+      this.precomputedFingerprint =
+          Bytes.concat(
+              this.topLevelConfigFingerprint,
+              this.directoryMatcherFingerprint,
+              this.blazeInstallMD5Fingerprint);
     }
 
-    public byte[] getDirectoryMatcherFingerprint() {
-      return directoryMatcherFingerprint;
+    public byte[] getPrecomputedFingerprint() {
+      return precomputedFingerprint;
+    }
+
+    public byte[] concat(byte[] input) {
+      return Bytes.concat(precomputedFingerprint, input);
+    }
+
+    @Override
+    public int hashCode() {
+      return Arrays.hashCode(precomputedFingerprint);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj) {
+        return true;
+      }
+      if (!(obj instanceof FrontierNodeVersion that)) {
+        return false;
+      }
+      return Arrays.equals(precomputedFingerprint, that.precomputedFingerprint);
     }
   }
 }

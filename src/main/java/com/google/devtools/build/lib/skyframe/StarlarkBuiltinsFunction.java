@@ -185,7 +185,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
     if (starlarkSemantics.get(BuildLanguageOptions.EXPERIMENTAL_BUILTINS_BZL_PATH).isEmpty()) {
       return StarlarkBuiltinsValue.createEmpty(starlarkSemantics);
     }
-    AutoloadSymbols autoloadSymbols = PrecomputedValue.AUTOLOAD_SYMBOLS.get(env);
+    AutoloadSymbols autoloadSymbols = AutoloadSymbols.AUTOLOAD_SYMBOLS.get(env);
     if (autoloadSymbols == null) {
       return null;
     }
@@ -251,7 +251,6 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       }
       autoBzlLoadValues = autoBzlLoadValuesBuilder.buildOrThrow();
     } catch (BzlLoadFailedException ex) {
-
       throw BuiltinsFailedException.errorEvaluatingAutoloadedBzls(
           ex, starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD));
     }
@@ -368,7 +367,7 @@ public class StarlarkBuiltinsFunction implements SkyFunction {
       String additionalMessage =
           bzlmodEnabled
               ? ""
-              : ". Most likely you need to upgrade the version of rules repository in the"
+              : " Most likely you need to upgrade the version of rules repository in the"
                   + " WORKSPACE file.";
       return new BuiltinsFailedException(
           String.format(

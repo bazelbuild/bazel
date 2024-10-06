@@ -157,6 +157,7 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         genrule(
             name = "foo",
             srcs = [
@@ -291,8 +292,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_instantiationRegistersOnPackage() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
@@ -316,8 +315,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_instantiationRequiresExport() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
@@ -341,8 +338,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_cannotInstantiateInBzlThread() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
@@ -371,8 +366,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_requiresNameAttribute() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
@@ -396,8 +389,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_prohibitsPositionalArgs() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
@@ -421,8 +412,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacroCanAcceptAttributes() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
@@ -452,8 +441,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_rejectsUnknownAttribute() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
@@ -485,8 +472,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_rejectsReservedAttributeName() throws Exception {
-    ev.setSemantics("--experimental_enable_first_class_macros");
-
     ev.setFailFast(false);
     evalAndExport(
         ev,
@@ -506,8 +491,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_requiresMandatoryAttribute() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
@@ -536,8 +519,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_cannotOverrideImplicitAttribute() throws Exception {
-    setBuildLanguageOptions("--experimental_enable_first_class_macros");
-
     scratch.file(
         "pkg/foo.bzl",
         """
@@ -568,8 +549,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_doesNotSupportComputedDefaults() throws Exception {
-    ev.setSemantics("--experimental_enable_first_class_macros");
-
     ev.checkEvalErrorContains(
         "In macro attribute 'xyz': Macros do not support computed defaults or late-bound defaults",
         """
@@ -595,8 +574,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     // getPackage() returns null and no events are emitted.)
     ev.setFragmentNameToClass(ImmutableMap.of("cpp", CppConfiguration.class));
 
-    ev.setSemantics("--experimental_enable_first_class_macros");
-
     ev.checkEvalErrorContains(
         "In macro attribute 'xyz': Macros do not support computed defaults or late-bound defaults",
         """
@@ -613,8 +590,6 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   public void testSymbolicMacro_macroFunctionApi() throws Exception {
-    ev.setSemantics("--experimental_enable_first_class_macros");
-
     evalAndExport(
         ev,
         """
@@ -3355,9 +3330,9 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
         "r/def.bzl",
         """
         load(":create.bzl", "create")
-
+        Info = provider()
         def f(ctx):
-            return struct(value = "NEW")
+            return Info(value = "NEW")
 
         r = create(f)
         """);
@@ -4411,8 +4386,8 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
     getConfiguredTarget("//initializer_testing:my_target");
 
     ev.assertContainsError(
-        "existing_rules() can only be used while evaluating a BUILD file (or macro) or a WORKSPACE"
-            + " file");
+        "existing_rules() can only be used while evaluating a BUILD file (or legacy macro), a rule"
+            + " finalizer, or a WORKSPACE file");
   }
 
   @Test

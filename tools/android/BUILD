@@ -41,21 +41,6 @@ filegroup(
     ],
 )
 
-filegroup(
-    name = "embedded_tools",
-    srcs = glob(
-        ["*"],
-        exclude = [
-            "*_test.py",
-            "*_test.sh",
-            "*~",
-            ".*",
-        ],
-    ) + [
-        "//tools/android/emulator:embedded_tools",
-    ],
-)
-
 platform(
     name = "arm64-v8a",
     constraint_values = [

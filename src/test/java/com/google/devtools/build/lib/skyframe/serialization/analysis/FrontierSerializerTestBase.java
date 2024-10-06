@@ -48,6 +48,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.junit.Before;
 import org.junit.Test;
@@ -67,16 +68,6 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
   @ForOverride
   protected FingerprintValueService createFingerprintValueService() {
     return FingerprintValueService.createForTesting();
-  }
-
-  @Before
-  public void setCommonConfiguration() {
-    addOptions(
-        // Required to use PROJECT.scl.
-        "--experimental_enable_scl_dialect",
-        // Note that `--nobuild` disables skymeld, because skymeld has no utility
-        // without the execution phase
-        "--nobuild");
   }
 
   @Test
@@ -197,11 +188,11 @@ public abstract class FrontierSerializerTestBase extends BuildIntegrationTestCas
             parseCanonicalUnchecked("//bar:PROJECT.scl"),
             getSkyframeExecutor(),
             getCommandEnvironment().getReporter());
-    Map<ActionLookupKey, SelectionMarking> selection =
+    ConcurrentHashMap<SkyKey, SelectionMarking> selection =
         FrontierSerializer.computeSelection(
             graph, (PackageIdentifier pkgId) -> matcher.includes(pkgId.getPackageFragment()));
 
-    ImmutableSet<ActionLookupKey> activeKeys =
+    ImmutableSet<SkyKey> activeKeys =
         selection.entrySet().stream()
             .filter(entry -> entry.getValue().equals(SelectionMarking.ACTIVE))
             .map(Map.Entry::getKey)
@@ -385,6 +376,7 @@ genrule(
     write(
         "bar/BUILD",
         """
+load("@rules_java//java:defs.bzl", "java_library")
 java_library(
     name = "one",
     srcs = ["One.java"],
@@ -410,7 +402,7 @@ genrule(
 )
 """);
 
-    addOptions("--aspects=//foo:file_count.bzl%file_count_aspect");
+    addOptions("--nobuild", "--aspects=//foo:file_count.bzl%file_count_aspect");
     addOptions(options);
     assertThat(buildTarget("//bar:one").getSuccess()).isTrue();
   }
@@ -441,9 +433,9 @@ active_directories = { "default": ["foo"] }
 
     var listener = getCommandEnvironment().getRemoteAnalysisCachingEventListener();
     // //bar:C, //bar:H, //bar:E
-    assertThat(listener.getCacheHits()).isEqualTo(3);
+    assertThat(listener.getAnalysisNodeCacheHits()).isEqualTo(3);
     // //bar:F is not in the project boundary, but it's in the active set, so it wasn't cached.
-    assertThat(listener.getCacheMisses()).isAtLeast(1);
+    assertThat(listener.getAnalysisNodeCacheMisses()).isAtLeast(1);
   }
 
   @Test

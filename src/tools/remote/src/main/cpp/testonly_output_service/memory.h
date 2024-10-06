@@ -50,9 +50,10 @@ struct Arena {
   //
   // Invariant: top <= committed <= reserved
   uint8_t *top;
+  uint32_t temp_memory_count;
 };
 
-Arena *AllocArena(size_t reserve_size);
+Arena *AllocArena(size_t reserve_size = GiB(1));
 void FreeArena(Arena *arena);
 
 // PushArena allocates a block of memory of the given size in the arena. The
@@ -62,5 +63,41 @@ void PopArena(Arena *arena, size_t size);
 
 #define PushArray(arena, type, count) \
   (type *)PushArena(arena, sizeof(type) * (count))
+
+struct TemporaryMemory {
+  Arena *arena;
+  uint8_t *top;
+};
+
+// Begins temporary memory allocations for the arena. The returned
+// TemporaryMemory must be passed to EndTemporaryMemory() when the memory is no
+// longer needed.
+TemporaryMemory BeginTemporaryMemory(Arena *arena);
+// Ends the temporary memory allocations. All memory allocated since
+// BeginTemporaryMemory() was called is freed.
+void EndTemporaryMempory(TemporaryMemory temp);
+
+// Gets a thread-local arena for temporary use. Use `conflicts` to avoid
+// returning the same arena as a previous call to GetScratchArena().
+Arena *GetScratchArena(Arena **conflicts, size_t count);
+
+// Begins the use of a thread-local scratch arena. The returned TemporaryMemory
+// must be passed to EndScratch() when the memory is no longer needed.
+static inline TemporaryMemory BeginScratch(Arena **conflicts, size_t count) {
+  return BeginTemporaryMemory(GetScratchArena(conflicts, count));
+}
+
+static inline TemporaryMemory BeginScratch(Arena *conflict) {
+  if (conflict) {
+    return BeginTemporaryMemory(GetScratchArena(&conflict, 1));
+  } else {
+    return BeginTemporaryMemory(GetScratchArena(0, 0));
+  }
+}
+
+// Ends the use of a thread-local scratch arena.
+static inline void EndScratch(TemporaryMemory scratch) {
+  EndTemporaryMempory(scratch);
+}
 
 #endif  // BAZEL_SRC_TOOLS_REMOTE_SRC_MAIN_CPP_TESTONLY_OUTPUT_SERVICE_MEMORY_H_

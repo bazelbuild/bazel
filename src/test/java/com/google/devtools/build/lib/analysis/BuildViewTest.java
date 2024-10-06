@@ -271,6 +271,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "java/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name='library_invalid_dep',
             srcs=['NoOp.java'],
@@ -312,6 +313,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "java/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name='library_invalid_dep',
             srcs=['NoOp.java'],
@@ -349,6 +351,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "java/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         package_group(name = 'group', includes=['//non/existent/package:othergroup'])
         java_library(
             name='library_invalid_visibility',
@@ -563,6 +566,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(name = 'a',
           srcs = ['A.java'],
           deps = ['//java/b'])
@@ -581,6 +585,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "java/b/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(':rules.bzl', 'gen')
         gen(name='src')
         java_library(name = 'b', srcs = [':src'])
@@ -763,6 +768,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "java/a/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_test")
         java_test(name = 'A',
                   srcs = glob(['A*.java']))
         java_test(name = 'B',
@@ -1100,6 +1106,7 @@ public class BuildViewTest extends BuildViewTestBase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(name = 'java', srcs = ['DoesntMatter.java'])
         cc_binary(name = 'cpp', data = [':java'])
         """);

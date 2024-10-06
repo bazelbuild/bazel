@@ -17,7 +17,10 @@ filegroup(
 
 java_library(
     name = "PackageTestsUtil",
-    srcs = ["WorkspaceFactoryTestHelper.java"],
+    srcs = [
+        "BuildTypeTestHelper.java",
+        "WorkspaceFactoryTestHelper.java",
+    ],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/events",
@@ -106,8 +109,8 @@ java_test(
         "//third_party:junit4",
         "//third_party:mockito",
         "//third_party:truth",
-        "//third_party/protobuf:protobuf_java",
         "@maven//:com_google_testparameterinjector_test_parameter_injector",
+        "@protobuf//:protobuf_java",
     ],
 )
 

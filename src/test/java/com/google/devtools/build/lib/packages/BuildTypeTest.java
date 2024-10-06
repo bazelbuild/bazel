@@ -25,8 +25,6 @@ import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.packages.BuildType.Selector;
 import com.google.devtools.build.lib.packages.Type.ConversionException;
-import java.lang.reflect.Field;
-import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -603,7 +601,12 @@ public final class BuildTypeTest {
         new SelectorValue(
             ImmutableMap.of(BuildType.Selector.DEFAULT_CONDITION_KEY, Starlark.NONE), "");
 
-    for (Type<?> type : getAllBuildTypes()) {
+    ImmutableList<Type<?>> allBuildTypes =
+        BuildTypeTestHelper.getAllBuildTypes(/* publicOnly= */ false);
+    // Verify that we really collected both scalar and non-scalar types from all classes.
+    assertThat(allBuildTypes)
+        .containsAtLeast(Type.STRING, Types.STRING_LIST, BuildType.LABEL, BuildType.LABEL_LIST);
+    for (Type<?> type : allBuildTypes) {
       // select({"//conditions:default": None}) simplifies to the type's default value.
       assertThat(
               BuildType.selectableConvert(
@@ -642,27 +645,6 @@ public final class BuildTypeTest {
         assertThat(exception).hasMessageThat().contains("doesn't support select concatenation");
       }
     }
-  }
-
-  private static void collectBuildTypeStaticFields(
-      ImmutableList.Builder<Type<?>> builder, Class<?> clazz) throws IllegalAccessException {
-    for (Field field : clazz.getDeclaredFields()) {
-      if (Modifier.isStatic(field.getModifiers()) && Type.class.isAssignableFrom(field.getType())) {
-        builder.add((Type<?>) field.get(null));
-      }
-    }
-  }
-
-  private static ImmutableList<Type<?>> getAllBuildTypes() throws IllegalAccessException {
-    ImmutableList.Builder<Type<?>> builder = ImmutableList.builder();
-    collectBuildTypeStaticFields(builder, Type.class);
-    collectBuildTypeStaticFields(builder, Types.class);
-    collectBuildTypeStaticFields(builder, BuildType.class);
-    ImmutableList<Type<?>> types = builder.build();
-    // Verify that we really collected both scalar and non-scalar types from all classes.
-    assertThat(types)
-        .containsAtLeast(Type.STRING, Types.STRING_LIST, BuildType.LABEL, BuildType.LABEL_LIST);
-    return types;
   }
 
   @Test

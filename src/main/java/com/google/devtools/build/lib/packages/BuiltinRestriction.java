@@ -75,7 +75,10 @@ public final class BuiltinRestriction {
               // Proto rules
               BuiltinRestriction.allowlistEntry("", "third_party/protobuf"),
               BuiltinRestriction.allowlistEntry("protobuf", ""),
-              BuiltinRestriction.allowlistEntry("com_google_protobuf", ""));
+              BuiltinRestriction.allowlistEntry("com_google_protobuf", ""),
+
+              // Shell rules
+              BuiltinRestriction.allowlistEntry("rules_shell", ""));
 
   private BuiltinRestriction() {}
 

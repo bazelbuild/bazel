@@ -123,6 +123,11 @@ public abstract class Type<T> {
    */
   public Object copyAndLiftStarlarkValue(
       Object x, Object what, @Nullable LabelConverter labelConverter) throws ConversionException {
+    // Nones are valid as the Starlark representation of the internal null value (used for certain
+    // types' default values).
+    if (x == Starlark.NONE) {
+      return x;
+    }
     return convert(x, what, labelConverter);
   }
 

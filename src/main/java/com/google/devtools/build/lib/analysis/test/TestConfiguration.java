@@ -108,15 +108,14 @@ public class TestConfiguration extends Fragment {
     public List<Pair<String, Map<TestSize, Double>>> testResources;
 
     @Option(
-      name = "test_filter",
-      allowMultiple = false,
-      defaultValue = "null",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "Specifies a filter to forward to the test framework.  Used to limit "
-              + "the tests run. Note that this does not affect which targets are built."
-    )
+        name = "test_filter",
+        allowMultiple = false,
+        defaultValue = "null",
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "Specifies a filter to forward to the test framework.  Used to limit "
+                + "the tests run. Note that this does not affect which targets are built.")
     public String testFilter;
 
     @Option(
@@ -130,20 +129,19 @@ public class TestConfiguration extends Fragment {
     public boolean testRunnerFailFast;
 
     @Option(
-      name = "cache_test_results",
-      defaultValue = "auto",
-      abbrev = 't', // it's useful to toggle this on/off quickly
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help =
-          "If set to 'auto', Bazel reruns a test if and only if: "
-              + "(1) Bazel detects changes in the test or its dependencies, "
-              + "(2) the test is marked as external, "
-              + "(3) multiple test runs were requested with --runs_per_test, or"
-              + "(4) the test previously failed. "
-              + "If set to 'yes', Bazel caches all test results except for tests marked as "
-              + "external. If set to 'no', Bazel does not cache any test results."
-    )
+        name = "cache_test_results",
+        defaultValue = "auto",
+        abbrev = 't', // it's useful to toggle this on/off quickly
+        documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
+        effectTags = {OptionEffectTag.UNKNOWN},
+        help =
+            "If set to 'auto', Bazel reruns a test if and only if: "
+                + "(1) Bazel detects changes in the test or its dependencies, "
+                + "(2) the test is marked as external, "
+                + "(3) multiple test runs were requested with --runs_per_test, or"
+                + "(4) the test previously failed. "
+                + "If set to 'yes', Bazel caches all test results except for tests marked as "
+                + "external. If set to 'no', Bazel does not cache any test results.")
     public TriState cacheTestResults;
 
     @Deprecated
@@ -178,6 +176,7 @@ public class TestConfiguration extends Fragment {
           OptionEffectTag.LOADING_AND_ANALYSIS,
           OptionEffectTag.LOSES_INCREMENTAL_STATE,
         },
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "When enabled, --trim_test_configuration will not trim the test configuration for rules"
                 + " marked testonly=1. This is meant to reduce action conflict issues when non-test"
@@ -246,6 +245,7 @@ public class TestConfiguration extends Fragment {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "If true, then Blaze will cancel concurrently running tests on the first successful "
                 + "run. This is only useful in combination with --runs_per_test_detects_flakes.")
@@ -257,14 +257,13 @@ public class TestConfiguration extends Fragment {
         defaultValue = "@bazel_tools//tools/test:coverage_support",
         documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
         effectTags = {
-            OptionEffectTag.CHANGES_INPUTS,
-            OptionEffectTag.AFFECTS_OUTPUTS,
-            OptionEffectTag.LOADING_AND_ANALYSIS
+          OptionEffectTag.CHANGES_INPUTS,
+          OptionEffectTag.AFFECTS_OUTPUTS,
+          OptionEffectTag.LOADING_AND_ANALYSIS
         },
         help =
             "Location of support files that are required on the inputs of every test action "
-                + "that collects code coverage. Defaults to '//tools/test:coverage_support'."
-    )
+                + "that collects code coverage. Defaults to '//tools/test:coverage_support'.")
     public Label coverageSupport;
 
     @Option(
@@ -272,6 +271,7 @@ public class TestConfiguration extends Fragment {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "If true, then Bazel fetches the entire coverage data directory for each test during a "
                 + "coverage run.")
@@ -293,6 +293,7 @@ public class TestConfiguration extends Fragment {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
         effectTags = {OptionEffectTag.EXECUTION},
+        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "If true, then Bazel will run coverage postprocessing for test in a new spawn.")
     public boolean splitCoveragePostProcessing;
 

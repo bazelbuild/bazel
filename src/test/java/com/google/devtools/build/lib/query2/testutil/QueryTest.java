@@ -398,7 +398,7 @@ public abstract class QueryTest extends AbstractQueryTest<Target> {
         """
         def custom_rule_impl(ctx):
             ftb = depset(ctx.attr._secret_labels)
-            return struct(runfiles = ctx.runfiles(), files = ftb)
+            return DefaultInfo(runfiles = ctx.runfiles(), files = ftb)
 
         def secret_labels_func(prefix, suffix):
             return [

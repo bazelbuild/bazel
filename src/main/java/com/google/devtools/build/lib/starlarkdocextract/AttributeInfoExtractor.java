@@ -52,12 +52,13 @@ public final class AttributeInfoExtractor {
                   + " might create will be this name with a string suffix.")
           .build();
 
-  static AttributeInfo buildAttributeInfo(
-      ExtractorContext context, Attribute attribute, String where) throws ExtractionException {
+  @VisibleForTesting public static final String UNREPRESENTABLE_VALUE = "<unrepresentable value>";
+
+  static AttributeInfo buildAttributeInfo(ExtractorContext context, Attribute attribute) {
     AttributeInfo.Builder builder =
         AttributeInfo.newBuilder()
             .setName(attribute.getPublicName())
-            .setType(getAttributeType(attribute, where))
+            .setType(getAttributeType(context, attribute.getType(), attribute.getPublicName()))
             .setMandatory(attribute.isMandatory());
     Optional.ofNullable(attribute.getDoc()).ifPresent(builder::setDocString);
     if (!attribute.isConfigurable()) {
@@ -76,22 +77,14 @@ public final class AttributeInfoExtractor {
         Object defaultValue = Attribute.valueToStarlark(attribute.getDefaultValueUnchecked());
         builder.setDefaultValue(context.labelRenderer().reprWithoutLabelConstructor(defaultValue));
       } catch (InvalidStarlarkValueException e) {
-        throw new ExtractionException(
-            String.format(
-                "in %s attribute %s: failed to convert default value to Starlark: %s",
-                where, attribute.getPublicName(), e.getMessage()),
-            e);
+        builder.setDefaultValue(UNREPRESENTABLE_VALUE);
       }
     }
     return builder.build();
   }
 
   static void addDocumentableAttributes(
-      ExtractorContext context,
-      Iterable<Attribute> attributes,
-      Consumer<AttributeInfo> builder,
-      String where)
-      throws ExtractionException {
+      ExtractorContext context, Iterable<Attribute> attributes, Consumer<AttributeInfo> builder) {
     for (Attribute attribute : attributes) {
       if (attribute.getName().equals(IMPLICIT_NAME_ATTRIBUTE_INFO.getName())) {
         // We inject our own IMPLICIT_NAME_ATTRIBUTE_INFO with better documentation.
@@ -100,14 +93,13 @@ public final class AttributeInfoExtractor {
       if ((attribute.starlarkDefined() || context.extractNonStarlarkAttrs())
           && attribute.isDocumented()
           && ExtractorContext.isPublicName(attribute.getPublicName())) {
-        builder.accept(buildAttributeInfo(context, attribute, where));
+        builder.accept(buildAttributeInfo(context, attribute));
       }
     }
   }
 
-  static AttributeType getAttributeType(Attribute attribute, String where)
-      throws ExtractionException {
-    Type<?> type = attribute.getType();
+  static AttributeType getAttributeType(
+      ExtractorContext context, Type<?> type, String attributePublicName) {
     if (type.equals(Type.INTEGER)) {
       return AttributeType.INT;
     } else if (type.equals(BuildType.LABEL)
@@ -116,7 +108,7 @@ public final class AttributeInfoExtractor {
         || type.equals(BuildType.DORMANT_LABEL)) {
       return AttributeType.LABEL;
     } else if (type.equals(Type.STRING) || type.equals(Type.STRING_NO_INTERN)) {
-      if (attribute.getPublicName().equals("name")) {
+      if (attributePublicName.equals("name")) {
         return AttributeType.NAME;
       } else {
         return AttributeType.STRING;
@@ -156,10 +148,7 @@ public final class AttributeInfoExtractor {
       return AttributeType.INT;
     }
 
-    throw new ExtractionException(
-        String.format(
-            "in %s attribute %s: unsupported type %s",
-            where, attribute.getPublicName(), type.getClass().getSimpleName()));
+    return AttributeType.UNKNOWN;
   }
 
   private AttributeInfoExtractor() {}

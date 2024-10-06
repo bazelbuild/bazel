@@ -57,6 +57,13 @@ class TestBase(absltest.TestCase):
   _worker_proc = None
   _cas_path = None
 
+  def WorkspaceContent(self):
+    with open(
+        self.Rlocation('io_bazel/src/test/py/bazel/default_repos_stanza.txt'),
+        'r',
+    ) as s:
+      return s.readlines()
+
   def setUp(self):
     absltest.TestCase.setUp(self)
     if self._runfiles is None:
@@ -68,6 +75,7 @@ class TestBase(absltest.TestCase):
     self._test_cwd = tempfile.mkdtemp(dir=self._tests_root)
     self._test_bazelrc = os.path.join(self._temp, 'test_bazelrc')
     with open(self._test_bazelrc, 'wt') as f:
+      f.write('common --experimental_rule_extension_api\n')
       f.write('common --nolegacy_external_runfiles\n')
       shared_install_base = os.environ.get('TEST_INSTALL_BASE')
       if shared_install_base:

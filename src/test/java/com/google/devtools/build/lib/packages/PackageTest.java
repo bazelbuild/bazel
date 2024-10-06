@@ -178,7 +178,8 @@ public class PackageTest {
         PackageOverheadEstimator.NOOP_ESTIMATOR,
         /* generatorMap= */ null,
         /* configSettingVisibilityPolicy= */ null,
-        /* globber= */ null);
+        /* globber= */ null,
+        /* enableNameConflictChecking= */ true);
   }
 
   private static Rule addRule(Package.Builder pkgBuilder, Label label, RuleClass ruleClass)

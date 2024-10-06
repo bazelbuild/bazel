@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.IOException;
 import javax.annotation.Nullable;
 
@@ -94,11 +95,10 @@ public final class SpawnLogModule extends BlazeModule {
       return;
     }
 
-    Path workingDirectory = env.getWorkingDirectory();
     Path outputBase = env.getOutputBase();
 
     if (executionOptions.executionLogCompactFile != null) {
-      outputPath = workingDirectory.getRelative(executionOptions.executionLogCompactFile);
+      outputPath = getAbsolutePath(executionOptions.executionLogCompactFile, env);
 
       try {
         spawnLogContext =
@@ -121,10 +121,10 @@ public final class SpawnLogModule extends BlazeModule {
 
       if (executionOptions.executionLogBinaryFile != null) {
         encoding = Encoding.BINARY;
-        outputPath = workingDirectory.getRelative(executionOptions.executionLogBinaryFile);
+        outputPath = getAbsolutePath(executionOptions.executionLogBinaryFile, env);
       } else if (executionOptions.executionLogJsonFile != null) {
         encoding = Encoding.JSON;
-        outputPath = workingDirectory.getRelative(executionOptions.executionLogJsonFile);
+        outputPath = getAbsolutePath(executionOptions.executionLogJsonFile, env);
       }
 
       // Use a well-known temporary path to avoid accumulation of potentially large files in /tmp
@@ -142,6 +142,25 @@ public final class SpawnLogModule extends BlazeModule {
               env.getRuntime().getFileSystem().getDigestFunction(),
               env.getXattrProvider());
     }
+  }
+
+  /**
+   * If the given path is absolute path, leave it as it is. If the given path is a relative path, it
+   * is relative to the current working directory. If the given path starts with '%workspace%, it is
+   * relative to the workspace root, which is the output of `bazel info workspace`.
+   *
+   * @return Absolute Path
+   */
+  private Path getAbsolutePath(PathFragment path, CommandEnvironment env) {
+    String pathString = path.getPathString();
+    if (env.getWorkspace() != null) {
+      pathString = pathString.replace("%workspace%", env.getWorkspace().getPathString());
+    }
+    if (!PathFragment.isAbsolute(pathString)) {
+      return env.getWorkingDirectory().getRelative(pathString);
+    }
+
+    return env.getRuntime().getFileSystem().getPath(pathString);
   }
 
   @Override

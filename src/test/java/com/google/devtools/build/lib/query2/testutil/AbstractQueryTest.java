@@ -1731,10 +1731,22 @@ public abstract class AbstractQueryTest<T> {
     helper.writeFile("/workspace/rules_java_workspace/BUILD");
     helper.writeFile("/workspace/rules_java_workspace/WORKSPACE");
     helper.writeFile("/workspace/rules_java_workspace/MODULE.bazel", "module(name='rules_java')");
+    helper.writeFile("/workspace/rules_python_workspace/BUILD");
+    helper.writeFile("/workspace/rules_python_workspace/WORKSPACE");
+    helper.writeFile(
+        "/workspace/rules_python_workspace/MODULE.bazel", "module(name='rules_python')");
+    helper.writeFile("/workspace/rules_python_internal_workspace/BUILD");
+    helper.writeFile("/workspace/rules_python_internal_workspace/WORKSPACE");
+    helper.writeFile(
+        "/workspace/rules_python_internal_workspace/MODULE.bazel",
+        "module(name='rules_python_internal')");
+    helper.writeFile("/workspace/bazel_skylib_workspace/BUILD");
+    helper.writeFile("/workspace/bazel_skylib_workspace/WORKSPACE");
+    helper.writeFile(
+        "/workspace/bazel_skylib_workspace/MODULE.bazel", "module(name='bazel_skylib')");
     helper.writeFile("/workspace/protobuf_workspace/BUILD");
     helper.writeFile("/workspace/protobuf_workspace/WORKSPACE");
-    helper.writeFile(
-        "/workspace/protobuf_workspace/MODULE.bazel", "module(name='com_google_protobuf')");
+    helper.writeFile("/workspace/protobuf_workspace/MODULE.bazel", "module(name='protobuf')");
     helper.writeFile("/workspace/local_config_platform_workspace/BUILD");
     helper.writeFile("/workspace/local_config_platform_workspace/WORKSPACE");
     helper.writeFile(
@@ -1745,11 +1757,6 @@ public abstract class AbstractQueryTest<T> {
     helper.writeFile(
         "/workspace/build_bazel_apple_support/MODULE.bazel",
         "module(name='build_bazel_apple_support')");
-    helper.writeFile("/workspace/third_party/bazel_rules/rules_proto/BUILD");
-    helper.writeFile("/workspace/third_party/bazel_rules/rules_proto/WORKSPACE");
-    helper.writeFile(
-        "/workspace/third_party/bazel_rules/rules_proto/MODULE.bazel",
-        "module(name='rules_proto')");
     helper.writeFile("/workspace/third_party/bazel_rules/rules_cc/BUILD");
     helper.writeFile("/workspace/third_party/bazel_rules/rules_cc/WORKSPACE");
     helper.writeFile(

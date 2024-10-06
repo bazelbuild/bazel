@@ -261,7 +261,7 @@ public abstract class MockCcSupport {
             "cc/toolchain_utils.bzl",
             "cc/private/rules_impl/BUILD")) {
       try {
-        config.create(
+        config.overwrite(
             "third_party/bazel_rules/rules_cc/" + path,
             ResourceLoader.readFromResources(TestConstants.RULES_CC_REPOSITORY_EXECROOT + path));
       } catch (Exception e) {

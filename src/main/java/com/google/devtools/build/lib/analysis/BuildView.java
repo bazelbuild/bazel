@@ -338,8 +338,11 @@ public class BuildView {
         createTopLevelAspectKeys(
             aspects, aspectsParameters, labelToTargetMap.keySet(), topLevelConfig, eventHandler);
 
-    skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
-        remoteAnalysisCachingDependenciesProvider);
+    if (remoteAnalysisCachingDependenciesProvider.enabled()) {
+      remoteAnalysisCachingDependenciesProvider.setTopLevelConfig(topLevelConfig);
+      skyframeExecutor.setRemoteAnalysisCachingDependenciesProvider(
+          remoteAnalysisCachingDependenciesProvider);
+    }
 
     getArtifactFactory().noteAnalysisStarting();
     SkyframeAnalysisResult skyframeAnalysisResult;

@@ -79,7 +79,7 @@ import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
-import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
+import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.PackageRoots;
@@ -98,6 +98,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
 import com.google.devtools.build.lib.analysis.InconsistentNullConfigException;
+import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.TargetConfiguredEvent;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactContext;
@@ -219,6 +220,8 @@ import com.google.devtools.build.lib.skyframe.config.FlagSetFunction;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsFunction;
 import com.google.devtools.build.lib.skyframe.config.ParsedFlagsValue;
 import com.google.devtools.build.lib.skyframe.config.PlatformMappingFunction;
+import com.google.devtools.build.lib.skyframe.config.PlatformMappingKey;
+import com.google.devtools.build.lib.skyframe.config.PlatformMappingValue;
 import com.google.devtools.build.lib.skyframe.rewinding.ActionRewindStrategy;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.skyframe.toolchains.RegisteredExecutionPlatformsFunction;
@@ -497,6 +500,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private SkyfocusState skyfocusState = SkyfocusState.DISABLED;
 
+  @Nullable private PlatformMappingKey platformMappingKey;
+
   /**
    * Determines the type of hybrid globbing strategy to use when {@link
    * #tracksStateForIncrementality()} is {@code true}. See {@link #getGlobbingStrategy()} for more
@@ -522,7 +527,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     public ArtifactPathResolver createPathResolverForArtifactValues(
         ActionInputMap actionInputMap,
         Map<Artifact, ImmutableSortedSet<TreeFileArtifact>> treeArtifacts,
-        Map<Artifact, ImmutableList<FilesetOutputSymlink>> filesets,
+        Map<Artifact, FilesetOutputTree> filesets,
         String workspaceName) {
       checkState(shouldCreatePathResolverForArtifactValues());
       return outputService.createPathResolverForArtifactValues(
@@ -792,7 +797,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         new ArtifactFunction(
             () -> !skyframeActionExecutor.actionFileSystemType().inMemoryFileSystem(),
             sourceArtifactsSeen,
-            syscallCache));
+            syscallCache,
+            getSkyframeBuildView()::getRemoteAnalysisCachingDependenciesProvider));
     map.put(SkyFunctions.BUILD_INFO, new WorkspaceStatusFunction(this::makeWorkspaceStatusAction));
     map.put(SkyFunctions.COVERAGE_REPORT, new CoverageReportFunction(actionKeyContext));
     map.put(SkyFunctions.ACTION_EXECUTION, newActionExecutionFunction());
@@ -859,6 +865,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         directories,
         tsgm::get,
         bugReporter,
+        getSkyframeBuildView()::getRemoteAnalysisCachingDependenciesProvider,
         this::getConsumedArtifactsTracker);
   }
 
@@ -1047,6 +1054,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       clearSyscallCache();
       // So that the supplier object can be GC-ed.
       mergedSkyframeAnalysisExecutionSupplier = null;
+      clearPlatformMappingCache();
     }
   }
 
@@ -1343,7 +1351,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   }
 
   private void setAutoloadsConfiguration(AutoloadSymbols autoloadSymbols) {
-    PrecomputedValue.AUTOLOAD_SYMBOLS.set(injectable(), autoloadSymbols);
+    AutoloadSymbols.AUTOLOAD_SYMBOLS.set(injectable(), autoloadSymbols);
   }
 
   public void setBaselineConfiguration(BuildOptions buildOptions) {
@@ -2196,6 +2204,16 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     syscallCache.clear();
   }
 
+  private void clearPlatformMappingCache() throws InterruptedException {
+    if (platformMappingKey == null) {
+      return;
+    }
+    SkyValue platformMappingValue = memoizingEvaluator.getExistingValue(platformMappingKey);
+    if (platformMappingValue != null) {
+      ((PlatformMappingValue) platformMappingValue).clearMappingCache();
+    }
+  }
+
   public void setConflictCheckingModeInThisBuild(
       ConflictCheckingMode conflictCheckingModeInThisBuild) {
     this.conflictCheckingModeInThisBuild = conflictCheckingModeInThisBuild;
@@ -2640,6 +2658,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       String commandName)
       throws InterruptedException, AbruptExitException {
     getActionEnvFromOptions(options.getOptions(CoreOptions.class));
+    var platformOptions = options.getOptions(PlatformOptions.class);
+    platformMappingKey = platformOptions != null ? platformOptions.platformMappingKey : null;
     PrecomputedValue.REPO_ENV.set(injectable(), new LinkedHashMap<>(repoEnvOption));
     RemoteOptions remoteOptions = options.getOptions(RemoteOptions.class);
     setRemoteExecutionEnabled(remoteOptions != null && remoteOptions.isRemoteExecutionEnabled());

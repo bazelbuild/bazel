@@ -32,6 +32,9 @@ filegroup(
         ":test-deps-wo-bazel",
         "//src:bazel",
         "//src/test/shell:bin/bazel",
+        "//third_party/protobuf:add_python_loads.patch",
+        "//third_party/protobuf:proto_info_bzl_deps.patch",
+        "//third_party/protobuf:remove_rules_rust.patch",
     ],
     visibility = [
         "//src/main/starlark/tests/builtins_bzl:__subpackages__",
@@ -444,6 +447,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    tags = ["requires-network"],
 )
 
 sh_test(
@@ -990,8 +994,8 @@ sh_test(
     ],
     shard_count = 22,
     tags = [
-        "block-network",
         "no_windows",
+        "requires-network",  # rules_python are needed and are hard to mock out
     ],
 )
 
@@ -1362,6 +1366,7 @@ sh_test(
 
 sh_test(
     name = "path_mapping_test",
+    size = "large",
     srcs = ["path_mapping_test.sh"],
     data = [
         ":test-deps",

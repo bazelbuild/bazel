@@ -190,9 +190,16 @@ EOF
   cat >$pkg/BUILD <<EOF
 load(':rule.bzl', 'demo_rule')
 
+# Needed to avoid the select() being eliminated as trivial.
+config_setting(
+    name = 'config',
+    values = {'defines': 'something'},
+)
+
 demo_rule(
   name = 'demo',
   foo = select({
+    ':config': 'selectable_str',
     '//conditions:default': 'selectable_str',
   }))
 EOF

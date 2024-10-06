@@ -19,22 +19,21 @@ WORKSPACE_REPOS = {
     # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_cc": {
-        "archive": "rules_cc-0.0.9.tar.gz",
-        "sha256": "2037875b9a4456dce4a79d112a8ae885bbc4aad968e6587dca6e64f3a0900cdf",
-        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.9/rules_cc-0.0.9.tar.gz"],
-        "strip_prefix": "rules_cc-0.0.9",
+        "archive": "rules_cc-0.0.10.tar.gz",
+        "sha256": "65b67b81c6da378f136cc7e7e14ee08d5b9375973427eceb8c773a4f69fa7e49",
+        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.10/rules_cc-0.0.10.tar.gz"],
+        "strip_prefix": "rules_cc-0.0.10",
+    },
+    "protobuf": {
+        "archive": "v27.0.zip",
+        "sha256": "a7e735f510520b41962d07459f6f5b99dd594c7ed4690bf1191b9924bec094a2",
+        "urls": ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v27.0.zip"],
+        "strip_prefix": "protobuf-27.0",
     },
     "rules_java": {
-        "archive": "rules_java-7.11.1.tar.gz",
-        "sha256": "6f3ce0e9fba979a844faba2d60467843fbf5191d8ca61fa3d2ea17655b56bb8c",
-        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/7.11.1/rules_java-7.11.1.tar.gz"],
-    },
-    # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
-    "rules_proto": {
-        "archive": "5.3.0-21.7.tar.gz",
-        "sha256": "dc3fb206a2cb3441b485eb1e423165b231235a1ea9b031b4433cf7bc1fa460dd",
-        "strip_prefix": "rules_proto-5.3.0-21.7",
-        "urls": ["https://github.com/bazelbuild/rules_proto/archive/refs/tags/5.3.0-21.7.tar.gz"],
+        "archive": "rules_java-8.0.0-rc2.tar.gz",
+        "sha256": "7bfdbb51bb362ecdca5d989efa3c77683ce4d431e82e2d2d7aadca33a8c35ca7",
+        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/8.0.0-rc2/rules_java-8.0.0-rc2.tar.gz"],
     },
     "bazel_skylib": {
         "archive": "bazel-skylib-1.6.1.tar.gz",
@@ -47,10 +46,10 @@ WORKSPACE_REPOS = {
         "urls": ["https://github.com/bazelbuild/rules_license/releases/download/0.0.7/rules_license-0.0.7.tar.gz"],
     },
     "rules_python": {
-        "archive": "rules_python-0.24.0.tar.gz",
-        "sha256": "0a8003b044294d7840ac7d9d73eef05d6ceb682d7516781a4ec62eeb34702578",
-        "strip_prefix": "rules_python-0.24.0",
-        "urls": ["https://github.com/bazelbuild/rules_python/releases/download/0.24.0/rules_python-0.24.0.tar.gz"],
+        "archive": "rules_python-0.36.0.tar.gz",
+        "sha256": "ca77768989a7f311186a29747e3e95c936a41dffac779aff6b443db22290d913",
+        "strip_prefix": "rules_python-0.36.0",
+        "urls": ["https://github.com/bazelbuild/rules_python/releases/download/0.36.0/rules_python-0.36.0.tar.gz"],
     },
     "rules_pkg": {
         "archive": "rules_pkg-0.9.1.tar.gz",

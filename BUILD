@@ -19,7 +19,10 @@ license(
     license_text = "LICENSE",
 )
 
-exports_files(["LICENSE"])
+exports_files([
+    "LICENSE",
+    "MODULE.bazel.lock",
+])
 
 filegroup(
     name = "srcs",
@@ -27,7 +30,6 @@ filegroup(
         ["*"],
         exclude = [
             "MODULE.bazel.lock",  # Use MODULE.bazel.lock.dist instead
-            "WORKSPACE.bzlmod",  # Needs to be filtered.
             "bazel-*",  # convenience symlinks
             "out",  # IntelliJ with setup-intellij.sh
             "output",  # output of compile.sh
@@ -35,7 +37,6 @@ filegroup(
         ],
     ) + [
         "//:MODULE.bazel.lock.dist",
-        "//:WORKSPACE.bzlmod.filtered",
         "//examples:srcs",
         "//scripts:srcs",
         "//site:srcs",
@@ -76,30 +77,16 @@ filegroup(
 )
 
 genrule(
-    name = "filtered_WORKSPACE",
-    srcs = ["WORKSPACE.bzlmod"],
-    outs = ["WORKSPACE.bzlmod.filtered"],
-    cmd = "\n".join([
-        "cp $< $@",
-        # Comment out the android repos if they exist.
-        "sed -i.bak -e 's/^android_sdk_repository/# android_sdk_repository/' $@",
-    ]),
-)
-
-genrule(
     name = "generate_dist_lockfile",
     srcs = [
         "MODULE.bazel",
-        "//third_party/googleapis:MODULE.bazel",
         "//third_party/remoteapis:MODULE.bazel",
         "//third_party:BUILD",
         "//third_party:rules_jvm_external_6.0.patch",
-        "//third_party:protobuf_21.7.patch",
-        "//third_party/upb:BUILD",
-        "//third_party/upb:00_remove_toolchain_transition.patch",
-        "//third_party/upb:01_remove_werror.patch",
-        "//third_party/grpc:BUILD",
-        "//third_party/grpc:00_disable_layering_check.patch",
+        "//third_party/protobuf:BUILD",
+        "//third_party/protobuf:proto_info_bzl_deps.patch",
+        "//third_party/protobuf:remove_rules_rust.patch",
+        "//third_party/protobuf:add_python_loads.patch",
     ],
     outs = ["MODULE.bazel.lock.dist"],
     cmd = " && ".join([
@@ -123,10 +110,11 @@ genrule(
 pkg_tar(
     name = "bootstrap-jars",
     srcs = [
-        "@blake3",
-        "@com_google_protobuf//:protobuf_java",
-        "@com_google_protobuf//:protobuf_java_util",
-        "@com_google_protobuf//:protobuf_javalite",
+        "//third_party/googleapis:dist_jars",
+        "//third_party/grpc-java:grpc_jars",
+        "@protobuf//:protobuf_java",
+        "@protobuf//:protobuf_java_util",
+        "@protobuf//:protobuf_javalite",
         "@zstd-jni//:zstd-jni",
     ],
     package_dir = "derived/jars",
@@ -179,7 +167,6 @@ pkg_tar(
     # TODO(aiuto): Replace with pkg_filegroup when that is available.
     remap_paths = {
         "MODULE.bazel.lock.dist": "MODULE.bazel.lock",
-        "WORKSPACE.bzlmod.filtered": "WORKSPACE.bzlmod",
     },
     strip_prefix = ".",
     # Public but bazel-only visibility.

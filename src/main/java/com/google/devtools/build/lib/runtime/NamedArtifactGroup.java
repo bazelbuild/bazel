@@ -81,7 +81,6 @@ class NamedArtifactGroup implements BuildEvent {
             new LocalFile(
                 completionContext.pathResolver().toPath(expandedArtifact.artifact),
                 LocalFileType.forArtifact(expandedArtifact.artifact, metadata),
-                metadata == null ? null : expandedArtifact.artifact,
                 metadata));
       } else {
         // TODO(b/199940216): Can fileset metadata be properly handled here?
@@ -89,8 +88,7 @@ class NamedArtifactGroup implements BuildEvent {
             new LocalFile(
                 completionContext.pathResolver().convertPath(expandedArtifact.target),
                 LocalFileType.OUTPUT,
-                /*artifact=*/ null,
-                /*artifactMetadata=*/ null));
+                /* artifactMetadata= */ null));
       }
     }
     return artifacts.build();

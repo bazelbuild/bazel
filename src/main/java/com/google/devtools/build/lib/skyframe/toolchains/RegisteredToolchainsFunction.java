@@ -18,8 +18,10 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableTable;
+import com.google.common.collect.Table;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
@@ -156,8 +158,8 @@ public class RegisteredToolchainsFunction implements SkyFunction {
 
     // Check which toolchains are valid according to their configuration.
     ImmutableList.Builder<DeclaredToolchainInfo> validToolchains = new ImmutableList.Builder<>();
-    ImmutableMap.Builder<Label, String> rejectedToolchains =
-        key.debug() ? new ImmutableMap.Builder<>() : null;
+    // Some toolchains end up with repeated reasons, so use a HashBasedTable to handle duplicates.
+    Table<Label, Label, String> rejectedToolchains = key.debug() ? HashBasedTable.create() : null;
     for (DeclaredToolchainInfo toolchain : registeredToolchains) {
       try {
         validate(toolchain, validToolchains, rejectedToolchains);
@@ -170,7 +172,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
 
     return RegisteredToolchainsValue.create(
         validToolchains.build(),
-        rejectedToolchains != null ? rejectedToolchains.buildKeepingLast() : null);
+        rejectedToolchains != null ? ImmutableTable.copyOf(rejectedToolchains) : null);
   }
 
   /**
@@ -282,7 +284,7 @@ public class RegisteredToolchainsFunction implements SkyFunction {
   private static void validate(
       DeclaredToolchainInfo declaredToolchainInfo,
       ImmutableList.Builder<DeclaredToolchainInfo> validToolchains,
-      ImmutableMap.Builder<Label, String> rejectedToolchains)
+      Table<Label, Label, String> rejectedToolchains)
       throws InvalidConfigurationException {
     // Make sure the target setting matches but watch out for resolution errors.
     AccumulateResults accumulateResults =
@@ -308,9 +310,15 @@ public class RegisteredToolchainsFunction implements SkyFunction {
       validToolchains.add(declaredToolchainInfo);
     } else if (!accumulateResults.nonMatching().isEmpty() && rejectedToolchains != null) {
       String nonMatchingList =
-          accumulateResults.nonMatching().stream().map(Label::getName).collect(joining(", "));
+          accumulateResults.nonMatching().stream()
+              .distinct()
+              .map(Label::getName)
+              .collect(joining(", "));
       String message = String.format("mismatching config settings: %s", nonMatchingList);
-      rejectedToolchains.put(declaredToolchainInfo.toolchainLabel(), message);
+      rejectedToolchains.put(
+          declaredToolchainInfo.toolchainType().typeLabel(),
+          declaredToolchainInfo.toolchainLabel(),
+          message);
     }
   }
 

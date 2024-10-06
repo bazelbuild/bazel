@@ -13,6 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.buildtool;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.DOWNLOAD;
@@ -35,6 +36,7 @@ import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimaps;
 import com.google.common.flogger.GoogleLogger;
+import com.google.common.hash.HashCode;
 import com.google.devtools.build.lib.actions.Artifact.ArtifactSerializationContext;
 import com.google.devtools.build.lib.actions.BuildFailedException;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
@@ -46,6 +48,7 @@ import com.google.devtools.build.lib.analysis.Project;
 import com.google.devtools.build.lib.analysis.Project.ProjectParseException;
 import com.google.devtools.build.lib.analysis.ViewCreationFailedException;
 import com.google.devtools.build.lib.analysis.actions.TemplateExpansionException;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.InvalidConfigurationException;
 import com.google.devtools.build.lib.buildeventstream.BuildEvent.LocalFile.LocalFileType;
@@ -853,9 +856,6 @@ public class BuildTool {
 
     switch (options.mode) {
       case UPLOAD -> {
-        if (!activeDirectoriesMatcher.isPresent()) {
-          return;
-        }
         try (SilentCloseable closeable =
             Profiler.instance().profile("serializeAndUploadFrontier")) {
           Optional<FailureDetail> maybeFailureDetail =
@@ -877,9 +877,15 @@ public class BuildTool {
             .handle(
                 Event.info(
                     String.format(
-                        "Analysis caching stats: %s/%s configured targets cached.",
-                        listener.getCacheHits(),
-                        listener.getCacheHits() + listener.getCacheMisses())));
+                        "Remote analysis caching stats: %s cache hits (%s analysis, %s execution),"
+                            + " %s cache misses (%s analysis, %s execution).",
+                        listener.getAnalysisNodeCacheHits() + listener.getExecutionNodeCacheHits(),
+                        listener.getAnalysisNodeCacheHits(),
+                        listener.getExecutionNodeCacheHits(),
+                        listener.getAnalysisNodeCacheMisses()
+                            + listener.getExecutionNodeCacheMisses(),
+                        listener.getAnalysisNodeCacheMisses(),
+                        listener.getExecutionNodeCacheMisses())));
       }
       case OFF -> {}
     }
@@ -1097,9 +1103,7 @@ public class BuildTool {
     private final DetailedExitCode detailedExitCode;
 
     ExitException(DetailedExitCode detailedExitCode) {
-      super(
-          Preconditions.checkNotNull(detailedExitCode.getFailureDetail(), "failure detail")
-              .getMessage());
+      super(checkNotNull(detailedExitCode.getFailureDetail(), "failure detail").getMessage());
       this.detailedExitCode = detailedExitCode;
     }
 
@@ -1114,6 +1118,12 @@ public class BuildTool {
     private final FingerprintValueService fingerprintValueService;
     private final PathFragmentPrefixTrie activeDirectoriesMatcher;
     private final RemoteAnalysisCachingEventListener listener;
+    private final HashCode blazeInstallMD5;
+
+    // Non-final because the top level BuildConfigurationValue is determined just before analysis
+    // begins in BuildView for the download/deserialization pass, which is later than when this
+    // object was created in BuildTool.
+    private BuildConfigurationValue topLevelConfig;
 
     public static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher) {
@@ -1139,6 +1149,8 @@ public class BuildTool {
           env.getBlazeWorkspace().getFingerprintValueServiceFactory().create(env.getOptions());
       this.activeDirectoriesMatcher = activeDirectoriesMatcher;
       this.listener = env.getRemoteAnalysisCachingEventListener();
+      this.topLevelConfig = env.getSkyframeBuildView().getBuildConfiguration();
+      this.blazeInstallMD5 = requireNonNull(env.getDirectories().getInstallMD5());
     }
 
     private static ObjectCodecs initAnalysisObjectCodecs(
@@ -1169,9 +1181,13 @@ public class BuildTool {
     @Override
     public FrontierNodeVersion getSkyValueVersion() throws SerializationException {
       if (frontierNodeVersionSingleton == null) {
-        frontierNodeVersionSingleton =
-            new FrontierNodeVersion(
-                getObjectCodecs().serializeMemoized(activeDirectoriesMatcher.toString()));
+        synchronized (this) {
+          frontierNodeVersionSingleton =
+              new FrontierNodeVersion(
+                  topLevelConfig.checksum(),
+                  getObjectCodecs().serializeMemoized(activeDirectoriesMatcher.toString()),
+                  blazeInstallMD5);
+        }
       }
       return frontierNodeVersionSingleton;
     }
@@ -1188,7 +1204,17 @@ public class BuildTool {
 
     @Override
     public void recordRetrievalResult(RetrievalResult retrievalResult, SkyKey key) {
-      listener.recordRetrievalResult(retrievalResult);
+      listener.recordRetrievalResult(retrievalResult, key);
+    }
+
+    @Override
+    public void recordSerializationException(SerializationException e) {
+      listener.recordSerializationException(e);
+    }
+
+    @Override
+    public void setTopLevelConfig(BuildConfigurationValue topLevelConfig) {
+      this.topLevelConfig = topLevelConfig;
     }
   }
 }
