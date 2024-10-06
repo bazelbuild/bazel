@@ -605,7 +605,7 @@ function add_protobuf() {
   cat >> "$1" <<EOF
 archive_override(
     module_name = "protobuf",
-    integrity = "sha256-zF1Z3SMnHqcP1QKIeAoGGZDEARNXRWRgZi70eKldVlc=",
+    integrity = "sha256-tSay4N4FspF+VnsNCTGtMH3xV4ZrtHioxNeB/bjQhsI=",
     patch_strip = 1,
     # Temporarily patch out rules_rust stuff from protobuf. Not just because we don't need it,
     # but also because it introduces huge dependency bloat: rules_rust -> aspect_rules_js ->
@@ -615,8 +615,8 @@ archive_override(
         "//third_party/protobuf:remove_rules_rust.patch",
         "//third_party/protobuf:add_python_loads.patch",
     ],
-    strip_prefix = "protobuf-3b62052186d39775090fb074adcba078ea622f54",
-    urls = ["https://github.com/protocolbuffers/protobuf/archive/3b62052186d39775090fb074adcba078ea622f54.zip"],
+    strip_prefix = "protobuf-29.0-rc1",
+    urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v29.0-rc1/protobuf-29.0-rc1.zip"],
 )
 EOF
 }
