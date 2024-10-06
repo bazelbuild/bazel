@@ -321,6 +321,9 @@ common --nolegacy_external_runfiles
 build --java_runtime_version=21
 build --tool_java_runtime_version=21
 
+# for rules_java
+common --experimental_rule_extension_api
+
 ${EXTRA_BAZELRC:-}
 EOF
 
@@ -597,6 +600,7 @@ function add_protobuf() {
   mkdir -p third_party/protobuf
   touch third_party/protobuf/BUILD
   cp "$(rlocation io_bazel/third_party/protobuf/remove_rules_rust.patch)" third_party/protobuf/remove_rules_rust.patch
+  cp "$(rlocation io_bazel/third_party/protobuf/proto_info_bzl_deps.patch)" third_party/protobuf/proto_info_bzl_deps.patch
   cat >> "$1" <<EOF
 archive_override(
     module_name = "protobuf",
@@ -605,7 +609,10 @@ archive_override(
     # Temporarily patch out rules_rust stuff from protobuf. Not just because we don't need it,
     # but also because it introduces huge dependency bloat: rules_rust -> aspect_rules_js ->
     # aspect_rules_lint -> rules_buf.
-    patches = ["//third_party/protobuf:remove_rules_rust.patch"],
+    patches = [
+        "//third_party/protobuf:proto_info_bzl_deps.patch",
+        "//third_party/protobuf:remove_rules_rust.patch",
+    ],
     strip_prefix = "protobuf-3b62052186d39775090fb074adcba078ea622f54",
     urls = ["https://github.com/protocolbuffers/protobuf/archive/3b62052186d39775090fb074adcba078ea622f54.zip"],
 )

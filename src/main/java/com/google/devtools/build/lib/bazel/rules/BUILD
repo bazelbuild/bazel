@@ -47,7 +47,6 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/bazel/repository",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/cpp",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/genrule",
-        "//src/main/java/com/google/devtools/build/lib/bazel/rules/java",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/java:bazel_java_semantics",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/python",
         "//src/main/java/com/google/devtools/build/lib/bazel/rules/sh",
@@ -145,6 +144,7 @@ gen_workspace_stanza(
     """,
     repos = [
         "bazel_skylib",  # Dependency of other rules
+        "protobuf",  # dependency of rules_java
         "rules_java",  # For auto-load java rules symbols
         "rules_cc",  # For auto-load cc rules symbols
         "rules_python",  # For auto-load python rules symbols

@@ -206,7 +206,13 @@ cc_static_library(
 )
 EOF
 
-  bazel build --experimental_cc_static_library //pkg:protobuf \
+  # can be removed with protobuf v28.x onwards
+  if $is_windows; then
+    CXXOPTS=""
+  else
+    CXXOPTS="--cxxopt=-Wno-deprecated-declarations --host_cxxopt=-Wno-deprecated-declarations"
+  fi
+  bazel build $CXXOPTS --experimental_cc_static_library //pkg:protobuf \
     &> $TEST_log || fail "Expected build to fail"
 }
 

@@ -51,6 +51,9 @@ msys*|mingw*|cygwin*)
 esac
 
 function test_rules_cc_can_be_overridden() {
+  # rules_java relies on rules_cc contents
+  mock_rules_java_to_avoid_downloading
+
   # The bazelrc file might contain an --override_repository flag for rules_cc,
   # which would cause this test to fail to override the repo via a WORKSPACE file.
   sed -i.bak '/override_repository=rules_cc/d' $TEST_TMPDIR/bazelrc
@@ -80,9 +83,14 @@ EOF
 function test_rules_cc_repository_builds_itself() {
   add_rules_cc "MODULE.bazel"
   write_default_bazelrc
-
+  # can be removed with protobuf v28.x onwards
+  if $is_windows; then
+    CXXOPTS=""
+  else
+    CXXOPTS="--cxxopt=-Wno-deprecated-declarations --host_cxxopt=-Wno-deprecated-declarations"
+  fi
   # We test that a built-in @rules_cc repository is buildable.
-  bazel build @rules_cc//cc/... &> $TEST_log \
+  bazel build $CXXOPTS @rules_cc//cc/... &> $TEST_log \
       || fail "Build failed unexpectedly"
 }
 

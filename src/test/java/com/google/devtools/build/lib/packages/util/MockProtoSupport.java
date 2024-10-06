@@ -473,5 +473,11 @@ proto_toolchain = rule(
                     toolchain = name,
                 )
         """);
+    config.create("protobuf_workspace/bazel/common/BUILD");
+    config.create(
+        "protobuf_workspace/bazel/common/proto_info.bzl",
+        """
+        ProtoInfo = provider()
+        """);
   }
 }
