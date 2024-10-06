@@ -82,6 +82,7 @@ EOF
 
 function test_rules_cc_repository_builds_itself() {
   add_rules_cc "MODULE.bazel"
+  add_protobuf "MODULE.bazel"
   write_default_bazelrc
   # can be removed with protobuf v28.x onwards
   if $is_windows; then

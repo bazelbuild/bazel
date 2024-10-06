@@ -195,9 +195,7 @@ function test_cc_static_library_protobuf() {
     return 0
   fi
 
-  cat > MODULE.bazel<<'EOF'
-bazel_dep(name = "protobuf", version = "23.1")
-EOF
+  add_protobuf "MODULE.bazel"
   mkdir -p pkg
   cat > pkg/BUILD<<'EOF'
 cc_static_library(

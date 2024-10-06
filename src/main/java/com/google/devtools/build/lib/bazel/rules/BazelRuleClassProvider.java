@@ -22,7 +22,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
-import com.google.devtools.build.lib.analysis.BaseRuleClasses.EmptyRule;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.RuleSet;
 import com.google.devtools.build.lib.analysis.PackageSpecificationProvider;
@@ -36,10 +35,7 @@ import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.analysis.config.RequiresOptions;
 import com.google.devtools.build.lib.bazel.BazelConfiguration;
 import com.google.devtools.build.lib.bazel.repository.LocalConfigPlatformRule;
-import com.google.devtools.build.lib.bazel.rules.python.BazelPyBinaryRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPyBuiltins;
-import com.google.devtools.build.lib.bazel.rules.python.BazelPyRuleClasses;
-import com.google.devtools.build.lib.bazel.rules.python.BazelPyTestRule;
 import com.google.devtools.build.lib.bazel.rules.python.BazelPythonConfiguration;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageCallable;
@@ -316,11 +312,6 @@ public class BazelRuleClassProvider {
           builder.addConfigurationFragment(PythonConfiguration.class);
           builder.addConfigurationFragment(BazelPythonConfiguration.class);
 
-          builder.addRuleDefinition(new BazelPyRuleClasses.PyBaseRule());
-          builder.addRuleDefinition(new BazelPyRuleClasses.PyBinaryBaseRule());
-          builder.addRuleDefinition(new EmptyRule("py_library") {});
-          builder.addRuleDefinition(new BazelPyBinaryRule());
-          builder.addRuleDefinition(new BazelPyTestRule());
           builder.addRuleDefinition(new PyRuntimeRule());
 
           // This symbol is overridden by exports.bzl
@@ -333,7 +324,8 @@ public class BazelRuleClassProvider {
 
           try {
             builder.addWorkspaceFileSuffix(
-                ResourceFileLoader.loadResource(BazelPyBinaryRule.class, "python.WORKSPACE"));
+                ResourceFileLoader.loadResource(
+                    BazelPythonConfiguration.class, "python.WORKSPACE"));
           } catch (IOException e) {
             throw new IllegalStateException(e);
           }
