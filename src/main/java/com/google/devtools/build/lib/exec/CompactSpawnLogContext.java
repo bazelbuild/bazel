@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkState;
 import com.github.luben.zstd.ZstdOutputStream;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.AbstractAction;
 import com.google.devtools.build.lib.actions.ActionInput;
@@ -65,7 +64,6 @@ import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.SortedMap;
 import java.util.concurrent.ForkJoinPool;
 import javax.annotation.Nullable;
@@ -328,7 +326,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     return logInputSet(
         spawn.getInputFiles(),
         spawn.getRunfilesSupplier().getRunfilesTreesForLogging(),
-        spawn.getRunfilesSupplier().getRunfilesTreesForLogging().keySet(),
         additionalInputIds.build(),
         inputMetadataProvider,
         fileSystem,
@@ -348,7 +345,6 @@ public class CompactSpawnLogContext extends SpawnLogContext {
     return logInputSet(
         spawn.getToolFiles(),
         spawn.getRunfilesSupplier().getRunfilesTreesForLogging(),
-        ImmutableSet.of(),
         ImmutableList.of(),
         inputMetadataProvider,
         fileSystem,
@@ -371,14 +367,13 @@ public class CompactSpawnLogContext extends SpawnLogContext {
   private int logInputSet(
       NestedSet<? extends ActionInput> set,
       Map<Artifact, RunfilesTree> runfilesTrees,
-      Set<Artifact> extraMiddleman,
       Collection<Integer> additionalDirectoryIds,
       InputMetadataProvider inputMetadataProvider,
       FileSystem fileSystem,
       boolean shared,
       boolean isTestRunnerSpawn)
       throws IOException, InterruptedException {
-    if (set.isEmpty() && additionalDirectoryIds.isEmpty() && extraMiddleman.isEmpty()) {
+    if (set.isEmpty() && additionalDirectoryIds.isEmpty()) {
       return 0;
     }
 
@@ -393,8 +388,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
             builder.addTransitiveSetIds(
                 logInputSet(
                     transitive,
-                    ImmutableMap.of(),
-                    ImmutableSet.of(),
+                    runfilesTrees,
                     ImmutableList.of(),
                     inputMetadataProvider,
                     fileSystem,
@@ -402,7 +396,7 @@ public class CompactSpawnLogContext extends SpawnLogContext {
                     /* isTestRunnerSpawn= */ false));
           }
 
-          for (ActionInput input : Iterables.concat(set.getLeaves(), extraMiddleman)) {
+          for (ActionInput input : set.getLeaves()) {
             if (input instanceof Artifact artifact && artifact.isMiddlemanArtifact()) {
               RunfilesTree runfilesTree = runfilesTrees.get(artifact);
               builder.addInputIds(
@@ -569,8 +563,8 @@ public class CompactSpawnLogContext extends SpawnLogContext {
           builder.setInputSetId(
               logInputSet(
                   runfilesTree.getArtifactsAtCanonicalLocationsForLogging(),
+                  // Runfiles trees are never nested.
                   ImmutableMap.of(),
-                  ImmutableSet.of(),
                   ImmutableList.of(),
                   inputMetadataProvider,
                   fileSystem,
