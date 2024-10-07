@@ -194,13 +194,13 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     Spawn firstSpawn =
         defaultSpawnBuilder()
             .withRunfilesSupplier(runfilesSupplier)
-            .withInputs(firstInput)
+            .withInputs(firstInput, runfilesMiddleman)
             .withTool(runfilesMiddleman)
             .build();
     Spawn secondSpawn =
         defaultSpawnBuilder()
             .withRunfilesSupplier(runfilesSupplier)
-            .withInputs(secondInput)
+            .withInputs(secondInput, runfilesMiddleman)
             .withTool(runfilesMiddleman)
             .build();
 

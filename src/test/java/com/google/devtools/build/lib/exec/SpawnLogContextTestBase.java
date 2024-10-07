@@ -421,7 +421,8 @@ public abstract class SpawnLogContextTestBase {
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier(runfilesMiddleman, runfilesRoot, runfilesInput);
 
-    SpawnBuilder spawnBuilder = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier);
+    SpawnBuilder spawnBuilder =
+        defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).withInput(runfilesMiddleman);
     if (inputsMode.isTool()) {
       spawnBuilder.withTool(runfilesMiddleman);
     }
@@ -454,6 +455,73 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
+  public void testRunfilesNestedMiddleman() throws Exception {
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
+    Artifact runfilesInput = ActionsTestUtil.createArtifact(rootDir, "data.txt");
+    writeFile(runfilesInput, "abc");
+    Artifact toolFile1 = ActionsTestUtil.createArtifact(rootDir, "tool1");
+    writeFile(toolFile1, "def");
+    Artifact toolFile2 = ActionsTestUtil.createArtifact(rootDir, "tool2");
+    writeFile(toolFile2, "ghi");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
+    RunfilesSupplier runfilesSupplier =
+        createRunfilesSupplier(runfilesMiddleman, runfilesRoot, runfilesInput);
+
+    NestedSet<ActionInput> tools =
+        NestedSetBuilder.<ActionInput>stableOrder()
+            .add(toolFile1)
+            .addTransitive(
+                NestedSetBuilder.<ActionInput>stableOrder()
+                    .add(runfilesMiddleman)
+                    .add(toolFile2)
+                    .build())
+            .build();
+    Spawn spawn =
+        defaultSpawnBuilder()
+            .withRunfilesSupplier(runfilesSupplier)
+            .withInputs(tools)
+            .withTools(tools)
+            .build();
+
+    SpawnLogContext context = createSpawnLogContext();
+    InputMetadataProvider inputMetadataProvider =
+        createInputMetadataProvider(runfilesSupplier, runfilesInput, toolFile1, toolFile2);
+
+    context.logSpawn(
+        spawn,
+        inputMetadataProvider,
+        createInputMap(runfilesSupplier, inputMetadataProvider, toolFile1, toolFile2),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        PRODUCT_NAME
+                            + "-out/k8-fastbuild/bin/foo.runfiles/"
+                            + WORKSPACE_NAME
+                            + "/data.txt")
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(true))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("tool1")
+                    .setDigest(getDigest("def"))
+                    .setIsTool(true))
+            .addInputs(
+                File.newBuilder()
+                    .setPath("tool2")
+                    .setDigest(getDigest("ghi"))
+                    .setIsTool(true))
+            .build());
+  }
+
+  @Test
   public void testRunfilesDirectoryInput(
       @TestParameter DirContents dirContents, @TestParameter InputsMode inputsMode)
       throws Exception {
@@ -469,7 +537,8 @@ public abstract class SpawnLogContextTestBase {
     RunfilesSupplier runfilesSupplier =
         createRunfilesSupplier(runfilesMiddleman, runfilesRoot, runfilesInput);
 
-    SpawnBuilder spawnBuilder = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier);
+    SpawnBuilder spawnBuilder =
+        defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).withInput(runfilesMiddleman);
     if (inputsMode.isTool()) {
       spawnBuilder.withTool(runfilesMiddleman);
     }
@@ -537,7 +606,8 @@ public abstract class SpawnLogContextTestBase {
             externalGenArtifact,
             externalSourceArtifact);
 
-    SpawnBuilder spawnBuilder = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier);
+    SpawnBuilder spawnBuilder =
+        defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).withInput(runfilesMiddleman);
     if (inputsMode.isTool()) {
       spawnBuilder.withTool(runfilesMiddleman);
     }
@@ -687,7 +757,11 @@ public abstract class SpawnLogContextTestBase {
             externalSourceArtifact,
             externalGenArtifact);
 
-    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
+    Spawn spawn =
+        defaultSpawnBuilder()
+            .withRunfilesSupplier(runfilesSupplier)
+            .withInput(runfilesMiddleman)
+            .build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -833,7 +907,11 @@ public abstract class SpawnLogContextTestBase {
             externalSourceArtifact,
             externalGenArtifact);
 
-    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
+    Spawn spawn =
+        defaultSpawnBuilder()
+            .withRunfilesSupplier(runfilesSupplier)
+            .withInput(runfilesMiddleman)
+            .build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -967,7 +1045,11 @@ public abstract class SpawnLogContextTestBase {
             externalSourceArtifact,
             externalGenArtifact);
 
-    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
+    Spawn spawn =
+        defaultSpawnBuilder()
+            .withRunfilesSupplier(runfilesSupplier)
+            .withInput(runfilesMiddleman)
+            .build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -1074,7 +1156,11 @@ public abstract class SpawnLogContextTestBase {
             externalSourceArtifact,
             externalGenArtifact);
 
-    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
+    Spawn spawn =
+        defaultSpawnBuilder()
+            .withRunfilesSupplier(runfilesSupplier)
+            .withInput(runfilesMiddleman)
+            .build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -1168,7 +1254,11 @@ public abstract class SpawnLogContextTestBase {
             /* legacyExternalRunfiles= */ false,
             sourceArtifact);
 
-    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
+    Spawn spawn =
+        defaultSpawnBuilder()
+            .withRunfilesSupplier(runfilesSupplier)
+            .withInput(runfilesMiddleman)
+            .build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -1217,7 +1307,11 @@ public abstract class SpawnLogContextTestBase {
             /* legacyExternalRunfiles= */ false,
             NestedSetBuilder.wrap(Order.STABLE_ORDER, artifacts));
 
-    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
+    Spawn spawn =
+        defaultSpawnBuilder()
+            .withRunfilesSupplier(runfilesSupplier)
+            .withInput(runfilesMiddleman)
+            .build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -1295,7 +1389,11 @@ public abstract class SpawnLogContextTestBase {
             /* legacyExternalRunfiles= */ false,
             artifacts);
 
-    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
+    Spawn spawn =
+        defaultSpawnBuilder()
+            .withRunfilesSupplier(runfilesSupplier)
+            .withInput(runfilesMiddleman)
+            .build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
@@ -1376,7 +1474,8 @@ public abstract class SpawnLogContextTestBase {
                 : ImmutableMap.of(),
             /* legacyExternalRunfiles= */ false);
 
-    SpawnBuilder spawnBuilder = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier);
+    SpawnBuilder spawnBuilder =
+        defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).withInput(runfilesMiddleman);
     if (inputsMode.isTool()) {
       spawnBuilder.withTool(runfilesMiddleman);
     }
@@ -1455,7 +1554,11 @@ public abstract class SpawnLogContextTestBase {
                 : ImmutableMap.of(),
             /* legacyExternalRunfiles= */ false);
 
-    Spawn spawn = defaultSpawnBuilder().withRunfilesSupplier(runfilesSupplier).build();
+    Spawn spawn =
+        defaultSpawnBuilder()
+            .withRunfilesSupplier(runfilesSupplier)
+            .withInput(runfilesMiddleman)
+            .build();
 
     SpawnLogContext context = createSpawnLogContext();
     InputMetadataProvider inputMetadataProvider =
