@@ -4,7 +4,7 @@
 
 module(name = "bazel_tools")
 
-bazel_dep(name = "rules_license", version = "0.0.7")
+bazel_dep(name = "rules_license", version = "1.0.0")
 
 bazel_dep(name = "buildozer", version = "7.1.2")
 bazel_dep(name = "platforms", version = "0.0.10")
@@ -41,7 +41,6 @@ use_repo(buildozer_binary, "buildozer_binary")
 
 # Dependencies used to auto-load removed symbols and rules from Bazel (due to Starlarkification)
 # See also:  --incompatible_autoload_externally, AutoloadSymbols
-bazel_dep(name = "protobuf", version = "27.0", repo_name = "com_google_protobuf")
 bazel_dep(name = "rules_java", version = "8.0.0-rc2")
 bazel_dep(name = "rules_cc", version = "0.0.10")
 bazel_dep(name = "rules_python", version = "0.36.0")
