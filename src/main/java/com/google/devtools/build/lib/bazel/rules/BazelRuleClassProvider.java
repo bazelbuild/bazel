@@ -49,7 +49,6 @@ import com.google.devtools.build.lib.rules.objc.ObjcStarlarkInternal;
 import com.google.devtools.build.lib.rules.platform.PlatformRules;
 import com.google.devtools.build.lib.rules.proto.BazelProtoCommon;
 import com.google.devtools.build.lib.rules.proto.ProtoConfiguration;
-import com.google.devtools.build.lib.rules.python.PyRuntimeRule;
 import com.google.devtools.build.lib.rules.python.PythonConfiguration;
 import com.google.devtools.build.lib.rules.repository.CoreWorkspaceRules;
 import com.google.devtools.build.lib.rules.repository.NewLocalRepositoryRule;
@@ -311,8 +310,6 @@ public class BazelRuleClassProvider {
         public void init(ConfiguredRuleClassProvider.Builder builder) {
           builder.addConfigurationFragment(PythonConfiguration.class);
           builder.addConfigurationFragment(BazelPythonConfiguration.class);
-
-          builder.addRuleDefinition(new PyRuntimeRule());
 
           // This symbol is overridden by exports.bzl
           builder.addBzlToplevel(
