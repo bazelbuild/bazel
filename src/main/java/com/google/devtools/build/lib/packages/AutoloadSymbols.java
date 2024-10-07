@@ -605,7 +605,7 @@ public class AutoloadSymbols {
           "rules_java_builtin",
           "rules_python",
           "rules_python_internal",
-          "rules_sh",
+          "rules_shell",
           "apple_common",
           "bazel_skylib",
           "bazel_tools",
@@ -785,9 +785,9 @@ public class AutoloadSymbols {
           .put("py_library", ruleRedirect("@rules_python//python:py_library.bzl"))
           .put("py_runtime", ruleRedirect("@rules_python//python:py_runtime.bzl"))
           .put("py_test", ruleRedirect("@rules_python//python:py_test.bzl"))
-          .put("sh_binary", ruleRedirect("@rules_sh//sh:sh_binary.bzl"))
-          .put("sh_library", ruleRedirect("@rules_sh//sh:sh_library.bzl"))
-          .put("sh_test", ruleRedirect("@rules_sh//sh:sh_test.bzl"))
+          .put("sh_binary", ruleRedirect("@rules_shell//shell:sh_binary.bzl"))
+          .put("sh_library", ruleRedirect("@rules_shell//shell:sh_library.bzl"))
+          .put("sh_test", ruleRedirect("@rules_shell//shell:sh_test.bzl"))
           .put("available_xcodes", ruleRedirect("@apple_support//xcode:available_xcodes.bzl"))
           .put("xcode_config", ruleRedirect("@apple_support//xcode:xcode_config.bzl"))
           .put("xcode_config_alias", ruleRedirect("@apple_support//xcode:xcode_config_alias.bzl"))
