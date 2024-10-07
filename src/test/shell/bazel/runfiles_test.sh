@@ -240,7 +240,7 @@ function test_switch_runfiles_from_enabled_to_disabled {
 sh_binary(
   name = "cmd",
   srcs = ["cmd.sh"],
-  data = glob(["data-*"]),
+  data = glob(["data-*"], allow_empty = True),
 )
 genrule(
   name = "g",

@@ -259,7 +259,8 @@ public abstract class MockCcSupport {
             "cc/cc_toolchain_config_lib.bzl",
             "cc/find_cc_toolchain.bzl",
             "cc/toolchain_utils.bzl",
-            "cc/private/rules_impl/BUILD")) {
+            "cc/private/rules_impl/BUILD",
+            "cc/private/rules_impl/native.bzl")) {
       try {
         config.overwrite(
             "third_party/bazel_rules/rules_cc/" + path,
