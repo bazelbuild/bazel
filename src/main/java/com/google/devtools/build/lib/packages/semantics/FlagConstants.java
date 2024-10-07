@@ -24,7 +24,7 @@ class FlagConstants {
   public static final String DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API = "true";
   public static final String DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API_NAME = "+experimental_rule_extension_api";
 
-  public static final String DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY = "+@rules_python,+@rules_java,+@protobuf,@rules_shell";
+  public static final String DEFAULT_INCOMPATIBLE_AUTOLOAD_EXTERNALLY = "+@rules_python,+@rules_java,+@protobuf,@rules_shell,+@rules_android";
 
   public static final String DEFAULT_INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX = "true";
   public static final String DEFAULT_INCOMPATIBLE_FIX_PACKAGE_GROUP_REPOROOT_SYNTAX = "true";

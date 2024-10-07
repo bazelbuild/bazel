@@ -615,7 +615,10 @@ public class AutoloadSymbols {
 
   static {
     try {
-      requiredVersions = ImmutableMap.of("protobuf", Version.parse("29.0-rc1"));
+      requiredVersions =
+          ImmutableMap.of(
+              "protobuf", Version.parse("29.0-rc1"), //
+              "rules_android", Version.parse("0.6.0-rc1"));
     } catch (ParseException e) {
       throw new IllegalStateException(e);
     }
