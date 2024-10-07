@@ -43,7 +43,6 @@ toolchain_type(name = "test_runner_toolchain_type")
         "lib_cc_configure": "@rules_cc//cc/private/toolchain:lib_cc_configure",
         "compiler": "@rules_cc//cc/private/toolchain:compiler",
         "cc_flags": "@rules_cc//cc/private/toolchain:cc_flags",
-        "bzl_srcs": "@rules_cc//cc/private/toolchain:bzl_srcs",
         "current_cc_toolchain": "@rules_cc//cc:current_cc_toolchain",
         "optional_current_cc_toolchain": "@rules_cc//cc:optional_current_cc_toolchain",
         "current_libc_top": "@rules_cc//cc:current_libc_top",
@@ -90,6 +89,12 @@ filegroup(
 filegroup(
     name = "empty",
     srcs = [],
+)
+
+filegroup(
+    name = "bzl_srcs",
+    srcs = glob(["*.bzl"]),
+    visibility = ["//tools:__pkg__"],
 )
 
 config_setting(
