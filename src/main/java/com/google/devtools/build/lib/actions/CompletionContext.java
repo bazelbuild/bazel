@@ -23,7 +23,6 @@ import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact.ArchivedTreeArtifact;
 import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
-import com.google.devtools.build.lib.actions.FilesetOutputTree.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.bugreport.BugReport;
 import com.google.devtools.build.lib.bugreport.BugReporter;
@@ -175,19 +174,12 @@ public final class CompletionContext implements ArtifactExpander {
 
   private void visitFileset(Artifact filesetArtifact, ArtifactReceiver receiver) {
     FilesetOutputTree filesetOutput = filesets.get(filesetArtifact);
-    FilesetManifest filesetManifest =
-        filesetOutput.constructFilesetManifestWithoutError(
-            PathFragment.EMPTY_FRAGMENT,
-            fullyResolveFilesetLinks
-                ? RelativeSymlinkBehaviorWithoutError.RESOLVE_FULLY
-                : RelativeSymlinkBehaviorWithoutError.RESOLVE);
-
-    for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
-      String targetFile = mapping.getValue();
-      PathFragment locationInFileset = mapping.getKey();
-      receiver.acceptFilesetMapping(
-          filesetArtifact, locationInFileset, execRoot.getRelative(targetFile));
-    }
+    filesetOutput.visitSymlinks(
+        fullyResolveFilesetLinks
+            ? RelativeSymlinkBehaviorWithoutError.RESOLVE_FULLY
+            : RelativeSymlinkBehaviorWithoutError.RESOLVE,
+        (name, target, metadata) ->
+            receiver.acceptFilesetMapping(filesetArtifact, name, execRoot.getRelative(target)));
   }
 
   @Override

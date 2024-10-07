@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.actions.CommandLineLimits;
 import com.google.devtools.build.lib.actions.CommandLines;
 import com.google.devtools.build.lib.actions.CommandLines.ParamFileActionInput;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
-import com.google.devtools.build.lib.actions.FilesetOutputTree.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.PathMapper;
 import com.google.devtools.build.lib.actions.SingleStringArgFormatter;
@@ -498,14 +497,14 @@ public class StarlarkCustomCommandLine extends CommandLine {
                 fileset),
             e);
       }
-      FilesetManifest filesetManifest =
-          filesetOutput.constructFilesetManifestWithoutError(
-              fileset.getExecPath(), RelativeSymlinkBehaviorWithoutError.IGNORE);
-      for (PathFragment relativePath : filesetManifest.getEntries().keySet()) {
-        PathFragment mappedRelativePath = pathMapper.map(relativePath);
-        expandedValues.add(new FilesetSymlinkFile(fileset, mappedRelativePath));
-      }
+      PathFragment mappedExecPath = pathMapper.map(fileset.getExecPath());
+      filesetOutput.visitSymlinks(
+          RelativeSymlinkBehaviorWithoutError.IGNORE,
+          (name, target, metadata) ->
+              expandedValues.add(
+                  new FilesetSymlinkFile(fileset, mappedExecPath.getRelative(name))));
     }
+
 
     private int addToFingerprint(
         List<Object> arguments,

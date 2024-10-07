@@ -25,79 +25,132 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** A collection of {@link FilesetOutputSymlink}s comprising the output tree of a fileset. */
 public final class FilesetOutputTree {
 
   private static final GoogleLogger logger = GoogleLogger.forEnclosingClass();
 
-  public static final FilesetOutputTree EMPTY = new FilesetOutputTree(ImmutableList.of());
+  public static final FilesetOutputTree EMPTY = new FilesetOutputTree(ImmutableList.of(), false);
   private static final int MAX_SYMLINK_TRAVERSALS = 256;
 
   public static FilesetOutputTree create(ImmutableList<FilesetOutputSymlink> symlinks) {
-    return symlinks.isEmpty() ? EMPTY : new FilesetOutputTree(symlinks);
+    return symlinks.isEmpty()
+        ? EMPTY
+        : new FilesetOutputTree(
+            symlinks, symlinks.stream().anyMatch(FilesetOutputTree::isRelativeSymlink));
   }
 
   private final ImmutableList<FilesetOutputSymlink> symlinks;
+  private final boolean hasRelativeSymlinks;
 
-  private FilesetOutputTree(ImmutableList<FilesetOutputSymlink> symlinks) {
+  private FilesetOutputTree(
+      ImmutableList<FilesetOutputSymlink> symlinks, boolean hasRelativeSymlinks) {
     this.symlinks = checkNotNull(symlinks);
+    this.hasRelativeSymlinks = hasRelativeSymlinks;
+  }
+
+  /** Receiver for the symlinks in a fileset's output tree. */
+  @FunctionalInterface
+  public interface Visitor<E1 extends Exception, E2 extends Exception> {
+
+    /**
+     * Called for each symlink in the fileset's output tree.
+     *
+     * @param name path of the symlink relative to the fileset's root; equivalent to {@link
+     *     FilesetOutputSymlink#getName}
+     * @param target symlink target; either an absolute path if the symlink points to a source file
+     *     or an execroot-relative path if the symlink points to an output
+     * @param metadata a {@link FileArtifactValue} representing the target's metadata if available,
+     *     or {@code null}
+     */
+    void acceptSymlink(PathFragment name, PathFragment target, @Nullable FileArtifactValue metadata)
+        throws E1, E2;
   }
 
   /**
-   * Constructs a {@link FilesetManifest} for this fileset tree, processing relative symlinks
-   * according to {@code relSymlinkBehavior}. Use when {@link RelativeSymlinkBehavior#ERROR} is
-   * guaranteed not to be the behavior.
+   * Visits the symlinks in this fileset tree, handling relative symlinks according to the given
+   * {@link RelativeSymlinkBehavior}.
    */
-  public FilesetManifest constructFilesetManifestWithoutError(
-      PathFragment targetPrefix, RelativeSymlinkBehaviorWithoutError relSymlinkBehavior) {
-    try {
-      return constructFilesetManifest(targetPrefix, relSymlinkBehavior.target);
-    } catch (ForbiddenRelativeSymlinkException e) {
-      throw new IllegalStateException(
-          "Can't throw forbidden symlink exception unless behavior is ERROR: "
-              + relSymlinkBehavior
-              + ", "
-              + targetPrefix
-              + ", "
-              + symlinks,
-          e);
+  public <E1 extends Exception, E2 extends Exception> void visitSymlinks(
+      RelativeSymlinkBehavior relSymlinkBehavior, Visitor<E1, E2> visitor)
+      throws ForbiddenRelativeSymlinkException, E1, E2 {
+    var relSymlinkBehaviorWithoutError =
+        switch (relSymlinkBehavior) {
+          case RESOLVE_FULLY -> RelativeSymlinkBehaviorWithoutError.RESOLVE_FULLY;
+          case RESOLVE -> RelativeSymlinkBehaviorWithoutError.RESOLVE;
+          case IGNORE -> RelativeSymlinkBehaviorWithoutError.IGNORE;
+          case ERROR -> {
+            if (hasRelativeSymlinks) {
+              FilesetOutputSymlink relativeLink =
+                  symlinks.stream().filter(FilesetOutputTree::isRelativeSymlink).findFirst().get();
+              throw new ForbiddenRelativeSymlinkException(relativeLink);
+            }
+            yield RelativeSymlinkBehaviorWithoutError.IGNORE;
+          }
+        };
+    visitSymlinks(relSymlinkBehaviorWithoutError, visitor);
+  }
+
+  /**
+   * Visits the symlinks in this fileset tree, handling relative symlinks according to the given
+   * {@link RelativeSymlinkBehaviorWithoutError}.
+   */
+  public <E1 extends Exception, E2 extends Exception> void visitSymlinks(
+      RelativeSymlinkBehaviorWithoutError relSymlinkBehavior, Visitor<E1, E2> visitor)
+      throws E1, E2 {
+    // Fast path: if we don't need to resolve relative symlinks (either because there are none or
+    // because we are ignoring them), perform a single-pass visitation. This is expected to be the
+    // common case.
+    if (!hasRelativeSymlinks || relSymlinkBehavior == RelativeSymlinkBehaviorWithoutError.IGNORE) {
+      for (FilesetOutputSymlink symlink : symlinks) {
+        if (!isRelativeSymlink(symlink)) {
+          visitor.acceptSymlink(
+              symlink.getName(),
+              symlink.getTargetPath(),
+              symlink.getMetadata() instanceof FileArtifactValue metadata ? metadata : null);
+        }
+      }
+      return;
     }
-  }
 
-  /**
-   * Constructs a {@link FilesetManifest} for this fileset tree, processing relative symlinks
-   * according to {@code relSymlinkBehavior}.
-   */
-  public FilesetManifest constructFilesetManifest(
-      PathFragment targetPrefix, RelativeSymlinkBehavior relSymlinkBehavior)
-      throws ForbiddenRelativeSymlinkException {
-    LinkedHashMap<PathFragment, String> entries = new LinkedHashMap<>();
+    // Symlink name to resolved target path. Relative target paths are relative to the exec root.
+    Map<PathFragment, String> resolvedLinks = new LinkedHashMap<>();
+    // Symlink name to relative target path.
     Map<PathFragment, String> relativeLinks = new HashMap<>();
+    // Resolved target path to metadata.
     Map<String, FileArtifactValue> artifactValues = new HashMap<>();
+
     for (FilesetOutputSymlink outputSymlink : symlinks) {
-      PathFragment fullLocation = targetPrefix.getRelative(outputSymlink.getName());
+      PathFragment name = outputSymlink.getName();
       String targetPath = outputSymlink.getTargetPath().getPathString();
-      if (isRelativeSymlink(outputSymlink)) {
-        addRelativeSymlinkEntry(targetPath, fullLocation, relSymlinkBehavior, relativeLinks);
-      } else {
-        // Symlinks are already deduplicated by name in SkyframeFilesetManifestAction.
-        checkState(
-            entries.put(fullLocation, targetPath) == null,
-            "Duplicate fileset entry at %s",
-            fullLocation);
-      }
-      if (outputSymlink.getMetadata() instanceof FileArtifactValue) {
-        artifactValues.put(targetPath, (FileArtifactValue) outputSymlink.getMetadata());
+      var map = isRelativeSymlink(outputSymlink) ? relativeLinks : resolvedLinks;
+
+      // Symlinks are already deduplicated by name in SkyframeFilesetManifestAction.
+      checkState(map.put(name, targetPath) == null, "Duplicate fileset entry at %s", name);
+
+      if (outputSymlink.getMetadata() instanceof FileArtifactValue metadata) {
+        artifactValues.put(targetPath, metadata);
       }
     }
-    resolveRelativeSymlinks(entries, relativeLinks, targetPrefix.isAbsolute(), relSymlinkBehavior);
-    return new FilesetManifest(entries, artifactValues);
+
+    if (relSymlinkBehavior == RelativeSymlinkBehaviorWithoutError.RESOLVE_FULLY) {
+      fullyResolveRelativeSymlinks(resolvedLinks, relativeLinks);
+    } else {
+      resolveRelativeSymlinks(resolvedLinks, relativeLinks);
+    }
+
+    for (var entry : resolvedLinks.entrySet()) {
+      PathFragment name = entry.getKey();
+      String target = entry.getValue();
+      FileArtifactValue metadata = artifactValues.get(target);
+      visitor.acceptSymlink(name, PathFragment.create(target), metadata);
+    }
   }
 
   public ImmutableList<FilesetOutputSymlink> symlinks() {
@@ -130,21 +183,24 @@ public final class FilesetOutputTree {
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper(this).add("symlinks", symlinks).toString();
+    return MoreObjects.toStringHelper(this)
+        .add("symlinks", symlinks)
+        .add("hasRelativeSymlinks", hasRelativeSymlinks)
+        .toString();
   }
 
   /** Mode that determines how to handle relative target paths. */
   public enum RelativeSymlinkBehavior {
     /** Ignore any relative target paths. */
     IGNORE,
-
     /** Give an error if a relative target path is encountered. */
     ERROR,
-
-    /** Resolve all relative target paths. */
+    /** Resolve relative target paths that (transitively) point to another file in the fileset. */
     RESOLVE,
-
-    /** Fully resolve all relative paths, even those pointing to internal directories. */
+    /**
+     * Fully resolve all relative paths, even those pointing to internal directories. Then do a
+     * virtual filesystem traversal to find all paths to all files in the fileset.
+     */
     RESOLVE_FULLY
   }
 
@@ -154,48 +210,20 @@ public final class FilesetOutputTree {
    */
   public enum RelativeSymlinkBehaviorWithoutError {
     /** Ignore any relative target paths. */
-    IGNORE(RelativeSymlinkBehavior.IGNORE),
-
+    IGNORE,
     /** Resolve all relative target paths. */
-    RESOLVE(RelativeSymlinkBehavior.RESOLVE),
-
+    RESOLVE,
     /** Fully resolve all relative paths, even those pointing to internal directories. */
-    RESOLVE_FULLY(RelativeSymlinkBehavior.RESOLVE_FULLY);
-
-    private final RelativeSymlinkBehavior target;
-
-    RelativeSymlinkBehaviorWithoutError(RelativeSymlinkBehavior target) {
-      this.target = target;
-    }
+    RESOLVE_FULLY
   }
 
   private static boolean isRelativeSymlink(FilesetOutputSymlink symlink) {
     return !symlink.getTargetPath().isAbsolute() && !symlink.isRelativeToExecRoot();
   }
 
-  /** Potentially adds the relative symlink to the map, depending on {@code relSymlinkBehavior}. */
-  private static void addRelativeSymlinkEntry(
-      String targetPath,
-      PathFragment fullLocation,
-      RelativeSymlinkBehavior relSymlinkBehavior,
-      Map<PathFragment, String> relativeLinks)
-      throws ForbiddenRelativeSymlinkException {
-    switch (relSymlinkBehavior) {
-      case ERROR -> throw new ForbiddenRelativeSymlinkException(targetPath);
-      case RESOLVE, RESOLVE_FULLY ->
-          checkState(
-              relativeLinks.put(fullLocation, targetPath) == null,
-              "Duplicate fileset entry at %s",
-              fullLocation);
-      case IGNORE -> {}
-    }
-  }
-
-  /** Fully resolve relative symlinks including internal directory symlinks. */
+  /** Fully resolves relative symlinks, including internal directory symlinks. */
   private static void fullyResolveRelativeSymlinks(
-      Map<PathFragment, String> entries,
-      Map<PathFragment, String> relativeLinks,
-      boolean absolute) {
+      Map<PathFragment, String> resolvedLinks, Map<PathFragment, String> relativeLinks) {
     try {
       // Construct an in-memory Filesystem containing all the non-relative-symlink entries in the
       // Fileset. Treat these as regular files in the filesystem whose contents are the "real"
@@ -206,7 +234,7 @@ public final class FilesetOutputTree {
       // (Choice of digest function is irrelevant).
       InMemoryFileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
       Path root = fs.getPath("/");
-      for (Map.Entry<PathFragment, String> e : entries.entrySet()) {
+      for (Map.Entry<PathFragment, String> e : resolvedLinks.entrySet()) {
         PathFragment location = e.getKey();
         Path locationPath = root.getRelative(location);
         locationPath.getParentDirectory().createDirectoryAndParents();
@@ -216,27 +244,26 @@ public final class FilesetOutputTree {
         PathFragment location = e.getKey();
         Path locationPath = fs.getPath("/").getRelative(location);
         PathFragment value = PathFragment.create(checkNotNull(e.getValue(), e));
-        checkState(!value.isAbsolute(), e);
 
         locationPath.getParentDirectory().createDirectoryAndParents();
         locationPath.createSymbolicLink(value);
       }
 
-      addSymlinks(root, entries, absolute);
+      addSymlinks(root, resolvedLinks);
     } catch (IOException e) {
       throw new IllegalStateException("InMemoryFileSystem can't throw", e);
     }
   }
 
-  private static void addSymlinks(Path root, Map<PathFragment, String> entries, boolean absolute)
+  private static void addSymlinks(Path root, Map<PathFragment, String> resolvedLinks)
       throws IOException {
     for (Path path : root.getDirectoryEntries()) {
       try {
         if (path.isDirectory()) {
-          addSymlinks(path, entries, absolute);
+          addSymlinks(path, resolvedLinks);
         } else {
           String contents = new String(FileSystemUtils.readContentAsLatin1(path));
-          entries.put(absolute ? path.asFragment() : path.asFragment().toRelative(), contents);
+          resolvedLinks.put(path.asFragment().toRelative(), contents);
         }
       } catch (IOException e) {
         logger.atWarning().log("Symlink %s is dangling or cyclic: %s", path, e.getMessage());
@@ -244,106 +271,56 @@ public final class FilesetOutputTree {
     }
   }
 
-  /**
-   * Resolves relative symlinks and puts them in the {@code entries} map.
-   *
-   * <p>Note that {@code relativeLinks} should only contain entries in {@link
-   * RelativeSymlinkBehavior#RESOLVE} or {@link RelativeSymlinkBehavior#RESOLVE_FULLY} mode.
-   */
+  /** Resolves relative symlinks and puts them in the {@code resolvedLinks} map. */
   private static void resolveRelativeSymlinks(
-      Map<PathFragment, String> entries,
-      Map<PathFragment, String> relativeLinks,
-      boolean absolute,
-      RelativeSymlinkBehavior relSymlinkBehavior) {
-    if (relativeLinks.isEmpty()) {
-      return;
-    }
-    if (relSymlinkBehavior == RelativeSymlinkBehavior.RESOLVE_FULLY) {
-      fullyResolveRelativeSymlinks(entries, relativeLinks, absolute);
-    } else if (relSymlinkBehavior == RelativeSymlinkBehavior.RESOLVE) {
-      for (Map.Entry<PathFragment, String> e : relativeLinks.entrySet()) {
-        PathFragment location = e.getKey();
-        String actual = e.getValue();
-        checkState(!actual.startsWith("/"), e);
-        PathFragment actualLocation = location;
+      Map<PathFragment, String> resolvedLinks, Map<PathFragment, String> relativeLinks) {
+    for (Map.Entry<PathFragment, String> e : relativeLinks.entrySet()) {
+      PathFragment location = e.getKey();
+      String actual = e.getValue();
+      PathFragment actualLocation = location;
 
-        // Recursively resolve relative symlinks.
-        LinkedHashSet<String> seen = new LinkedHashSet<>();
-        int traversals = 0;
-        do {
-          actualLocation = actualLocation.getParentDirectory().getRelative(actual);
-          actual = relativeLinks.get(actualLocation);
-        } while (++traversals <= MAX_SYMLINK_TRAVERSALS && actual != null && seen.add(actual));
+      // Recursively resolve relative symlinks.
+      LinkedHashSet<String> seen = new LinkedHashSet<>();
+      int traversals = 0;
+      do {
+        actualLocation = actualLocation.getParentDirectory().getRelative(actual);
+        actual = relativeLinks.get(actualLocation);
+      } while (++traversals <= MAX_SYMLINK_TRAVERSALS && actual != null && seen.add(actual));
 
-        if (traversals >= MAX_SYMLINK_TRAVERSALS) {
-          logger.atWarning().log(
-              "Symlink %s is part of a chain of length at least %d"
-                  + " which exceeds Blaze's maximum allowable symlink chain length",
-              location, traversals);
-        } else if (actual != null) {
+      if (traversals >= MAX_SYMLINK_TRAVERSALS) {
+        logger.atWarning().log(
+            "Symlink %s is part of a chain of length at least %d"
+                + " which exceeds Blaze's maximum allowable symlink chain length",
+            location, traversals);
+      } else if (actual != null) {
+        // TODO(b/113128395): throw here.
+        logger.atWarning().log("Symlink %s forms a symlink cycle: %s", location, seen);
+      } else {
+        String resolvedTarget = resolvedLinks.get(actualLocation);
+        if (resolvedTarget == null) {
+          // We've found a relative symlink that points out of the fileset. We should really
+          // always throw here, but current behavior is that we tolerate such symlinks when they
+          // occur in runfiles, which is the only time this code is hit.
           // TODO(b/113128395): throw here.
-          logger.atWarning().log("Symlink %s forms a symlink cycle: %s", location, seen);
+          logger.atWarning().log(
+              "Symlink %s (transitively) points to %s that is not in this fileset (or was"
+                  + " pruned because of a cycle)",
+              location, actualLocation);
         } else {
-          String resolvedTarget = entries.get(actualLocation);
-          if (resolvedTarget == null) {
-            // We've found a relative symlink that points out of the fileset. We should really
-            // always throw here, but current behavior is that we tolerate such symlinks when they
-            // occur in runfiles, which is the only time this code is hit.
-            // TODO(b/113128395): throw here.
-            logger.atWarning().log(
-                "Symlink %s (transitively) points to %s that is not in this fileset (or was pruned"
-                    + " because of a cycle)",
-                location, actualLocation);
-          } else {
-            // We have successfully resolved the symlink.
-            entries.put(location, resolvedTarget);
-          }
+          // We have successfully resolved the symlink.
+          resolvedLinks.put(location, resolvedTarget);
         }
       }
-    }
-  }
-
-  /** Representation of a Fileset manifest. */
-  public static final class FilesetManifest {
-    private final Map<PathFragment, String> entries;
-    private final Map<String, FileArtifactValue> artifactValues;
-
-    private FilesetManifest(
-        Map<PathFragment, String> entries, Map<String, FileArtifactValue> artifactValues) {
-      this.entries = Collections.unmodifiableMap(entries);
-      this.artifactValues = artifactValues;
-    }
-
-    /**
-     * Returns a mapping of symlink name to its target path.
-     *
-     * <p>Values in this map can be:
-     *
-     * <ul>
-     *   <li>An absolute path.
-     *   <li>A relative path, which should be considered relative to the exec root.
-     * </ul>
-     */
-    public Map<PathFragment, String> getEntries() {
-      return entries;
-    }
-
-    /**
-     * Returns a mapping of target path to {@link FileArtifactValue}.
-     *
-     * <p>The keyset of this map is a subset of the values in the map returned by {@link
-     * #getEntries}.
-     */
-    public Map<String, FileArtifactValue> getArtifactValues() {
-      return artifactValues;
     }
   }
 
   /** Exception indicating that a relative symlink was encountered but not permitted. */
   public static final class ForbiddenRelativeSymlinkException
       extends ForbiddenActionInputException {
-    private ForbiddenRelativeSymlinkException(String symlinkTarget) {
-      super("Fileset symlink " + symlinkTarget + " is not absolute");
+    private ForbiddenRelativeSymlinkException(FilesetOutputSymlink relativeLink) {
+      super(
+          "Fileset symlink %s -> %s is not absolute"
+              .formatted(relativeLink.getName(), relativeLink.getTargetPath()));
     }
   }
 }

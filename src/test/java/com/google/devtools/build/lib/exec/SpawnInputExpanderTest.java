@@ -515,7 +515,7 @@ public final class SpawnInputExpanderTest {
                 expander.addFilesetManifests(
                     filesetMappings, inputMap, PathFragment.EMPTY_FRAGMENT));
 
-    assertThat(e).hasMessageThat().contains("Fileset symlink foo is not absolute");
+    assertThat(e).hasMessageThat().contains("Fileset symlink workspace/bar -> foo is not absolute");
   }
 
   @Test
