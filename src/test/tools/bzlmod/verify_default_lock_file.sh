@@ -55,6 +55,7 @@ expected_modules=(
   rules_proto
   rules_python
   rules_shell
+  stardoc
   zlib
 )
 

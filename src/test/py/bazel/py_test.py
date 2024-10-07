@@ -34,9 +34,10 @@ class PyTest(test_base.TestBase):
     self.ScratchFile(
         'a/a.py',
         [
-            'import b',
+            'import a.b',
             'b.Hello()',
-        ])
+        ],
+    )
 
     self.ScratchFile(
         'a/b.py',
