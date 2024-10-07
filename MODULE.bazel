@@ -73,6 +73,13 @@ single_version_override(
     version = "6.0",
 )
 
+# TODO(pcloudy): Remove once the next version of rules_graalvm is available.
+single_version_override(
+    module_name = "rules_graalvm",
+    patch_strip = 1,
+    patches = ["//third_party:rules_graalvm_fix.patch"],
+)
+
 local_path_override(
     module_name = "remoteapis",
     path = "./third_party/remoteapis",
