@@ -190,10 +190,11 @@ java_test(
     srcs = ["ToolchainTypeLookupUtilTest.java"],
     deps = [
         "//src/main/java/com/google/devtools/build/lib/analysis:blaze_directories",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/build_configuration",
+        "//src/main/java/com/google/devtools/build/lib/analysis:config/toolchain_type_requirement",
         "//src/main/java/com/google/devtools/build/lib/analysis/platform",
         "//src/main/java/com/google/devtools/build/lib/cmdline",
         "//src/main/java/com/google/devtools/build/lib/packages",
-        "//src/main/java/com/google/devtools/build/lib/skyframe:configured_target_key",
         "//src/main/java/com/google/devtools/build/lib/skyframe/toolchains:toolchain_type_lookup_util",
         "//src/main/java/com/google/devtools/build/skyframe",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
