@@ -35,6 +35,27 @@ index b5f474d3d..1e2b5daa2 100644
          name = name,
          srcs = [src],
          legacy_create_init = False,
+diff --git a/python/py_extension.bzl b/python/py_extension.bzl
+index 9a2828b95..2741cdf6e 100644
+--- a/python/py_extension.bzl
++++ b/python/py_extension.bzl
+@@ -1,6 +1,7 @@
+ """Macro to support py_extension """
+ 
+ load("@bazel_skylib//lib:selects.bzl", "selects")
++load("@rules_python//python:py_library.bzl", "py_library")
+ 
+ def py_extension(name, srcs, copts, deps = [], **kwargs):
+     """Creates a C++ library to extend python
+@@ -50,7 +51,7 @@ def py_extension(name, srcs, copts, deps = [], **kwargs):
+         visibility = ["//python:__subpackages__"],
+     )
+ 
+-    native.py_library(
++    py_library(
+         name = name,
+         data = [output_file],
+         imports = ["."],
 diff --git a/upb/cmake/build_defs.bzl b/upb/cmake/build_defs.bzl
 index 325189c7f..c7a7a4558 100644
 --- a/upb/cmake/build_defs.bzl
