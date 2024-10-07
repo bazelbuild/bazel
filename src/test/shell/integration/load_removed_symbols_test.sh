@@ -79,7 +79,8 @@ local_path_override(
 EOF
 }
 
-function test_missing_necessary_bzlmod_dep() {
+# TODO - ilist@: reeenable with a fake repository (we now have autoload all of them)
+function disabled_test_missing_necessary_bzlmod_dep() {
   # Intentionally not adding rules_android to MODULE.bazel
   cat > BUILD << EOF
 sh_library(
@@ -92,7 +93,8 @@ EOF
   expect_log "WARNING: Couldn't auto load rules or symbols, because no dependency on module/repository 'rules_sh' found. This will result in a failure if there's a reference to those rules or symbols."
 }
 
-function test_missing_unnecessary_bzmod_dep() {
+# TODO - ilist@: reeenable with a fake repository (we now have autoload all of them)
+function disabled_test_missing_unnecessary_bzmod_dep() {
   # Intentionally not adding rules_android to MODULE.bazel
   cat > BUILD << EOF
 filegroup(
