@@ -10,10 +10,6 @@ bazel_dep(name = "buildozer", version = "7.1.2")
 bazel_dep(name = "platforms", version = "0.0.10")
 bazel_dep(name = "zlib", version = "1.3.1.bcr.3")
 
-cc_configure = use_extension("//tools/cpp:cc_configure.bzl", "cc_configure_extension")
-use_repo(cc_configure, "local_config_cc", "local_config_cc_toolchains")
-register_toolchains("@local_config_cc_toolchains//:all")
-
 xcode_configure = use_extension("//tools/osx:xcode_configure.bzl", "xcode_configure_extension")
 use_repo(xcode_configure, "local_config_xcode")
 
@@ -42,7 +38,7 @@ use_repo(buildozer_binary, "buildozer_binary")
 # Dependencies used to auto-load removed symbols and rules from Bazel (due to Starlarkification)
 # See also:  --incompatible_autoload_externally, AutoloadSymbols
 bazel_dep(name = "rules_java", version = "8.0.1")
-bazel_dep(name = "rules_cc", version = "0.0.10")
+bazel_dep(name = "rules_cc", version = "0.0.12")
 bazel_dep(name = "rules_python", version = "0.36.0")
 bazel_dep(name = "rules_shell", version = "0.1.1")
 # add rules_android
