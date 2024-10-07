@@ -345,7 +345,12 @@ public final class StarlarkProvider implements StarlarkCallable, StarlarkExporta
 
   @Override
   public Key getKey() {
-    Preconditions.checkState(isExported());
+    Preconditions.checkState(
+        isExported(),
+        "Calling getKey() is disallowed on an unexported provider. location: %s, identity token:"
+            + " %s",
+        location,
+        keyOrIdentityToken);
     return (Key) keyOrIdentityToken;
   }
 
