@@ -185,14 +185,14 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
 
     context.logSpawn(
         firstSpawn,
-        createInputMetadataProvider(toolRunfilesMiddleman, runfilesTree, firstInput),
+        createInputMetadataProvider(runfilesTree, toolRunfilesMiddleman, firstInput),
         createInputMap(runfilesTree, firstInput),
         fs,
         defaultTimeout(),
         defaultSpawnResult());
     context.logSpawn(
         secondSpawn,
-        createInputMetadataProvider(toolRunfilesMiddleman, runfilesTree, secondInput),
+        createInputMetadataProvider(runfilesTree, toolRunfilesMiddleman, secondInput),
         createInputMap(runfilesTree, secondInput),
         fs,
         defaultTimeout(),
