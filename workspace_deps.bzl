@@ -19,10 +19,10 @@ WORKSPACE_REPOS = {
     # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_cc": {
-        "archive": "rules_cc-0.0.10.tar.gz",
-        "sha256": "65b67b81c6da378f136cc7e7e14ee08d5b9375973427eceb8c773a4f69fa7e49",
-        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.10/rules_cc-0.0.10.tar.gz"],
-        "strip_prefix": "rules_cc-0.0.10",
+        "archive": "rules_cc-0.0.11.tar.gz",
+        "sha256": "7e2a1f6c5dd908e6e88d7c80257c99d14e16fa985b56342287fddb6a32c435b5",
+        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.11/rules_cc-0.0.11.tar.gz"],
+        "strip_prefix": "rules_cc-0.0.11",
     },
     "protobuf": {
         "archive": "v27.0.zip",
