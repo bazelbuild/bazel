@@ -435,6 +435,11 @@ public class AutoloadSymbols {
         ImmutableMap.builderWithExpectedSize(autoloadedSymbols.size());
     ImmutableSet.Builder<String> missingRepositories = ImmutableSet.builder();
     for (String symbol : autoloadedSymbols) {
+      if (symbol.equals("proto_common_do_not_use")) {
+        // Special case that is not autoloaded, just removed
+        continue;
+      }
+
       Label label = AUTOLOAD_CONFIG.get(symbol).getLabel(repoContext);
       // Only load if the dependency is present
       if (label.getRepository().isVisible()) {
@@ -610,8 +615,7 @@ public class AutoloadSymbols {
                   "proto_lang_toolchain",
                   "java_binary",
                   "proto_common_do_not_use"))
-          .put(
-              "proto_common_do_not_use", symbolRedirect("@protobuf//bazel/common:proto_common.bzl"))
+          .put("proto_common_do_not_use", symbolRedirect(""))
           .put("cc_common", symbolRedirect("@rules_cc//cc/common:cc_common.bzl"))
           .put(
               "CcInfo",
