@@ -25,9 +25,10 @@ class BazelWindowsCppTest(test_base.TestBase):
         'MODULE.bazel',
         [
             'bazel_dep(name = "platforms", version = "0.0.9")',
+            'bazel_dep(name = "rules_cc", version = "0.0.11")',
             (
                 'cc_configure ='
-                ' use_extension("@bazel_tools//tools/cpp:cc_configure.bzl",'
+                ' use_extension("@rules_cc//cc:extensions.bzl",'
                 ' "cc_configure_extension")'
             ),
             'use_repo(cc_configure, "local_config_cc")',
