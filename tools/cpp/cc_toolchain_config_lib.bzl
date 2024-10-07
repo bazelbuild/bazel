@@ -26,6 +26,7 @@ load(
     _make_variable = "make_variable",
     _tool = "tool",
     _tool_path = "tool_path",
+    _variable_with_value = "variable_with_value",
     _with_feature_set = "with_feature_set",
 )
 
@@ -41,3 +42,4 @@ make_variable = _make_variable
 tool = _tool
 tool_path = _tool_path
 with_feature_set = _with_feature_set
+variable_with_value = _variable_with_value
