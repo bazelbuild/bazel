@@ -294,7 +294,7 @@ py_test(
     name = "bazel_lockfile_test",
     size = "medium",
     srcs = ["bzlmod/bazel_lockfile_test.py"],
-    shard_count = 5,
+    shard_count = 9,
     tags = [
         "requires-network",
     ],
