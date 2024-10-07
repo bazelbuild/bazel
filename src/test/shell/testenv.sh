@@ -586,11 +586,6 @@ function add_rules_python() {
   add_bazel_dep "rules_python" "$1"
 }
 
-# Needed only for java_tools
-function add_rules_proto() {
-  add_bazel_dep "rules_proto" "$1"
-}
-
 function add_rules_license() {
   add_bazel_dep "rules_license" "$1"
 }

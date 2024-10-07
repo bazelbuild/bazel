@@ -1,13 +1,13 @@
+load("@protobuf//bazel:cc_proto_library.bzl", "cc_proto_library")
+load("@protobuf//bazel:proto_library.bzl", "proto_library")
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+load("@rules_java//java:defs.bzl", "java_import")
+
 package(default_visibility = ["//visibility:public"])
 
 exports_files(glob(["**/*.jar"]))
 
 licenses(["notice"])  # Apache 2.0
-
-load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library", "cc_proto_library")
-load("@rules_java//java:defs.bzl", "java_import")
-# TODO - ilist@: point java_tools to protobuf; requires coordinated release of rules_java and java_tools
-load("@rules_proto//proto:defs.bzl", "proto_library")
 
 SUPRESSED_WARNINGS = select({
     ":windows": [],
