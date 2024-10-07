@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.bzlmod.Version;
+import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -389,6 +391,7 @@ public class AutoloadSymbols {
       throws InterruptedException {
 
     final RepoContext repoContext;
+    ImmutableMap<String, ModuleKey> highestVersions = ImmutableMap.of();
     if (bzlmodEnabled) {
       BazelDepGraphValue bazelDepGraphValue =
           (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
@@ -396,7 +399,7 @@ public class AutoloadSymbols {
         return null;
       }
 
-      ImmutableMap<String, ModuleKey> highestVersions =
+      highestVersions =
           bazelDepGraphValue.getCanonicalRepoNameLookup().values().stream()
               .collect(
                   toImmutableMap(
@@ -438,6 +441,20 @@ public class AutoloadSymbols {
       if (symbol.equals("proto_common_do_not_use")) {
         // Special case that is not autoloaded, just removed
         continue;
+      }
+
+      String requiredModule = AUTOLOAD_CONFIG.get(symbol).getModuleName();
+      // Skip if version doesn't have the rules
+      if (highestVersions.containsKey(requiredModule)
+          && requiredVersions.containsKey(requiredModule)) {
+        if (highestVersions
+                .get(requiredModule)
+                .version()
+                .compareTo(requiredVersions.get(requiredModule))
+            <= 0) {
+          missingRepositories.add(requiredModule);
+          continue;
+        }
       }
 
       Label label = AUTOLOAD_CONFIG.get(symbol).getLabel(repoContext);
@@ -542,6 +559,10 @@ public class AutoloadSymbols {
 
     public abstract ImmutableSet<String> getRdeps();
 
+    String getModuleName() throws InterruptedException {
+      return Label.parseCanonicalUnchecked(getLoadLabel()).getRepository().getName();
+    }
+
     Label getLabel(RepoContext repoContext) throws InterruptedException {
       try {
         return Label.parseWithRepoContext(getLoadLabel(), repoContext);
@@ -589,6 +610,16 @@ public class AutoloadSymbols {
           "bazel_skylib",
           "bazel_tools",
           "bazel_features");
+
+  private static final ImmutableMap<String, Version> requiredVersions;
+
+  static {
+    try {
+      requiredVersions = ImmutableMap.of("protobuf", Version.parse("29.0-rc1"));
+    } catch (ParseException e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
   private static final ImmutableMap<String, SymbolRedirect> AUTOLOAD_CONFIG =
       ImmutableMap.<String, SymbolRedirect>builder()
