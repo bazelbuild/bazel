@@ -566,7 +566,7 @@ message Command {
     STARLARK_OPTIONS_PARSE_FAILURE = 10 [(metadata) = { exit_code: 2 }];
     ARGUMENTS_NOT_RECOGNIZED = 11 [(metadata) = { exit_code: 2 }];
     NOT_IN_WORKSPACE = 12 [(metadata) = { exit_code: 2 }];
-    SPACES_IN_WORKSPACE_PATH = 13 [(metadata) = { exit_code: 36 }];
+    reserved 13;
     IN_OUTPUT_DIRECTORY = 14 [(metadata) = { exit_code: 2 }];
   }
 
