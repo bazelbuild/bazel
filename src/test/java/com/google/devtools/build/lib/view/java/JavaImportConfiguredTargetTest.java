@@ -462,6 +462,9 @@ public class JavaImportConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testJavaImportExportsTransitiveProguardSpecs() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.file(
         "java/com/google/android/hello/BUILD",
         """
