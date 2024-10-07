@@ -657,7 +657,9 @@ std::vector<std::string> OptionProcessor::GetBlazercAndEnvCommandArgs(
     const std::vector<std::string>& env) {
   // Provide terminal options as coming from the least important rc file.
   std::vector<std::string> result = {
+      // LINT.IfChange
       "--rc_source=client",
+      // LINT.ThenChange(src/main/java/com/google/devtools/common/options/GlobalRcUtils.java)
       "--default_override=0:common=--isatty=" +
           blaze_util::ToString(IsStandardTerminal()),
       "--default_override=0:common=--terminal_columns=" +
