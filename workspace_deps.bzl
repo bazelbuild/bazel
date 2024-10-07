@@ -56,6 +56,12 @@ WORKSPACE_REPOS = {
         "sha256": "8f9ee2dc10c1ae514ee599a8b42ed99fa262b757058f65ad3c384289ff70c4b8",
         "urls": ["https://github.com/bazelbuild/rules_pkg/releases/download/0.9.1/rules_pkg-0.9.1.tar.gz"],
     },
+    "rules_shell": {
+        "archive": "rules_shell-v0.1.1.tar.gz",
+        "sha256": "0d0c56d01c3c40420bf7bf14d73113f8a92fbd9f5cd13205a3b89f72078f0321",
+        "strip_prefix": "rules_shell-0.1.1",
+        "urls": ["https://github.com/bazelbuild/rules_shell/releases/download/v0.1.1/rules_shell-v0.1.1.tar.gz"],
+    },
     "rules_testing": {
         "archive": "rules_testing-v0.6.0.tar.gz",
         "sha256": "02c62574631876a4e3b02a1820cb51167bb9cdcdea2381b2fa9d9b8b11c407c4",

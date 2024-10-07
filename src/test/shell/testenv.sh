@@ -597,6 +597,7 @@ function add_protobuf() {
   cp "$(rlocation io_bazel/third_party/protobuf/remove_rules_rust.patch)" third_party/protobuf/remove_rules_rust.patch
   cp "$(rlocation io_bazel/third_party/protobuf/proto_info_bzl_deps.patch)" third_party/protobuf/proto_info_bzl_deps.patch
   cp "$(rlocation io_bazel/third_party/protobuf/add_python_loads.patch)" third_party/protobuf/add_python_loads.patch
+  cp "$(rlocation io_bazel/third_party/protobuf/add_rules_shell_loads.patch)" third_party/protobuf/add_rules_shell_loads.patch
   cat >> "$1" <<EOF
 archive_override(
     module_name = "protobuf",
@@ -609,6 +610,7 @@ archive_override(
         "//third_party/protobuf:proto_info_bzl_deps.patch",
         "//third_party/protobuf:remove_rules_rust.patch",
         "//third_party/protobuf:add_python_loads.patch",
+        "//third_party/protobuf:add_rules_shell_loads.patch",
     ],
     strip_prefix = "protobuf-29.0-rc1",
     urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v29.0-rc1/protobuf-29.0-rc1.zip"],

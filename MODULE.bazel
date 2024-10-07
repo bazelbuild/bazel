@@ -33,6 +33,7 @@ bazel_dep(name = "rules_testing", version = "0.6.0")
 bazel_dep(name = "googletest", version = "1.15.2", repo_name = "com_google_googletest")
 bazel_dep(name = "with_cfg.bzl", version = "0.2.4")
 bazel_dep(name = "abseil-cpp", version = "20240722.0")
+bazel_dep(name = "rules_shell", version = "0.1.1")
 
 # TODO: wyv@ - use release 29.0 when that's out
 bazel_dep(name = "protobuf", version = "29.0-rc1")
@@ -47,6 +48,7 @@ archive_override(
         "//third_party/protobuf:proto_info_bzl_deps.patch",
         "//third_party/protobuf:remove_rules_rust.patch",
         "//third_party/protobuf:add_python_loads.patch",
+        "//third_party/protobuf:add_rules_shell_loads.patch",
     ],
     strip_prefix = "protobuf-29.0-rc1",
     urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v29.0-rc1/protobuf-29.0-rc1.zip"],

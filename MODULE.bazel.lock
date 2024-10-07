@@ -176,6 +176,8 @@
     "https://bcr.bazel.build/modules/rules_python/0.36.0/MODULE.bazel": "a4ce1ccea92b9106c7d16ab9ee51c6183107e78ba4a37aa65055227b80cd480c",
     "https://bcr.bazel.build/modules/rules_python/0.36.0/source.json": "b79cbb7b2ae1751949e2f6ee6692822e4ffd13ca1e959ce99abec4ac7666162a",
     "https://bcr.bazel.build/modules/rules_python/0.4.0/MODULE.bazel": "9208ee05fd48bf09ac60ed269791cf17fb343db56c8226a720fbb1cdf467166c",
+    "https://bcr.bazel.build/modules/rules_shell/0.1.1/MODULE.bazel": "28ba4ef049101dec1439554b07dd68f24c210fccf77aa3a721ba07f705dc1613",
+    "https://bcr.bazel.build/modules/rules_shell/0.1.1/source.json": "f287d2640819f79989d36c2add46775b8f46cc490a41649b54ca2edcfa988819",
     "https://bcr.bazel.build/modules/rules_swift/1.18.0/MODULE.bazel": "a6aba73625d0dc64c7b4a1e831549b6e375fbddb9d2dde9d80c9de6ec45b24c9",
     "https://bcr.bazel.build/modules/rules_swift/1.18.0/source.json": "9e636cabd446f43444ea2662341a9cbb74ecd87ab0557225ae73f1127cb7ff52",
     "https://bcr.bazel.build/modules/rules_testing/0.6.0/MODULE.bazel": "8518d53bc742c462536d3f1a0de0c265bd7b51f32797fea4132007223ed2926f",

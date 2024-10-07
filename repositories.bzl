@@ -46,6 +46,7 @@ DIST_ARCHIVE_REPOS = [get_canonical_repo_name(repo) for repo in [
     "rules_pkg",
     "rules_proto",
     "rules_python",
+    "rules_shell",
     "zlib",
     "zstd-jni",
 ]] + [(get_canonical_repo_name("com_github_grpc_grpc") + "+grpc_repo_deps_ext+" + suffix) for suffix in [

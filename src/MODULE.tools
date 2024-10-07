@@ -44,5 +44,6 @@ use_repo(buildozer_binary, "buildozer_binary")
 bazel_dep(name = "rules_java", version = "8.0.0-rc2")
 bazel_dep(name = "rules_cc", version = "0.0.10")
 bazel_dep(name = "rules_python", version = "0.36.0")
+bazel_dep(name = "rules_shell", version = "0.1.1")
 # add rules_android
 # add apple_support
