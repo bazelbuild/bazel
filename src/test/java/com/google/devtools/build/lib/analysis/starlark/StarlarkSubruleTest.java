@@ -1925,6 +1925,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
   @Test
   public void testSubrulesParamForAspect_isPrivateAPI() throws Exception {
+    evOutsideAllowlist.setSemantics("--noexperimental_rule_extension_api");
     evOutsideAllowlist.checkEvalErrorContains(
         "'//foo:bar' cannot use private API", "aspect(implementation = lambda: 0, subrules = [1])");
   }
