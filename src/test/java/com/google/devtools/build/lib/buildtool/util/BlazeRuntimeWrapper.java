@@ -310,10 +310,7 @@ public class BlazeRuntimeWrapper {
       Iterables.addAll(options, module.getCommandOptions(commandAnnotation));
     }
     options.addAll(runtime.getRuleClassProvider().getFragmentRegistry().getOptionsClasses());
-    // Because the tests that use this class don't set sources for their options, the normal logic
-    // for determining user options assumes that all options are user options. This causes tests
-    // that enable PROJECT.scl files to fail, so ignore user options instead.
-    return OptionsParser.builder().optionsClasses(options).ignoreUserOptions().build();
+    return OptionsParser.builder().optionsClasses(options).build();
   }
 
   void executeNonBuildCommand() throws Exception {

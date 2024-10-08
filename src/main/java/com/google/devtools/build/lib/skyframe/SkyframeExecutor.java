@@ -3254,11 +3254,6 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
               java.util.function.Predicate<? super ParsedOptionDescription> filter) {
             return ImmutableMap.of();
           }
-
-          @Override
-          public ImmutableSet<String> getUserOptions() {
-            return ImmutableSet.of();
-          }
         });
   }
 

@@ -30,7 +30,7 @@ import java.util.Set;
 
 /** {@link ObjectCodec} for {@link ImmutableSet} and other sets that should be immutable. */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public final class ImmutableSetCodec extends DeferredObjectCodec<Set> {
+final class ImmutableSetCodec extends DeferredObjectCodec<Set> {
   // Conversion of the types below to ImmutableSet is sound because the underlying types are hidden
   // and only referenceable as the Set type.
 
