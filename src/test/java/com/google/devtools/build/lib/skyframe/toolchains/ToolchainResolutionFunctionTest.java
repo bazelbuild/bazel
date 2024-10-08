@@ -634,6 +634,56 @@ public class ToolchainResolutionFunctionTest extends ToolchainTestCase {
   }
 
   @Test
+  public void resolve_invalidToolchainType() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("fake/toolchain/BUILD", "filegroup(name = 'not_a_toolchain')");
+    useConfiguration("--host_platform=//platforms:linux", "--platforms=//platforms:mac");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(
+                ToolchainTypeRequirement.create(
+                    Label.parseCanonicalUnchecked("//fake/toolchain:not_a_toolchain")))
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .isInstanceOf(InvalidToolchainTypeException.class);
+    assertThatEvaluationResult(result)
+        .hasErrorEntryForKeyThat(key)
+        .hasExceptionThat()
+        .hasMessageThat()
+        .contains("but does not provide ToolchainTypeInfo");
+  }
+
+  @Test
+  public void resolve_invalidToolchainType_ignored() throws Exception {
+    reporter.removeHandler(failFastHandler);
+    scratch.file("fake/toolchain/BUILD", "filegroup(name = 'not_a_toolchain')");
+    useConfiguration("--host_platform=//platforms:linux", "--platforms=//platforms:mac");
+    ToolchainContextKey key =
+        ToolchainContextKey.key()
+            .configurationKey(targetConfigKey)
+            .toolchainTypes(
+                ToolchainTypeRequirement.builder(
+                        Label.parseCanonicalUnchecked("//fake/toolchain:not_a_toolchain"))
+                    .ignoreIfInvalid(true)
+                    .build())
+            .build();
+
+    EvaluationResult<UnloadedToolchainContext> result = invokeToolchainResolution(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    UnloadedToolchainContext unloadedToolchainContext = result.get(key);
+    assertThat(unloadedToolchainContext).isNotNull();
+    assertThat(unloadedToolchainContext)
+        .doesntHaveToolchainType("//fake/toolchain:not_a_toolchain");
+  }
+
+  @Test
   public void resolve_invalidTargetPlatform_badTarget() throws Exception {
     scratch.file("invalid/BUILD", "filegroup(name = 'not_a_platform')");
 

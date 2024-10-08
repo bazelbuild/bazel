@@ -136,6 +136,25 @@ public class ToolchainTypeLookupUtilTest extends ToolchainTestCase {
   }
 
   @Test
+  public void testToolchainTypeLookup_targetNotToolchainType_ignoreInvalid() throws Exception {
+    scratch.file("invalid/BUILD", "filegroup(name = 'not_a_toolchain_type')");
+
+    GetToolchainTypeInfoKey key =
+        GetToolchainTypeInfoKey.create(
+            targetConfig,
+            ToolchainTypeRequirement.builder(
+                    Label.parseCanonicalUnchecked("//invalid:not_a_toolchain_type"))
+                .ignoreIfInvalid(true)
+                .build());
+
+    EvaluationResult<GetToolchainTypeInfoValue> result = getToolchainTypeInfo(key);
+
+    assertThatEvaluationResult(result).hasNoError();
+    Map<Label, ToolchainTypeInfo> toolchainTypes = result.get(key).toolchainTypes();
+    assertThat(toolchainTypes).isEmpty();
+  }
+
+  @Test
   public void testToolchainTypeLookup_targetDoesNotExist() throws Exception {
     GetToolchainTypeInfoKey key =
         GetToolchainTypeInfoKey.create(
