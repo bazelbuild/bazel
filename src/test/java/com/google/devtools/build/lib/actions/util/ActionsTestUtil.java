@@ -266,6 +266,11 @@ public final class ActionsTestUtil {
         : DerivedArtifact.create(root, execPath, NULL_ARTIFACT_OWNER);
   }
 
+  public static SpecialArtifact createRunfilesArtifact(ArtifactRoot root, String execPath) {
+    return SpecialArtifact.create(
+        root, PathFragment.create(execPath), NULL_ARTIFACT_OWNER, SpecialArtifactType.RUNFILES);
+  }
+
   public static SpecialArtifact createTreeArtifactWithGeneratingAction(
       ArtifactRoot root, PathFragment execPath) {
     SpecialArtifact treeArtifact =

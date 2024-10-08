@@ -517,16 +517,6 @@ public class CoreOptions extends FragmentOptions implements Cloneable {
   public boolean buildRunfileLinks;
 
   @Option(
-      name = "experimental_correct_runfiles_middleman_paths",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
-      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help =
-          "If set, the path of runfiles middlemen represents the real path of the runfiles tree.")
-  public boolean correctRunfilesMiddlemanPaths;
-
-  @Option(
       name = "legacy_external_runfiles",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_SELECTION,

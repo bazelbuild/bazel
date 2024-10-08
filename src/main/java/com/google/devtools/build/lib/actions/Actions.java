@@ -310,13 +310,6 @@ public final class Actions {
       return false;
     }
 
-    if (runfilesTree.getRoot().isMiddlemanRoot()) {
-      // These are old-style middlemen, which means that they can't conflict with anything because
-      // they are in their own root (and their path doesn't match the actual path of the runfiles
-      // tree they create). No need for an exemption from conflict checking.
-      return false;
-    }
-
     // Now check whether the path of the inner artifact matches the expected path of a runfiles
     // output manifest.
     return runfilesManifest
