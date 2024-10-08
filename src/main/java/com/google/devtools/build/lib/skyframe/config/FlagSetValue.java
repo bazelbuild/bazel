@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe.config;
 import static com.google.common.base.Strings.nullToEmpty;
 
 import com.google.common.base.Verify;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.concurrent.ThreadSafety;
@@ -41,7 +40,6 @@ public class FlagSetValue implements SkyValue {
     private final Label projectFile;
     private final String sclConfig;
     private final BuildOptions targetOptions;
-    private final ImmutableSet<String> userOptions;
 
     private final boolean enforceCanonical;
 
@@ -49,23 +47,16 @@ public class FlagSetValue implements SkyValue {
         Label projectFile,
         @Nullable String sclConfig,
         BuildOptions targetOptions,
-        ImmutableSet<String> userOptions,
         boolean enforceCanonical) {
       this.projectFile = Verify.verifyNotNull(projectFile);
       this.sclConfig = nullToEmpty(sclConfig);
       this.targetOptions = Verify.verifyNotNull(targetOptions);
-      this.userOptions = Verify.verifyNotNull(userOptions);
       this.enforceCanonical = enforceCanonical;
     }
 
     public static Key create(
-        Label projectFile,
-        String sclConfig,
-        BuildOptions targetOptions,
-        ImmutableSet<String> userOptions,
-        boolean enforceCanonical) {
-      return interner.intern(
-          new Key(projectFile, sclConfig, targetOptions, userOptions, enforceCanonical));
+        Label projectFile, String sclConfig, BuildOptions targetOptions, boolean enforceCanonical) {
+      return interner.intern(new Key(projectFile, sclConfig, targetOptions, enforceCanonical));
     }
 
     public Label getProjectFile() {
@@ -78,10 +69,6 @@ public class FlagSetValue implements SkyValue {
 
     public BuildOptions getTargetOptions() {
       return targetOptions;
-    }
-
-    public ImmutableSet<String> getUserOptions() {
-      return userOptions;
     }
 
     /**
@@ -114,13 +101,12 @@ public class FlagSetValue implements SkyValue {
       return Objects.equals(projectFile, key.projectFile)
           && Objects.equals(sclConfig, key.sclConfig)
           && Objects.equals(targetOptions, key.targetOptions)
-          && Objects.equals(userOptions, key.userOptions)
           && (enforceCanonical == key.enforceCanonical);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(projectFile, sclConfig, targetOptions, userOptions, enforceCanonical);
+      return Objects.hash(projectFile, sclConfig, targetOptions, enforceCanonical);
     }
   }
 
