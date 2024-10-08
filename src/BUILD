@@ -109,7 +109,6 @@ JAVA_TOOLS = [
                "//third_party/ijar:zipper",
                "//third_party/java/j2objc:embedded_tools_srcs",
                "//third_party/py/abseil:srcs",
-               "//third_party/py/six:srcs",
                "//third_party/zlib:embedded_tools",
                "//tools:embedded_tools_srcs",
            ] + select({
@@ -145,7 +144,7 @@ rule_size_test(
     # WARNING: Only adjust the number in `expect` if you are intentionally
     # adding or removing embedded tools. Know that the more embedded tools there
     # are in Bazel, the bigger the binary becomes and the slower Bazel starts.
-    expect = 408,
+    expect = 389,
     margin = 5,  # percentage
 )
 
