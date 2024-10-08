@@ -131,19 +131,25 @@ filegroup(
     visibility = ["//tools:__pkg__"],
 )
 
-py_binary(
+# TODO(cushon): Delete this alias in the fullness of time.
+alias(
     name = "proguard_whitelister",
+    actual = ":proguard_allowlister",
+)
+
+py_binary(
+    name = "proguard_allowlister",
     srcs = [
-        "proguard_whitelister.py",
+        "proguard_allowlister.py",
     ],
 )
 
 py_test(
-    name = "proguard_whitelister_test",
-    srcs = ["proguard_whitelister_test.py"],
-    data = ["proguard_whitelister_test_input.pgcfg"],
+    name = "proguard_allowlister_test",
+    srcs = ["proguard_allowlister_test.py"],
+    data = ["proguard_allowlister_test_input.pgcfg"],
     deps = [
-        ":proguard_whitelister",
+        ":proguard_allowlister",
     ],
 )
 
