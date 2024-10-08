@@ -325,9 +325,9 @@ if [[ "${EXPERIMENTAL_SPLIT_XML_GENERATION}" == "1" ]]; then
 else
   set -o pipefail
   if [ -z "$COVERAGE_DIR" ]; then
-    ("${TEST_PATH}" "$@" 2>&1 | tee -a "${XML_OUTPUT_FILE}.log") <&0 &
+    ("${TEST_PATH}" "$@" 2>&1 | tee -ai "${XML_OUTPUT_FILE}.log") <&0 &
   else
-    ("$1" "$TEST_PATH" "${@:3}" 2>&1 | tee -a "${XML_OUTPUT_FILE}.log") <&0 &
+    ("$1" "$TEST_PATH" "${@:3}" 2>&1 | tee -ai "${XML_OUTPUT_FILE}.log") <&0 &
   fi
   set +o pipefail
 fi
