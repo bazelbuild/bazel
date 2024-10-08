@@ -25,3 +25,5 @@ targets:
   # These tests cause the build to fail on macOS:
   # https://github.com/bazelbuild/bazel/issues/13636
   -//src/test/shell/bazel:all_tests
+
+java_language_level: 17
