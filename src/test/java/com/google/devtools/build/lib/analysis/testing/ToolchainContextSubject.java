@@ -98,6 +98,16 @@ public class ToolchainContextSubject extends Subject {
     toolchainType(toolchainType).isNotNull();
   }
 
+  public void doesntHaveToolchainType(String toolchainTypeLabel) {
+    doesntHaveToolchainType(Label.parseCanonicalUnchecked(toolchainTypeLabel));
+  }
+
+  public void doesntHaveToolchainType(Label toolchainType) {
+    check("toolchainType(%s)", toolchainType)
+        .that(toolchainTypesMap.containsKey(toolchainType))
+        .isFalse();
+  }
+
   public void hasResolvedToolchain(String resolvedToolchainLabel) throws LabelSyntaxException {
     hasResolvedToolchain(Label.parseCanonical(resolvedToolchainLabel));
   }
