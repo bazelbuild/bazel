@@ -327,14 +327,14 @@ This option specifies the version of Java sources. For example:
 </pre>
 
 compiles and allows only constructs compatible with Java 8 specification.
-Default value is 8. -->
-Possible values are: 8, 9, 10, 11, 14, 15, and 21 and may be extended by
+Default value is 11. -->
+Possible values are: 8, 9, 10, 11, 17, and 21 and may be extended by
 registering custom Java toolchains using `default_java_toolchain`.
 
 #### `--tool_java_language_version={{ "<var>" }}version{{ "</var>" }}` {:#tool-java-language-version}
 
 The Java language version used to build tools that are executed during a build.
-Default value is 8.
+Default value is 11.
 
 #### `--java_runtime_version={{ "<var>" }}version{{ "</var>" }}` {:#java-runtime-version}
 
@@ -349,7 +349,7 @@ downloads JDK 11 from a remote repository and run the Java application using it.
 
 Default value is `local_jdk`.
 Possible values are: `local_jdk`, `local_jdk_{{ "<var>" }}version{{ "</var>" }}`,
-`remotejdk_11`, and `remotejdk_17`.
+`remotejdk_11`, `remotejdk_17`, and `remotejdk_21`.
 You can extend the values by registering custom JVM using either
 `local_java_repository` or `remote_java_repository` repository rules.
 
