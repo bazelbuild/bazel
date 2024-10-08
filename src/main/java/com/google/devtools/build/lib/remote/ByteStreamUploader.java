@@ -170,13 +170,7 @@ final class ByteStreamUploader {
     return Futures.catchingAsync(
         startAsyncUpload(context, digest, chunker),
         StatusRuntimeException.class,
-        (sre) ->
-            Futures.immediateFailedFuture(
-                new IOException(
-                    String.format(
-                        "Error while uploading artifact with digest '%s/%s'",
-                        digest.getHash(), digest.getSizeBytes()),
-                    sre)),
+        (sre) -> Futures.immediateFailedFuture(new IOException(sre)),
         MoreExecutors.directExecutor());
   }
 
