@@ -47,6 +47,7 @@ public class InstrumentedFileManifestActionTest extends AnalysisTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "foo.so",
             srcs = ["Bar.java"],

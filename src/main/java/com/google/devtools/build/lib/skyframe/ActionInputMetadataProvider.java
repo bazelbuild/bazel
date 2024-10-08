@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.actions.ActionInputMap;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
-import com.google.devtools.build.lib.actions.FilesetOutputTree.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehaviorWithoutError;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
@@ -64,24 +63,20 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
       Map<Artifact, FilesetOutputTree> filesets) {
     this.execRoot = execRoot;
     this.inputArtifactData = inputArtifactData;
-    this.filesetMapping = Suppliers.memoize(() -> createFilesetMapping(filesets, execRoot));
+    this.filesetMapping = Suppliers.memoize(() -> createFilesetMapping(filesets));
   }
 
   private static ImmutableMap<String, FileArtifactValue> createFilesetMapping(
-      Map<Artifact, FilesetOutputTree> filesets, PathFragment execRoot) {
+      Map<Artifact, FilesetOutputTree> filesets) {
     Map<String, FileArtifactValue> filesetMap = new HashMap<>();
     for (FilesetOutputTree filesetOutput : filesets.values()) {
-      FilesetManifest manifest =
-          filesetOutput.constructFilesetManifestWithoutError(
-              execRoot, RelativeSymlinkBehaviorWithoutError.RESOLVE);
-      manifest
-          .getArtifactValues()
-          .forEach(
-              (targetPath, metadata) -> {
-                if (metadata.getDigest() != null) {
-                  filesetMap.put(targetPath, metadata);
-                }
-              });
+      filesetOutput.visitSymlinks(
+          RelativeSymlinkBehaviorWithoutError.RESOLVE,
+          (name, target, metadata) -> {
+            if (metadata != null && metadata.getDigest() != null) {
+              filesetMap.put(target.getPathString(), metadata);
+            }
+          });
     }
     return ImmutableMap.copyOf(filesetMap);
   }
@@ -96,9 +91,7 @@ final class ActionInputMetadataProvider implements InputMetadataProvider {
       return filesetMapping.get().get(filesetKeyPath.getPathString());
     }
 
-    FileArtifactValue value;
-
-    value = inputArtifactData.getInputMetadata(artifact);
+    FileArtifactValue value = inputArtifactData.getInputMetadata(artifact);
     if (value != null) {
       return checkExists(value, artifact);
     }

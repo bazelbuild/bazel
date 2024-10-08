@@ -26,7 +26,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedMap;
-import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.actions.ActionEnvironment;
 import com.google.devtools.build.lib.actions.ActionInput;
 import com.google.devtools.build.lib.actions.Artifact;
@@ -430,7 +429,7 @@ public abstract class SpawnLogContextTestBase {
 
     context.logSpawn(
         spawnBuilder.build(),
-        createInputMetadataProvider(runfilesMiddleman, runfilesTree, runfilesInput),
+        createInputMetadataProvider(runfilesTree, runfilesMiddleman, runfilesInput),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -448,6 +447,60 @@ public abstract class SpawnLogContextTestBase {
                             + "/data.txt")
                     .setDigest(getDigest("abc"))
                     .setIsTool(inputsMode.isTool()))
+            .build());
+  }
+
+  @Test
+  public void testRunfilesNestedMiddleman() throws Exception {
+    Artifact runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
+    Artifact runfilesInput = ActionsTestUtil.createArtifact(rootDir, "data.txt");
+    writeFile(runfilesInput, "abc");
+    Artifact toolFile1 = ActionsTestUtil.createArtifact(rootDir, "tool1");
+    writeFile(toolFile1, "def");
+    Artifact toolFile2 = ActionsTestUtil.createArtifact(rootDir, "tool2");
+    writeFile(toolFile2, "ghi");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
+    RunfilesTree runfilesTree = createRunfilesTree(runfilesRoot, runfilesInput);
+
+    NestedSet<ActionInput> tools =
+        NestedSetBuilder.<ActionInput>stableOrder()
+            .add(toolFile1)
+            .addTransitive(
+                NestedSetBuilder.<ActionInput>stableOrder()
+                    .add(runfilesMiddleman)
+                    .add(toolFile2)
+                    .build())
+            .build();
+    Spawn spawn = defaultSpawnBuilder().withInputs(tools).withTools(tools).build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn,
+        createInputMetadataProvider(
+            runfilesTree, runfilesMiddleman, runfilesInput, toolFile1, toolFile2),
+        createInputMap(runfilesTree, toolFile1, toolFile2),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        PRODUCT_NAME
+                            + "-out/k8-fastbuild/bin/foo.runfiles/"
+                            + WORKSPACE_NAME
+                            + "/data.txt")
+                    .setDigest(getDigest("abc"))
+                    .setIsTool(true))
+            .addInputs(
+                File.newBuilder().setPath("tool1").setDigest(getDigest("def")).setIsTool(true))
+            .addInputs(
+                File.newBuilder().setPath("tool2").setDigest(getDigest("ghi")).setIsTool(true))
             .build());
   }
 
@@ -475,7 +528,7 @@ public abstract class SpawnLogContextTestBase {
 
     context.logSpawn(
         spawnBuilder.build(),
-        createInputMetadataProvider(runfilesMiddleman, runfilesTree, runfilesInput),
+        createInputMetadataProvider(runfilesTree, runfilesMiddleman, runfilesInput),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -539,8 +592,8 @@ public abstract class SpawnLogContextTestBase {
     context.logSpawn(
         spawnBuilder.build(),
         createInputMetadataProvider(
-            runfilesMiddleman,
             runfilesTree,
+            runfilesMiddleman,
             runfilesInput,
             externalGenArtifact,
             externalSourceArtifact),
@@ -685,8 +738,8 @@ public abstract class SpawnLogContextTestBase {
     context.logSpawn(
         spawn,
         createInputMetadataProvider(
-            runfilesMiddleman,
             runfilesTree,
+            runfilesMiddleman,
             sourceArtifact,
             genArtifact,
             externalSourceArtifact,
@@ -830,8 +883,8 @@ public abstract class SpawnLogContextTestBase {
     context.logSpawn(
         spawn,
         createInputMetadataProvider(
-            runfilesMiddleman,
             runfilesTree,
+            runfilesMiddleman,
             externalSourceArtifact,
             externalGenArtifact,
             symlinkTarget,
@@ -963,8 +1016,8 @@ public abstract class SpawnLogContextTestBase {
     context.logSpawn(
         spawn,
         createInputMetadataProvider(
-            runfilesMiddleman,
             runfilesTree,
+            runfilesMiddleman,
             sourceArtifact,
             genArtifact,
             externalSourceArtifact,
@@ -1069,8 +1122,8 @@ public abstract class SpawnLogContextTestBase {
     context.logSpawn(
         spawn,
         createInputMetadataProvider(
-            runfilesMiddleman,
             runfilesTree,
+            runfilesMiddleman,
             sourceArtifact,
             genArtifact,
             externalSourceArtifact,
@@ -1162,7 +1215,7 @@ public abstract class SpawnLogContextTestBase {
     context.logSpawn(
         spawn,
         createInputMetadataProvider(
-            runfilesMiddleman, runfilesTree, sourceArtifact, symlinkSourceArtifact),
+            runfilesTree, runfilesMiddleman, sourceArtifact, symlinkSourceArtifact),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -1209,7 +1262,7 @@ public abstract class SpawnLogContextTestBase {
 
     context.logSpawn(
         spawn,
-        createInputMetadataProvider(runfilesMiddleman, runfilesTree, file, symlink),
+        createInputMetadataProvider(runfilesTree, runfilesMiddleman, file, symlink),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -1286,7 +1339,7 @@ public abstract class SpawnLogContextTestBase {
     context.logSpawn(
         spawn,
         createInputMetadataProvider(
-            runfilesMiddleman, runfilesTree, sourceFile, genFile, otherSourceFile, otherGenFile),
+            runfilesTree, runfilesMiddleman, sourceFile, genFile, otherSourceFile, otherGenFile),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -1364,7 +1417,7 @@ public abstract class SpawnLogContextTestBase {
     context.logSpawn(
         spawnBuilder.build(),
         createInputMetadataProvider(
-            runfilesMiddleman, runfilesTree, sourceFile, sourceDir, genDir, symlink),
+            runfilesTree, runfilesMiddleman, sourceFile, sourceDir, genDir, symlink),
         createInputMap(runfilesTree),
         fs,
         defaultTimeout(),
@@ -1437,7 +1490,7 @@ public abstract class SpawnLogContextTestBase {
 
     context.logSpawn(
         spawn,
-        createInputMetadataProvider(runfilesMiddleman, runfilesTree, sourceFile),
+        createInputMetadataProvider(runfilesTree, runfilesMiddleman, sourceFile),
         createInputMap(runfilesTree),
         outputsMode.getActionFileSystem(fs),
         defaultTimeout(),
@@ -2059,19 +2112,13 @@ public abstract class SpawnLogContextTestBase {
 
   protected static InputMetadataProvider createInputMetadataProvider(Artifact... artifacts)
       throws Exception {
-    return createInputMetadataProvider(null, null, artifacts);
+    return createInputMetadataProvider(null, artifacts);
   }
 
   protected static InputMetadataProvider createInputMetadataProvider(
-      Artifact runfilesMiddleman, RunfilesTree runfilesTree, Artifact... artifacts)
-      throws Exception {
-    Iterable<Artifact> allArtifacts = Arrays.asList(artifacts);
+      RunfilesTree runfilesTree, Artifact... artifacts) throws Exception {
     FakeActionInputFileCache builder = new FakeActionInputFileCache();
-    if (runfilesMiddleman != null) {
-      allArtifacts = Iterables.concat(allArtifacts, runfilesTree.getArtifacts().toList());
-      builder.putRunfilesTree(runfilesMiddleman, runfilesTree);
-    }
-    for (Artifact artifact : allArtifacts) {
+    for (Artifact artifact : artifacts) {
       if (artifact.isTreeArtifact()) {
         // Emulate ActionInputMap: add both tree and children.
         TreeArtifactValue treeMetadata = createTreeArtifactValue(artifact);
@@ -2082,6 +2129,8 @@ public abstract class SpawnLogContextTestBase {
         }
       } else if (artifact.isSymlink()) {
         builder.put(artifact, FileArtifactValue.createForUnresolvedSymlink(artifact));
+      } else if (artifact.isMiddlemanArtifact()) {
+        builder.putRunfilesTree(artifact, runfilesTree);
       } else {
         builder.put(artifact, FileArtifactValue.createForTesting(artifact));
       }

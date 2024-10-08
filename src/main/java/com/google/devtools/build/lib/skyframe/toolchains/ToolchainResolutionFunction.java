@@ -101,12 +101,7 @@ public class ToolchainResolutionFunction implements SkyFunction {
       // Load the configured target for the toolchain types to ensure that they are valid and
       // resolve aliases.
       ImmutableMap<Label, ToolchainTypeInfo> resolvedToolchainTypeInfos =
-          loadToolchainTypeInfos(
-              env,
-              configuration,
-              key.toolchainTypes().stream()
-                  .map(ToolchainTypeRequirement::toolchainType)
-                  .collect(toImmutableSet()));
+          loadToolchainTypeInfos(env, configuration, key.toolchainTypes());
       builder.setRequestedLabelToToolchainType(resolvedToolchainTypeInfos);
       ImmutableSet<ToolchainType> resolvedToolchainTypes =
           loadToolchainTypes(resolvedToolchainTypeInfos, key.toolchainTypes());
@@ -162,20 +157,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
   private static ImmutableMap<Label, ToolchainTypeInfo> loadToolchainTypeInfos(
       Environment environment,
       BuildConfigurationValue configuration,
-      ImmutableSet<Label> toolchainTypeLabels)
+      ImmutableSet<ToolchainTypeRequirement> toolchainTypeRequirements)
       throws InvalidToolchainTypeException, InterruptedException, ValueMissingException {
-    ImmutableSet<ConfiguredTargetKey> toolchainTypeKeys =
-        toolchainTypeLabels.stream()
-            .map(
-                label ->
-                    ConfiguredTargetKey.builder()
-                        .setLabel(label)
-                        .setConfiguration(configuration)
-                        .build())
-            .collect(toImmutableSet());
 
     ImmutableMap<Label, ToolchainTypeInfo> resolvedToolchainTypes =
-        ToolchainTypeLookupUtil.resolveToolchainTypes(environment, toolchainTypeKeys);
+        ToolchainTypeLookupUtil.resolveToolchainTypes(
+            environment, toolchainTypeRequirements, configuration);
     if (environment.valuesMissing()) {
       throw new ValueMissingException();
     }

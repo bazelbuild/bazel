@@ -179,6 +179,12 @@ lines of primarily Scala and Python code powering data-intensive
 applications, including complex codegen and container build processes, with
 Bazel.
 
+### [GermanTechJobs](https://germantechjobs.de){: .external}
+<img src="https://upload.wikimedia.org/wikipedia/commons/9/98/GermanTechJobs_Logo.png" width="150" align="right">
+
+Bazel has simplified our workflows 10-fold and enabled shipping features at
+scale.
+
 ### [Google](https://google.com){: .external}
 <img src="https://upload.wikimedia.org/wikipedia/commons/2/2f/Google_2015_logo.svg" width="150" align="right">
 

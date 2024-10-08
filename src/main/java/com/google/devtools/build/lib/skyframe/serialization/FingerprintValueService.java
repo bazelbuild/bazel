@@ -97,12 +97,12 @@ public final class FingerprintValueService {
   }
 
   /** Delegates to {@link FingerprintValueStore#put}. */
-  public ListenableFuture<Void> put(PackedFingerprint fingerprint, byte[] serializedBytes) {
+  public ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
     return store.put(fingerprint, serializedBytes);
   }
 
   /** Delegates to {@link FingerprintValueStore#get}. */
-  public ListenableFuture<byte[]> get(PackedFingerprint fingerprint) throws IOException {
+  public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) throws IOException {
     return store.get(fingerprint);
   }
 

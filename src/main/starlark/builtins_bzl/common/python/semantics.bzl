@@ -13,8 +13,6 @@
 # limitations under the License.
 """Contains constants that vary between Bazel and Google-internal"""
 
-IMPORTS_ATTR_SUPPORTED = True
-
 TOOLS_REPO = "bazel_tools"
 PLATFORMS_LOCATION = "@platforms/"
 
@@ -22,13 +20,5 @@ SRCS_ATTR_ALLOW_FILES = [".py", ".py3"]
 
 DEPS_ATTR_ALLOW_RULES = None
 
-PY_RUNTIME_ATTR_NAME = "_py_interpreter"
-
-BUILD_DATA_SYMLINK_PATH = None
-
-IS_BAZEL = True
-
 NATIVE_RULES_MIGRATION_HELP_URL = "https://github.com/bazelbuild/bazel/issues/17773"
 NATIVE_RULES_MIGRATION_FIX_CMD = "add_python_loads"
-
-ALLOWED_MAIN_EXTENSIONS = [".py"]

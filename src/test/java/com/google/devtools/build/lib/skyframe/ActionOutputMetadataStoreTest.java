@@ -585,7 +585,7 @@ public final class ActionOutputMetadataStoreTest {
   private FilesetOutputSymlink createFilesetOutputSymlink(HasDigest digest, String identifier) {
     return FilesetOutputSymlink.create(
         PathFragment.create(identifier + "_symlink"),
-        PathFragment.create(identifier),
+        execRoot.getRelative(identifier).asFragment(),
         digest,
         execRoot.asFragment(),
         /* enclosingTreeArtifact= */ null);

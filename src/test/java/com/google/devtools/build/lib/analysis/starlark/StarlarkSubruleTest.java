@@ -363,6 +363,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     scratch.file(
         "subrule_testing/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load("myrule.bzl", "my_rule")
 
         java_library(name = "bar")
@@ -504,6 +505,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
     scratch.file(
         "subrule_testing/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load("myrule.bzl", "my_rule")
 
         java_library(name = "bar")
@@ -1923,6 +1925,7 @@ public class StarlarkSubruleTest extends BuildViewTestCase {
 
   @Test
   public void testSubrulesParamForAspect_isPrivateAPI() throws Exception {
+    evOutsideAllowlist.setSemantics("--noexperimental_rule_extension_api");
     evOutsideAllowlist.checkEvalErrorContains(
         "'//foo:bar' cannot use private API", "aspect(implementation = lambda: 0, subrules = [1])");
   }

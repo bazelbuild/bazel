@@ -36,6 +36,7 @@ public class JavaCompileOnlyTest extends CompileOnlyTestCase {
     scratch.file(
         "java/main/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = "main",
             srcs = ["Main.java"],
@@ -50,6 +51,7 @@ public class JavaCompileOnlyTest extends CompileOnlyTestCase {
     scratch.file(
         "java/hello_library/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         java_library(
             name = "hello_library",
             srcs = ["HelloLibrary.java"],

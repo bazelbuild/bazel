@@ -202,6 +202,7 @@ public final class AnalysisPhaseRunner {
   static ProjectEvaluationResult evaluateProjectFile(
       BuildRequest request,
       BuildOptions buildOptions,
+      ImmutableSet<String> userOptions,
       TargetPatternPhaseValue targetPatternPhaseValue,
       CommandEnvironment env)
       throws LoadingFailedException, InvalidConfigurationException {
@@ -263,6 +264,7 @@ public final class AnalysisPhaseRunner {
       buildOptions =
           BuildTool.applySclConfigs(
               buildOptions,
+              userOptions,
               projectFile,
               request.getBuildOptions().enforceProjectConfigs,
               env.getSkyframeExecutor(),

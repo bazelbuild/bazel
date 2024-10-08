@@ -19,15 +19,21 @@ WORKSPACE_REPOS = {
     # Used in src/main/java/com/google/devtools/build/lib/bazel/rules/java/jdk.WORKSPACE.
     # Used in src/test/java/com/google/devtools/build/lib/blackbox/framework/blackbox.WORKSAPCE
     "rules_cc": {
-        "archive": "rules_cc-0.0.10.tar.gz",
-        "sha256": "65b67b81c6da378f136cc7e7e14ee08d5b9375973427eceb8c773a4f69fa7e49",
-        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.10/rules_cc-0.0.10.tar.gz"],
-        "strip_prefix": "rules_cc-0.0.10",
+        "archive": "rules_cc-0.0.12.tar.gz",
+        "sha256": "b26168b9a13f094794982b832975eaf53cefc5dced5b3be7df6b8b794dc2744b",
+        "urls": ["https://github.com/bazelbuild/rules_cc/releases/download/0.0.12/rules_cc-0.0.12.tar.gz"],
+        "strip_prefix": "rules_cc-0.0.12",
+    },
+    "protobuf": {
+        "archive": "v27.0.zip",
+        "sha256": "a7e735f510520b41962d07459f6f5b99dd594c7ed4690bf1191b9924bec094a2",
+        "urls": ["https://github.com/protocolbuffers/protobuf/archive/refs/tags/v27.0.zip"],
+        "strip_prefix": "protobuf-27.0",
     },
     "rules_java": {
-        "archive": "rules_java-7.12.1.tar.gz",
-        "sha256": "dfbadbb37a79eb9e1cc1e156ecb8f817edf3899b28bc02410a6c1eb88b1a6862",
-        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/7.12.1/rules_java-7.12.1.tar.gz"],
+        "archive": "rules_java-8.0.0-rc2.tar.gz",
+        "sha256": "7bfdbb51bb362ecdca5d989efa3c77683ce4d431e82e2d2d7aadca33a8c35ca7",
+        "urls": ["https://github.com/bazelbuild/rules_java/releases/download/8.0.0-rc2/rules_java-8.0.0-rc2.tar.gz"],
     },
     "bazel_skylib": {
         "archive": "bazel-skylib-1.6.1.tar.gz",
@@ -49,6 +55,12 @@ WORKSPACE_REPOS = {
         "archive": "rules_pkg-0.9.1.tar.gz",
         "sha256": "8f9ee2dc10c1ae514ee599a8b42ed99fa262b757058f65ad3c384289ff70c4b8",
         "urls": ["https://github.com/bazelbuild/rules_pkg/releases/download/0.9.1/rules_pkg-0.9.1.tar.gz"],
+    },
+    "rules_shell": {
+        "archive": "rules_shell-v0.1.1.tar.gz",
+        "sha256": "0d0c56d01c3c40420bf7bf14d73113f8a92fbd9f5cd13205a3b89f72078f0321",
+        "strip_prefix": "rules_shell-0.1.1",
+        "urls": ["https://github.com/bazelbuild/rules_shell/releases/download/v0.1.1/rules_shell-v0.1.1.tar.gz"],
     },
     "rules_testing": {
         "archive": "rules_testing-v0.6.0.tar.gz",

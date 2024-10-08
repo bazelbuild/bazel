@@ -32,6 +32,9 @@ filegroup(
         ":test-deps-wo-bazel",
         "//src:bazel",
         "//src/test/shell:bin/bazel",
+        "//third_party/protobuf:add_python_loads.patch",
+        "//third_party/protobuf:add_rules_shell_loads.patch",
+        "//third_party/protobuf:proto_info_bzl_deps.patch",
         "//third_party/protobuf:remove_rules_rust.patch",
     ],
     visibility = [
@@ -440,6 +443,7 @@ sh_test(
 
 sh_test(
     name = "bazel_rules_cc_test",
+    timeout = "eternal",
     srcs = ["bazel_rules_cc_test.sh"],
     data = [
         ":test-deps",

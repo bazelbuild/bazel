@@ -835,6 +835,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         load('//test/starlark:extension.bzl', 'custom_rule')
 
         custom_rule(name = 'cr')
@@ -947,6 +948,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load('//test/starlark:extension.bzl', 'custom_rule')
 
         java_library(name='jl', srcs = [':A.java'])
@@ -984,6 +986,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load('//test/starlark:extension.bzl', 'custom_rule')
 
         java_library(name='jl', srcs = [':A.java'])
@@ -1022,6 +1025,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load('//test/starlark:extension.bzl', 'custom_rule')
 
         java_library(name='jl', srcs = [':A.java'])
@@ -2664,6 +2668,7 @@ public class StarlarkIntegrationTest extends BuildViewTestCase {
     scratch.file(
         "test/starlark/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load('//test/starlark:extension.bzl',  'my_rule')
         java_library(name = 'dep', srcs = ['a.java'], restricted_to = ['//buildenv/foo:other'])
         my_rule(name='my', deps = [':dep'])

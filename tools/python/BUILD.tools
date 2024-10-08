@@ -11,11 +11,7 @@
 ################################################################################
 
 load(":python_version.bzl", "define_python_version_flag")
-load(":toolchain.bzl", "define_autodetecting_toolchain")
-
-# Please do not use write_file.bzl outside of this package.
-# See https://groups.google.com/d/msg/bazel-dev/I8IvJyoyo-s/AttqDcnOCgAJ
-load(":write_file.bzl", "write_file")
+load(":define_autodetecting_toolchain.bzl", "define_autodetecting_toolchain")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -30,7 +26,6 @@ exports_files([
     "toolchain.bzl",
     "utils.bzl",
     "private/py_test_alias.bzl",
-    # write_file.bzl fortunately doesn't need to be exposed because it's only
     # used in this BUILD file.
 ])
 

@@ -155,6 +155,7 @@ public class TestConstants {
 
   public static final ImmutableList<String> PRODUCT_SPECIFIC_BUILD_LANG_OPTIONS =
       ImmutableList.of(
+          "--experimental_rule_extension_api",
           // Don't apply autoloads in unit tests, because not all repos are available
           "--incompatible_autoload_externally=");
 

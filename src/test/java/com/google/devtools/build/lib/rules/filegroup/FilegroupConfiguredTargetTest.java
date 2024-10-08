@@ -52,6 +52,7 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(name  = 'test_app',
             resources = [':data'],
             create_executable = 0,
@@ -170,6 +171,7 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
     scratch.file("pkg/c.java");
     scratch.file(
         "pkg/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name='lib_a', srcs=['a.java'])",
         "java_library(name='lib_b', srcs=['b.java'], deps = [':lib_c'])",
         "java_library(name='lib_c', srcs=['c.java'])",
@@ -189,6 +191,7 @@ public class FilegroupConfiguredTargetTest extends BuildViewTestCase {
     scratch.file("pkg/c.java");
     scratch.file(
         "pkg/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_library')",
         "java_library(name='lib_a', srcs=['a.java'])",
         "java_library(name='lib_b', srcs=['b.java'], deps = [':lib_c'])",
         "java_library(name='lib_c', srcs=['c.java'])",

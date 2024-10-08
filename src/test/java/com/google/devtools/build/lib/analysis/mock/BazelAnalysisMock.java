@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.util.BazelMockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockCcSupport;
 import com.google.devtools.build.lib.packages.util.MockGenruleSupport;
 import com.google.devtools.build.lib.packages.util.MockPlatformSupport;
+import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.packages.util.MockPythonSupport;
 import com.google.devtools.build.lib.packages.util.MockToolsConfig;
 import com.google.devtools.build.lib.rules.repository.RepositoryFunction;
@@ -217,145 +218,147 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create(
         "embedded_tools/tools/jdk/BUILD",
         """
-        load(
-            ":java_toolchain_alias.bzl",
-            "java_host_runtime_alias",
-            "java_runtime_alias",
-            "java_toolchain_alias",
-        )
-        load(":launcher_flag_alias.bzl", "launcher_flag_alias")
+load("@rules_java//java:defs.bzl",
+  "java_binary", "java_import", "java_toolchain")
+load(
+    ":java_toolchain_alias.bzl",
+    "java_host_runtime_alias",
+    "java_runtime_alias",
+    "java_toolchain_alias",
+)
+load(":launcher_flag_alias.bzl", "launcher_flag_alias")
 
-        package(default_visibility = ["//visibility:public"])
+package(default_visibility = ["//visibility:public"])
 
-        java_toolchain(
-            name = "toolchain",
-            bootclasspath = [":bootclasspath"],
-            genclass = ["GenClass_deploy.jar"],
-            header_compiler = ["turbine_deploy.jar"],
-            header_compiler_direct = ["TurbineDirect_deploy.jar"],
-            ijar = ["ijar"],
-            jacocorunner = ":JacocoCoverage",
-            java_runtime = "host_jdk",
-            javabuilder = ["JavaBuilder_deploy.jar"],
-            singlejar = ["singlejar"],
-            source_version = "8",
-            target_version = "8",
-        )
+java_toolchain(
+    name = "toolchain",
+    bootclasspath = [":bootclasspath"],
+    genclass = ["GenClass_deploy.jar"],
+    header_compiler = ["turbine_deploy.jar"],
+    header_compiler_direct = ["TurbineDirect_deploy.jar"],
+    ijar = ["ijar"],
+    jacocorunner = ":JacocoCoverage",
+    java_runtime = "host_jdk",
+    javabuilder = ["JavaBuilder_deploy.jar"],
+    singlejar = ["singlejar"],
+    source_version = "8",
+    target_version = "8",
+)
 
-        java_toolchain(
-            name = "remote_toolchain",
-            bootclasspath = [":bootclasspath"],
-            genclass = ["GenClass_deploy.jar"],
-            header_compiler = ["turbine_deploy.jar"],
-            header_compiler_direct = ["TurbineDirect_deploy.jar"],
-            ijar = ["ijar"],
-            jacocorunner = ":JacocoCoverage",
-            java_runtime = "host_jdk",
-            javabuilder = ["JavaBuilder_deploy.jar"],
-            singlejar = ["singlejar"],
-            source_version = "8",
-            target_version = "8",
-        )
+java_toolchain(
+    name = "remote_toolchain",
+    bootclasspath = [":bootclasspath"],
+    genclass = ["GenClass_deploy.jar"],
+    header_compiler = ["turbine_deploy.jar"],
+    header_compiler_direct = ["TurbineDirect_deploy.jar"],
+    ijar = ["ijar"],
+    jacocorunner = ":JacocoCoverage",
+    java_runtime = "host_jdk",
+    javabuilder = ["JavaBuilder_deploy.jar"],
+    singlejar = ["singlejar"],
+    source_version = "8",
+    target_version = "8",
+)
 
-        java_import(
-            name = "JacocoCoverageRunner",
-            jars = ["JacocoCoverage_jarjar_deploy.jar"],
-        )
+java_import(
+    name = "JacocoCoverageRunner",
+    jars = ["JacocoCoverage_jarjar_deploy.jar"],
+)
 
-        java_import(
-            name = "proguard_import",
-            jars = ["proguard_rt.jar"],
-        )
+java_import(
+    name = "proguard_import",
+    jars = ["proguard_rt.jar"],
+)
 
-        java_binary(
-            name = "proguard",
-            main_class = "proguard.Proguard",
-            runtime_deps = [":proguard_import"],
-        )
+java_binary(
+    name = "proguard",
+    main_class = "proguard.Proguard",
+    runtime_deps = [":proguard_import"],
+)
 
-        java_import(
-            name = "TestRunner",
-            jars = ["TestRunner.jar"],
-        )
+java_import(
+    name = "TestRunner",
+    jars = ["TestRunner.jar"],
+)
 
-        java_runtime(
-            name = "jdk",
-            srcs = [],
-        )
+java_runtime(
+    name = "jdk",
+    srcs = [],
+)
 
-        java_runtime(
-            name = "host_jdk",
-            srcs = [],
-        )
+java_runtime(
+    name = "host_jdk",
+    srcs = [],
+)
 
-        java_runtime(
-            name = "remote_jdk11",
-            srcs = [],
-        )
+java_runtime(
+    name = "remote_jdk11",
+    srcs = [],
+)
 
-        java_toolchain_alias(name = "current_java_toolchain")
+java_toolchain_alias(name = "current_java_toolchain")
 
-        java_runtime_alias(name = "current_java_runtime")
+java_runtime_alias(name = "current_java_runtime")
 
-        java_host_runtime_alias(name = "current_host_java_runtime")
+java_host_runtime_alias(name = "current_host_java_runtime")
 
-        filegroup(
-            name = "bootclasspath",
-            srcs = ["jdk/jre/lib/rt.jar"],
-        )
+filegroup(
+    name = "bootclasspath",
+    srcs = ["jdk/jre/lib/rt.jar"],
+)
 
-        filegroup(
-            name = "extdir",
-            srcs = glob(
-                ["jdk/jre/lib/ext/*"],
-                allow_empty = True,
-            ),
-        )
+filegroup(
+    name = "extdir",
+    srcs = glob(
+        ["jdk/jre/lib/ext/*"],
+        allow_empty = True,
+    ),
+)
 
-        filegroup(
-            name = "java",
-            srcs = ["jdk/jre/bin/java"],
-        )
+filegroup(
+    name = "java",
+    srcs = ["jdk/jre/bin/java"],
+)
 
-        filegroup(
-            name = "JacocoCoverage",
-            srcs = ["JacocoCoverage_deploy.jar"],
-        )
+filegroup(
+    name = "JacocoCoverage",
+    srcs = ["JacocoCoverage_deploy.jar"],
+)
 
-        exports_files([
-            "JavaBuilder_deploy.jar",
-            "singlejar",
-            "TestRunner_deploy.jar",
-            "ijar",
-            "GenClass_deploy.jar",
-            "turbine_deploy.jar",
-            "TurbineDirect_deploy.jar",
-            "proguard_allowlister.par",
-        ])
+exports_files([
+    "JavaBuilder_deploy.jar",
+    "singlejar",
+    "TestRunner_deploy.jar",
+    "ijar",
+    "GenClass_deploy.jar",
+    "turbine_deploy.jar",
+    "TurbineDirect_deploy.jar",
+    "proguard_allowlister.par",
+])
 
-        toolchain_type(name = "toolchain_type")
+toolchain_type(name = "toolchain_type")
 
-        toolchain_type(name = "runtime_toolchain_type")
+toolchain_type(name = "runtime_toolchain_type")
 
-        toolchain(
-            name = "dummy_java_toolchain",
-            toolchain = ":toolchain",
-            toolchain_type = ":toolchain_type",
-        )
+toolchain(
+    name = "dummy_java_toolchain",
+    toolchain = ":toolchain",
+    toolchain_type = ":toolchain_type",
+)
 
-        toolchain(
-            name = "dummy_java_runtime_toolchain",
-            toolchain = ":jdk",
-            toolchain_type = ":runtime_toolchain_type",
-        )
+toolchain(
+    name = "dummy_java_runtime_toolchain",
+    toolchain = ":jdk",
+    toolchain_type = ":runtime_toolchain_type",
+)
 
-        java_plugins_flag_alias(name = "java_plugins_flag_alias")
+java_plugins_flag_alias(name = "java_plugins_flag_alias")
 
-        launcher_flag_alias(
-            name = "launcher_flag_alias",
-            visibility = ["//visibility:public"],
-        )
-        """);
+launcher_flag_alias(
+    name = "launcher_flag_alias",
+    visibility = ["//visibility:public"],
+)
+""");
 
     config.create(
         TestConstants.CONSTRAINTS_PATH + "/android/BUILD",
@@ -372,19 +375,14 @@ public final class BazelAnalysisMock extends AnalysisMock {
     // Create the actual SDKs.
     config.create(
         "embedded_tools/src/tools/android/java/com/google/devtools/build/android/r8/BUILD",
-        "java_library(name='r8')\n");
+        """
+        filegroup(name='r8', srcs = [])
+        """);
     config.create(
         "android_gmaven_r8/jar/BUILD",
         """
-        java_import(
-            name = "jar",
-            jars = ["r8.jar"],
-        )
-
-        filegroup(
-            name = "file",
-            srcs = [],
-        )
+        filegroup(name = "jar", srcs = ["r8.jar"])
+        filegroup(name = "file", srcs = [])
         """);
     config.create("android_gmaven_r8/WORKSPACE");
 
@@ -686,7 +684,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
             packages = ["public"],
         )
         """);
-
+    MockProtoSupport.setupWorkspace(config);
     MockPlatformSupport.setup(config);
     ccSupport().setup(config);
     javaSupport().setupRulesJava(config, runfiles::rlocation);

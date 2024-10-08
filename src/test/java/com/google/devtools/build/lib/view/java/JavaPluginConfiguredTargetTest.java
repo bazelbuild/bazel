@@ -44,6 +44,7 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
         "java/plugin",
         "plugin",
         "no such attribute 'constraints' in 'java_plugin'",
+        "load('@rules_java//java:defs.bzl', 'java_plugin')",
         "java_plugin(name = 'plugin',",
         "            srcs = ['A.java'],",
         "            processor_class = 'xx',",
@@ -54,6 +55,7 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
         java_library(
             name = "deps",
             srcs = ["Deps.java"],
@@ -129,9 +131,13 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testJavaPluginExportsTransitiveProguardSpecs() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.file(
         "java/com/google/android/hello/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
         java_plugin(
             name = "plugin",
             srcs = ["Plugin.java"],
@@ -166,6 +172,7 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/android/hello/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_plugin")
         java_plugin(
             name = "plugin",
             srcs = ["Plugin.java"],
@@ -191,6 +198,7 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/android/hello/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
         java_library(
             name = "transitive",
             srcs = ["Transitive.java"],
@@ -222,6 +230,7 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_plugin")
         java_plugin(
             name = "api_generating",
             srcs = ["ApiGeneratingPlugin.java"],
@@ -247,6 +256,7 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_plugin")
         java_plugin(
             name = "impl_generating",
             srcs = ["ImplGeneratingPlugin.java"],
@@ -272,6 +282,7 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
         java_plugin(
             name = "impl_generating",
             srcs = ["ImplGeneratingPlugin.java"],

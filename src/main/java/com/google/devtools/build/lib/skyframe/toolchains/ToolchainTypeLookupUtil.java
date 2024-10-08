@@ -14,10 +14,15 @@
 
 package com.google.devtools.build.lib.skyframe.toolchains;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.ActionConflictException;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.ConfiguredTargetValue;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.ToolchainTypeRequirement;
 import com.google.devtools.build.lib.analysis.platform.PlatformProviderUtils;
 import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -36,8 +41,22 @@ public class ToolchainTypeLookupUtil {
 
   @Nullable
   public static ImmutableMap<Label, ToolchainTypeInfo> resolveToolchainTypes(
-      Environment env, Iterable<ConfiguredTargetKey> toolchainTypeKeys)
+      Environment env,
+      ImmutableSet<ToolchainTypeRequirement> toolchainTypes,
+      BuildConfigurationValue configuration)
       throws InterruptedException, InvalidToolchainTypeException {
+
+    ImmutableSet<ConfiguredTargetKey> toolchainTypeKeys =
+        toolchainTypes.stream()
+            .map(ToolchainTypeRequirement::toolchainType)
+            .map(
+                label ->
+                    ConfiguredTargetKey.builder()
+                        .setLabel(label)
+                        .setConfiguration(configuration)
+                        .build())
+            .collect(toImmutableSet());
+
     SkyframeLookupResult values = env.getValuesAndExceptions(toolchainTypeKeys);
     boolean valuesMissing = env.valuesMissing();
     Map<Label, ToolchainTypeInfo> results = valuesMissing ? null : new HashMap<>();

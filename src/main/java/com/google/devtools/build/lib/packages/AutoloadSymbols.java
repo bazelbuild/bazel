@@ -24,6 +24,8 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleKey;
+import com.google.devtools.build.lib.bazel.bzlmod.Version;
+import com.google.devtools.build.lib.bazel.bzlmod.Version.ParseException;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -389,6 +391,7 @@ public class AutoloadSymbols {
       throws InterruptedException {
 
     final RepoContext repoContext;
+    ImmutableMap<String, ModuleKey> highestVersions = ImmutableMap.of();
     if (bzlmodEnabled) {
       BazelDepGraphValue bazelDepGraphValue =
           (BazelDepGraphValue) env.getValue(BazelDepGraphValue.KEY);
@@ -396,7 +399,7 @@ public class AutoloadSymbols {
         return null;
       }
 
-      ImmutableMap<String, ModuleKey> highestVersions =
+      highestVersions =
           bazelDepGraphValue.getCanonicalRepoNameLookup().values().stream()
               .collect(
                   toImmutableMap(
@@ -435,6 +438,25 @@ public class AutoloadSymbols {
         ImmutableMap.builderWithExpectedSize(autoloadedSymbols.size());
     ImmutableSet.Builder<String> missingRepositories = ImmutableSet.builder();
     for (String symbol : autoloadedSymbols) {
+      if (symbol.equals("proto_common_do_not_use")) {
+        // Special case that is not autoloaded, just removed
+        continue;
+      }
+
+      String requiredModule = AUTOLOAD_CONFIG.get(symbol).getModuleName();
+      // Skip if version doesn't have the rules
+      if (highestVersions.containsKey(requiredModule)
+          && requiredVersions.containsKey(requiredModule)) {
+        if (highestVersions
+                .get(requiredModule)
+                .version()
+                .compareTo(requiredVersions.get(requiredModule))
+            <= 0) {
+          missingRepositories.add(requiredModule);
+          continue;
+        }
+      }
+
       Label label = AUTOLOAD_CONFIG.get(symbol).getLabel(repoContext);
       // Only load if the dependency is present
       if (label.getRepository().isVisible()) {
@@ -537,6 +559,10 @@ public class AutoloadSymbols {
 
     public abstract ImmutableSet<String> getRdeps();
 
+    String getModuleName() throws InterruptedException {
+      return Label.parseCanonicalUnchecked(getLoadLabel()).getRepository().getName();
+    }
+
     Label getLabel(RepoContext repoContext) throws InterruptedException {
       try {
         return Label.parseWithRepoContext(getLoadLabel(), repoContext);
@@ -579,11 +605,24 @@ public class AutoloadSymbols {
           "rules_java_builtin",
           "rules_python",
           "rules_python_internal",
-          "rules_sh",
+          "rules_shell",
           "apple_common",
           "bazel_skylib",
           "bazel_tools",
           "bazel_features");
+
+  private static final ImmutableMap<String, Version> requiredVersions;
+
+  static {
+    try {
+      requiredVersions =
+          ImmutableMap.of(
+              "protobuf", Version.parse("29.0-rc1"), //
+              "rules_android", Version.parse("0.6.0-rc1"));
+    } catch (ParseException e) {
+      throw new IllegalStateException(e);
+    }
+  }
 
   private static final ImmutableMap<String, SymbolRedirect> AUTOLOAD_CONFIG =
       ImmutableMap.<String, SymbolRedirect>builder()
@@ -610,8 +649,7 @@ public class AutoloadSymbols {
                   "proto_lang_toolchain",
                   "java_binary",
                   "proto_common_do_not_use"))
-          .put(
-              "proto_common_do_not_use", symbolRedirect("@protobuf//bazel/common:proto_common.bzl"))
+          .put("proto_common_do_not_use", symbolRedirect(""))
           .put("cc_common", symbolRedirect("@rules_cc//cc/common:cc_common.bzl"))
           .put(
               "CcInfo",
@@ -750,9 +788,9 @@ public class AutoloadSymbols {
           .put("py_library", ruleRedirect("@rules_python//python:py_library.bzl"))
           .put("py_runtime", ruleRedirect("@rules_python//python:py_runtime.bzl"))
           .put("py_test", ruleRedirect("@rules_python//python:py_test.bzl"))
-          .put("sh_binary", ruleRedirect("@rules_sh//sh:sh_binary.bzl"))
-          .put("sh_library", ruleRedirect("@rules_sh//sh:sh_library.bzl"))
-          .put("sh_test", ruleRedirect("@rules_sh//sh:sh_test.bzl"))
+          .put("sh_binary", ruleRedirect("@rules_shell//shell:sh_binary.bzl"))
+          .put("sh_library", ruleRedirect("@rules_shell//shell:sh_library.bzl"))
+          .put("sh_test", ruleRedirect("@rules_shell//shell:sh_test.bzl"))
           .put("available_xcodes", ruleRedirect("@apple_support//xcode:available_xcodes.bzl"))
           .put("xcode_config", ruleRedirect("@apple_support//xcode:xcode_config.bzl"))
           .put("xcode_config_alias", ruleRedirect("@apple_support//xcode:xcode_config_alias.bzl"))

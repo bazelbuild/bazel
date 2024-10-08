@@ -23,7 +23,7 @@ java_library(
         "@rules_cc//cc:srcs",
         "@rules_cc//cc/common:srcs",
         "@rules_cc//cc/toolchains:srcs",
-        "@rules_java//java:rules",
+        "@rules_java//java:for_bazel_tests",
         "@rules_java//toolchains:srcs",
         "@rules_python//python:defs_bzl",
     ],

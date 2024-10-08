@@ -47,7 +47,7 @@ public final class SharedValueSerializationContextTest {
     private final ArrayList<SettableFuture<Void>> putResponses = new ArrayList<>();
 
     @Override
-    public ListenableFuture<Void> put(PackedFingerprint fingerprint, byte[] serializedBytes) {
+    public ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
       var response = SettableFuture.<Void>create();
       synchronized (putResponses) {
         putResponses.add(response);
@@ -56,7 +56,7 @@ public final class SharedValueSerializationContextTest {
     }
 
     @Override
-    public ListenableFuture<byte[]> get(PackedFingerprint fingerprint) {
+    public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
       throw new UnsupportedOperationException();
     }
 
@@ -208,7 +208,7 @@ public final class SharedValueSerializationContextTest {
     var blockingStore =
         new FingerprintValueStore() {
           @Override
-          public ListenableFuture<Void> put(PackedFingerprint fingerprint, byte[] serializedBytes) {
+          public ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
             var response = SettableFuture.<Void>create();
             synchronized (putResponses) {
               putResponses.add(response);
@@ -225,7 +225,7 @@ public final class SharedValueSerializationContextTest {
           }
 
           @Override
-          public ListenableFuture<byte[]> get(PackedFingerprint fingerprint) {
+          public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
             throw new UnsupportedOperationException();
           }
         };

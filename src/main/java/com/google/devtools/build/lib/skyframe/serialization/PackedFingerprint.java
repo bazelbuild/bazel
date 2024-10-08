@@ -36,7 +36,7 @@ import java.nio.ByteOrder;
  * @param lo the lower 64-bits of the fingerprint
  * @param hi the upper 64-bits of the fingerprint
  */
-public record PackedFingerprint(long lo, long hi) {
+public record PackedFingerprint(long lo, long hi) implements KeyBytesProvider {
   @VisibleForTesting static final int BYTES = 16;
 
   /**
@@ -75,6 +75,7 @@ public record PackedFingerprint(long lo, long hi) {
   }
 
   /** Produces the {@code byte[]} representation of this fingerprint. */
+  @Override
   public byte[] toBytes() {
     byte[] result = new byte[BYTES];
     copyTo(result, 0);
@@ -82,6 +83,7 @@ public record PackedFingerprint(long lo, long hi) {
   }
 
   /** Concatenates {@code bytes} to the {@code byte[]} representation of this fingerprint. */
+  @Override
   public byte[] concat(byte[] bytes) {
     byte[] result = new byte[BYTES + bytes.length];
     copyTo(result, 0);

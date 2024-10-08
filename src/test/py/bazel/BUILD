@@ -54,6 +54,7 @@ gen_workspace_stanza(
         "rules_license",
         "rules_cc",
         "rules_python",
+        "rules_shell",
     ],
 )
 
@@ -150,6 +151,8 @@ py_test(
         "//src/conditions:windows": "windows_remote_test.py",
         "//conditions:default": "empty_test.py",
     }),
+    # TODO - ilist@: fix the setup of rules_shell for this test
+    tags = ["manual"],
     deps = select({
         "//src/conditions:windows": [":test_base"],
         "//conditions:default": [],

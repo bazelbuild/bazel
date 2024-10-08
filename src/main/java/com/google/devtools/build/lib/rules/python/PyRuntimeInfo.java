@@ -49,13 +49,6 @@ public final class PyRuntimeInfo {
   private static final BuiltinProvider BUILTIN_PROVIDER = new BuiltinProvider();
   private static final RulesPythonProvider RULES_PYTHON_PROVIDER = new RulesPythonProvider();
 
-  // Only present so PyRuntimeRule can reference it as a default.
-  static final String DEFAULT_STUB_SHEBANG = "#!/usr/bin/env python3";
-
-  // Only present so PyRuntimeRule can reference it as a default.
-  // Must call getToolsLabel() when using this.
-  static final String DEFAULT_BOOTSTRAP_TEMPLATE = "//tools/python:python_bootstrap_template.txt";
-
   private final StarlarkInfo info;
 
   private PyRuntimeInfo(StarlarkInfo info) {

@@ -122,6 +122,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_import")
         package(features = ['-f1', 'f2', 'f3'])
         genrule(name = 'foo',
           cmd = 'dummy_cmd',
@@ -162,6 +163,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load('//test:macros.bzl', 'macro_native_rule', 'macro_starlark_rule', 'starlark_rule')
         macro_native_rule(name = 'm_native',
           deps = [':jlib'])
@@ -211,7 +213,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     setUpAttributeErrorTest();
     assertThrows(Exception.class, () -> createRuleContext("//test:m_starlark"));
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:4:20: in deps attribute of starlark_rule rule "
+        "ERROR /workspace/test/BUILD:5:20: in deps attribute of starlark_rule rule "
             + "//test:m_starlark: '//test:jlib' does not have mandatory providers:"
             + " 'some_provider'. "
             + "Since this rule was created by the macro 'macro_starlark_rule', the error might "
@@ -233,7 +235,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     setUpAttributeErrorTest();
     assertThrows(Exception.class, () -> createRuleContext("//test:skyrule"));
     assertContainsEvent(
-        "ERROR /workspace/test/BUILD:10:14: in deps attribute of "
+        "ERROR /workspace/test/BUILD:11:14: in deps attribute of "
             + "starlark_rule rule //test:skyrule: '//test:jlib' does not have mandatory providers: "
             + "'some_provider'");
   }
@@ -2117,6 +2119,7 @@ public final class StarlarkRuleContextTest extends BuildViewTestCase {
     scratch.file(
         "bar/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         load(':rules.bzl', 'forward_default_info')
         java_library(
             name = 'lib',

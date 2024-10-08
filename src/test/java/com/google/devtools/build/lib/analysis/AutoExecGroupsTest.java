@@ -83,6 +83,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "rule/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_runtime")
         exports_files(["test_toolchain/bzl"])
 
         toolchain_type(name = "toolchain_type_1")
@@ -1196,6 +1197,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/optimizationtest/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = "optimizer",
             srcs = ["Foo.java"],
@@ -1205,6 +1207,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         """);
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_java//java:defs.bzl', 'java_common')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1249,6 +1252,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "java/com/google/optimizationtest/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_binary")
         java_binary(
             name = "optimizer",
             srcs = ["Foo.java"],
@@ -1258,6 +1262,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         """);
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_java//java:defs.bzl', 'java_common')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1298,6 +1303,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_java//java:defs.bzl', 'java_common')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1333,6 +1339,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_java//java:defs.bzl', 'java_common')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1368,6 +1375,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_java//java:defs.bzl', 'java_common')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1391,6 +1399,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_plugin")
         load("//test:defs.bzl", "custom_rule")
 
         java_plugin(
@@ -1423,6 +1432,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_java//java:defs.bzl', 'java_common')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1446,6 +1456,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "test/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_plugin")
         load("//test:defs.bzl", "custom_rule")
 
         java_plugin(
@@ -1478,6 +1489,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_java//java:defs.bzl', 'java_common')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1521,6 +1533,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_java//java:defs.bzl', 'java_common')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1565,6 +1578,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
           throws Exception {
     scratch.file(
         "bazel_internal/test_rules/defs.bzl",
+        "load('@rules_java//java:defs.bzl', 'java_common')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1613,6 +1627,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
           throws Exception {
     scratch.file(
         "bazel_internal/test_rules/defs.bzl",
+        "load('@rules_java//java:defs.bzl', 'java_common')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  java_info = java_common.compile(",
@@ -1660,6 +1675,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_java//java:defs.bzl', 'java_common')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  ctx.actions.run(",
@@ -1702,6 +1718,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_java//java:defs.bzl', 'java_common')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  source_jar = java_common.pack_sources(",
@@ -1739,6 +1756,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
       throws Exception {
     scratch.file(
         "test/defs.bzl",
+        "load('@rules_java//java:defs.bzl', 'java_common')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib_' + ctx.label.name + '.jar')",
         "  ctx.actions.run(",
@@ -2416,6 +2434,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/jdk/tzdata.jar");
     scratch.overwriteFile(
         TestConstants.TOOLS_REPOSITORY_SCRATCH + "tools/jdk/BUILD",
+        "load('@rules_java//java:defs.bzl', 'java_runtime',"
+            + " 'java_toolchain')",
         "load(",
         "    ':java_toolchain_alias.bzl',",
         "    'java_toolchain_alias',",
@@ -2464,6 +2484,8 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
         ")");
     scratch.file(
         "foo/custom_rule.bzl",
+        "load('@rules_java//java:defs.bzl', 'java_common', 'JavaInfo',"
+            + " 'JavaPluginInfo')",
         "def _impl(ctx):",
         "  output_jar = ctx.actions.declare_file('lib' + ctx.label.name + '.jar')",
         "  compilation_provider = java_common.compile(",
@@ -2492,6 +2514,7 @@ public class AutoExecGroupsTest extends BuildViewTestCase {
     scratch.file(
         "foo/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library", "java_plugin")
         load(":custom_rule.bzl", "java_custom_library")
 
         java_plugin(

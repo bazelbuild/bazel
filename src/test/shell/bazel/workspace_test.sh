@@ -73,7 +73,7 @@ function test_path_with_spaces() {
   cd "$ws"
   touch WORKSPACE
 
-  bazel info &> $TEST_log && fail "Info succeeeded"
+  bazel info &> $TEST_log || fail "Info failed"
   bazel help &> $TEST_log || fail "Help failed"
 }
 

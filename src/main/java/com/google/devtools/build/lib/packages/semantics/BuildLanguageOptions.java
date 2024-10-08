@@ -486,9 +486,13 @@ public final class BuildLanguageOptions extends OptionsBase {
               + "https://github.com/bazelbuild/bazel/issues/9014 for details.")
   public boolean incompatibleDisableTargetDefaultProviderFields;
 
+  // DO NOT inline this constant: it's used by copybara to alter the default value. It's different
+  // in Google and in OSS Bazel.
+  private static final String DISALLOW_EMPTY_GLOB_DEFAULT = "true";
+
   @Option(
       name = "incompatible_disallow_empty_glob",
-      defaultValue = "false",
+      defaultValue = DISALLOW_EMPTY_GLOB_DEFAULT,
       category = "incompatible changes",
       documentationCategory = OptionDocumentationCategory.STARLARK_SEMANTICS,
       effectTags = {OptionEffectTag.BUILD_FILE_SEMANTICS},
@@ -759,7 +763,7 @@ public final class BuildLanguageOptions extends OptionsBase {
 
   @Option(
       name = "experimental_rule_extension_api",
-      defaultValue = "false",
+      defaultValue = FlagConstants.DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API,
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
       metadataTags = {OptionMetadataTag.EXPERIMENTAL},
@@ -976,7 +980,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "+incompatible_depset_for_libraries_to_link_getter";
   public static final String INCOMPATIBLE_DISABLE_TARGET_PROVIDER_FIELDS =
       "-incompatible_disable_target_provider_fields";
-  public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "-incompatible_disallow_empty_glob";
+  // Note that INCOMPATIBLE_DISALLOW_EMPTY_GLOB differs in Google and in OSS Bazel.
+  public static final String INCOMPATIBLE_DISALLOW_EMPTY_GLOB = "+incompatible_disallow_empty_glob";
   public static final String INCOMPATIBLE_DISALLOW_STRUCT_PROVIDER_SYNTAX =
       "+incompatible_disallow_struct_provider_syntax";
   public static final String INCOMPATIBLE_PACKAGE_GROUP_HAS_PUBLIC_SYNTAX =
@@ -1021,7 +1026,8 @@ public final class BuildLanguageOptions extends OptionsBase {
       "-incompatible_disable_non_executable_java_binary";
   public static final String INCOMPATIBLE_DISABLE_TARGET_DEFAULT_PROVIDER_FIELDS =
       "-incompatible_disable_target_default_provider_fields";
-  public static final String EXPERIMENTAL_RULE_EXTENSION_API = "-experimental_rule_extension_api";
+  public static final String EXPERIMENTAL_RULE_EXTENSION_API =
+      FlagConstants.DEFAULT_EXPERIMENTAL_RULE_EXTENSION_API_NAME;
   public static final String EXPERIMENTAL_DORMANT_DEPS = "-experimental_dormant_deps";
   public static final String INCOMPATIBLE_ENABLE_DEPRECATED_LABEL_APIS =
       "+incompatible_enable_deprecated_label_apis";

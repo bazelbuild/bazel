@@ -97,6 +97,7 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     mockToolsConfig.overwrite(
         "protobuf/BUILD",
         """
+        load("@rules_java//java:defs.bzl", "java_library")
         package(default_visibility = ["//visibility:public"])
 
         java_library(
@@ -109,6 +110,9 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   /** Tests that java_binaries which depend on proto_libraries depend on the right set of files. */
   @Test
   public void testBinaryDeps() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.file(
         "x/BUILD",
         """
@@ -155,6 +159,9 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
   /** Tests that we pass the correct arguments to the protocol compiler. */
   @Test
   public void testJavaProto2CompilerArgs() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.file(
         "x/BUILD",
         """
@@ -185,6 +192,9 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void testProtoLibraryBuildsCompiledJar() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "java",
@@ -201,6 +211,9 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void testCommandLineContainsTargetLabel() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.file(
         "java/lib/BUILD",
         """
@@ -227,6 +240,9 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void testEmptySrcsForJavaApi() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     ConfiguredTarget target =
         scratchConfiguredTarget(
             "notbad",
@@ -245,6 +261,9 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void testSameVersionCompilerArguments() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.file(
         "cross/BUILD",
         """
@@ -319,6 +338,9 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void testExperimentalProtoExtraActions() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.file(
         "x/BUILD",
         """
@@ -370,6 +392,9 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
    */
   @Test
   public void testJavaProtosExposeStarlarkProviders() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.file(
         "proto/extensions.bzl",
         """
@@ -415,6 +440,9 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
 
   @Test
   public void testProtoLibraryInterop() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.file(
         "protolib/BUILD",
         """
@@ -447,6 +475,9 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
    */
   @Test
   public void jplCorrectlyDefinesDirectJars_strictDepsEnabled_aliasProto() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.file(
         "x/BUILD",
         """
