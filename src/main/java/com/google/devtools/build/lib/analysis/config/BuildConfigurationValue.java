@@ -471,16 +471,6 @@ public class BuildConfigurationValue
     return outputDirectories.getHostPathSeparator();
   }
 
-  /**
-   * Returns the internal directory (used for middlemen) for this build configuration.
-   *
-   * @deprecated Use {@code RuleContext#getMiddlemanDirectory} instead whenever possible.
-   */
-  @Deprecated
-  public ArtifactRoot getMiddlemanDirectory(RepositoryName repositoryName) {
-    return outputDirectories.getMiddlemanDirectory(repositoryName);
-  }
-
   public boolean isStrictFilesets() {
     return options.strictFilesets;
   }
@@ -686,10 +676,6 @@ public class BuildConfigurationValue
   /** Returns true if we are building runfile links for this configuration. */
   public boolean buildRunfileLinks() {
     return options.buildRunfileManifests && options.buildRunfileLinks;
-  }
-
-  public boolean correctRunfilesMiddlemanPaths() {
-    return options.correctRunfilesMiddlemanPaths;
   }
 
   /** Returns if we are building external runfiles symlinks using the old-style structure. */

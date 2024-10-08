@@ -105,7 +105,6 @@ java_library(
         "LostInputsExecException.java",
         "MapBasedActionGraph.java",
         "MiddlemanAction.java",
-        "MiddlemanFactory.java",
         "MissingDepExecException.java",
         "MissingInputFileException.java",
         "MutableActionGraph.java",

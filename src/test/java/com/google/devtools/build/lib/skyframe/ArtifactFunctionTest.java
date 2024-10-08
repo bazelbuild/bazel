@@ -138,7 +138,7 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
 
   @Test
   public void testMiddlemanArtifact() throws Throwable {
-    DerivedArtifact output = createMiddlemanArtifact("output");
+    DerivedArtifact output = createRunfilesArtifact("output");
     Artifact input1 = createSourceArtifact("input1");
     Artifact input2 = createDerivedArtifact("input2");
     SpecialArtifact tree = createDerivedTreeArtifactWithAction("treeArtifact");
@@ -344,11 +344,13 @@ public class ArtifactFunctionTest extends ArtifactFunctionTestCase {
     return output;
   }
 
-  private DerivedArtifact createMiddlemanArtifact(String path) {
-    ArtifactRoot middlemanRoot =
-        ArtifactRoot.asDerivedRoot(middlemanPath, RootType.Middleman, PathFragment.create("out"));
-    return DerivedArtifact.create(
-        middlemanRoot, middlemanRoot.getExecPath().getRelative(path), ALL_OWNER);
+  private SpecialArtifact createRunfilesArtifact(String path) {
+    PathFragment execPath = PathFragment.create("out").getRelative(path);
+    return SpecialArtifact.create(
+        ArtifactRoot.asDerivedRoot(root, RootType.Output, "out"),
+        execPath,
+        ALL_OWNER,
+        SpecialArtifactType.RUNFILES);
   }
 
   private SpecialArtifact createDerivedTreeArtifactWithAction(String path) {
