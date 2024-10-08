@@ -26,7 +26,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.CommandLine;
 import com.google.devtools.build.lib.actions.MiddlemanAction;
-import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.RunfilesTree;
 import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.actions.ActionConstructionContext;
@@ -490,20 +489,13 @@ public final class RunfilesSupport {
     }
 
     NestedSet<Artifact> contents = contentsBuilder.build();
-    MiddlemanFactory middlemanFactory = context.getAnalysisEnvironment().getMiddlemanFactory();
-    Artifact middleman;
-    if (context.getConfiguration().correctRunfilesMiddlemanPaths()) {
-      ArtifactRoot root = owningExecutable.getRoot();
-      PathFragment executableRootRelativePath = owningExecutable.getRootRelativePath();
-      PathFragment runfilesRootRelativePath =
-          executableRootRelativePath.replaceName(
-              executableRootRelativePath.getBaseName() + RUNFILES_DIR_EXT);
-      middleman = middlemanFactory.createRunfilesMiddlemanNew(runfilesRootRelativePath, root);
-    } else {
-      middleman =
-          middlemanFactory.createRunfilesMiddlemanLegacy(
-              context.getActionOwner(), owningExecutable, context.getMiddlemanDirectory());
-    }
+    ArtifactRoot root = owningExecutable.getRoot();
+    PathFragment executableRootRelativePath = owningExecutable.getRootRelativePath();
+    PathFragment runfilesRootRelativePath =
+        executableRootRelativePath.replaceName(
+            executableRootRelativePath.getBaseName() + RUNFILES_DIR_EXT);
+    Artifact middleman =
+        context.getAnalysisEnvironment().getRunfilesArtifact(runfilesRootRelativePath, root);
 
     MiddlemanAction middlemanAction =
         new MiddlemanAction(
