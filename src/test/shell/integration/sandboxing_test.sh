@@ -961,6 +961,18 @@ EOF
         || fail "Expected build to succeed"
 }
 
+function test_hermetic_tmp_with_tmpdir_under_tmp() {
+  mkdir pkg
+  cat >pkg/BUILD <<EOF
+genrule(name = "pkg", outs = ["pkg.out"], cmd = "echo >\$@")
+EOF
+  mkdir /tmp/my_tmpdir
+  TMPDIR=/tmp/my_tmpdir \
+    bazel build --incompatible_sandbox_hermetic_tmp \
+     //pkg >"${TEST_log}" 2>&1 \
+        || fail "Expected build to succeed"
+}
+
 function test_runfiles_from_tests_get_reused_and_tmp_clean() {
   do_test_runfiles_from_tests_get_reused_and_tmp_clean \
     "--noexperimental_inmemory_sandbox_stashes"
