@@ -160,7 +160,6 @@ public class OptionsParser implements OptionsParsingResult {
   public static final class Builder {
     private final OptionsParserImpl.Builder implBuilder;
     private boolean allowResidue = true;
-    private boolean ignoreUserOptions = false;
 
     private Builder(OptionsParserImpl.Builder implBuilder) {
       this.implBuilder = implBuilder;
@@ -233,13 +232,6 @@ public class OptionsParser implements OptionsParsingResult {
       return this;
     }
 
-    /** Sets whether the parser should ignore user options. If true, returns no user options. */
-    @CanIgnoreReturnValue
-    public Builder ignoreUserOptions() {
-      this.ignoreUserOptions = true;
-      return this;
-    }
-
     /** Sets the string the parser should look for as an identifier for flag aliases. */
     @CanIgnoreReturnValue
     public Builder withAliasFlag(@Nullable String aliasFlag) {
@@ -264,7 +256,7 @@ public class OptionsParser implements OptionsParsingResult {
 
     /** Returns a new {@link OptionsParser}. */
     public OptionsParser build() {
-      return new OptionsParser(implBuilder.build(), allowResidue, ignoreUserOptions);
+      return new OptionsParser(implBuilder.build(), allowResidue);
     }
   }
 
@@ -281,16 +273,13 @@ public class OptionsParser implements OptionsParsingResult {
   private final List<String> residue = new ArrayList<>();
   private final List<String> postDoubleDashResidue = new ArrayList<>();
   private final boolean allowResidue;
-  private final boolean ignoreUserOptions;
-
   private ImmutableSortedMap<String, Object> starlarkOptions = ImmutableSortedMap.of();
   private final Map<String, String> aliases = new HashMap<>();
   private boolean success = true;
 
-  private OptionsParser(OptionsParserImpl impl, boolean allowResidue, boolean ignoreUserOptions) {
+  private OptionsParser(OptionsParserImpl impl, boolean allowResidue) {
     this.impl = impl;
     this.allowResidue = allowResidue;
-    this.ignoreUserOptions = ignoreUserOptions;
   }
 
   public Object getConversionContext() {
@@ -873,33 +862,6 @@ public class OptionsParser implements OptionsParsingResult {
   @Override
   public List<String> canonicalize() {
     return impl.asCanonicalizedList();
-  }
-
-  @Override
-  public ImmutableSet<String> getUserOptions() {
-    if (ignoreUserOptions) {
-      return ImmutableSet.of();
-    }
-    ImmutableSet.Builder<String> userOptions = ImmutableSet.builder();
-
-    return userOptions
-        .addAll(
-            asListOfExplicitOptions().stream()
-                .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
-                .filter(option -> !option.getCanonicalForm().contains("default_override"))
-                .map(option -> option.getCanonicalForm())
-                .collect(toImmutableSet()))
-        .addAll(
-            impl.getSkippedOptions().stream()
-                .filter(GlobalRcUtils.IS_GLOBAL_RC_OPTION.negate())
-                .map(option -> option.getUnconvertedValue())
-                .filter(
-                    o ->
-                        getStarlarkOptions()
-                            .containsKey(
-                                Iterables.get(Splitter.on('=').split(o.replace("--", "")), 0)))
-                .collect(toImmutableSet()))
-        .build();
   }
 
   /** Returns all options fields of the given options class, in alphabetic order. */

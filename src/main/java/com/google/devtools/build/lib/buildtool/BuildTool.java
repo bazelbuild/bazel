@@ -236,8 +236,7 @@ public class BuildTool {
       env.setWorkspaceName(targetPatternPhaseValue.getWorkspaceName());
 
       ProjectEvaluationResult projectEvaluationResult =
-          evaluateProjectFile(
-              request, buildOptions, request.getUserOptions(), targetPatternPhaseValue, env);
+          evaluateProjectFile(request, buildOptions, targetPatternPhaseValue, env);
 
       var analysisCachingDeps =
           RemoteAnalysisCachingDependenciesProviderImpl.forAnalysis(
@@ -1075,7 +1074,6 @@ public class BuildTool {
   /** Creates a BuildOptions class for the given options taken from an {@link OptionsProvider}. */
   public static BuildOptions applySclConfigs(
       BuildOptions buildOptionsBeforeFlagSets,
-      ImmutableSet<String> userOptions,
       Label projectFile,
       boolean enforceCanonicalConfigs,
       SkyframeExecutor skyframeExecutor,
@@ -1086,7 +1084,6 @@ public class BuildTool {
         Project.modifyBuildOptionsWithFlagSets(
             projectFile,
             buildOptionsBeforeFlagSets,
-            userOptions,
             enforceCanonicalConfigs,
             eventHandler,
             skyframeExecutor);
