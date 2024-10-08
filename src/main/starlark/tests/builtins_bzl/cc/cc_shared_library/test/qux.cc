@@ -11,11 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include <iostream>
+#include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test/qux.h"
 
-#include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/foo.h"
-
-int main() {
-  std::cout << "hello " << foo() << std::endl;
-  return 0;
-}
+int qux() { return 42; }

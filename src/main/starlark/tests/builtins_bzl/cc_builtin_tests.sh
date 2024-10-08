@@ -66,7 +66,7 @@ function test_starlark_cc() {
 bazel_dep(name = "test_repo", repo_name = "my_test_repo")
 local_path_override(
     module_name = "test_repo",
-    path = "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library2",
+    path = "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test2",
 )
 EOF
   if "$is_windows"; then
