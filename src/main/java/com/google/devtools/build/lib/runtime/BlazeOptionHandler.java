@@ -164,18 +164,6 @@ public final class BlazeOptionHandler {
     }
 
     Path workspacePath = workspace.getWorkspace();
-    // TODO(kchodorow): Remove this once spaces are supported.
-    if (workspacePath.getPathString().contains(" ")) {
-      String message =
-          runtime.getProductName()
-              + " does not currently work properly from paths "
-              + "containing spaces ("
-              + workspacePath
-              + ").";
-      eventHandler.handle(Event.error(message));
-      return createDetailedExitCode(message, Code.SPACES_IN_WORKSPACE_PATH);
-    }
-
     if (workspacePath.getParentDirectory() != null) {
       Path doNotBuild =
           workspacePath.getParentDirectory().getRelative(BlazeWorkspace.DO_NOT_BUILD_FILE_NAME);
