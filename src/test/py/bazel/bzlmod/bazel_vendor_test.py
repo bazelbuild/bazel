@@ -705,7 +705,7 @@ class BazelVendorTest(test_base.TestBase):
         '--vendor_dir=vendor',
     ])
     # Assert aaa is vendored
-    self.assertIn('aaa+', os.listdir(self._test_cwd + '/vendor'))
+    self.assertIn('aaa~', os.listdir(self._test_cwd + '/vendor'))
 
     # bazel build //... should succeed because vendor dir is ignored.
     self.RunBazel([
