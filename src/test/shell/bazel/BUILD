@@ -32,9 +32,6 @@ filegroup(
         ":test-deps-wo-bazel",
         "//src:bazel",
         "//src/test/shell:bin/bazel",
-        "//third_party/protobuf:add_python_loads.patch",
-        "//third_party/protobuf:proto_info_bzl_deps.patch",
-        "//third_party/protobuf:remove_rules_rust.patch",
     ],
     visibility = [
         "//src/main/starlark/tests/builtins_bzl:__subpackages__",
@@ -110,6 +107,7 @@ sh_test(
     shard_count = 3,
     tags = [
         "no_windows",
+        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
@@ -167,6 +165,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    tags = ["requires-network"],  # Fetches Python toolchains on systems where supported
 )
 
 sh_test(
@@ -215,6 +214,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    tags = ["requires-network"],  # Fetches Python toolchains on systems where supported
     target_compatible_with = select({
         "@platforms//os:linux": ["@platforms//cpu:x86_64"],
         "@platforms//os:macos": [],
@@ -438,6 +438,7 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
+    tags = ["requires-network"],  # Fetches Python toolchains on systems where supported
 )
 
 sh_test(
@@ -447,8 +448,6 @@ sh_test(
         ":test-deps",
         "@bazel_tools//tools/bash/runfiles",
     ],
-    shard_count = 2,
-    tags = ["requires-network"],
 )
 
 sh_test(
@@ -560,6 +559,7 @@ sh_test(
         ],
         tags = [
             "no_windows",
+            "requires-network",  # Fetches Python toolchains on systems where supported
         ],
     )
     for java_version in JAVA_VERSIONS_COVERAGE
@@ -599,6 +599,7 @@ sh_test(
     data = [":test-deps"],
     tags = [
         "no_windows",
+        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
 )
 
@@ -618,6 +619,7 @@ sh_test(
     data = [":test-deps"],
     tags = [
         "no_windows",
+        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
 )
 
@@ -627,6 +629,7 @@ sh_test(
     data = [":test-deps"],
     tags = [
         "no_windows",
+        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
 )
 
@@ -839,6 +842,7 @@ sh_test(
     shard_count = 3,
     tags = [
         "no_windows",
+        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
 )
 
@@ -995,8 +999,8 @@ sh_test(
     ],
     shard_count = 22,
     tags = [
+        "block-network",
         "no_windows",
-        "requires-network",  # rules_python are needed and are hard to mock out
     ],
 )
 
@@ -1008,6 +1012,7 @@ sh_test(
     shard_count = 10,
     tags = [
         "no_windows",
+        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
 )
 
@@ -1152,6 +1157,7 @@ sh_test(
     ],
     tags = [
         "no_windows",
+        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
@@ -1249,6 +1255,7 @@ sh_test(
     data = [":test-deps"],
     tags = [
         "no_windows",
+        "requires-network",  # Fetches Python toolchains on systems where supported
     ],
     toolchains = ["@bazel_tools//tools/jdk:current_java_runtime"],
 )
@@ -1367,7 +1374,6 @@ sh_test(
 
 sh_test(
     name = "path_mapping_test",
-    size = "large",
     srcs = ["path_mapping_test.sh"],
     data = [
         ":test-deps",

@@ -275,7 +275,7 @@ public final class TestXmlOutputParser {
             builder.setStatus(TestCase.Status.FAILED);
           } else if (skipped) {
             builder.setStatus(TestCase.Status.SKIPPED);
-          }else {
+          } else {
             builder.setStatus(TestCase.Status.PASSED);
           }
           // This is the end tag of the element we are supposed to parse.
