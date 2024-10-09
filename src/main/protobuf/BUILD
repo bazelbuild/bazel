@@ -417,10 +417,7 @@ java_library_srcs(
 
 filegroup(
     name = "srcs",
-    srcs = glob(
-        ["**"],
-        exclude = ["android_deploy_info.proto"],
-    ),
+    srcs = glob(["**"]),
 )
 
 filegroup(
