@@ -392,6 +392,18 @@ public final class MockProtoSupport {
             native.proto_library(**kargs)
         """);
     config.create(
+        "protobuf_workspace/bazel/java_proto_library.bzl",
+        """
+        def java_proto_library(**kargs):
+            native.java_proto_library(**kargs)
+        """);
+    config.create(
+        "protobuf_workspace/bazel/java_lite_proto_library.bzl",
+        """
+        def java_lite_proto_library(**kargs):
+            native.java_lite_proto_library(**kargs)
+        """);
+    config.create(
         "protobuf_workspace/bazel/toolchains/proto_toolchain.bzl",
         "load(':proto_toolchain_rule.bzl', _proto_toolchain_rule = 'proto_toolchain')",
         "def proto_toolchain(*, name, proto_compiler, exec_compatible_with = []):",
