@@ -149,7 +149,7 @@ public class BazelWorkspaceStatusModule extends BlazeModule {
       for (String line : input.trim().split("\n")) {
         String[] splitLine = line.split(" ", 2);
         if (splitLine.length >= 2) {
-          result.put(splitLine[0], splitLine[1]);
+          result.put(splitLine[0], splitLine[1].trim());
         }
       }
 
