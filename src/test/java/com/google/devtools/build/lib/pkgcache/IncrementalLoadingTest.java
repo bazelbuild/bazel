@@ -29,6 +29,7 @@ import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bazel.bzlmod.ModuleFileFunction;
 import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.cmdline.Label;
+import com.google.devtools.build.lib.events.EventHandler;
 import com.google.devtools.build.lib.events.Reporter;
 import com.google.devtools.build.lib.packages.NoSuchPackageException;
 import com.google.devtools.build.lib.packages.NoSuchTargetException;
@@ -395,7 +396,7 @@ public class IncrementalLoadingTest {
       private View currentView;
 
       @Override
-      public View getCurrentView(OptionsProvider options) {
+      public View getCurrentView(OptionsProvider options, EventHandler eventHandler) {
         lastView = currentView;
         currentView = new View() {};
         return currentView;
