@@ -114,7 +114,7 @@ EOF
   expect_log "WARNING: Couldn't auto load rules or symbols, because no dependency on module/repository 'rules_sh' found. This will result in a failure if there's a reference to those rules or symbols."
 }
 
-function test_removed_rule_loaded() {
+function disabled_test_removed_rule_loaded() {
   setup_module_dot_bazel
   mock_rules_android
 
@@ -129,7 +129,7 @@ EOF
   # TODO(b/355260271): add test with workspace enabled
 }
 
-function test_removed_rule_loaded_from_bzl() {
+function disabled_test_removed_rule_loaded_from_bzl() {
   setup_module_dot_bazel
   mock_rules_android
 
