@@ -14,7 +14,6 @@
 package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.devtools.build.lib.skyframe.DependencyResolver.createDefaultToolchainContextKey;
 import static com.google.devtools.build.lib.skyframe.DependencyResolver.getPrioritizedDetailedExitCode;
 import static com.google.devtools.build.lib.skyframe.SkyValueRetrieverUtils.maybeFetchSkyValueRemotely;
 import static com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.INITIAL_STATE;
@@ -92,6 +91,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Re
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationState;
 import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.SerializationStateProvider;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
+import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextUtil;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
@@ -811,7 +811,6 @@ final class AspectFunction implements SkyFunction {
     return (StarlarkDefinedAspect) starlarkValue;
   }
 
-  @Nullable
   private static UnloadedToolchainContextsInputs getUnloadedToolchainContextsInputs(
       AspectDefinition aspectDefinition,
       @Nullable BuildConfigurationKey configurationKey,
@@ -832,7 +831,7 @@ final class AspectFunction implements SkyFunction {
     // Note: `configuration.getOptions().hasNoConfig()` is handled early in #compute.
     return UnloadedToolchainContextsInputs.create(
         processedExecGroups,
-        createDefaultToolchainContextKey(
+        ToolchainContextUtil.createDefaultToolchainContextKey(
             configurationKey,
             aspectDefinition.execCompatibleWith(),
             /* debugTarget= */ false,
