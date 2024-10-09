@@ -669,7 +669,15 @@ public class FilesystemValueChecker {
                           .getMaxTransitiveSourceVersion()
                       : null;
               numKeysChecked.incrementAndGet();
-              DirtyResult result = checker.check(key, value, oldMtsv, syscallCache, tsgm);
+              DirtyResult result;
+              try {
+                result = checker.check(key, value, oldMtsv, syscallCache, tsgm);
+              } catch (IOException e) {
+                // Treat IOException as dirty with an unknown value. If this key is requested during
+                // an evaluation, we'll attempt to evaluate it - the error may turn out to be
+                // permanent or transient.
+                result = DirtyResult.dirty();
+              }
               if (result.isDirty()) {
                 batchResult.add(
                     key, value, result.getNewValue(), result.getNewMaxTransitiveSourceVersion());

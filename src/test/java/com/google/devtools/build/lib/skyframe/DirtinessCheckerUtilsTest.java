@@ -54,7 +54,7 @@ import org.mockito.Mockito;
 
 /** Tests for {@link DirtinessCheckerUtils}. */
 @RunWith(TestParameterInjector.class)
-public class DirtinessCheckerUtilsTest {
+public final class DirtinessCheckerUtilsTest {
   private final FileSystem fs = new InMemoryFileSystem(DigestHashFunction.SHA256);
   private final Path pkgRoot = fs.getPath("/testroot");
   private final Root srcRoot = Root.fromPath(pkgRoot);
@@ -133,7 +133,7 @@ public class DirtinessCheckerUtilsTest {
 
   @Test
   public void skipsSyscallCacheForRepoFile_andDoesntReturnNewValue(
-      @TestParameter boolean externalChecker) {
+      @TestParameter boolean externalChecker) throws Exception {
     ExternalFilesHelper externalFilesHelper = this.externalFilesHelper;
     RootedPath rootedPath =
         RootedPath.toRootedPath(
@@ -171,7 +171,8 @@ public class DirtinessCheckerUtilsTest {
   }
 
   @Test
-  public void missingDiffDirtinessCheckers_nullMaxTransitiveSourceVersionForNewValue() {
+  public void missingDiffDirtinessCheckers_nullMaxTransitiveSourceVersionForNewValue()
+      throws Exception {
     SkyKey key = mock(SkyKey.class);
     SkyValue value = mock(SkyValue.class);
     DirtinessCheckerUtils.MissingDiffDirtinessChecker underTest = createMissingDiffChecker();
@@ -180,7 +181,8 @@ public class DirtinessCheckerUtilsTest {
   }
 
   @Test
-  public void externalDirtinessCheckers_nullMaxTransitiveSourceVersionForNewValue() {
+  public void externalDirtinessCheckers_nullMaxTransitiveSourceVersionForNewValue()
+      throws Exception {
     SkyKey key = mock(SkyKey.class);
     SkyValue value = mock(SkyValue.class);
     DirtinessCheckerUtils.ExternalDirtinessChecker underTest =
