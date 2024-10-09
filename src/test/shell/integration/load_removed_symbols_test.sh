@@ -209,7 +209,7 @@ aar_import(
 )
 EOF
 
-  bazel build --incompatible_autoload_externally= :aar >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
+  bazel build --incompatible_autoload_externally=-aar_import :aar >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
   expect_log "name 'aar_import' is not defined"
 }
 
@@ -231,7 +231,7 @@ load(":macro.bzl", "macro")
 macro()
 EOF
 
-  bazel build --incompatible_autoload_externally= :aar >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
+  bazel build --incompatible_autoload_externally=-aar_import :aar >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
   expect_log "no native function or rule 'aar_import'"
 }
 
