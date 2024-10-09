@@ -103,6 +103,48 @@ public class CompileBuildVariablesTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testPresenceOfConlyFlags() throws Exception {
+    useConfiguration(
+        "--conlyopt=-foo", "--cxxopt=-not-passed", "--per_file_copt=//x:bin@-per-file");
+
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(name = 'bin', srcs = ['bin.c'], copts = ['-bar'], conlyopts = ['-baz'], cxxopts"
+            + " = ['-not-passed'])");
+    scratch.file("x/bin.c");
+
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
+
+    ImmutableList<String> copts =
+        CcToolchainVariables.toStringList(
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), PathMapper.NOOP);
+    assertThat(copts)
+        .containsExactlyElementsIn(ImmutableList.<String>of("-foo", "-bar", "-baz", "-per-file"))
+        .inOrder();
+  }
+
+  @Test
+  public void testCxxFlagsOrder() throws Exception {
+    useConfiguration(
+        "--cxxopt=-foo", "--conlyopt=-not-passed", "--per_file_copt=//x:bin@-per-file");
+
+    scratch.file(
+        "x/BUILD",
+        "cc_binary(name = 'bin', srcs = ['bin.cc'], copts = ['-bar'], cxxopts = ['-baz'], conlyopts"
+            + " = ['-not-passed'])");
+    scratch.file("x/bin.cc");
+
+    CcToolchainVariables variables = getCompileBuildVariables("//x:bin", "bin");
+
+    ImmutableList<String> copts =
+        CcToolchainVariables.toStringList(
+            variables, CompileBuildVariables.USER_COMPILE_FLAGS.getVariableName(), PathMapper.NOOP);
+    assertThat(copts)
+        .containsExactlyElementsIn(ImmutableList.<String>of("-foo", "-bar", "-baz", "-per-file"))
+        .inOrder();
+  }
+
+  @Test
   public void testPerFileCoptsAreInUserCompileFlags() throws Exception {
     scratch.file("x/BUILD", "cc_binary(name = 'bin', srcs = ['bin.cc'])");
     scratch.file("x/bin.cc");

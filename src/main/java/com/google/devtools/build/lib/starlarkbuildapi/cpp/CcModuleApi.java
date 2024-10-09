@@ -243,6 +243,18 @@ public interface CcModuleApi<
             named = true,
             defaultValue = "[]"),
         @Param(
+            name = "conly_flags",
+            doc = "Additional list of compilation options for C compiles.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
+            name = "cxx_flags",
+            doc = "Additional list of compilation options for C++ compiles.",
+            positional = false,
+            named = true,
+            defaultValue = "[]"),
+        @Param(
             name = "compilation_contexts",
             doc = "Headers from dependencies used for compilation.",
             positional = false,
@@ -396,6 +408,8 @@ public interface CcModuleApi<
       String includePrefix,
       String stripIncludePrefix,
       Sequence<?> userCompileFlags, // <String> expected
+      Sequence<?> conlyFlags, // <String> expected
+      Sequence<?> cxxFlags, // <String> expected
       Sequence<?> ccCompilationContexts, // <CcCompilationContext> expected
       Object implementationCcCompilationContextsObject,
       String name,
