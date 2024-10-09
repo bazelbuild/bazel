@@ -17,19 +17,19 @@ import unittest
 
 # Do not edit this line. Copybara replaces it with PY2 migration helper.
 
-from tools.jdk import proguard_whitelister
+from tools.jdk import proguard_allowlister
 
 
 class ProguardConfigValidatorTest(unittest.TestCase):
 
   def _CreateValidator(self, input_path, output_path):
-    return proguard_whitelister.ProguardConfigValidator(input_path, output_path)
+    return proguard_allowlister.ProguardConfigValidator(input_path, output_path)
 
   def testValidConfig(self):
     input_path = os.path.join(
-        os.path.dirname(__file__), "proguard_whitelister_test_input.pgcfg")
+        os.path.dirname(__file__), "proguard_allowlister_test_input.pgcfg")
     tmpdir = os.environ["TEST_TMPDIR"]
-    output_path = os.path.join(tmpdir, "proguard_whitelister_test_output.pgcfg")
+    output_path = os.path.join(tmpdir, "proguard_allowlister_test_output.pgcfg")
     # This will raise an exception if the config is invalid.
     self._CreateValidator(input_path, output_path).ValidateAndWriteOutput()
     with open(output_path) as output:
@@ -37,10 +37,10 @@ class ProguardConfigValidatorTest(unittest.TestCase):
 
   def _TestInvalidConfig(self, invalid_args, config):
     tmpdir = os.environ["TEST_TMPDIR"]
-    input_path = os.path.join(tmpdir, "proguard_whitelister_test_input.pgcfg")
+    input_path = os.path.join(tmpdir, "proguard_allowlister_test_input.pgcfg")
     with open(input_path, "w", encoding="utf-8") as f:
       f.write(config)
-    output_path = os.path.join(tmpdir, "proguard_whitelister_test_output.pgcfg")
+    output_path = os.path.join(tmpdir, "proguard_allowlister_test_output.pgcfg")
     validator = self._CreateValidator(input_path, output_path)
     with self.assertRaises(RuntimeError) as error:
       validator.ValidateAndWriteOutput()

@@ -47,6 +47,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -145,6 +146,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
 
   private record ToolchainType(
       ToolchainTypeRequirement toolchainTypeRequirement, ToolchainTypeInfo toolchainTypeInfo) {
+
+    private ToolchainType {
+      Objects.requireNonNull(toolchainTypeRequirement, "toolchainTypeRequirement");
+      Objects.requireNonNull(toolchainTypeInfo, "toolchainTypeInfo");
+    }
+
     public boolean mandatory() {
       return toolchainTypeRequirement.mandatory();
     }
@@ -181,11 +188,12 @@ public class ToolchainResolutionFunction implements SkyFunction {
       // Find the actual Label.
       Label toolchainTypeLabel = toolchainTypeRequirement.toolchainType();
       ToolchainTypeInfo toolchainTypeInfo = resolvedToolchainTypeInfos.get(toolchainTypeLabel);
-      if (toolchainTypeInfo != null) {
-        toolchainTypeLabel = toolchainTypeInfo.typeLabel();
+      if (toolchainTypeInfo == null) {
+        continue;
       }
 
       // If the labels don't match, re-build the TTR.
+      toolchainTypeLabel = toolchainTypeInfo.typeLabel();
       if (!toolchainTypeLabel.equals(toolchainTypeRequirement.toolchainType())) {
         toolchainTypeRequirement =
             toolchainTypeRequirement.toBuilder().toolchainType(toolchainTypeLabel).build();

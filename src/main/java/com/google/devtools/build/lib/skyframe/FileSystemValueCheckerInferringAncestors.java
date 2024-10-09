@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.concurrent.ExecutorUtil;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.DiffAwareness.Code;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
+import com.google.devtools.build.lib.skyframe.SkyValueDirtinessChecker.DirtyResult;
 import com.google.devtools.build.lib.util.AbruptExitException;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.io.TimestampGranularityMonitor;
@@ -209,11 +210,12 @@ public final class FileSystemValueCheckerInferringAncestors {
       try {
         Futures.getDone(future);
       } catch (ExecutionException e) {
-        if (e.getCause() instanceof StatFailedException) {
+        if (e.getCause() instanceof StatFailedException statFailed) {
           throw new AbruptExitException(
               DetailedExitCode.of(
                   FailureDetail.newBuilder()
-                      .setMessage(e.getCause().getMessage())
+                      .setMessage(
+                          statFailed.getMessage() + ": " + statFailed.getCause().getMessage())
                       .setDiffAwareness(
                           FailureDetails.DiffAwareness.newBuilder().setCode(Code.DIFF_STAT_FAILED))
                       .build()),
@@ -279,16 +281,22 @@ public final class FileSystemValueCheckerInferringAncestors {
       if (oldFsv.getType().isDirectory()) {
         return false;
       }
-      Version directoryFileStateNodeMtsv =
-          skyValueDirtinessChecker.getMaxTransitiveSourceVersionForNewValue(
-              key, FileStateValue.DIRECTORY_FILE_STATE_NODE);
+      Version directoryFileStateNodeMtsv;
+      try {
+        directoryFileStateNodeMtsv =
+            skyValueDirtinessChecker.getMaxTransitiveSourceVersionForNewValue(
+                key, FileStateValue.DIRECTORY_FILE_STATE_NODE);
+      } catch (IOException e) {
+        throw new StatFailedException(
+            "Failed to get MTSV for inferred directory " + path.asPath(), e);
+      }
       valuesToInject.put(
           key, Delta.justNew(FileStateValue.DIRECTORY_FILE_STATE_NODE, directoryFileStateNodeMtsv));
       parentListingKey(path).ifPresent(valuesToInvalidate::add);
       return true;
     }
 
-    @Nullable FileStateValue newFsv = injectAndGetNewFileStateValueIfDirty(path, fsvNode, oldFsv);
+    FileStateValue newFsv = injectAndGetNewFileStateValueIfDirty(path, fsvNode, oldFsv);
     if (newFsv.getType().exists()) {
       parentState.markInferredDirectory();
     } else if (oldFsv.getType().exists()) {
@@ -312,20 +320,18 @@ public final class FileSystemValueCheckerInferringAncestors {
       throws StatFailedException {
     Preconditions.checkState(oldFsv != null, "Unexpected null FileStateValue.");
     @Nullable Version oldMtsv = oldFsvNode.getMaxTransitiveSourceVersion();
-    SkyValueDirtinessChecker.DirtyResult dirtyResult =
-        skyValueDirtinessChecker.check(oldFsvNode.getKey(), oldFsv, oldMtsv, syscallCache, tsgm);
+    DirtyResult dirtyResult;
+    try {
+      dirtyResult =
+          skyValueDirtinessChecker.check(oldFsvNode.getKey(), oldFsv, oldMtsv, syscallCache, tsgm);
+    } catch (IOException e) {
+      throw new StatFailedException("Failed to check dirtiness of " + path.asPath(), e);
+    }
     if (!dirtyResult.isDirty()) {
       return oldFsv;
     }
-    @Nullable FileStateValue newFsv = (FileStateValue) dirtyResult.getNewValue();
-    if (newFsv == null) {
-      throw new StatFailedException(path, new IOException("Filesystem access failed."));
-    }
+    FileStateValue newFsv = (FileStateValue) dirtyResult.getNewValue();
     @Nullable Version newMtsv = dirtyResult.getNewMaxTransitiveSourceVersion();
-    if (newMtsv == null && !skyValueDirtinessChecker.nullMaxTransitiveSourceVersionOk()) {
-      throw new StatFailedException(path, new IOException("Filesystem access failed."));
-    }
-
     valuesToInject.put(oldFsvNode.getKey(), Delta.justNew(newFsv, newMtsv));
     return newFsv;
   }
@@ -357,7 +363,7 @@ public final class FileSystemValueCheckerInferringAncestors {
     // We don't take advantage of isInferredDirectory because we set it only in cases of a present
     // descendant/done listing which normally cannot exist without having FileStateValue for
     // ancestors.
-    @Nullable FileStateValue newValue = injectAndGetNewFileStateValueForUnknownEntry(path, key);
+    FileStateValue newValue = injectAndGetNewFileStateValueForUnknownEntry(path, key);
 
     if (isInferredDirectory || newValue.getType().exists()) {
       parentState.markInferredDirectory();
@@ -375,16 +381,18 @@ public final class FileSystemValueCheckerInferringAncestors {
   /** Injects the new file state value for unknown entry. */
   private FileStateValue injectAndGetNewFileStateValueForUnknownEntry(RootedPath path, SkyKey key)
       throws StatFailedException {
-    @Nullable
-    FileStateValue newValue =
-        (FileStateValue) skyValueDirtinessChecker.createNewValue(path, syscallCache, tsgm);
-    if (newValue == null) {
-      throw new StatFailedException(path, new IOException("Filesystem access failed."));
+    FileStateValue newValue;
+    try {
+      newValue = (FileStateValue) skyValueDirtinessChecker.createNewValue(path, syscallCache, tsgm);
+    } catch (IOException e) {
+      throw new StatFailedException(
+          "Failed to create file state value for unknown path " + path.asPath(), e);
     }
-    Version newMtsv =
-        skyValueDirtinessChecker.getMaxTransitiveSourceVersionForNewValue(key, newValue);
-    if (newMtsv == null && !skyValueDirtinessChecker.nullMaxTransitiveSourceVersionOk()) {
-      throw new StatFailedException(path, new IOException("Filesystem access failed."));
+    Version newMtsv;
+    try {
+      newMtsv = skyValueDirtinessChecker.getMaxTransitiveSourceVersionForNewValue(key, newValue);
+    } catch (IOException e) {
+      throw new StatFailedException("Failed to get MTSV for unknown path " + path.asPath(), e);
     }
     valuesToInject.put(key, Delta.justNew(newValue, newMtsv));
     return newValue;
@@ -417,24 +425,18 @@ public final class FileSystemValueCheckerInferringAncestors {
 
   @Nullable
   private static Dirent.Type direntTypeFromFileStateType(FileStateType type) {
-    switch (type) {
-      case NONEXISTENT:
-        return null;
-      case REGULAR_FILE:
-        return Dirent.Type.FILE;
-      case SPECIAL_FILE:
-        return Dirent.Type.UNKNOWN;
-      case SYMLINK:
-        return Dirent.Type.SYMLINK;
-      case DIRECTORY:
-        return Dirent.Type.DIRECTORY;
-    }
-    throw new AssertionError();
+    return switch (type) {
+      case NONEXISTENT -> null;
+      case REGULAR_FILE -> Dirent.Type.FILE;
+      case SPECIAL_FILE -> Dirent.Type.UNKNOWN;
+      case SYMLINK -> Dirent.Type.SYMLINK;
+      case DIRECTORY -> Dirent.Type.DIRECTORY;
+    };
   }
 
-  private static class StatFailedException extends Exception {
-    StatFailedException(RootedPath path, IOException cause) {
-      super(String.format("Failed to stat: '%s' while computing diff", path.asPath()), cause);
+  private static final class StatFailedException extends Exception {
+    StatFailedException(String message, IOException cause) {
+      super(message, cause);
     }
   }
 }

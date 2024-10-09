@@ -453,7 +453,7 @@ public final class ArtifactFunction implements SkyFunction {
       Preconditions.checkState(
           actionLookupKey == CoverageReportValue.COVERAGE_REPORT_KEY,
           "Not-yet-present artifact owner: %s",
-          actionLookupKey);
+          actionLookupKey.getCanonicalName());
       return null;
     }
     return value;

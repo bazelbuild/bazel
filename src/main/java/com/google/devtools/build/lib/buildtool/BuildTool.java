@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.buildtool;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.buildtool.AnalysisPhaseRunner.evaluateProjectFile;
-import static com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingOptions.RemoteAnalysisCacheMode.DOWNLOAD;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -855,42 +854,19 @@ public class BuildTool {
     }
 
     switch (options.mode) {
+      case FULL -> {
+        uploadFrontier(activeDirectoriesMatcher, options);
+        reportRemoteAnalysisCachingStats();
+      }
       case UPLOAD -> {
-        try (SilentCloseable closeable =
-            Profiler.instance().profile("serializeAndUploadFrontier")) {
-          Optional<FailureDetail> maybeFailureDetail =
-              FrontierSerializer.serializeAndUploadFrontier(
-                  new RemoteAnalysisCachingDependenciesProviderImpl(
-                      env, activeDirectoriesMatcher.get()),
-                  env.getSkyframeExecutor(),
-                  env.getReporter(),
-                  env.getEventBus(),
-                  options.serializedFrontierProfile);
-          if (maybeFailureDetail.isPresent()) {
-            throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));
-          }
-        }
+        uploadFrontier(activeDirectoriesMatcher, options);
       }
       case DOWNLOAD -> {
-        var listener = env.getRemoteAnalysisCachingEventListener();
-        env.getReporter()
-            .handle(
-                Event.info(
-                    String.format(
-                        "Remote analysis caching stats: %s cache hits (%s analysis, %s execution),"
-                            + " %s cache misses (%s analysis, %s execution).",
-                        listener.getAnalysisNodeCacheHits() + listener.getExecutionNodeCacheHits(),
-                        listener.getAnalysisNodeCacheHits(),
-                        listener.getExecutionNodeCacheHits(),
-                        listener.getAnalysisNodeCacheMisses()
-                            + listener.getExecutionNodeCacheMisses(),
-                        listener.getAnalysisNodeCacheMisses(),
-                        listener.getExecutionNodeCacheMisses())));
+        reportRemoteAnalysisCachingStats();
       }
       case OFF -> {}
     }
   }
-
   private static void maybeSetStopOnFirstFailure(BuildRequest request, BuildResult result) {
     if (shouldStopOnFailure(request)) {
       result.setStopOnFirstFailure(true);
@@ -1128,7 +1104,9 @@ public class BuildTool {
     public static RemoteAnalysisCachingDependenciesProvider forAnalysis(
         CommandEnvironment env, Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher) {
       var options = env.getOptions().getOptions(RemoteAnalysisCachingOptions.class);
-      if (options == null || options.mode != DOWNLOAD || activeDirectoriesMatcher.isEmpty()) {
+      if (options == null
+          || !options.mode.downloadForAnalysis()
+          || activeDirectoriesMatcher.isEmpty()) {
         return DisabledDependenciesProvider.INSTANCE;
       }
       return new RemoteAnalysisCachingDependenciesProviderImpl(env, activeDirectoriesMatcher.get());
@@ -1216,5 +1194,40 @@ public class BuildTool {
     public void setTopLevelConfig(BuildConfigurationValue topLevelConfig) {
       this.topLevelConfig = topLevelConfig;
     }
+  }
+
+  private void uploadFrontier(
+      Optional<PathFragmentPrefixTrie> activeDirectoriesMatcher,
+      RemoteAnalysisCachingOptions options)
+      throws InterruptedException, AbruptExitException {
+    try (SilentCloseable closeable = Profiler.instance().profile("serializeAndUploadFrontier")) {
+      Optional<FailureDetail> maybeFailureDetail =
+          FrontierSerializer.serializeAndUploadFrontier(
+              new RemoteAnalysisCachingDependenciesProviderImpl(
+                  env, activeDirectoriesMatcher.get()),
+              env.getSkyframeExecutor(),
+              env.getReporter(),
+              env.getEventBus(),
+              options.serializedFrontierProfile);
+      if (maybeFailureDetail.isPresent()) {
+        throw new AbruptExitException(DetailedExitCode.of(maybeFailureDetail.get()));
+      }
+    }
+  }
+
+  private void reportRemoteAnalysisCachingStats() {
+    var listener = env.getRemoteAnalysisCachingEventListener();
+    env.getReporter()
+        .handle(
+            Event.info(
+                String.format(
+                    "Remote analysis caching stats: %s cache hits (%s analysis, %s execution),"
+                        + " %s cache misses (%s analysis, %s execution).",
+                    listener.getAnalysisNodeCacheHits() + listener.getExecutionNodeCacheHits(),
+                    listener.getAnalysisNodeCacheHits(),
+                    listener.getExecutionNodeCacheHits(),
+                    listener.getAnalysisNodeCacheMisses() + listener.getExecutionNodeCacheMisses(),
+                    listener.getAnalysisNodeCacheMisses(),
+                    listener.getExecutionNodeCacheMisses())));
   }
 }

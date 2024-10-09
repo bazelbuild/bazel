@@ -150,7 +150,8 @@ public final class JavaCompileActionBuilderTest extends BuildViewTestCase {
         """);
     JavaCompileAction action =
         (JavaCompileAction) getGeneratingActionForLabel("//java/com/google/test:liba.jar");
-    assertThat(action.getIncompleteEnvironmentForTesting()).containsEntry("LC_CTYPE", "C.UTF-8");
+    assertThat(action.getIncompleteEnvironmentForTesting())
+        .containsEntry("LC_CTYPE", "en_US.UTF-8");
   }
 
   @Test
