@@ -41,6 +41,7 @@ import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventKind;
+import com.google.devtools.build.lib.packages.AutoloadSymbols;
 import com.google.devtools.build.lib.packages.PackageFactory;
 import com.google.devtools.build.lib.packages.WorkspaceFileValue;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
@@ -278,12 +279,14 @@ public class ModuleExtensionResolutionTest extends FoundationTestCase {
                 .build(),
             differencer);
 
-    PrecomputedValue.STARLARK_SEMANTICS.set(
-        differencer,
+    StarlarkSemantics semantics =
         StarlarkSemantics.builder()
             .setBool(BuildLanguageOptions.ENABLE_BZLMOD, true)
             .setBool(BuildLanguageOptions.EXPERIMENTAL_ISOLATED_EXTENSION_USAGES, true)
-            .build());
+            .build();
+    PrecomputedValue.STARLARK_SEMANTICS.set(differencer, semantics);
+    AutoloadSymbols.AUTOLOAD_SYMBOLS.set(
+        differencer, new AutoloadSymbols(ruleClassProvider, semantics));
     RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
         differencer, RepositoryDelegatorFunction.FORCE_FETCH_DISABLED);

@@ -719,6 +719,14 @@ sh_test(
 )
 
 sh_test(
+    name = "load_removed_symbols_test",
+    size = "medium",
+    srcs = ["load_removed_symbols_test.sh"],
+    data = [":test-deps"],
+    tags = ["no_windows"],
+)
+
+sh_test(
     name = "bazel_java_test",
     size = "medium",
     srcs = ["bazel_java_test.sh"],

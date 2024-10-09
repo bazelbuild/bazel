@@ -203,6 +203,7 @@ java_test(
         "//src/main/java/com/google/devtools/build/lib/skyframe:broken_diff_awareness_exception",
         "//src/main/java/com/google/devtools/build/lib/skyframe:builder",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_compile",
+        "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_compile_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:bzl_load_value",
         "//src/main/java/com/google/devtools/build/lib/skyframe:cached_bzl_load_value_and_deps",
         "//src/main/java/com/google/devtools/build/lib/skyframe:cached_bzl_load_value_and_deps_builder_factory",
