@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.packages.Rule;
 import com.google.devtools.build.lib.packages.RuleClass;
 import com.google.devtools.build.lib.packages.Target;
 import com.google.devtools.build.lib.skyframe.config.BuildConfigurationKey;
+import java.util.List;
 import javax.annotation.Nullable;
 
 /** Utility methods for toolchain context creation. */
@@ -49,11 +50,18 @@ public final class ToolchainContextUtil {
             .getAutoExecGroupsMode()
             .isEnabled(RawAttributeMapper.of(rule), coreOptions.useAutoExecGroups);
     var defaultExecConstraintLabels = getExecutionPlatformConstraints(rule, platformConfig);
+    ImmutableSet<ToolchainTypeRequirement> toolchainTypes = ruleClass.getToolchainTypes();
+
+    if (!ruleClass.isStarlark() && ruleClass.getName().equals("genrule")) {
+      // Override the toolchain types based on the target-level "toolchains" attribute.
+      toolchainTypes = updateToolchainTypesFromAttribute(rule, toolchainTypes);
+    }
+
     var processedExecGroups =
         ExecGroupCollection.process(
             ruleClass.getExecGroups(),
             defaultExecConstraintLabels,
-            ruleClass.getToolchainTypes(),
+            toolchainTypes,
             useAutoExecGroups);
 
     if (platformConfig == null || !rule.useToolchainResolution()) {
@@ -68,8 +76,33 @@ public final class ToolchainContextUtil {
             defaultExecConstraintLabels,
             /* debugTarget= */ platformConfig.debugToolchainResolution(rule.getLabel()),
             /* useAutoExecGroups= */ useAutoExecGroups,
-            ruleClass.getToolchainTypes(),
+            toolchainTypes,
             parentExecutionPlatformLabel));
+  }
+
+  private static ImmutableSet<ToolchainTypeRequirement> updateToolchainTypesFromAttribute(
+      Rule rule, ImmutableSet<ToolchainTypeRequirement> toolchainTypes) {
+    NonconfigurableAttributeMapper attributes = NonconfigurableAttributeMapper.of(rule);
+    List<Label> targetToolchainTypes = attributes.get("toolchains", BuildType.LABEL_LIST);
+    if (targetToolchainTypes.isEmpty()) {
+      // No need to update.
+      return toolchainTypes;
+    }
+
+    ImmutableSet.Builder<ToolchainTypeRequirement> updatedToolchainTypes =
+        new ImmutableSet.Builder<>();
+    updatedToolchainTypes.addAll(toolchainTypes);
+    targetToolchainTypes.stream()
+        .map(
+            toolchainTypeLabel ->
+                ToolchainTypeRequirement.builder(toolchainTypeLabel)
+                    .mandatory(false)
+                    // Some of these may be template variables, not toolchain types, and so should
+                    // be silently ignored.
+                    .ignoreIfInvalid(true)
+                    .build())
+        .forEach(updatedToolchainTypes::add);
+    return updatedToolchainTypes.build();
   }
 
   public static ToolchainContextKey createDefaultToolchainContextKey(

@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.rules.genrule;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.common.collect.ImmutableList;
@@ -47,6 +48,7 @@ import com.google.devtools.build.lib.packages.BuildType;
 import com.google.devtools.build.lib.packages.TargetUtils;
 import com.google.devtools.build.lib.packages.TriState;
 import com.google.devtools.build.lib.packages.Type;
+import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.util.FileTypeSet;
 import com.google.devtools.build.lib.util.OnDemandString;
 import com.google.devtools.build.lib.util.Pair;
@@ -90,12 +92,17 @@ public abstract class GenRuleBase implements RuleConfiguredTargetFactory {
     labelMap.values().forEach(resolvedSrcsBuilder::addTransitive);
     NestedSet<Artifact> resolvedSrcs = resolvedSrcsBuilder.build();
 
+    ImmutableList<ConfiguredTarget> toolchainPrerequisites =
+        ruleContext.getToolchainContext().prerequisiteTargets().stream()
+            .map(ConfiguredTargetAndData::getConfiguredTarget)
+            .collect(toImmutableList());
     // The CommandHelper class makes an explicit copy of this in the constructor, so flattening
     // here should be benign.
     CommandHelper commandHelper =
         CommandHelper.builder(ruleContext)
             .addToolDependencies("tools")
             .addToolDependencies("toolchains")
+            .addToolDependencies(toolchainPrerequisites)
             .addLabelMap(
                 labelMap.entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, e -> e.getValue().toList())))
