@@ -126,7 +126,7 @@ public abstract class SpawnLogContextTestBase {
         BuildConfigurationValue.createForTesting(
             defaultBuildOptions,
             "k8-fastbuild",
-            TestConstants.WORKSPACE_NAME,
+            WORKSPACE_NAME,
             siblingRepositoryLayout,
             new BlazeDirectories(
                 new ServerDirectories(outputBase, outputBase, outputBase),
@@ -152,7 +152,7 @@ public abstract class SpawnLogContextTestBase {
             },
             new FragmentFactory());
     outputDir = configuration.getBinDirectory(RepositoryName.MAIN);
-    execRoot = configuration.getDirectories().getExecRoot(TestConstants.WORKSPACE_NAME);
+    execRoot = configuration.getDirectories().getExecRoot(WORKSPACE_NAME);
     rootDir = ArtifactRoot.asSourceRoot(Root.fromPath(execRoot));
 
     externalSourceRoot =
@@ -1372,6 +1372,192 @@ public abstract class SpawnLogContextTestBase {
   }
 
   @Test
+  public void testRunfilesArtifactPostOrderCollisionWithDuplicate() throws Exception {
+    Artifact sourceFile = ActionsTestUtil.createArtifact(rootDir, "pkg/file.txt");
+    writeFile(sourceFile, "source");
+    Artifact genFile = ActionsTestUtil.createArtifact(outputDir, "pkg/file.txt");
+    writeFile(genFile, "gen");
+
+    Artifact runfilesMiddleman =
+        ActionsTestUtil.createRunfilesArtifact(outputDir, "tools/foo.runfiles");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
+    var artifacts =
+        NestedSetBuilder.<Artifact>compileOrder()
+            .add(sourceFile)
+            .addTransitive(
+                NestedSetBuilder.wrap(Order.COMPILE_ORDER, ImmutableList.of(sourceFile, genFile)))
+            .build();
+    assertThat(artifacts.toList()).containsExactly(sourceFile, genFile).inOrder();
+    assertThat(artifacts.getLeaves()).hasSize(1);
+    assertThat(artifacts.getNonLeaves()).hasSize(1);
+
+    RunfilesTree runfilesTree =
+        createRunfilesTree(
+            runfilesRoot,
+            ImmutableMap.of(),
+            ImmutableMap.of(),
+            /* legacyExternalRunfiles= */ false,
+            artifacts);
+
+    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn,
+        createInputMetadataProvider(runfilesTree, runfilesMiddleman, sourceFile, genFile),
+        createInputMap(runfilesTree),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        PRODUCT_NAME
+                            + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
+                            + WORKSPACE_NAME
+                            + "/pkg/file.txt")
+                    .setDigest(getDigest("gen")))
+            .build());
+  }
+
+  @Test
+  public void testRunfilesSymlinkPostOrderCollisionWithSemanticDuplicate(
+      @TestParameter boolean rootSymlink) throws Exception {
+    Artifact sourceFile = ActionsTestUtil.createArtifact(rootDir, "pkg/file.txt");
+    writeFile(sourceFile, "source");
+    Artifact genFile = ActionsTestUtil.createArtifact(outputDir, "pkg/file.txt");
+    writeFile(genFile, "gen");
+
+    Artifact runfilesMiddleman =
+        ActionsTestUtil.createRunfilesArtifact(outputDir, "tools/foo.runfiles");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
+    Runfiles.Builder runfiles =
+        new Runfiles.Builder(WORKSPACE_NAME, /* legacyExternalRunfiles= */ false);
+    if (rootSymlink) {
+      Runfiles transitiveRunfiles =
+          new Runfiles.Builder(WORKSPACE_NAME, /* legacyExternalRunfiles= */ false)
+              .addRootSymlink(PathFragment.create("_main/pkg/file.txt"), sourceFile)
+              .addRootSymlink(PathFragment.create("_main/pkg/file.txt"), genFile)
+              .build();
+      runfiles.addRootSymlink(PathFragment.create("_main/pkg/file.txt"), sourceFile);
+      runfiles.addRootSymlinks(transitiveRunfiles.getRootSymlinks());
+    } else {
+      Runfiles transitiveRunfiles =
+          new Runfiles.Builder(WORKSPACE_NAME, /* legacyExternalRunfiles= */ false)
+              .addSymlink(PathFragment.create("pkg/file.txt"), sourceFile)
+              .addSymlink(PathFragment.create("pkg/file.txt"), genFile)
+              .build();
+      runfiles.addSymlink(PathFragment.create("pkg/file.txt"), sourceFile);
+      runfiles.addSymlinks(transitiveRunfiles.getSymlinks());
+    }
+    RunfilesTree runfilesTree =
+        new RunfilesSupport.RunfilesTreeImpl(runfilesRoot, runfiles.build());
+
+    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn,
+        createInputMetadataProvider(runfilesTree, runfilesMiddleman, sourceFile, genFile),
+        createInputMap(runfilesTree),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        PRODUCT_NAME
+                            + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
+                            + WORKSPACE_NAME
+                            + "/pkg/file.txt")
+                    .setDigest(getDigest("source")))
+            .build());
+  }
+
+  @Test
+  public void testRunfilesSymlinkPostOrderCollisionWithEqualDuplicate(
+      @TestParameter boolean rootSymlink) throws Exception {
+    Artifact sourceFile = ActionsTestUtil.createArtifact(rootDir, "pkg/file.txt");
+    writeFile(sourceFile, "source");
+    Artifact genFile = ActionsTestUtil.createArtifact(outputDir, "pkg/file.txt");
+    writeFile(genFile, "gen");
+
+    Artifact runfilesMiddleman =
+        ActionsTestUtil.createRunfilesArtifact(outputDir, "tools/foo.runfiles");
+
+    PathFragment runfilesRoot = outputDir.getExecPath().getRelative("tools/foo.runfiles");
+    Runfiles.Builder runfiles =
+        new Runfiles.Builder(WORKSPACE_NAME, /* legacyExternalRunfiles= */ false);
+    // Arrange for (reference) equal SymlinkEntry instances to appear twice in the runfiles, both
+    // first and last in compile order.
+    if (rootSymlink) {
+      Runfiles transitiveRunfiles =
+          new Runfiles.Builder(WORKSPACE_NAME, /* legacyExternalRunfiles= */ false)
+              .addRootSymlink(PathFragment.create("_main/pkg/file.txt"), sourceFile)
+              .addRootSymlink(PathFragment.create("_main/pkg/file.txt"), genFile)
+              .build();
+      runfiles.addRootSymlinks(
+          NestedSetBuilder.wrap(
+              Order.STABLE_ORDER, transitiveRunfiles.getRootSymlinks().toList().subList(0, 1)));
+      runfiles.addRootSymlinks(transitiveRunfiles.getRootSymlinks());
+    } else {
+      Runfiles transitiveRunfiles =
+          new Runfiles.Builder(WORKSPACE_NAME, /* legacyExternalRunfiles= */ false)
+              .addSymlink(PathFragment.create("pkg/file.txt"), sourceFile)
+              .addSymlink(PathFragment.create("pkg/file.txt"), genFile)
+              .build();
+      runfiles.addSymlinks(
+          NestedSetBuilder.wrap(
+              Order.STABLE_ORDER, transitiveRunfiles.getSymlinks().toList().subList(0, 1)));
+      runfiles.addSymlinks(transitiveRunfiles.getSymlinks());
+    }
+    RunfilesTree runfilesTree =
+        new RunfilesSupport.RunfilesTreeImpl(runfilesRoot, runfiles.build());
+
+    Spawn spawn = defaultSpawnBuilder().withInput(runfilesMiddleman).build();
+
+    SpawnLogContext context = createSpawnLogContext();
+
+    context.logSpawn(
+        spawn,
+        createInputMetadataProvider(runfilesTree, runfilesMiddleman, sourceFile, genFile),
+        createInputMap(runfilesTree),
+        fs,
+        defaultTimeout(),
+        defaultSpawnResult());
+
+    // The compact log can't distinguish between semantically equal and reference equal SymlinkEntry
+    // instances and thus the reconstructor can't deduplicate them as NestedSet would. This is a
+    // pathological case that can be recreated in Starlark, but it would cause a conflict error
+    // unless using --nobuild_runfile_manifests.
+    String expectedContent = getClass() == CompactSpawnLogContextTest.class ? "source" : "gen";
+    closeAndAssertLog(
+        context,
+        defaultSpawnExecBuilder()
+            .addInputs(
+                File.newBuilder()
+                    .setPath(
+                        PRODUCT_NAME
+                            + "-out/k8-fastbuild/bin/tools/foo.runfiles/"
+                            + WORKSPACE_NAME
+                            + "/pkg/file.txt")
+                    .setDigest(getDigest(expectedContent)))
+            .build());
+  }
+
+  @Test
   public void testRunfilesSymlinkTargets(
       @TestParameter boolean rootSymlinks, @TestParameter InputsMode inputsMode) throws Exception {
     Artifact sourceFile = ActionsTestUtil.createArtifact(rootDir, "pkg/file.txt");
@@ -2089,8 +2275,7 @@ public abstract class SpawnLogContextTestBase {
       Map<String, Artifact> rootSymlinks,
       boolean legacyExternalRunfiles,
       NestedSet<Artifact> artifacts) {
-    Runfiles.Builder runfiles =
-        new Runfiles.Builder(TestConstants.WORKSPACE_NAME, legacyExternalRunfiles);
+    Runfiles.Builder runfiles = new Runfiles.Builder(WORKSPACE_NAME, legacyExternalRunfiles);
     runfiles.addTransitiveArtifacts(artifacts);
     for (Map.Entry<String, Artifact> entry : symlinks.entrySet()) {
       runfiles.addSymlink(PathFragment.create(entry.getKey()), entry.getValue());
