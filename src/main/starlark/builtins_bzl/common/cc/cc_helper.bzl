@@ -1142,11 +1142,11 @@ def _linkopts(ctx, additional_make_variable_substitutions, cc_toolchain):
         fail("in linkopts attribute of cc_library rule {}: Apple builds do not support statically linked binaries".format(ctx.label))
     return tokens
 
-def _defines_attribute(ctx, additional_make_variable_substitutions, attr_name):
+def _defines_attribute(ctx, additional_make_variable_substitutions, attr_name, additional_targets):
     defines = getattr(ctx.attr, attr_name, [])
     if len(defines) == 0:
         return []
-    targets = []
+    targets = list(additional_targets)
     for dep in ctx.attr.deps:
         targets.append(dep)
     result = []
@@ -1164,10 +1164,10 @@ def _defines_attribute(ctx, additional_make_variable_substitutions, attr_name):
     return result
 
 def _defines(ctx, additional_make_variable_substitutions):
-    return _defines_attribute(ctx, additional_make_variable_substitutions, "defines")
+    return _defines_attribute(ctx, additional_make_variable_substitutions, "defines", [])
 
 def _local_defines(ctx, additional_make_variable_substitutions):
-    return _defines_attribute(ctx, additional_make_variable_substitutions, "local_defines")
+    return _defines_attribute(ctx, additional_make_variable_substitutions, "local_defines", getattr(ctx.attr, "additional_compiler_inputs", []))
 
 def _linker_scripts(ctx):
     result = []
