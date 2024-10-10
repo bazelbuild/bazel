@@ -52,10 +52,10 @@ option java_package = "com.google.devtools.build.lib.skyframe.serialization.prot
 // `FileInvalidationData` of its parent is the parent's MTSV, which is included
 // as `parent_mtsv`.
 //
-// In the common case, `FileInvalidationData` only contains `parent_mtsv` and
-// `type' and that's sufficient information to derive all the paths, assuming
-// that the parent lookups are transitively performed. The
-// `FileStateKey.argument` matches the path present in the key.
+// In the common case, `FileInvalidationData` is empty and that's sufficient
+// information to derive all the paths, assuming that the parent lookups are
+// transitively performed. The `FileStateKey.argument` matches the path present
+// in the key.
 //
 // In the presence of symlinks, special logic applies to produce the resolved
 // paths. A `symlinks` entry will be present. To unpack the symlink entry, we
@@ -88,30 +88,6 @@ message FileInvalidationData {
   // This field is repeated, with one entry for each symbolic link encountered
   // while resolving the path.
   repeated Symlink symlinks = 3;
-
-  // Type of the fully resolved entry.
-  //
-  // Symbolic links are not included in the DirentType enum below. They are
-  // exclusively represented using the symlinks field.
-  enum DirentType {
-    // Required by internal best practices.
-    // Not expected to occur.
-    UNDEFINED = 0;
-    // A regular file.
-    FILE = 1;
-    // A directory.
-    DIRECTORY = 2;
-    // Explicit marker for a non-existing file.
-    //
-    // Nonexistence of specific files is meaningful to Bazel, (e.g., BUILD
-    // files).
-    NON_EXISTENT = 3;
-  }
-
-  // Type of the final resolved file.
-  //
-  // Required.
-  DirentType type = 4;
 }
 
 // Invalidation information for a

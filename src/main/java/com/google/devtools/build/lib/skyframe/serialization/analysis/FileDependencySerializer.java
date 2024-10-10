@@ -38,7 +38,6 @@ import com.google.devtools.build.lib.skyframe.serialization.analysis.Invalidatio
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataReference.FileInvalidationDataReference;
 import com.google.devtools.build.lib.skyframe.serialization.proto.DirectoryListingInvalidationData;
 import com.google.devtools.build.lib.skyframe.serialization.proto.FileInvalidationData;
-import com.google.devtools.build.lib.skyframe.serialization.proto.FileInvalidationData.DirentType;
 import com.google.devtools.build.lib.skyframe.serialization.proto.Symlink;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -133,7 +132,7 @@ final class FileDependencySerializer {
     // If this is reached, this thread owns `reference` and must complete its future.
     boolean writeStatusSet = false;
     try {
-      var data = FileInvalidationData.newBuilder().setType(getDirentType(value));
+      var data = FileInvalidationData.newBuilder();
       var writeStatuses = new ArrayList<ListenableFuture<Void>>();
       FileInvalidationDataReference parentReference =
           registerDependency(FileValue.key(rootedPath.getParentDirectory()));
@@ -287,19 +286,6 @@ final class FileDependencySerializer {
       parentRootedPath = resolvedSymlinkPath.getParentDirectory();
       link = symlinkValue.getSymlinkTarget();
     }
-  }
-
-  private static DirentType getDirentType(FileValue value) {
-    if (!value.exists()) {
-      return DirentType.NON_EXISTENT;
-    }
-    if (value.isFile()) {
-      return DirentType.FILE;
-    }
-    if (value.isDirectory()) {
-      return DirentType.DIRECTORY;
-    }
-    throw new IllegalArgumentException("not a recognized type " + value);
   }
 
   private KeyBytesProvider getKeyBytes(String cacheKey, Consumer<String> overflowConsumer) {
