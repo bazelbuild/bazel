@@ -79,15 +79,24 @@ public class BazelDepGraphFunction implements SkyFunction {
     ImmutableBiMap<String, ModuleExtensionId> extensionUniqueNames =
         calculateUniqueNameForUsedExtensionId(extensionUsagesById, starlarkSemantics);
 
+    char repoNameSeparator =
+        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_USE_PLUS_IN_REPO_NAMES)
+            ? '+'
+            : '~';
+
     return BazelDepGraphValue.create(
         depGraph,
         canonicalRepoNameLookup,
         depGraph.values().stream().map(AbridgedModule::from).collect(toImmutableList()),
         extensionUsagesById,
         extensionUniqueNames.inverse(),
-        starlarkSemantics.getBool(BuildLanguageOptions.INCOMPATIBLE_USE_PLUS_IN_REPO_NAMES)
-            ? '+'
-            : '~');
+        resolveRepoOverrides(
+            depGraph,
+            extensionUsagesById,
+            extensionUniqueNames.inverse(),
+            canonicalRepoNameLookup,
+            repoNameSeparator),
+        repoNameSeparator);
   }
 
   private static ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage>
@@ -216,6 +225,40 @@ public class BazelDepGraphFunction implements SkyFunction {
                 + (usePlus ? "+" : "~")
                 + id.getExtensionName()
                 + extensionNameDisambiguator);
+  }
+
+  private static ImmutableTable<ModuleExtensionId, String, RepositoryName> resolveRepoOverrides(
+      ImmutableMap<ModuleKey, Module> depGraph,
+      ImmutableTable<ModuleExtensionId, ModuleKey, ModuleExtensionUsage> extensionUsagesTable,
+      ImmutableMap<ModuleExtensionId, String> extensionUniqueNames,
+      ImmutableBiMap<RepositoryName, ModuleKey> canonicalRepoNameLookup,
+      char repoNameSeparator) {
+    RepositoryMapping rootModuleMappingWithoutOverrides =
+        BazelDepGraphValue.getRepositoryMapping(
+            ModuleKey.ROOT,
+            depGraph,
+            extensionUsagesTable,
+            extensionUniqueNames,
+            canonicalRepoNameLookup,
+            // ModuleFileFunction ensures that repos that override other repos are not themselves
+            // overridden, so we can safely pass an empty table here instead of resolving chains
+            // of overrides.
+            ImmutableTable.of(),
+            repoNameSeparator);
+    ImmutableTable.Builder<ModuleExtensionId, String, RepositoryName> repoOverridesBuilder =
+        ImmutableTable.builder();
+    for (var extensionId : extensionUsagesTable.rowKeySet()) {
+      var rootUsage = extensionUsagesTable.row(extensionId).get(ModuleKey.ROOT);
+      if (rootUsage != null) {
+        for (var override : rootUsage.getRepoOverrides().entrySet()) {
+          repoOverridesBuilder.put(
+              extensionId,
+              override.getKey(),
+              rootModuleMappingWithoutOverrides.get(override.getValue().overridingRepoName()));
+        }
+      }
+    }
+    return repoOverridesBuilder.buildOrThrow();
   }
 
   static class BazelDepGraphFunctionException extends SkyFunctionException {

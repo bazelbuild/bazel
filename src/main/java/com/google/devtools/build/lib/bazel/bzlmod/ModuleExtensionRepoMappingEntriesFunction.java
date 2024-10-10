@@ -74,6 +74,7 @@ public class ModuleExtensionRepoMappingEntriesFunction implements SkyFunction {
     ImmutableMap.Builder<String, RepositoryName> entries = ImmutableMap.builder();
     entries.putAll(bazelDepGraphValue.getFullRepoMapping(moduleKey).entries());
     entries.putAll(extensionEvalValue.getCanonicalRepoNameToInternalNames().inverse());
+    entries.putAll(bazelDepGraphValue.getRepoOverrides().row(extensionId));
     return ModuleExtensionRepoMappingEntriesValue.create(entries.buildKeepingLast(), moduleKey);
     // LINT.ThenChange(//src/main/java/com/google/devtools/build/lib/bazel/bzlmod/ModuleExtensionEvalStarlarkThreadContext.java)
   }

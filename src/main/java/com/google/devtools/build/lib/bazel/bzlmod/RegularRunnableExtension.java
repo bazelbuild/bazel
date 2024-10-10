@@ -263,6 +263,7 @@ final class RegularRunnableExtension implements RunnableExtension {
             usagesValue.getExtensionUniqueName() + separator,
             extensionId.getBzlFileLabel().getPackageIdentifier(),
             BazelModuleContext.of(bzlLoadValue.getModule()).repoMapping(),
+            usagesValue.getRepoOverrides(),
             directories,
             env.getListener());
     Optional<ModuleExtensionMetadata> moduleExtensionMetadata;
