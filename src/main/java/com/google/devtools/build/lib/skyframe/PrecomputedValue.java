@@ -149,6 +149,10 @@ public final class PrecomputedValue implements SkyValue {
       this.key = shareable ? Key.create(key) : UnshareableKey.create(key);
     }
 
+    public SkyKey getKey() {
+      return key;
+    }
+
     @VisibleForTesting
     public SkyKey getKeyForTesting() {
       return key;
