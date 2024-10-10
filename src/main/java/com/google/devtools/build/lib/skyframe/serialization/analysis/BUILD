@@ -63,6 +63,7 @@ java_library(
         "InvalidationDataReference.java",
     ],
     deps = [
+        ":file_dependency_key_support",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/analysis:analysis_cluster",
         "//src/main/java/com/google/devtools/build/lib/skyframe:directory_listing_value",
@@ -74,6 +75,16 @@ java_library(
         "//src/main/protobuf:file_invalidation_data_java_proto",
         "//third_party:guava",
         "//third_party:jsr305",
+    ],
+)
+
+java_library(
+    name = "file_dependency_key_support",
+    srcs = ["FileDependencyKeySupport.java"],
+    deps = [
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:file_invalidation_data_java_proto",
+        "//third_party:guava",
     ],
 )
 

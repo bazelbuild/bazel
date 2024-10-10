@@ -17,10 +17,14 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static com.google.devtools.build.lib.actions.FileStateType.SYMLINK;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.DIRECTORY_KEY_DELIMITER;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.FILE_KEY_DELIMITER;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.MAX_KEY_LENGTH;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.MTSV_SENTINEL;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.computeCacheKey;
 import static com.google.devtools.build.lib.vfs.RootedPath.toRootedPath;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileStateValue;
@@ -41,10 +45,7 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.Version;
-import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
@@ -52,21 +53,6 @@ import javax.annotation.Nullable;
 
 /** Records {@link FileValue.Key} and {@link DirectoryListingValue.Key} invalidation information. */
 final class FileDependencySerializer {
-  @VisibleForTesting static final int MAX_KEY_LENGTH = 250;
-  private static final long MTSV_SENTINEL = -1;
-  private static final byte[] EMPTY_BYTES = new byte[0];
-
-  /**
-   * Neither {@link #FILE_KEY_DELIMITER} nor {@link #DIRECTORY_KEY_DELIMITER} are used in Base64,
-   * making them good delimiters for the Base64-encoded version numbers.
-   *
-   * <p>See comment at {@link FileInvalidationData} for more details.
-   */
-  @VisibleForTesting static final byte FILE_KEY_DELIMITER = (byte) ':';
-
-  @VisibleForTesting static final byte DIRECTORY_KEY_DELIMITER = (byte) ';';
-
-  private static final Base64.Encoder ENCODER = Base64.getEncoder().withoutPadding();
 
   private final VersionNumberExtractor versionExtractor;
   private final InMemoryGraph graph;
@@ -301,27 +287,6 @@ final class FileDependencySerializer {
       parentRootedPath = resolvedSymlinkPath.getParentDirectory();
       link = symlinkValue.getSymlinkTarget();
     }
-  }
-
-  @VisibleForTesting
-  static byte[] encodeMtsv(long mtsv) {
-    if (mtsv < 0) {
-      checkArgument(mtsv == MTSV_SENTINEL, mtsv);
-      return EMPTY_BYTES; // BigInteger.toByteArray is never empty so this is unique.
-    }
-    // Uses a BigInteger to trim leading 0 bytes.
-    return ENCODER.encode(BigInteger.valueOf(mtsv).toByteArray());
-  }
-
-  private String computeCacheKey(PathFragment path, long mtsv, byte delimiter) {
-    byte[] encodedMtsv = encodeMtsv(mtsv);
-    byte[] pathBytes = path.getPathString().getBytes(UTF_8);
-
-    byte[] keyBytes = Arrays.copyOf(encodedMtsv, encodedMtsv.length + 1 + pathBytes.length);
-    keyBytes[encodedMtsv.length] = delimiter;
-    System.arraycopy(pathBytes, 0, keyBytes, encodedMtsv.length + 1, pathBytes.length);
-
-    return new String(keyBytes, UTF_8);
   }
 
   private static DirentType getDirentType(FileValue value) {
