@@ -1,5 +1,6 @@
 
 def hello():
+    """Returns the constant 'hello world'"""
     return "hello world"
 
 

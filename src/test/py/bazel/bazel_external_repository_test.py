@@ -76,7 +76,7 @@ class BazelExternalRepositoryTest(test_base.TestBase):
         '    urls = ["http://%s:%s/hello-1.0.0.tar.gz"],' % (ip, port),
         (
             '    sha256 = '
-            '"6d5419eaf96bd5b0667e37df059484aef42b05bbea62cb49ea359ae7b03f2cd3",'
+            '"154740b327bcfee5669ef2ce0a04bf0904227a3bfe0fee08a5aaca96ea5a601a",'
         ),
         '    strip_prefix = "hello-1.0.0",',
         '    build_file = "@//third_party:hello.BUILD",',
