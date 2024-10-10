@@ -24,7 +24,6 @@ import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.Clock;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventKind;
@@ -463,7 +462,7 @@ public class ActionExecutionContext implements Closeable, ActionContext.ActionCo
     if (owner == null) {
       reason.append(spawn.getResourceOwner().prettyPrint());
     } else {
-      reason.append(Label.print(owner.getLabel()));
+      reason.append(owner.getDescription());
       reason.append(" [");
       reason.append(spawn.getResourceOwner().prettyPrint());
       reason.append(", configuration: ");

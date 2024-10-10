@@ -151,7 +151,7 @@ public class CommandFailureUtils {
       Map<String, String> env,
       @Nullable String cwd,
       @Nullable String configurationChecksum,
-      @Nullable Label targetLabel,
+      @Nullable String targetDescription,
       @Nullable Label executionPlatformLabel) {
 
     String commandName = commandLineElements.iterator().next();
@@ -166,8 +166,8 @@ public class CommandFailureUtils {
     output.append("error executing ");
     output.append(mnemonic);
     output.append(" command ");
-    if (targetLabel != null) {
-      output.append("(from target ").append(targetLabel).append(") ");
+    if (targetDescription != null) {
+      output.append("(from ").append(targetDescription).append(") ");
     }
     if (verbose) {
       output.append("\n  ");
@@ -194,7 +194,7 @@ public class CommandFailureUtils {
         command.getEnvironment(),
         cwd,
         command.getConfigurationChecksum(),
-        command.getTargetLabel(),
+        command.getTargetDescription(),
         command.getExecutionPlatformLabel());
   }
 }

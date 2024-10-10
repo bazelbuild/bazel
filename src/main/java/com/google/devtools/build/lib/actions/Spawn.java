@@ -180,6 +180,11 @@ public interface Spawn extends DescribableExecutionUnit {
 
   @Override
   @Nullable
+  default String getTargetDescription() {
+    return getResourceOwner().getOwner().getDescription();
+  }
+
+  @Nullable
   default Label getTargetLabel() {
     return getResourceOwner().getOwner().getLabel();
   }
