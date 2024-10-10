@@ -2961,7 +2961,7 @@ function test_bad_marker_file_ignored() {
   echo nothing > ${outside_dir}/data.txt
 
   create_new_workspace
-  cat > $(setup_module_dot_bazel) <<EOF
+  cat > MODULE.bazel <<EOF
 foo = use_repo_rule("//:r.bzl", "foo")
 foo(name = "foo")
 bar = use_repo_rule("//:r.bzl", "bar")
