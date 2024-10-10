@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.rules.java;
 
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.analysis.OutputGroupInfo;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
 import com.google.devtools.build.lib.cmdline.Label;
@@ -74,4 +75,6 @@ public interface JavaSemantics {
    */
   PathFragment getDefaultJavaResourcePath(PathFragment path);
 
+  /** Environment variable that sets the UTF-8 charset. */
+  ImmutableMap<String, String> utf8Environment();
 }

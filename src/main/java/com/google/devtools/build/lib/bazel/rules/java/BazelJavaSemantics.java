@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.bazel.rules.java;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.rules.java.JavaSemantics;
 import com.google.devtools.build.lib.rules.java.JavaUtil;
@@ -21,10 +22,15 @@ import com.google.devtools.build.lib.skyframe.serialization.autocodec.Serializat
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 
-/**
- * Semantics for Bazel Java rules
- */
+/** Semantics for Bazel Java rules */
 public class BazelJavaSemantics implements JavaSemantics {
+
+  /**
+   * {@code C.UTF-8} is now the universally accepted standard UTF-8 locale, to the point where some
+   * minimal distributions no longer ship with {@code en_US.UTF-8}.
+   */
+  private static final ImmutableMap<String, String> UTF8_ENVIRONMENT =
+      ImmutableMap.of("LC_CTYPE", "C.UTF-8");
 
   @SerializationConstant public static final BazelJavaSemantics INSTANCE = new BazelJavaSemantics();
 
@@ -58,5 +64,8 @@ public class BazelJavaSemantics implements JavaSemantics {
     return javaPath == null ? path : javaPath;
   }
 
+  @Override
+  public ImmutableMap<String, String> utf8Environment() {
+    return UTF8_ENVIRONMENT;
+  }
 }
-

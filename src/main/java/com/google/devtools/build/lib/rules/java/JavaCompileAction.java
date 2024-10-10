@@ -129,6 +129,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   private final NestedSet<Artifact> tools;
   private final CompilationType compilationType;
+  private final ActionEnvironment env;
   private final ImmutableMap<String, String> executionInfo;
   private final CommandLine executableLine;
   private final CommandLine flagLine;
@@ -153,6 +154,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
       NestedSet<Artifact> transitiveInputs,
       NestedSet<Artifact> directJars,
       ImmutableSet<Artifact> outputs,
+      ActionEnvironment env,
       ImmutableMap<String, String> executionInfo,
       ExtraActionInfoSupplier extraActionInfoSupplier,
       CommandLine executableLine,
@@ -174,6 +176,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     }
     this.tools = tools;
     this.compilationType = compilationType;
+    this.env = env;
     this.executionInfo =
         configuration.modifiedExecutionInfo(executionInfo, compilationType.mnemonic);
     this.executableLine = executableLine;
@@ -212,9 +215,7 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
 
   @Override
   public ActionEnvironment getEnvironment() {
-    return configuration
-        .getActionEnvironment()
-        .withAdditionalFixedVariables(JavaCompileActionBuilder.UTF8_ENVIRONMENT);
+    return env;
   }
 
   @Override

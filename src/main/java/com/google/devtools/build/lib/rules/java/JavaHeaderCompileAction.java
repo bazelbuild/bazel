@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.devtools.build.lib.actions.ActionAnalysisMetadata.mergeMaps;
 import static com.google.devtools.build.lib.actions.ParameterFile.ParameterFileType.UNQUOTED;
 import static com.google.devtools.build.lib.packages.ExecGroup.DEFAULT_EXEC_GROUP_NAME;
-import static com.google.devtools.build.lib.rules.java.JavaCompileActionBuilder.UTF8_ENVIRONMENT;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 
 import com.google.common.collect.ImmutableList;
@@ -210,6 +209,8 @@ public final class JavaHeaderCompileAction extends SpawnAction {
 
     private String execGroup = DEFAULT_EXEC_GROUP_NAME;
 
+    private ImmutableMap<String, String> utf8Environment = null;
+
     private Builder(RuleContext ruleContext) {
       this.ruleContext = ruleContext;
     }
@@ -386,6 +387,13 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       return this;
     }
 
+    @CanIgnoreReturnValue
+    public Builder setUtf8Environment(ImmutableMap<String, String> utf8Environment) {
+      checkNotNull(utf8Environment, "utf8Environment must not be null");
+      this.utf8Environment = utf8Environment;
+      return this;
+    }
+
     /** Builds and registers the action for a header compilation. */
     public void build(JavaToolchainProvider javaToolchain)
         throws RuleErrorException, InterruptedException {
@@ -398,6 +406,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
       checkNotNull(directJars, "directJars must not be null");
       checkNotNull(
           compileTimeDependencyArtifacts, "compileTimeDependencyArtifacts must not be null");
+      checkNotNull(utf8Environment, "utf8Environment must not be null");
 
       // Invariant: if strictJavaDeps is OFF, then directJars and
       // dependencyArtifacts are ignored
@@ -433,7 +442,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
           ruleContext
               .getConfiguration()
               .getActionEnvironment()
-              .withAdditionalFixedVariables(UTF8_ENVIRONMENT);
+              .withAdditionalFixedVariables(utf8Environment);
 
       OnDemandString progressMessage =
           new ProgressMessage(
@@ -609,6 +618,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               /* transitiveInputs= */ classpathEntries,
               /* directJars= */ directJars,
               /* outputs= */ outputs.build(),
+              /* env= */ actionEnvironment,
               /* executionInfo= */ executionInfo.buildKeepingLast(),
               /* extraActionInfoSupplier= */ null,
               /* executableLine= */ executableLine,
