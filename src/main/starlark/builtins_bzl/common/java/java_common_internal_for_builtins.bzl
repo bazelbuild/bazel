@@ -134,9 +134,15 @@ def compile(
             ["-Abazel.repository=" + ctx.label.workspace_name],
             order = "preorder",
         ))
+    system_override = False
     for package_config in java_toolchain._package_configuration:
         if package_config.matches(ctx.label):
             all_javac_opts.append(package_config.javac_opts)
+            if package_config.system:
+                if system_override:
+                    fail("Multiple system package configurations found for %s" % ctx.label)
+                bootclasspath = package_config.system
+                system_override = True
 
     all_javac_opts.append(depset(
         ["--add-exports=%s=ALL-UNNAMED" % x for x in add_exports],
