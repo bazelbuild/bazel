@@ -2984,8 +2984,8 @@ EOF
   bazel build @foo >& $TEST_log || fail "expected bazel to succeed"
   expect_log "I see: nothing"
 
-  local marker_file=$(bazel info output_base)/external/@+_repo_rules+foo.marker
-  # the marker file for this repo should contain a reference to "@@+_repo_rules+bar". Mangle that.
+  local marker_file=$(bazel info output_base)/external/@_main~_repo_rules~foo.marker
+  # the marker file for this repo should contain a reference to "@@_main~_repo_rules~bar". Mangle that.
   sed -i'' -e 's/@@_main~_repo_rules~bar/@@LOL@@LOL/g' ${marker_file}
 
   # Running Bazel again shouldn't crash, and should result in a refetch.
