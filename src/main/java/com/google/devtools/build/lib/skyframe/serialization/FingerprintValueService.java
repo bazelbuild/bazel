@@ -152,7 +152,7 @@ public final class FingerprintValueService {
    *
    * <p>Those callbacks may be executing on RPC threads that should not be blocked.
    */
-  Executor getExecutor() {
+  public Executor getExecutor() {
     return executor;
   }
 }

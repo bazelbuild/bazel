@@ -79,6 +79,26 @@ java_library(
 )
 
 java_library(
+    name = "file_dependency_deserializer",
+    srcs = [
+        "FileDependencies.java",
+        "FileDependencyDeserializer.java",
+    ],
+    deps = [
+        ":file_dependency_key_support",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
+        "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
+        "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
+        "//src/main/protobuf:file_invalidation_data_java_proto",
+        "//third_party:caffeine",
+        "//third_party:error_prone_annotations",
+        "//third_party:guava",
+        "//third_party:jsr305",
+        "@protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
     name = "file_dependency_key_support",
     srcs = ["FileDependencyKeySupport.java"],
     deps = [
