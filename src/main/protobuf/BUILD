@@ -23,6 +23,7 @@ FILES = [
     "test_status",
     "worker_protocol",
     "execution_graph",
+    "file_invalidation_data",
 ]
 
 [proto_library(
@@ -416,10 +417,7 @@ java_library_srcs(
 
 filegroup(
     name = "srcs",
-    srcs = glob(
-        ["**"],
-        exclude = ["android_deploy_info.proto"],
-    ),
+    srcs = glob(["**"]),
 )
 
 filegroup(

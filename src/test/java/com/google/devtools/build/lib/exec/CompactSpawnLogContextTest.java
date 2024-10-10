@@ -160,7 +160,7 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
   public void testRunfilesTreeReusedForTool() throws Exception {
     Artifact tool = ActionsTestUtil.createArtifact(rootDir, "data.txt");
     writeFile(tool, "abc");
-    Artifact toolRunfilesMiddleman = ActionsTestUtil.createArtifact(middlemanDir, "runfiles");
+    Artifact toolRunfiles = ActionsTestUtil.createRunfilesArtifact(outputDir, "tool.runfiles");
 
     PathFragment runfilesRoot = outputDir.getExecPath().getRelative("foo.runfiles");
     RunfilesTree runfilesTree = createRunfilesTree(runfilesRoot, tool);
@@ -171,28 +171,22 @@ public final class CompactSpawnLogContextTest extends SpawnLogContextTestBase {
     writeFile(secondInput, "ghi");
 
     Spawn firstSpawn =
-        defaultSpawnBuilder()
-            .withTool(toolRunfilesMiddleman)
-            .withInputs(firstInput, toolRunfilesMiddleman)
-            .build();
+        defaultSpawnBuilder().withTool(toolRunfiles).withInputs(firstInput, toolRunfiles).build();
     Spawn secondSpawn =
-        defaultSpawnBuilder()
-            .withTool(toolRunfilesMiddleman)
-            .withInputs(secondInput, toolRunfilesMiddleman)
-            .build();
+        defaultSpawnBuilder().withTool(toolRunfiles).withInputs(secondInput, toolRunfiles).build();
 
     SpawnLogContext context = createSpawnLogContext();
 
     context.logSpawn(
         firstSpawn,
-        createInputMetadataProvider(toolRunfilesMiddleman, runfilesTree, firstInput),
+        createInputMetadataProvider(runfilesTree, toolRunfiles, firstInput),
         createInputMap(runfilesTree, firstInput),
         fs,
         defaultTimeout(),
         defaultSpawnResult());
     context.logSpawn(
         secondSpawn,
-        createInputMetadataProvider(toolRunfilesMiddleman, runfilesTree, secondInput),
+        createInputMetadataProvider(runfilesTree, toolRunfiles, secondInput),
         createInputMap(runfilesTree, secondInput),
         fs,
         defaultTimeout(),

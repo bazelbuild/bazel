@@ -28,7 +28,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.ArtifactExpander;
 import com.google.devtools.build.lib.actions.ArtifactExpander.MissingExpansionException;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
-import com.google.devtools.build.lib.actions.FilesetOutputTree.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetOutputTree.ForbiddenRelativeSymlinkException;
 import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehavior;
 import com.google.devtools.build.lib.actions.ForbiddenActionInputException;
@@ -188,15 +187,14 @@ public final class SpawnInputExpander {
       PathFragment baseDirectory)
       throws ForbiddenRelativeSymlinkException {
     Preconditions.checkArgument(filesetArtifact.isFileset(), filesetArtifact);
-    FilesetManifest filesetManifest =
-        filesetOutput.constructFilesetManifest(location, relSymlinkBehavior);
-
-    for (Map.Entry<PathFragment, String> mapping : filesetManifest.getEntries().entrySet()) {
-      String value = mapping.getValue();
-      ActionInput artifact = ActionInputHelper.fromPath(execRoot.getRelative(value).asFragment());
-      // TODO(bazel-team): Add path mapping support for filesets.
-      addMapping(inputMap, mapping.getKey(), artifact, baseDirectory);
-    }
+    filesetOutput.visitSymlinks(
+        relSymlinkBehavior,
+        (name, target, metadata) ->
+            addMapping(
+                inputMap,
+                location.getRelative(name),
+                ActionInputHelper.fromPath(execRoot.getRelative(target).asFragment()),
+                baseDirectory));
   }
 
   private void addInputs(

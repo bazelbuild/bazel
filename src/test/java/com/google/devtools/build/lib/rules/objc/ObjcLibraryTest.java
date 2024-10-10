@@ -685,6 +685,20 @@ public class ObjcLibraryTest extends ObjcRuleTestCase {
   }
 
   @Test
+  public void testObjcCxxopts_argumentOrdering() throws Exception {
+    useConfiguration("--objccopt=-foo", "--cxxopt=-cxxfoo");
+    createLibraryTargetWriter("//lib:lib")
+        .setAndCreateFiles("srcs", "a.mm", "b.m", "private.h")
+        .setList("copts", "-bar")
+        .write();
+    List<String> aArgs = compileAction("//lib:lib", "a.o").getArguments();
+    assertThat(aArgs).containsAtLeast("-fobjc-arc", "-cxxfoo", "-foo", "-bar").inOrder();
+    List<String> bArgs = compileAction("//lib:lib", "b.o").getArguments();
+    assertThat(bArgs).containsAtLeast("-fobjc-arc", "-foo", "-bar").inOrder();
+    assertThat(bArgs).doesNotContain("-cxxfoo");
+  }
+
+  @Test
   public void testBothModuleNameAndModuleMapGivesError() throws Exception {
     checkError(
         "x",

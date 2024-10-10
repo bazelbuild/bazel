@@ -188,7 +188,6 @@ public class RemoteExecutionServiceTest {
   private FileSystem fs;
   private Path execRoot;
   private ArtifactRoot artifactRoot;
-  private ArtifactRoot middlemanRoot;
   private TempPathGenerator tempPathGenerator;
   private FakeActionInputFileCache fakeFileCache;
   private RemotePathResolver remotePathResolver;
@@ -209,8 +208,6 @@ public class RemoteExecutionServiceTest {
     execRoot.createDirectoryAndParents();
 
     artifactRoot = ArtifactRoot.asDerivedRoot(execRoot, RootType.Output, "outputs");
-    middlemanRoot =
-        ArtifactRoot.asDerivedRoot(execRoot, RootType.Middleman, PathFragment.create("out"));
 
     checkNotNull(artifactRoot.getRoot().asPath()).createDirectoryAndParents();
 
@@ -2221,12 +2218,12 @@ public class RemoteExecutionServiceTest {
         NestedSetBuilder.create(Order.STABLE_ORDER, dummyFile, foo2File);
     fakeFileCache.createScratchInput(foo2File, "foo2");
 
-    ActionInput runfilesMiddleman = ActionsTestUtil.createArtifact(middlemanRoot, "runfiles");
+    ActionInput runfilesArtifact = ActionsTestUtil.createRunfilesArtifact(artifactRoot, "runfiles");
 
     NestedSet<ActionInput> nodeRoot1 =
         new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
             .add(dummyFile)
-            .add(runfilesMiddleman)
+            .add(runfilesArtifact)
             .add(tree)
             .addTransitive(nodeBar)
             .addTransitive(nodeFoo1)
@@ -2234,7 +2231,7 @@ public class RemoteExecutionServiceTest {
     NestedSet<ActionInput> nodeRoot2 =
         new NestedSetBuilder<ActionInput>(Order.STABLE_ORDER)
             .add(dummyFile)
-            .add(runfilesMiddleman)
+            .add(runfilesArtifact)
             .add(tree)
             .addTransitive(nodeBar)
             .addTransitive(nodeFoo2)
@@ -2246,7 +2243,7 @@ public class RemoteExecutionServiceTest {
     RunfilesTree runfilesTree =
         createRunfilesTree("tools/tool.runfiles", ImmutableList.of(toolDat));
 
-    fakeFileCache.addRunfilesTree(runfilesMiddleman, runfilesTree);
+    fakeFileCache.addRunfilesTree(runfilesArtifact, runfilesTree);
 
     Spawn spawn1 =
         new SimpleSpawn(

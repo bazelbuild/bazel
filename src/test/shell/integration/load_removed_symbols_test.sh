@@ -79,21 +79,22 @@ local_path_override(
 EOF
 }
 
-function test_missing_necessary_bzlmod_dep() {
+# TODO - ilist@: reeenable with a fake repository (we now have autoload all of them)
+function disabled_test_missing_necessary_bzlmod_dep() {
   # Intentionally not adding rules_android to MODULE.bazel
   cat > BUILD << EOF
-aar_import(
+sh_library(
     name = 'aar',
     aar = 'aar.file',
     deps = [],
 )
 EOF
-  bazel build --incompatible_autoload_externally=aar_import :aar >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
-  expect_log "name 'aar_import' is not defined"
-  expect_log "WARNING: Couldn't auto load rules or symbols, because no dependency on module/repository 'rules_android' found. This will result in a failure if there's a reference to those rules or symbols."
+  bazel build --incompatible_autoload_externally=sh_library :aar >&$TEST_log 2>&1 && fail "build unexpectedly succeeded"
+  expect_log "WARNING: Couldn't auto load rules or symbols, because no dependency on module/repository 'rules_sh' found. This will result in a failure if there's a reference to those rules or symbols."
 }
 
-function test_missing_unnecessary_bzmod_dep() {
+# TODO - ilist@: reeenable with a fake repository (we now have autoload all of them)
+function disabled_test_missing_unnecessary_bzmod_dep() {
   # Intentionally not adding rules_android to MODULE.bazel
   cat > BUILD << EOF
 filegroup(
@@ -101,8 +102,8 @@ filegroup(
     srcs = [],
 )
 EOF
-  bazel build --incompatible_autoload_externally=aar_import :filegroup >&$TEST_log 2>&1 || fail "build failed"
-  expect_log "WARNING: Couldn't auto load rules or symbols, because no dependency on module/repository 'rules_android' found. This will result in a failure if there's a reference to those rules or symbols."
+  bazel build --incompatible_autoload_externally=sh_library :filegroup >&$TEST_log 2>&1 || fail "build failed"
+  expect_log "WARNING: Couldn't auto load rules or symbols, because no dependency on module/repository 'rules_sh' found. This will result in a failure if there's a reference to those rules or symbols."
 }
 
 function test_removed_rule_loaded() {

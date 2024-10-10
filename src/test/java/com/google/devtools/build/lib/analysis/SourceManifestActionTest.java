@@ -30,6 +30,7 @@ import com.google.devtools.build.lib.analysis.SourceManifestAction.ManifestType;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -385,6 +386,78 @@ public final class SourceManifestActionTest extends BuildViewTestCase {
             TESTING/absolute_symlink /absolute/path
             TESTING/relative_symlink ../some/relative/path
             """);
+  }
+
+  @Test
+  public void testEscaping() throws Exception {
+    Artifact manifest = getBinArtifactWithNoOwner("manifest1");
+
+    ArtifactRoot trivialRoot =
+        ArtifactRoot.asSourceRoot(Root.fromPath(rootDirectory.getRelative("trivial")));
+    Path fileWithSpaceAndBackslashPath = scratch.file("trivial/file with sp\\ace", "foo");
+    Artifact fileWithSpaceAndBackslash =
+        ActionsTestUtil.createArtifact(trivialRoot, fileWithSpaceAndBackslashPath);
+    Path fileWithNewlineAndBackslashPath = scratch.file("trivial/file\nwith\\newline", "foo");
+    Artifact fileWithNewlineAndBackslash =
+        ActionsTestUtil.createArtifact(trivialRoot, fileWithNewlineAndBackslashPath);
+
+    SourceManifestAction action =
+        new SourceManifestAction(
+            ManifestType.SOURCE_SYMLINKS,
+            NULL_ACTION_OWNER,
+            manifest,
+            new Runfiles.Builder("TESTING", false)
+                .addSymlink(PathFragment.create("no/sp\\ace"), buildFile)
+                .addSymlink(PathFragment.create("also/no/sp\\ace"), fileWithSpaceAndBackslash)
+                .addSymlink(PathFragment.create("still/no/sp\\ace"), fileWithNewlineAndBackslash)
+                .addSymlink(PathFragment.create("with sp\\ace"), buildFile)
+                .addSymlink(PathFragment.create("also/with sp\\ace"), fileWithSpaceAndBackslash)
+                .addSymlink(PathFragment.create("more/with sp\\ace"), fileWithNewlineAndBackslash)
+                .addSymlink(PathFragment.create("with\nnew\\line"), buildFile)
+                .addSymlink(PathFragment.create("also/with\nnewline"), fileWithSpaceAndBackslash)
+                .addSymlink(PathFragment.create("more/with\nnewline"), fileWithNewlineAndBackslash)
+                .addSymlink(PathFragment.create("with\nnew\\line and space"), buildFile)
+                .addSymlink(
+                    PathFragment.create("also/with\nnewline and space"), fileWithSpaceAndBackslash)
+                .addSymlink(
+                    PathFragment.create("more/with\nnewline and space"),
+                    fileWithNewlineAndBackslash)
+                .build());
+    if (OS.getCurrent().equals(OS.WINDOWS)) {
+      assertThat(action.getFileContents(reporter))
+          .isEqualTo(
+              """
+              TESTING/also/no/sp/ace /workspace/trivial/file with sp/ace
+               TESTING/also/with\\nnewline /workspace/trivial/file with sp/ace
+               TESTING/also/with\\nnewline\\sand\\sspace /workspace/trivial/file with sp/ace
+               TESTING/also/with\\ssp/ace /workspace/trivial/file with sp/ace
+               TESTING/more/with\\nnewline /workspace/trivial/file\\nwith/newline
+               TESTING/more/with\\nnewline\\sand\\sspace /workspace/trivial/file\\nwith/newline
+               TESTING/more/with\\ssp/ace /workspace/trivial/file\\nwith/newline
+              TESTING/no/sp/ace /workspace/trivial/BUILD
+               TESTING/still/no/sp/ace /workspace/trivial/file\\nwith/newline
+               TESTING/with\\nnew/line /workspace/trivial/BUILD
+               TESTING/with\\nnew/line\\sand\\sspace /workspace/trivial/BUILD
+               TESTING/with\\ssp/ace /workspace/trivial/BUILD
+              """);
+    } else {
+      assertThat(action.getFileContents(reporter))
+          .isEqualTo(
+              """
+              TESTING/also/no/sp\\ace /workspace/trivial/file with sp\\ace
+               TESTING/also/with\\nnewline /workspace/trivial/file with sp\\bace
+               TESTING/also/with\\nnewline\\sand\\sspace /workspace/trivial/file with sp\\bace
+               TESTING/also/with\\ssp\\bace /workspace/trivial/file with sp\\bace
+               TESTING/more/with\\nnewline /workspace/trivial/file\\nwith\\bnewline
+               TESTING/more/with\\nnewline\\sand\\sspace /workspace/trivial/file\\nwith\\bnewline
+               TESTING/more/with\\ssp\\bace /workspace/trivial/file\\nwith\\bnewline
+              TESTING/no/sp\\ace /workspace/trivial/BUILD
+               TESTING/still/no/sp\\bace /workspace/trivial/file\\nwith\\bnewline
+               TESTING/with\\nnew\\bline /workspace/trivial/BUILD
+               TESTING/with\\nnew\\bline\\sand\\sspace /workspace/trivial/BUILD
+               TESTING/with\\ssp\\bace /workspace/trivial/BUILD
+              """);
+    }
   }
 
   private String computeKey(SourceManifestAction action) {

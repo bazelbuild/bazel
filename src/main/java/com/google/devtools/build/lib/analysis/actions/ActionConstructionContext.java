@@ -39,9 +39,6 @@ public interface ActionConstructionContext extends ActionRegistry {
   /** Returns the bin directory for constructed actions. */
   ArtifactRoot getBinDirectory();
 
-  /** Returns the internal directory (used for middlemen) for constructed actions. */
-  ArtifactRoot getMiddlemanDirectory();
-
   /**
    * Returns the action owner that should be used for the default execution group's execution
    * platform.

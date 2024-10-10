@@ -89,8 +89,9 @@ platform(
 )
 EOF
 
+  add_rules_cc "MODULE.bazel"
   cat >> MODULE.bazel <<EOF
-cc_configure = use_extension("@bazel_tools//tools/cpp:cc_configure.bzl", "cc_configure_extension")
+cc_configure = use_extension("@rules_cc//cc:extensions.bzl", "cc_configure_extension")
 use_repo(cc_configure, "local_config_cc")
 EOF
 }

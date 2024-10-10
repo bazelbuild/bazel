@@ -19,7 +19,7 @@ import static com.google.common.util.concurrent.Futures.immediateVoidFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
-import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
+import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.LinkedBlockingQueue;
 import javax.annotation.Nullable;
@@ -29,19 +29,19 @@ import javax.annotation.Nullable;
  * operations and makes their completion controllable by the caller.
  */
 public final class GetRecordingStore implements FingerprintValueStore {
-  private final ConcurrentHashMap<PackedFingerprint, byte[]> fingerprintToContents =
+  private final ConcurrentHashMap<KeyBytesProvider, byte[]> fingerprintToContents =
       new ConcurrentHashMap<>();
 
   private final LinkedBlockingQueue<GetRequest> requestQueue = new LinkedBlockingQueue<>();
 
   @Override
-  public ListenableFuture<Void> put(PackedFingerprint fingerprint, byte[] serializedBytes) {
+  public ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
     fingerprintToContents.put(fingerprint, serializedBytes);
     return immediateVoidFuture();
   }
 
   @Override
-  public ListenableFuture<byte[]> get(PackedFingerprint fingerprint) {
+  public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
     SettableFuture<byte[]> response = SettableFuture.create();
     requestQueue.offer(new GetRequest(this, fingerprint, response));
     return response;
@@ -58,7 +58,7 @@ public final class GetRecordingStore implements FingerprintValueStore {
 
   /** Encapsulates a {@link #get} operation. */
   public record GetRequest(
-      GetRecordingStore parent, PackedFingerprint fingerprint, SettableFuture<byte[]> response) {
+      GetRecordingStore parent, KeyBytesProvider fingerprint, SettableFuture<byte[]> response) {
     /**
      * Completes the {@link #response} by looking up the {@link #fingerprint} in the {@link
      * #parent}'s in-memory map.

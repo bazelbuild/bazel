@@ -15,17 +15,17 @@ package com.google.devtools.build.lib.actions;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehavior.ERROR;
-import static com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehavior.IGNORE;
-import static com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehavior.RESOLVE_FULLY;
+import static com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehaviorWithoutError.IGNORE;
+import static com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehaviorWithoutError.RESOLVE_FULLY;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.FilesetOutputTree.FilesetManifest;
 import com.google.devtools.build.lib.actions.FilesetOutputTree.ForbiddenRelativeSymlinkException;
 import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehavior;
-import com.google.devtools.build.lib.actions.FilesetOutputTreeTest.ManifestCommonTests;
-import com.google.devtools.build.lib.actions.FilesetOutputTreeTest.OneOffManifestTests;
-import com.google.devtools.build.lib.actions.FilesetOutputTreeTest.ResolvingManifestTests;
+import com.google.devtools.build.lib.actions.FilesetOutputTree.RelativeSymlinkBehaviorWithoutError;
+import com.google.devtools.build.lib.actions.FilesetOutputTreeTest.CommonTests;
+import com.google.devtools.build.lib.actions.FilesetOutputTreeTest.OneOffTests;
+import com.google.devtools.build.lib.actions.FilesetOutputTreeTest.ResolvingTests;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
@@ -36,11 +36,7 @@ import org.junit.runners.Suite;
 
 /** Tests for {@link FilesetOutputTree}. */
 @RunWith(Suite.class)
-@Suite.SuiteClasses({
-  ManifestCommonTests.class,
-  OneOffManifestTests.class,
-  ResolvingManifestTests.class
-})
+@Suite.SuiteClasses({CommonTests.class, OneOffTests.class, ResolvingTests.class})
 public final class FilesetOutputTreeTest {
 
   private static final PathFragment EXEC_ROOT = PathFragment.create("/root");
@@ -50,78 +46,75 @@ public final class FilesetOutputTreeTest {
         PathFragment.create(from), PathFragment.create(to), EXEC_ROOT);
   }
 
+  private static VisitedSymlink visitedSymlink(String from, String to) {
+    return new VisitedSymlink(PathFragment.create(from), PathFragment.create(to));
+  }
+
+  private record VisitedSymlink(PathFragment name, PathFragment target) {}
+
   private static FilesetOutputTree createTree(FilesetOutputSymlink... symlinks) {
     return FilesetOutputTree.create(ImmutableList.copyOf(symlinks));
   }
 
-  /** Manifest tests that apply to all relative symlink behavior. */
+  private static ImmutableList<VisitedSymlink> visit(
+      FilesetOutputTree filesetOutput, RelativeSymlinkBehavior relSymlinkBehavior)
+      throws ForbiddenRelativeSymlinkException {
+    var visited = ImmutableList.<VisitedSymlink>builder();
+    filesetOutput.visitSymlinks(
+        relSymlinkBehavior,
+        (name, target, metadata) -> visited.add(new VisitedSymlink(name, target)));
+    return visited.build();
+  }
+
+  private static ImmutableList<VisitedSymlink> visit(
+      FilesetOutputTree filesetOutput, RelativeSymlinkBehaviorWithoutError relSymlinkBehavior) {
+    var visited = ImmutableList.<VisitedSymlink>builder();
+    filesetOutput.visitSymlinks(
+        relSymlinkBehavior,
+        (name, target, metadata) -> visited.add(new VisitedSymlink(name, target)));
+    return visited.build();
+  }
+
+  /** Tests that apply to all relative symlink behaviors. */
   @RunWith(TestParameterInjector.class)
-  public static final class ManifestCommonTests {
+  public static final class CommonTests {
 
     @TestParameter private RelativeSymlinkBehavior behavior;
 
     @Test
-    public void emptyManifest() throws Exception {
-      FilesetManifest manifest =
-          FilesetOutputTree.EMPTY.constructFilesetManifest(
-              PathFragment.create("out/foo"), behavior);
-
-      assertThat(manifest.getEntries()).isEmpty();
-      assertThat(manifest.getArtifactValues()).isEmpty();
+    public void empty() throws Exception {
+      assertThat(visit(FilesetOutputTree.EMPTY, behavior)).isEmpty();
     }
 
     @Test
-    public void manifestWithSingleFile() throws Exception {
+    public void singleFile() throws Exception {
       FilesetOutputTree filesetOutput = createTree(symlink("bar", "/dir/file"));
 
-      FilesetManifest manifest =
-          filesetOutput.constructFilesetManifest(PathFragment.create("out/foo"), behavior);
-
-      assertThat(manifest.getEntries())
-          .containsExactly(PathFragment.create("out/foo/bar"), "/dir/file");
+      assertThat(visit(filesetOutput, behavior))
+          .containsExactly(visitedSymlink("bar", "/dir/file"));
     }
 
     @Test
-    public void manifestWithTwoFiles() throws Exception {
+    public void twoFiles() throws Exception {
       FilesetOutputTree filesetOutput =
           createTree(symlink("bar", "/dir/file"), symlink("baz", "/dir/file"));
 
-      FilesetManifest manifest =
-          filesetOutput.constructFilesetManifest(PathFragment.create("out/foo"), behavior);
-
-      assertThat(manifest.getEntries())
-          .containsExactly(
-              PathFragment.create("out/foo/bar"), "/dir/file",
-              PathFragment.create("out/foo/baz"), "/dir/file");
+      assertThat(visit(filesetOutput, behavior))
+          .containsExactly(visitedSymlink("bar", "/dir/file"), visitedSymlink("baz", "/dir/file"));
     }
 
     @Test
-    public void manifestWithDirectory() throws Exception {
-      FilesetOutputTree filesetOutput = createTree(symlink("bar", "/some"));
-
-      FilesetManifest manifest =
-          filesetOutput.constructFilesetManifest(PathFragment.create("out/foo"), behavior);
-
-      assertThat(manifest.getEntries())
-          .containsExactly(PathFragment.create("out/foo/bar"), "/some");
-    }
-
-    @Test
-    public void manifestWithExecRootRelativePath() throws Exception {
+    public void symlinkWithExecRootRelativePath() throws Exception {
       FilesetOutputTree filesetOutput =
           createTree(symlink("bar", EXEC_ROOT.getRelative("foo/bar").getPathString()));
 
-      FilesetManifest manifest =
-          filesetOutput.constructFilesetManifest(PathFragment.create("out/foo"), behavior);
-
-      assertThat(manifest.getEntries())
-          .containsExactly(PathFragment.create("out/foo/bar"), "foo/bar");
+      assertThat(visit(filesetOutput, behavior)).containsExactly(visitedSymlink("bar", "foo/bar"));
     }
   }
 
-  /** Manifest tests that apply to a specific relative symlink behavior. */
+  /** Tests that apply to a specific relative symlink behavior. */
   @RunWith(JUnit4.class)
-  public static final class OneOffManifestTests {
+  public static final class OneOffTests {
 
     @Test
     public void canonicalEmptyInstance() {
@@ -129,81 +122,62 @@ public final class FilesetOutputTreeTest {
     }
 
     @Test
-    public void manifestWithErrorOnRelativeSymlink() {
+    public void errorOnRelativeSymlink() {
       FilesetOutputTree filesetOutput =
           createTree(symlink("bar", "foo"), symlink("foo", "/foo/bar"));
 
       var e =
-          assertThrows(
-              ForbiddenRelativeSymlinkException.class,
-              () -> filesetOutput.constructFilesetManifest(PathFragment.create("out/foo"), ERROR));
-      assertThat(e).hasMessageThat().contains("Fileset symlink foo is not absolute");
+          assertThrows(ForbiddenRelativeSymlinkException.class, () -> visit(filesetOutput, ERROR));
+      assertThat(e).hasMessageThat().contains("Fileset symlink bar -> foo is not absolute");
     }
 
     @Test
-    public void manifestWithIgnoredRelativeSymlink() throws Exception {
+    public void ignoredRelativeSymlink() {
       FilesetOutputTree filesetOutput =
           createTree(symlink("bar", "foo"), symlink("foo", "/foo/bar"));
 
-      FilesetManifest manifest =
-          filesetOutput.constructFilesetManifest(PathFragment.create("out/foo"), IGNORE);
-
-      assertThat(manifest.getEntries())
-          .containsExactly(PathFragment.create("out/foo/foo"), "/foo/bar");
+      assertThat(visit(filesetOutput, IGNORE)).containsExactly(visitedSymlink("foo", "/foo/bar"));
     }
 
     @Test
-    public void manifestWithResolvedRelativeDirectorySymlink() throws Exception {
+    public void resolvedRelativeDirectorySymlink() {
       FilesetOutputTree filesetOutput =
           createTree(symlink("foo/subdir/f1", "/foo/subdir/f1"), symlink("foo/bar", "subdir"));
 
-      FilesetManifest manifest =
-          filesetOutput.constructFilesetManifest(PathFragment.create("out"), RESOLVE_FULLY);
-
-      assertThat(manifest.getEntries())
+      assertThat(visit(filesetOutput, RESOLVE_FULLY))
           .containsExactly(
-              PathFragment.create("out/foo/subdir/f1"), "/foo/subdir/f1",
-              PathFragment.create("out/foo/bar/f1"), "/foo/subdir/f1");
+              visitedSymlink("foo/subdir/f1", "/foo/subdir/f1"),
+              visitedSymlink("foo/bar/f1", "/foo/subdir/f1"));
     }
   }
 
-  /** Manifest tests that apply resolving relative symlink behavior. */
+  /** Tests that apply resolving relative symlink behaviors. */
   @RunWith(TestParameterInjector.class)
-  public static final class ResolvingManifestTests {
+  public static final class ResolvingTests {
 
     @TestParameter({"RESOLVE", "RESOLVE_FULLY"})
-    private RelativeSymlinkBehavior behavior;
+    private RelativeSymlinkBehaviorWithoutError behavior;
 
     @Test
-    public void manifestWithResolvedRelativeSymlink() throws Exception {
+    public void resolvedRelativeSymlink() {
       FilesetOutputTree filesetOutput =
           createTree(symlink("bar", "foo"), symlink("foo", "/foo/bar"));
 
-      FilesetManifest manifest =
-          filesetOutput.constructFilesetManifest(PathFragment.create("out/foo"), behavior);
-
-      assertThat(manifest.getEntries())
-          .containsExactly(
-              PathFragment.create("out/foo/bar"), "/foo/bar",
-              PathFragment.create("out/foo/foo"), "/foo/bar");
+      assertThat(visit(filesetOutput, behavior))
+          .containsExactly(visitedSymlink("bar", "/foo/bar"), visitedSymlink("foo", "/foo/bar"));
     }
 
     @Test
-    public void manifestWithResolvedRelativeSymlinkWithDotSlash() throws Exception {
+    public void resolvedRelativeSymlinkWithDotSlash() {
       FilesetOutputTree filesetOutput =
           createTree(symlink("bar", "./foo"), symlink("foo", "/foo/bar"));
 
-      FilesetManifest manifest =
-          filesetOutput.constructFilesetManifest(PathFragment.create("out/foo"), behavior);
-
-      assertThat(manifest.getEntries())
-          .containsExactly(
-              PathFragment.create("out/foo/bar"), "/foo/bar",
-              PathFragment.create("out/foo/foo"), "/foo/bar");
+      assertThat(visit(filesetOutput, behavior))
+          .containsExactly(visitedSymlink("bar", "/foo/bar"), visitedSymlink("foo", "/foo/bar"));
     }
 
     @Test
-    public void manifestWithSymlinkCycle() throws Exception {
+    public void symlinkCycle() {
       FilesetOutputTree filesetOutput =
           createTree(
               symlink("bar", "foo"),
@@ -211,68 +185,47 @@ public final class FilesetOutputTreeTest {
               symlink("biz", "bar"),
               symlink("reg", "/file"));
 
-      FilesetManifest manifest =
-          filesetOutput.constructFilesetManifest(PathFragment.create("out"), behavior);
-
-      assertThat(manifest.getEntries()).containsExactly(PathFragment.create("out/reg"), "/file");
+      assertThat(visit(filesetOutput, behavior)).containsExactly(visitedSymlink("reg", "/file"));
     }
 
     @Test
-    public void unboundedSymlinkDescendant() throws Exception {
+    public void unboundedSymlinkDescendant() {
       FilesetOutputTree filesetOutput =
           createTree(symlink("p", "a/b"), symlink("a/b", "../b/c"), symlink("reg", "/file"));
 
-      FilesetManifest manifest =
-          filesetOutput.constructFilesetManifest(PathFragment.create("out"), behavior);
-
-      assertThat(manifest.getEntries()).containsExactly(PathFragment.create("out/reg"), "/file");
+      assertThat(visit(filesetOutput, behavior)).containsExactly(visitedSymlink("reg", "/file"));
     }
 
     @Test
-    public void unboundedSymlinkAncestor() throws Exception {
+    public void unboundedSymlinkAncestor() {
       FilesetOutputTree filesetOutput =
           createTree(symlink("a/b", "c/d"), symlink("a/c/d", ".././a"), symlink("reg", "/file"));
 
-      FilesetManifest manifest =
-          filesetOutput.constructFilesetManifest(PathFragment.create("out"), behavior);
-
-      assertThat(manifest.getEntries()).containsExactly(PathFragment.create("out/reg"), "/file");
+      assertThat(visit(filesetOutput, behavior)).containsExactly(visitedSymlink("reg", "/file"));
     }
 
     @Test
-    public void manifestWithResolvedRelativeSymlinkWithDotDotSlash() throws Exception {
+    public void resolvedRelativeSymlinkWithDotDotSlash() {
       FilesetOutputTree filesetOutput =
           createTree(symlink("bar/bar", "../foo/foo"), symlink("foo/foo", "/foo/bar"));
 
-      FilesetManifest manifest =
-          filesetOutput.constructFilesetManifest(PathFragment.create("out/foo"), behavior);
-
-      assertThat(manifest.getEntries())
+      assertThat(visit(filesetOutput, behavior))
           .containsExactly(
-              PathFragment.create("out/foo/bar/bar"), "/foo/bar",
-              PathFragment.create("out/foo/foo/foo"), "/foo/bar");
+              visitedSymlink("bar/bar", "/foo/bar"), visitedSymlink("foo/foo", "/foo/bar"));
     }
 
     @Test
-    public void manifestWithUnresolvableRelativeSymlink() throws Exception {
+    public void unresolvableRelativeSymlink() {
       FilesetOutputTree filesetOutput = createTree(symlink("bar", "foo"));
 
-      FilesetManifest manifest =
-          filesetOutput.constructFilesetManifest(PathFragment.create("out/foo"), behavior);
-
-      assertThat(manifest.getEntries()).isEmpty();
-      assertThat(manifest.getArtifactValues()).isEmpty();
+      assertThat(visit(filesetOutput, behavior)).isEmpty();
     }
 
     @Test
-    public void manifestWithUnresolvableRelativeSymlinkToRelativeSymlink() throws Exception {
+    public void unresolvableRelativeSymlinkToRelativeSymlink() {
       FilesetOutputTree filesetOutput = createTree(symlink("bar", "foo"), symlink("foo", "baz"));
 
-      FilesetManifest manifest =
-          filesetOutput.constructFilesetManifest(PathFragment.create("out/foo"), behavior);
-
-      assertThat(manifest.getEntries()).isEmpty();
-      assertThat(manifest.getArtifactValues()).isEmpty();
+      assertThat(visit(filesetOutput, behavior)).isEmpty();
     }
   }
 }

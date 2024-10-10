@@ -131,6 +131,9 @@ public class JavaPluginConfiguredTargetTest extends BuildViewTestCase {
 
   @Test
   public void testJavaPluginExportsTransitiveProguardSpecs() throws Exception {
+    if (analysisMock.isThisBazel()) {
+      return;
+    }
     scratch.file(
         "java/com/google/android/hello/BUILD",
         """

@@ -635,12 +635,12 @@ public abstract sealed class Artifact
   }
 
   /**
-   * Returns true iff this is a middleman Artifact as determined by its root.
+   * Returns true iff this artifact represents a runfiles tree.
    *
    * <p>If true, this artifact is necessarily a {@link DerivedArtifact}.
    */
   public boolean isMiddlemanArtifact() {
-    return root.isMiddlemanRoot();
+    return false;
   }
 
   /**

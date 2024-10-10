@@ -59,7 +59,6 @@ import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
 import com.google.devtools.build.lib.actions.MiddlemanAction;
-import com.google.devtools.build.lib.actions.MiddlemanFactory;
 import com.google.devtools.build.lib.actions.MutableActionGraph;
 import com.google.devtools.build.lib.actions.ParameterFile;
 import com.google.devtools.build.lib.actions.RunfilesTree;
@@ -2120,6 +2119,11 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     }
 
     @Override
+    public SpecialArtifact getRunfilesArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
     public SpecialArtifact getTreeArtifact(PathFragment rootRelativePath, ArtifactRoot root) {
       throw new UnsupportedOperationException();
     }
@@ -2132,11 +2136,6 @@ public abstract class BuildViewTestCase extends FoundationTestCase {
     @Override
     public ExtendedEventHandler getEventHandler() {
       return reporter;
-    }
-
-    @Override
-    public MiddlemanFactory getMiddlemanFactory() {
-      throw new UnsupportedOperationException();
     }
 
     @Override

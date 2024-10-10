@@ -119,6 +119,9 @@ public final class FrontierSerializer {
             return;
           }
 
+          // TODO: b/371508153 - only upload nodes that were freshly computed by this invocation and
+          // unaffected by local, un-submitted changes.
+
           try {
             SerializationResult<ByteString> keyBytes =
                 codecs.serializeMemoizedAndBlocking(fingerprintValueService, key, profileCollector);

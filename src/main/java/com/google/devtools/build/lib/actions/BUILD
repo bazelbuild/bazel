@@ -105,7 +105,6 @@ java_library(
         "LostInputsExecException.java",
         "MapBasedActionGraph.java",
         "MiddlemanAction.java",
-        "MiddlemanFactory.java",
         "MissingDepExecException.java",
         "MissingInputFileException.java",
         "MutableActionGraph.java",
@@ -407,6 +406,7 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/vfs/inmemoryfs",
         "//third_party:flogger",
         "//third_party:guava",
+        "//third_party:jsr305",
     ],
 )
 

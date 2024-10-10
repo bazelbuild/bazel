@@ -52,6 +52,7 @@ import com.google.devtools.build.lib.skyframe.serialization.SkyValueRetriever.Se
 import com.google.devtools.build.lib.skyframe.serialization.analysis.RemoteAnalysisCachingDependenciesProvider;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.XattrProvider;
@@ -303,6 +304,9 @@ public final class ArtifactFunction implements SkyFunction {
     FileValue fileValue;
     try {
       fileValue = (FileValue) env.getValueOrThrow(fileSkyKey, IOException.class);
+    } catch (DetailedIOException e) {
+      throw new ArtifactFunctionException(
+          SourceArtifactException.createdDetailed(artifact, e), Transience.PERSISTENT);
     } catch (IOException e) {
       throw new ArtifactFunctionException(
           SourceArtifactException.create(artifact, e), Transience.PERSISTENT);
@@ -453,7 +457,7 @@ public final class ArtifactFunction implements SkyFunction {
       Preconditions.checkState(
           actionLookupKey == CoverageReportValue.COVERAGE_REPORT_KEY,
           "Not-yet-present artifact owner: %s",
-          actionLookupKey);
+          actionLookupKey.getCanonicalName());
       return null;
     }
     return value;
@@ -601,6 +605,20 @@ public final class ArtifactFunction implements SkyFunction {
                   .setExecution(Execution.newBuilder().setCode(Code.SOURCE_INPUT_IO_EXCEPTION))
                   .build());
       return new SourceArtifactException(detailedExitCode, e);
+    }
+
+    private static SourceArtifactException createdDetailed(
+        Artifact artifact, DetailedIOException e) {
+      FailureDetail failureDetailWithUpdatedErrorMessage =
+          e.getDetailedExitCode().getFailureDetail().toBuilder()
+              .setMessage(
+                  constructErrorMessage(
+                      artifact,
+                      "error reading file: "
+                          + e.getDetailedExitCode().getFailureDetail().getMessage()))
+              .build();
+      return new SourceArtifactException(
+          DetailedExitCode.of(failureDetailWithUpdatedErrorMessage), e);
     }
 
     private static SourceArtifactException create(

@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.skyframe.serialization.DeserializationConte
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueStore.MissingFingerprintValueException;
+import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecRegistry;
 import com.google.devtools.build.lib.skyframe.serialization.ObjectCodecs;
@@ -100,12 +101,12 @@ public final class NestedSetCodecTest {
           final FingerprintValueStore delegate = FingerprintValueStore.inMemoryStore();
 
           @Override
-          public ListenableFuture<Void> put(PackedFingerprint fingerprint, byte[] serializedBytes) {
+          public ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
             return delegate.put(fingerprint, serializedBytes);
           }
 
           @Override
-          public ListenableFuture<byte[]> get(PackedFingerprint fingerprint) throws IOException {
+          public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) throws IOException {
             reads.incrementAndGet();
             return delegate.get(fingerprint);
           }
@@ -147,12 +148,12 @@ public final class NestedSetCodecTest {
     FingerprintValueStore fingerprintValueStore =
         new FingerprintValueStore() {
           @Override
-          public ListenableFuture<Void> put(PackedFingerprint fingerprint, byte[] serializedBytes) {
+          public ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
             return immediateVoidFuture();
           }
 
           @Override
-          public ListenableFuture<byte[]> get(PackedFingerprint fingerprint) {
+          public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
             return immediateFailedFuture(missingNestedSetException);
           }
         };
@@ -183,12 +184,12 @@ public final class NestedSetCodecTest {
     FingerprintValueStore fingerprintValueStore =
         new FingerprintValueStore() {
           @Override
-          public ListenableFuture<Void> put(PackedFingerprint fingerprint, byte[] serializedBytes) {
+          public ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
             return immediateFailedFuture(e);
           }
 
           @Override
-          public ListenableFuture<byte[]> get(PackedFingerprint fingerprint) {
+          public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
             throw new UnsupportedOperationException();
           }
         };
@@ -211,12 +212,12 @@ public final class NestedSetCodecTest {
     FingerprintValueStore fingerprintValueStore =
         new FingerprintValueStore() {
           @Override
-          public ListenableFuture<Void> put(PackedFingerprint fingerprint, byte[] serializedBytes) {
+          public ListenableFuture<Void> put(KeyBytesProvider fingerprint, byte[] serializedBytes) {
             return immediateVoidFuture();
           }
 
           @Override
-          public ListenableFuture<byte[]> get(PackedFingerprint fingerprint) {
+          public ListenableFuture<byte[]> get(KeyBytesProvider fingerprint) {
             return immediateFailedFuture(e);
           }
         };
