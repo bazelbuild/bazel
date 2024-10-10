@@ -244,6 +244,9 @@ def _cc_static_library_impl(ctx):
 cc_static_library = rule(
     implementation = _cc_static_library_impl,
     doc = """
+<b>This rule is currently experimental and can only be used with the <code>
+--experimental_cc_static_library</code> flag.</b>
+
 Produces a static library from a list of targets and their transitive dependencies.
 
 <p>The resulting static library contains the object files of the targets listed in
