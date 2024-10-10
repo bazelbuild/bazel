@@ -3,17 +3,6 @@ load("@rules_python//python:defs.bzl", "py_binary", "py_test")
 package(default_visibility = ["//tools:__pkg__"])
 
 py_binary(
-    name = "resource_extractor",
-    srcs = ["resource_extractor.py"],
-)
-
-py_test(
-    name = "resource_extractor_test",
-    srcs = ["resource_extractor_test.py"],
-    deps = [":resource_extractor"],
-)
-
-py_binary(
     name = "instrumentation_test_check",
     srcs = ["instrumentation_test_check.py"],
     python_version = "PY3",
