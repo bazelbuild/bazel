@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
@@ -117,7 +118,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
    * after fetching the repository is finished, whether successfully or not. To this end, the {@link
    * #cancel()} method must stop all such work.
    */
-  private interface AsyncTask {
+  private interface AsyncTask extends SilentCloseable {
     /** Returns a user-friendly description of the task. */
     String getDescription();
 
@@ -132,6 +133,12 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
      * user that they didn't wait for an async task they should have waited for.
      */
     boolean cancel();
+
+    /**
+     * Waits uninterruptibly until the task is no longer running, even in case it was cancelled but
+     * its underlying thread is still running.
+     */
+    void close();
   }
 
   /** Max. length of command line args added as a profiler description. */
@@ -204,7 +211,12 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     // Wait for all (cancelled) async tasks to complete before cleaning up the working directory.
     // This is necessary because downloads may still be in progress and could end up writing to the
     // working directory during deletion, which would cause an error.
+    // Note that just calling executorService.close() doesn't suffice as it considers tasks to be
+    // completed immediately after they are cancelled, without waiting for their underlying thread
+    // to complete.
     executorService.close();
+    asyncTasks.forEach(AsyncTask::close);
+
     if (shouldDeleteWorkingDirectoryOnClose(wasSuccessful)) {
       workingDirectory.deleteTree();
     }
@@ -554,17 +566,20 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
     @Override
     public boolean cancel() {
-      boolean alreadyDone = !future.cancel(true);
-      if (doneSignal.getCount() != 0) {
-        try (SilentCloseable c =
-            Profiler.instance().profile("Cancelling download " + outputPath.toString())) {
-          doneSignal.wait();
-        } catch (InterruptedException e) {
-          // Graceful termination aborted, let the download continue on its own.
-          Thread.currentThread().interrupt();
-        }
+      return !future.cancel(true);
+    }
+
+    @Override
+    public void close() {
+      if (doneSignal.getCount() == 0) {
+        // The download completed normally or has already been cancelled and the thread has
+        // terminated in response to the interrupt.
+        return;
       }
-      return alreadyDone;
+      try (SilentCloseable c =
+          Profiler.instance().profile("Cancelling download " + outputPath)) {
+        Uninterruptibles.awaitUninterruptibly(doneSignal);
+      }
     }
 
     @StarlarkMethod(
@@ -604,6 +619,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
           Starlark.errorf(
               "Could not create output path %s: %s", pendingDownload.outputPath, e.getMessage()),
           Transience.PERSISTENT);
+    } finally {
+      pendingDownload.close();
     }
     if (pendingDownload.checksumValidation != null) {
       throw pendingDownload.checksumValidation;
