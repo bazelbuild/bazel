@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
@@ -123,7 +124,8 @@ public class DownloadManager {
       Path output,
       ExtendedEventHandler eventHandler,
       Map<String, String> clientEnv,
-      String context) {
+      String context,
+      CountDownLatch doneSignal) {
     return executorService.submit(
         () -> {
           try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
@@ -138,6 +140,8 @@ public class DownloadManager {
                 eventHandler,
                 clientEnv,
                 context);
+          } finally {
+            doneSignal.countDown();
           }
         });
   }

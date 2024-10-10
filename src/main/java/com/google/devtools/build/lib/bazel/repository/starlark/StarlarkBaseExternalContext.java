@@ -25,6 +25,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
@@ -87,6 +88,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -116,7 +118,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
    * after fetching the repository is finished, whether successfully or not. To this end, the {@link
    * #cancel()} method must stop all such work.
    */
-  private interface AsyncTask {
+  private interface AsyncTask extends SilentCloseable {
     /** Returns a user-friendly description of the task. */
     String getDescription();
 
@@ -131,6 +133,12 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
      * user that they didn't wait for an async task they should have waited for.
      */
     boolean cancel();
+
+    /**
+     * Waits uninterruptibly until the task is no longer running, even in case it was cancelled but
+     * its underlying thread is still running.
+     */
+    void close();
   }
 
   /** Max. length of command line args added as a profiler description. */
@@ -203,7 +211,12 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     // Wait for all (cancelled) async tasks to complete before cleaning up the working directory.
     // This is necessary because downloads may still be in progress and could end up writing to the
     // working directory during deletion, which would cause an error.
+    // Note that just calling executorService.close() doesn't suffice as it considers tasks to be
+    // completed immediately after they are cancelled, without waiting for their underlying thread
+    // to complete.
     executorService.close();
+    asyncTasks.forEach(AsyncTask::close);
+
     if (shouldDeleteWorkingDirectoryOnClose(wasSuccessful)) {
       workingDirectory.deleteTree();
     }
@@ -519,6 +532,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     private final Optional<Checksum> checksum;
     private final RepositoryFunctionException checksumValidation;
     private final Future<Path> future;
+    private final CountDownLatch doneSignal;
     private final Location location;
 
     private PendingDownload(
@@ -528,6 +542,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
         Optional<Checksum> checksum,
         RepositoryFunctionException checksumValidation,
         Future<Path> future,
+        CountDownLatch doneSignal,
         Location location) {
       this.executable = executable;
       this.allowFail = allowFail;
@@ -535,6 +550,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
       this.checksum = checksum;
       this.checksumValidation = checksumValidation;
       this.future = future;
+      this.doneSignal = doneSignal;
       this.location = location;
     }
 
@@ -551,6 +567,19 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     @Override
     public boolean cancel() {
       return !future.cancel(true);
+    }
+
+    @Override
+    public void close() {
+      if (doneSignal.getCount() == 0) {
+        // The download completed normally or has already been cancelled and the thread has
+        // terminated in response to the interrupt.
+        return;
+      }
+      try (SilentCloseable c =
+          Profiler.instance().profile("Cancelling download " + outputPath)) {
+        Uninterruptibles.awaitUninterruptibly(doneSignal);
+      }
     }
 
     @StarlarkMethod(
@@ -590,6 +619,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
           Starlark.errorf(
               "Could not create output path %s: %s", pendingDownload.outputPath, e.getMessage()),
           Transience.PERSISTENT);
+    } finally {
+      pendingDownload.close();
     }
     if (pendingDownload.checksumValidation != null) {
       throw pendingDownload.checksumValidation;
@@ -758,6 +789,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
       checkInOutputDirectory("write", outputPath);
       makeDirectories(outputPath.getPath());
     } catch (IOException e) {
+      CountDownLatch alreadyDoneSignal = new CountDownLatch(0);
       download =
           new PendingDownload(
               executable,
@@ -766,9 +798,11 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               checksum,
               checksumValidation,
               Futures.immediateFailedFuture(e),
+              alreadyDoneSignal,
               thread.getCallerLocation());
     }
     if (download == null) {
+      CountDownLatch doneSignal = new CountDownLatch(1);
       Future<Path> downloadFuture =
           downloadManager.startDownload(
               executorService,
@@ -781,7 +815,8 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               outputPath.getPath(),
               env.getListener(),
               envVariables,
-              identifyingStringForLogging);
+              identifyingStringForLogging,
+              doneSignal);
       download =
           new PendingDownload(
               executable,
@@ -790,6 +825,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
               checksum,
               checksumValidation,
               downloadFuture,
+              doneSignal,
               thread.getCallerLocation());
       registerAsyncTask(download);
     }
@@ -996,6 +1032,7 @@ the same path on case-insensitive filesystems.
       downloadDirectory =
           workingDirectory.getFileSystem().getPath(tempDirectory.toFile().getAbsolutePath());
 
+      CountDownLatch doneSignal = new CountDownLatch(1);
       Future<Path> pendingDownload =
           downloadManager.startDownload(
               executorService,
@@ -1008,7 +1045,8 @@ the same path on case-insensitive filesystems.
               downloadDirectory,
               env.getListener(),
               envVariables,
-              identifyingStringForLogging);
+              identifyingStringForLogging,
+              doneSignal);
       // Ensure that the download is cancelled if the repo rule is restarted as it runs in its own
       // executor.
       PendingDownload pendingTask =
@@ -1019,6 +1057,7 @@ the same path on case-insensitive filesystems.
               checksum,
               checksumValidation,
               pendingDownload,
+              doneSignal,
               thread.getCallerLocation());
       registerAsyncTask(pendingTask);
       downloadedPath = downloadManager.finalizeDownload(pendingDownload);
