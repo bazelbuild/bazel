@@ -12,5 +12,5 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/direct_so_file_cc_lib2.h"
+#include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test/direct_so_file_cc_lib2.h"
 int direct_so_file_cc_lib2() { return 0; }
