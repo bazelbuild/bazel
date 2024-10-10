@@ -20,10 +20,13 @@ import static com.google.devtools.build.lib.packages.BuildType.OUTPUT_LIST;
 import static com.google.devtools.build.lib.packages.Type.BOOLEAN;
 import static com.google.devtools.build.lib.packages.Type.STRING;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.analysis.BaseRuleClasses;
 import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.analysis.TemplateVariableInfo;
 import com.google.devtools.build.lib.analysis.config.ExecutionTransitionFactory;
+import com.google.devtools.build.lib.analysis.platform.ToolchainTypeInfo;
 import com.google.devtools.build.lib.packages.Attribute;
 import com.google.devtools.build.lib.packages.AttributeMap;
 import com.google.devtools.build.lib.packages.BuildType;
@@ -302,6 +305,32 @@ public class GenRuleBaseRule implements RuleDefinition {
         // This is a misfeature, so don't document it. We would like to get rid of it, but that
         // would require a cleanup of existing rules.
         .add(attr("heuristic_label_expansion", BOOLEAN).value(false))
+
+        /* <!-- #BLAZE_RULE(genrule).ATTRIBUTE(toolchains) -->
+        <p>
+          The set of targets whose <a href="${link make-variables}">Make variables</a> this genrule
+          is allowed to access, or the <a href="${link toolchains}"><code>toolchain_type</code></a>
+          targets that this genrule will access.
+        </p>
+
+        <p>
+          Toolchains accessed via <code>toolchain_type</code> must also provide a
+          <code>TemplateVariableInfo</code> provider, which the target can use to access toolchain
+          details.
+        </p>
+        <!-- #END_BLAZE_RULE.ATTRIBUTE --> */
+        // Override `toolchains` to allow make variables and toolchain types. Toolchain types are
+        // handled specially in ToolchainContextUtil.
+        .override(
+            attr("toolchains", LABEL_LIST)
+                .allowedFileTypes(FileTypeSet.NO_FILE)
+                // Accept TemplateVariableInfo and/or ToolchainTypeInfo.
+                .mandatoryProvidersList(
+                    ImmutableList.of(
+                        ImmutableList.of(TemplateVariableInfo.PROVIDER.id()),
+                        ImmutableList.of(ToolchainTypeInfo.PROVIDER.id())))
+                .dontCheckConstraints()
+                .nonconfigurable("Don't allow dynamic toolchain types"))
         .removeAttribute("data")
         .removeAttribute("deps")
         .build();
