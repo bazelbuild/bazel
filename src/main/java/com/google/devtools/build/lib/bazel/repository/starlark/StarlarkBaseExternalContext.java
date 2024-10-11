@@ -116,7 +116,8 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
    *
    * <p>The main property of such tasks is that they should under no circumstances keep running
    * after fetching the repository is finished, whether successfully or not. To this end, the {@link
-   * #cancel()} method must stop all such work.
+   * #cancel()} method may be called to interrupt the work and {@link #close()} must be called to
+   * wait for all such work to finish.
    */
   private interface AsyncTask extends SilentCloseable {
     /** Returns a user-friendly description of the task. */
@@ -128,6 +129,9 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     /**
      * Cancels the task, if not done yet. Returns false if the task was still in progress.
      *
+     * <p>Note that the task may still be running after this method returns, the task has just got a
+     * signal to interrupt. Call {@link #close()} to wait for the task to finish.
+     *
      * <p>No means of error reporting is provided. Any errors should be reported by other means. The
      * only possible error reported as a consequence of calling this method is one that tells the
      * user that they didn't wait for an async task they should have waited for.
@@ -138,6 +142,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
      * Waits uninterruptibly until the task is no longer running, even in case it was cancelled but
      * its underlying thread is still running.
      */
+    @Override
     void close();
   }
 
