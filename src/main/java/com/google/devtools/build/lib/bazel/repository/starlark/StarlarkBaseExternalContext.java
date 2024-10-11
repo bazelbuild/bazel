@@ -25,6 +25,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
 import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -165,7 +168,7 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
   private final RepositoryRemoteExecutor remoteExecutor;
   private final List<AsyncTask> asyncTasks;
   private final boolean allowWatchingPathsOutsideWorkspace;
-  private final ExecutorService executorService;
+  private final ListeningExecutorService executorService;
 
   private boolean wasSuccessful = false;
 
@@ -194,11 +197,11 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
     this.remoteExecutor = remoteExecutor;
     this.asyncTasks = new ArrayList<>();
     this.allowWatchingPathsOutsideWorkspace = allowWatchingPathsOutsideWorkspace;
-    this.executorService =
+    this.executorService = MoreExecutors.listeningDecorator(
         Executors.newThreadPerTaskExecutor(
             Thread.ofVirtual()
                 .name("downloads[" + identifyingStringForLogging + "]-", 0)
-                .factory());
+                .factory()));
   }
 
   /**

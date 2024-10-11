@@ -28,6 +28,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -787,7 +789,8 @@ public class HttpDownloaderTest {
       String context)
       throws IOException, InterruptedException {
     CountDownLatch doneSignal = new CountDownLatch(1);
-    try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
+    try (ListeningExecutorService executorService = MoreExecutors.listeningDecorator(
+        Executors.newVirtualThreadPerTaskExecutor())) {
       Future<Path> future =
           downloadManager.startDownload(
               executorService,

@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.bazel.repository.downloader;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 
 import com.google.auth.Credentials;
 import com.google.common.base.MoreObjects;
@@ -24,6 +25,8 @@ import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyType;
@@ -49,6 +52,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
 
 /**
@@ -114,7 +118,7 @@ public class DownloadManager {
   }
 
   public Future<Path> startDownload(
-      ExecutorService executorService,
+      ListeningExecutorService executorService,
       List<URL> originalUrls,
       Map<String, List<String>> headers,
       Map<URI, Map<String, List<String>>> authHeaders,
@@ -126,8 +130,12 @@ public class DownloadManager {
       Map<String, String> clientEnv,
       String context,
       CountDownLatch doneSignal) {
-    return executorService.submit(
+    Semaphore doneSignaller = new Semaphore(1);
+    ListenableFuture<Path> downloadFuture = executorService.submit(
         () -> {
+          if (!doneSignaller.tryAcquire()) {
+            throw new InterruptedException();
+          }
           try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
             return downloadInExecutor(
                 originalUrls,
@@ -144,6 +152,14 @@ public class DownloadManager {
             doneSignal.countDown();
           }
         });
+    downloadFuture.addListener(
+        () -> {
+          if (doneSignaller.tryAcquire()) {
+            doneSignal.countDown();
+          }
+        },
+        directExecutor());
+    return downloadFuture;
   }
 
   public Path finalizeDownload(Future<Path> download) throws IOException, InterruptedException {
