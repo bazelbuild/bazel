@@ -194,7 +194,7 @@ final class FileDependencySerializer {
       reference.populate(
           computeCacheKey(rootedPath.getRootRelativePath(), mtsv, DIRECTORY_KEY_DELIMITER));
     }
-    // If this is reached, this thread owns `reference` and must complete it's future.
+    // If this is reached, this thread owns `reference` and must complete its future.
     boolean writeStatusSet = false;
     try {
       DirectoryListingInvalidationData.Builder data = DirectoryListingInvalidationData.newBuilder();

@@ -81,11 +81,14 @@ java_library(
 java_library(
     name = "file_dependency_deserializer",
     srcs = [
+        "DirectoryListingDependencies.java",
         "FileDependencies.java",
         "FileDependencyDeserializer.java",
+        "FileSystemDependencies.java",
     ],
     deps = [
         ":file_dependency_key_support",
+        ":settable_future_with_ownership",
         "//src/main/java/com/google/devtools/build/lib/skyframe/serialization",
         "//src/main/java/com/google/devtools/build/lib/vfs:ospathpolicy",
         "//src/main/java/com/google/devtools/build/lib/vfs:pathfragment",
@@ -96,6 +99,12 @@ java_library(
         "//third_party:jsr305",
         "@protobuf//:protobuf_java",
     ],
+)
+
+java_library(
+    name = "settable_future_with_ownership",
+    srcs = ["SettableFutureWithOwnership.java"],
+    deps = ["//third_party:guava"],
 )
 
 java_library(

@@ -17,6 +17,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.util.concurrent.Futures.immediateFailedFuture;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
+import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.DIRECTORY_KEY_DELIMITER;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.FILE_KEY_DELIMITER;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.MAX_KEY_LENGTH;
 import static com.google.devtools.build.lib.skyframe.serialization.analysis.FileDependencyKeySupport.MTSV_SENTINEL;
@@ -27,7 +28,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.google.common.util.concurrent.AbstractFuture;
+import com.google.common.base.Function;
 import com.google.common.util.concurrent.AsyncFunction;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -35,33 +36,46 @@ import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueServ
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.skyframe.serialization.StringKey;
+import com.google.devtools.build.lib.skyframe.serialization.proto.DirectoryListingInvalidationData;
 import com.google.devtools.build.lib.skyframe.serialization.proto.FileInvalidationData;
 import com.google.devtools.build.lib.skyframe.serialization.proto.Symlink;
 import com.google.devtools.build.lib.vfs.OsPathPolicy;
 import com.google.protobuf.InvalidProtocolBufferException;
 import java.io.IOException;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import javax.annotation.Nullable;
 
 /**
  * Deserializes dependency information persisted by {@link FileDependencySerializer}.
  *
- * <p>Fetching a dependency is a mostly linear asynchronous state machine that performs actions then
- * waits in an alternating manner.
+ * <p>Fetching a file dependency is a mostly linear asynchronous state machine that performs actions
+ * then waits in an alternating manner.
  *
  * <ol>
  *   <li>Request the data for a given key.
- *   <li>{@link WaitForData}.
+ *   <li>{@link WaitForFileInvalidationData}.
  *   <li>Request the data for the parent directory (a recursive call).
  *   <li>{@link WaitForParent}.
  *   <li>Process any symlinks, resolving symlink parents as needed.
  *   <li>{@link WaitForSymlinkParent}.
  *   <li>Processing symlinks repeats for all the symlinks associated with an entry.
  * </ol>
+ *
+ * <p>A similar, but simpler state machine is used for directory listings.
+ *
+ * <ol>
+ *   <li>Request the data for a given key.
+ *   <li>{@link WaitForListingInvalidationData}.
+ *   <li>Request the file data corresponding to the directory (delegating to {@link
+ *       #getFileDependencies}).
+ *   <li>{@link WaitForListingFileDependencies}.
+ *   <li>Create and cache the {@link DirectoryListingDependencies} instance.
+ * </ol>
  */
 final class FileDependencyDeserializer {
   private static final OsPathPolicy OS = OsPathPolicy.getFilePathOs();
+
+  /** Singleton representing the root file. */
+  static final FileDependencies ROOT_FILE = FileDependencies.builder("").build();
 
   private final FingerprintValueService fingerprintValueService;
 
@@ -79,14 +93,31 @@ final class FileDependencyDeserializer {
    * retained by the {@code SkyValue}s that depend on them. When all such associated {@code
    * SkyValue}s are invalidated, the dependency information becomes eligible for GC.
    */
-  private final Cache<String, GetDependenciesResult> dependenciesCache =
-      Caffeine.newBuilder().weakValues().<String, GetDependenciesResult>build();
+  private final Cache<String, GetDependenciesResult> fileCache =
+      Caffeine.newBuilder().weakValues().build();
+
+  /**
+   * A cache for {@link DirectoryListingDependencies}, primarily for deduplication.
+   *
+   * <p>This follows the design of {@link #fileCache} but is for directory listings.
+   */
+  private final Cache<String, GetDirectoryListingDependenciesResult> listingCache =
+      Caffeine.newBuilder().weakValues().build();
 
   FileDependencyDeserializer(FingerprintValueService fingerprintValueService) {
     this.fingerprintValueService = fingerprintValueService;
   }
 
   sealed interface GetDependenciesResult permits FileDependencies, FutureFileDependencies {}
+
+  /**
+   * The main purpose of this class is to act as a {@link ListenableFuture<FileDependencies>}.
+   *
+   * <p>Its specific type is explicitly visible to clients to allow them to cleanly distinguish it
+   * as a permitted subtype of {@link GetDependenciesResult}.
+   */
+  static final class FutureFileDependencies extends SettableFutureWithOwnership<FileDependencies>
+      implements GetDependenciesResult {}
 
   /**
    * Reconstitutes the set of file dependencies associated with {@code key}.
@@ -100,7 +131,7 @@ final class FileDependencyDeserializer {
    */
   GetDependenciesResult getFileDependencies(String key) {
     FutureFileDependencies ownedFuture;
-    switch (dependenciesCache.get(key, unused -> new FutureFileDependencies())) {
+    switch (fileCache.get(key, unused -> new FutureFileDependencies())) {
       case FileDependencies dependencies:
         return dependencies;
       case FutureFileDependencies future:
@@ -111,79 +142,54 @@ final class FileDependencyDeserializer {
         break;
     }
     // `ownedFuture` is owned by this thread, which must complete its value.
-    try {
-      ListenableFuture<byte[]> futureBytes;
-      try {
-        futureBytes = fingerprintValueService.get(getKeyBytes(key));
-      } catch (IOException e) {
-        ownedFuture.setIoException(e);
-        return ownedFuture;
-      }
-
-      ownedFuture.setFutureFiles(
-          Futures.transformAsync(
-              futureBytes, new WaitForData(key), fingerprintValueService.getExecutor()));
-      return ownedFuture;
-    } finally {
-      ownedFuture.verifySet();
-    }
+    fetchInvalidationData(key, WaitForFileInvalidationData::new, ownedFuture);
+    return ownedFuture;
   }
+
+  sealed interface GetDirectoryListingDependenciesResult
+      permits DirectoryListingDependencies, FutureDirectoryListingDependencies {}
 
   /**
-   * The main purpose of this class is to act as a {@link ListenableFuture<FileDependencies>}.
+   * The main purpose of this class is to act as a {@link
+   * ListenableFuture<DirectoryListingDependencies>}.
    *
    * <p>Its specific type is explicitly visible to clients to allow them to cleanly distinguish it
-   * as a permitted subtype of {@link GetDependenciesResult}.
+   * as a permitted subtype of {@link GetDirectoryListingDependenciesResult}.
    */
-  static final class FutureFileDependencies extends AbstractFuture<FileDependencies>
-      implements GetDependenciesResult {
-    /** Used to establish exactly-once ownership of this future with {@link #tryTakeOwnership}. */
-    @SuppressWarnings({"UnusedVariable", "FieldCanBeFinal"}) // set with OWNED_HANDLE
-    private boolean owned = false;
+  static final class FutureDirectoryListingDependencies
+      extends SettableFutureWithOwnership<DirectoryListingDependencies>
+      implements GetDirectoryListingDependenciesResult {}
 
-    private boolean isSet = false;
-
-    private boolean tryTakeOwnership() {
-      return OWNED_HANDLE.compareAndSet(this, false, true);
+  /**
+   * Deserializes the resolved directory listing information associated with {@code key}.
+   *
+   * @param key should be as described at {@link DirectoryListingInvalidationData}.
+   * @return either an immediate {@link DirectoryListingDependencies} instance or effectively a
+   *     {@link ListenableFuture<DirectoryListingDependencies>} instance.
+   */
+  GetDirectoryListingDependenciesResult getDirectoryListingDependencies(String key) {
+    FutureDirectoryListingDependencies ownedFuture;
+    switch (listingCache.get(key, unused -> new FutureDirectoryListingDependencies())) {
+      case DirectoryListingDependencies dependencies:
+        return dependencies;
+      case FutureDirectoryListingDependencies future:
+        if (!future.tryTakeOwnership()) {
+          return future; // Owned by another thread.
+        }
+        ownedFuture = future;
+        break;
     }
-
-    private void setFutureFiles(ListenableFuture<FileDependencies> files) {
-      checkState(setFuture(files), "already set %s", this);
-      isSet = true;
-    }
-
-    private void setIoException(IOException e) {
-      checkState(setException(e));
-      isSet = true;
-    }
-
-    private void verifySet() {
-      if (!isSet) {
-        checkState(
-            setException(
-                new IllegalStateException(
-                    "future was unexpectedly unset, look for unchecked exceptions in"
-                        + " FileDependencyDeserializer")));
-      }
-    }
-
-    private static final VarHandle OWNED_HANDLE;
-
-    static {
-      try {
-        OWNED_HANDLE =
-            MethodHandles.lookup()
-                .findVarHandle(FutureFileDependencies.class, "owned", boolean.class);
-      } catch (ReflectiveOperationException e) {
-        throw new ExceptionInInitializerError(e);
-      }
-    }
+    // `ownedFuture` is owned by this thread, which must complete its value.
+    fetchInvalidationData(key, WaitForListingInvalidationData::new, ownedFuture);
+    return ownedFuture;
   }
 
-  private class WaitForData implements AsyncFunction<byte[], FileDependencies> {
+  // ---------- Begin FileDependencies deserialization implementation ----------
+
+  private class WaitForFileInvalidationData implements AsyncFunction<byte[], FileDependencies> {
     private final String key;
 
-    private WaitForData(String key) {
+    private WaitForFileInvalidationData(String key) {
       this.key = key;
     }
 
@@ -280,7 +286,7 @@ final class FileDependencyDeserializer {
       // Replaces the cache value with the completed value. The future is likely to become eligible
       // for GC shortly after the return below. Clients are expected to retain the meaningful
       // top-level values.
-      dependenciesCache.put(key, dependencies);
+      fileCache.put(key, dependencies);
       return immediateFuture(dependencies);
     }
 
@@ -404,6 +410,91 @@ final class FileDependencyDeserializer {
     // `newParent` is already a resolved path if it is the same as or an ancestor of the already
     // resolved `previousParent`.
     return !previousParent.startsWith(newParent);
+  }
+
+  // ---------- Begin DirectoryListingDependencies deserialization implementation ----------
+
+  private class WaitForListingInvalidationData
+      implements AsyncFunction<byte[], DirectoryListingDependencies> {
+    private final String key;
+
+    private WaitForListingInvalidationData(String key) {
+      this.key = key;
+    }
+
+    @Override
+    public ListenableFuture<DirectoryListingDependencies> apply(byte[] bytes)
+        throws InvalidProtocolBufferException {
+      var data = DirectoryListingInvalidationData.parseFrom(bytes, getEmptyRegistry());
+      if (data.hasOverflowKey() && !data.getOverflowKey().equals(key)) {
+        return immediateFailedFuture(
+            new SerializationException(
+                String.format(
+                    "Non-matching overflow key. This is possible if there is a key fingerprint"
+                        + " collision. Expected %s got %s",
+                    key, data)));
+      }
+
+      int pathBegin = key.indexOf(DIRECTORY_KEY_DELIMITER) + 1;
+
+      String path = key.substring(pathBegin);
+      if (path.isEmpty()) {
+        return immediateFuture(createAndCacheListingDependencies(key, ROOT_FILE));
+      }
+
+      String fileKey =
+          computeCacheKey(
+              path, data.hasFileMtsv() ? data.getFileMtsv() : MTSV_SENTINEL, FILE_KEY_DELIMITER);
+      switch (getFileDependencies(fileKey)) {
+        case FileDependencies dependencies:
+          return immediateFuture(createAndCacheListingDependencies(key, dependencies));
+        case FutureFileDependencies future:
+          return Futures.transform(
+              future, new WaitForListingFileDependencies(key), directExecutor());
+      }
+    }
+  }
+
+  private class WaitForListingFileDependencies
+      implements Function<FileDependencies, DirectoryListingDependencies> {
+    private final String key;
+
+    private WaitForListingFileDependencies(String key) {
+      this.key = key;
+    }
+
+    @Override
+    public DirectoryListingDependencies apply(FileDependencies dependencies) {
+      return createAndCacheListingDependencies(key, dependencies);
+    }
+  }
+
+  private DirectoryListingDependencies createAndCacheListingDependencies(
+      String key, FileDependencies dependencies) {
+    var result = new DirectoryListingDependencies(dependencies);
+    listingCache.put(key, result);
+    return result;
+  }
+
+  // ---------- Begin shared helpers ----------
+
+  private <T, FutureT extends SettableFutureWithOwnership<T>> void fetchInvalidationData(
+      String key, Function<String, AsyncFunction<byte[], T>> waitFactory, FutureT ownedFuture) {
+    try {
+      ListenableFuture<byte[]> futureBytes;
+      try {
+        futureBytes = fingerprintValueService.get(getKeyBytes(key));
+      } catch (IOException e) {
+        ownedFuture.failWith(e);
+        return;
+      }
+
+      ownedFuture.completeWith(
+          Futures.transformAsync(
+              futureBytes, waitFactory.apply(key), fingerprintValueService.getExecutor()));
+    } finally {
+      ownedFuture.verifyComplete();
+    }
   }
 
   private KeyBytesProvider getKeyBytes(String cacheKey) {

@@ -28,7 +28,8 @@ import java.util.ArrayList;
  * #getDependencyCount} and {@link #getDependency}. If any matches are encountered, the associated
  * value is invalidated.
  */
-sealed interface FileDependencies extends FileDependencyDeserializer.GetDependenciesResult
+sealed interface FileDependencies
+    extends FileSystemDependencies, FileDependencyDeserializer.GetDependenciesResult
     permits FileDependencies.SingleResolvedPath,
         FileDependencies.SingleResolvedPathAndDependency,
         FileDependencies.MultiplePaths {
