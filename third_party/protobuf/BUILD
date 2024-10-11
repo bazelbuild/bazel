@@ -12,6 +12,7 @@ exports_files([
     "remove_rules_rust.patch",
     "add_python_loads.patch",
     "add_rules_shell_loads.patch",
+    "bzl_library.patch",
 ])
 
 alias(

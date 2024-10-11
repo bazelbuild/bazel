@@ -49,6 +49,7 @@ archive_override(
         "//third_party/protobuf:remove_rules_rust.patch",
         "//third_party/protobuf:add_python_loads.patch",
         "//third_party/protobuf:add_rules_shell_loads.patch",
+        "//third_party/protobuf:bzl_library.patch",
     ],
     strip_prefix = "protobuf-29.0-rc1",
     urls = ["https://github.com/protocolbuffers/protobuf/releases/download/v29.0-rc1/protobuf-29.0-rc1.zip"],
