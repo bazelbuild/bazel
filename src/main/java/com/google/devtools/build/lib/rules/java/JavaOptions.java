@@ -53,7 +53,6 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If enabled, disallow legacy Java toolchain flags (--javabase, --host_javabase,"
               + " --java_toolchain, --host_java_toolchain) and require the use of --platforms"
@@ -306,7 +305,6 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Do not use.")
   public boolean runLocalJavaOptimizations;
 
@@ -425,7 +423,6 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "Flag to help transition away from adding test support libraries to the compile-time"
               + " deps of Java test rules.")
@@ -436,7 +433,6 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Whether to validate java_* sources.")
   public boolean runAndroidLint;
 
@@ -445,7 +441,6 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "No-op, kept only for backwards compatibility")
   public boolean limitAndroidLintToAndroidCompatible;
 
@@ -485,7 +480,6 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "No-op, kept only for backwards compatibility")
   public boolean experimentalJavaHeaderInputPruning;
 
@@ -494,7 +488,6 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If enabled, turbine is used for all annotation processing")
   public boolean experimentalTurbineAnnotationProcessing;
 
@@ -572,7 +565,6 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Enable experimental jspecify integration.")
   public boolean experimentalEnableJspecify;
 
@@ -581,7 +573,6 @@ public class JavaOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "DO NOT USE")
   public boolean autoCreateDeployJarForJavaTests;
 }

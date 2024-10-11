@@ -176,7 +176,6 @@ public class TestConfiguration extends Fragment {
           OptionEffectTag.LOADING_AND_ANALYSIS,
           OptionEffectTag.LOSES_INCREMENTAL_STATE,
         },
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "When enabled, --trim_test_configuration will not trim the test configuration for rules"
                 + " marked testonly=1. This is meant to reduce action conflict issues when non-test"
@@ -245,7 +244,6 @@ public class TestConfiguration extends Fragment {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "If true, then Blaze will cancel concurrently running tests on the first successful "
                 + "run. This is only useful in combination with --runs_per_test_detects_flakes.")
@@ -271,7 +269,6 @@ public class TestConfiguration extends Fragment {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
         effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help =
             "If true, then Bazel fetches the entire coverage data directory for each test during a "
                 + "coverage run.")
@@ -293,7 +290,6 @@ public class TestConfiguration extends Fragment {
         defaultValue = "false",
         documentationCategory = OptionDocumentationCategory.EXECUTION_STRATEGY,
         effectTags = {OptionEffectTag.EXECUTION},
-        metadataTags = {OptionMetadataTag.EXPERIMENTAL},
         help = "If true, then Bazel will run coverage postprocessing for test in a new spawn.")
     public boolean splitCoveragePostProcessing;
 

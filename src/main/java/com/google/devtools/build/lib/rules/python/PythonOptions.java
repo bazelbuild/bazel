@@ -263,7 +263,6 @@ public class PythonOptions extends FragmentOptions {
       name = "experimental_py_binaries_include_label",
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
       help = "py_binary targets include their label even when stamping is disabled.")
   public boolean includeLabelInPyBinariesLinkstamp;

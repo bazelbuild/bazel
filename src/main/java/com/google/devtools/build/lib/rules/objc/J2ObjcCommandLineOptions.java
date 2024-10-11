@@ -70,7 +70,6 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.UNKNOWN},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Whether to generate J2ObjC header map in parallel of J2ObjC transpilation.")
   public boolean experimentalJ2ObjcHeaderMap;
 
@@ -79,7 +78,6 @@ public class J2ObjcCommandLineOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "Whether to generate with shorter header path (uses \"_ios\" instead of \"_j2objc\").")
   public boolean experimentalShorterHeaderPath;
 

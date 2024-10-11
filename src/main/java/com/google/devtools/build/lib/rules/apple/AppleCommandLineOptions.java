@@ -39,7 +39,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
       effectTags = {OptionEffectTag.NO_OP},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "No-op. Kept here for backwards compatibility. This field will be removed in a "
               + "future release.")
@@ -160,7 +159,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.TOOLCHAIN,
       effectTags = {OptionEffectTag.LOSES_INCREMENTAL_STATE},
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If true, use the most recent Xcode that is available both locally and remotely. If"
               + " false, or if there are no mutual available versions, use the local Xcode version"
@@ -322,7 +320,6 @@ public class AppleCommandLineOptions extends FragmentOptions {
         OptionEffectTag.LOADING_AND_ANALYSIS,
         OptionEffectTag.EXECUTION
       },
-      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "If set, add a \"requires-xcode:{version}\" execution requirement to every Xcode action."
               + "  If the Xcode version has a hyphenated label,  also add a"
