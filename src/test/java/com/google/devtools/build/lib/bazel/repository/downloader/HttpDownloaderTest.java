@@ -28,8 +28,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteStreams;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.devtools.build.lib.authandtls.StaticCredentials;
 import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -52,10 +50,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Ignore;
@@ -788,9 +786,8 @@ public class HttpDownloaderTest {
       Map<String, String> clientEnv,
       String context)
       throws IOException, InterruptedException {
-    CountDownLatch doneSignal = new CountDownLatch(1);
-    try (ListeningExecutorService executorService = MoreExecutors.listeningDecorator(
-        Executors.newVirtualThreadPerTaskExecutor())) {
+    Phaser downloadPhaser = new Phaser();
+    try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
       Future<Path> future =
           downloadManager.startDownload(
               executorService,
@@ -804,9 +801,9 @@ public class HttpDownloaderTest {
               eventHandler,
               clientEnv,
               context,
-              doneSignal);
+              downloadPhaser);
       Path downloadedPath = downloadManager.finalizeDownload(future);
-      assertThat(doneSignal.getCount()).isEqualTo(0);
+      assertThat(downloadPhaser.isTerminated()).isTrue();
       return downloadedPath;
     }
   }
