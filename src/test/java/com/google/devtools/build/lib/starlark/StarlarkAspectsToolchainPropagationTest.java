@@ -24,6 +24,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.analysis.ConfiguredAspect;
 import com.google.devtools.build.lib.analysis.util.AnalysisTestCase;
+import com.google.devtools.build.lib.analysis.util.TestAspects.DepsVisitingFileAspect;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.packages.StarlarkInfo;
 import com.google.devtools.build.lib.packages.StarlarkProvider;
@@ -1457,7 +1458,7 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
         """);
     useConfiguration("--extra_toolchains=//toolchain:foo_toolchain_with_dep");
 
-    var analysisResult = update(ImmutableList.of("//test:defs.bzl%toolchain_aspect"), "//test:t1");
+    var analysisResult = update("//test:t1");
 
     var configuredTarget = Iterables.getOnlyElement(analysisResult.getTargetsToBuild());
 
@@ -1471,6 +1472,181 @@ public final class StarlarkAspectsToolchainPropagationTest extends AnalysisTestC
             "toolchain_aspect on @@//test:t2",
             "toolchain_aspect on @@//toolchain:foo_with_dep",
             "toolchain_aspect on @@//toolchain:toolchain_dep");
+  }
+
+  @Test
+  public void toolchainAspectOnOutputFile_notPropagatedToDeps() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        AspectProvider = provider()
+        def _impl(target, ctx):
+          return [AspectProvider(val="hi")]
+
+        toolchain_aspect = aspect(
+            implementation = _impl,
+            toolchains_aspects = ['//rule:toolchain_type_1'],
+            attr_aspects = ['dep'],
+        )
+
+        def _rule_1_impl(ctx):
+          if ctx.outputs.out:
+            ctx.actions.write(ctx.outputs.out, 'hi')
+          return []
+
+        r1 = rule(
+          implementation = _rule_1_impl,
+          attrs = {
+            "out": attr.output(),
+            "dep": attr.label(),
+          },
+          toolchains = ['//rule:toolchain_type_1'],
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:defs.bzl', 'r1')
+        r1(name = 't1', out = 'my_out.txt', dep = ':t2')
+        r1(name = 't2')
+        """);
+    useConfiguration("--extra_toolchains=//toolchain:foo_toolchain");
+
+    var unused = update(ImmutableList.of("//test:defs.bzl%toolchain_aspect"), "//test:my_out.txt");
+
+    // {@link AspectKey} is created for toolchain_aspect on the output file //test:my_out.txt but
+    // the aspect is not applied (no returned providers) because the aspect cannot be applied to
+    // output files. The aspect does not propagate to any of the generating rule dependencies.
+    var nodes =
+        skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
+            .filter(
+                entry ->
+                    entry.getKey() instanceof AspectKey
+                        && ((AspectKey) entry.getKey())
+                            .getAspectClass()
+                            .getName()
+                            .equals("//test:defs.bzl%toolchain_aspect"))
+            .collect(toImmutableList());
+    assertThat(nodes).hasSize(1);
+
+    AspectKey aspectKey = (AspectKey) Iterables.getOnlyElement(nodes).getKey();
+    assertThat(aspectKey.getLabel().toString()).isEqualTo("//test:my_out.txt");
+
+    ConfiguredAspect aspectValue = (ConfiguredAspect) Iterables.getOnlyElement(nodes).getValue();
+    assertThat(aspectValue.getProviders().getProviderCount()).isEqualTo(0);
+  }
+
+  @Test
+  public void toolchainAspectApplyToGeneratingRule_propagateToDeps() throws Exception {
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _impl(target, ctx):
+          return []
+
+        toolchain_aspect = aspect(
+            implementation = _impl,
+            toolchains_aspects = ['//rule:toolchain_type_1'],
+            attr_aspects = ['dep'],
+            apply_to_generating_rules = True,
+        )
+
+        def _rule_1_impl(ctx):
+          if ctx.outputs.out:
+            ctx.actions.write(ctx.outputs.out, 'hi')
+          return []
+
+        r1 = rule(
+          implementation = _rule_1_impl,
+          attrs = {
+            "out": attr.output(),
+            "dep": attr.label(),
+          },
+          toolchains = ['//rule:toolchain_type_1'],
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:defs.bzl', 'r1')
+        r1(name = 't1', out = 'my_out.txt', dep = ':t2')
+        r1(name = 't2')
+        """);
+    useConfiguration("--extra_toolchains=//toolchain:foo_toolchain");
+
+    var unused = update(ImmutableList.of("//test:defs.bzl%toolchain_aspect"), "//test:my_out.txt");
+
+    var visitedTargets =
+        skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
+            .filter(
+                entry ->
+                    entry.getKey() instanceof AspectKey
+                        && ((AspectKey) entry.getKey())
+                            .getAspectClass()
+                            .getName()
+                            .equals("//test:defs.bzl%toolchain_aspect"))
+            .map(e -> ((AspectKey) e.getKey()).getLabel().toString())
+            .collect(toImmutableList());
+
+    // toolchain_aspect is applied to the generating rule of the output file and propagated to its
+    // attribute dependency and toolchain dependency.
+    assertThat(visitedTargets)
+        .containsExactly("//test:my_out.txt", "//test:t1", "//test:t2", "//toolchain:foo");
+  }
+
+  @Test
+  public void toolchainAspectApplyToFiles_notPropagatedToDeps() throws Exception {
+    DepsVisitingFileAspect aspect = new DepsVisitingFileAspect("dep", "//rule:toolchain_type_1");
+    setRulesAndAspectsAvailableInTests(ImmutableList.of(aspect), ImmutableList.of());
+    scratch.file(
+        "test/defs.bzl",
+        """
+        def _rule_1_impl(ctx):
+          if ctx.outputs.out:
+            ctx.actions.write(ctx.outputs.out, 'hi')
+          return []
+
+        r1 = rule(
+          implementation = _rule_1_impl,
+          attrs = {
+            "out": attr.output(),
+            "dep": attr.label(),
+          },
+          toolchains = ['//rule:toolchain_type_1'],
+        )
+        """);
+    scratch.file(
+        "test/BUILD",
+        """
+        load('//test:defs.bzl', 'r1')
+        r1(name = 't1', out = 'my_out.txt', dep = ':t2')
+        r1(name = 't2')
+        """);
+    useConfiguration("--extra_toolchains=//toolchain:foo_toolchain");
+
+    var unused = update(ImmutableList.of(aspect.getName()), "//test:my_out.txt");
+
+    // {@link DepsVisitingFileAspect} is only applied to //test:my_out.txt file therefore it does
+    // not propagate to the dependencies of its generating rule.
+    var nodes =
+        skyframeExecutor.getEvaluator().getDoneValues().entrySet().stream()
+            .filter(
+                entry ->
+                    entry.getKey() instanceof AspectKey
+                        && ((AspectKey) entry.getKey())
+                            .getAspectClass()
+                            .getName()
+                            .equals(aspect.getName()))
+            .collect(toImmutableList());
+    assertThat(nodes).hasSize(1);
+
+    AspectKey aspectKey = (AspectKey) Iterables.getOnlyElement(nodes).getKey();
+    assertThat(aspectKey.getLabel().toString()).isEqualTo("//test:my_out.txt");
+
+    ConfiguredAspect aspectValue = (ConfiguredAspect) Iterables.getOnlyElement(nodes).getValue();
+    StarlarkInfo provider =
+        (StarlarkInfo) aspectValue.get(DepsVisitingFileAspect.PROVIDER.getKey());
+    assertThat(provider.getValue("val")).isEqualTo("//test:my_out.txt");
   }
 
   private ImmutableList<AspectKey> getAspectKeys(String targetLabel, String aspectLabel) {

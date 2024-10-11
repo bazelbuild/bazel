@@ -484,6 +484,62 @@ public class TestAspects {
     }
   }
 
+  /**
+   * An aspect that applies to output files and propagates to toolchain dependencies and attribute
+   * dependencies.
+   */
+  public static class DepsVisitingFileAspect extends BaseAspect {
+
+    /** Test provider which includes the base target label. */
+    @SerializationConstant
+    public static final StarlarkProvider PROVIDER =
+        StarlarkProvider.builder(Location.BUILTIN)
+            .buildExported(new StarlarkProvider.Key(keyForBuild(FAKE_LABEL), "AspectProvider"));
+
+    private String depAttr;
+    private Label toolChainType;
+
+    public DepsVisitingFileAspect(String depAttr, String toolChainType) {
+      this.depAttr = depAttr;
+      this.toolChainType = Label.parseCanonicalUnchecked(toolChainType);
+    }
+
+    @Override
+    public ConfiguredAspect create(
+        Label targetLabel,
+        ConfiguredTarget ct,
+        RuleContext ruleContext,
+        AspectParameters parameters,
+        RepositoryName toolsRepository)
+        throws ActionConflictException, InterruptedException {
+      try {
+        return ConfiguredAspect.builder(ruleContext)
+            .addStarlarkDeclaredProvider(
+                StarlarkInfo.create(
+                    PROVIDER, ImmutableMap.of("val", ct.getLabel().getCanonicalForm()), null))
+            .build();
+      } catch (EvalException e) {
+        throw new IllegalStateException(e);
+      }
+    }
+
+    @Override
+    public String getName() {
+      return String.format("%s_%s_%s", super.getName(), depAttr, toolChainType.getCanonicalForm());
+    }
+
+    @Override
+    public AspectDefinition getDefinition(AspectParameters aspectParameters) {
+      AspectDefinition.Builder aspectDefinition =
+          new AspectDefinition.Builder(this)
+              .applyToFiles(true)
+              .propagateAlongAttribute(depAttr)
+              .propagateToToolchainsTypes(ImmutableSet.of(toolChainType));
+
+      return aspectDefinition.build();
+    }
+  }
+
   /** An aspect that defines its own implicit attribute, requiring PackageSpecificationProvider. */
   public static class PackageGroupAttributeAspect extends BaseAspect {
     @Override

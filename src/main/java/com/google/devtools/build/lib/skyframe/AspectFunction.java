@@ -613,8 +613,7 @@ final class AspectFunction implements SkyFunction {
    */
   private static boolean canAspectsPropagateToToolchains(
       ImmutableList<Aspect> topologicalAspectPath, Target baseTarget) {
-    Rule rule = baseTarget.getAssociatedRule();
-    if (rule == null) {
+    if (!baseTarget.isRule()) {
       return false;
     }
 
