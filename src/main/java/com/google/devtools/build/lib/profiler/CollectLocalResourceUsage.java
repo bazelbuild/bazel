@@ -430,8 +430,10 @@ public class CollectLocalResourceUsage implements LocalResourceCollector {
     public void collect(double deltaNanos, BiConsumer<CounterSeriesTask, Double> consumer) {
       var systemNetworkUsages =
           NetworkMetricsCollector.instance().collectSystemNetworkUsages(deltaNanos);
-      consumer.accept(SYSTEM_NETWORK_UP_USAGE, systemNetworkUsages.megabitsSentPerSec());
-      consumer.accept(SYSTEM_NETWORK_DOWN_USAGE, systemNetworkUsages.megabitsRecvPerSec());
+      if (systemNetworkUsages != null) {
+        consumer.accept(SYSTEM_NETWORK_UP_USAGE, systemNetworkUsages.megabitsSentPerSec());
+        consumer.accept(SYSTEM_NETWORK_DOWN_USAGE, systemNetworkUsages.megabitsRecvPerSec());
+      }
     }
   }
 
