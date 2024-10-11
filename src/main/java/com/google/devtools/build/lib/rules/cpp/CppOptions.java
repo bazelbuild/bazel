@@ -962,6 +962,7 @@ public class CppOptions extends FragmentOptions {
       defaultValue = "false",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.LOADING_AND_ANALYSIS},
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help = "If true, coverage for clang will generate an LCOV report.")
   public boolean generateLlvmLcov;
 
@@ -1008,6 +1009,7 @@ public class CppOptions extends FragmentOptions {
         OptionEffectTag.EXECUTION,
         OptionEffectTag.CHANGES_INPUTS
       },
+      metadataTags = {OptionMetadataTag.EXPERIMENTAL},
       help =
           "Whether to narrow inputs to C/C++ compilation by parsing #include lines from input"
               + " files. This can improve performance and incrementality by decreasing the size of"
