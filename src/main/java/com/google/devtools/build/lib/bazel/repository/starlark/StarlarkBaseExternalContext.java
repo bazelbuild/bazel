@@ -576,16 +576,14 @@ public abstract class StarlarkBaseExternalContext implements AutoCloseable, Star
 
     @Override
     public void close() {
-      // Call register() to ensure arriveAndDeregister() will terminate the
-      // downloadPhaser if the download has not started yet.
-      if (downloadPhaser.register() < 0) {
-        // The download completed normally or has already been cancelled and the thread has
-        // terminated in response to the interrupt.
+      if (downloadPhaser.register() != 0) {
+        // Not in the download phase, either the download completed normally or
+        // it has completed after a cancellation.
         return;
       }
       try (SilentCloseable c =
           Profiler.instance().profile("Cancelling download " + outputPath)) {
-        downloadPhaser.awaitAdvance(downloadPhaser.arriveAndDeregister());
+        downloadPhaser.arriveAndAwaitAdvance();
       }
     }
 

@@ -128,7 +128,8 @@ public class DownloadManager {
       Phaser downloadPhaser) {
     return executorService.submit(
         () -> {
-          if (downloadPhaser.register() < 0) {
+          if (downloadPhaser.register() != 0) {
+            // Not in download phase, must already have been cancelled.
             throw new InterruptedException();
           }
           try (SilentCloseable c = Profiler.instance().profile("fetching: " + context)) {
@@ -144,7 +145,7 @@ public class DownloadManager {
                 clientEnv,
                 context);
           } finally {
-            downloadPhaser.arriveAndDeregister();
+            downloadPhaser.arrive();
           }
         });
   }

@@ -803,7 +803,8 @@ public class HttpDownloaderTest {
               context,
               downloadPhaser);
       Path downloadedPath = downloadManager.finalizeDownload(future);
-      assertThat(downloadPhaser.isTerminated()).isTrue();
+      // Should not be in the download phase.
+      assertThat(downloadPhaser.getPhase()).isNotEqualTo(0);
       return downloadedPath;
     }
   }
