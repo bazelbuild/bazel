@@ -307,6 +307,11 @@ def _internal_exports():
         run_ijar_private_for_builtins = run_ijar,
         expand_java_opts = _java_common_internal.expand_java_opts,
         JavaPluginDataInfo = JavaPluginDataInfo,
+        google_legacy_api_enabled = _java_common_internal._google_legacy_api_enabled,
+        wrap_java_info = _java_common_internal.wrap_java_info,
+        check_provider_instances = _java_common_internal.check_provider_instances,
+        incompatible_java_info_merge_runtime_module_flags = _java_common_internal._incompatible_java_info_merge_runtime_module_flags,
+        check_java_toolchain_is_declared_on_rule = _java_common_internal._check_java_toolchain_is_declared_on_rule,
     )
 
 def _make_java_common():
