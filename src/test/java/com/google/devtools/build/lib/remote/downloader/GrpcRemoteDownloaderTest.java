@@ -61,6 +61,8 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Timestamps;
 import io.grpc.CallCredentials;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
@@ -73,6 +75,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -89,6 +94,10 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link GrpcRemoteDownloader}. */
 @RunWith(JUnit4.class)
 public class GrpcRemoteDownloaderTest {
+
+  private static final String now = "2024-10-10T00:00:00Z";
+  private static final String oneHourFromNow = "2024-10-10T01:00:00Z";
+  private static final Clock clock = Clock.fixed(Instant.parse(now), ZoneId.of("UTC"));
 
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
@@ -158,7 +167,7 @@ public class GrpcRemoteDownloaderTest {
                 return 100;
               }
             });
-    return new GrpcRemoteDownloader(
+    GrpcRemoteDownloader downloader = new GrpcRemoteDownloader(
         "none",
         "none",
         channel.retain(),
@@ -169,6 +178,8 @@ public class GrpcRemoteDownloaderTest {
         remoteOptions,
         /* verboseFailures= */ false,
         fallbackDownloader);
+    downloader.setClock(clock);
+    return downloader;
   }
 
   private static byte[] downloadBlob(
@@ -202,6 +213,7 @@ public class GrpcRemoteDownloaderTest {
   public void testDownload() throws Exception {
     final byte[] content = "example content".getBytes(UTF_8);
     final Digest contentDigest = DIGEST_UTIL.compute(content);
+    final Timestamp timestamp = Timestamps.parse(oneHourFromNow);
 
     serviceRegistry.addService(
         new FetchImplBase() {
@@ -212,6 +224,7 @@ public class GrpcRemoteDownloaderTest {
                 .isEqualTo(
                     FetchBlobRequest.newBuilder()
                         .setDigestFunction(DIGEST_UTIL.getDigestFunction())
+                        .setOldestContentAccepted(timestamp)
                         .addUris("http://example.com/content.txt")
                         .build());
             responseObserver.onNext(
@@ -366,7 +379,8 @@ public class GrpcRemoteDownloaderTest {
             ImmutableMap.of(
                 "Authorization", ImmutableList.of("Basic Zm9vOmJhcg=="),
                 "X-Custom-Token", ImmutableList.of("foo", "bar")),
-            StaticCredentials.EMPTY);
+            StaticCredentials.EMPTY,
+            clock);
 
     assertThat(request)
         .isEqualTo(
@@ -415,7 +429,8 @@ public class GrpcRemoteDownloaderTest {
             "canonical ID",
             DIGEST_UTIL.getDigestFunction(),
             ImmutableMap.of(),
-            credentials);
+            credentials,
+            clock);
 
     assertThat(request)
         .isEqualTo(
@@ -458,7 +473,8 @@ public class GrpcRemoteDownloaderTest {
             "canonical ID",
             DIGEST_UTIL.getDigestFunction(),
             ImmutableMap.of(),
-            credentials);
+            credentials,
+            clock);
 
     assertThat(request)
         .isEqualTo(
@@ -470,6 +486,33 @@ public class GrpcRemoteDownloaderTest {
                     Qualifier.newBuilder()
                         .setName("checksum.sri")
                         .setValue("sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
+                .addQualifiers(
+                    Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
+                .build());
+  }
+
+  @Test
+  public void testFetchBlobRequest_withoutChecksum() throws Exception {
+    FetchBlobRequest request =
+        GrpcRemoteDownloader.newFetchBlobRequest(
+            "instance name",
+            false,
+            ImmutableList.of(
+                new URL("http://example.com/")),
+            Optional.<Checksum>empty(),
+            "canonical ID",
+            DIGEST_UTIL.getDigestFunction(),
+            ImmutableMap.of(),
+            StaticCredentials.EMPTY,
+            clock);
+
+    assertThat(request)
+        .isEqualTo(
+            FetchBlobRequest.newBuilder()
+                .setInstanceName("instance name")
+                .setDigestFunction(DIGEST_UTIL.getDigestFunction())
+                .setOldestContentAccepted(Timestamps.parse(oneHourFromNow))
+                .addUris("http://example.com/")
                 .addQualifiers(
                     Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
                 .build());

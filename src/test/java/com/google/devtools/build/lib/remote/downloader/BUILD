@@ -44,6 +44,7 @@ java_library(
         "//third_party:truth",
         "//third_party/grpc-java:grpc-jar",
         "@protobuf//:protobuf_java",
+        "@protobuf//:protobuf_java_util",
         "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_grpc",
         "@remoteapis//:build_bazel_remote_asset_v1_remote_asset_java_proto",
         "@remoteapis//:build_bazel_remote_execution_v2_remote_execution_java_proto",

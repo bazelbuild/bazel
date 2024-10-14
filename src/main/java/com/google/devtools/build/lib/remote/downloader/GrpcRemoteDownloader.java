@@ -38,6 +38,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.util.Timestamps;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.StatusRuntimeException;
@@ -45,6 +46,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.time.Clock;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -89,6 +92,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   // Server should prefer using the URL-specific header value over the generic header
   // value when both are present.
   private static final String QUALIFIER_HTTP_HEADER_URL_PREFIX = "http_header_url:";
+
+  private Clock clock = Clock.systemUTC();
 
   public GrpcRemoteDownloader(
       String buildRequestId,
@@ -148,7 +153,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
             canonicalId,
             digestFunction,
             headers,
-            credentials);
+            credentials,
+            clock);
     try {
       FetchBlobResponse response =
           retrier.execute(
@@ -199,7 +205,8 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
       String canonicalId,
       DigestFunction.Value digestFunction,
       Map<String, List<String>> headers,
-      Credentials credentials)
+      Credentials credentials,
+      Clock clock)
       throws IOException {
     FetchBlobRequest.Builder requestBuilder =
         FetchBlobRequest.newBuilder()
@@ -235,6 +242,11 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
               .setName(QUALIFIER_CHECKSUM_SRI)
               .setValue(checksum.get().toSubresourceIntegrity())
               .build());
+    } else {
+      // If no checksum is provided, never accept cached content.
+      // Timestamp is offset by an hour to account for clock skew.
+      Clock c = Clock.offset(clock, Duration.ofHours(1));
+      requestBuilder.setOldestContentAccepted(Timestamps.fromMillis(c.millis()));
     }
 
     if (!Strings.isNullOrEmpty(canonicalId)) {
@@ -277,5 +289,10 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
   @VisibleForTesting
   public ReferenceCountedChannel getChannel() {
     return channel;
+  }
+
+  @VisibleForTesting
+  public void setClock(Clock clock) {
+    this.clock = clock;
   }
 }
