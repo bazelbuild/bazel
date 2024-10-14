@@ -13,9 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.ArrayList;
 
@@ -28,17 +31,17 @@ import java.util.ArrayList;
  * #getDependencyCount} and {@link #getDependency}. If any matches are encountered, the associated
  * value is invalidated.
  */
-sealed interface FileDependencies
-    extends FileSystemDependencies, FileDependencyDeserializer.GetDependenciesResult
+abstract sealed class FileDependencies
+    implements FileSystemDependencies, FileDependencyDeserializer.GetDependenciesResult
     permits FileDependencies.SingleResolvedPath,
         FileDependencies.SingleResolvedPathAndDependency,
         FileDependencies.MultiplePaths {
 
-  boolean containsMatch(ImmutableSet<String> paths);
+  abstract boolean containsMatch(ImmutableSet<String> paths);
 
-  int getDependencyCount();
+  abstract int getDependencyCount();
 
-  FileDependencies getDependency(int index);
+  abstract FileDependencies getDependency(int index);
 
   /**
    * The real path associated with this node after resolution.
@@ -46,14 +49,11 @@ sealed interface FileDependencies
    * <p>This is used by {@link FileDependencyDeserializer} to retrieve resolved parent paths but
    * isn't directly used by invalidation.
    */
-  String resolvedPath();
+  abstract String resolvedPath();
 
   /** Returns the resolved paths associated with the current node for testing. */
-  // An interface must be used instead of an abstract class to allow records, which are helpful
-  // here. That means that this method must be public, triggering the warning.
-  @SuppressWarnings("VisibleForTestingMisused")
   @VisibleForTesting
-  ImmutableList<String> getAllResolvedPathsForTesting();
+  abstract ImmutableList<String> getAllResolvedPathsForTesting();
 
   static Builder builder(String firstResolvedPath) {
     return new Builder(firstResolvedPath);
@@ -101,42 +101,65 @@ sealed interface FileDependencies
 
   // The implementations here exist to reduce indirection and memory use.
 
-  record SingleResolvedPath(String resolvedPath) implements FileDependencies {
+  static final class SingleResolvedPath extends FileDependencies {
+    private final String resolvedPath;
+
+    private SingleResolvedPath(String resolvedPath) {
+      this.resolvedPath = resolvedPath;
+    }
+
     @Override
-    public boolean containsMatch(ImmutableSet<String> paths) {
+    boolean containsMatch(ImmutableSet<String> paths) {
       return paths.contains(resolvedPath);
     }
 
     @Override
-    public int getDependencyCount() {
+    int getDependencyCount() {
       return 0;
     }
 
     @Override
-    public FileDependencies getDependency(int index) {
+    FileDependencies getDependency(int index) {
       throw new IndexOutOfBoundsException(this + " " + index);
     }
 
     @Override
-    public ImmutableList<String> getAllResolvedPathsForTesting() {
+    String resolvedPath() {
+      return resolvedPath;
+    }
+
+    @Override
+    ImmutableList<String> getAllResolvedPathsForTesting() {
       return ImmutableList.of(resolvedPath);
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper(this).add("resolvedPath", resolvedPath).toString();
     }
   }
 
-  record SingleResolvedPathAndDependency(String resolvedPath, FileDependencies dependency)
-      implements FileDependencies {
+  static final class SingleResolvedPathAndDependency extends FileDependencies {
+    private final String resolvedPath;
+    private final FileDependencies dependency;
+
+    private SingleResolvedPathAndDependency(String resolvedPath, FileDependencies dependency) {
+      this.resolvedPath = resolvedPath;
+      this.dependency = dependency;
+    }
+
     @Override
-    public boolean containsMatch(ImmutableSet<String> paths) {
+    boolean containsMatch(ImmutableSet<String> paths) {
       return paths.contains(resolvedPath);
     }
 
     @Override
-    public int getDependencyCount() {
+    int getDependencyCount() {
       return 1;
     }
 
     @Override
-    public FileDependencies getDependency(int index) {
+    FileDependencies getDependency(int index) {
       if (index != 0) {
         throw new IndexOutOfBoundsException(this + " " + index);
       }
@@ -144,16 +167,36 @@ sealed interface FileDependencies
     }
 
     @Override
-    public ImmutableList<String> getAllResolvedPathsForTesting() {
+    String resolvedPath() {
+      return resolvedPath;
+    }
+
+    @Override
+    ImmutableList<String> getAllResolvedPathsForTesting() {
       return ImmutableList.of(resolvedPath);
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper(this)
+          .add("resolvedPath", resolvedPath)
+          .add("dependency", dependency)
+          .toString();
     }
   }
 
-  record MultiplePaths(
-      ImmutableList<String> resolvedPaths, ImmutableList<FileDependencies> dependencies)
-      implements FileDependencies {
+  static final class MultiplePaths extends FileDependencies {
+    private final ImmutableList<String> resolvedPaths;
+    private final ImmutableList<FileDependencies> dependencies;
+
+    private MultiplePaths(
+        ImmutableList<String> resolvedPaths, ImmutableList<FileDependencies> dependencies) {
+      this.resolvedPaths = resolvedPaths;
+      this.dependencies = dependencies;
+    }
+
     @Override
-    public boolean containsMatch(ImmutableSet<String> paths) {
+    boolean containsMatch(ImmutableSet<String> paths) {
       for (int i = 0; i < resolvedPaths.size(); i++) {
         if (paths.contains(resolvedPaths.get(i))) {
           return true;
@@ -163,23 +206,31 @@ sealed interface FileDependencies
     }
 
     @Override
-    public int getDependencyCount() {
+    int getDependencyCount() {
       return dependencies.size();
     }
 
     @Override
-    public FileDependencies getDependency(int index) {
+    FileDependencies getDependency(int index) {
       return dependencies.get(index);
     }
 
     @Override
-    public String resolvedPath() {
-      return resolvedPaths.get(resolvedPaths().size() - 1);
+    String resolvedPath() {
+      return Iterables.getLast(resolvedPaths);
     }
 
     @Override
-    public ImmutableList<String> getAllResolvedPathsForTesting() {
+    ImmutableList<String> getAllResolvedPathsForTesting() {
       return resolvedPaths;
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper(this)
+          .add("resolvedPaths", resolvedPaths)
+          .add("dependencies", dependencies)
+          .toString();
     }
   }
 }

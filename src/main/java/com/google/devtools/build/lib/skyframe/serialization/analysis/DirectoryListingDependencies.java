@@ -13,14 +13,31 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
+
 import com.google.common.collect.ImmutableSet;
 
 /** Type representing a directory listing operation. */
-record DirectoryListingDependencies(FileDependencies realDirectory)
+final class DirectoryListingDependencies
     implements FileDependencyDeserializer.GetDirectoryListingDependenciesResult,
         FileSystemDependencies {
+  private final FileDependencies realDirectory;
+
+  DirectoryListingDependencies(FileDependencies realDirectory) {
+    this.realDirectory = realDirectory;
+  }
+
   /** True if this entry matches any directory name in {@code directoryPaths}. */
   boolean matchesAnyDirectory(ImmutableSet<String> directoryPaths) {
     return directoryPaths.contains(realDirectory.resolvedPath());
+  }
+
+  FileDependencies realDirectory() {
+    return realDirectory;
+  }
+
+  @Override
+  public String toString() {
+    return toStringHelper(this).add("realDirectory", realDirectory).toString();
   }
 }
