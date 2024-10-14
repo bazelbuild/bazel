@@ -405,7 +405,7 @@ public class AutoloadSymbols {
                   toImmutableMap(
                       ModuleKey::getName,
                       moduleKey -> moduleKey,
-                      (m1, m2) -> m1.getVersion().compareTo(m2.getVersion()) >= 0 ? m1 : m1));
+                      (m1, m2) -> m1.getVersion().compareTo(m2.getVersion()) >= 0 ? m1 : m2));
       RepositoryMapping repositoryMapping =
           RepositoryMapping.create(
               highestVersions.entrySet().stream()
