@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyT
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.UnrecoverableHttpException;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ChannelConnectionWithServerCapabilitiesFactory;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
@@ -54,6 +55,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -61,7 +63,6 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Timestamps;
 import io.grpc.CallCredentials;
 import io.grpc.ManagedChannel;
@@ -75,9 +76,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
-import java.time.Clock;
-import java.time.Instant;
-import java.time.ZoneId;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -95,9 +94,7 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class GrpcRemoteDownloaderTest {
 
-  private static final String now = "2024-10-10T00:00:00Z";
-  private static final String oneHourFromNow = "2024-10-10T01:00:00Z";
-  private static final Clock clock = Clock.fixed(Instant.parse(now), ZoneId.of("UTC"));
+  private static final ManualClock clock = new ManualClock();
 
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
@@ -126,6 +123,8 @@ public class GrpcRemoteDownloaderTest {
     context = RemoteActionExecutionContext.create(metadata);
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+
+    BlazeClock.setClock(clock);
   }
 
   @After
@@ -167,7 +166,7 @@ public class GrpcRemoteDownloaderTest {
                 return 100;
               }
             });
-    GrpcRemoteDownloader downloader = new GrpcRemoteDownloader(
+    return new GrpcRemoteDownloader(
         "none",
         "none",
         channel.retain(),
@@ -178,8 +177,6 @@ public class GrpcRemoteDownloaderTest {
         remoteOptions,
         /* verboseFailures= */ false,
         fallbackDownloader);
-    downloader.setClock(clock);
-    return downloader;
   }
 
   private static byte[] downloadBlob(
@@ -213,7 +210,6 @@ public class GrpcRemoteDownloaderTest {
   public void testDownload() throws Exception {
     final byte[] content = "example content".getBytes(UTF_8);
     final Digest contentDigest = DIGEST_UTIL.compute(content);
-    final Timestamp timestamp = Timestamps.parse(oneHourFromNow);
 
     serviceRegistry.addService(
         new FetchImplBase() {
@@ -224,7 +220,7 @@ public class GrpcRemoteDownloaderTest {
                 .isEqualTo(
                     FetchBlobRequest.newBuilder()
                         .setDigestFunction(DIGEST_UTIL.getDigestFunction())
-                        .setOldestContentAccepted(timestamp)
+                        .setOldestContentAccepted(Timestamps.fromMillis(clock.advance(Duration.ofHours(1))))
                         .addUris("http://example.com/content.txt")
                         .build());
             responseObserver.onNext(
@@ -379,8 +375,7 @@ public class GrpcRemoteDownloaderTest {
             ImmutableMap.of(
                 "Authorization", ImmutableList.of("Basic Zm9vOmJhcg=="),
                 "X-Custom-Token", ImmutableList.of("foo", "bar")),
-            StaticCredentials.EMPTY,
-            clock);
+            StaticCredentials.EMPTY);
 
     assertThat(request)
         .isEqualTo(
@@ -429,8 +424,7 @@ public class GrpcRemoteDownloaderTest {
             "canonical ID",
             DIGEST_UTIL.getDigestFunction(),
             ImmutableMap.of(),
-            credentials,
-            clock);
+            credentials);
 
     assertThat(request)
         .isEqualTo(
@@ -473,8 +467,7 @@ public class GrpcRemoteDownloaderTest {
             "canonical ID",
             DIGEST_UTIL.getDigestFunction(),
             ImmutableMap.of(),
-            credentials,
-            clock);
+            credentials);
 
     assertThat(request)
         .isEqualTo(
@@ -503,15 +496,14 @@ public class GrpcRemoteDownloaderTest {
             "canonical ID",
             DIGEST_UTIL.getDigestFunction(),
             ImmutableMap.of(),
-            StaticCredentials.EMPTY,
-            clock);
+            StaticCredentials.EMPTY);
 
     assertThat(request)
         .isEqualTo(
             FetchBlobRequest.newBuilder()
                 .setInstanceName("instance name")
                 .setDigestFunction(DIGEST_UTIL.getDigestFunction())
-                .setOldestContentAccepted(Timestamps.parse(oneHourFromNow))
+                .setOldestContentAccepted(Timestamps.fromMillis(clock.advance(Duration.ofHours(1))))
                 .addUris("http://example.com/")
                 .addQualifiers(
                     Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
