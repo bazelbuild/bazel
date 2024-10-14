@@ -241,8 +241,9 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
     } else {
       // If no checksum is provided, never accept cached content.
       // Timestamp is offset by an hour to account for clock skew.
-      long milis = BlazeClock.instance().currentTimeMillis() + Duration.ofHours(1).toMillis();
-      requestBuilder.setOldestContentAccepted(Timestamps.fromMillis(milis));
+      requestBuilder.setOldestContentAccepted(
+          Timestamps.fromMillis(
+              BlazeClock.instance().now().plus(Duration.ofHours(1)).toEpochMilli()));
     }
 
     if (!Strings.isNullOrEmpty(canonicalId)) {
