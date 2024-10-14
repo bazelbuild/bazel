@@ -15,7 +15,6 @@
 """Exported builtins symbols that are specific to OSS Bazel."""
 
 load("@_builtins//:common/cc/cc_proto_library.bzl", "cc_proto_aspect", "cc_proto_library")
-load("@_builtins//:common/java/java_library.bzl", "JAVA_LIBRARY_ATTRS", "bazel_java_library_rule")
 load("@_builtins//:common/java/proto/java_proto_library.bzl", "java_proto_library")
 load("@_builtins//:common/proto/proto_library.bzl", "proto_library")
 load("@_builtins//:common/python/py_internal.bzl", "py_internal")
@@ -25,13 +24,6 @@ load(":common/java/java_runtime.bzl", "java_runtime")
 load(":common/java/java_toolchain.bzl", "java_toolchain")
 
 exported_toplevels = {
-    # This is an experimental export in Bazel. The interface will change in a way
-    # that breaks users. In the future, Build API team will provide an interface
-    # that is conceptually similar to this one and stable.
-    "experimental_java_library_export_do_not_use": struct(
-        bazel_java_library_rule = bazel_java_library_rule,
-        JAVA_LIBRARY_ATTRS = JAVA_LIBRARY_ATTRS,
-    ),
     "cc_proto_aspect": cc_proto_aspect,
     "py_internal": py_internal,
 }
