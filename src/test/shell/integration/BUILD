@@ -676,6 +676,17 @@ sh_test(
     ],
 )
 
+sh_test(
+    name = "flagset_test",
+    size = "large",
+    srcs = ["flagset_test.sh"],
+    data = [
+        ":test-deps",
+        "@bazel_tools//tools/bash/runfiles",
+    ],
+    shard_count = 3,
+)
+
 # Copy protoc into a known location, since //third_party/protobuf:protoc
 # might be an alias.  This is referenced from testenv.sh.
 genrule(

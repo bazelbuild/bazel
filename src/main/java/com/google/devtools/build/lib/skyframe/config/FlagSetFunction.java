@@ -13,10 +13,16 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.config;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
+import com.google.devtools.build.lib.analysis.config.FragmentOptions;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.RepoContext;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -83,7 +89,9 @@ public final class FlagSetFunction implements SkyFunction {
             projectValue,
             key.getSclConfig(),
             key.enforceCanonical(),
-            env.getListener());
+            env.getListener(),
+            key.getTargetOptions(),
+            key.getUserOptions());
     ParsedFlagsValue parsedFlags = parseFlags(sclConfigAsStarlarkList, env);
     if (parsedFlags == null) {
       return null;
@@ -102,7 +110,9 @@ public final class FlagSetFunction implements SkyFunction {
       ProjectValue sclContent,
       String sclConfigName,
       boolean enforceCanonical,
-      ExtendedEventHandler eventHandler)
+      ExtendedEventHandler eventHandler,
+      BuildOptions targetOptions,
+      ImmutableSet<String> userOptions)
       throws FlagSetFunctionException {
     var configs = (Dict<String, Collection<String>>) sclContent.getResidualGlobal(CONFIGS);
     var sclConfigValue = configs == null ? null : configs.get(sclConfigName);
@@ -119,18 +129,9 @@ public final class FlagSetFunction implements SkyFunction {
       // is silently consider a no-op.
       return sclConfigValue == null ? ImmutableList.of() : ImmutableList.copyOf(sclConfigValue);
     } else if (sclConfigName.isEmpty()) {
+      ImmutableList<String> defaultConfigValue = ImmutableList.of();
       try {
-        ImmutableList<String> defaultConfigValue =
-            validateDefaultConfig(defaultConfigName, configs, supportedConfigs);
-        if (!defaultConfigWarningShown.get()) {
-          eventHandler.handle(
-              Event.info(
-                  String.format(
-                      "Applying flags from the default config defined in %s: %s ",
-                      projectFile, defaultConfigValue)));
-          defaultConfigWarningShown.set(true);
-        }
-        return defaultConfigValue;
+        defaultConfigValue = validateDefaultConfig(defaultConfigName, configs, supportedConfigs);
       } catch (InvalidProjectFileException e) {
         // there's no default config set.
         throw new FlagSetFunctionException(
@@ -140,6 +141,16 @@ public final class FlagSetFunction implements SkyFunction {
                     e.getMessage(), supportedConfigsDesc(projectFile, supportedConfigs))),
             Transience.PERSISTENT);
       }
+      validateNoExtraFlagsSet(targetOptions, userOptions);
+      if (!defaultConfigWarningShown.get()) {
+        eventHandler.handle(
+            Event.info(
+                String.format(
+                    "Applying flags from the default config defined in %s: %s ",
+                    projectFile, defaultConfigValue)));
+        defaultConfigWarningShown.set(true);
+      }
+      return defaultConfigValue;
     } else if (!supportedConfigs.containsKey(sclConfigName)) {
       // This project declares supported configs and user set --scl_config to an unsupported config.
       throw new FlagSetFunctionException(
@@ -149,6 +160,14 @@ public final class FlagSetFunction implements SkyFunction {
                   sclConfigName, supportedConfigsDesc(projectFile, supportedConfigs))),
           Transience.PERSISTENT);
     }
+
+    if (enforceCanonical) {
+      validateNoExtraFlagsSet(targetOptions, userOptions);
+    }
+    eventHandler.handle(
+        Event.info(
+            String.format(
+                "Applying flags from the config defined in %s: %s ", projectFile, sclConfigValue)));
 
     return ImmutableList.copyOf(sclConfigValue);
   }
@@ -174,6 +193,44 @@ public final class FlagSetFunction implements SkyFunction {
     }
 
     return ImmutableList.copyOf(configs.get(defaultConfigName));
+  }
+
+  /**
+   * Enforces that the user did not set any output-affecting options in a blazerc or on the command
+   * line. Flags set in global RC files and flags that do not affect outputs are allowed.
+   */
+  // TODO(steinman): Allow user options if they are also part of the --scl_config.
+  private void validateNoExtraFlagsSet(BuildOptions targetOptions, ImmutableSet<String> userOptions)
+      throws FlagSetFunctionException {
+    ImmutableList.Builder<String> allOptionsAsStringsBuilder = new ImmutableList.Builder<>();
+    // All potentially conflicting user options also appear in targetOptions
+    targetOptions.getStarlarkOptions().keySet().stream()
+        .map(Object::toString)
+        .forEach(allOptionsAsStringsBuilder::add);
+    for (FragmentOptions fragmentOptions : targetOptions.getNativeOptions()) {
+      fragmentOptions.asMap().keySet().forEach(allOptionsAsStringsBuilder::add);
+    }
+    ImmutableList<String> allOptionsAsStrings = allOptionsAsStringsBuilder.build();
+    ImmutableSet<String> overlap =
+        userOptions.stream()
+            // Remove options that aren't part of BuildOptions
+            .filter(
+                option ->
+                    allOptionsAsStrings.contains(
+                        Iterables.get(Splitter.on("=").split(option), 0).replaceFirst("--", "")))
+            .filter(option -> !option.startsWith("--scl_config"))
+            .collect(toImmutableSet());
+    // TODO(b/341930725): Allow user options if they are also part of the --scl_config.
+    if (!overlap.isEmpty()) {
+      throw new FlagSetFunctionException(
+          new UnsupportedConfigException(
+              String.format(
+                  "When --enforce_project_configs is set, --scl_config must be the only"
+                      + " configuration-affecting flag in the build. Found %s in the command line"
+                      + " or user blazerc",
+                  overlap)),
+          Transience.PERSISTENT);
+    }
   }
 
   /** Returns a user-friendly description of project-supported configurations. */
