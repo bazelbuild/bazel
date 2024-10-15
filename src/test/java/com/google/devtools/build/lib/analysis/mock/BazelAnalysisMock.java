@@ -63,7 +63,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
   @Override
   public ImmutableList<String> getWorkspaceContents(MockToolsConfig config) {
     String xcodeWorkspace = config.getPath("local_config_xcode_workspace").getPathString();
-    String protobufWorkspace = config.getPath("protobuf_workspace").getPathString();
+    String protobufWorkspace = config.getPath("third_party/protobuf").getPathString();
+    String protoBazelFeaturesWorkspace = config.getPath("proto_bazel_features").getPathString();
     String bazelToolWorkspace = config.getPath("embedded_tools").getPathString();
     String bazelPlatformsWorkspace = config.getPath("platforms_workspace").getPathString();
     String rulesJavaWorkspace = config.getPath("rules_java_workspace").getPathString();
@@ -91,6 +92,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
             + "')",
         "local_repository(name = 'local_config_xcode', path = '" + xcodeWorkspace + "')",
         "local_repository(name = 'protobuf', path = '" + protobufWorkspace + "')",
+        "local_repository(name = 'proto_bazel_features', path = '"
+            + protoBazelFeaturesWorkspace
+            + "')",
         "local_repository(name = 'rules_java', path = '" + rulesJavaWorkspace + "')",
         "local_repository(name = 'rules_java_builtin', path = '" + rulesJavaWorkspace + "')",
         "local_repository(name = 'android_gmaven_r8', path = '" + androidGmavenR8Workspace + "')",
@@ -111,6 +115,7 @@ public final class BazelAnalysisMock extends AnalysisMock {
     return ImmutableList.of(
         "android_gmaven_r8",
         "protobuf",
+        "proto_bazel_features",
         "local_config_platform",
         "local_config_xcode",
         "internal_platforms_do_not_use",
@@ -132,18 +137,9 @@ public final class BazelAnalysisMock extends AnalysisMock {
     config.create("local_config_xcode_workspace/BUILD", "xcode_config(name = 'host_xcodes')");
     config.create(
         "local_config_xcode_workspace/MODULE.bazel", "module(name = 'local_config_xcode')");
-    config.create(
-        "protobuf_workspace/BUILD",
-        """
-        licenses(["notice"])
-
-        exports_files([
-            "protoc",
-            "cc_toolchain",
-        ])
-        """);
-    config.create("protobuf_workspace/WORKSPACE");
-    config.create("protobuf_workspace/MODULE.bazel", "module(name='protobuf')");
+    config.create("third_party/protobuf/WORKSPACE");
+    config.create("third_party/protobuf/BUILD");
+    config.create("third_party/protobuf/MODULE.bazel", "module(name='protobuf')");
     config.overwrite("WORKSPACE", workspaceContents.toArray(new String[0]));
     config.overwrite(
         "MODULE.bazel",
@@ -172,7 +168,8 @@ public final class BazelAnalysisMock extends AnalysisMock {
         "local_config_platform_workspace",
         "rules_java_workspace",
         "rules_python_workspace",
-        "protobuf_workspace",
+        "third_party/protobuf",
+        "proto_bazel_features_workspace",
         "build_bazel_apple_support",
         "local_config_xcode_workspace",
         "third_party/bazel_rules/rules_cc");
@@ -660,12 +657,9 @@ launcher_flag_alias(
     config.create("embedded_tools/objcproto/well_known_type.proto");
 
     // Copies bazel_skylib from real @bazel_skylib (needed by rules_python)
-    PathFragment path = PathFragment.create(runfiles.rlocation("bazel_skylib/lib/paths.bzl"));
-    config.copyDirectory(
-        path.getParentDirectory().getParentDirectory(), "bazel_skylib_workspace", MAX_VALUE, true);
+    PathFragment path = PathFragment.create(runfiles.rlocation("bazel_skylib/BUILD"));
+    config.copyDirectory(path.getParentDirectory(), "bazel_skylib_workspace", MAX_VALUE, true);
     config.overwrite("bazel_skylib_workspace/MODULE.bazel", "module(name = 'bazel_skylib')");
-    config.overwrite("bazel_skylib_workspace/lib/BUILD");
-    config.overwrite("bazel_skylib_workspace/rules/BUILD");
 
     config.create(
         "embedded_tools/tools/allowlists/function_transition_allowlist/BUILD",
@@ -834,7 +828,8 @@ launcher_flag_alias(
             .put("rules_python", "rules_python_workspace")
             .put("rules_python_internal", "rules_python_internal_workspace")
             .put("bazel_skylib", "bazel_skylib_workspace")
-            .put("protobuf", "protobuf_workspace")
+            .put("protobuf", "third_party/protobuf")
+            .put("proto_bazel_features", "proto_bazel_features_workspace")
             .put("build_bazel_apple_support", "build_bazel_apple_support")
             .put("local_config_xcode", "local_config_xcode_workspace")
             .put("rules_cc", "third_party/bazel_rules/rules_cc")
