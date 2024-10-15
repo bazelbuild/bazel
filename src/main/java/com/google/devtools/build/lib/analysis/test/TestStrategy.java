@@ -213,7 +213,10 @@ public abstract class TestStrategy implements TestActionContext {
     List<String> args = Lists.newArrayList();
 
     Artifact testSetup = testAction.getTestSetupScript();
-    args.add(testSetup.getExecPath().getCallablePathString());
+    args.add(
+        testSetup
+            .getExecPath()
+            .getCallablePathStringForOs(testAction.getExecutionSettings().getExecutionOs()));
 
     if (testAction.isCoverageMode()) {
       args.add(testAction.getCollectCoverageScript().getExecPathString());
@@ -227,7 +230,11 @@ public abstract class TestStrategy implements TestActionContext {
     }
 
     // Execute the test using the alias in the runfiles tree, as mandated by the Test Encyclopedia.
-    args.add(execSettings.getExecutable().getRunfilesPath().getCallablePathString());
+    args.add(
+        execSettings
+            .getExecutable()
+            .getRunfilesPath()
+            .getCallablePathStringForOs(testAction.getExecutionSettings().getExecutionOs()));
     Iterables.addAll(args, execSettings.getArgs().arguments());
     return ImmutableList.copyOf(args);
   }
@@ -235,9 +242,13 @@ public abstract class TestStrategy implements TestActionContext {
   private static void addRunUnderArgs(TestRunnerAction testAction, List<String> args) {
     TestTargetExecutionSettings execSettings = testAction.getExecutionSettings();
     if (execSettings.getRunUnderExecutable() != null) {
-      args.add(execSettings.getRunUnderExecutable().getRunfilesPath().getCallablePathString());
+      args.add(
+          execSettings
+              .getRunUnderExecutable()
+              .getRunfilesPath()
+              .getCallablePathStringForOs(testAction.getExecutionSettings().getExecutionOs()));
     } else {
-      if (execSettings.needsShell(testAction.isExecutedOnWindows())) {
+      if (execSettings.needsShell()) {
         // TestActionBuilder constructs TestRunnerAction with a 'null' shell only when none is
         // required. Something clearly went wrong.
         Preconditions.checkNotNull(testAction.getShExecutableMaybe(), "%s", testAction);

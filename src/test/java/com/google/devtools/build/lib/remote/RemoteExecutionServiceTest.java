@@ -83,6 +83,8 @@ import com.google.devtools.build.lib.actions.StaticInputMetadataProvider;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.SymlinkEntry;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue.RunfileSymlinksMode;
+import com.google.devtools.build.lib.analysis.constraints.ConstraintConstants;
+import com.google.devtools.build.lib.analysis.platform.PlatformInfo;
 import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -111,6 +113,7 @@ import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.RxNoGlobalErrorsRule;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils.InMemoryOutput;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.TempPathGenerator;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
@@ -2514,6 +2517,29 @@ public class RemoteExecutionServiceTest {
                 .map(DirectoryNode::getName)
                 .collect(toImmutableList()))
         .containsExactly("output_dir");
+  }
+
+  @Test
+  public void buildRemoteAction_executablePathConformsToPlatform(@TestParameter OS executionOs)
+      throws Exception {
+    Spawn spawn =
+        new SpawnBuilder("path/to/pkg/script.bat", "some/other/arg")
+            .withOutputs("out")
+            .withPlatform(
+                PlatformInfo.builder()
+                    .addConstraint(ConstraintConstants.OS_TO_CONSTRAINTS.get(executionOs))
+                    .build())
+            .build();
+    FakeSpawnExecutionContext context = newSpawnExecutionContext(spawn);
+    RemoteExecutionService service = newRemoteExecutionService(remoteOptions);
+
+    var remoteAction = service.buildRemoteAction(spawn, context);
+
+    String expectedFirstArg =
+        executionOs == OS.WINDOWS ? "path\\to\\pkg\\script.bat" : "path/to/pkg/script.bat";
+    assertThat(remoteAction.getCommand().getArgumentsList())
+        .containsExactly(expectedFirstArg, "some/other/arg")
+        .inOrder();
   }
 
   private Spawn newSpawnFromResult(RemoteActionResult result) {
