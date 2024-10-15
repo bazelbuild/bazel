@@ -86,6 +86,7 @@ def _my_macro_impl(name, deps, create_test):
 ### Declaration {:#declaration}
 
 Macros are declared by loading and calling their definition in a `BUILD` file.
+
 ```starlark
 
 # pkg/BUILD
