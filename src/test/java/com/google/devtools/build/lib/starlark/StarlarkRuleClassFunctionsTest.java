@@ -6487,6 +6487,27 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
   }
 
   @Test
+  public void testLabelListComputedDefaultChecksElementTypes() throws Exception {
+    scratch.file(
+        "p/a.bzl",
+        """
+        def _compute():
+            return ["this is a string"]
+        my_rule = rule(lambda ctx: [], attrs = {"_a" : attr.label_list(default = _compute)})
+        """);
+    scratch.file(
+        "p/BUILD",
+        """
+        load(":a.bzl", "my_rule")
+        my_rule(name = "bad")
+        """);
+
+    AssertionError error = assertThrows(AssertionError.class, () -> getConfiguredTarget("//p:bad"));
+
+    assertThat(error).hasMessageThat().contains("expected 'label', but got 'string'");
+  }
+
+  @Test
   public void starlarkRuleFunctionCodec() throws Exception {
     scratch.file("lib/BUILD");
     scratch.file(

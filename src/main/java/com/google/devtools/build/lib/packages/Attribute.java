@@ -1458,11 +1458,26 @@ public final class Attribute implements Comparable<Attribute> {
       Structure attrs =
           StructProvider.STRUCT.create(
               attrValues, "No such regular (non computed) attribute '%s'.");
-      Object result = callback.call(eventHandler, attrs);
+      Object uncheckedResult = callback.call(eventHandler, attrs);
       try {
-        return type.cast((result == Starlark.NONE) ? type.getDefaultValue() : result);
+        Object result =
+            type.cast(
+                (uncheckedResult == Starlark.NONE) ? type.getDefaultValue() : uncheckedResult);
+        // type.cast() for lists just ensures the returned result is a list, so we also need to
+        // validate each element has the right subtype
+        if (type instanceof Type.ListType) {
+          for (Object elem : (List) result) {
+            try {
+              var unused = type.getListElementType().cast(elem);
+            } catch (ClassCastException ex) {
+              throw Starlark.errorf(
+                  "expected '%s', but got '%s'", type.getListElementType(), Starlark.type(elem));
+            }
+          }
+        }
+        return result;
       } catch (ClassCastException ex) {
-        throw Starlark.errorf("expected '%s', but got '%s'", type, Starlark.type(result));
+        throw Starlark.errorf("expected '%s', but got '%s'", type, Starlark.type(uncheckedResult));
       }
     }
 
