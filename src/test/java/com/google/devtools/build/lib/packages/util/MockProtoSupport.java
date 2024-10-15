@@ -48,7 +48,7 @@ public final class MockProtoSupport {
     config.append("MODULE.bazel", "register_toolchains('//tools/proto/toolchains:all')");
     config.create(
         "tools/proto/toolchains/BUILD",
-        TestConstants.LOAD_PROTO_TOOLCHAIN,
+        "load('@protobuf//bazel/toolchains:proto_toolchain.bzl', 'proto_toolchain')",
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         "proto_toolchain(name = 'protoc_sources',"
             + "proto_compiler = '"
@@ -289,7 +289,7 @@ public final class MockProtoSupport {
         """);
     config.create(
         "net/proto2/proto/BUILD",
-        TestConstants.LOAD_PROTO_LIBRARY,
+        "load('@protobuf//bazel:proto_library.bzl', 'proto_library')",
         "package(default_visibility=['//visibility:public'])",
         "genrule(name = 'go_internal_bootstrap_hack',",
         "        srcs = [ 'descriptor.pb.go-prebuilt' ],",
