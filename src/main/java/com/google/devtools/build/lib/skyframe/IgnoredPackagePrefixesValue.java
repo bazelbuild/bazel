@@ -31,7 +31,7 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
   private final IgnoredSubdirectories ignoredSubdirectories;
 
   @SerializationConstant @VisibleForSerialization
-  public static final IgnoredPackagePrefixesValue EMPTY_LIST =
+  public static final IgnoredPackagePrefixesValue EMPTY =
       new IgnoredPackagePrefixesValue(ImmutableSet.of());
 
   private IgnoredPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
@@ -39,7 +39,7 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
   }
 
   public static IgnoredPackagePrefixesValue of(ImmutableSet<PathFragment> patterns) {
-    return patterns.isEmpty() ? EMPTY_LIST : new IgnoredPackagePrefixesValue(patterns);
+    return patterns.isEmpty() ? EMPTY : new IgnoredPackagePrefixesValue(patterns);
   }
 
   /** Creates a key from the main repository. */
@@ -54,10 +54,6 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
 
   public IgnoredSubdirectories asIgnoredSubdirectories() {
     return ignoredSubdirectories;
-  }
-
-  public ImmutableSet<PathFragment> getPatterns() {
-    return ignoredSubdirectories.prefixes();
   }
 
   @Override

@@ -28,7 +28,13 @@ import javax.annotation.Nullable;
  * <p>This is currently just a prefix, but will eventually support glob-style wildcards.
  */
 public final class IgnoredSubdirectories {
+  public static final IgnoredSubdirectories EMPTY = new IgnoredSubdirectories(ImmutableSet.of());
+
   private final ImmutableSet<PathFragment> prefixes;
+
+  private IgnoredSubdirectories(ImmutableSet<PathFragment> prefixes) {
+    this.prefixes = prefixes;
+  }
 
   public static IgnoredSubdirectories of(ImmutableSet<PathFragment> prefixes) {
     if (prefixes.isEmpty()) {
@@ -38,15 +44,28 @@ public final class IgnoredSubdirectories {
     }
   }
 
-  private IgnoredSubdirectories(ImmutableSet<PathFragment> prefixes) {
-    this.prefixes = prefixes;
+  public IgnoredSubdirectories withPrefix(PathFragment prefix) {
+    ImmutableSet<PathFragment> prefixed =
+        prefixes.stream().map(prefix::getRelative).collect(toImmutableSet());
+    return new IgnoredSubdirectories(prefixed);
+  }
+
+  public IgnoredSubdirectories union(IgnoredSubdirectories other) {
+    return new IgnoredSubdirectories(
+        ImmutableSet.<PathFragment>builder().addAll(prefixes).addAll(other.prefixes).build());
+  }
+
+  /** Filters out entries that cannot match anything under {@code directory}. */
+  public IgnoredSubdirectories filterForDirectory(PathFragment directory) {
+    ImmutableSet<PathFragment> filteredPrefixes =
+        prefixes.stream().filter(p -> p.startsWith(directory)).collect(toImmutableSet());
+
+    return new IgnoredSubdirectories(filteredPrefixes);
   }
 
   public ImmutableSet<PathFragment> prefixes() {
     return prefixes;
   }
-
-  public static final IgnoredSubdirectories EMPTY = new IgnoredSubdirectories(ImmutableSet.of());
 
   /**
    * Checks whether every path in this instance can conceivably match something under {@code
@@ -76,19 +95,6 @@ public final class IgnoredSubdirectories {
     }
 
     return null;
-  }
-
-  /** Filters out entries that cannot match anything under {@code directory}. */
-  public IgnoredSubdirectories filterForDirectory(PathFragment directory) {
-    ImmutableSet<PathFragment> filteredPrefixes =
-        prefixes.stream().filter(p -> p.startsWith(directory)).collect(toImmutableSet());
-
-    return new IgnoredSubdirectories(filteredPrefixes);
-  }
-
-  public IgnoredSubdirectories union(IgnoredSubdirectories other) {
-    return new IgnoredSubdirectories(
-        ImmutableSet.<PathFragment>builder().addAll(prefixes).addAll(other.prefixes).build());
   }
 
   @Override

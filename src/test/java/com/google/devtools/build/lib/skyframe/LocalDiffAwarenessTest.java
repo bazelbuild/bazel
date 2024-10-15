@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.skyframe.LocalDiffAwareness.SequentialView;
 import com.google.devtools.build.lib.testing.common.FakeOptions;
@@ -78,7 +79,7 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
         (LocalDiffAwareness)
             factory.maybeCreate(
                 Root.fromPath(testCaseRoot),
-                ImmutableSet.of(testCaseIgnoredDir),
+                IgnoredSubdirectories.of(ImmutableSet.of(testCaseIgnoredDir.asFragment())),
                 watchFsEnabledProvider);
 
     // Ignore test failures when run on a Mac.
