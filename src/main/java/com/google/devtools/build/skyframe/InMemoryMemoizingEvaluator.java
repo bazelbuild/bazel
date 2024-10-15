@@ -117,7 +117,7 @@ public final class InMemoryMemoizingEvaluator extends AbstractInMemoryMemoizingE
 
       if (directDeps == null) {
         // In this case, no actual evaluation work was done so let's not record it.
-      } else if (state.changed()) {
+      } else if (state.versionChanged()) {
         built.add(skyKey.functionName(), 1);
       } else {
         cleaned.add(skyKey.functionName(), 1);

@@ -3085,7 +3085,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         }
       }
 
-      if (state.changed()) {
+      if (state.versionChanged()) {
         skyKeyStateReceiver.evaluated(skyKey);
       }
       if (ignoreInvalidations) {

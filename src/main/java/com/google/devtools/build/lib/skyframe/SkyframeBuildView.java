@@ -1488,7 +1488,7 @@ public final class SkyframeBuildView {
       if (!(skyKey instanceof ActionLookupKey)) {
         return;
       }
-      if (!state.changed()) {
+      if (!state.versionChanged()) {
         // ActionLookupValue subclasses don't implement equality, so must have been marked clean.
         dirtiedActionLookupKeys.remove(skyKey);
       } else if (state.succeeded()) {
