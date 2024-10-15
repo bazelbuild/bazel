@@ -95,6 +95,7 @@ import com.google.devtools.build.lib.skyframe.toolchains.ToolchainContextUtil;
 import com.google.devtools.build.lib.skyframe.toolchains.ToolchainException;
 import com.google.devtools.build.lib.skyframe.toolchains.UnloadedToolchainContext;
 import com.google.devtools.build.lib.util.OrderedSetMultimap;
+import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunction.Environment.SkyKeyComputeState;
 import com.google.devtools.build.skyframe.SkyFunctionException;
@@ -389,13 +390,14 @@ final class AspectFunction implements SkyFunction {
       }
 
       ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts = null;
-      if (!state.baseTargetHasNoToolchains
-          && canAspectsPropagateToToolchains(topologicalAspectPath, target)) {
-        baseTargetUnloadedToolchainContexts =
+      if (canAspectsPropagateToToolchains(topologicalAspectPath, target)) {
+        Pair<ToolchainCollection<UnloadedToolchainContext>, Boolean> contextOrRestart =
             getBaseTargetUnloadedToolchainContexts(
                 state, targetAndConfiguration, key.getBaseConfiguredTargetKey(), env);
-        if (baseTargetUnloadedToolchainContexts == null) {
+        if (contextOrRestart.second) {
           return null; // Need Skyframe deps.
+        } else {
+          baseTargetUnloadedToolchainContexts = contextOrRestart.first;
         }
       }
 
@@ -562,19 +564,29 @@ final class AspectFunction implements SkyFunction {
 
   /**
    * Returns the {@link ToolchainCollection} of {@link UnloadedToolchainContext}s for the base
-   * target.
+   * target and whether a Skyframe restart is needed.
+   *
+   * <p>{@code state.baseTargetUnloadedToolchainContexts} can be evaluated to {@code null} if the
+   * base target doesn't require toolchain resolution (see {@link
+   * com.google.devtools.build.lib.packages.RuleClass.ToolchainResolutionMode}). That's why an extra
+   * boolean is returned to distinguish between the case when {@code
+   * state.baseTargetUnloadedToolchainContexts} is null because a Skyframe restart is needed and
+   * when it is already evaluated to null.
    */
-  private ToolchainCollection<UnloadedToolchainContext> getBaseTargetUnloadedToolchainContexts(
-      State state,
-      TargetAndConfiguration targetAndConfiguration,
-      ConfiguredTargetKey configuredTargetKey,
-      Environment env)
-      throws InterruptedException, ToolchainException {
+  private Pair<ToolchainCollection<UnloadedToolchainContext>, Boolean>
+      getBaseTargetUnloadedToolchainContexts(
+          State state,
+          TargetAndConfiguration targetAndConfiguration,
+          ConfiguredTargetKey configuredTargetKey,
+          Environment env)
+          throws InterruptedException, ToolchainException {
 
-    if (state.baseTargetUnloadedToolchainContexts != null) {
-      return state.baseTargetUnloadedToolchainContexts;
+    // if the base target's toolchain contexts are already evaluated, return them.
+    if (state.baseTargetUnloadedToolchainContexts != null || state.baseTargetHasNoToolchains) {
+      return Pair.of(state.baseTargetUnloadedToolchainContexts, false);
     }
 
+    // initiate evaluating the base target's toolchain contexts.
     if (state.baseTargetUnloadedToolchainContextsProducer == null) {
       UnloadedToolchainContextsInputs unloadedToolchainContextsInputs =
           DependencyResolver.getUnloadedToolchainContextsInputs(
@@ -594,13 +606,18 @@ final class AspectFunction implements SkyFunction {
     }
     if (state.baseTargetUnloadedToolchainContextsProducer.drive(env)) {
       state.baseTargetUnloadedToolchainContextsProducer = null;
+    } else {
+      // Skyframe restart is needed
+      return Pair.of(null, true);
     }
     var error = state.baseTargetUnloadedToolchainContextsError;
     if (error != null) {
       throw error;
     }
 
-    return state.baseTargetUnloadedToolchainContexts;
+    // base target's toolchain contexts are evaluated in this iteration without requiring a
+    // Skyframe restart.
+    return Pair.of(state.baseTargetUnloadedToolchainContexts, false);
   }
 
   /**
