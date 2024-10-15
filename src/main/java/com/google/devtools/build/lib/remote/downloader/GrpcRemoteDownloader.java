@@ -28,6 +28,7 @@ import com.google.common.base.Strings;
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.HashOutputStream;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
@@ -38,6 +39,7 @@ import com.google.devtools.build.lib.remote.options.RemoteOptions;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
 import com.google.devtools.build.lib.remote.util.Utils;
 import com.google.devtools.build.lib.vfs.Path;
+import com.google.protobuf.util.Timestamps;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.StatusRuntimeException;
@@ -45,6 +47,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -235,6 +238,12 @@ public class GrpcRemoteDownloader implements AutoCloseable, Downloader {
               .setName(QUALIFIER_CHECKSUM_SRI)
               .setValue(checksum.get().toSubresourceIntegrity())
               .build());
+    } else {
+      // If no checksum is provided, never accept cached content.
+      // Timestamp is offset by an hour to account for clock skew.
+      requestBuilder.setOldestContentAccepted(
+          Timestamps.fromMillis(
+              BlazeClock.instance().now().plus(Duration.ofHours(1)).toEpochMilli()));
     }
 
     if (!Strings.isNullOrEmpty(canonicalId)) {
