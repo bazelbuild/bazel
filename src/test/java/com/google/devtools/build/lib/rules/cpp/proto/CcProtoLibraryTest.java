@@ -61,13 +61,11 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
     scratch.overwriteFile(
         "third_party/bazel_rules/rules_cc/cc/proto/BUILD",
         "toolchain_type(name = 'toolchain_type', visibility = ['//visibility:public'])");
-    scratch.file("protobuf/WORKSPACE");
-    scratch.overwriteFile(
-        "protobuf_workspace/BUILD",
+    scratch.appendFile(
+        "third_party/protobuf/BUILD.bazel",
         TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
         TestConstants.LOAD_PROTO_LIBRARY,
         "package(default_visibility=['//visibility:public'])",
-        "exports_files(['protoc'])",
         "proto_library(",
         "    name = 'any_proto',",
         "    srcs = ['any.proto'],",
@@ -79,13 +77,7 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
         "    progress_message = 'Generating C++ proto_library %{label}',",
         "    toolchain_type = '@rules_cc//cc/proto:toolchain_type',",
         ")");
-    scratch.appendFile(
-        "WORKSPACE",
-        "register_toolchains('@protobuf//:all')",
-        "local_repository(",
-        "    name = 'protobuf',",
-        "    path = 'protobuf_workspace',",
-        ")");
+    scratch.appendFile("third_party/protobuf/MODULE.bazel", "register_toolchains('//:all')");
     invalidatePackages(); // A dash of magic to re-evaluate the WORKSPACE file.
   }
 

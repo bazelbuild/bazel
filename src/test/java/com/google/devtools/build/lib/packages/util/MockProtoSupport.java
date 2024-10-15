@@ -15,9 +15,12 @@
 package com.google.devtools.build.lib.packages.util;
 
 import static com.google.devtools.build.lib.rules.python.PythonTestUtils.getPyLoad;
+import static java.lang.Integer.MAX_VALUE;
 
 import com.google.devtools.build.lib.rules.proto.ProtoConstants;
 import com.google.devtools.build.lib.testutil.TestConstants;
+import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.runfiles.Runfiles;
 import java.io.IOException;
 
 /**
@@ -374,122 +377,72 @@ public final class MockProtoSupport {
             visibility = ["//visibility:public"],
         )
         """);
-    config.create(
-        "protobuf_workspace/bazel/private/BUILD",
-        """
-        licenses(["notice"])
+    if (TestConstants.PRODUCT_NAME.equals("bazel")) {
+      Runfiles runfiles = Runfiles.preload().withSourceRepository("");
+      PathFragment path = PathFragment.create(runfiles.rlocation("protobuf/bazel/BUILD.bazel"));
+      config.copyDirectory(
+          path.getParentDirectory(), "third_party/protobuf/bazel", MAX_VALUE, false);
+      config.overwrite(
+          "proto_bazel_features_workspace/MODULE.bazel", "module(name = 'proto_bazel_features')");
+      // Overwritten to remove bazel7 toolchains from protobuf
+      config.overwrite(
+          "third_party/protobuf/bazel/private/toolchains/BUILD.bazel",
+          "load('@protobuf//bazel/toolchains:proto_toolchain.bzl', 'proto_toolchain')",
+          TestConstants.LOAD_PROTO_LANG_TOOLCHAIN,
+          "proto_toolchain(name = 'protoc_sources',"
+              + "proto_compiler = '"
+              + ProtoConstants.DEFAULT_PROTOC_LABEL
+              + "')");
+      config.overwrite("proto_bazel_features_workspace/BUILD");
+      config.overwrite("proto_bazel_features_workspace/WORKSPACE");
+      config.overwrite(
+          "proto_bazel_features_workspace/features.bzl",
+          "bazel_features = struct(",
+          "  globals = struct(PackageSpecificationInfo = PackageSpecificationInfo),",
+          "  proto = struct(starlark_proto_info = True),",
+          "  cc = struct(protobuf_on_allowlist = True),",
+          ")");
 
-        toolchain_type(
-            name = "proto_toolchain_type",
-            visibility = ["//visibility:public"],
-        )
-        """);
-    config.create("protobuf_workspace/bazel/BUILD");
-    config.create(
-        "protobuf_workspace/bazel/proto_library.bzl",
-        """
-        def proto_library(**kargs):
-            native.proto_library(**kargs)
-        """);
-    config.create(
-        "protobuf_workspace/bazel/java_proto_library.bzl",
-        """
-        def java_proto_library(**kargs):
-            native.java_proto_library(**kargs)
-        """);
-    config.create(
-        "protobuf_workspace/bazel/java_lite_proto_library.bzl",
-        """
-        def java_lite_proto_library(**kargs):
-            native.java_lite_proto_library(**kargs)
-        """);
-    config.create(
-        "protobuf_workspace/bazel/toolchains/proto_toolchain.bzl",
-        "load(':proto_toolchain_rule.bzl', _proto_toolchain_rule = 'proto_toolchain')",
-        "def proto_toolchain(*, name, proto_compiler, exec_compatible_with = []):",
-        "  _proto_toolchain_rule(name = name, proto_compiler = proto_compiler)",
-        "  native.toolchain(",
-        "    name = name + '_toolchain',",
-        "    toolchain_type = '" + TestConstants.PROTO_TOOLCHAIN + "',",
-        "    exec_compatible_with = exec_compatible_with,",
-        "    target_compatible_with = [],",
-        "    toolchain = name,",
-        "  )");
-    config.create("protobuf_workspace/bazel/toolchains/BUILD");
-    config.create(
-        "protobuf_workspace/bazel/toolchains/proto_toolchain_rule.bzl",
-        """
-ProtoLangToolchainInfo = proto_common_do_not_use.ProtoLangToolchainInfo
-
-def _impl(ctx):
-    return [
-        DefaultInfo(
-            files = depset(),
-            runfiles = ctx.runfiles(),
-        ),
-        platform_common.ToolchainInfo(
-            proto = ProtoLangToolchainInfo(
-                out_replacement_format_flag = ctx.attr.command_line,
-                output_files = ctx.attr.output_files,
-                plugin = None,
-                runtime = None,
-                proto_compiler = ctx.attr.proto_compiler.files_to_run,
-                protoc_opts = ctx.fragments.proto.experimental_protoc_opts,
-                progress_message = ctx.attr.progress_message,
-                mnemonic = ctx.attr.mnemonic,
-                allowlist_different_package = None,
-                toolchain_type =
-                    "//protobuf/bazel/private:proto_toolchain_type",
-            ),
-        ),
-    ]
-
-proto_toolchain = rule(
-    _impl,
-    attrs = {
-        "progress_message": attr.string(default =
-                                            "Generating Descriptor Set proto_library %{label}"),
-        "mnemonic": attr.string(default = "GenProtoDescriptorSet"),
-        "command_line": attr.string(default = "--descriptor_set_out=%s"),
-        "output_files": attr.string(
-            values = ["single", "multiple", "legacy"],
-            default = "single",
-        ),
-        "proto_compiler": attr.label(
-            cfg = "exec",
-            executable = True,
-            allow_files = True,
-        ),
-    },
-    provides = [platform_common.ToolchainInfo],
-    fragments = ["proto"],
-)
-""");
-    config.create(
-        "protobuf_workspace/bazel/toolchains/proto_lang_toolchain.bzl",
-        """
-        def proto_lang_toolchain(
-                *,
-                name,
-                toolchain_type = None,
-                exec_compatible_with = [],
-                target_compatible_with = [],
-                **attrs):
-            native.proto_lang_toolchain(name = name, toolchain_type = toolchain_type, **attrs)
-            if toolchain_type:
-                native.toolchain(
-                    name = name + "_toolchain",
-                    toolchain_type = toolchain_type,
-                    exec_compatible_with = exec_compatible_with,
-                    target_compatible_with = target_compatible_with,
-                    toolchain = name,
-                )
-        """);
-    config.create("protobuf_workspace/bazel/common/BUILD");
-    config.create(
-        "protobuf_workspace/bazel/common/proto_info.bzl",
-        """
-        ProtoInfo = provider()
-        """);
+      // TODO - ilist@: remove the following block when removing the rules
+      // This serves at the moment to keep using builitin rules in the tests
+      config.overwrite(
+          "third_party/protobuf/BUILD.bazel",
+          "filegroup(name='license')",
+          "exports_files(['protoc'])");
+      config.overwrite(
+          "third_party/protobuf/bazel/proto_library.bzl", //
+          "proto_library = native.proto_library");
+      config.overwrite(
+          "third_party/protobuf/bazel/java_proto_library.bzl",
+          "java_proto_library = native.java_proto_library");
+      config.overwrite(
+          "third_party/protobuf/bazel/java_lite_proto_library.bzl",
+          "java_lite_proto_library = native.java_lite_proto_library");
+      config.overwrite(
+          "third_party/protobuf/bazel/cc_proto_library.bzl",
+          "cc_proto_library = native.cc_proto_library");
+      config.create(
+          "third_party/protobuf/bazel/private/native_proto_info.bzl",
+          "NativeProtoInfo = ProtoInfo");
+      config.overwrite(
+          "third_party/protobuf/bazel/common/proto_info.bzl",
+          "load('@protobuf//bazel/private:native_proto_info.bzl', 'NativeProtoInfo')",
+          "ProtoInfo = NativeProtoInfo");
+      config.overwrite(
+          "third_party/protobuf/bazel/toolchains/proto_lang_toolchain.bzl",
+          """
+          def proto_lang_toolchain(*, name, toolchain_type = None, exec_compatible_with = [],
+                  target_compatible_with = [], **attrs):
+              native.proto_lang_toolchain(name = name, toolchain_type = toolchain_type, **attrs)
+              if toolchain_type:
+                  native.toolchain(
+                      name = name + "_toolchain",
+                      toolchain_type = toolchain_type,
+                      exec_compatible_with = exec_compatible_with,
+                      target_compatible_with = target_compatible_with,
+                      toolchain = name,
+                  )
+          """);
+    }
   }
 }
