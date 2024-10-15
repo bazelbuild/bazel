@@ -25,13 +25,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.events.util.EventCollectionApparatus;
 import com.google.devtools.build.lib.skyframe.DiffAwareness.View;
 import com.google.devtools.build.lib.skyframe.DiffAwarenessManager.ProcessableModifiedFileSet;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
-import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.inmemoryfs.InMemoryFileSystem;
@@ -72,7 +72,11 @@ public class DiffAwarenessManagerTest {
     assertWithMessage("Expected EVERYTHING_MODIFIED since there are no factories")
         .that(
             manager
-                .getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY)
+                .getDiff(
+                    events.reporter(),
+                    pathEntry,
+                    IgnoredSubdirectories.EMPTY,
+                    OptionsProvider.EMPTY)
                 .getModifiedFileSet())
         .isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
     events.assertNoWarningsOrErrors();
@@ -88,7 +92,8 @@ public class DiffAwarenessManagerTest {
     factory.inject(pathEntry, diffAwareness1);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
     var unused =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     assertWithMessage("diffAwareness1 shouldn't have been closed yet")
         .that(diffAwareness1.closed())
         .isFalse();
@@ -98,7 +103,8 @@ public class DiffAwarenessManagerTest {
         .isTrue();
     factory.inject(pathEntry, diffAwareness2);
     unused =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     assertWithMessage("diffAwareness2 shouldn't have been closed yet")
         .that(diffAwareness2.closed())
         .isFalse();
@@ -117,24 +123,29 @@ public class DiffAwarenessManagerTest {
     factory.inject(pathEntry, diffAwareness);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
     ProcessableModifiedFileSet firstProcessableDiff =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     assertWithMessage("Expected EVERYTHING_MODIFIED on first call to getDiff")
         .that(firstProcessableDiff.getModifiedFileSet())
         .isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
     firstProcessableDiff.markProcessed();
     ProcessableModifiedFileSet processableDiff1 =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     assertThat(processableDiff1.getModifiedFileSet()).isEqualTo(diff1);
     ProcessableModifiedFileSet processableDiff2 =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     assertThat(processableDiff2.getModifiedFileSet()).isEqualTo(modifiedFileSet("file1", "file2"));
     processableDiff2.markProcessed();
     ProcessableModifiedFileSet processableDiff3 =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     assertThat(processableDiff3.getModifiedFileSet()).isEqualTo(diff3);
     events.assertNoWarningsOrErrors();
     ProcessableModifiedFileSet processableDiff4 =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     assertThat(processableDiff4.getModifiedFileSet())
         .isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
     events.assertContainsWarning("error");
@@ -159,7 +170,8 @@ public class DiffAwarenessManagerTest {
         new DiffAwarenessManager(ImmutableList.of(factory1, factory2, factory3));
 
     ProcessableModifiedFileSet processableDiff =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     events.assertNoWarningsOrErrors();
     assertWithMessage("Expected EVERYTHING_MODIFIED on first call to getDiff for diffAwareness1")
         .that(processableDiff.getModifiedFileSet())
@@ -167,7 +179,8 @@ public class DiffAwarenessManagerTest {
     processableDiff.markProcessed();
 
     processableDiff =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     events.assertContainsEventWithFrequency("error in getCurrentView", 1);
     assertWithMessage("Expected EVERYTHING_MODIFIED because of broken getCurrentView")
         .that(processableDiff.getModifiedFileSet())
@@ -176,19 +189,22 @@ public class DiffAwarenessManagerTest {
     factory1.remove(pathEntry);
 
     processableDiff =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     assertWithMessage("Expected EVERYTHING_MODIFIED on first call to getDiff for diffAwareness2")
         .that(processableDiff.getModifiedFileSet())
         .isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
     processableDiff.markProcessed();
 
     processableDiff =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     assertThat(processableDiff.getModifiedFileSet()).isEqualTo(diff2);
     processableDiff.markProcessed();
 
     processableDiff =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     events.assertContainsEventWithFrequency("error in getDiff", 1);
     assertWithMessage("Expected EVERYTHING_MODIFIED because of broken getDiff")
         .that(processableDiff.getModifiedFileSet())
@@ -197,14 +213,16 @@ public class DiffAwarenessManagerTest {
     factory2.remove(pathEntry);
 
     processableDiff =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     assertWithMessage("Expected EVERYTHING_MODIFIED on first call to getDiff for diffAwareness3")
         .that(processableDiff.getModifiedFileSet())
         .isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
     processableDiff.markProcessed();
 
     processableDiff =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     assertThat(processableDiff.getModifiedFileSet()).isEqualTo(diff3);
     processableDiff.markProcessed();
   }
@@ -218,13 +236,17 @@ public class DiffAwarenessManagerTest {
     ModifiedFileSet diff1 = modifiedFileSet("/path/ignored-path-2/foo");
     DiffAwareness diffAwareness1 = new DiffAwarenessStub(ImmutableList.of(diff1));
     when(factory.maybeCreate(
-            pathEntry, ImmutableSet.of(fs.getPath("/path/ignored-path-1")), OptionsProvider.EMPTY))
+            pathEntry,
+            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("/path/ignored-path-1"))),
+            OptionsProvider.EMPTY))
         .thenReturn(diffAwareness1);
 
     ModifiedFileSet diff2 = modifiedFileSet("/path/ignored-path-1/foo");
     DiffAwareness diffAwareness2 = new DiffAwarenessStub(ImmutableList.of(diff2));
     when(factory.maybeCreate(
-            pathEntry, ImmutableSet.of(fs.getPath("/path/ignored-path-2")), OptionsProvider.EMPTY))
+            pathEntry,
+            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("/path/ignored-path-2"))),
+            OptionsProvider.EMPTY))
         .thenReturn(diffAwareness2);
 
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
@@ -233,7 +255,7 @@ public class DiffAwarenessManagerTest {
         manager.getDiff(
             events.reporter(),
             pathEntry,
-            ImmutableSet.of(fs.getPath("/path/ignored-path-1")),
+            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("/path/ignored-path-1"))),
             OptionsProvider.EMPTY);
     processedDiff1.markProcessed();
     assertThat(processedDiff1.getModifiedFileSet()).isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
@@ -241,7 +263,7 @@ public class DiffAwarenessManagerTest {
         manager.getDiff(
             events.reporter(),
             pathEntry,
-            ImmutableSet.of(fs.getPath("/path/ignored-path-1")),
+            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("/path/ignored-path-1"))),
             OptionsProvider.EMPTY);
     processedDiff1.markProcessed();
     assertThat(processedDiff1.getModifiedFileSet()).isEqualTo(diff1);
@@ -250,7 +272,7 @@ public class DiffAwarenessManagerTest {
         manager.getDiff(
             events.reporter(),
             pathEntry,
-            ImmutableSet.of(fs.getPath("/path/ignored-path-2")),
+            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("/path/ignored-path-2"))),
             OptionsProvider.EMPTY);
     processedDiff2.markProcessed();
     assertThat(processedDiff2.getModifiedFileSet()).isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
@@ -258,7 +280,7 @@ public class DiffAwarenessManagerTest {
         manager.getDiff(
             events.reporter(),
             pathEntry,
-            ImmutableSet.of(fs.getPath("/path/ignored-path-2")),
+            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("/path/ignored-path-2"))),
             OptionsProvider.EMPTY);
     processedDiff2.markProcessed();
     assertThat(processedDiff2.getModifiedFileSet()).isEqualTo(diff2);
@@ -271,12 +293,13 @@ public class DiffAwarenessManagerTest {
     DiffAwareness diffAwareness = mock(DiffAwareness.class);
     when(diffAwareness.getCurrentView(any())).thenReturn(createView(workspaceInfo));
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
-    when(factory.maybeCreate(pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY))
+    when(factory.maybeCreate(pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY))
         .thenReturn(diffAwareness);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
 
     ProcessableModifiedFileSet diff =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
 
     assertThat(diff.getWorkspaceInfo()).isSameInstanceAs(workspaceInfo);
   }
@@ -293,14 +316,16 @@ public class DiffAwarenessManagerTest {
     when(diffAwareness.getDiff(view1, view2))
         .thenReturn(ModifiedFileSet.builder().modify(PathFragment.create("file")).build());
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
-    when(factory.maybeCreate(pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY))
+    when(factory.maybeCreate(pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY))
         .thenReturn(diffAwareness);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
     var unused =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
 
     ProcessableModifiedFileSet diff =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
 
     assertThat(diff.getWorkspaceInfo()).isSameInstanceAs(workspaceInfo2);
   }
@@ -316,14 +341,16 @@ public class DiffAwarenessManagerTest {
     when(diffAwareness.getCurrentView(any())).thenReturn(view1, view2);
     when(diffAwareness.getDiff(view1, view2)).thenReturn(ModifiedFileSet.NOTHING_MODIFIED);
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
-    when(factory.maybeCreate(pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY))
+    when(factory.maybeCreate(pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY))
         .thenReturn(diffAwareness);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
     var unused =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
 
     ProcessableModifiedFileSet diff =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
 
     assertThat(diff.getWorkspaceInfo()).isSameInstanceAs(workspaceInfo2);
   }
@@ -339,14 +366,16 @@ public class DiffAwarenessManagerTest {
     when(diffAwareness.getDiff(view1, view2))
         .thenReturn(ModifiedFileSet.builder().modify(PathFragment.create("file")).build());
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
-    when(factory.maybeCreate(pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY))
+    when(factory.maybeCreate(pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY))
         .thenReturn(diffAwareness);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
     var unused =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
 
     ProcessableModifiedFileSet diff =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
 
     assertThat(diff.getWorkspaceInfo()).isNull();
   }
@@ -362,15 +391,17 @@ public class DiffAwarenessManagerTest {
     when(diffAwareness.getCurrentView(any())).thenReturn(view1, view2);
     when(diffAwareness.getDiff(view1, view2)).thenThrow(BrokenDiffAwarenessException.class);
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
-    when(factory.maybeCreate(pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY))
+    when(factory.maybeCreate(pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY))
         .thenReturn(diffAwareness);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
     var diff1 =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     diff1.markProcessed();
 
     ProcessableModifiedFileSet diff =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
 
     assertThat(diff.getWorkspaceInfo()).isNull();
   }
@@ -384,18 +415,19 @@ public class DiffAwarenessManagerTest {
     when(diffAwareness.getCurrentView(any())).thenReturn(view1, view2);
     when(diffAwareness.getDiff(view1, view2)).thenThrow(IncompatibleViewException.class);
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
-    when(factory.maybeCreate(pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY))
+    when(factory.maybeCreate(pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY))
         .thenReturn(diffAwareness);
     DiffAwarenessManager manager = new DiffAwarenessManager(ImmutableList.of(factory));
     var diff1 =
-        manager.getDiff(events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY);
+        manager.getDiff(
+            events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY);
     diff1.markProcessed();
 
     assertThrows(
         IllegalStateException.class,
         () ->
             manager.getDiff(
-                events.reporter(), pathEntry, ImmutableSet.of(), OptionsProvider.EMPTY));
+                events.reporter(), pathEntry, IgnoredSubdirectories.EMPTY, OptionsProvider.EMPTY));
   }
 
   private static View createView(@Nullable WorkspaceInfoFromDiff workspaceInfo) {
@@ -423,7 +455,7 @@ public class DiffAwarenessManagerTest {
     @Override
     @Nullable
     public DiffAwareness maybeCreate(
-        Root pathEntry, ImmutableSet<Path> ignoredPaths, OptionsProvider optionsProvider) {
+        Root pathEntry, IgnoredSubdirectories ignoredPaths, OptionsProvider optionsProvider) {
       return diffAwarenesses.get(pathEntry);
     }
   }
