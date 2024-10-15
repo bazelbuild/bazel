@@ -260,7 +260,7 @@ public class ModuleThreadContext extends StarlarkThreadContext {
                   overriddenRepoName,
                   extensionName,
                   overridingRepoName,
-                  SpellChecker.didYouMean(overriddenRepoName, context.repoNameUsages.keySet()))
+                  SpellChecker.didYouMean(overridingRepoName, context.repoNameUsages.keySet()))
               .withCallStack(override.getValue().stack);
         }
         String importedAs = imports.inverse().get(overriddenRepoName);
