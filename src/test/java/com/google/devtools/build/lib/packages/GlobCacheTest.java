@@ -19,6 +19,7 @@ import static org.junit.Assert.assertThrows;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Globber.BadGlobException;
 import com.google.devtools.build.lib.testutil.Scratch;
@@ -109,7 +110,7 @@ public class GlobCacheTest {
         new GlobCache(
             packageDirectory,
             PackageIdentifier.createInMainRepo("isolated"),
-            ImmutableSet.copyOf(ignoredDirectories),
+            IgnoredSubdirectories.of(ImmutableSet.copyOf(ignoredDirectories)),
             new CachingPackageLocator() {
               @Override
               public Path getBuildFileForPackage(PackageIdentifier packageId) {

@@ -36,7 +36,7 @@ public class RecursivePkgKeyCodecTest {
             new RecursivePkgKey(
                 RepositoryName.MAIN,
                 FsUtils.TEST_ROOTED_PATH,
-                new IgnoredSubdirectories(
+                IgnoredSubdirectories.of(
                     ImmutableSet.of(
                         FsUtils.rootPathRelative("here"), FsUtils.rootPathRelative("there")))));
     FsUtils.addDependencies(serializationTester);

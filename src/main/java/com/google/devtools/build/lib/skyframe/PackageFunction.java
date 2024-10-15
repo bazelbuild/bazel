@@ -19,12 +19,12 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
@@ -975,8 +975,8 @@ public abstract class PackageFunction implements SkyFunction {
     String workspaceName = workspaceNameValue.getName();
     RepositoryMapping repositoryMapping = repositoryMappingValue.getRepositoryMapping();
     RepositoryMapping mainRepositoryMapping = mainRepositoryMappingValue.getRepositoryMapping();
-    ImmutableSet<PathFragment> repositoryIgnoredPatterns =
-        repositoryIgnoredPackagePrefixes.getPatterns();
+    IgnoredSubdirectories repositoryIgnoredSubdirectories =
+        repositoryIgnoredPackagePrefixes.asIgnoredSubdirectories();
     Label preludeLabel = null;
 
     // Load (optional) prelude, which determines environment.
@@ -1104,7 +1104,7 @@ public abstract class PackageFunction implements SkyFunction {
               packageFactory.createNonSkyframeGlobber(
                   buildFileRootedPath.asPath().getParentDirectory(),
                   packageId,
-                  repositoryIgnoredPatterns,
+                  repositoryIgnoredSubdirectories,
                   packageLocator,
                   threadStateReceiverFactoryForMetrics.apply(keyForMetrics)),
               packageId,

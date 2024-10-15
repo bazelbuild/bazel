@@ -18,10 +18,10 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.flogger.GoogleLogger;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.RuleDefinitionEnvironment;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.concurrent.NamedForkJoinPool;
@@ -41,7 +41,6 @@ import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.vfs.FileSystem;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
@@ -266,14 +265,14 @@ public final class PackageFactory {
   public NonSkyframeGlobber createNonSkyframeGlobber(
       Path packageDirectory,
       PackageIdentifier packageId,
-      ImmutableSet<PathFragment> ignoredGlobPrefixes,
+      IgnoredSubdirectories ignoredSubdirectories,
       CachingPackageLocator locator,
       ThreadStateReceiver threadStateReceiverForMetrics) {
     return new NonSkyframeGlobber(
         new GlobCache(
             packageDirectory,
             packageId,
-            ignoredGlobPrefixes,
+            ignoredSubdirectories,
             locator,
             syscallCache,
             executor,

@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.analysis.util.AnalysisMock;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -141,7 +142,7 @@ public final class StarlarkRepositoryContextTest {
 
   private void setUpContextForRule(
       Map<String, Object> kwargs,
-      ImmutableSet<PathFragment> ignoredPathFragments,
+      IgnoredSubdirectories ignoredSubdirectories,
       ImmutableMap<String, String> envVariables,
       StarlarkSemantics starlarkSemantics,
       @Nullable RepositoryRemoteExecutor repoRemoteExecutor,
@@ -190,7 +191,7 @@ public final class StarlarkRepositoryContextTest {
             rule,
             packageLocator,
             outputDirectory,
-            ignoredPathFragments,
+            ignoredSubdirectories,
             environment,
             envVariables,
             downloader,
@@ -210,7 +211,7 @@ public final class StarlarkRepositoryContextTest {
       throws Exception {
     setUpContextForRule(
         ImmutableMap.of("name", name),
-        ImmutableSet.of(),
+        IgnoredSubdirectories.EMPTY,
         ImmutableMap.of("FOO", "BAR"),
         starlarkSemantics,
         /* repoRemoteExecutor= */ null);
@@ -220,7 +221,7 @@ public final class StarlarkRepositoryContextTest {
   public void testAttr() throws Exception {
     setUpContextForRule(
         ImmutableMap.of("name", "test", "foo", "bar"),
-        ImmutableSet.of(),
+        IgnoredSubdirectories.EMPTY,
         ImmutableMap.of("FOO", "BAR"),
         StarlarkSemantics.DEFAULT,
         /* repoRemoteExecutor= */ null,
@@ -234,7 +235,7 @@ public final class StarlarkRepositoryContextTest {
   public void testWhich() throws Exception {
     setUpContextForRule(
         ImmutableMap.of("name", "test"),
-        ImmutableSet.of(),
+        IgnoredSubdirectories.EMPTY,
         ImmutableMap.of("PATH", String.join(File.pathSeparator, "/bin", "/path/sbin", ".")),
         StarlarkSemantics.DEFAULT,
         /* repoRemoteExecutor= */ null);
@@ -325,7 +326,7 @@ public final class StarlarkRepositoryContextTest {
     scratch.file(underWorkspace.getPathString(), "123");
     setUpContextForRule(
         ImmutableMap.of("name", "test"),
-        ImmutableSet.of(PathFragment.create("under_workspace")),
+        IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("under_workspace"))),
         ImmutableMap.of("FOO", "BAR"),
         StarlarkSemantics.DEFAULT,
         /* repoRemoteExecutor= */ null);
@@ -443,7 +444,7 @@ public final class StarlarkRepositoryContextTest {
 
     setUpContextForRule(
         attrValues,
-        ImmutableSet.of(),
+        IgnoredSubdirectories.EMPTY,
         ImmutableMap.of("FOO", "BAR"),
         StarlarkSemantics.builder()
             .setBool(BuildLanguageOptions.EXPERIMENTAL_REPO_REMOTE_EXEC, true)

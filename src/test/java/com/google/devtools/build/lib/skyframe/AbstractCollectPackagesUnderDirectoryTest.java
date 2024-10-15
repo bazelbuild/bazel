@@ -352,7 +352,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
       String directory, ImmutableSet<PathFragment> excludedPaths) throws InterruptedException {
     SkyKey key =
         CollectPackagesUnderDirectoryValue.key(
-            RepositoryName.MAIN, rootedPath(directory), new IgnoredSubdirectories(excludedPaths));
+            RepositoryName.MAIN, rootedPath(directory), IgnoredSubdirectories.of(excludedPaths));
     return evaluate(key).get(key);
   }
 

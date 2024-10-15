@@ -36,7 +36,7 @@ public final class PrepareDepsOfTargetsUnderDirectoryKeyCodecTest {
                 new RecursivePkgKey(
                     RepositoryName.MAIN,
                     FsUtils.TEST_ROOTED_PATH,
-                    new IgnoredSubdirectories(ImmutableSet.of(FsUtils.rootPathRelative("here")))),
+                    IgnoredSubdirectories.of(ImmutableSet.of(FsUtils.rootPathRelative("here")))),
                 FilteringPolicies.and(
                     FilteringPolicies.NO_FILTER, FilteringPolicies.FILTER_TESTS)));
     FsUtils.addDependencies(serializationTester);

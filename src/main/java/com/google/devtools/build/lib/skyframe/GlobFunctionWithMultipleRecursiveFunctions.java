@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.FileValue;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
@@ -63,10 +64,9 @@ public final class GlobFunctionWithMultipleRecursiveFunctions extends GlobFuncti
     PathFragment globSubdir = glob.getSubdir();
     PathFragment dirPathFragment = glob.getPackageId().getPackageFragment().getRelative(globSubdir);
 
-    for (PathFragment ignoredPrefix : ignoredPackagePrefixes.getPatterns()) {
-      if (dirPathFragment.startsWith(ignoredPrefix)) {
-        return GlobValueWithNestedSet.EMPTY;
-      }
+    IgnoredSubdirectories ignoredSubdirectories = ignoredPackagePrefixes.asIgnoredSubdirectories();
+    if (ignoredSubdirectories.matchingEntry(dirPathFragment) != null) {
+      return GlobValueWithNestedSet.EMPTY;
     }
 
     String pattern = glob.getPattern();

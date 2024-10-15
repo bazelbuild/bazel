@@ -103,13 +103,10 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
     // since it has to iterate over those exclusions to see if they fully exclude the directory even
     // though TargetPatternKey guarantees that the exclusions will not fully exclude the directory.
     ImmutableSet<PathFragment> excludedPatterns = patternKey.getExcludedSubdirectories();
-    ImmutableSet<PathFragment> ignoredPatterns = repositoryIgnoredPrefixes.getPatterns();
-    ImmutableSet<PathFragment> repositoryIgnoredPatterns =
-        ImmutableSet.<PathFragment>builderWithExpectedSize(
-                excludedPatterns.size() + ignoredPatterns.size())
-            .addAll(excludedPatterns)
-            .addAll(ignoredPatterns)
-            .build();
+    IgnoredSubdirectories repositoryIgnoredPatterns =
+        repositoryIgnoredPrefixes
+            .asIgnoredSubdirectories()
+            .union(IgnoredSubdirectories.of(excludedPatterns));
 
     DepsOfPatternPreparer preparer = new DepsOfPatternPreparer(env, pkgPath.get());
 

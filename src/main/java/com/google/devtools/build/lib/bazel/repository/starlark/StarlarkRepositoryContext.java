@@ -16,12 +16,12 @@ package com.google.devtools.build.lib.bazel.repository.starlark;
 
 import com.github.difflib.patch.PatchFailedException;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.docgen.annot.DocCategory;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.bazel.debug.WorkspaceRuleEvent;
 import com.google.devtools.build.lib.bazel.repository.PatchUtil;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.Attribute;
@@ -78,7 +78,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
   private final Rule rule;
   private final PathPackageLocator packageLocator;
   private final StructImpl attrObject;
-  private final ImmutableSet<PathFragment> ignoredPatterns;
+  private final IgnoredSubdirectories ignoredSubdirectories;
   private final SyscallCache syscallCache;
   private final HashMap<RepoRecordedInput.DirTree, String> recordedDirTreeInputs = new HashMap<>();
 
@@ -90,7 +90,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
       Rule rule,
       PathPackageLocator packageLocator,
       Path outputDirectory,
-      ImmutableSet<PathFragment> ignoredPatterns,
+      IgnoredSubdirectories ignoredSubdirectories,
       Environment environment,
       ImmutableMap<String, String> env,
       DownloadManager downloadManager,
@@ -116,7 +116,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
         /* allowWatchingPathsOutsideWorkspace= */ true);
     this.rule = rule;
     this.packageLocator = packageLocator;
-    this.ignoredPatterns = ignoredPatterns;
+    this.ignoredSubdirectories = ignoredSubdirectories;
     this.syscallCache = syscallCache;
     WorkspaceAttributeMapper attrs = WorkspaceAttributeMapper.of(rule);
     ImmutableMap.Builder<String, Object> attrBuilder = new ImmutableMap.Builder<>();
@@ -177,10 +177,8 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
     }
     Path workspaceRoot = packageLocator.getWorkspaceFile(syscallCache).getParentDirectory();
     PathFragment relativePath = path.relativeTo(workspaceRoot);
-    for (PathFragment ignoredPattern : ignoredPatterns) {
-      if (relativePath.startsWith(ignoredPattern)) {
-        return starlarkPath;
-      }
+    if (ignoredSubdirectories.matchingEntry(relativePath) != null) {
+      return starlarkPath;
     }
     throw Starlark.errorf(
         "%s can only be applied to external paths (that is, outside the workspace or ignored in"

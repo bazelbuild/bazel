@@ -82,7 +82,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
       Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
     RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return CollectPackagesUnderDirectoryValue.key(
-        RepositoryName.MAIN, rootedPath, new IgnoredSubdirectories(excludedPaths));
+        RepositoryName.MAIN, rootedPath, IgnoredSubdirectories.of(excludedPaths));
   }
 
   private static SkyKey createPrepDepsKey(Path root, PathFragment rootRelativePath) {
@@ -93,7 +93,7 @@ public class PrepareDepsOfTargetsUnderDirectoryFunctionTest extends BuildViewTes
       Path root, PathFragment rootRelativePath, ImmutableSet<PathFragment> excludedPaths) {
     RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(root), rootRelativePath);
     return PrepareDepsOfTargetsUnderDirectoryValue.key(
-        RepositoryName.MAIN, rootedPath, new IgnoredSubdirectories(excludedPaths));
+        RepositoryName.MAIN, rootedPath, IgnoredSubdirectories.of(excludedPaths));
   }
 
   private static SkyKey createPrepDepsKey(
