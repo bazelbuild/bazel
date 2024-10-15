@@ -53,6 +53,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.Phaser;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.After;
 import org.junit.Ignore;
@@ -785,6 +786,7 @@ public class HttpDownloaderTest {
       Map<String, String> clientEnv,
       String context)
       throws IOException, InterruptedException {
+    Phaser downloadPhaser = new Phaser();
     try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
       Future<Path> future =
           downloadManager.startDownload(
@@ -798,8 +800,12 @@ public class HttpDownloaderTest {
               output,
               eventHandler,
               clientEnv,
-              context);
-      return downloadManager.finalizeDownload(future);
+              context,
+              downloadPhaser);
+      Path downloadedPath = downloadManager.finalizeDownload(future);
+      // Should not be in the download phase.
+      assertThat(downloadPhaser.getPhase()).isNotEqualTo(0);
+      return downloadedPath;
     }
   }
 }
