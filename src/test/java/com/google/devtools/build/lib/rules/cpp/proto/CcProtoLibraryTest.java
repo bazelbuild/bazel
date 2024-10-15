@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.rules.cpp.proto;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.prettyArtifactNames;
-import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
@@ -26,11 +25,8 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.actions.SpawnAction;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
-import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.packages.AspectParameters;
-import com.google.devtools.build.lib.packages.StarlarkAspectClass;
 import com.google.devtools.build.lib.packages.util.Crosstool.CcToolchainConfig;
 import com.google.devtools.build.lib.packages.util.MockProtoSupport;
 import com.google.devtools.build.lib.rules.cpp.CcCompilationContext;
@@ -39,7 +35,6 @@ import com.google.devtools.build.lib.rules.cpp.CppCompileAction;
 import com.google.devtools.build.lib.rules.cpp.CppRuleClasses;
 import com.google.devtools.build.lib.testutil.TestConstants;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -48,13 +43,6 @@ import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
 public class CcProtoLibraryTest extends BuildViewTestCase {
-
-  private final StarlarkAspectClass starlarkCcProtoAspect =
-      new StarlarkAspectClass(
-          keyForBuiltins(
-              Label.parseCanonicalUnchecked("@_builtins//:common/cc/cc_proto_library.bzl")),
-          "cc_proto_aspect");
-
   @Before
   public void setUp() throws Exception {
     MockProtoSupport.setup(mockToolsConfig);
@@ -272,17 +260,10 @@ public class CcProtoLibraryTest extends BuildViewTestCase {
                 "--cpp_out=%s/external/bla",
                 getTargetConfiguration().getGenfilesFragment(RepositoryName.MAIN)));
 
-    Artifact headerFile =
-        getDerivedArtifact(
-            PathFragment.create("external/bla/foo/bar.pb.h"),
-            targetConfig.getGenfilesDirectory(RepositoryName.create("bla")),
-            getOwnerForAspect(
-                getConfiguredTarget("@bla//foo:bar_proto"),
-                starlarkCcProtoAspect,
-                AspectParameters.EMPTY));
     CcCompilationContext ccCompilationContext =
         target.get(CcInfo.PROVIDER).getCcCompilationContext();
-    assertThat(ccCompilationContext.getDeclaredIncludeSrcs().toList()).containsExactly(headerFile);
+    assertThat(prettyArtifactNames(ccCompilationContext.getDeclaredIncludeSrcs()))
+        .containsExactly("external/bla/foo/bar.pb.h");
   }
 
   @Test
