@@ -82,15 +82,16 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.appendFile(
         "tools/proto/toolchains/BUILD",
         """
-        package(default_visibility = ["//visibility:public"])
+load('@protobuf//bazel/toolchains:proto_lang_toolchain.bzl', 'proto_lang_toolchain')
+package(default_visibility = ["//visibility:public"])
 
-        proto_lang_toolchain(
-            name = "javalite",
-            command_line = "--java_out=lite,immutable:$(OUT)",
-            progress_message = "Generating JavaLite proto_library %{label}",
-            runtime = "//protobuf:javalite_runtime",
-        )
-        """);
+proto_lang_toolchain(
+    name = "javalite",
+    command_line = "--java_out=lite,immutable:$(OUT)",
+    progress_message = "Generating JavaLite proto_library %{label}",
+    runtime = "//protobuf:javalite_runtime",
+)
+""");
   }
 
   private void mockRuntimes() throws IOException {
@@ -116,6 +117,8 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         java_lite_proto_library(
             name = "lite_pb2",
             deps = [":foo"],
@@ -165,6 +168,8 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         java_lite_proto_library(
             name = "lite_pb2",
             deps = [":protolib"],
@@ -199,6 +204,9 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "java",
             "lite_pb2",
+            "load('@protobuf//bazel:proto_library.bzl', 'proto_library')",
+            "load('@protobuf//bazel:java_lite_proto_library.bzl',"
+                + " 'java_lite_proto_library')",
             "java_lite_proto_library(name = 'lite_pb2', deps = [':compiled'])",
             "proto_library(name = 'compiled',",
             "              srcs = [ 'ok.proto' ])");
@@ -217,6 +225,8 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "java/lib/BUILD",
         """
+        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         java_lite_proto_library(
             name = "lite_pb2",
             deps = [":proto"],
@@ -247,6 +257,9 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
         scratchConfiguredTarget(
             "notbad",
             "lite_pb2",
+            "load('@protobuf//bazel:proto_library.bzl', 'proto_library')",
+            "load('@protobuf//bazel:java_lite_proto_library.bzl',"
+                + " 'java_lite_proto_library')",
             "java_lite_proto_library(name = 'lite_pb2', deps = [':null_lib'])",
             "proto_library(name = 'null_lib')");
     JavaCompilationArgsProvider compilationArgsProvider =
@@ -267,6 +280,8 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "cross/BUILD",
         """
+        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         java_lite_proto_library(
             name = "lite_pb2",
             deps = ["bravo"],
@@ -344,6 +359,8 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         java_lite_proto_library(
             name = "lite_pb2",
             deps = [":foo"],
@@ -411,6 +428,8 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "protolib/BUILD",
         """
+        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         load("//proto:extensions.bzl", "custom_rule")
 
         proto_library(
@@ -446,6 +465,8 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "protolib/BUILD",
         """
+        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         proto_library(
             name = "proto",
             srcs = ["file.proto"],
@@ -481,6 +502,8 @@ public class StarlarkJavaLiteProtoLibraryTest extends BuildViewTestCase {
     scratch.file(
         "x/BUILD",
         """
+        load('@protobuf//bazel:proto_library.bzl', 'proto_library')
+        load('@protobuf//bazel:java_lite_proto_library.bzl', 'java_lite_proto_library')
         java_lite_proto_library(
             name = "foo_java_proto_lite",
             deps = [":foo_proto"],
