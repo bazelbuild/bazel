@@ -20,11 +20,11 @@ import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.fail;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.google.devtools.build.lib.actions.ThreadStateReceiver;
 import com.google.devtools.build.lib.analysis.config.FeatureSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelSyntaxException;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -1880,7 +1880,7 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
           new GlobCache(
               pkg.getFilename().asPath().getParentDirectory(),
               pkg.getPackageIdentifier(),
-              ImmutableSet.of(),
+              IgnoredSubdirectories.EMPTY,
               // a package locator that finds no packages
               new CachingPackageLocator() {
                 @Override

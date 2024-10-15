@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.bugreport.BugReport;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
@@ -300,8 +301,8 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
       try {
         targetPattern.eval(
             resolver,
-            /*ignoredSubdirectories=*/ ImmutableSet::of,
-            /*excludedSubdirectories=*/ ImmutableSet.of(),
+            /* ignoredSubdirectories= */ () -> IgnoredSubdirectories.EMPTY,
+            /* excludedSubdirectories= */ ImmutableSet.of(),
             partialResult ->
                 result.set(
                     partialResult instanceof Collection

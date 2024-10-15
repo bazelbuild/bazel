@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
@@ -27,14 +28,14 @@ import com.google.devtools.build.skyframe.SkyValue;
 
 /** An immutable set of package name prefixes that should be ignored. */
 public class IgnoredPackagePrefixesValue implements SkyValue {
-  private final ImmutableSet<PathFragment> patterns;
+  private final IgnoredSubdirectories ignoredSubdirectories;
 
   @SerializationConstant @VisibleForSerialization
   public static final IgnoredPackagePrefixesValue EMPTY_LIST =
       new IgnoredPackagePrefixesValue(ImmutableSet.of());
 
   private IgnoredPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
-    this.patterns = Preconditions.checkNotNull(patterns);
+    this.ignoredSubdirectories = IgnoredSubdirectories.of(Preconditions.checkNotNull(patterns));
   }
 
   public static IgnoredPackagePrefixesValue of(ImmutableSet<PathFragment> patterns) {
@@ -51,21 +52,30 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
     return Key.create(repository);
   }
 
+  public IgnoredSubdirectories asIgnoredSubdirectories() {
+    return ignoredSubdirectories;
+  }
+
   public ImmutableSet<PathFragment> getPatterns() {
-    return patterns;
+    return ignoredSubdirectories.prefixes();
   }
 
   @Override
   public int hashCode() {
-    return patterns.hashCode();
+    return ignoredSubdirectories.hashCode();
   }
 
   @Override
   public boolean equals(Object obj) {
     if (obj instanceof IgnoredPackagePrefixesValue other) {
-      return this.patterns.equals(other.patterns);
+      return this.ignoredSubdirectories.equals(other.ignoredSubdirectories);
     }
     return false;
+  }
+
+  @Override
+  public String toString() {
+    return ignoredSubdirectories.toString();
   }
 
   @VisibleForSerialization

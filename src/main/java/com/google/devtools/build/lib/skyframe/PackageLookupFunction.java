@@ -136,7 +136,8 @@ public class PackageLookupFunction implements SkyFunction {
       return null;
     }
 
-    if (isPackageIgnored(packageKey, ignoredPatternsValue)) {
+    PathFragment packageFragment = packageKey.getPackageFragment();
+    if (ignoredPatternsValue.asIgnoredSubdirectories().matchingEntry(packageFragment) != null) {
       return PackageLookupValue.DELETED_PACKAGE_VALUE;
     }
 
@@ -332,17 +333,6 @@ public class PackageLookupFunction implements SkyFunction {
     return PackageLookupValue.NO_BUILD_FILE_VALUE;
   }
 
-  private static boolean isPackageIgnored(
-      PackageIdentifier id, IgnoredPackagePrefixesValue ignoredPatternsValue) {
-    PathFragment packageFragment = id.getPackageFragment();
-    for (PathFragment pattern : ignoredPatternsValue.getPatterns()) {
-      if (packageFragment.startsWith(pattern)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   @Nullable
   private PackageLookupValue computeWorkspacePackageLookupValue(Environment env)
       throws InterruptedException {
@@ -414,7 +404,8 @@ public class PackageLookupFunction implements SkyFunction {
       return null;
     }
 
-    if (isPackageIgnored(id, ignoredPatternsValue)) {
+    PathFragment packageFragment = id.getPackageFragment();
+    if (ignoredPatternsValue.asIgnoredSubdirectories().matchingEntry(packageFragment) != null) {
       return PackageLookupValue.DELETED_PACKAGE_VALUE;
     }
 

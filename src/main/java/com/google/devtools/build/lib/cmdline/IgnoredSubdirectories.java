@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.cmdline;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
+import com.google.common.base.MoreObjects;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
@@ -29,7 +30,15 @@ import javax.annotation.Nullable;
 public final class IgnoredSubdirectories {
   private final ImmutableSet<PathFragment> prefixes;
 
-  public IgnoredSubdirectories(ImmutableSet<PathFragment> prefixes) {
+  public static IgnoredSubdirectories of(ImmutableSet<PathFragment> prefixes) {
+    if (prefixes.isEmpty()) {
+      return EMPTY;
+    } else {
+      return new IgnoredSubdirectories(prefixes);
+    }
+  }
+
+  private IgnoredSubdirectories(ImmutableSet<PathFragment> prefixes) {
     this.prefixes = prefixes;
   }
 
@@ -77,6 +86,11 @@ public final class IgnoredSubdirectories {
     return new IgnoredSubdirectories(filteredPrefixes);
   }
 
+  public IgnoredSubdirectories union(IgnoredSubdirectories other) {
+    return new IgnoredSubdirectories(
+        ImmutableSet.<PathFragment>builder().addAll(prefixes).addAll(other.prefixes).build());
+  }
+
   @Override
   public boolean equals(Object other) {
     if (!(other instanceof IgnoredSubdirectories)) {
@@ -90,5 +104,10 @@ public final class IgnoredSubdirectories {
   @Override
   public int hashCode() {
     return prefixes.hashCode();
+  }
+
+  @Override
+  public String toString() {
+    return MoreObjects.toStringHelper("IgnoredSubdirectories").add("prefixes", prefixes).toString();
   }
 }
