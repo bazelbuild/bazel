@@ -230,11 +230,7 @@ public abstract class TestStrategy implements TestActionContext {
     }
 
     // Execute the test using the alias in the runfiles tree, as mandated by the Test Encyclopedia.
-    args.add(
-        execSettings
-            .getExecutable()
-            .getRunfilesPath()
-            .getCallablePathStringForOs(testAction.getExecutionSettings().getExecutionOs()));
+    args.add(execSettings.getExecutable().getRunfilesPath().getPathString());
     Iterables.addAll(args, execSettings.getArgs().arguments());
     return ImmutableList.copyOf(args);
   }
