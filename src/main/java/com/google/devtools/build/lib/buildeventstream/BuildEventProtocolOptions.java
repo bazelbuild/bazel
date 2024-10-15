@@ -49,7 +49,9 @@ public class BuildEventProtocolOptions extends OptionsBase {
       defaultValue = "null",
       documentationCategory = OptionDocumentationCategory.LOGGING,
       effectTags = {OptionEffectTag.AFFECTS_OUTPUTS},
-      help = "Selects how to upload artifacts referenced in the build event protocol.")
+      help =
+          "Selects how to upload artifacts referenced in the build event protocol. In Bazel "
+              + "the valid options include 'local' and 'remote'. The default value is 'local'.")
   public String buildEventUploadStrategy;
 
   @Option(
