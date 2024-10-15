@@ -812,14 +812,21 @@ public class Package {
    * Returns an error {@link Event} with {@link Location} and {@link DetailedExitCode} properties.
    */
   public static Event error(Location location, String message, Code code) {
-    Event error = Event.error(location, message);
-    return error.withProperty(
-        DetailedExitCode.class,
+    return errorWithDetailedExitCode(
+        location,
+        message,
         DetailedExitCode.of(
             FailureDetail.newBuilder()
                 .setMessage(message)
                 .setPackageLoading(PackageLoading.newBuilder().setCode(code))
                 .build()));
+  }
+
+  /** Similar to {@link #error} but with a custom {@link DetailedExitCode}. */
+  public static Event errorWithDetailedExitCode(
+      Location location, String message, DetailedExitCode detailedExitCode) {
+    Event error = Event.error(location, message);
+    return error.withProperty(DetailedExitCode.class, detailedExitCode);
   }
 
   /**

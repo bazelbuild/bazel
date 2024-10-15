@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
 import com.google.devtools.build.lib.starlarkbuildapi.StarlarkNativeModuleApi;
 import com.google.devtools.build.lib.util.DetailedExitCode;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import java.io.IOException;
 import java.util.AbstractMap;
 import java.util.ArrayList;
@@ -863,15 +864,17 @@ public class StarlarkNativeModule implements StarlarkNativeModuleApi {
               e.getMessage());
       Location loc = thread.getCallerLocation();
       Event error =
-          Package.error(
-              loc,
-              errorMessage,
-              // If there are other IOExceptions that can result from user error, they should be
-              // tested for here. Currently FileNotFoundException is not one of those, because globs
-              // only encounter that error in the presence of an inconsistent filesystem.
-              e instanceof FileSymlinkException
-                  ? Code.EVAL_GLOBS_SYMLINK_ERROR
-                  : Code.GLOB_IO_EXCEPTION);
+          switch (e) {
+            case DetailedIOException detailed ->
+                Package.errorWithDetailedExitCode(
+                    loc, errorMessage, detailed.getDetailedExitCode());
+            case FileSymlinkException symlink ->
+                Package.error(loc, errorMessage, Code.EVAL_GLOBS_SYMLINK_ERROR);
+            // If there are other IOExceptions that can result from user error, they should be
+            // tested for here. Currently, FileNotFoundException is not one of those, because globs
+            // only encounter that error in the presence of an inconsistent filesystem.
+            default -> Package.error(loc, errorMessage, Code.GLOB_IO_EXCEPTION);
+          };
       pkgBuilder.getLocalEventHandler().handle(error);
       pkgBuilder.setIOException(e, errorMessage, error.getProperty(DetailedExitCode.class));
       return ImmutableList.of();
