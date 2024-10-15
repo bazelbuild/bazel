@@ -14,6 +14,7 @@
 package com.google.devtools.build.lib.skyframe.serialization;
 
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.RecursivePkgKey;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.FsUtils;
@@ -30,12 +31,14 @@ public class RecursivePkgKeyCodecTest {
   public void testCodec() throws Exception {
     SerializationTester serializationTester =
         new SerializationTester(
-            new RecursivePkgKey(RepositoryName.MAIN, FsUtils.TEST_ROOTED_PATH, ImmutableSet.of()),
+            new RecursivePkgKey(
+                RepositoryName.MAIN, FsUtils.TEST_ROOTED_PATH, IgnoredSubdirectories.EMPTY),
             new RecursivePkgKey(
                 RepositoryName.MAIN,
                 FsUtils.TEST_ROOTED_PATH,
-                ImmutableSet.of(
-                    FsUtils.rootPathRelative("here"), FsUtils.rootPathRelative("there"))));
+                new IgnoredSubdirectories(
+                    ImmutableSet.of(
+                        FsUtils.rootPathRelative("here"), FsUtils.rootPathRelative("there")))));
     FsUtils.addDependencies(serializationTester);
     serializationTester.runTests();
   }

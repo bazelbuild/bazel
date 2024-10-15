@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
@@ -23,7 +23,6 @@ import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.AutoCodec;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyFunctionName;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -58,9 +57,7 @@ public class RecursivePkgValue implements SkyValue {
   /** Create a transitive package lookup request. */
   @ThreadSafe
   public static Key key(
-      RepositoryName repositoryName,
-      RootedPath rootedPath,
-      ImmutableSet<PathFragment> excludedPaths) {
+      RepositoryName repositoryName, RootedPath rootedPath, IgnoredSubdirectories excludedPaths) {
     return Key.create(repositoryName, rootedPath, excludedPaths);
   }
 
@@ -78,16 +75,12 @@ public class RecursivePkgValue implements SkyValue {
     private static final SkyKeyInterner<Key> interner = SkyKey.newInterner();
 
     private Key(
-        RepositoryName repositoryName,
-        RootedPath rootedPath,
-        ImmutableSet<PathFragment> excludedPaths) {
+        RepositoryName repositoryName, RootedPath rootedPath, IgnoredSubdirectories excludedPaths) {
       super(repositoryName, rootedPath, excludedPaths);
     }
 
     private static Key create(
-        RepositoryName repositoryName,
-        RootedPath rootedPath,
-        ImmutableSet<PathFragment> excludedPaths) {
+        RepositoryName repositoryName, RootedPath rootedPath, IgnoredSubdirectories excludedPaths) {
       return interner.intern(new Key(repositoryName, rootedPath, excludedPaths));
     }
 

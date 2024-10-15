@@ -17,6 +17,7 @@ import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.analysis.util.BuildViewTestCase;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -35,7 +36,7 @@ public class RecursivePkgKeyTest extends BuildViewTestCase {
       PathFragment rootRelativePath,
       ImmutableSet<PathFragment> excludedPaths) {
     RootedPath rootedPath = RootedPath.toRootedPath(Root.fromPath(rootDirectory), rootRelativePath);
-    return RecursivePkgValue.key(repository, rootedPath, excludedPaths);
+    return RecursivePkgValue.key(repository, rootedPath, new IgnoredSubdirectories(excludedPaths));
   }
 
   private void invalidHelper(

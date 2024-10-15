@@ -17,6 +17,7 @@ java_library(
     srcs = [
         "BazelCompileContext.java",
         "BazelModuleContext.java",
+        "IgnoredSubdirectories.java",
         "Label.java",
         "LabelConstants.java",
         "LabelParser.java",

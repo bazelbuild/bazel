@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.BatchCallback;
 import com.google.devtools.build.lib.cmdline.BatchCallback.NullCallback;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
@@ -302,7 +303,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
         String originalPattern,
         String directory,
         boolean rulesOnly,
-        ImmutableSet<PathFragment> repositoryIgnoredSubdirectories,
+        IgnoredSubdirectories repositoryIgnoredSubdirectories,
         ImmutableSet<PathFragment> excludedSubdirectories,
         BatchCallback<Void, E> callback,
         Class<E> exceptionClass)
@@ -342,7 +343,7 @@ public class PrepareDepsOfPatternFunction implements SkyFunction {
 
     private ImmutableList<SkyKey> getDeps(
         RepositoryName repository,
-        ImmutableSet<PathFragment> repositoryIgnoredSubdirectories,
+        IgnoredSubdirectories repositoryIgnoredSubdirectories,
         FilteringPolicy policy,
         RootedPath rootedPath) {
       List<SkyKey> keys = new ArrayList<>();
