@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
@@ -36,13 +37,11 @@ import java.util.Objects;
 public class RecursivePkgKey {
   @VisibleForSerialization final RepositoryName repositoryName;
   @VisibleForSerialization final RootedPath rootedPath;
-  @VisibleForSerialization final ImmutableSet<PathFragment> excludedPaths;
+  @VisibleForSerialization final IgnoredSubdirectories excludedPaths;
 
   public RecursivePkgKey(
-      RepositoryName repositoryName,
-      RootedPath rootedPath,
-      ImmutableSet<PathFragment> excludedPaths) {
-    PathFragment.checkAllPathsAreUnder(excludedPaths, rootedPath.getRootRelativePath());
+      RepositoryName repositoryName, RootedPath rootedPath, IgnoredSubdirectories excludedPaths) {
+    Preconditions.checkArgument(excludedPaths.allPathsAreUnder(rootedPath.getRootRelativePath()));
     this.repositoryName = repositoryName;
     this.rootedPath = Preconditions.checkNotNull(rootedPath);
     this.excludedPaths = Preconditions.checkNotNull(excludedPaths);
@@ -56,7 +55,7 @@ public class RecursivePkgKey {
     return rootedPath;
   }
 
-  public ImmutableSet<PathFragment> getExcludedPaths() {
+  public IgnoredSubdirectories getExcludedPaths() {
     return excludedPaths;
   }
 

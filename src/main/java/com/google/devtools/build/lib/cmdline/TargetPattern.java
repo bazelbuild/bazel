@@ -601,7 +601,7 @@ public abstract class TargetPattern {
           getOriginalPattern(),
           directory.getPackageFragment().getPathString(),
           rulesOnly,
-          ignoredIntersection.ignoredPathFragments(),
+          new IgnoredSubdirectories(ignoredIntersection.ignoredPathFragments()),
           excludedSubdirectories,
           callback,
           exceptionClass);
@@ -635,7 +635,7 @@ public abstract class TargetPattern {
           getOriginalPattern(),
           directory.getPackageFragment().getPathString(),
           rulesOnly,
-          ignoredIntersection.ignoredPathFragments(),
+          new IgnoredSubdirectories(ignoredIntersection.ignoredPathFragments()),
           excludedSubdirectories,
           callback,
           exceptionClass,

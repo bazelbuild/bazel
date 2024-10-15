@@ -97,7 +97,7 @@ public abstract class TargetPatternResolver<T> {
           String originalPattern,
           String directory,
           boolean rulesOnly,
-          ImmutableSet<PathFragment> forbiddenSubdirectories,
+          IgnoredSubdirectories forbiddenSubdirectories,
           ImmutableSet<PathFragment> excludedSubdirectories,
           BatchCallback<T, E> callback,
           Class<E> exceptionClass)
@@ -115,7 +115,7 @@ public abstract class TargetPatternResolver<T> {
           String originalPattern,
           String directory,
           boolean rulesOnly,
-          ImmutableSet<PathFragment> forbiddenSubdirectories,
+          IgnoredSubdirectories forbiddenSubdirectories,
           ImmutableSet<PathFragment> excludedSubdirectories,
           BatchCallback<T, E> callback,
           Class<E> exceptionClass,

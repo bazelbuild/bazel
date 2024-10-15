@@ -30,6 +30,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.google.devtools.build.lib.cmdline.BatchCallback;
 import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.QueryExceptionMarkerInterface;
@@ -195,7 +196,7 @@ public final class RecursivePackageProviderBackedTargetPatternResolver
       final String originalPattern,
       String directory,
       boolean rulesOnly,
-      ImmutableSet<PathFragment> forbiddenSubdirectories,
+      IgnoredSubdirectories forbiddenSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories,
       BatchCallback<Target, E> callback,
       Class<E> exceptionClass)
@@ -242,7 +243,7 @@ public final class RecursivePackageProviderBackedTargetPatternResolver
           String originalPattern,
           String directory,
           boolean rulesOnly,
-          ImmutableSet<PathFragment> forbiddenSubdirectories,
+          IgnoredSubdirectories forbiddenSubdirectories,
           ImmutableSet<PathFragment> excludedSubdirectories,
           BatchCallback<Target, E> callback,
           Class<E> exceptionClass,
@@ -286,12 +287,15 @@ public final class RecursivePackageProviderBackedTargetPatternResolver
           String pattern,
           String directory,
           boolean rulesOnly,
-          ImmutableSet<PathFragment> forbiddenSubdirectories,
+          IgnoredSubdirectories forbiddenSubdirectories,
           ImmutableSet<PathFragment> excludedSubdirectories,
           BatchCallback<Target, E> callback,
           ListeningExecutorService executor)
-          throws TargetParsingException, QueryException, InterruptedException,
-              ProcessPackageDirectoryException, NoSuchPackageException {
+          throws TargetParsingException,
+              QueryException,
+              InterruptedException,
+              ProcessPackageDirectoryException,
+              NoSuchPackageException {
     FilteringPolicy actualPolicy =
         rulesOnly ? FilteringPolicies.and(FilteringPolicies.RULES_ONLY, policy) : policy;
 

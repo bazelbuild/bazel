@@ -15,9 +15,9 @@ package com.google.devtools.build.lib.skyframe;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.Event;
@@ -85,7 +85,7 @@ public abstract class RecursiveDirectoryTraversalFunction<
   protected abstract SkyKey getSkyKeyForSubdirectory(
       RepositoryName repository,
       RootedPath subdirectory,
-      ImmutableSet<PathFragment> excludedSubdirectoriesBeneathSubdirectory);
+      IgnoredSubdirectories excludedSubdirectoriesBeneathSubdirectory);
 
   /**
    * Called by {@link #visitDirectory} to compute the {@code TReturn} value it returns, as a

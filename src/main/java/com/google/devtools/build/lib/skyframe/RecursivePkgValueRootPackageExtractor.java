@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.cmdline.BatchCallback.SafeBatchCallback;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
@@ -39,12 +40,11 @@ public class RecursivePkgValueRootPackageExtractor implements RootPackageExtract
       ExtendedEventHandler eventHandler,
       RepositoryName repository,
       PathFragment directory,
-      ImmutableSet<PathFragment> ignoredSubdirectories,
+      IgnoredSubdirectories ignoredSubdirectories,
       ImmutableSet<PathFragment> excludedSubdirectories)
       throws InterruptedException, QueryException {
-    ImmutableSet<PathFragment> filteredIgnoredSubdirectories =
-        ImmutableSet.copyOf(
-            Iterables.filter(ignoredSubdirectories, path -> path.startsWith(directory)));
+    IgnoredSubdirectories filteredIgnoredSubdirectories =
+        ignoredSubdirectories.filterForDirectory(directory);
 
     for (Root root : roots) {
       RootedPath rootedPath = RootedPath.toRootedPath(root, directory);
