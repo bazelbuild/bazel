@@ -67,6 +67,10 @@ public final class IgnoredSubdirectories {
     return prefixes;
   }
 
+  public boolean isEmpty() {
+    return this == EMPTY;
+  }
+
   /**
    * Checks whether every path in this instance can conceivably match something under {@code
    * directory}.

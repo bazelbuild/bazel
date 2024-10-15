@@ -13,7 +13,6 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -32,14 +31,22 @@ public class IgnoredPackagePrefixesValue implements SkyValue {
 
   @SerializationConstant @VisibleForSerialization
   public static final IgnoredPackagePrefixesValue EMPTY =
-      new IgnoredPackagePrefixesValue(ImmutableSet.of());
+      new IgnoredPackagePrefixesValue(IgnoredSubdirectories.EMPTY);
 
-  private IgnoredPackagePrefixesValue(ImmutableSet<PathFragment> patterns) {
-    this.ignoredSubdirectories = IgnoredSubdirectories.of(Preconditions.checkNotNull(patterns));
+  private IgnoredPackagePrefixesValue(IgnoredSubdirectories ignoredSubdirectories) {
+    this.ignoredSubdirectories = ignoredSubdirectories;
   }
 
   public static IgnoredPackagePrefixesValue of(ImmutableSet<PathFragment> patterns) {
-    return patterns.isEmpty() ? EMPTY : new IgnoredPackagePrefixesValue(patterns);
+    return patterns.isEmpty()
+        ? EMPTY
+        : new IgnoredPackagePrefixesValue(IgnoredSubdirectories.of(patterns));
+  }
+
+  public static IgnoredPackagePrefixesValue of(IgnoredSubdirectories ignoredSubdirectories) {
+    return ignoredSubdirectories.isEmpty()
+        ? EMPTY
+        : new IgnoredPackagePrefixesValue(ignoredSubdirectories);
   }
 
   /** Creates a key from the main repository. */
