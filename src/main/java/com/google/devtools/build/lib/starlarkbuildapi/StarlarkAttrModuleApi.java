@@ -769,6 +769,124 @@ public interface StarlarkAttrModuleApi extends StarlarkValue {
       throws EvalException;
 
   @StarlarkMethod(
+      name = "string_keyed_label_dict",
+      doc =
+          "<p>Creates a schema for an attribute whose value is a dictionary where the keys are "
+              + "strings and the values are labels. This is a dependency attribute.</p>"
+              + DEPENDENCY_ATTR_TEXT,
+      parameters = {
+        @Param(name = ALLOW_EMPTY_ARG, defaultValue = "True", doc = ALLOW_EMPTY_DOC, named = true),
+        @Param(
+            name = CONFIGURABLE_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Starlark.UnboundMarker.class),
+            },
+            defaultValue = "unbound",
+            doc = CONFIGURABLE_ARG_DOC,
+            named = true,
+            positional = false),
+        @Param(
+            name = DEFAULT_ARG,
+            allowedTypes = {
+              @ParamType(type = Dict.class),
+              @ParamType(type = StarlarkFunction.class)
+            },
+            defaultValue = "{}",
+            named = true,
+            positional = false,
+            doc =
+                DEFAULT_DOC
+                    + "Use strings or the <a"
+                    + " href=\"../builtins/Label.html#Label\"><code>Label</code></a> function to"
+                    + " specify default values, for example,"
+                    + " <code>attr.string_keyed_label_dict(default = {\"foo\": \"//a:b\","
+                    + " \"bar\": \"//a:c\"})</code>."),
+        @Param(
+            name = DOC_ARG,
+            allowedTypes = {@ParamType(type = String.class), @ParamType(type = NoneType.class)},
+            defaultValue = "None",
+            doc = DOC_DOC,
+            named = true,
+            positional = false),
+        @Param(
+            name = ALLOW_FILES_ARG,
+            allowedTypes = {
+              @ParamType(type = Boolean.class),
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = ALLOW_FILES_DOC),
+        @Param(
+            name = ALLOW_RULES_ARG,
+            allowedTypes = {
+              @ParamType(type = Sequence.class, generic1 = String.class),
+              @ParamType(type = NoneType.class),
+            },
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = ALLOW_RULES_DOC),
+        @Param(
+            name = PROVIDERS_ARG,
+            defaultValue = "[]",
+            named = true,
+            positional = false,
+            doc = PROVIDERS_DOC),
+        @Param(
+            name = FOR_DEPENDENCY_RESOLUTION_ARG,
+            defaultValue = "unbound",
+            named = true,
+            positional = false,
+            doc = FOR_DEPENDENCY_RESOLUTION_DOC),
+        @Param(
+            name = FLAGS_ARG,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = String.class)},
+            defaultValue = "[]",
+            named = true,
+            positional = false,
+            doc = FLAGS_DOC),
+        @Param(
+            name = MANDATORY_ARG,
+            defaultValue = "False",
+            named = true,
+            positional = false,
+            doc = MANDATORY_DOC),
+        @Param(
+            name = CONFIGURATION_ARG,
+            defaultValue = "None",
+            named = true,
+            positional = false,
+            doc = CONFIGURATION_DOC),
+        @Param(
+            name = ASPECTS_ARG,
+            allowedTypes = {@ParamType(type = Sequence.class, generic1 = StarlarkAspectApi.class)},
+            defaultValue = "[]",
+            named = true,
+            positional = false,
+            doc = ASPECTS_ARG_DOC)
+      },
+      useStarlarkThread = true)
+  Descriptor stringKeyedLabelDictAttribute(
+      Boolean allowEmpty,
+      Object configurable,
+      Object defaultValue,
+      Object doc,
+      Object allowFiles,
+      Object allowRules,
+      Sequence<?> providers,
+      Object forDependencyResolution,
+      Sequence<?> flags,
+      Boolean mandatory,
+      Object cfg,
+      Sequence<?> aspects,
+      StarlarkThread thread)
+      throws EvalException;
+
+  @StarlarkMethod(
       name = "label_keyed_string_dict",
       doc =
           "<p>Creates a schema for an attribute holding a dictionary, where the keys are labels "

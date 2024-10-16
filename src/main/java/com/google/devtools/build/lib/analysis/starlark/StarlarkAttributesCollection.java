@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.analysis.starlark;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Maps;
 import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.AspectContext;
@@ -192,6 +193,22 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
       this.prerequisites = prerequisitesCollection;
     }
 
+    static Dict<String, TransitiveInfoCollection> convertStringToLabelMap(
+        Map<String, Label> unconfiguredValue,
+        List<? extends TransitiveInfoCollection> prerequisites) {
+      Map<Label, TransitiveInfoCollection> prerequisiteMap = Maps.newHashMap();
+      for (TransitiveInfoCollection prereq : prerequisites) {
+        prerequisiteMap.put(AliasProvider.getDependencyLabel(prereq), prereq);
+      }
+
+      Dict.Builder<String, TransitiveInfoCollection> builder = Dict.builder();
+      for (var entry : unconfiguredValue.entrySet()) {
+        builder.put(entry.getKey(), prerequisiteMap.get(entry.getValue()));
+      }
+
+      return builder.buildImmutable();
+    }
+
     @Nullable
     public static Object convertAttributeValue(
         Supplier<List<? extends TransitiveInfoCollection>> prerequisiteSupplier,
@@ -228,10 +245,7 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
         return dormantDeps;
       }
 
-      // TODO(b/140636597): Remove the LABEL_DICT_UNARY special case of this conditional
-      // LABEL_DICT_UNARY was previously not treated as a dependency-bearing type, and was put into
-      // Starlark as a Map<String, Label>; this special case preserves that behavior temporarily.
-      if (type.getLabelClass() != LabelClass.DEPENDENCY || type == BuildType.LABEL_DICT_UNARY) {
+      if (type.getLabelClass() != LabelClass.DEPENDENCY) {
         // Attribute values should be type safe
         return Attribute.valueToStarlark(val);
       }
@@ -243,6 +257,9 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
           || (type == BuildType.LABEL && a.getTransitionFactory().isSplit())) {
         List<?> allPrereq = prerequisiteSupplier.get();
         return StarlarkList.immutableCopyOf(allPrereq);
+      } else if (type == BuildType.LABEL_DICT_UNARY) {
+        return convertStringToLabelMap(
+            BuildType.LABEL_DICT_UNARY.cast(val), prerequisiteSupplier.get());
       } else if (type == BuildType.LABEL_KEYED_STRING_DICT) {
         Dict.Builder<TransitiveInfoCollection, String> builder = Dict.builder();
         Map<Label, String> original = BuildType.LABEL_KEYED_STRING_DICT.cast(val);
@@ -277,7 +294,7 @@ public class StarlarkAttributesCollection implements StarlarkAttributesCollectio
       }
 
       attrBuilder.put(skyname, starlarkVal);
-      if (type.getLabelClass() != LabelClass.DEPENDENCY || type == BuildType.LABEL_DICT_UNARY) {
+      if (type.getLabelClass() != LabelClass.DEPENDENCY) {
         return;
       }
 
