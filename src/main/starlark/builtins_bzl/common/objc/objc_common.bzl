@@ -132,7 +132,9 @@ def _create_context_and_provider(
         )
         sdk_linking_info["sdk_dylib"].extend(compilation_attributes.sdk_dylibs.to_list())
 
-        objc_compilation_context_kwargs["public_hdrs"].extend(compilation_attributes.hdrs.to_list())
+        objc_compilation_context_kwargs["public_hdrs"].extend(
+            [artifact for artifact, _ in compilation_attributes.hdrs.to_list()],
+        )
         objc_compilation_context_kwargs["public_textual_hdrs"].extend(
             compilation_attributes.textual_hdrs.to_list(),
         )
