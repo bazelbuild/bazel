@@ -133,6 +133,11 @@ public class StringUtil {
   private static final Charset SUN_JNI_ENCODING =
       Charset.forName(System.getProperty("sun.jnu.encoding"));
 
+  // This only exists for RemoteWorker, which directly uses the RE APIs UTF-8-encoded string with
+  // the JavaIoFileSystem and thus shouldn't be subject to any reencoding.
+  private static final boolean USE_UTF_8_FOR_STRINGS =
+      Boolean.getBoolean("bazel.internal.UseUtf8ForStrings");
+
   /**
    * Reencodes a string using Bazel's internal raw byte encoding into the equivalent representation
    * for Java stdlib functions, if necessary.
@@ -151,6 +156,9 @@ public class StringUtil {
 
   private static boolean canSkipJavaReencode(String s) {
     // The comparisons below are expected to be constant-folded by the JIT.
+    if (USE_UTF_8_FOR_STRINGS) {
+      return true;
+    }
     if (SUN_JNI_ENCODING == ISO_8859_1 || SUN_JNI_ENCODING == US_ASCII) {
       return true;
     }
