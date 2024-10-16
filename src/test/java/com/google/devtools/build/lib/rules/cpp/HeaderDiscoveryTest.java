@@ -75,7 +75,7 @@ public final class HeaderDiscoveryTest {
             ActionsTestUtil.createArtifact(artifactRoot, derivedRoot.getRelative("foo.cc")),
             /* shouldValidateInclusions= */ true,
             dependencies,
-            /* permittedSystemIncludePrefixes= */ ImmutableList.of(),
+            /* builtinIncludePrefixes= */ ImmutableList.of(),
             includedHeaders,
             execRoot,
             artifactResolver,
