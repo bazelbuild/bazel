@@ -1,4 +1,4 @@
-// Copyright 2016 The Bazel Authors. All rights reserved.
+// Copyright 2022 The Bazel Authors. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -11,6 +11,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "src/main/starlark/tests/builtins_bzl/cc/cc_shared_library/test_cc_shared_library/a_suffix.h"
+#include "src/main/starlark/tests/builtins_bzl/cc/cc_static_library/test/bar.h"
 
-int a_suffix() { return 42; }
+#include "src/main/starlark/tests/builtins_bzl/cc/cc_static_library/test/foo.h"
+
+int bar() { return 2 * foo(); }
+
+int unused() { return 0; }
