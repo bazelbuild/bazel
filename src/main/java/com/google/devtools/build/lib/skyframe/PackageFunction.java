@@ -410,8 +410,11 @@ public abstract class PackageFunction implements SkyFunction {
           (PackageLookupValue)
               env.getValueOrThrow(
                   packageLookupKey,
+                  BadRepoFileException.class,
                   BuildFileNotFoundException.class,
                   InconsistentFilesystemException.class);
+    } catch (BadRepoFileException e) {
+      throw badRepoFileException(e, packageId);
     } catch (BuildFileNotFoundException e) {
       throw new PackageFunctionException(e, Transience.PERSISTENT);
     } catch (InconsistentFilesystemException e) {
@@ -911,6 +914,17 @@ public abstract class PackageFunction implements SkyFunction {
     }
   }
 
+  private static PackageFunctionException badRepoFileException(Exception cause, PackageIdentifier packageId) {
+    return PackageFunctionException.builder()
+        .setType(PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
+        .setPackageIdentifier(packageId)
+        .setTransience(Transience.PERSISTENT)
+        .setException(cause)
+        .setMessage("bad REPO.bazel file")
+        .setPackageLoadingCode(PackageLoading.Code.BAD_REPO_FILE)
+        .build();
+  }
+
   @ForOverride
   protected abstract Globber makeGlobber(
       NonSkyframeGlobber nonSkyframeGlobber,
@@ -959,14 +973,7 @@ public abstract class PackageFunction implements SkyFunction {
                     IOException.class,
                     BadRepoFileException.class);
       } catch (IOException | BadRepoFileException e) {
-        throw PackageFunctionException.builder()
-            .setType(PackageFunctionException.Type.BUILD_FILE_CONTAINS_ERRORS)
-            .setPackageIdentifier(packageId)
-            .setTransience(Transience.PERSISTENT)
-            .setException(e)
-            .setMessage("bad REPO.bazel file")
-            .setPackageLoadingCode(PackageLoading.Code.BAD_REPO_FILE)
-            .build();
+        throw badRepoFileException(e, packageId);
       }
     } else {
       repoFileValue = RepoFileValue.EMPTY;
@@ -1473,6 +1480,10 @@ public abstract class PackageFunction implements SkyFunction {
    */
   static class PackageFunctionException extends SkyFunctionException {
     public PackageFunctionException(NoSuchPackageException e, Transience transience) {
+      super(e, transience);
+    }
+
+    public PackageFunctionException(BadRepoFileException e, Transience transience) {
       super(e, transience);
     }
 

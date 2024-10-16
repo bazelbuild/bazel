@@ -831,6 +831,7 @@ java_library(
     deps = [
         ":ignored_package_prefixes_value",
         ":precomputed_value",
+        ":repo_file_function",
         ":repo_file_value",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/cmdline",

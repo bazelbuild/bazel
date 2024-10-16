@@ -245,8 +245,8 @@ EOF
 
   touch BUILD.bazel
   bazel query //:all && fail "failure expected"
-  if [[ $? != 1 ]]; then
-    fail "expected a simple failure"
+  if [[ $? != 7 ]]; then
+    fail "expected an analysis failure"
   fi
 }
 

@@ -24,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -76,8 +77,20 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
   public SkyValue compute(SkyKey key, Environment env)
       throws IgnoredPatternsFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) key.argument();
+    RepoFileValue repoFileValue;
 
-    RepoFileValue repoFileValue = (RepoFileValue) env.getValue(RepoFileValue.key(repositoryName));
+    try {
+      // We can depend on REPO.bazel unconditionally here because IgnorePackagePrefixesFunction is
+      // Bazel-only, so we don't need to jump through hoops to make it conditional like in
+      // PackageFunction
+      repoFileValue = (RepoFileValue) env.getValueOrThrow(
+          RepoFileValue.key(repositoryName), IOException.class, BadRepoFileException.class);
+    } catch (IOException e) {
+      throw new IgnoredPatternsFunctionException(e);
+    } catch (BadRepoFileException e) {
+      throw new IgnoredPatternsFunctionException(e);
+    }
+
     if (env.valuesMissing()) {
       return null;
     }
@@ -178,6 +191,14 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
     }
 
     public IgnoredPatternsFunctionException(InvalidIgnorePathException e) {
+      super(e, Transience.PERSISTENT);
+    }
+
+    public IgnoredPatternsFunctionException(IOException e) {
+      super(e, Transience.TRANSIENT);
+    }
+
+    public IgnoredPatternsFunctionException(BadRepoFileException e) {
       super(e, Transience.PERSISTENT);
     }
   }
