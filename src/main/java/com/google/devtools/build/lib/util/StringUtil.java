@@ -177,7 +177,7 @@ public class StringUtil {
    * <p>The return value is suitable for passing to Protobuf string fields or printing to the
    * terminal.
    */
-  public static String reencodeInternalToExternal(String maybeUtf8) {
+  public static String reencodeInternalToUtf8(String maybeUtf8) {
     if (StringUnsafe.getInstance().isAscii(maybeUtf8)) {
       return maybeUtf8;
     }
@@ -212,9 +212,9 @@ public class StringUtil {
    *
    * <p>encodeBytestringUtf8("\u2049") == "\u00E2\u0081\u0089"
    *
-   * <p>See {@link #reencodeInternalToExternal} for motivation.
+   * <p>See {@link #reencodeInternalToUtf8} for motivation.
    */
-  public static String reencodeExternalToInternal(String unicode) {
+  public static String reencodeUtf8ToInternal(String unicode) {
     if (StringUnsafe.getInstance().isAscii(unicode)) {
       return unicode;
     }
