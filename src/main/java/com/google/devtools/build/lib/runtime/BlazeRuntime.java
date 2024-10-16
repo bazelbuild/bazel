@@ -122,7 +122,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1068,11 +1068,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       signalHandler.uninstall();
       ExecRequest request = result.getExecRequest();
       String[] argv = new String[request.getArgvCount()];
+      Charset processBuilderCharset = Charset.forName(System.getProperty("sun.jnu.encoding"));
       for (int i = 0; i < argv.length; i++) {
-        argv[i] = request.getArgv(i).toString(StandardCharsets.ISO_8859_1);
+        argv[i] = request.getArgv(i).toString(processBuilderCharset);
       }
 
-      String workingDirectory = request.getWorkingDirectory().toString(StandardCharsets.ISO_8859_1);
+      String workingDirectory = request.getWorkingDirectory().toString(processBuilderCharset);
       try {
         ProcessBuilder process =
             new ProcessBuilder().command(argv).directory(new File(workingDirectory)).inheritIO();
@@ -1082,8 +1083,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           process
               .environment()
               .put(
-                  variable.getName().toString(StandardCharsets.ISO_8859_1),
-                  variable.getValue().toString(StandardCharsets.ISO_8859_1));
+                  variable.getName().toString(processBuilderCharset),
+                  variable.getValue().toString(processBuilderCharset));
         }
 
         return process.start().waitFor();
