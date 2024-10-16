@@ -51,6 +51,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 
@@ -296,6 +297,7 @@ public final class SkyframeTargetPatternEvaluator implements TargetPatternPreloa
               eventHandler,
               FilteringPolicies.NO_FILTER,
               /* packageSemaphore= */ null,
+              /* maxConcurrentGetTargetsTasks= */ Optional.empty(),
               SimplePackageIdentifierBatchingCallback::new);
       AtomicReference<Collection<Target>> result = new AtomicReference<>();
       try {

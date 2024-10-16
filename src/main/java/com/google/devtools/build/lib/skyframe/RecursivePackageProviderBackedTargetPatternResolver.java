@@ -59,9 +59,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.Semaphore;
 import javax.annotation.Nullable;
 
 /** A {@link TargetPatternResolver} backed by a {@link RecursivePackageProvider}. */
@@ -76,6 +78,8 @@ public final class RecursivePackageProviderBackedTargetPatternResolver
   private final RecursivePackageProvider recursivePackageProvider;
   private final ExtendedEventHandler eventHandler;
   private final MultisetSemaphore<PackageIdentifier> packageSemaphore;
+
+  @Nullable private final Semaphore getTargetsTaskSemaphore;
   private final PackageIdentifierBatchingCallback.Factory packageIdentifierBatchingCallbackFactory;
 
   public RecursivePackageProviderBackedTargetPatternResolver(
@@ -83,11 +87,16 @@ public final class RecursivePackageProviderBackedTargetPatternResolver
       ExtendedEventHandler eventHandler,
       FilteringPolicy policy,
       MultisetSemaphore<PackageIdentifier> packageSemaphore,
+      Optional<Integer> maxConcurrentGetTargetsTasks,
       PackageIdentifierBatchingCallback.Factory packageIdentifierBatchingCallbackFactory) {
     this.recursivePackageProvider = recursivePackageProvider;
     this.eventHandler = eventHandler;
     this.policy = policy;
     this.packageSemaphore = packageSemaphore;
+    this.getTargetsTaskSemaphore =
+        maxConcurrentGetTargetsTasks.isPresent()
+            ? new Semaphore(maxConcurrentGetTargetsTasks.get())
+            : null;
     this.packageIdentifierBatchingCallbackFactory = packageIdentifierBatchingCallbackFactory;
   }
 
@@ -348,9 +357,22 @@ public final class RecursivePackageProviderBackedTargetPatternResolver
       this.callback = callback;
     }
 
+    private void acquireTaskLock() throws InterruptedException {
+      if (getTargetsTaskSemaphore != null) {
+        getTargetsTaskSemaphore.acquire();
+      }
+    }
+
+    private void releaseTaskLock() {
+      if (getTargetsTaskSemaphore != null) {
+        getTargetsTaskSemaphore.release();
+      }
+    }
+
     @Override
     public Void call() throws E, InterruptedException {
       ImmutableSet<PackageIdentifier> pkgIdBatchSet = ImmutableSet.copyOf(packageIdentifiers);
+      acquireTaskLock();
       packageSemaphore.acquireAll(pkgIdBatchSet);
       try {
         Iterable<Collection<Target>> resolvedTargets =
@@ -372,6 +394,7 @@ public final class RecursivePackageProviderBackedTargetPatternResolver
         callback.process(filteredTargets);
       } finally {
         packageSemaphore.releaseAll(pkgIdBatchSet);
+        releaseTaskLock();
       }
       return null;
     }

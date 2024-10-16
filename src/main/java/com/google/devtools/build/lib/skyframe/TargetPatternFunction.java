@@ -35,6 +35,7 @@ import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
+import java.util.Optional;
 import javax.annotation.Nullable;
 
 /**
@@ -69,6 +70,7 @@ public class TargetPatternFunction implements SkyFunction {
               env.getListener(),
               patternKey.getPolicy(),
               MultisetSemaphore.unbounded(),
+              /* maxConcurrentGetTargetsTasks= */ Optional.empty(),
               SimplePackageIdentifierBatchingCallback::new);
       ImmutableSet<PathFragment> excludedSubdirectories = patternKey.getExcludedSubdirectories();
       ResolvedTargets.Builder<Target> resolvedTargetsBuilder = ResolvedTargets.builder();

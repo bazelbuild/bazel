@@ -300,6 +300,7 @@ public class SkyQueryEnvironment extends AbstractBlazeQueryEnvironment<Target>
         eventHandler,
         FilteringPolicies.NO_FILTER,
         packageSemaphore,
+        /* maxConcurrentGetTargetsTasks= */ Optional.empty(),
         SimplePackageIdentifierBatchingCallback::new);
   }
 
