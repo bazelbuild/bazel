@@ -85,6 +85,8 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
+import com.google.devtools.build.lib.runtime.CommonCommandOptions;
+import com.google.devtools.build.lib.runtime.InstrumentationOutput;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.Execution;
 import com.google.devtools.build.lib.server.FailureDetails.Execution.Code;
@@ -722,7 +724,7 @@ public class ExecutionTool {
   private static BuildConfigurationValue getConfiguration(
       SkyframeExecutor executor, Reporter reporter, BuildOptions options) {
     try {
-      return executor.getConfiguration(reporter, options, /*keepGoing=*/ false);
+      return executor.getConfiguration(reporter, options, /* keepGoing= */ false);
     } catch (InvalidConfigurationException e) {
       reporter.handle(
           Event.warn(
@@ -846,9 +848,21 @@ public class ExecutionTool {
     }
     ExplanationHandler handler;
     try {
-      handler =
-          new ExplanationHandler(
-              getWorkspace().getRelative(explanationPath).getOutputStream(), allOptions);
+      InstrumentationOutput instrumentationOutput =
+          runtime
+              .getInstrumentationOutputFactory()
+              .createInstrumentationOutput(
+                  /* name= */ "explain",
+                  getWorkspace().getRelative(explanationPath),
+                  env.getOptions(),
+                  env.getOptions()
+                      .getOptions(CommonCommandOptions.class)
+                      .redirectLocalInstrumentationOutputWrites,
+                  getReporter(),
+                  /* convenienceName= */ null,
+                  /* append= */ null,
+                  /* internal= */ null);
+      handler = new ExplanationHandler(instrumentationOutput.createOutputStream(), allOptions);
     } catch (IOException e) {
       getReporter()
           .handle(
@@ -1087,9 +1101,7 @@ public class ExecutionTool {
       if (progressReceiverStarted.compareAndSet(false, true)) {
         // TODO(leba): count test actions
         ExecutionProgressReceiver executionProgressReceiver =
-            new ExecutionProgressReceiver(
-                /*exclusiveTestsCount=*/ 0,
-                env.getEventBus());
+            new ExecutionProgressReceiver(/* exclusiveTestsCount= */ 0, env.getEventBus());
         env.getEventBus()
             .post(new ExecutionProgressReceiverAvailableEvent(executionProgressReceiver));
 

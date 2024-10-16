@@ -1517,6 +1517,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
     return repositoryRemoteExecutorFactory;
   }
 
+  public InstrumentationOutputFactory getInstrumentationOutputFactory() {
+    return instrumentationOutputFactory;
+  }
+
   /**
    * A builder for {@link BlazeRuntime} objects. The only required fields are the {@link
    * BlazeDirectories}, and the {@link com.google.devtools.build.lib.packages.RuleClassProvider}
