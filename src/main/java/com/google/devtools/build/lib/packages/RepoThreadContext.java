@@ -14,8 +14,10 @@
 
 package com.google.devtools.build.lib.packages;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
+import java.util.Collection;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -23,8 +25,12 @@ import net.starlark.java.eval.StarlarkThread;
 /** Context object for a Starlark thread evaluating the REPO.bazel file. */
 public class RepoThreadContext extends StarlarkThreadContext {
   private final LabelConverter labelConverter;
+
   private PackageArgs packageArgs = PackageArgs.EMPTY;
   private boolean repoFunctionCalled = false;
+
+  private ImmutableList<String> ignoredDirectories;
+  private boolean ignoredDirectoriesSet = false;
 
   public static RepoThreadContext fromOrFail(StarlarkThread thread, String what)
       throws EvalException {
@@ -58,5 +64,18 @@ public class RepoThreadContext extends StarlarkThreadContext {
 
   public PackageArgs getPackageArgs() {
     return packageArgs;
+  }
+
+  public void setIgnoredDirectories(Collection<String> ignoredDirectories) throws EvalException {
+    if (ignoredDirectoriesSet) {
+      throw new EvalException("'ignored_directories()' can only be called once");
+    }
+
+    ignoredDirectoriesSet = true;
+    this.ignoredDirectories = ImmutableList.copyOf(ignoredDirectories);
+  }
+
+  public ImmutableList<String> getIgnoredDirectories() {
+    return ignoredDirectories;
   }
 }

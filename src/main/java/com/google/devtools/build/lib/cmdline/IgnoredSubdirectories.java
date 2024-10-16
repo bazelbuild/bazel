@@ -18,8 +18,13 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Splitter;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.ObjectArrays;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import com.google.devtools.build.lib.vfs.UnixGlob;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -29,34 +34,73 @@ import javax.annotation.Nullable;
  * <p>This is currently just a prefix, but will eventually support glob-style wildcards.
  */
 public final class IgnoredSubdirectories {
-  public static final IgnoredSubdirectories EMPTY = new IgnoredSubdirectories(ImmutableSet.of());
+  public static final IgnoredSubdirectories EMPTY = new IgnoredSubdirectories(
+      ImmutableSet.of(), ImmutableList.of(), ImmutableList.of());
+
+  private static final Splitter SLASH_SPLITTER = Splitter.on("/");
 
   private final ImmutableSet<PathFragment> prefixes;
 
-  private IgnoredSubdirectories(ImmutableSet<PathFragment> prefixes) {
-    for (PathFragment prefix : prefixes) {
-      Preconditions.checkArgument(!prefix.isAbsolute());
-    }
+  // String[] is mutable; we keep the split version because that's faster to match and the non-split
+  // one because that allows for simpler equality checking and then matchingEntry() doesn't need to
+  // allocate new objects.
+  private final ImmutableList<String> patterns;
+  private final ImmutableList<String[]> splitPatterns;
+
+  private IgnoredSubdirectories(
+      ImmutableSet<PathFragment> prefixes,
+      ImmutableList<String> patterns,
+      ImmutableList<String[]> splitPatterns) {
+    Preconditions.checkArgument(patterns.size() == splitPatterns.size());
+
     this.prefixes = prefixes;
+    this.patterns = patterns;
+    this.splitPatterns = splitPatterns;
   }
 
   public static IgnoredSubdirectories of(ImmutableSet<PathFragment> prefixes) {
-    if (prefixes.isEmpty()) {
+    return of(prefixes, ImmutableList.of());
+  }
+
+  public static IgnoredSubdirectories of(ImmutableSet<PathFragment> prefixes, ImmutableList<String> patterns) {
+    if (prefixes.isEmpty() && patterns.isEmpty()) {
       return EMPTY;
-    } else {
-      return new IgnoredSubdirectories(prefixes);
     }
+
+    for (PathFragment prefix : prefixes) {
+      Preconditions.checkArgument(!prefix.isAbsolute());
+    }
+
+    ImmutableList<String[]> splitPatterns = patterns.stream()
+        .map(p -> Iterables.toArray(SLASH_SPLITTER.split(p), String.class))
+        .collect(ImmutableList.toImmutableList());
+
+    return new IgnoredSubdirectories(prefixes, patterns, splitPatterns);
   }
 
   public IgnoredSubdirectories withPrefix(PathFragment prefix) {
-    ImmutableSet<PathFragment> prefixed =
+    Preconditions.checkArgument(!prefix.isAbsolute());
+
+    ImmutableSet<PathFragment> prefixedPrefixes =
         prefixes.stream().map(prefix::getRelative).collect(toImmutableSet());
-    return new IgnoredSubdirectories(prefixed);
+
+    ImmutableList<String> prefixedPatterns = patterns.stream()
+        .map(p -> prefix + "/" + p)
+        .collect(ImmutableList.toImmutableList());
+
+    String[] splitPrefix = Iterables.toArray(prefix.segments(), String.class);
+    ImmutableList<String[]> prefixedSplitPatterns = splitPatterns.stream()
+        .map(p -> ObjectArrays.concat(splitPrefix, p, String.class))
+        .collect(ImmutableList.toImmutableList());
+
+    return new IgnoredSubdirectories(prefixedPrefixes, prefixedPatterns, prefixedSplitPatterns);
   }
 
   public IgnoredSubdirectories union(IgnoredSubdirectories other) {
     return new IgnoredSubdirectories(
-        ImmutableSet.<PathFragment>builder().addAll(prefixes).addAll(other.prefixes).build());
+        ImmutableSet.<PathFragment>builder().addAll(prefixes).addAll(other.prefixes).build(),
+        ImmutableList.<String>builder().addAll(patterns).addAll(other.patterns).build(),
+        ImmutableList.<String[]>builder().addAll(splitPatterns).addAll(other.splitPatterns).build());
   }
 
   /** Filters out entries that cannot match anything under {@code directory}. */
@@ -64,7 +108,17 @@ public final class IgnoredSubdirectories {
     ImmutableSet<PathFragment> filteredPrefixes =
         prefixes.stream().filter(p -> p.startsWith(directory)).collect(toImmutableSet());
 
-    return new IgnoredSubdirectories(filteredPrefixes);
+    String[] directorySegments = Iterables.toArray(directory.segments(), String.class);
+
+    ImmutableList.Builder<String> filteredPatterns = ImmutableList.builder();
+    ImmutableList.Builder<String[]> filteredSplitPatterns = ImmutableList.builder();
+    for (int i = 0; i < patterns.size(); i++) {
+      if (UnixGlob.canMatchChild(splitPatterns.get(i), directorySegments)){
+        filteredPatterns.add(patterns.get(i));
+        filteredSplitPatterns.add(splitPatterns.get(i));
+      }
+    }
+    return new IgnoredSubdirectories(filteredPrefixes, filteredPatterns.build(), filteredSplitPatterns.build());
   }
 
   public ImmutableSet<PathFragment> prefixes() {
@@ -95,10 +149,17 @@ public final class IgnoredSubdirectories {
 
   /** Returns the entry that matches a given directory or {@code null} if none. */
   @Nullable
-  public PathFragment matchingEntry(PathFragment directory) {
+  public String matchingEntry(PathFragment directory) {
     for (PathFragment prefix : prefixes) {
       if (directory.startsWith(prefix)) {
-        return prefix;
+        return prefix.getPathString();
+      }
+    }
+
+    String[] segmentArray = Iterables.toArray(directory.segments(), String.class);
+    for (int i = 0; i < patterns.size(); i++) {
+      if (UnixGlob.matchesPrefix(splitPatterns.get(i), segmentArray)) {
+        return patterns.get(i);
       }
     }
 
@@ -111,17 +172,21 @@ public final class IgnoredSubdirectories {
       return false;
     }
 
+    // splitPatterns is a function of patterns so it's enough to check if patterns is equal
     IgnoredSubdirectories that = (IgnoredSubdirectories) other;
-    return Objects.equals(this.prefixes, that.prefixes);
+    return Objects.equals(this.prefixes, that.prefixes) && Objects.equals(this.patterns, that.patterns);
   }
 
   @Override
   public int hashCode() {
-    return prefixes.hashCode();
+    return Objects.hash(prefixes, patterns);
   }
 
   @Override
   public String toString() {
-    return MoreObjects.toStringHelper("IgnoredSubdirectories").add("prefixes", prefixes).toString();
+    return MoreObjects.toStringHelper("IgnoredSubdirectories")
+        .add("prefixes", prefixes)
+        .add("patterns", patterns)
+        .toString();
   }
 }
