@@ -29,9 +29,9 @@ public class IgnoredPackagePrefixesValueCodecTest {
   public void testCodec() throws Exception {
     new SerializationTester(
             IgnoredPackagePrefixesValue.of(ImmutableSet.<PathFragment>of()),
-            IgnoredPackagePrefixesValue.of(ImmutableSet.of(PathFragment.create("/foo"))),
+            IgnoredPackagePrefixesValue.of(ImmutableSet.of(PathFragment.create("foo"))),
             IgnoredPackagePrefixesValue.of(
-                ImmutableSet.of(PathFragment.create("/foo"), PathFragment.create("/bar/moo"))))
+                ImmutableSet.of(PathFragment.create("foo"), PathFragment.create("bar/moo"))))
         .runTests();
   }
 }

@@ -79,7 +79,8 @@ public class LocalDiffAwarenessTest extends BuildIntegrationTestCase {
         (LocalDiffAwareness)
             factory.maybeCreate(
                 Root.fromPath(testCaseRoot),
-                IgnoredSubdirectories.of(ImmutableSet.of(testCaseIgnoredDir.asFragment())),
+                IgnoredSubdirectories.of(
+                    ImmutableSet.of(testCaseIgnoredDir.asFragment().toRelative())),
                 watchFsEnabledProvider);
 
     // Ignore test failures when run on a Mac.

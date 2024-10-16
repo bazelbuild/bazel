@@ -437,7 +437,7 @@ public class SymlinkForest {
     // Create any links that don't start with bazel-, and ignore external/ directory if
     // user has it in the source tree because it conflicts with external repository location.
     return !baseName.startsWith(prefix)
-        && ignoredSubdirectories.matchingEntry(target.asFragment()) == null
+        && ignoredSubdirectories.matchingEntry(target.asFragment().toRelative()) == null
         && (siblingRepositoryLayout
             || !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName()));
   }

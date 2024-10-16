@@ -233,19 +233,19 @@ public class DiffAwarenessManagerTest {
 
     DiffAwareness.Factory factory = mock(DiffAwareness.Factory.class);
 
-    ModifiedFileSet diff1 = modifiedFileSet("/path/ignored-path-2/foo");
+    ModifiedFileSet diff1 = modifiedFileSet("path/ignored-path-2/foo");
     DiffAwareness diffAwareness1 = new DiffAwarenessStub(ImmutableList.of(diff1));
     when(factory.maybeCreate(
             pathEntry,
-            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("/path/ignored-path-1"))),
+            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("path/ignored-path-1"))),
             OptionsProvider.EMPTY))
         .thenReturn(diffAwareness1);
 
-    ModifiedFileSet diff2 = modifiedFileSet("/path/ignored-path-1/foo");
+    ModifiedFileSet diff2 = modifiedFileSet("path/ignored-path-1/foo");
     DiffAwareness diffAwareness2 = new DiffAwarenessStub(ImmutableList.of(diff2));
     when(factory.maybeCreate(
             pathEntry,
-            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("/path/ignored-path-2"))),
+            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("path/ignored-path-2"))),
             OptionsProvider.EMPTY))
         .thenReturn(diffAwareness2);
 
@@ -255,7 +255,7 @@ public class DiffAwarenessManagerTest {
         manager.getDiff(
             events.reporter(),
             pathEntry,
-            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("/path/ignored-path-1"))),
+            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("path/ignored-path-1"))),
             OptionsProvider.EMPTY);
     processedDiff1.markProcessed();
     assertThat(processedDiff1.getModifiedFileSet()).isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
@@ -263,7 +263,7 @@ public class DiffAwarenessManagerTest {
         manager.getDiff(
             events.reporter(),
             pathEntry,
-            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("/path/ignored-path-1"))),
+            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("path/ignored-path-1"))),
             OptionsProvider.EMPTY);
     processedDiff1.markProcessed();
     assertThat(processedDiff1.getModifiedFileSet()).isEqualTo(diff1);
@@ -272,7 +272,7 @@ public class DiffAwarenessManagerTest {
         manager.getDiff(
             events.reporter(),
             pathEntry,
-            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("/path/ignored-path-2"))),
+            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("path/ignored-path-2"))),
             OptionsProvider.EMPTY);
     processedDiff2.markProcessed();
     assertThat(processedDiff2.getModifiedFileSet()).isEqualTo(ModifiedFileSet.EVERYTHING_MODIFIED);
@@ -280,7 +280,7 @@ public class DiffAwarenessManagerTest {
         manager.getDiff(
             events.reporter(),
             pathEntry,
-            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("/path/ignored-path-2"))),
+            IgnoredSubdirectories.of(ImmutableSet.of(PathFragment.create("path/ignored-path-2"))),
             OptionsProvider.EMPTY);
     processedDiff2.markProcessed();
     assertThat(processedDiff2.getModifiedFileSet()).isEqualTo(diff2);

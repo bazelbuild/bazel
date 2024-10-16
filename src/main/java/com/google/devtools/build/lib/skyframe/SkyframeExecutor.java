@@ -3290,7 +3290,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
           ignoredPaths =
               ignoredPackagePrefixesValue
                   .asIgnoredSubdirectories()
-                  .withPrefix(pathEntry.asPath().asFragment());
+                  .withPrefix(pathEntry.asPath().asFragment().toRelative());
         }
 
         DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =
