@@ -57,41 +57,6 @@ public class ObjcStarlarkInternal implements StarlarkValue {
     return (T) obj;
   }
 
-  @StarlarkMethod(
-      name = "create_compilation_attributes",
-      documented = false,
-      parameters = {
-        @Param(name = "ctx", positional = false, named = true),
-      })
-  public CompilationAttributes createCompilationAttributes(StarlarkRuleContext starlarkRuleContext)
-      throws EvalException, InterruptedException {
-    CompilationAttributes.Builder builder = new CompilationAttributes.Builder();
-
-    CompilationAttributes.Builder.addHeadersFromRuleContext(
-        builder, starlarkRuleContext.getRuleContext());
-    CompilationAttributes.Builder.addIncludesFromRuleContext(
-        builder, starlarkRuleContext.getRuleContext());
-    CompilationAttributes.Builder.addSdkAttributesFromRuleContext(
-        builder, starlarkRuleContext.getRuleContext());
-    if (starlarkRuleContext.getRuleContext().attributes().has("copts")) {
-      Sequence<String> copts =
-          expandAndTokenize(
-              starlarkRuleContext,
-              "copts",
-              StarlarkList.immutableCopyOf(
-                  starlarkRuleContext
-                      .getRuleContext()
-                      .attributes()
-                      .get("copts", Types.STRING_LIST)));
-      CompilationAttributes.Builder.addCompileOptionsFromRuleContext(
-          builder, starlarkRuleContext.getRuleContext(), copts);
-    }
-    CompilationAttributes.Builder.addModuleOptionsFromRuleContext(
-        builder, starlarkRuleContext.getRuleContext());
-
-    return builder.build();
-  }
-
   /**
    * Run variable expansion and shell tokenization on a sequence of flags.
    *
