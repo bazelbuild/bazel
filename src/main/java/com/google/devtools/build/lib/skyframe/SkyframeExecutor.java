@@ -20,7 +20,6 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.devtools.build.lib.analysis.config.CommonOptions.EMPTY_OPTIONS;
 import static com.google.devtools.build.lib.concurrent.Uninterruptibles.callUninterruptibly;
 import static com.google.devtools.build.lib.skyframe.ArtifactConflictFinder.ACTION_CONFLICTS;
@@ -121,6 +120,7 @@ import com.google.devtools.build.lib.bazel.bzlmod.BzlmodRepoRuleValue;
 import com.google.devtools.build.lib.bazel.repository.RepositoryOptions;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.buildtool.BuildRequestOptions;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.Label.LabelInterner;
 import com.google.devtools.build.lib.cmdline.Label.PackageContext;
@@ -494,7 +494,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
   private Set<String> previousClientEnvironment = ImmutableSet.of();
 
   // Contain the paths in the .bazelignore file.
-  private ImmutableSet<Path> ignoredPaths = ImmutableSet.of();
+  private IgnoredSubdirectories ignoredPaths = IgnoredSubdirectories.EMPTY;
 
   Duration sourceDiffCheckingDuration = Duration.ofSeconds(-1L);
 
@@ -1402,7 +1402,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     return pkgLocator;
   }
 
-  public ImmutableSet<Path> getIgnoredPaths() {
+  public IgnoredSubdirectories getIgnoredPaths() {
     return ignoredPaths;
   }
 
@@ -3288,9 +3288,9 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             && workspacePath.equals(pathEntry.asPath())
             && ignoredPackagePrefixesValue != null) {
           ignoredPaths =
-              ignoredPackagePrefixesValue.getPatterns().stream()
-                  .map(pathEntry::getRelative)
-                  .collect(toImmutableSet());
+              ignoredPackagePrefixesValue
+                  .asIgnoredSubdirectories()
+                  .withPrefix(pathEntry.asPath().asFragment().toRelative());
         }
 
         DiffAwarenessManager.ProcessableModifiedFileSet modifiedFileSet =

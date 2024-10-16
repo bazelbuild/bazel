@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
 import com.google.common.collect.Sets;
 import com.google.common.flogger.GoogleLogger;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -387,7 +388,7 @@ public class SymlinkForest {
       Path execroot,
       Path sourceRoot,
       String prefix,
-      ImmutableSet<Path> ignoredPaths,
+      IgnoredSubdirectories ignoredPaths,
       boolean siblingRepositoryLayout)
       throws IOException {
     deleteTreesBelowNotPrefixed(execroot, prefix);
@@ -424,19 +425,19 @@ public class SymlinkForest {
   static boolean symlinkShouldBePlanted(
       String prefix, boolean siblingRepositoryLayout, String baseName, Path target) {
     return symlinkShouldBePlanted(
-        prefix, ImmutableSet.of(), siblingRepositoryLayout, baseName, target);
+        prefix, IgnoredSubdirectories.EMPTY, siblingRepositoryLayout, baseName, target);
   }
 
   public static boolean symlinkShouldBePlanted(
       String prefix,
-      ImmutableSet<Path> ignoredPaths,
+      IgnoredSubdirectories ignoredSubdirectories,
       boolean siblingRepositoryLayout,
       String baseName,
       Path target) {
     // Create any links that don't start with bazel-, and ignore external/ directory if
     // user has it in the source tree because it conflicts with external repository location.
     return !baseName.startsWith(prefix)
-        && !ignoredPaths.contains(target)
+        && ignoredSubdirectories.matchingEntry(target.asFragment().toRelative()) == null
         && (siblingRepositoryLayout
             || !baseName.equals(LabelConstants.EXTERNAL_PATH_PREFIX.getBaseName()));
   }

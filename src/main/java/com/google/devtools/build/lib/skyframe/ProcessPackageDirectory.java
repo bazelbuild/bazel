@@ -13,14 +13,13 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
@@ -60,7 +59,7 @@ public final class ProcessPackageDirectory {
     SkyKey makeSkyKey(
         RepositoryName repository,
         RootedPath subdirectory,
-        ImmutableSet<PathFragment> excludedSubdirectoriesBeneathSubdirectory);
+        IgnoredSubdirectories excludedSubdirectoriesBeneathSubdirectory);
   }
 
   private final BlazeDirectories directories;
@@ -81,7 +80,7 @@ public final class ProcessPackageDirectory {
   public ProcessPackageDirectoryResult getPackageExistenceAndSubdirDeps(
       RootedPath rootedPath,
       RepositoryName repositoryName,
-      ImmutableSet<PathFragment> excludedPaths,
+      IgnoredSubdirectories excludedPaths,
       SkyFunction.Environment env)
       throws InterruptedException, ProcessPackageDirectorySkyFunctionException {
     PathFragment rootRelativePath = rootedPath.getRootRelativePath();
@@ -263,7 +262,7 @@ public final class ProcessPackageDirectory {
       DirectoryListingValue dirListingValue,
       RootedPath rootedPath,
       RepositoryName repositoryName,
-      ImmutableSet<PathFragment> excludedPaths,
+      IgnoredSubdirectories excludedPaths,
       boolean siblingRepositoryLayout) {
     Root root = rootedPath.getRoot();
     PathFragment rootRelativePath = rootedPath.getRootRelativePath();
@@ -290,7 +289,7 @@ public final class ProcessPackageDirectory {
       }
 
       // If this subdirectory is one of the excluded paths, don't recurse into it.
-      if (excludedPaths.contains(subdirectory)) {
+      if (excludedPaths.matchingEntry(subdirectory) != null) {
         continue;
       }
 
@@ -298,7 +297,7 @@ public final class ProcessPackageDirectory {
           skyKeyTransformer.makeSkyKey(
               repositoryName,
               RootedPath.toRootedPath(root, subdirectory),
-              getExcludedSubdirectoriesBeneathSubdirectory(subdirectory, excludedPaths)));
+              excludedPaths.filterForDirectory(subdirectory)));
     }
     return childDeps;
   }
@@ -317,11 +316,9 @@ public final class ProcessPackageDirectory {
    * <p>TODO(bazel-team): Replace the excludedPaths set with a trie or a SortedSet for better
    * efficiency.
    */
-  public static ImmutableSet<PathFragment> getExcludedSubdirectoriesBeneathSubdirectory(
-      PathFragment subdirectory, ImmutableSet<PathFragment> excludedPaths) {
-    return excludedPaths.stream()
-        .filter(pathFragment -> pathFragment.startsWith(subdirectory))
-        .collect(toImmutableSet());
+  public static IgnoredSubdirectories getExcludedSubdirectoriesBeneathSubdirectory(
+      PathFragment subdirectory, IgnoredSubdirectories excludedPaths) {
+    return excludedPaths.filterForDirectory(subdirectory);
   }
 
   private static ProcessPackageDirectoryResult reportErrorAndReturn(

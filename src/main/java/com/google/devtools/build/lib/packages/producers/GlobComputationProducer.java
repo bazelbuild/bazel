@@ -20,6 +20,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
 import com.google.devtools.build.lib.packages.Globber;
 import com.google.devtools.build.lib.skyframe.GlobDescriptor;
@@ -75,16 +76,16 @@ public final class GlobComputationProducer implements StateMachine, FragmentProd
 
   // -------------------- Internal State --------------------
   private final ImmutableSet.Builder<PathFragment> pathFragmentsWithPackageFragment;
-  private final ImmutableSet<PathFragment> ignoredPackagePrefixPatterns;
+  private final IgnoredSubdirectories ignoredSubdirectories;
   private final ConcurrentHashMap<String, Pattern> regexPatternCache;
 
   public GlobComputationProducer(
       GlobDescriptor globDescriptor,
-      ImmutableSet<PathFragment> ignoredPackagePrefixPatterns,
+      IgnoredSubdirectories ignoredSubdirectories,
       ConcurrentHashMap<String, Pattern> regexPatternCache,
       ResultSink resultSink) {
     this.globDescriptor = globDescriptor;
-    this.ignoredPackagePrefixPatterns = ignoredPackagePrefixPatterns;
+    this.ignoredSubdirectories = ignoredSubdirectories;
     this.regexPatternCache = regexPatternCache;
     this.resultSink = resultSink;
     this.pathFragmentsWithPackageFragment = ImmutableSet.builder();
@@ -92,7 +93,7 @@ public final class GlobComputationProducer implements StateMachine, FragmentProd
 
   @Override
   public StateMachine step(Tasks tasks) {
-    Preconditions.checkNotNull(ignoredPackagePrefixPatterns);
+    Preconditions.checkNotNull(ignoredSubdirectories);
     ImmutableList<String> patterns =
         ImmutableList.copyOf(Splitter.on('/').split(globDescriptor.getPattern()));
     GlobDetail globDetail =
@@ -101,7 +102,7 @@ public final class GlobComputationProducer implements StateMachine, FragmentProd
             globDescriptor.getPackageRoot(),
             patterns,
             /* containsMultipleDoubleStars= */ Collections.frequency(patterns, "**") > 1,
-            ignoredPackagePrefixPatterns,
+            ignoredSubdirectories,
             regexPatternCache,
             globDescriptor.globberOperation());
     Set<Pair<PathFragment, Integer>> visitedGlobSubTasks = null;
@@ -156,7 +157,7 @@ public final class GlobComputationProducer implements StateMachine, FragmentProd
         Root packageRoot,
         ImmutableList<String> patternFragments,
         boolean containsMultipleDoubleStars,
-        ImmutableSet<PathFragment> ignoredPackagePrefixesPatterns,
+        IgnoredSubdirectories ignoredPackagePrefixesPatterns,
         ConcurrentHashMap<String, Pattern> regexPatternCache,
         Globber.Operation globOperation) {
       return new AutoValue_GlobComputationProducer_GlobDetail(
@@ -183,7 +184,7 @@ public final class GlobComputationProducer implements StateMachine, FragmentProd
      */
     abstract boolean containsMultipleDoubleStars();
 
-    abstract ImmutableSet<PathFragment> ignoredPackagePrefixesPatterns();
+    abstract IgnoredSubdirectories ignoredSubdirectories();
 
     abstract ConcurrentHashMap<String, Pattern> regexPatternCache();
 

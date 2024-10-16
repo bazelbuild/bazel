@@ -27,6 +27,7 @@ import com.google.devtools.build.lib.analysis.RuleDefinition;
 import com.google.devtools.build.lib.bazel.bzlmod.NonRegistryOverride;
 import com.google.devtools.build.lib.bazel.repository.RepositoryResolvedEvent;
 import com.google.devtools.build.lib.bazel.repository.downloader.DownloadManager;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
@@ -52,7 +53,6 @@ import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.RepositoryMappingValue;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.build.skyframe.SkyFunction.Environment;
 import com.google.devtools.build.skyframe.SkyFunctionException.Transience;
@@ -222,7 +222,8 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
     if (env.valuesMissing()) {
       return null;
     }
-    ImmutableSet<PathFragment> ignoredPatterns = checkNotNull(ignoredPackagesValue).getPatterns();
+    IgnoredSubdirectories ignoredSubdirectories =
+        checkNotNull(ignoredPackagesValue).asIgnoredSubdirectories();
 
     Map<RepoRecordedInput, String> recordedInputValues = new LinkedHashMap<>();
     try (Mutability mu = Mutability.create("Starlark repository");
@@ -231,7 +232,7 @@ public final class StarlarkRepositoryFunction extends RepositoryFunction {
                 rule,
                 packageLocator,
                 outputDirectory,
-                ignoredPatterns,
+                ignoredSubdirectories,
                 env,
                 ImmutableMap.copyOf(clientEnvironment),
                 downloadManager,

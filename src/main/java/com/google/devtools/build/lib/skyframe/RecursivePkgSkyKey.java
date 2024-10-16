@@ -14,18 +14,15 @@
 
 package com.google.devtools.build.lib.skyframe;
 
-import com.google.common.collect.ImmutableSet;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.SkyKey;
 
 /** Common parent class of SkyKeys that wrap a {@link RecursivePkgKey}. */
 public abstract class RecursivePkgSkyKey extends RecursivePkgKey implements SkyKey {
   public RecursivePkgSkyKey(
-      RepositoryName repositoryName,
-      RootedPath rootedPath,
-      ImmutableSet<PathFragment> excludedPaths) {
+      RepositoryName repositoryName, RootedPath rootedPath, IgnoredSubdirectories excludedPaths) {
     super(repositoryName, rootedPath, excludedPaths);
   }
 

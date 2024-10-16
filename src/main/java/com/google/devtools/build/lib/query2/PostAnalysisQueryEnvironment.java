@@ -33,6 +33,7 @@ import com.google.devtools.build.lib.analysis.TargetAndConfiguration;
 import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
 import com.google.devtools.build.lib.analysis.configuredtargets.OutputFileConfiguredTarget;
 import com.google.devtools.build.lib.analysis.configuredtargets.RuleConfiguredTarget;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.cmdline.TargetParsingException;
@@ -77,7 +78,6 @@ import com.google.devtools.build.lib.skyframe.SimplePackageIdentifierBatchingCal
 import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.supplier.InterruptibleSupplier;
-import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyKey;
 import com.google.devtools.build.skyframe.SkyValue;
 import com.google.devtools.build.skyframe.WalkableGraph;
@@ -258,15 +258,15 @@ public abstract class PostAnalysisQueryEnvironment<T> extends AbstractBlazeQuery
 
   protected abstract boolean isAliasConfiguredTarget(T target);
 
-  public InterruptibleSupplier<ImmutableSet<PathFragment>> getIgnoredPackagePrefixesPathFragments(
+  public InterruptibleSupplier<IgnoredSubdirectories> getIgnoredPackagePrefixesPathFragments(
       RepositoryName repositoryName) {
     return () -> {
       IgnoredPackagePrefixesValue ignoredPackagePrefixesValue =
           (IgnoredPackagePrefixesValue)
               walkableGraphSupplier.get().getValue(IgnoredPackagePrefixesValue.key(repositoryName));
       return ignoredPackagePrefixesValue == null
-          ? ImmutableSet.of()
-          : ignoredPackagePrefixesValue.getPatterns();
+          ? IgnoredSubdirectories.EMPTY
+          : ignoredPackagePrefixesValue.asIgnoredSubdirectories();
     };
   }
 

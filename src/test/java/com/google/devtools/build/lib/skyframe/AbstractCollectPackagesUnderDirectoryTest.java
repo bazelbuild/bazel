@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ServerDirectories;
 import com.google.devtools.build.lib.bugreport.BugReporter;
 import com.google.devtools.build.lib.clock.BlazeClock;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.Reporter;
@@ -351,7 +352,7 @@ public abstract class AbstractCollectPackagesUnderDirectoryTest {
       String directory, ImmutableSet<PathFragment> excludedPaths) throws InterruptedException {
     SkyKey key =
         CollectPackagesUnderDirectoryValue.key(
-            RepositoryName.MAIN, rootedPath(directory), excludedPaths);
+            RepositoryName.MAIN, rootedPath(directory), IgnoredSubdirectories.of(excludedPaths));
     return evaluate(key).get(key);
   }
 

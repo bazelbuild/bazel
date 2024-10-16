@@ -16,6 +16,7 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Uninterruptibles;
+import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.concurrent.QuiescingExecutor;
 import com.google.devtools.build.lib.packages.producers.GlobComputationProducer;
@@ -73,7 +74,7 @@ public final class GlobsFunction implements SkyFunction {
 
   private static class State implements SkyKeyComputeState, GlobComputationProducer.ResultSink {
     @Nullable private List<Driver> globDrivers;
-    @Nullable ImmutableSet<PathFragment> ignorePackagePrefixesPatterns;
+    @Nullable IgnoredSubdirectories ignoredSubdirectories;
 
     private final Set<PathFragment> matchings = Sets.newConcurrentHashSet();
     private volatile GlobError error;
@@ -109,7 +110,7 @@ public final class GlobsFunction implements SkyFunction {
     GlobsValue.Key globsKey = (GlobsValue.Key) skyKey;
     State state = env.getState(State::new);
 
-    if (state.ignorePackagePrefixesPatterns == null) {
+    if (state.ignoredSubdirectories == null) {
       RepositoryName repositoryName = globsKey.getPackageIdentifier().getRepository();
       IgnoredPackagePrefixesValue ignoredPackagePrefixes =
           (IgnoredPackagePrefixesValue)
@@ -117,7 +118,7 @@ public final class GlobsFunction implements SkyFunction {
       if (env.valuesMissing()) {
         return null;
       }
-      state.ignorePackagePrefixesPatterns = ignoredPackagePrefixes.getPatterns();
+      state.ignoredSubdirectories = ignoredPackagePrefixes.asIgnoredSubdirectories();
     }
 
     if (state.globDrivers == null) {
@@ -135,10 +136,7 @@ public final class GlobsFunction implements SkyFunction {
         state.globDrivers.add(
             new Driver(
                 new GlobComputationProducer(
-                    globDescriptor,
-                    state.ignorePackagePrefixesPatterns,
-                    regexPatternCache,
-                    state)));
+                    globDescriptor, state.ignoredSubdirectories, regexPatternCache, state)));
       }
     }
 

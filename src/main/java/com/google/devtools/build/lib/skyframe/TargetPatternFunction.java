@@ -58,7 +58,6 @@ public class TargetPatternFunction implements SkyFunction {
     if (ignoredPackagePrefixes == null) {
       return null;
     }
-    ImmutableSet<PathFragment> ignoredPatterns = ignoredPackagePrefixes.getPatterns();
 
     ResolvedTargets<Target> resolvedTargets;
     EnvironmentBackedRecursivePackageProvider provider =
@@ -91,7 +90,7 @@ public class TargetPatternFunction implements SkyFunction {
       try {
         parsedPattern.eval(
             resolver,
-            () -> ignoredPatterns,
+            () -> ignoredPackagePrefixes.asIgnoredSubdirectories(),
             excludedSubdirectories,
             callback,
             QueryExceptionMarkerInterface.MarkerRuntimeException.class);
