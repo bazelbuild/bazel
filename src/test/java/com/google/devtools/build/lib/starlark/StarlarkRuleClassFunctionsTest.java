@@ -2898,6 +2898,112 @@ public final class StarlarkRuleClassFunctionsTest extends BuildViewTestCase {
 
   @Test
   @SuppressWarnings("unchecked")
+  public void stringKeyedLabelDictWithSplitConfiguration() throws Exception {
+    scratch.file(
+        "embedded_tools/tools/allowlists/function_transition_allowlist/BUILD",
+        "package_group(",
+        "    name = 'function_transition_allowlist',",
+        "    packages = [",
+        "        'public',",
+        "    ],",
+        ")");
+
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":a.bzl", "a")
+        a(name="a", dict={"foo_key": ":foo", "gen_key": ":gen"})
+
+        filegroup(name="foo", srcs=["foo.txt"])
+        genrule(name="gen", srcs=[], outs=["gen.txt"], cmd="exit 1")
+        """);
+
+    scratch.file(
+        "a/a.bzl",
+        """
+        DictInfo = provider(fields=["dict"])
+
+        def _a_impl(ctx):
+            return [DictInfo(dict = ctx.split_attr.dict)]
+
+        def _trans_impl(settings, attr):
+          return {
+            "fastbuild_key": {"//command_line_option:compilation_mode": "fastbuild"},
+            "dbg_key": {"//command_line_option:compilation_mode": "dbg"},
+          }
+
+        trans = transition(
+            implementation = _trans_impl,
+            inputs = [],
+            outputs = ["//command_line_option:compilation_mode"])
+
+        a = rule(
+            implementation=_a_impl,
+            attrs={"dict": attr.string_keyed_label_dict(cfg=trans)})
+        """);
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    StructImpl info =
+        (StructImpl)
+            a.get(
+                new StarlarkProvider.Key(
+                    Label.parseCanonical("//a:a.bzl"), "DictInfo"));
+    Map<String, Map<String, ConfiguredTarget>> dict =
+        (Map<String, Map<String, ConfiguredTarget>>) info.getValue("dict");
+    assertThat(dict.keySet()).containsExactly("fastbuild_key", "dbg_key");
+    Map<String, ConfiguredTarget> fastbuild = dict.get("fastbuild_key");
+    Map<String, ConfiguredTarget> dbg = dict.get("dbg_key");
+    assertThat(fastbuild.keySet()).containsExactly("foo_key", "gen_key");
+    assertThat(dbg.keySet()).containsExactly("foo_key", "gen_key");
+
+    assertThat(getFilesToBuild(fastbuild.get("foo_key")).getSingleton().getExecPathString())
+        .isEqualTo("a/foo.txt");
+    assertThat(getFilesToBuild(dbg.get("foo_key")).getSingleton().getExecPathString())
+        .isEqualTo("a/foo.txt");
+    assertThat(getFilesToBuild(fastbuild.get("gen_key")).getSingleton().getExecPathString())
+        .endsWith("-fastbuild/bin/a/gen.txt");
+    assertThat(getFilesToBuild(dbg.get("gen_key")).getSingleton().getExecPathString())
+        .endsWith("-dbg/bin/a/gen.txt");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void stringKeyedLabelDict() throws Exception {
+    scratch.file(
+        "a/BUILD",
+        """
+        load(":a.bzl", "a")
+        a(name="a", dict={"foo_key": ":foo", "gen_key": ":gen"})
+
+        filegroup(name="foo", srcs=["foo.txt"])
+        genrule(name="gen", srcs=[], outs=["gen.txt"], cmd="exit 1")
+        """);
+
+    scratch.file(
+        "a/a.bzl",
+        """
+        DictInfo = provider(fields=["dict"])
+
+        def _a_impl(ctx):
+            return [DictInfo(dict = ctx.attr.dict)]
+
+        a = rule(implementation=_a_impl, attrs={"dict": attr.string_keyed_label_dict()})
+        """);
+
+    ConfiguredTarget a = getConfiguredTarget("//a:a");
+    StructImpl info =
+        (StructImpl)
+            a.get(
+                new StarlarkProvider.Key(
+                    Label.parseCanonical("//a:a.bzl"), "DictInfo"));
+    Map<String, ConfiguredTarget> dict = (Map<String, ConfiguredTarget>) info.getValue("dict");
+    assertThat(dict.keySet()).containsExactly("foo_key", "gen_key");
+    assertThat(dict.get("foo_key").getLabel()).isEqualTo(Label.parseCanonicalUnchecked("//a:foo"));
+    assertThat(dict.get("gen_key").getLabel()).isEqualTo(Label.parseCanonicalUnchecked("//a:gen"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
   public void initializer_labelKeyedStringDict() throws Exception {
     scratch.file(
         "BUILD", //
