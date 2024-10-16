@@ -924,6 +924,57 @@ public final class StarlarkAttrModule implements StarlarkAttrModuleApi {
   }
 
   @Override
+  public Descriptor stringKeyedLabelDictAttribute(
+      Boolean allowEmpty,
+      Object configurable,
+      Object defaultValue, // Dict | StarlarkFunction
+      Object doc,
+      Object allowFiles,
+      Object allowRules,
+      Sequence<?> providers,
+      Object forDependencyResolution,
+      Sequence<?> flags,
+      Boolean mandatory,
+      Object cfg,
+      Sequence<?> aspects,
+      StarlarkThread thread)
+      throws EvalException {
+    checkContext(thread, "attr.label_keyed_string_dict()");
+    Map<String, Object> kwargs =
+        optionMap(
+            CONFIGURABLE_ARG,
+            configurable,
+            DEFAULT_ARG,
+            defaultValue,
+            ALLOW_FILES_ARG,
+            allowFiles,
+            ALLOW_RULES_ARG,
+            allowRules,
+            PROVIDERS_ARG,
+            providers,
+            FOR_DEPENDENCY_RESOLUTION_ARG,
+            forDependencyResolution,
+            FLAGS_ARG,
+            flags,
+            MANDATORY_ARG,
+            mandatory,
+            ALLOW_EMPTY_ARG,
+            allowEmpty,
+            CONFIGURATION_ARG,
+            cfg,
+            ASPECTS_ARG,
+            aspects);
+    ImmutableAttributeFactory attribute =
+        createAttributeFactory(
+            BuildType.LABEL_DICT_UNARY,
+            Starlark.toJavaOptional(doc, String.class),
+            kwargs,
+            thread,
+            "string_keyed_label_dict");
+    return new Descriptor("string_keyed_label_dict", attribute);
+  }
+
+  @Override
   public Descriptor labelKeyedStringDictAttribute(
       Boolean allowEmpty,
       Object configurable,
