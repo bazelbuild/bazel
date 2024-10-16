@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import com.google.common.collect.ImmutableList;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.cmdline.LabelConstants;
 import com.google.devtools.build.lib.cmdline.PackageIdentifier;
@@ -87,7 +88,7 @@ public class RepoFileFunction implements SkyFunction {
     }
     if (!repoFileValue.exists()) {
       // It's okay to not have a REPO.bazel file.
-      return RepoFileValue.of(PackageArgs.EMPTY);
+      return RepoFileValue.of(PackageArgs.EMPTY, ImmutableList.of());
     }
 
     // Now we can actually evaluate the file.
@@ -100,7 +101,7 @@ public class RepoFileFunction implements SkyFunction {
       return null;
     }
     StarlarkFile repoFile = readAndParseRepoFile(repoFilePath.asPath(), env);
-    PackageArgs packageArgs =
+    RepoFileValue result =
         evalRepoFile(
             repoFile,
             repoName,
@@ -109,7 +110,7 @@ public class RepoFileFunction implements SkyFunction {
             starlarkSemantics,
             env.getListener());
 
-    return RepoFileValue.of(packageArgs);
+    return result;
   }
 
   private static StarlarkFile readAndParseRepoFile(Path path, Environment env)
@@ -140,7 +141,7 @@ public class RepoFileFunction implements SkyFunction {
     return displayName;
   }
 
-  private PackageArgs evalRepoFile(
+  private RepoFileValue evalRepoFile(
       StarlarkFile starlarkFile,
       RepositoryName repoName,
       RepositoryMapping repoMapping,
@@ -168,7 +169,7 @@ public class RepoFileFunction implements SkyFunction {
               mainRepoMapping);
       context.storeInThread(thread);
       Starlark.execFileProgram(program, predeclared, thread);
-      return context.getPackageArgs();
+      return RepoFileValue.of(context.getPackageArgs(), context.getIgnoredDirectories());
     } catch (SyntaxError.Exception e) {
       Event.replayEventsOn(handler, e.errors());
       throw new RepoFileFunctionException(

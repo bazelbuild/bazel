@@ -134,7 +134,9 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
       }
     }
 
-    return IgnoredPackagePrefixesValue.of(ignoredPackagePrefixesBuilder.build(), ImmutableList.of());
+    return IgnoredPackagePrefixesValue.of(
+        ignoredPackagePrefixesBuilder.build(),
+        repoFileValue.ignoredDirectories());
   }
 
   private static final class PathFragmentLineProcessor

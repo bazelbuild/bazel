@@ -29,7 +29,7 @@ public class RepoThreadContext extends StarlarkThreadContext {
   private PackageArgs packageArgs = PackageArgs.EMPTY;
   private boolean repoFunctionCalled = false;
 
-  private ImmutableList<String> ignoredDirectories;
+  private ImmutableList<String> ignoredDirectories = ImmutableList.of();
   private boolean ignoredDirectoriesSet = false;
 
   public static RepoThreadContext fromOrFail(StarlarkThread thread, String what)

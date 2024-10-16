@@ -217,4 +217,37 @@ test_invalid_path() {
     expect_log "java.nio.file.InvalidPathException: Nul character not allowed"
 }
 
+test_wildcards_in_repo_bazel() {
+  rm -rf work && mkdir work && cd work
+  setup_module_dot_bazel
+  cat >REPO.bazel <<'EOF'
+ignore_directories(["**/sub", "foo/bar/.dot/*"])
+EOF
+
+  for pkg in foo foo/sub foo/sub/subsub foo/bar/.dot/pkg foo/notsub foo/bar/.dot; do
+    mkdir -p "$pkg"
+    echo 'filegroup(name="fg")' > "$pkg/BUILD.bazel"
+  done
+
+  bazel query //foo/... > "$TEST_TMPDIR/targets"
+  assert_not_contains "//foo/sub:fg" "$TEST_TMPDIR/targets"
+  assert_not_contains "//foo/sub/subsub:fg" "$TEST_TMPDIR/targets"
+  assert_not_contains "//foo/bar/.dot/pkg:fg" "$TEST_TMPDIR/targets"
+  assert_contains "//foo/notsub:fg" "$TEST_TMPDIR/targets"
+}
+
+test_syntax_error_in_repo_bazel() {
+  rm -rf work && mkdir work && cd work
+  setup_module_dot_bazel
+  cat >REPO.bazel <<'EOF'
+SYNTAX ERROR
+EOF
+
+  touch BUILD.bazel
+  bazel query //:all && fail "failure expected"
+  if [[ $? != 1 ]]; then
+    fail "expected a simple failure"
+  fi
+}
+
 run_suite "Integration tests for .bazelignore"
