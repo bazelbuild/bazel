@@ -53,8 +53,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-add_to_bazelrc "test --notest_loasd"
-
 #### HELPER FUNCTIONS ##################################################
 
 function write_py_files() {
@@ -195,32 +193,28 @@ function test_script_file_generation {
 }
 
 function test_consistent_command_line_encoding {
-  # todo(aehlig): reenable: https://github.com/bazelbuild/bazel/issues/1775
-  return 0
-
-  # TODO(bazel-team): fix bazel to have consistent encoding, also on darwin;
-  # see https://github.com/bazelbuild/bazel/issues/1766
-  [ "$PLATFORM" != "darwin" ] || warn "test disabled on darwin, see Github issue 1766"
-  [ "$PLATFORM" != "darwin" ] || return 0
-
   # äöüÄÖÜß in UTF8
   local arg=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
 
   mkdir -p foo || fail "mkdir foo failed"
   echo 'sh_binary(name = "foo", srcs = ["foo.sh"])' > foo/BUILD
   echo 'sh_test(name = "foo_test", srcs = ["foo.sh"])' >> foo/BUILD
-  echo 'test "$1" = "'"$arg"'"' > foo/foo.sh
+  cat > foo/foo.sh <<EOF
+echo "got : \$1"
+echo "want: $arg"
+test "\$1" = '$arg'
+EOF
   chmod +x foo/foo.sh
 
   bazel run //foo -- "$arg" > output \
     || fail "${PRODUCT_NAME} run failed."
 
-  bazel test //foo:foo_test --test_arg="$arg" \
+  bazel test //foo:foo_test --test_arg="$arg" --test_output=errors \
     || fail "${PRODUCT_NAME} test failed"
 
   bazel --batch run //foo -- "$arg" > output \
     || fail "${PRODUCT_NAME} run failed (--batch)."
-  bazel --batch test //foo:foo_test --test_arg="$arg" \
+  bazel --batch test //foo:foo_test --test_arg="$arg" --test_output=errors \
     || fail "${PRODUCT_NAME} test failed (--batch)"
 }
 
