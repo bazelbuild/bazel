@@ -132,6 +132,32 @@ public class FakeStarlarkAttrModuleApi implements StarlarkAttrModuleApi {
   }
 
   @Override
+  public Descriptor stringKeyedLabelDictAttribute(
+      Boolean allowEmpty,
+      Object defaultList,
+      Object doc,
+      Object allowFiles,
+      Object allowRules,
+      Sequence<?> providers,
+      Sequence<?> flags,
+      Boolean mandatory,
+      Object cfg,
+      Sequence<?> aspects,
+      StarlarkThread thread)
+      throws EvalException {
+    List<List<String>> allNameGroups = new ArrayList<>();
+    if (providers != null) {
+      allNameGroups = allProviderNameGroups(providers, thread);
+    }
+    return new FakeDescriptor(
+        AttributeType.LABEL_DICT_UNARY,
+        toTrimmedString(doc),
+        mandatory,
+        allNameGroups,
+        defaultList);
+  }
+
+  @Override
   public Descriptor labelKeyedStringDictAttribute(
       Boolean allowEmpty,
       Object defaultList,

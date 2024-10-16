@@ -36,6 +36,7 @@ import com.google.devtools.build.lib.analysis.AliasProvider;
 import com.google.devtools.build.lib.analysis.BashCommandConstructor;
 import com.google.devtools.build.lib.analysis.CommandHelper;
 import com.google.devtools.build.lib.analysis.ConfigurationMakeVariableContext;
+import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.FileProvider;
 import com.google.devtools.build.lib.analysis.FilesToRunProvider;
 import com.google.devtools.build.lib.analysis.LocationExpander;
@@ -524,6 +525,16 @@ public final class StarlarkRuleContext
         if (attr.getType() == BuildType.LABEL) {
           Preconditions.checkState(splitPrereq.getValue().size() == 1);
           value = splitPrereq.getValue().get(0).getConfiguredTarget();
+        } else if (attr.getType() == BuildType.LABEL_DICT_UNARY) {
+          ImmutableList<ConfiguredTarget> prerequisites =
+              splitPrereq.getValue().stream()
+                  .map(ConfiguredTargetAndData::getConfiguredTarget)
+                  .collect(ImmutableList.toImmutableList());
+
+          value =
+              StarlarkAttributesCollection.Builder.convertStringToLabelMap(
+                  ruleContext.attributes().get(attr.getName(), BuildType.LABEL_DICT_UNARY),
+                  prerequisites);
         } else {
           // BuildType.LABEL_LIST
           value =
@@ -862,7 +873,7 @@ public final class StarlarkRuleContext
     } else {
       return StarlarkToolchainContext.create(
           /* targetDescription= */ ruleContext.getToolchainContext().targetDescription(),
-          /* resolveToolchainInfoFunc= */ ruleContext.getToolchainContext()::forToolchainType,
+          /* resolveToolchainDataFunc= */ ruleContext.getToolchainContext()::forToolchainType,
           /* resolvedToolchainTypeLabels= */ ruleContext
               .getToolchainContext()
               .requestedToolchainTypeLabels()
