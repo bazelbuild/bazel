@@ -307,7 +307,8 @@ public final class WatchServiceDiffAwareness extends LocalDiffAwareness {
     @Override
     public FileVisitResult preVisitDirectory(Path path, BasicFileAttributes attrs)
         throws IOException {
-      PathFragment pathFragment = PathFragment.create(path.toAbsolutePath().toString());
+      PathFragment pathFragment =
+          PathFragment.create(path.toAbsolutePath().toString()).toRelative();
       if (ignoredPaths.matchingEntry(pathFragment) != null) {
         return FileVisitResult.SKIP_SUBTREE;
       }

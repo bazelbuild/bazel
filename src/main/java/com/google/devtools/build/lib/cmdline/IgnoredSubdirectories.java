@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.cmdline;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.base.MoreObjects;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.util.Objects;
@@ -33,6 +34,9 @@ public final class IgnoredSubdirectories {
   private final ImmutableSet<PathFragment> prefixes;
 
   private IgnoredSubdirectories(ImmutableSet<PathFragment> prefixes) {
+    for (PathFragment prefix : prefixes) {
+      Preconditions.checkArgument(!prefix.isAbsolute());
+    }
     this.prefixes = prefixes;
   }
 
@@ -68,7 +72,7 @@ public final class IgnoredSubdirectories {
   }
 
   public boolean isEmpty() {
-    return this == EMPTY;
+    return this.prefixes.isEmpty();
   }
 
   /**
