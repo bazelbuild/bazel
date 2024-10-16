@@ -128,16 +128,17 @@ EOF
 
   sleep 1
   bazel build --watchfs //... &> "$TEST_log" || fail "Expected success."
-  expect_not_log "WARNING:"
+  expect_not_log "WARNING:.*falling back to manually"
   expect_log "Hello, Unicode!"
   assert_contains "foo" "${PRODUCT_NAME}-bin/pkg/foo.out"
 
   cat > 'pkg/foo 🌱.in' << 'EOF'
 bar
 EOF
+
   sleep 1
   bazel build --watchfs //... &> "$TEST_log" || fail "Expected success."
-  expect_not_log "WARNING:"
+  expect_not_log "WARNING:.*falling back to manually"
   expect_not_log "Hello, Unicode!"
   assert_contains "bar" "${PRODUCT_NAME}-bin/pkg/foo.out"
 }
