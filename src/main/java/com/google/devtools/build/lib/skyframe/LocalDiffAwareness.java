@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.util.OS;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -104,12 +105,14 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
           return null;
         }
       }
+      String resolvedPath =
+          StringUtil.reencodeInternalToJava(resolvedPathEntryFragment.getPathString());
       // On OSX uses FsEvents due to https://bugs.openjdk.java.net/browse/JDK-7133447
       if (OS.getCurrent() == OS.DARWIN) {
-        return new MacOSXFsEventsDiffAwareness(resolvedPathEntryFragment.toString());
+        return new MacOSXFsEventsDiffAwareness(resolvedPath);
       }
 
-      return new WatchServiceDiffAwareness(resolvedPathEntryFragment.toString(), ignoredPaths);
+      return new WatchServiceDiffAwareness(resolvedPath, ignoredPaths);
     }
   }
 
@@ -203,7 +206,8 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
             String.format("%s is not under %s", modifiedPath, watchRootPath));
       }
       PathFragment relativePath =
-          PathFragment.create(watchRootPath.relativize(modifiedPath).toString());
+          PathFragment.create(
+              StringUtil.reencodeJavaToInternal(watchRootPath.relativize(modifiedPath).toString()));
       if (!relativePath.isEmpty()) {
         resultBuilder.modify(relativePath);
       }
