@@ -169,7 +169,7 @@ public class ParameterFile {
     StringUnsafe stringUnsafe = StringUnsafe.getInstance();
     for (String line : arguments) {
       byte[] bytes = stringUnsafe.getByteArray(line);
-      if (!StringUtil.reencodeInternalToExternal(line).equals(line)) {
+      if (!StringUtil.reencodeInternalToUtf8(line).equals(line)) {
         // We successfully decoded line from utf8 - meaning it was already encoded as utf8.
         // We do not want to double-encode.
         outputStream.write(bytes);
