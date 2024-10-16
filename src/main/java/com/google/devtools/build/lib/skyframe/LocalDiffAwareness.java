@@ -30,7 +30,6 @@ import com.google.devtools.common.options.OptionEffectTag;
 import com.google.devtools.common.options.OptionsBase;
 import com.google.devtools.common.options.OptionsProvider;
 import java.io.IOException;
-import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -105,14 +104,14 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
           return null;
         }
       }
-      String resolvedPath =
-          StringUtil.reencodeInternalToJava(resolvedPathEntryFragment.getPathString());
+      Path watchRoot =
+          Path.of(StringUtil.reencodeInternalToJava(resolvedPathEntryFragment.getPathString()));
       // On OSX uses FsEvents due to https://bugs.openjdk.java.net/browse/JDK-7133447
       if (OS.getCurrent() == OS.DARWIN) {
-        return new MacOSXFsEventsDiffAwareness(resolvedPath);
+        return new MacOSXFsEventsDiffAwareness(watchRoot);
       }
 
-      return new WatchServiceDiffAwareness(resolvedPath, ignoredPaths);
+      return new WatchServiceDiffAwareness(watchRoot, ignoredPaths);
     }
   }
 
@@ -135,10 +134,10 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
   private int numGetCurrentViewCalls = 0;
 
   /** Root directory to watch. This is an absolute path. */
-  protected final Path watchRootPath;
+  protected final Path watchRoot;
 
-  protected LocalDiffAwareness(String watchRoot) {
-    this.watchRootPath = FileSystems.getDefault().getPath(watchRoot);
+  protected LocalDiffAwareness(Path watchRoot) {
+    this.watchRoot = watchRoot;
   }
 
   /**
@@ -201,13 +200,13 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
 
     ModifiedFileSet.Builder resultBuilder = ModifiedFileSet.builder();
     for (Path modifiedPath : newSequentialView.modifiedAbsolutePaths) {
-      if (!modifiedPath.startsWith(watchRootPath)) {
+      if (!modifiedPath.startsWith(watchRoot)) {
         throw new BrokenDiffAwarenessException(
-            String.format("%s is not under %s", modifiedPath, watchRootPath));
+            String.format("%s is not under %s", modifiedPath, watchRoot));
       }
       PathFragment relativePath =
           PathFragment.create(
-              StringUtil.reencodeJavaToInternal(watchRootPath.relativize(modifiedPath).toString()));
+              StringUtil.reencodeJavaToInternal(watchRoot.relativize(modifiedPath).toString()));
       if (!relativePath.isEmpty()) {
         resultBuilder.modify(relativePath);
       }
