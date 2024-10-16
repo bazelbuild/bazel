@@ -14,11 +14,14 @@
 package com.google.devtools.build.lib.util;
 
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.unsafe.StringUnsafe;
+import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Iterator;
 
@@ -122,6 +125,42 @@ public class StringUtil {
   }
 
   /**
+   * Even though Bazel attempts to force the default charset to be ISO-8859-1, which makes String
+   * identical to the "bag of raw bytes" that a UNIX path is, the JVM may still use a different
+   * encoding for file paths and command-line arguments, e.g. on macOS (always UTF-8). When
+   * interoperating with Java APIs, we thus need to reencode paths to the JVM's native encoding.
+   */
+  private static final Charset SUN_JNI_ENCODING =
+      Charset.forName(System.getProperty("sun.jnu.encoding"));
+
+  /**
+   * Reencodes a string using Bazel's internal raw byte encoding into the equivalent representation
+   * for Java stdlib functions, if necessary.
+   */
+  public static String reencodeInternalToJava(String s) {
+    return canSkipJavaReencode(s) ? s : new String(s.getBytes(ISO_8859_1), SUN_JNI_ENCODING);
+  }
+
+  /**
+   * Reencodes a string obtained from Java stdlib functions into Bazel's internal raw byte encoding,
+   * if necessary.
+   */
+  public static String reencodeJavaToInternal(String s) {
+    return canSkipJavaReencode(s) ? s : new String(s.getBytes(SUN_JNI_ENCODING), ISO_8859_1);
+  }
+
+  private static boolean canSkipJavaReencode(String s) {
+    // The comparisons below are expected to be constant-folded by the JIT.
+    if (SUN_JNI_ENCODING == ISO_8859_1 || SUN_JNI_ENCODING == US_ASCII) {
+      return true;
+    }
+    if (SUN_JNI_ENCODING == UTF_8) {
+      return StringUnsafe.getInstance().isAscii(s);
+    }
+    return false;
+  }
+
+  /**
    * Decode a String that might actually be UTF-8, in which case each input character will be
    * treated as a byte.
    *
@@ -139,7 +178,7 @@ public class StringUtil {
    * terminal.
    */
   public static String reencodeInternalToExternal(String maybeUtf8) {
-    if (maybeUtf8.chars().allMatch(c -> c < 128)) {
+    if (StringUnsafe.getInstance().isAscii(maybeUtf8)) {
       return maybeUtf8;
     }
 
@@ -176,7 +215,7 @@ public class StringUtil {
    * <p>See {@link #reencodeInternalToExternal} for motivation.
    */
   public static String reencodeExternalToInternal(String unicode) {
-    if (unicode.chars().allMatch(c -> c < 128)) {
+    if (StringUnsafe.getInstance().isAscii(unicode)) {
       return unicode;
     }
     final byte[] utf8 = unicode.getBytes(UTF_8);
