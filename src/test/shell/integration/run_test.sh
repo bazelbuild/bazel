@@ -206,6 +206,8 @@ test "\$1" = '$arg'
 EOF
   chmod +x foo/foo.sh
 
+  bazel info 2>&1
+
   bazel run //foo -- "$arg" > output \
     || fail "${PRODUCT_NAME} run failed."
 

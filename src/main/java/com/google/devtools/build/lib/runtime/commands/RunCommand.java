@@ -17,6 +17,8 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_16;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -101,6 +103,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -572,7 +575,17 @@ public class RunCommand implements BlazeCommand {
         includeResidue
             ? runCommandLine.getArgs(shExecutable)
             : runCommandLine.getArgsWithoutResidue(shExecutable);
-    return args.stream().map(s -> ByteString.copyFrom(s, ISO_8859_1)).collect(toImmutableList());
+    return args.stream()
+        .peek(
+            s ->
+                System.err.printf(
+                    "arg (Latin1: %s, UTF8: %s, UTF16: %s): %s%n",
+                    s,
+                    new String(s.getBytes(ISO_8859_1), UTF_8),
+                    new String(s.getBytes(ISO_8859_1), UTF_16),
+                    Arrays.toString(s.getBytes(ISO_8859_1))))
+        .map(s -> ByteString.copyFrom(s, ISO_8859_1))
+        .collect(toImmutableList());
   }
 
   private BlazeCommandResult handleScriptPath(
