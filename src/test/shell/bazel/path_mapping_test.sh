@@ -205,6 +205,68 @@ EOF
   expect_not_log '[0-9] worker'
 }
 
+function test_path_stripping_generated_multiplex_worker() {
+  if is_windows; then
+    echo "Skipping test_path_stripping_generated_multiplex_worker on Windows as it requires sandboxing"
+    return
+  fi
+
+  cat >> MODULE.bazel <<'EOF'
+bazel_dep(name = "rules_java", version = "8.1.0")
+toolchains = use_extension("@rules_java//java:extensions.bzl", "toolchains")
+use_repo(toolchains, "remote_java_tools")
+EOF
+
+  mkdir toolchain
+  cat > toolchain/BUILD <<'EOF'
+load("@bazel_tools//tools/jdk:default_java_toolchain.bzl", "default_java_toolchain")
+genrule(
+    name = "gen_javabuilder",
+    srcs = ["@remote_java_tools//:JavaBuilder"],
+    outs = ["JavaBuilder.jar"],
+    cmd = "cp $< $@",
+    executable = True,
+)
+default_java_toolchain(
+    name = "java_toolchain",
+    source_version = "17",
+    target_version = "17",
+    javac_supports_worker_multiplex_sandboxing = True,
+    javabuilder = ":gen_javabuilder",
+)
+EOF
+
+  cache_dir=$(mktemp -d)
+
+  bazel run -c fastbuild \
+    --disk_cache=$cache_dir \
+    --experimental_output_paths=strip \
+    --strategy=Javac=worker \
+    --experimental_worker_multiplex_sandboxing \
+    --extra_toolchains=//toolchain:java_toolchain_definition \
+    --java_language_version=17 \
+    //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
+  expect_log 'Hello, World!'
+  # Genrule, JavaToolchainCompileBootClasspath, JavaToolchainCompileClasses and header compilation.
+  expect_log '4 \(linux\|darwin\|processwrapper\)-sandbox'
+  # Actual compilation actions.
+  expect_log '2 worker'
+  expect_not_log 'disk cache hit'
+
+  bazel run -c opt \
+    --disk_cache=$cache_dir \
+    --experimental_output_paths=strip \
+    --strategy=Javac=worker \
+    --experimental_worker_multiplex_sandboxing \
+    --extra_toolchains=//toolchain:java_toolchain_definition \
+    --java_language_version=17 \
+    //src/main/java/com/example:Main &> $TEST_log || fail "run failed unexpectedly"
+  expect_log 'Hello, World!'
+  expect_log '5 disk cache hit'
+  expect_not_log '[0-9] \(linux\|darwin\|processwrapper\)-sandbox'
+  expect_not_log '[0-9] worker'
+}
+
 function test_path_stripping_remote() {
   bazel run -c fastbuild \
     --experimental_output_paths=strip \
