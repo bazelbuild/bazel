@@ -394,7 +394,13 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         def _impl(name, visibility):
             native.cc_library(
                 name = name,
-                srcs = ["explicit_input.cc", "implicit_input.cc"],
+                srcs = [
+                    "explicit_input.cc",
+                    # This usage does not cause implicit_input.cc to be created since we're inside
+                    # a symbolic macro. We force the input's creation by referring to it from bar
+                    # in the BUILD file.
+                    "implicit_input.cc",
+                ],
             )
         my_macro = macro(implementation=_impl)
         """);
@@ -419,11 +425,20 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
     scratch.file(
         "pkg/foo.bzl",
         """
-        def _impl(name, visibility):
+        def _sub_impl(name, visibility):
             native.cc_library(
-                name = name,
+                name = name + "_target",
                 srcs = ["implicit_input.cc"],
             )
+
+        my_submacro = macro(implementation=_sub_impl)
+
+        def _impl(name, visibility):
+            native.cc_library(
+                name = name + "_target",
+                srcs = ["implicit_input.cc"],
+            )
+            my_submacro(name = name + "_submacro")
         my_macro = macro(implementation=_impl)
         """);
     scratch.file(
@@ -434,10 +449,14 @@ public final class SymbolicMacroTest extends BuildViewTestCase {
         """);
 
     Package pkg = getPackage("pkg");
-    // Confirm that implicit_input.cc is not a target of the package.
-    // It'd be an execution time error to build :abc, but the package still loads just fine.
+    // Confirm that implicit_input.cc is not a target of the package, despite being used inside a
+    // symbolic macro (and not by anything at the top level) for both a target and a submacro.
+    //
+    // It'd be an execution time error to attempt to build the declared rule targets, but the
+    // package still loads just fine.
     assertPackageNotInError(pkg);
-    assertThat(pkg.getTargets()).containsKey("abc");
+    assertThat(pkg.getTargets()).containsKey("abc_target");
+    assertThat(pkg.getTargets()).containsKey("abc_submacro_target");
     assertThat(pkg.getTargets()).doesNotContainKey("implicit_input.cc");
   }
 

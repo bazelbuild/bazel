@@ -1348,24 +1348,129 @@ public final class PackageFactoryTest extends PackageLoadingTestCase {
   @Test
   public void testSymbolicMacro_macroPreventsImplicitCreationOfInputFilesUnderItsNamespaces()
       throws Exception {
-    defineEmptyMacroBzl();
+    // We don't implicitly create InputFile targets whose names lie inside symbolic macros'
+    // namespaces, no matter where the file is referred to from. This avoids having to force
+    // evaluation of the macro when depending on the input file, to determine whether the macro
+    // declares a conflicting target.
+    //
+    // Create a macro instance named "foo" and try to refer to "foo_input" from various places.
+    // Ensure that "foo_input" does not in fact get created. (You could still used an
+    // exports_files() to declare it explicitly if you wanted.)
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _sub_impl(name, visibility):
+            native.cc_library(
+                name = name + "_target",
+                srcs = ["foo_input"],
+            )
+        my_submacro = macro(implementation = _sub_impl)
+
+        def _impl(name, visibility):
+            native.cc_library(
+                name = name + "_target",
+                srcs = ["foo_input"],
+            )
+            my_submacro(name = name + "_submacro")
+        my_macro = macro(implementation = _impl)
+        """);
     scratch.file(
         "pkg/BUILD",
         """
         load(":my_macro.bzl", "my_macro")
         my_macro(name = "foo")
         cc_library(
-            name = "lib",
-            srcs = ["foo", "foo_", "foo_bar", "baz"],
+            name = "toplevel_target",
+            srcs = [
+                "foo_input",
+                # Also try other name patterns.
+                "foo",   # conflicts, not created
+                "foo_",  # not in namespace, created
+                "baz",   # not in namespace, created
+            ],
         )
         """);
-    // You can't implicitly make an input file with a name that foo could've defined. (You can still
-    // have an explicit exports_files() do it.)
+
     Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertThat(pkg.getTargets()).doesNotContainKey("foo_input");
     assertThat(pkg.getTargets()).doesNotContainKey("foo");
-    assertThat(pkg.getTargets()).doesNotContainKey("foo_bar");
     assertThat(pkg.getTarget("foo_")).isInstanceOf(InputFile.class);
     assertThat(pkg.getTarget("baz")).isInstanceOf(InputFile.class);
+  }
+
+  @Test
+  public void testSymbolicMacro_macroInstantiationCanForceImplicitCreationOfInputFile()
+      throws Exception {
+    // Referring to an input file when instantiating a top-level symbolic macro causes it to be
+    // implicitly created, even though no targets refer to it. Referring to an input when
+    // instantiating a submacro does not by itself cause creation.
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _sub_impl(name, visibility, src):
+            pass
+        my_submacro = macro(
+            implementation = _sub_impl,
+            attrs = {"src": attr.label()},
+        )
+
+        def _impl(name, visibility, src):
+            my_submacro(
+                name = name + "_submacro",
+                src = "//pkg:does_not_exist",
+            )
+        my_macro = macro(
+            implementation = _impl,
+            attrs = {"src": attr.label()},
+        )
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(
+            name = "foo",
+            src = "//pkg:input",
+        )
+        """);
+
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertThat(pkg.getTarget("input")).isInstanceOf(InputFile.class);
+    assertThat(pkg.getTargets()).doesNotContainKey("does_not_exist");
+  }
+
+  @Test
+  public void testSymbolicMacro_failsGracefullyWhenInputFileClashesWithMisnamedMacroTarget()
+      throws Exception {
+    // Symbolic macros can't define usable targets outside their namespace, and BUILD files can't
+    // implicitly create input files inside a macro's namespace. But we could still have a conflict
+    // between an *unusable* ill-named macro target and an implicitly created input file. Make sure
+    // we don't crash at least.
+    //
+    // If symbolic macros are evaluated either synchronously with their instantiation or deferred to
+    // the end of the BUILD file, the target declared by the macro wins because it happens before
+    // implicit input file creation. But under lazy macro evaluation, the implicit input file will
+    // win and we should see a conflict if the macro is expanded.
+    // TODO: #23852 - Test behavior under lazy macro evaluation when implemented.
+    scratch.file(
+        "pkg/my_macro.bzl",
+        """
+        def _impl(name, visibility):
+            native.cc_library(name="conflicting_name")
+        my_macro = macro(implementation=_impl)
+        """);
+    scratch.file(
+        "pkg/BUILD",
+        """
+        load(":my_macro.bzl", "my_macro")
+        my_macro(name="foo")
+        cc_library(
+            name = "bar",
+            srcs = [":conflicting_name"],
+        )
+        """);
+    Package pkg = loadPackageAndAssertSuccess("pkg");
+    assertThat(pkg.getTarget("conflicting_name")).isInstanceOf(Rule.class);
   }
 
   @Test
