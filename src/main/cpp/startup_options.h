@@ -242,6 +242,9 @@ class StartupOptions {
   // Invocation policy can only be specified once.
   bool have_invocation_policy_;
 
+  // Whether to emit as little output as possible.
+  bool quiet;
+
   // Whether to output addition debugging information in the client.
   bool client_debug;
 

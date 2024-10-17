@@ -1502,7 +1502,14 @@ int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
   StartupOptions *startup_options = option_processor->GetParsedStartupOptions();
   startup_options->MaybeLogStartupOptionWarnings();
 
-  SetDebugLog(startup_options->client_debug);
+  if (startup_options->client_debug) {
+    SetDebugLog(blaze_util::LOGGINGDETAIL_DEBUG);
+  } else if (startup_options->quiet) {
+    SetDebugLog(blaze_util::LOGGINGDETAIL_QUIET);
+  } else {
+    SetDebugLog(blaze_util::LOGGINGDETAIL_USER);
+  }
+
   // If client_debug was false, this is ignored, so it's accurate.
   BAZEL_LOG(INFO) << "Debug logging requested, sending all client log "
                      "statements to stderr";
