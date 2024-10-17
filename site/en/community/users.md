@@ -603,7 +603,7 @@ seamlessly from normal Java code.
 Heron is a realtime, distributed, fault-tolerant stream processing engine from
 Twitter.
 
-### [The Internet Computer Protocol](https://internetcomputer.org/){: .external}
+### [Internet Computer Protocol](https://internetcomputer.org/){: .external}
 
 <img src="https://internetcomputer.org/img/IC_logo_horizontal_white.svg" width="120" align="right">
 
