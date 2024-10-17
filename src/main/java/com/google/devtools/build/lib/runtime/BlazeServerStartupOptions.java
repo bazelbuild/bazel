@@ -379,6 +379,16 @@ public class BlazeServerStartupOptions extends OptionsBase {
   public boolean clientDebug;
 
   @Option(
+      name = "quiet",
+      defaultValue = "false", // NOTE: only for documentation, actual flag is in UiOptions
+      documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
+      effectTags = {OptionEffectTag.AFFECTS_OUTPUTS, OptionEffectTag.BAZEL_MONITORING},
+      help =
+          "If true, no informational messages are emitted on the console, only errors. Changing "
+              + "this option will not cause the server to restart.")
+  public boolean quiet;
+
+  @Option(
       name = "preemptible",
       defaultValue = "false", // NOTE: only for documentation, value is set and used by the client.
       documentationCategory = OptionDocumentationCategory.BAZEL_CLIENT_OPTIONS,
