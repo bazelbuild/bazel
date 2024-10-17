@@ -54,6 +54,16 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   ./bin/jlink --module-path ./jmods/ --add-modules "$modules" \
     --vm=server --strip-debug --no-man-pages \
     --output reduced
+
+  # Patch the manifest to force a UTF-8 codepage for the java launcher,
+  # regardless of the system codepage.
+  # https://learn.microsoft.com/en-us/windows/apps/design/globalizing/use-utf8-code-page#examples
+  # TODO: Don't hardcode this.
+  MT="C:/Program Files (x86)/Windows Kits/10/bin/10.0.19041.0/x64/mt.exe"
+  "$MT" -nologo -inputresource:reduced/bin/java.exe -out:java.manifest
+  sed -i.bak 's|<\/asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage></asmv3:windowsSettings>|' java.manifest
+  "$MT" -nologo -manifest java.manifest -outputresource:reduced/bin/java.exe
+
   cp $DOCS legal/java.base/ASSEMBLY_EXCEPTION \
     reduced/
   # These are necessary for --host_jvm_debug to work.
