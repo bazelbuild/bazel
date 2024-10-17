@@ -1131,6 +1131,44 @@ class ModCommandTest(test_base.TestBase):
           module_file.read().split('\n'),
       )
 
+  def testModLock(self):
+    self.ScratchFile(
+      'MODULE.bazel',
+      [
+        'ext1 = use_extension("//:extension.bzl", "ext1")',
+        'ext2 = use_extension("//:extension.bzl", "ext2")'
+      ],
+    )
+    self.ScratchFile('BUILD.bazel')
+    self.ScratchFile(
+      'extension.bzl',
+      [
+        'def _repo_rule_impl(ctx):',
+        '    ctx.file("WORKSPACE")',
+        '    ctx.file("BUILD", "filegroup(name=\'lala\')")',
+        '',
+        'repo_rule = repository_rule(implementation=_repo_rule_impl)',
+        '',
+        'def _ext1_impl(ctx):',
+        '    print("ext1 is being evaluated")',
+        '    repo_rule(name="dep")',
+        '',
+        'ext1 = module_extension(implementation=_ext1_impl)',
+        '',
+        'def _ext2_impl(ctx):',
+        '    print("ext2 is being evaluated")',
+        '    repo_rule(name="dep")',
+        '',
+        'ext2 = module_extension(implementation=_ext2_impl)',
+      ],
+    )
+
+    _, _, stderr = self.RunBazel(['mod', 'lock'])
+    stderr = '\n'.join(stderr)
+    # Verify that all extensions are evaluated.
+    self.assertIn('ext1 is being evaluated', stderr)
+    self.assertIn('ext2 is being evaluated', stderr)
+
 
 if __name__ == '__main__':
   absltest.main()

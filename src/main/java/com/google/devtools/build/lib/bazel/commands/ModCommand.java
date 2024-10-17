@@ -164,20 +164,30 @@ public final class ModCommand implements BlazeCommand {
 
     ImmutableList.Builder<RepositoryMappingValue.Key> repositoryMappingKeysBuilder =
         ImmutableList.builder();
-    if (subcommand.equals(ModSubcommand.DUMP_REPO_MAPPING)) {
-      if (args.isEmpty()) {
-        // Make this case an error so that we are free to add a mode that emits all mappings in a
-        // single JSON object later.
-        return reportAndCreateFailureResult(
-            env, "No repository name(s) specified", Code.INVALID_ARGUMENTS);
-      }
-      for (String arg : args) {
-        try {
-          repositoryMappingKeysBuilder.add(RepositoryMappingValue.key(RepositoryName.create(arg)));
-        } catch (LabelSyntaxException e) {
-          return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
+    switch (subcommand) {
+      case DUMP_REPO_MAPPING -> {
+        if (args.isEmpty()) {
+          // Make this case an error so that we are free to add a mode that emits all mappings in a
+          // single JSON object later.
+          return reportAndCreateFailureResult(
+              env, "No repository name(s) specified", Code.INVALID_ARGUMENTS);
+        }
+        for (String arg : args) {
+          try {
+            repositoryMappingKeysBuilder.add(
+                RepositoryMappingValue.key(RepositoryName.create(arg)));
+          } catch (LabelSyntaxException e) {
+            return reportAndCreateFailureResult(env, e.getMessage(), Code.INVALID_ARGUMENTS);
+          }
         }
       }
+      case LOCK -> {
+        if (!args.isEmpty()) {
+          return reportAndCreateFailureResult(
+              env, "lock doesn't support arguments", Code.INVALID_ARGUMENTS);
+        }
+      }
+      case null, default -> {}
     }
     ImmutableList<RepositoryMappingValue.Key> repoMappingKeys =
         repositoryMappingKeysBuilder.build();
@@ -200,12 +210,10 @@ public final class ModCommand implements BlazeCommand {
       env.syncPackageLoading(options);
 
       ImmutableSet.Builder<SkyKey> keys = ImmutableSet.builder();
-      if (subcommand.equals(ModSubcommand.DUMP_REPO_MAPPING)) {
-        keys.addAll(repoMappingKeys);
-      } else if (subcommand.equals(ModSubcommand.TIDY)) {
-        keys.add(BazelModTidyValue.KEY);
-      } else {
-        keys.add(BazelDepGraphValue.KEY, BazelModuleInspectorValue.KEY);
+      switch (subcommand) {
+        case DUMP_REPO_MAPPING -> keys.addAll(repoMappingKeys);
+        case TIDY -> keys.add(BazelModTidyValue.KEY);
+        default -> keys.add(BazelDepGraphValue.KEY, BazelModuleInspectorValue.KEY);
       }
       EvaluationResult<SkyValue> evaluationResult =
           skyframeExecutor.prepareAndGet(keys.build(), evaluationContext);
@@ -242,35 +250,43 @@ public final class ModCommand implements BlazeCommand {
     }
 
     // Handle commands that do not require BazelModuleInspectorValue.
-    if (subcommand.equals(ModSubcommand.DUMP_REPO_MAPPING)) {
-      String missingRepos =
-          IntStream.range(0, repoMappingKeys.size())
-              .filter(i -> repoMappingValues.get(i) == RepositoryMappingValue.NOT_FOUND_VALUE)
-              .mapToObj(repoMappingKeys::get)
-              .map(RepositoryMappingValue.Key::repoName)
-              .map(RepositoryName::getName)
-              .collect(joining(", "));
-      if (!missingRepos.isEmpty()) {
-        return reportAndCreateFailureResult(
-            env, "Repositories not found: " + missingRepos, Code.INVALID_ARGUMENTS);
+    switch (subcommand) {
+      case DUMP_REPO_MAPPING -> {
+        String missingRepos =
+            IntStream.range(0, repoMappingKeys.size())
+                .filter(i -> repoMappingValues.get(i) == RepositoryMappingValue.NOT_FOUND_VALUE)
+                .mapToObj(repoMappingKeys::get)
+                .map(RepositoryMappingValue.Key::repoName)
+                .map(RepositoryName::getName)
+                .collect(joining(", "));
+        if (!missingRepos.isEmpty()) {
+          return reportAndCreateFailureResult(
+              env, "Repositories not found: " + missingRepos, Code.INVALID_ARGUMENTS);
+        }
+        try {
+          dumpRepoMappings(
+              repoMappingValues,
+              new OutputStreamWriter(
+                  env.getReporter().getOutErr().getOutputStream(),
+                  modOptions.charset == UTF8 ? UTF_8 : US_ASCII));
+        } catch (IOException e) {
+          throw new IllegalStateException(e);
+        }
+        return BlazeCommandResult.success();
       }
-      try {
-        dumpRepoMappings(
-            repoMappingValues,
-            new OutputStreamWriter(
-                env.getReporter().getOutErr().getOutputStream(),
-                modOptions.charset == UTF8 ? UTF_8 : US_ASCII));
-      } catch (IOException e) {
-        throw new IllegalStateException(e);
+      case TIDY -> {
+        // tidy doesn't take extra arguments.
+        if (!args.isEmpty()) {
+          return reportAndCreateFailureResult(
+              env, "the 'tidy' command doesn't take extra arguments", Code.TOO_MANY_ARGUMENTS);
+        }
+        return runTidy(env, modTidyValue);
       }
-      return BlazeCommandResult.success();
-    } else if (subcommand == ModSubcommand.TIDY) {
-      // tidy doesn't take extra arguments.
-      if (!args.isEmpty()) {
-        return reportAndCreateFailureResult(
-            env, "the 'tidy' command doesn't take extra arguments", Code.TOO_MANY_ARGUMENTS);
+      case LOCK -> {
+        // Requesting BazelModuleInspectorValue implicitly evaluates all extensions and thus updates
+        // their entries in the lockfile in afterCommand.
+        return BlazeCommandResult.success();
       }
-      return runTidy(env, modTidyValue);
     }
 
     // Extract and check the --base_module argument first to use it when parsing the other args.
