@@ -121,7 +121,7 @@ Bazel module when it also adopts Bzlmod.
 
 *   **Bzlmod**
 
-    With Bzlmod, as long as the your dependency is available in [Bazel Central
+    With Bzlmod, as long as your dependency is available in [Bazel Central
     Registry](https://registry.bazel.build) or your custom [Bazel
     registry](/external/registry), you can simply depend on it with a
     [`bazel_dep`](/rules/lib/globals/module#bazel_dep) directive.
