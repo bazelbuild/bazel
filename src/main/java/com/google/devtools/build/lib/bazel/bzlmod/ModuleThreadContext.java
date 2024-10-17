@@ -37,6 +37,7 @@ import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
+import net.starlark.java.spelling.SpellChecker;
 import net.starlark.java.syntax.Location;
 
 /** Context object for a Starlark thread evaluating the MODULE.bazel file and files it includes. */
@@ -257,8 +258,11 @@ public class ModuleThreadContext {
         if (!context.repoNameUsages.containsKey(overridingRepoName)) {
           throw Starlark.errorf(
                   "The repo exported as '%s' by module extension '%s' is overridden with '%s', but"
-                      + " no repo is visible under this name",
-                  overriddenRepoName, extensionName, overridingRepoName)
+                      + " no repo is visible under this name%s",
+                  overriddenRepoName,
+                  extensionName,
+                  overridingRepoName,
+                  SpellChecker.didYouMean(overridingRepoName, context.repoNameUsages.keySet()))
               .withCallStack(override.getValue().stack);
         }
         String importedAs = imports.inverse().get(overriddenRepoName);
