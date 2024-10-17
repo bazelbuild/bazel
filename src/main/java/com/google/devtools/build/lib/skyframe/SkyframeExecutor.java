@@ -2272,8 +2272,14 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
    * done.
    */
   public void clearExecutionStatesSkymeld(ExtendedEventHandler eventHandler) {
-    watchdog.stop();
-    watchdog = null;
+    // In case of a very early error in the analysis/execution phase, there could be a race between
+    // the watchdog being set and this cleanup code.
+    // No risk of NPE due to check-then-act: if the watchdog is non-null, it'll only be set to null
+    // here.
+    if (watchdog != null) {
+      watchdog.stop();
+      watchdog = null;
+    }
     cleanUpAfterSingleEvaluationWithActionExecution(eventHandler);
     statusReporterRef.get().unregisterFromEventBus();
     setActionExecutionProgressReportingObjects(null, null, null);
