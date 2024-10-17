@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction.VENDOR_DIRECTORY;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.CharStreams;
 import com.google.common.io.LineProcessor;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -75,6 +77,23 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
   public SkyValue compute(SkyKey key, Environment env)
       throws IgnoredPatternsFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) key.argument();
+    RepoFileValue repoFileValue;
+
+    try {
+      // We can depend on REPO.bazel unconditionally here because IgnorePackagePrefixesFunction is
+      // Bazel-only, so we don't need to jump through hoops to make it conditional like in
+      // PackageFunction
+      repoFileValue = (RepoFileValue) env.getValueOrThrow(
+          RepoFileValue.key(repositoryName), IOException.class, BadRepoFileException.class);
+    } catch (IOException e) {
+      throw new IgnoredPatternsFunctionException(e);
+    } catch (BadRepoFileException e) {
+      throw new IgnoredPatternsFunctionException(e);
+    }
+
+    if (env.valuesMissing()) {
+      return null;
+    }
 
     ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder = ImmutableSet.builder();
     if (!ignoredPackagePrefixesFile.equals(PathFragment.EMPTY_FRAGMENT)) {
@@ -128,7 +147,9 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
       }
     }
 
-    return IgnoredPackagePrefixesValue.of(ignoredPackagePrefixesBuilder.build());
+    return IgnoredPackagePrefixesValue.of(
+        ignoredPackagePrefixesBuilder.build(),
+        repoFileValue.ignoredDirectories());
   }
 
   private static final class PathFragmentLineProcessor
@@ -170,6 +191,14 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
     }
 
     public IgnoredPatternsFunctionException(InvalidIgnorePathException e) {
+      super(e, Transience.PERSISTENT);
+    }
+
+    public IgnoredPatternsFunctionException(IOException e) {
+      super(e, Transience.TRANSIENT);
+    }
+
+    public IgnoredPatternsFunctionException(BadRepoFileException e) {
       super(e, Transience.PERSISTENT);
     }
   }

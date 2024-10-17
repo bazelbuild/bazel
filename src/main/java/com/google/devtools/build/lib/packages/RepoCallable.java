@@ -16,8 +16,10 @@ package com.google.devtools.build.lib.packages;
 
 import java.util.Map;
 import net.starlark.java.annot.Param;
+import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
 
@@ -27,6 +29,23 @@ public final class RepoCallable {
 
   public static final RepoCallable INSTANCE = new RepoCallable();
 
+  @StarlarkMethod(
+      name = "ignore_directories",
+      useStarlarkThread = true,
+      documented = false, // TODO
+      parameters = {
+          @Param(
+              name = "dirs",
+              allowedTypes = {
+                  @ParamType(type = Sequence.class, generic1 = String.class),
+              })}
+  )
+  public Object ignoreDirectories(Iterable<?> dirsUnchecked, StarlarkThread thread) throws EvalException {
+    Sequence<String> dirs = Sequence.cast(dirsUnchecked, String.class, "dirs");
+    RepoThreadContext context = RepoThreadContext.fromOrFail(thread, "repo()");
+    context.setIgnoredDirectories(dirs);
+    return Starlark.NONE;
+  }  
   @StarlarkMethod(
       name = "repo",
       documented = false, // documented separately
