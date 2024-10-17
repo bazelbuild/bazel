@@ -56,6 +56,7 @@ import com.google.devtools.build.lib.profiler.SilentCloseable;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading;
 import com.google.devtools.build.lib.server.FailureDetails.PackageLoading.Code;
+import com.google.devtools.build.lib.skyframe.PackageArgsFunction.PackageArgsValue;
 import com.google.devtools.build.lib.skyframe.PackageFunctionWithMultipleGlobDeps.SkyframeGlobbingIOException;
 import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
 import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsFailedException;
@@ -963,24 +964,26 @@ public abstract class PackageFunction implements SkyFunction {
     IgnoredPackagePrefixesValue repositoryIgnoredPackagePrefixes =
         (IgnoredPackagePrefixesValue)
             env.getValue(IgnoredPackagePrefixesValue.key(packageId.getRepository()));
-    RepoFileValue repoFileValue;
+    PackageArgsValue packageArgsValue;
     if (shouldUseRepoDotBazel) {
       try {
-        repoFileValue =
-            (RepoFileValue)
+        packageArgsValue =
+            (PackageArgsValue)
                 env.getValueOrThrow(
-                    RepoFileValue.key(packageId.getRepository()),
+                    PackageArgsFunction.key(packageId.getRepository()),
                     IOException.class,
                     BadRepoFileException.class);
       } catch (IOException | BadRepoFileException e) {
         throw badRepoFileException(e, packageId);
       }
     } else {
-      repoFileValue = RepoFileValue.EMPTY;
+      packageArgsValue = PackageArgsValue.EMPTY;
     }
+
     if (env.valuesMissing()) {
       return null;
     }
+
     String workspaceName = workspaceNameValue.getName();
     RepositoryMapping repositoryMapping = repositoryMappingValue.getRepositoryMapping();
     RepositoryMapping mainRepositoryMapping = mainRepositoryMappingValue.getRepositoryMapping();
@@ -1139,7 +1142,7 @@ public abstract class PackageFunction implements SkyFunction {
 
       pkgBuilder.mergePackageArgsFrom(
           PackageArgs.builder().setDefaultVisibility(defaultVisibility));
-      pkgBuilder.mergePackageArgsFrom(repoFileValue.packageArgs());
+      pkgBuilder.mergePackageArgsFrom(packageArgsValue.getPackageArgs());
 
       if (compiled.ok()) {
         packageFactory.executeBuildFile(

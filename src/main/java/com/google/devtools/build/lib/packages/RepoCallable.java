@@ -72,7 +72,9 @@ public final class RepoCallable {
           context.getLabelConverter(),
           pkgArgsBuilder);
     }
+
     context.setPackageArgs(pkgArgsBuilder.build());
+    context.setPackageArgsMap(kwargs);
     return Starlark.NONE;
   }
 }

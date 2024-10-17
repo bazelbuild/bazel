@@ -15,9 +15,11 @@
 package com.google.devtools.build.lib.packages;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryMapping;
 import com.google.devtools.build.lib.cmdline.StarlarkThreadContext;
 import java.util.Collection;
+import java.util.Map;
 import net.starlark.java.eval.EvalException;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkThread;
@@ -27,6 +29,7 @@ public class RepoThreadContext extends StarlarkThreadContext {
   private final LabelConverter labelConverter;
 
   private PackageArgs packageArgs = PackageArgs.EMPTY;
+  private ImmutableMap<String, Object> packageArgsMap = ImmutableMap.of();
   private boolean repoFunctionCalled = false;
 
   private ImmutableList<String> ignoredDirectories = ImmutableList.of();
@@ -62,9 +65,15 @@ public class RepoThreadContext extends StarlarkThreadContext {
     this.packageArgs = packageArgs;
   }
 
+  public void setPackageArgsMap(Map<String, Object> kwargs) {
+    this.packageArgsMap = ImmutableMap.copyOf(kwargs);
+  }
+
   public PackageArgs getPackageArgs() {
     return packageArgs;
   }
+
+  public ImmutableMap<String, Object> getPackageArgsMap() { return  packageArgsMap; }
 
   public void setIgnoredDirectories(Collection<String> ignoredDirectories) throws EvalException {
     if (ignoredDirectoriesSet) {
