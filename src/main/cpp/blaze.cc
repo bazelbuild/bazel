@@ -53,7 +53,9 @@
 #include <utility>
 #include <vector>
 
-#if !defined(_WIN32)
+#if defined(_WIN32)
+#include <mbctype.h>
+#else
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
@@ -1468,6 +1470,10 @@ static void RunLauncher(const string &self_path,
 
 int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
          OptionProcessor *option_processor, uint64_t start_time) {
+#ifdef _WIN32
+  // Force the code page to UTF-8 so that the JVM subprocess can use UTF-8.
+  _setmbcp(65001);
+#endif
   blaze_util::InitializeStdOutErrForUtf8();
 
   // Logging must be set first to assure no log statements are missed.
