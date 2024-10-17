@@ -85,6 +85,7 @@ StartupOptions::StartupOptions(const string &product_name,
       connect_timeout_secs(30),
       local_startup_timeout_secs(120),
       have_invocation_policy_(false),
+      quiet(false),
       client_debug(false),
       preemptible(false),
       java_logging_formatter(
@@ -136,6 +137,7 @@ StartupOptions::StartupOptions(const string &product_name,
   RegisterNullaryStartupFlag("batch", &batch);
   RegisterNullaryStartupFlag("batch_cpu_scheduling", &batch_cpu_scheduling);
   RegisterNullaryStartupFlag("block_for_lock", &block_for_lock);
+  RegisterNullaryStartupFlag("quiet", &quiet);
   RegisterNullaryStartupFlag("client_debug", &client_debug);
   RegisterNullaryStartupFlag("preemptible", &preemptible);
   RegisterNullaryStartupFlag("fatal_event_bus_exceptions",

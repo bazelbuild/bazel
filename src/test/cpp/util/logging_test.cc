@@ -143,7 +143,7 @@ TEST(LoggingTest, BazelLogHandler_DoesNotDumpToStderrIfOuputStreamSetToNull) {
   // Log something.
   std::string teststring = "test that this log message is lost.";
   BAZEL_LOG(INFO) << teststring;
-  blaze_util::SetLoggingOutputStream(nullptr);
+  blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_USER, nullptr);
 
   // Destruct the log handler and check if stderr got anything.
   blaze_util::SetLogHandler(nullptr);
@@ -157,7 +157,7 @@ TEST(LoggingTest, BazelLogHandler_DoesNotPrintInfoLogsIfOuputStreamSetToNull) {
   std::unique_ptr<blaze_util::BazelLogHandler> handler(
       new blaze_util::BazelLogHandler());
   blaze_util::SetLogHandler(std::move(handler));
-  blaze_util::SetLoggingOutputStream(nullptr);
+  blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_USER, nullptr);
 
   std::string teststring = "test that the log message is lost.";
   BAZEL_LOG(INFO) << teststring;
@@ -172,7 +172,7 @@ TEST(LoggingTest, BazelLogHandler_PrintsUserLogsEvenIfOuputStreamSetToNull) {
   std::unique_ptr<blaze_util::BazelLogHandler> handler(
       new blaze_util::BazelLogHandler());
   blaze_util::SetLogHandler(std::move(handler));
-  blaze_util::SetLoggingOutputStream(nullptr);
+  blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_USER, nullptr);
 
   std::string teststring = "some user message";
   BAZEL_LOG(USER) << teststring;
@@ -187,7 +187,7 @@ TEST(LoggingTest, BazelLogHandler_PrintsWarningsEvenIfOuputStreamSetToNull) {
   std::unique_ptr<blaze_util::BazelLogHandler> handler(
       new blaze_util::BazelLogHandler());
   blaze_util::SetLogHandler(std::move(handler));
-  blaze_util::SetLoggingOutputStream(nullptr);
+  blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_USER, nullptr);
 
   BAZEL_LOG(WARNING) << "this is a warning";
   std::string expectedWarning = "WARNING: this is a warning";
@@ -202,7 +202,7 @@ TEST(LoggingTest, BazelLogHandler_PrintsErrorsEvenIfOuputStreamSetToNull) {
   std::unique_ptr<blaze_util::BazelLogHandler> handler(
       new blaze_util::BazelLogHandler());
   blaze_util::SetLogHandler(std::move(handler));
-  blaze_util::SetLoggingOutputStream(nullptr);
+  blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_USER, nullptr);
 
   BAZEL_LOG(ERROR) << "this is an error, alert!";
   std::string expectedError = "ERROR: this is an error, alert!";
@@ -224,7 +224,7 @@ TEST(LoggingTest,
   BAZEL_LOG(INFO) << teststring;
 
   // Ask that the debug logs not be kept.
-  blaze_util::SetLoggingOutputStream(nullptr);
+  blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_USER, nullptr);
 
   // Set a null log handler, which causes the BazelLogHandler to be destructed.
   // This prompts its logs to be flushed, so we can capture them.
@@ -248,7 +248,7 @@ TEST(LoggingTest,
       "WARNING: test that this message gets directed to cerr";
 
   // Ask that the debug logs not be kept.
-  blaze_util::SetLoggingOutputStream(nullptr);
+  blaze_util::SetLoggingDetail(LOGGINGDETAIL_USER, nullptr);
 
   // Set a null log handler, which causes the BazelLogHandler to be destructed.
   // This prompts its logs to be flushed, so we can capture them.
@@ -270,10 +270,11 @@ TEST(LoggingTest, BazelLogHandler_DirectingLogsToBufferStreamWorks) {
   // check its contents)
   std::unique_ptr<std::stringstream> stringbuf(new std::stringstream());
   std::stringstream* stringbuf_ptr = stringbuf.get();
-  blaze_util::SetLoggingOutputStream(std::move(stringbuf));
+  blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_DEBUG, stringbuf_ptr);
 
   std::string teststring = "testing log getting directed to a stringbuffer.";
   BAZEL_LOG(INFO) << teststring;
+  blaze_util::CloseLogging();
 
   // Check that output went to the buffer.
   std::string output(stringbuf_ptr->str());
@@ -304,7 +305,8 @@ TEST(LoggingTest, BazelLogHandler_BufferedLogsSentToSpecifiedStream) {
   // check its contents)
   std::unique_ptr<std::stringstream> stringbuf(new std::stringstream());
   std::stringstream* stringbuf_ptr = stringbuf.get();
-  blaze_util::SetLoggingOutputStream(std::move(stringbuf));
+  blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_DEBUG, stringbuf_ptr);
+  blaze_util::CloseLogging();
 
   // Check that the buffered logs were sent.
   std::string output(stringbuf_ptr->str());
@@ -328,10 +330,11 @@ TEST(LoggingTest, BazelLogHandler_WarningsSentToBufferStream) {
   // check its contents)
   std::unique_ptr<std::stringstream> stringbuf(new std::stringstream());
   std::stringstream* stringbuf_ptr = stringbuf.get();
-  blaze_util::SetLoggingOutputStream(std::move(stringbuf));
+  blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_DEBUG, stringbuf_ptr);
 
   std::string teststring = "test warning";
   BAZEL_LOG(WARNING) << teststring;
+  blaze_util::CloseLogging();
 
   // Check that output went to the buffer.
   std::string output(stringbuf_ptr->str());
@@ -353,10 +356,11 @@ TEST(LoggingTest, BazelLogHandler_ErrorsSentToBufferStream) {
   // check its contents)
   std::unique_ptr<std::stringstream> stringbuf(new std::stringstream());
   std::stringstream* stringbuf_ptr = stringbuf.get();
-  blaze_util::SetLoggingOutputStream(std::move(stringbuf));
+  blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_DEBUG, stringbuf_ptr);
 
   std::string teststring = "test error";
   BAZEL_LOG(ERROR) << teststring;
+  blaze_util::CloseLogging();
 
   // Check that output went to the buffer.
   std::string output(stringbuf_ptr->str());
@@ -365,26 +369,6 @@ TEST(LoggingTest, BazelLogHandler_ErrorsSentToBufferStream) {
   // Check that the output never went to stderr.
   std::string stderr_output = testing::internal::GetCapturedStderr();
   EXPECT_THAT(stderr_output, Not(HasSubstr(teststring)));
-}
-
-TEST(LoggingTest, BazelLogHandler_ImpossibleFile) {
-  // Set up logging and be prepared to capture stderr at destruction.
-  testing::internal::CaptureStderr();
-  std::unique_ptr<blaze_util::BazelLogHandler> handler(
-      new blaze_util::BazelLogHandler());
-  blaze_util::SetLogHandler(std::move(handler));
-
-  // Deliberately try to log to an impossible location, check that we error out.
-  std::unique_ptr<std::ofstream> bad_logfile_stream_(
-      new std::ofstream("/this/doesnt/exist.log", std::fstream::out));
-  blaze_util::SetLoggingOutputStream(std::move(bad_logfile_stream_));
-
-  // Set a null log handler, which causes the BazelLogHandler to be destructed.
-  // This prompts its logs to be flushed, so we can capture them..
-  blaze_util::SetLogHandler(nullptr);
-  std::string stderr_output = testing::internal::GetCapturedStderr();
-  EXPECT_THAT(stderr_output,
-              MatchesRegex(".ERROR.* Provided stream failed.\n"));
 }
 
 // Tests for the BazelLogHandler & SetLoggingOutputStreamToStderr
@@ -397,7 +381,7 @@ TEST(LoggingTest, BazelLogHandler_DirectingLogsToCerrWorks) {
   blaze_util::SetLogHandler(std::move(handler));
 
   // Ask that the logs get output to stderr
-  blaze_util::SetLoggingOutputStreamToStderr();
+  blaze_util::SetLoggingDetail(LOGGINGDETAIL_DEBUG, &std::cerr);
 
   // Log something.
   std::string teststring = "test that the log messages get directed to cerr";
@@ -422,7 +406,7 @@ TEST(LoggingTest, BazelLogHandler_BufferedLogsGetDirectedToCerr) {
   BAZEL_LOG(INFO) << teststring;
 
   // Ask that the logs get output to stderr
-  blaze_util::SetLoggingOutputStreamToStderr();
+  blaze_util::SetLoggingDetail(LOGGINGDETAIL_DEBUG, &std::cerr);
 
   // Set a null log handler, which causes the BazelLogHandler to be destructed.
   // This prompts its logs to be flushed, so we can capture them.
@@ -463,7 +447,7 @@ TEST(LoggingDeathTest,
         std::unique_ptr<blaze_util::BazelLogHandler> handler(
             new blaze_util::BazelLogHandler());
         blaze_util::SetLogHandler(std::move(handler));
-        blaze_util::SetLoggingOutputStream(nullptr);
+        blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_USER, nullptr);
 
         BAZEL_LOG(FATAL) << "something's wrong!";
       },
@@ -477,7 +461,8 @@ TEST(LoggingDeathTest,
         std::unique_ptr<blaze_util::BazelLogHandler> handler(
             new blaze_util::BazelLogHandler());
         blaze_util::SetLogHandler(std::move(handler));
-        blaze_util::SetLoggingOutputStreamToStderr();
+        blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_DEBUG,
+                                     &std::cerr);
         BAZEL_LOG(FATAL) << "something's wrong!";
       },
       ::testing::ExitedWithCode(37), "\\[FATAL .*\\] something's wrong!");
@@ -508,7 +493,7 @@ TEST(LoggingDeathTest,
         std::unique_ptr<blaze_util::BazelLogHandler> handler(
             new blaze_util::BazelLogHandler());
         blaze_util::SetLogHandler(std::move(handler));
-        blaze_util::SetLoggingOutputStream(nullptr);
+        blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_USER, nullptr);
         BAZEL_DIE(42) << "dying with exit code 42.";
       },
       ::testing::ExitedWithCode(42), "FATAL: dying with exit code 42.");
@@ -520,41 +505,12 @@ TEST(LoggingDeathTest, BazelLogHandler_Stderr_BazelDieDiesWithCustomExitCode) {
         std::unique_ptr<blaze_util::BazelLogHandler> handler(
             new blaze_util::BazelLogHandler());
         blaze_util::SetLogHandler(std::move(handler));
-        blaze_util::SetLoggingOutputStreamToStderr();
+        blaze_util::SetLoggingDetail(blaze_util::LOGGINGDETAIL_DEBUG,
+                                     &std::cerr);
         BAZEL_DIE(42) << "dying with exit code 42.";
       },
       ::testing::ExitedWithCode(42),
       "\\[FATAL .*\\] dying with exit code 42.");
-}
-
-TEST(LoggingDeathTest,
-     BazelLogHandler_CustomStream_BazelDiePrintsToStderrAndCustomStream) {
-  std::string logfile =
-      blaze_util::JoinPath(blaze::GetPathEnv("TEST_TMPDIR"), "logfile");
-
-  ASSERT_EXIT(
-      {
-        std::unique_ptr<blaze_util::BazelLogHandler> handler(
-            new blaze_util::BazelLogHandler());
-        blaze_util::SetLogHandler(std::move(handler));
-
-        // Ask that the logs get output to a file (the string buffer setup used
-        // in the non-death tests doesn't work here.)
-        std::unique_ptr<std::ofstream> logfile_stream_(
-            new std::ofstream(logfile, std::fstream::out));
-        blaze_util::SetLoggingOutputStream(std::move(logfile_stream_));
-
-        BAZEL_DIE(42) << "dying with exit code 42.";
-      },
-      ::testing::ExitedWithCode(42), "FATAL: dying with exit code 42.");
-  // Check that the error is also in the custom stream.
-  std::string output;
-  ASSERT_TRUE(blaze_util::ReadFile(logfile, &output));
-  // Unlike in earlier tests, this string is read from a file, and since Windows
-  // uses the newline '\r\n', compared to the linux \n, we prefer to keep the
-  // test simple and not test the end of the line explicitly.
-  EXPECT_THAT(output,
-              ContainsRegex("\\[FATAL .*\\] dying with exit code 42."));
 }
 
 #endif  // GTEST_HAS_DEATH_TEST
