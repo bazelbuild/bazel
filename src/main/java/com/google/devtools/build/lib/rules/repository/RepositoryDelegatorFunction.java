@@ -44,6 +44,7 @@ import com.google.devtools.build.lib.rules.repository.RepositoryFunction.Reposit
 import com.google.devtools.build.lib.skyframe.AlreadyReportedException;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue.Precomputed;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -71,8 +72,6 @@ import net.starlark.java.eval.StarlarkSemantics;
  * this function.
  */
 public final class RepositoryDelegatorFunction implements SkyFunction {
-  public static final Precomputed<Map<RepositoryName, PathFragment>> REPOSITORY_OVERRIDES =
-      new Precomputed<>("repository_overrides");
 
   public static final String FORCE_FETCH_DISABLED = "";
 
@@ -156,7 +155,8 @@ public final class RepositoryDelegatorFunction implements SkyFunction {
       Path repoRoot =
           RepositoryFunction.getExternalRepositoryDirectory(directories)
               .getRelative(repositoryName.getName());
-      Map<RepositoryName, PathFragment> overrides = REPOSITORY_OVERRIDES.get(env);
+      Map<RepositoryName, PathFragment> overrides =
+          RepositoryMappingFunction.REPOSITORY_OVERRIDES.get(env);
       if (Preconditions.checkNotNull(overrides).containsKey(repositoryName)) {
         return setupOverride(overrides.get(repositoryName), env, repoRoot, repositoryName);
       }
