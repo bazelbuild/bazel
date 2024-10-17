@@ -206,6 +206,10 @@ test "\$1" = '$arg'
 EOF
   chmod +x foo/foo.sh
 
+  SxsTrace Trace -logfile:SxsTrace.etl &
+  c:\b\bazeltest_install_base\embedded_tools\jdk\bin\java.exe
+  SxsTrace Parse -logfile:SxsTrace.etl -outfile:SxsTrace.txt
+  cat SxsTrace.txt
   bazel info 2>&1
 
   bazel run //foo -- "$arg" > output \
