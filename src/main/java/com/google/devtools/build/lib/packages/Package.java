@@ -1525,6 +1525,103 @@ public class Package {
       }
     }
 
+    /**
+     * Creates and returns input files for targets that have been referenced but not explicitly
+     * declared in this package.
+     *
+     * <p>Precisely: If L is a label that points within the current package, and L appears in a
+     * label-typed attribute of some declaration (target or symbolic macro) D in this package, then
+     * we create an {@code InputFile} corresponding to L and return it in this map (keyed by its
+     * name), provided that all of the following are true:
+     *
+     * <ol>
+     *   <li>The package does not otherwise declare a target for L.
+     *   <li>D is not itself declared inside a symbolic macro.
+     *   <li>L is not within the namespace of any symbolic macro in the package.
+     * </ol>
+     *
+     * The second condition ensures that we can know all implicitly created input files without
+     * having to evaluate any symbolic macros. The third condition ensures that we don't need to
+     * expand a symbolic macro to decide whether it defines a target that conflicts with an
+     * implicitly created input file (except for the case where the target doesn't satisfy the
+     * macro's naming requirements, in which case it would be unusable anyway).
+     */
+    private static Map<String, InputFile> createAssumedInputFiles(
+        Package pkg, TargetRecorder recorder, boolean noImplicitFileExport) {
+      Map<String, InputFile> implicitlyCreatedInputFiles = new HashMap<>();
+
+      for (Rule rule : recorder.getRules()) {
+        if (!recorder.isRuleCreatedInMacro(rule)) {
+          for (Label label : recorder.getRuleLabels(rule)) {
+            maybeCreateAssumedInputFile(
+                implicitlyCreatedInputFiles,
+                pkg,
+                recorder,
+                noImplicitFileExport,
+                label,
+                rule.getLocation());
+          }
+        }
+      }
+
+      for (MacroInstance macro : recorder.getMacroMap().values()) {
+        if (macro.getParent() == null) {
+          macro.visitExplicitAttributeLabels(
+              label ->
+                  maybeCreateAssumedInputFile(
+                      implicitlyCreatedInputFiles,
+                      pkg,
+                      recorder,
+                      noImplicitFileExport,
+                      label,
+                      // TODO(bazel-team): We don't save a MacroInstance's location information yet,
+                      // but when we do, use that here.
+                      Location.BUILTIN));
+        }
+      }
+
+      return implicitlyCreatedInputFiles;
+    }
+
+    /**
+     * Adds an implicitly created input file to the given map if the label points within the current
+     * package, there is no existing target for that label, and the label does not lie within any
+     * macro's namespace.
+     */
+    private static void maybeCreateAssumedInputFile(
+        Map<String, InputFile> implicitlyCreatedInputFiles,
+        Package pkg,
+        TargetRecorder recorder,
+        boolean noImplicitFileExport,
+        Label label,
+        Location loc) {
+      String name = label.getName();
+      if (!label.getPackageIdentifier().equals(pkg.getPackageIdentifier())) {
+        return;
+      }
+      if (recorder.getTargetMap().containsKey(name)
+          || implicitlyCreatedInputFiles.containsKey(name)) {
+        return;
+      }
+      // TODO(#19922): This conflict check is quadratic complexity -- the number of candidate inputs
+      // to create times the number of macros in the package (top-level or nested). We can optimize
+      // by only checking against top-level macros, since child macro namespaces are contained
+      // within their parents' namespace. We can also use a trie data structure to zoom in on the
+      // relevant conflicting macro if it exists, since you can't be in a macro's namespace unless
+      // you suffix its name (at least, under current namespacing rules).
+      for (MacroInstance macro : recorder.getMacroMap().values()) {
+        if (TargetRecorder.nameIsWithinMacroNamespace(name, macro.getName())) {
+          return;
+        }
+      }
+
+      implicitlyCreatedInputFiles.put(
+          name,
+          noImplicitFileExport
+              ? new PrivateVisibilityInputFile(pkg, label, loc)
+              : new InputFile(pkg, label, loc));
+    }
+
     @CanIgnoreReturnValue
     private Builder beforeBuild(boolean discoverAssumedInputFiles) throws NoSuchPackageException {
       // For correct semantics, we refuse to build a package that has declared symbolic macros that
@@ -1573,58 +1670,18 @@ public class Package {
       // Clear tests before discovering them again in order to keep this method idempotent -
       // otherwise we may double-count tests if we're called twice due to a skyframe restart, etc.
       testSuiteImplicitTestsAccumulator.clearAccumulatedTests();
-
-      Map<String, InputFile> newInputFiles = new HashMap<>();
       for (Rule rule : recorder.getRules()) {
-        if (discoverAssumedInputFiles) {
-          // Labels mentioned by a rule that refer to an unknown target in the current package are
-          // assumed to be InputFiles, unless they overlap a namespace owned by a macro. Create
-          // these InputFiles now. But don't do this for rules created within a symbolic macro,
-          // since we don't want the evaluation of the macro to affect the semantics of whether or
-          // not this target was created (i.e. all implicitly created files are knowable without
-          // necessarily evaluating symbolic macros).
-          if (recorder.isRuleCreatedInMacro(rule)) {
-            continue;
-          }
-          // We use a temporary map, newInputFiles, to avoid concurrent modification to this.targets
-          // while iterating (via getRules() above).
-          List<Label> labels = recorder.getRuleLabels(rule);
-          for (Label label : labels) {
-            String name = label.getName();
-            if (label.getPackageIdentifier().equals(metadata.packageIdentifier())
-                && !recorder.getTargetMap().containsKey(name)
-                && !newInputFiles.containsKey(name)) {
-              // Check for collision with a macro namespace. Currently this is a linear loop over
-              // all symbolic macros in the package.
-              // TODO(#19922): This is quadratic complexity, optimize with a trie or similar if
-              // needed.
-              boolean macroConflictsFound = false;
-              for (MacroInstance macro : recorder.getMacroMap().values()) {
-                macroConflictsFound |=
-                    TargetRecorder.nameIsWithinMacroNamespace(name, macro.getName());
-              }
-              if (!macroConflictsFound) {
-                Location loc = rule.getLocation();
-                newInputFiles.put(
-                    name,
-                    // Targets added this way are not in any macro, so
-                    // copyAppendingCurrentMacroLocation() munging isn't applicable.
-                    noImplicitFileExport
-                        ? new PrivateVisibilityInputFile(pkg, label, loc)
-                        : new InputFile(pkg, label, loc));
-              }
-            }
-          }
-        }
-
         testSuiteImplicitTestsAccumulator.processRule(rule);
       }
-
       // Make sure all accumulated values are sorted for determinism.
       testSuiteImplicitTestsAccumulator.sortTests();
 
-      for (InputFile file : newInputFiles.values()) {
-        recorder.addInputFileUnchecked(file);
+      if (discoverAssumedInputFiles) {
+        Map<String, InputFile> newInputFiles =
+            createAssumedInputFiles(pkg, recorder, noImplicitFileExport);
+        for (InputFile file : newInputFiles.values()) {
+          recorder.addInputFileUnchecked(file);
+        }
       }
 
       return this;
