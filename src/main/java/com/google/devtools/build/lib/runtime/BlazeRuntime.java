@@ -94,6 +94,7 @@ import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
+import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -120,7 +121,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -840,6 +841,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
    */
   @SuppressWarnings("SystemExitOutsideMain")
   public static void main(Iterable<Class<? extends BlazeModule>> moduleClasses, String[] args) {
+    // Transform args into Bazel's internal string representation.
+    args = Arrays.stream(args).map(StringUtil::reencodeJavaToInternal).toArray(String[]::new);
+
     setupUncaughtHandlerAtStartup(args);
     List<BlazeModule> modules = createModules(moduleClasses);
     // blaze.cc will put --batch first if the user set it.
@@ -1062,11 +1066,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       signalHandler.uninstall();
       ExecRequest request = result.getExecRequest();
       String[] argv = new String[request.getArgvCount()];
+      Charset processBuilderCharset = Charset.forName(System.getProperty("sun.jnu.encoding"));
       for (int i = 0; i < argv.length; i++) {
-        argv[i] = request.getArgv(i).toString(StandardCharsets.ISO_8859_1);
+        argv[i] = request.getArgv(i).toString(processBuilderCharset);
       }
 
-      String workingDirectory = request.getWorkingDirectory().toString(StandardCharsets.ISO_8859_1);
+      String workingDirectory = request.getWorkingDirectory().toString(processBuilderCharset);
       try {
         ProcessBuilder process =
             new ProcessBuilder().command(argv).directory(new File(workingDirectory)).inheritIO();
@@ -1076,8 +1081,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           process
               .environment()
               .put(
-                  variable.getName().toString(StandardCharsets.ISO_8859_1),
-                  variable.getValue().toString(StandardCharsets.ISO_8859_1));
+                  variable.getName().toString(processBuilderCharset),
+                  variable.getValue().toString(processBuilderCharset));
         }
 
         return process.start().waitFor();

@@ -53,7 +53,9 @@
 #include <utility>
 #include <vector>
 
-#if !defined(_WIN32)
+#if defined(_WIN32)
+#include <mbctype.h>
+#else
 #include <sys/stat.h>
 #include <unistd.h>
 #endif
@@ -349,8 +351,7 @@ static vector<string> GetServerExeArgs(const blaze_util::Path &jvm_path,
   }
   result.push_back(java_library_path.str());
 
-  // Force use of latin1 for file names.
-  result.push_back("-Dfile.encoding=ISO-8859-1");
+  result.push_back("-Dfile.encoding=UTF-8");
   // Force into the root locale to ensure consistent behavior of string
   // operations across machines (e.g. in the tr_TR locale, capital ASCII 'I'
   // turns into a special Unicode 'i' when converted to lower case).
@@ -1232,19 +1233,34 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   // TODO(bazel-team):  We've also seen a failure during loading (creating
   // threads?) when ulimit -Hs 8192.  Characterize that and check for it here.
 
-  // Make the JVM use ISO-8859-1 for parsing its command line because "blaze
-  // run" doesn't handle non-ASCII command line arguments. This is apparently
-  // the most reliable way to select the platform default encoding.
+  // Force the JVM to use a consistent UTF-8 locale on all systems.
+  //
+  // While UTF-8 is the default LC_CTYPE on most systems, tests are executed
+  // without any of the locale variables set and the client would thus fall
+  // back to ASCII when run in an integration test without this override.
+  //
+  // Other aspects of the locale are overridden as a precaution against
+  // inconsistent behavior across systems. The JVM's locale properties are
+  // overridden at startup, so this mostly affects native code in the client.
   //
   // On Linux, only do this if the locale is available to avoid the JVM
   // falling back to ASCII-only mode.
+  //
+  // TODO: Remove this logic entirely when Bazel sets LANG=C.UTF-8 for all
+  // actions by default.
 
-  const char *want_locale = "en_US.ISO-8859-1";
+  const char *want_locale = "C.UTF-8";
   bool override_locale = true;
 #ifndef _WIN32
-  locale_t iso_locale = newlocale(LC_CTYPE_MASK, want_locale, (locale_t)0);
-  if (iso_locale == 0) {
-    // ISO-8859-1 locale not available, use whatever the user has defined.
+  locale_t iso_locale = newlocale(LC_CTYPE_MASK, want_locale, nullptr);
+  if (iso_locale == nullptr) {
+    // Default UTF-8 locale not available, fall back to ISO-8859-1 for
+    // compatibility with legacy systems.
+    want_locale = "en_US.ISO-8859-1";
+    iso_locale = newlocale(LC_CTYPE_MASK, want_locale, nullptr);
+  }
+  if (iso_locale == nullptr) {
+    // ISO-8859-1 locale also not available, use whatever the user has defined.
     override_locale = false;
   } else {
     freelocale(iso_locale);
@@ -1453,6 +1469,10 @@ static void RunLauncher(const string &self_path,
 
 int Main(int argc, const char *const *argv, WorkspaceLayout *workspace_layout,
          OptionProcessor *option_processor, uint64_t start_time) {
+#ifdef _WIN32
+  // Force the code page to UTF-8 so that the JVM subprocess can use UTF-8.
+  _setmbcp(65001);
+#endif
   blaze_util::InitializeStdOutErrForUtf8();
 
   // Logging must be set first to assure no log statements are missed.

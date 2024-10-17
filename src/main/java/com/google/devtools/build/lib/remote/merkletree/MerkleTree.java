@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.merkletree;
 
-import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToExternal;
+import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToUtf8;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;
@@ -398,7 +398,7 @@ public class MerkleTree {
   private static FileNode buildProto(DirectoryTree.FileNode file) {
     var node =
         FileNode.newBuilder()
-            .setName(reencodeInternalToExternal(file.getPathSegment()))
+            .setName(reencodeInternalToUtf8(file.getPathSegment()))
             .setDigest(file.getDigest())
             .setIsExecutable(file.isExecutable());
     if (file.isToolInput()) {
@@ -409,15 +409,15 @@ public class MerkleTree {
 
   private static DirectoryNode buildProto(String baseName, MerkleTree dir) {
     return DirectoryNode.newBuilder()
-        .setName(reencodeInternalToExternal(baseName))
+        .setName(reencodeInternalToUtf8(baseName))
         .setDigest(dir.getRootDigest())
         .build();
   }
 
   private static SymlinkNode buildProto(DirectoryTree.SymlinkNode symlink) {
     return SymlinkNode.newBuilder()
-        .setName(reencodeInternalToExternal(symlink.getPathSegment()))
-        .setTarget(reencodeInternalToExternal(symlink.getTarget()))
+        .setName(reencodeInternalToUtf8(symlink.getPathSegment()))
+        .setTarget(reencodeInternalToUtf8(symlink.getTarget()))
         .build();
   }
 

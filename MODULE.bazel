@@ -327,6 +327,13 @@ use_repo(gvm, "graalvm_toolchains")
 
 http_file = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_file")
 
+http_file(
+    name = "openjdk_java_manifest",
+    downloaded_file_path = "java.manifest",
+    integrity = "sha256-917/ho5B710JWZEr27RDLE1p2dd7tzuxfbczgoaOoA4=",
+    urls = ["https://raw.githubusercontent.com/openjdk/jdk/refs/tags/jdk-21%2B35/src/java.base/windows/native/launcher/java.manifest"],
+)
+
 # DO NOT UPDATE the jq versions, they are used to verify compatibility with old and new versions.
 http_file(
     name = "jq_linux_amd64",

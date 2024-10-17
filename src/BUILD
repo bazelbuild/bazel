@@ -182,17 +182,23 @@ filegroup(
 sh_binary(
     name = "minimize_jdk",
     srcs = ["minimize_jdk.sh"],
+    data = [
+        "@bazel_tools//tools/bash/runfiles",
+        "@openjdk_java_manifest//file:java.manifest",
+    ],
 )
 
 genrule(
     name = "embedded_jdk_minimal",
     srcs = [
         ":embedded_jdk_vanilla",
-        ":minimize_jdk.sh",
         ":jdeps_modules.golden",
     ],
     outs = ["minimal_jdk.zip"],
-    cmd = "$(location :minimize_jdk.sh) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    cmd = "$(location :minimize_jdk) $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    tools = [
+        ":minimize_jdk",
+    ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
@@ -200,11 +206,13 @@ genrule(
     name = "embedded_jdk_allmodules",
     srcs = [
         ":embedded_jdk_vanilla",
-        ":minimize_jdk.sh",
         ":jdeps_modules.golden",
     ],
     outs = ["allmodules_jdk.zip"],
-    cmd = "$(location :minimize_jdk.sh) --allmodules $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    cmd = "$(location :minimize_jdk) --allmodules $(location :embedded_jdk_vanilla) $(location :jdeps_modules.golden) $(OUTS)",
+    tools = [
+        ":minimize_jdk",
+    ],
     visibility = ["//src/test/shell/bazel:__pkg__"],
 )
 
