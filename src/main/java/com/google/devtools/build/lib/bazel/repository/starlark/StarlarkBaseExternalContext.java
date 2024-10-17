@@ -904,7 +904,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
                 ".tzst", "tar.bz2", ".tbz", ".ar", or ".deb" here.
                 """),
         @Param(
-            name = "stripPrefix",
+            name = "strip_prefix",
             defaultValue = "''",
             named = true,
             doc =
@@ -913,7 +913,7 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
                 Many archives contain a top-level directory that contains all files in the \
                 archive. Instead of needing to specify this prefix over and over in the \
                 <code>build_file</code>, this field can be used to strip it from extracted \
-                files.
+                files. This parameter was previously named <code>stripPrefix</code>.
                 """),
         @Param(
             name = "allow_fail",
@@ -973,6 +973,12 @@ any directory prefix adjustment. This can be used to extract archives that \
 contain non-Unicode filenames, or which have files that would extract to \
 the same path on case-insensitive filesystems.
 """),
+        @Param(
+            name = "stripPrefix",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "''"),
       })
   public StructImpl downloadAndExtract(
       Object url,
@@ -986,8 +992,10 @@ the same path on case-insensitive filesystems.
       Dict<?, ?> headersUnchecked, // <String, List<String> | String> expected
       String integrity,
       Dict<?, ?> renameFiles, // <String, String> expected
+      String oldStripPrefix,
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
+    stripPrefix = renamedStripPrefix("download_and_extract", stripPrefix, oldStripPrefix);
     ImmutableMap<URI, Map<String, List<String>>> authHeaders =
         getAuthHeaders(getAuthContents(authUnchecked, "auth"));
 
@@ -1141,7 +1149,7 @@ the same path on case-insensitive filesystems.
                 "path to the directory where the archive will be unpacked,"
                     + " relative to the repository directory."),
         @Param(
-            name = "stripPrefix",
+            name = "strip_prefix",
             defaultValue = "''",
             named = true,
             doc =
@@ -1149,7 +1157,7 @@ the same path on case-insensitive filesystems.
                     + "\nMany archives contain a top-level directory that contains all files in the"
                     + " archive. Instead of needing to specify this prefix over and over in the"
                     + " <code>build_file</code>, this field can be used to strip it from extracted"
-                    + " files."),
+                    + " files. This parameter was previously named <code>stripPrefix</code>."),
         @Param(
             name = "rename_files",
             defaultValue = "{}",
@@ -1173,6 +1181,12 @@ the same path on case-insensitive filesystems.
                     + "not attempt to watch the file; passing 'auto' will only attempt to watch "
                     + "the file when it is legal to do so (see <code>watch()</code> docs for more "
                     + "information."),
+        @Param(
+            name = "stripPrefix",
+            documented = false,
+            positional = false,
+            named = true,
+            defaultValue = "''"),
       })
   public void extract(
       Object archive,
@@ -1180,8 +1194,10 @@ the same path on case-insensitive filesystems.
       String stripPrefix,
       Dict<?, ?> renameFiles, // <String, String> expected
       String watchArchive,
+      String oldStripPrefix,
       StarlarkThread thread)
       throws RepositoryFunctionException, InterruptedException, EvalException {
+    stripPrefix = renamedStripPrefix("extract", stripPrefix, oldStripPrefix);
     StarlarkPath archivePath = getPath(archive);
 
     if (!archivePath.exists()) {
@@ -1256,6 +1272,20 @@ the same path on case-insensitive filesystems.
     public boolean isFinished() {
       return isFinished;
     }
+  }
+
+  private String renamedStripPrefix(
+      String method, String stripPrefix, String oldStripPrefix)
+      throws EvalException {
+    if (oldStripPrefix.isEmpty()) {
+        return stripPrefix;
+    }
+    if (stripPrefix.isEmpty()) {
+        return oldStripPrefix;
+    }
+    throw Starlark.errorf(
+        "%s() got multiple values for parameter 'strip_prefix' (via compatibility alias 'stripPrefix')",
+        method);
   }
 
   @StarlarkMethod(
