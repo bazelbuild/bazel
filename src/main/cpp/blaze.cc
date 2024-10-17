@@ -1232,6 +1232,47 @@ static map<string, EnvVarValue> PrepareEnvironmentForJvm() {
   // TODO(bazel-team):  We've also seen a failure during loading (creating
   // threads?) when ulimit -Hs 8192.  Characterize that and check for it here.
 
+  // Force the JVM to use a consistent UTF-8 locale on all systems.
+  //
+  // While UTF-8 is the default LC_CTYPE on most systems, tests are executed
+  // without any of the locale variables set and the client would thus fall
+  // back to ASCII when run in an integration test without this override.
+  //
+  // Other aspects of the locale are overridden as a precaution against
+  // inconsistent behavior across systems. The JVM's locale properties are
+  // overridden at startup, so this mostly affects native code in the client.
+  //
+  // On Linux, only do this if the locale is available to avoid the JVM
+  // falling back to ASCII-only mode.
+  //
+  // TODO: Remove this logic entirely when Bazel sets LANG=C.UTF-8 for all
+  // actions by default.
+
+  const char *want_locale = "C.UTF-8";
+  bool override_locale = true;
+#ifndef _WIN32
+  locale_t iso_locale = newlocale(LC_CTYPE_MASK, want_locale, nullptr);
+  if (iso_locale == nullptr) {
+    // Default UTF-8 locale not available, fall back to ISO-8859-1 for
+    // compatibility with legacy systems.
+    want_locale = "en_US.ISO-8859-1";
+    iso_locale = newlocale(LC_CTYPE_MASK, want_locale, nullptr);
+  }
+  if (iso_locale == nullptr) {
+    // ISO-8859-1 locale also not available, use whatever the user has defined.
+    override_locale = false;
+  } else {
+    freelocale(iso_locale);
+  }
+#endif
+
+  if (override_locale) {
+    result["LANG"] = EnvVarValue(EnvVarAction::SET, want_locale);
+    result["LANGUAGE"] = EnvVarValue(EnvVarAction::SET, want_locale);
+    result["LC_ALL"] = EnvVarValue(EnvVarAction::SET, want_locale);
+    result["LC_CTYPE"] = EnvVarValue(EnvVarAction::SET, want_locale);
+  }
+
   return result;
 }
 
