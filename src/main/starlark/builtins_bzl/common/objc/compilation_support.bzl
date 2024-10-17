@@ -887,12 +887,14 @@ def _register_configuration_specific_link_actions_with_cpp_variables(
             replace_libs,
         )
 
-    cc_linking_context = _create_deduped_linkopts_linking_context(ctx.label, cc_linking_context)
+    (cc_linking_context, seen_flags) = _create_deduped_linkopts_linking_context(ctx.label, cc_linking_context)
 
     prefixed_attr_linkopts = [
         "-Wl,%s" % linkopt
         for linkopt in attr_linkopts
     ]
+
+    (_, user_link_flags, _) = _dedup_link_flags(extra_link_args + prefixed_attr_linkopts, seen_flags)
 
     cc_common.link(
         name = name,
@@ -910,7 +912,7 @@ def _register_configuration_specific_link_actions_with_cpp_variables(
         main_output = binary,
         output_type = "executable",
         stamp = stamp,
-        user_link_flags = extra_link_args + prefixed_attr_linkopts,
+        user_link_flags = user_link_flags,
         variables_extension = user_variable_extensions,
     )
 
@@ -945,6 +947,12 @@ def _dedup_link_flags(flags, seen_flags = {}):
             key = arg[5] + framework
             if key not in seen_flags:
                 new_flags.extend([arg.split(",")[1], framework])
+                seen_flags[key] = True
+        elif arg.startswith("-Wl,-rpath,"):
+            rpath = arg.split(",")[2]
+            key = arg[5] + rpath
+            if key not in seen_flags:
+                new_flags.append(arg)
                 seen_flags[key] = True
         elif arg.startswith("-l"):
             if arg not in seen_flags:
@@ -984,8 +992,11 @@ def _create_deduped_linkopts_linking_context(owner, cc_linking_context):
         linkstamps = cc_linking_context.linkstamps(),
     ))
 
-    return cc_common.create_linking_context(
-        linker_inputs = depset(linker_inputs),
+    return (
+        cc_common.create_linking_context(
+            linker_inputs = depset(linker_inputs),
+        ),
+        seen_flags,
     )
 
 def _substitute_j2objc_pruned_libraries(
