@@ -603,6 +603,13 @@ seamlessly from normal Java code.
 Heron is a realtime, distributed, fault-tolerant stream processing engine from
 Twitter.
 
+### [The Internet Computer Protocol](https://internetcomputer.org/){: .external}
+
+<img src="https://internetcomputer.org/img/IC_logo_horizontal_white.svg" width="120" align="right">
+
+The Internet Computer Protocol is a publicly available blockchain network that 
+enables replicated execution of general-purpose computation, serving hundreds of thousands of applications and their users.
+
 ### [Jazzer](https://github.com/CodeIntelligenceTesting/jazzer){: .external}
 
 <img src="https://www.code-intelligence.com/hubfs/Logos/CI%20Logos/Jazzer_einfach.png" width="120" align="right">
