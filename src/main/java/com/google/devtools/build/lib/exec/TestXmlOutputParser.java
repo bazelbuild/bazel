@@ -216,6 +216,7 @@ public final class TestXmlOutputParser {
       throws XMLStreamException, TestXmlOutputParserException {
     int failures = 0;
     int errors = 0;
+    boolean skipped = false;
 
     while (true) {
       int event = parser.next();
@@ -243,6 +244,10 @@ public final class TestXmlOutputParser {
               errors += 1;
               skipCompleteElement(parser);
               break;
+            case "skipped":
+              skipped = true;
+              skipCompleteElement(parser);
+              break;
             case "testdecorator":
               builder.addChild(parseTestDecorator(parser));
               break;
@@ -268,6 +273,8 @@ public final class TestXmlOutputParser {
             builder.setStatus(TestCase.Status.ERROR);
           } else if (failures > 0) {
             builder.setStatus(TestCase.Status.FAILED);
+          } else if (skipped) {
+            builder.setStatus(TestCase.Status.SKIPPED);
           } else {
             builder.setStatus(TestCase.Status.PASSED);
           }

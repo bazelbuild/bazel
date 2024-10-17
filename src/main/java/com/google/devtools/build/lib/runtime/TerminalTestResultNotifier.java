@@ -28,6 +28,7 @@ import com.google.devtools.build.lib.exec.TestLogHelper;
 import com.google.devtools.build.lib.runtime.TestSummaryPrinter.TestLogPathFormatter;
 import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter;
+import com.google.devtools.build.lib.util.io.AnsiTerminalPrinter.Mode;
 import com.google.devtools.build.lib.view.test.TestStatus.BlazeTestStatus;
 import com.google.devtools.common.options.OptionsParsingResult;
 import java.util.ArrayList;
@@ -58,6 +59,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
 
     int totalTestCases;
     int totalFailedTestCases;
+    int totalSkippedTestCases;
     int totalUnknownTestCases;
   }
 
@@ -195,6 +197,7 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
       stats.totalTestCases += summary.getTotalTestCases();
       stats.totalUnknownTestCases += summary.getUnkownTestCases();
       stats.totalFailedTestCases += summary.getFailedTestCases().size();
+      stats.totalSkippedTestCases += summary.getSkippedTestCases().size();
     }
 
     stats.failedCount = summaries.size() - stats.passCount;
@@ -265,12 +268,15 @@ public class TerminalTestResultNotifier implements TestResultNotifier {
     TestSummaryFormat testSummaryFormat = options.getOptions(ExecutionOptions.class).testSummary;
     if (testSummaryFormat == DETAILED || testSummaryFormat == TESTCASE) {
       int passCount =
-          stats.totalTestCases - stats.totalFailedTestCases - stats.totalUnknownTestCases;
+          stats.totalTestCases - stats.totalFailedTestCases - stats.totalUnknownTestCases - stats.totalSkippedTestCases;
       String message =
           String.format(
-              "Test cases: finished with %s%d passing%s and %s%d failing%s out of %d test cases",
+              "Test cases: finished with %s%d passing%s, %s%d skipped%s and %s%d failing%s out of %d test cases",
               passCount > 0 ? AnsiTerminalPrinter.Mode.INFO : "",
               passCount,
+              AnsiTerminalPrinter.Mode.DEFAULT,
+              stats.totalSkippedTestCases > 0 ? AnsiTerminalPrinter.Mode.WARNING : "",
+              stats.totalSkippedTestCases,
               AnsiTerminalPrinter.Mode.DEFAULT,
               stats.totalFailedTestCases > 0 ? AnsiTerminalPrinter.Mode.ERROR : "",
               stats.totalFailedTestCases,

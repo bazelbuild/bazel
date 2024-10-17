@@ -216,12 +216,10 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
         // Don't count test cases that were not run.
         return 0;
       }
-      if (testCase.getStatus() != TestCase.Status.PASSED) {
-        this.summary.failedTestCases.add(testCase);
-      }
-
-      if (testCase.getStatus() == Status.PASSED) {
-        this.summary.passedTestCases.add(testCase);
+      switch (testCase.getStatus()) {
+        case PASSED -> this.summary.passedTestCases.add(testCase);
+        case SKIPPED -> this.summary.skippedTestCases.add(testCase);
+        default -> this.summary.failedTestCases.add(testCase);
       }
 
       return 1;
@@ -409,6 +407,7 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
   private boolean wasUnreportedWrongSize;
   private List<TestCase> failedTestCases = new ArrayList<>();
   private final List<TestCase> passedTestCases = new ArrayList<>();
+  private final List<TestCase> skippedTestCases = new ArrayList<>();
   private List<Path> passedLogs = new ArrayList<>();
   private List<Path> failedLogs = new ArrayList<>();
   private List<String> warnings = new ArrayList<>();
@@ -518,6 +517,10 @@ public class TestSummary implements Comparable<TestSummary>, BuildEventWithOrder
 
   public List<TestCase> getFailedTestCases() {
     return failedTestCases;
+  }
+
+  public List<TestCase> getSkippedTestCases() {
+    return skippedTestCases;
   }
 
   public List<TestCase> getPassedTestCases() {
