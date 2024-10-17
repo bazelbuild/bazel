@@ -39,6 +39,7 @@ public class IgnoredSubdirectoriesTest {
   private static ImmutableList<String> patterns(String... patterns) {
     return ImmutableList.copyOf(patterns);
   }
+
   @Test
   public void testFilterPrefixes() {
     IgnoredSubdirectories original = IgnoredSubdirectories.of(

@@ -22,9 +22,15 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.ObjectArrays;
+import com.google.devtools.build.lib.skyframe.serialization.DeserializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.ObjectCodec;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationContext;
+import com.google.devtools.build.lib.skyframe.serialization.SerializationException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.UnixGlob;
+import com.google.protobuf.CodedInputStream;
+import com.google.protobuf.CodedOutputStream;
+import java.io.IOException;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
@@ -35,7 +41,7 @@ import javax.annotation.Nullable;
  */
 public final class IgnoredSubdirectories {
   public static final IgnoredSubdirectories EMPTY = new IgnoredSubdirectories(
-      ImmutableSet.of(), ImmutableList.of(), ImmutableList.of());
+      ImmutableSet.of(), ImmutableList.of());
 
   private static final Splitter SLASH_SPLITTER = Splitter.on("/");
 
@@ -47,15 +53,39 @@ public final class IgnoredSubdirectories {
   private final ImmutableList<String> patterns;
   private final ImmutableList<String[]> splitPatterns;
 
+  private static class Codec implements ObjectCodec<IgnoredSubdirectories> {
+    private static final Codec INSTANCE = new Codec();
+
+    @Override
+    public Class<? extends IgnoredSubdirectories> getEncodedClass() {
+      return IgnoredSubdirectories.class;
+    }
+
+    @Override
+    public void serialize(SerializationContext context, IgnoredSubdirectories obj,
+        CodedOutputStream codedOut) throws SerializationException, IOException {
+      context.serialize(obj.prefixes, codedOut);
+      context.serialize(obj.patterns, codedOut);
+    }
+
+    @Override
+    public IgnoredSubdirectories deserialize(DeserializationContext context,
+        CodedInputStream codedIn) throws SerializationException, IOException {
+      ImmutableSet<PathFragment> prefixes = context.deserialize(codedIn);
+      ImmutableList<String> patterns = context.deserialize(codedIn);
+
+      return new IgnoredSubdirectories(prefixes, patterns);
+    }
+  }
+
   private IgnoredSubdirectories(
       ImmutableSet<PathFragment> prefixes,
-      ImmutableList<String> patterns,
-      ImmutableList<String[]> splitPatterns) {
-    Preconditions.checkArgument(patterns.size() == splitPatterns.size());
-
+      ImmutableList<String> patterns) {
     this.prefixes = prefixes;
     this.patterns = patterns;
-    this.splitPatterns = splitPatterns;
+    this.splitPatterns = patterns.stream()
+        .map(p -> Iterables.toArray(SLASH_SPLITTER.split(p), String.class))
+        .collect(ImmutableList.toImmutableList());
   }
 
   public static IgnoredSubdirectories of(ImmutableSet<PathFragment> prefixes) {
@@ -71,11 +101,7 @@ public final class IgnoredSubdirectories {
       Preconditions.checkArgument(!prefix.isAbsolute());
     }
 
-    ImmutableList<String[]> splitPatterns = patterns.stream()
-        .map(p -> Iterables.toArray(SLASH_SPLITTER.split(p), String.class))
-        .collect(ImmutableList.toImmutableList());
-
-    return new IgnoredSubdirectories(prefixes, patterns, splitPatterns);
+    return new IgnoredSubdirectories(prefixes, patterns);
   }
 
   public IgnoredSubdirectories withPrefix(PathFragment prefix) {
@@ -88,37 +114,22 @@ public final class IgnoredSubdirectories {
         .map(p -> prefix + "/" + p)
         .collect(ImmutableList.toImmutableList());
 
-    String[] splitPrefix = Iterables.toArray(prefix.segments(), String.class);
-    ImmutableList<String[]> prefixedSplitPatterns = splitPatterns.stream()
-        .map(p -> ObjectArrays.concat(splitPrefix, p, String.class))
-        .collect(ImmutableList.toImmutableList());
-
-    return new IgnoredSubdirectories(prefixedPrefixes, prefixedPatterns, prefixedSplitPatterns);
+    return new IgnoredSubdirectories(prefixedPrefixes, prefixedPatterns);
   }
 
   public IgnoredSubdirectories union(IgnoredSubdirectories other) {
     return new IgnoredSubdirectories(
         ImmutableSet.<PathFragment>builder().addAll(prefixes).addAll(other.prefixes).build(),
-        ImmutableList.<String>builder().addAll(patterns).addAll(other.patterns).build(),
-        ImmutableList.<String[]>builder().addAll(splitPatterns).addAll(other.splitPatterns).build());
+        ImmutableList.<String>builder().addAll(patterns).addAll(other.patterns).build());
   }
 
   /** Filters out entries that cannot match anything under {@code directory}. */
   public IgnoredSubdirectories filterForDirectory(PathFragment directory) {
     ImmutableSet<PathFragment> filteredPrefixes =
         prefixes.stream().filter(p -> p.startsWith(directory)).collect(toImmutableSet());
-
-    String[] directorySegments = Iterables.toArray(directory.segments(), String.class);
-
     ImmutableList.Builder<String> filteredPatterns = ImmutableList.builder();
-    ImmutableList.Builder<String[]> filteredSplitPatterns = ImmutableList.builder();
-    for (int i = 0; i < patterns.size(); i++) {
-      if (UnixGlob.canMatchChild(splitPatterns.get(i), directorySegments)){
-        filteredPatterns.add(patterns.get(i));
-        filteredSplitPatterns.add(splitPatterns.get(i));
-      }
-    }
-    return new IgnoredSubdirectories(filteredPrefixes, filteredPatterns.build(), filteredSplitPatterns.build());
+
+    return new IgnoredSubdirectories(filteredPrefixes, filteredPatterns.build());
   }
 
   public ImmutableSet<PathFragment> prefixes() {

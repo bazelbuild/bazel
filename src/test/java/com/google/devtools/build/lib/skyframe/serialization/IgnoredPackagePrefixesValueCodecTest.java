@@ -13,10 +13,12 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.skyframe.IgnoredPackagePrefixesValue;
 import com.google.devtools.build.lib.skyframe.serialization.testutils.SerializationTester;
 import com.google.devtools.build.lib.vfs.PathFragment;
+import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -25,13 +27,26 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class IgnoredPackagePrefixesValueCodecTest {
 
+  private static ImmutableSet<PathFragment> prefixes(String... prefixes) {
+    return Arrays.stream(prefixes)
+        .map(PathFragment::create)
+        .collect(ImmutableSet.toImmutableSet());
+  }
+
+  private static ImmutableList<String> patterns(String... patterns) {
+    return ImmutableList.copyOf(patterns);
+  }
+
   @Test
   public void testCodec() throws Exception {
     new SerializationTester(
-            IgnoredPackagePrefixesValue.of(ImmutableSet.<PathFragment>of()),
-            IgnoredPackagePrefixesValue.of(ImmutableSet.of(PathFragment.create("foo"))),
-            IgnoredPackagePrefixesValue.of(
-                ImmutableSet.of(PathFragment.create("foo"), PathFragment.create("bar/moo"))))
+        IgnoredPackagePrefixesValue.of(prefixes(), patterns()),
+        IgnoredPackagePrefixesValue.of(prefixes("foo"), patterns()),
+        IgnoredPackagePrefixesValue.of(prefixes("foo", "bar/moo"), patterns()),
+        IgnoredPackagePrefixesValue.of(prefixes(), patterns("foo")),
+        IgnoredPackagePrefixesValue.of(prefixes(), patterns("foo")),
+        IgnoredPackagePrefixesValue.of(prefixes(), patterns("foo/**")),
+        IgnoredPackagePrefixesValue.of(prefixes("foo"), patterns("foo/**")))
         .runTests();
   }
 }
