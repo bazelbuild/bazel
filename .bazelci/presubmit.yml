@@ -217,14 +217,6 @@ tasks:
       - "-//src/test/java/com/google/devtools/build/lib/platform:SystemMemoryPressureEventTest"
       # Disable android tests since we are moving Android rules out of Bazel repo.
       - "-//src/test/shell/bazel:bazel_android_tools_test"
-      # https://github.com/bazelbuild/bazel/issues/23726
-      - "-//src/test/shell/bazel:bazel_determinism_test"
-      - "-//src/test/shell/bazel:bazel_bootstrap_distfile_tar_test"
-      - "-//src/test/shell/bazel:bazel_bootstrap_distfile_test"
-      # Temporarily disable python and shell integration tests
-      # TODO(pcloudy): Re-enable these tests after fixing https://github.com/bazelbuild/bazel/issues/23726
-      - "-//src/test/shell/..."
-      - "-//src/test/py/..."
     include_json_profile:
       - build
       - test
