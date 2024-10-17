@@ -100,6 +100,7 @@ public final class UiEventHandler implements EventHandler {
       DateTimeFormatter.ofPattern("(HH:mm:ss) ");
   private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
+  private final boolean quiet;
   private final boolean cursorControl;
   private final Clock clock;
   private final EventBus eventBus;
@@ -176,6 +177,7 @@ public final class UiEventHandler implements EventHandler {
         OutErr.create(
             new FullyBufferedOutputStream(outErr.getOutputStream()),
             new FullyBufferedOutputStream(outErr.getErrorStream()));
+    this.quiet = options.quiet;
     this.cursorControl = options.useCursorControl();
     this.terminal = new AnsiTerminal(this.outErr.getErrorStream());
     this.showProgress = options.showProgress;
@@ -424,7 +426,20 @@ public final class UiEventHandler implements EventHandler {
   }
 
   private void handleInternal(Event event) {
-    if (filteredEventKinds.contains(event.getKind())) {
+    EventKind eventKind = event.getKind();
+    if (quiet) {
+      switch (eventKind) {
+        case ERROR -> {}
+        case FATAL -> {}
+        case STDOUT -> {}
+        case STDERR -> {}
+        default -> {
+          return;
+        }
+      }
+    }
+
+    if (filteredEventKinds.contains(eventKind)) {
       return;
     }
     try {
@@ -1032,6 +1047,10 @@ public final class UiEventHandler implements EventHandler {
   }
 
   private synchronized void addProgressBar() throws IOException {
+    if (quiet) {
+      return;
+    }
+
     LineCountingAnsiTerminalWriter countingTerminalWriter =
         new LineCountingAnsiTerminalWriter(terminal);
     AnsiTerminalWriter terminalWriter = countingTerminalWriter;

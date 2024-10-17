@@ -748,4 +748,17 @@ function test_exit_code_reported() {
   expect_log '//pkg:false (Exit 1) (see'
 }
 
+function test_quiet_mode() {
+  mkdir -p foo
+  cat > foo/BUILD <<'EOF'
+genrule(name="g", srcs=[], outs=["go"], cmd="echo GO > $@")
+EOF
+
+  bazel shutdown
+  bazel --quiet build &> "$TEST_log" || fail "build failed"
+  expect_not_log "and connecting to it"
+  expect_not_log "Analyzed"
+  expect_not_log "Build completed successfully"
+
+}
 run_suite "Integration tests for ${PRODUCT_NAME}'s UI"
