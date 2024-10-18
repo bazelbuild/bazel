@@ -398,7 +398,7 @@ public class StarlarkRepositoryContext extends StarlarkBaseExternalContext {
           """
           Renames the file or directory from <code>src</code> to <code>dst</code>. \
           Parent directories are created as needed. Fails if the destination path
-          already exists.
+          already exists. Both paths must be located within the repository.
           """,
       useStarlarkThread = true,
       parameters = {
