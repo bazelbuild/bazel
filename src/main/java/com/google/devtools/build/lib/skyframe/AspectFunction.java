@@ -390,7 +390,7 @@ final class AspectFunction implements SkyFunction {
       }
 
       ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts = null;
-      if (canAspectsPropagateToToolchains(topologicalAspectPath, target)) {
+      if (target.isRule()) {
         Pair<ToolchainCollection<UnloadedToolchainContext>, Boolean> contextOrRestart =
             getBaseTargetUnloadedToolchainContexts(
                 state, targetAndConfiguration, key.getBaseConfiguredTargetKey(), env);
@@ -463,7 +463,11 @@ final class AspectFunction implements SkyFunction {
       try {
         baseTargetToolchainContexts =
             getBaseTargetToolchainContexts(
-                baseTargetUnloadedToolchainContexts, aspect, target, depValueMap);
+                baseTargetUnloadedToolchainContexts,
+                aspect,
+                target,
+                topologicalAspectPath,
+                depValueMap);
       } catch (MergingException e) {
         env.getListener().handle(Event.error(target.getLocation(), e.getMessage()));
         throw new AspectFunctionException(
@@ -524,9 +528,11 @@ final class AspectFunction implements SkyFunction {
           ToolchainCollection<UnloadedToolchainContext> baseTargetUnloadedToolchainContexts,
           Aspect aspect,
           Target target,
+          ImmutableList<Aspect> aspectsPath,
           OrderedSetMultimap<DependencyKind, ConfiguredTargetAndData> depValueMap)
           throws MergingException {
-    if (baseTargetUnloadedToolchainContexts == null) {
+    if (baseTargetUnloadedToolchainContexts == null
+        || !canAspectsPropagateToToolchains(aspectsPath, target)) {
       return null;
     }
     String description =
