@@ -1922,7 +1922,7 @@ def _rule_impl(ctx):
   result = ctx.download_and_extract(
     url = [],
     type = "zip",
-    stripPrefix="ext",
+    strip_prefix="ext",
     sha256 = ctx.attr.sha256,
     allow_fail = True,
   )
