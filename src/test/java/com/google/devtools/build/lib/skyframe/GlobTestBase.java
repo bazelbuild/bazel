@@ -160,7 +160,7 @@ public abstract class GlobTestBase {
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
         SkyFunctions.IGNORED_PACKAGE_PREFIXES,
-        BazelSkyframeExecutorConstants.IGNORED_PACKAGE_PREFIXES_FUNCTION);
+        new IgnoredPackagePrefixesFunction(BazelSkyframeExecutorConstants.BAZELIGNORE_PATH, false));
     skyFunctions.put(
         FileStateKey.FILE_STATE,
         new FileStateFunction(

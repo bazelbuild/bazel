@@ -112,8 +112,7 @@ public class ContainingPackageLookupFunctionTest extends FoundationTestCase {
     skyFunctions.put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build());
     skyFunctions.put(
         SkyFunctions.IGNORED_PACKAGE_PREFIXES,
-        new IgnoredPackagePrefixesFunction(
-            /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
+        BazelSkyframeExecutorConstants.NOOP_IGNORED_PACKAGE_PREFIXES_FUNCTION);
     skyFunctions.put(
         FileStateKey.FILE_STATE,
         new FileStateFunction(

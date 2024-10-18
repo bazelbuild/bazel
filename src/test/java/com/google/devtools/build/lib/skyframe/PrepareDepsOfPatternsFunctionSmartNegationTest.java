@@ -97,7 +97,8 @@ public class PrepareDepsOfPatternsFunctionSmartNegationTest extends FoundationTe
             .setSyscallCache(SyscallCache.NO_CACHE)
             .setIgnoredPackagePrefixesFunction(
                 new IgnoredPackagePrefixesFunction(
-                    PathFragment.create(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING)))
+                    PathFragment.create(ADDITIONAL_IGNORED_PACKAGE_PREFIXES_FILE_PATH_STRING),
+                    false))
             .build();
     SkyframeExecutorTestHelper.process(skyframeExecutor);
     OptionsParser optionsParser =

@@ -15,6 +15,8 @@
 package com.google.devtools.build.lib.skyframe;
 
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.packages.PackageArgs;
 import com.google.devtools.build.skyframe.AbstractSkyKey;
@@ -24,12 +26,17 @@ import com.google.devtools.build.skyframe.SkyValue;
 /** Contains information about the REPO.bazel file at the root of a repo. */
 @AutoValue
 public abstract class RepoFileValue implements SkyValue {
-  public static final RepoFileValue EMPTY = of(PackageArgs.EMPTY);
+  public static final RepoFileValue EMPTY =
+      of(ImmutableMap.of(), ImmutableList.of());
 
-  public abstract PackageArgs packageArgs();
+  public abstract ImmutableMap<String, Object> packageArgsMap();
 
-  public static RepoFileValue of(PackageArgs packageArgs) {
-    return new AutoValue_RepoFileValue(packageArgs);
+  public abstract ImmutableList<String> ignoredDirectories();
+
+  public static RepoFileValue of(
+      ImmutableMap<String, Object> packageArgsMap,
+      ImmutableList<String> ignoredDirectories) {
+    return new AutoValue_RepoFileValue(packageArgsMap, ignoredDirectories);
   }
 
   public static Key key(RepositoryName repoName) {

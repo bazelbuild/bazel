@@ -179,8 +179,7 @@ public final class RecursiveFilesystemTraversalFunctionTest extends FoundationTe
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
         SkyFunctions.IGNORED_PACKAGE_PREFIXES,
-        new IgnoredPackagePrefixesFunction(
-            /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
+        BazelSkyframeExecutorConstants.NOOP_IGNORED_PACKAGE_PREFIXES_FUNCTION);
     skyFunctions.put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build());
     skyFunctions.put(
         WorkspaceFileValue.WORKSPACE_FILE,

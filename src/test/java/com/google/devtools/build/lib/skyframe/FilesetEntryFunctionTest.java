@@ -121,8 +121,7 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             BazelSkyframeExecutorConstants.EXTERNAL_PACKAGE_HELPER));
     skyFunctions.put(
         SkyFunctions.IGNORED_PACKAGE_PREFIXES,
-        new IgnoredPackagePrefixesFunction(
-            /*ignoredPackagePrefixesFile=*/ PathFragment.EMPTY_FRAGMENT));
+        BazelSkyframeExecutorConstants.NOOP_IGNORED_PACKAGE_PREFIXES_FUNCTION);
     skyFunctions.put(
         SkyFunctions.FILESET_ENTRY, new FilesetEntryFunction((unused) -> rootDirectory));
     skyFunctions.put(SkyFunctions.WORKSPACE_NAME, new TestWorkspaceNameFunction());
