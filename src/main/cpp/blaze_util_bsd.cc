@@ -68,7 +68,7 @@ string GetOutputRoot() {
     char buf[2048];
     struct passwd pwbuf;
     struct passwd *pw = nullptr;
-    int uid = getuid();
+    uid_t uid = getuid();
     int r = getpwuid_r(uid, &pwbuf, buf, 2048, &pw);
     if (r == 0 && pw != nullptr) {
       xdg_cache_home = blaze_util::JoinPath(pw->pw_dir, ".cache");
