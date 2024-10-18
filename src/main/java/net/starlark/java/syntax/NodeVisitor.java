@@ -174,9 +174,7 @@ public class NodeVisitor {
   public void visit(ConditionalExpression node) {
     visit(node.getCondition());
     visit(node.getThenCase());
-    if (node.getElseCase() != null) {
-      visit(node.getElseCase());
-    }
+    visit(node.getElseCase());
   }
 
   // methods dealing with sequences of nodes
