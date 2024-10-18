@@ -17,6 +17,7 @@ import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.ExtractEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.FileEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.OsEvent;
+import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.RenameEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.SymlinkEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.TemplateEvent;
 import com.google.devtools.build.lib.bazel.debug.proto.WorkspaceLogProtos.WhichEvent;
@@ -252,6 +253,24 @@ public final class WorkspaceRuleEvent implements Postable {
     WorkspaceLogProtos.WorkspaceEvent.Builder result =
         WorkspaceLogProtos.WorkspaceEvent.newBuilder();
     result = result.setOsEvent(e);
+    if (location != null) {
+      result = result.setLocation(location.toString());
+    }
+    if (context != null) {
+      result = result.setContext(context);
+    }
+    return new WorkspaceRuleEvent(result.build());
+  }
+
+  /** Creates a new WorkspaceRuleEvent for a rename event. */
+  public static WorkspaceRuleEvent newRenameEvent(
+      String src, String dst, String context, Location location) {
+    RenameEvent e =
+        WorkspaceLogProtos.RenameEvent.newBuilder().setSrc(src).setDst(dst).build();
+
+    WorkspaceLogProtos.WorkspaceEvent.Builder result =
+        WorkspaceLogProtos.WorkspaceEvent.newBuilder();
+    result = result.setRenameEvent(e);
     if (location != null) {
       result = result.setLocation(location.toString());
     }
