@@ -564,8 +564,6 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
     ImmutableList.Builder<Pair<String, String>> startupOptions = ImmutableList.builder();
     for (StartupOption option : request.getStartupOptionsList()) {
       // UTF-8 won't do because we want to be able to pass arbitrary binary strings.
-      // Not that the internals of Bazel handle that correctly, but why not make at least this
-      // little part correct?
       startupOptions.add(new Pair<>(
           option.getSource().toString(StandardCharsets.ISO_8859_1),
           option.getOption().toString(StandardCharsets.ISO_8859_1)));
@@ -594,9 +592,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
               new RpcOutputStream(command.getId(), responseCookie, StreamType.STDERR, observer));
 
       try {
-        // UTF-8 won't do because we want to be able to pass arbitrary binary strings.
-        // Not that the internals of Bazel handle that correctly, but why not make at least this
-        // little part correct?
+        // Transform args into Bazel's internal string representation.
         ImmutableList<String> args = request.getArgList().stream()
             .map(arg -> arg.toString(StandardCharsets.ISO_8859_1))
             .collect(ImmutableList.toImmutableList());

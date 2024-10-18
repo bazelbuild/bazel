@@ -53,8 +53,6 @@ msys*|mingw*|cygwin*)
   ;;
 esac
 
-add_to_bazelrc "test --notest_loasd"
-
 #### HELPER FUNCTIONS ##################################################
 
 function write_py_files() {
@@ -195,32 +193,66 @@ function test_script_file_generation {
 }
 
 function test_consistent_command_line_encoding {
-  # todo(aehlig): reenable: https://github.com/bazelbuild/bazel/issues/1775
-  return 0
-
-  # TODO(bazel-team): fix bazel to have consistent encoding, also on darwin;
-  # see https://github.com/bazelbuild/bazel/issues/1766
-  [ "$PLATFORM" != "darwin" ] || warn "test disabled on darwin, see Github issue 1766"
-  [ "$PLATFORM" != "darwin" ] || return 0
-
-  # äöüÄÖÜß in UTF8
-  local arg=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
+  if "$is_windows"; then
+    # The JVM sets sun.jnu.encoding, which is used to encode command-line
+    # arguments to java.exe, based on the return value of GetACP() on Windows.
+    # On Windows with an English locale, GetACP() returns 1252, which is a
+    # variant of ISO 8859-1 that can represent the characters below, but not
+    # the full Unicode range.
+    # TODO: Fix this by patching the fusion manifest of the embedded java.exe to
+    #  force GetACP() to return 65001 (UTF-8).
+    # äöüÄÖÜß in UTF8
+    local arg=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
+  else
+    # äöüÄÖÜß🌱 in UTF8
+    local arg=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
+  fi
 
   mkdir -p foo || fail "mkdir foo failed"
   echo 'sh_binary(name = "foo", srcs = ["foo.sh"])' > foo/BUILD
   echo 'sh_test(name = "foo_test", srcs = ["foo.sh"])' >> foo/BUILD
-  echo 'test "$1" = "'"$arg"'"' > foo/foo.sh
+  cat > foo/foo.sh <<EOF
+echo "got : \$1"
+echo "want: $arg"
+test "\$1" = '$arg'
+EOF
   chmod +x foo/foo.sh
 
   bazel run //foo -- "$arg" > output \
     || fail "${PRODUCT_NAME} run failed."
 
-  bazel test //foo:foo_test --test_arg="$arg" \
+  bazel test //foo:foo_test --test_arg="$arg" --test_output=errors \
     || fail "${PRODUCT_NAME} test failed"
 
   bazel --batch run //foo -- "$arg" > output \
     || fail "${PRODUCT_NAME} run failed (--batch)."
-  bazel --batch test //foo:foo_test --test_arg="$arg" \
+  bazel --batch test //foo:foo_test --test_arg="$arg" --test_output=errors \
+    || fail "${PRODUCT_NAME} test failed (--batch)"
+}
+
+function test_consistent_command_line_encoding_full_utf8 {
+  # äöüÄÖÜß🌱 in UTF8
+  local arg=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
+
+  mkdir -p foo || fail "mkdir foo failed"
+  echo 'sh_binary(name = "foo", srcs = ["foo.sh"])' > foo/BUILD
+  echo 'sh_test(name = "foo_test", srcs = ["foo.sh"])' >> foo/BUILD
+  cat > foo/foo.sh <<EOF
+echo "got : \$1"
+echo "want: $arg"
+test "\$1" = '$arg'
+EOF
+  chmod +x foo/foo.sh
+
+  bazel run //foo -- "$arg" > output \
+    || fail "${PRODUCT_NAME} run failed."
+
+  bazel test //foo:foo_test --test_arg="$arg" --test_output=errors \
+    || fail "${PRODUCT_NAME} test failed"
+
+  bazel --batch run //foo -- "$arg" > output \
+    || fail "${PRODUCT_NAME} run failed (--batch)."
+  bazel --batch test //foo:foo_test --test_arg="$arg" --test_output=errors \
     || fail "${PRODUCT_NAME} test failed (--batch)"
 }
 
