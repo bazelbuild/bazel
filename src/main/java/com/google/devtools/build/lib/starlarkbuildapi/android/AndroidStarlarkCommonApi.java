@@ -27,6 +27,7 @@ import net.starlark.java.annot.ParamType;
 import net.starlark.java.annot.StarlarkBuiltin;
 import net.starlark.java.annot.StarlarkMethod;
 import net.starlark.java.eval.EvalException;
+import net.starlark.java.eval.NoneType;
 import net.starlark.java.eval.Sequence;
 import net.starlark.java.eval.StarlarkInt;
 import net.starlark.java.eval.StarlarkValue;
@@ -154,7 +155,17 @@ public interface AndroidStarlarkCommonApi<
             defaultValue = "0",
             allowedTypes = {
               @ParamType(type = StarlarkInt.class),
-            })
+            }),
+        @Param(
+            name = "desugar_globals",
+            doc = "The D8 desugar globals file.",
+            positional = false,
+            named = true,
+            defaultValue = "None",
+            allowedTypes = {
+              @ParamType(type = FileApi.class),
+              @ParamType(type = NoneType.class),
+            }),
       })
   void createDexMergerActions(
       StarlarkRuleContextT starlarkRuleContext,
@@ -162,6 +173,7 @@ public interface AndroidStarlarkCommonApi<
       FileT input,
       Sequence<?> dexopts, // <String> expected.
       FilesToRunProviderT dexmerger,
-      StarlarkInt minSdkVersion)
+      StarlarkInt minSdkVersion,
+      Object desugarGlobals)
       throws EvalException, RuleErrorException;
 }
