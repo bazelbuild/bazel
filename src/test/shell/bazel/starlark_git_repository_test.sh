@@ -440,6 +440,7 @@ EOF
 function test_git_repository_not_refetched_on_server_restart() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
 
+  rm MODULE.bazel
   cat >> MODULE.bazel <<EOF
 git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017', verbose=True)
@@ -483,6 +484,7 @@ EOF
 function test_git_repository_not_refetched_on_server_restart_strip_prefix() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
   # Change the strip_prefix which should cause a new checkout
+  rm MODULE.bazel
   cat >> MODULE.bazel <<EOF
 git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='17ea13b242e4cbcc27a6ef745939ebb7dcccea10', verbose=True)
@@ -505,6 +507,7 @@ EOF
 function test_git_repository_refetched_when_commit_changes() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
 
+  rm MODULE.bazel
   cat >> MODULE.bazel <<EOF
 git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017', verbose=True)
@@ -529,6 +532,7 @@ EOF
 function test_git_repository_and_nofetch() {
   local repo_dir=$TEST_TMPDIR/repos/refetch
 
+  rm MODULE.bazel
   cat >> MODULE.bazel <<EOF
 git_repository = use_repo_rule('@bazel_tools//tools/build_defs/repo:git.bzl', 'git_repository')
 git_repository(name='g', remote='$repo_dir', commit='22095302abaf776886879efa5129aa4d44c53017')

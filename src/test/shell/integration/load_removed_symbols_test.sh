@@ -68,7 +68,7 @@ function mock_rules_java() {
   cat > "${rules_java_workspace}/MODULE.bazel" << EOF
 module(name = "rules_java")
 EOF
-  cat >> MODULE.bazel << EOF
+  cat > MODULE.bazel << EOF
 bazel_dep(
     name = "rules_java",
 )
@@ -461,7 +461,6 @@ EOF
 }
 
 function test_legacy_globals() {
-  setup_module_dot_bazel
   mock_rules_java
 
   rules_java_workspace="${TEST_TMPDIR}/rules_java_workspace"

@@ -63,6 +63,7 @@ function test_glob_in_synthesized_build_file() {
   mkdir $pkg/A || fail "mkdir $pkg/A"
   mkdir $pkg/B || fail "mkdir $pkg/B"
 
+  setup_module_dot_bazel "$pkg/A/MODULE.bazel"
   cat >$pkg/A/MODULE.bazel <<'eof'
 new_local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
@@ -77,7 +78,7 @@ filegroup(
     path = "../B",
 )
 eof
-  setup_module_dot_bazel "$pkg/A/MODULE.bazel"
+
 
   cat >$pkg/A/BUILD <<'eof'
 genrule(
@@ -117,6 +118,7 @@ function test_recursive_glob_in_new_local_repository() {
   touch "$pkg/B/root.txt"
   touch "$pkg/B/subdir/outer.txt"
   touch "$pkg/B/subdir/inner/inner.txt"
+  setup_module_dot_bazel "$pkg/A/MODULE.bazel"
   cat >"$pkg/A/MODULE.bazel" <<eof
 new_local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
 new_local_repository(
@@ -129,7 +131,6 @@ eof
   cat >"$pkg/A/BUILD.myext" <<eof
 filegroup(name = "all_files", srcs = glob(["**"]))
 eof
-  setup_module_dot_bazel "$pkg/A/MODULE.bazel"
 
   # Shut down the server afterwards so the test cleanup can remove $pkg/A.
   ( cd "$pkg/A"

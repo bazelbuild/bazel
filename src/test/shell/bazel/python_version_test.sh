@@ -537,8 +537,7 @@ package_group(
     ],
 )
 EOF
-  cat > MODULE.bazel <<EOF
-module(name="python_version_test")
+  cat >> $(setup_module_dot_bazel MODULE.bazel) <<EOF
 bazel_dep(name = "external_repo", version="0.0.0")
 local_path_override(
     module_name = "external_repo",

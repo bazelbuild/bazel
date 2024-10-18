@@ -631,7 +631,9 @@ EOF
 # Note: this function echos the MODULE.bazel file path.
 function setup_module_dot_bazel() {
   module_dot_bazel=${1:-MODULE.bazel}
-  touch $module_dot_bazel
+  cat > $module_dot_bazel <<EOF
+module(name = 'test')
+EOF
   cp -f $(rlocation io_bazel/src/test/tools/bzlmod/MODULE.bazel.lock) "$(dirname ${module_dot_bazel})/MODULE.bazel.lock"
   echo $module_dot_bazel
 }

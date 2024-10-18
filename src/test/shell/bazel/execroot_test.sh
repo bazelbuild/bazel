@@ -71,8 +71,6 @@ EOF
 }
 
 function test_sibling_repository_layout() {
-    setup_module_dot_bazel
-
     mkdir -p external/foo
     cat > external/foo/BUILD <<'EOF'
 genrule(
@@ -96,8 +94,6 @@ EOF
 
 # Regression test for b/149771751
 function test_sibling_repository_layout_indirect_dependency() {
-    setup_module_dot_bazel
-
     mkdir external
     mkdir -p foo
     cat > BUILD <<'EOF'
@@ -121,8 +117,6 @@ EOF
 
 # Regression test for b/149771751
 function test_subdirectory_repository_layout_indirect_dependency() {
-    setup_module_dot_bazel
-
     mkdir external
     mkdir -p foo
     cat > BUILD <<'EOF'
@@ -145,8 +139,6 @@ EOF
 }
 
 function test_no_sibling_repository_layout() {
-    setup_module_dot_bazel
-
     mkdir -p external/foo
     cat > external/foo/BUILD <<'EOF'
 genrule(
@@ -171,8 +163,6 @@ EOF
 }
 
 function test_external_directory_globs() {
-  setup_module_dot_bazel
-
   mkdir -p external/a external/c
   echo file_ab > external/a/b
   echo file_cd > external/c/d
@@ -194,7 +184,6 @@ EOF
 }
 
 function test_cc_smoke_with_new_layouts() {
-  setup_module_dot_bazel
   mkdir -p external/a
   cat > external/a/BUILD <<EOF
 cc_binary(name='a', srcs=['a.cc'])
@@ -213,7 +202,6 @@ EOF
 }
 
 function test_java_smoke_with_new_layouts() {
-  setup_module_dot_bazel
   mkdir -p external/java/a
   cat > external/java/a/BUILD <<EOF
 java_binary(name='a', srcs=['A.java'])

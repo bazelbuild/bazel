@@ -1457,6 +1457,7 @@ EOF
 }
 
 function test_aquery_skyframe_state_with_filter_with_previous_build() {
+  cat > MODULE.bazel
   local pkg="${FUNCNAME[0]}"
   mkdir -p "$pkg" || fail "mkdir -p $pkg"
   cat > "$pkg/BUILD" <<'EOF'

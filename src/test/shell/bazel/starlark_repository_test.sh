@@ -1342,6 +1342,7 @@ EOF
 
 # Test native.bazel_version
 function test_bazel_version() {
+  cat > MODULE.bazel
   create_new_workspace
   repo2=$new_workspace_dir
 
