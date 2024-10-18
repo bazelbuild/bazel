@@ -42,6 +42,7 @@ import com.google.devtools.build.lib.bazel.repository.cache.RepositoryCache.KeyT
 import com.google.devtools.build.lib.bazel.repository.downloader.Checksum;
 import com.google.devtools.build.lib.bazel.repository.downloader.Downloader;
 import com.google.devtools.build.lib.bazel.repository.downloader.UnrecoverableHttpException;
+import com.google.devtools.build.lib.clock.BlazeClock;
 import com.google.devtools.build.lib.events.ExtendedEventHandler;
 import com.google.devtools.build.lib.remote.ChannelConnectionWithServerCapabilitiesFactory;
 import com.google.devtools.build.lib.remote.ReferenceCountedChannel;
@@ -54,6 +55,7 @@ import com.google.devtools.build.lib.remote.util.DigestUtil;
 import com.google.devtools.build.lib.remote.util.InMemoryCacheClient;
 import com.google.devtools.build.lib.remote.util.TestUtils;
 import com.google.devtools.build.lib.remote.util.TracingMetadataUtils;
+import com.google.devtools.build.lib.testutil.ManualClock;
 import com.google.devtools.build.lib.testutil.Scratch;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -61,6 +63,7 @@ import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.SyscallCache;
 import com.google.devtools.common.options.Options;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.util.Timestamps;
 import io.grpc.CallCredentials;
 import io.grpc.ManagedChannel;
 import io.grpc.Server;
@@ -73,6 +76,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -89,6 +93,8 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link GrpcRemoteDownloader}. */
 @RunWith(JUnit4.class)
 public class GrpcRemoteDownloaderTest {
+
+  private static final ManualClock clock = new ManualClock();
 
   private static final DigestUtil DIGEST_UTIL =
       new DigestUtil(SyscallCache.NO_CACHE, DigestHashFunction.SHA256);
@@ -117,6 +123,8 @@ public class GrpcRemoteDownloaderTest {
     context = RemoteActionExecutionContext.create(metadata);
 
     retryService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(1));
+
+    BlazeClock.setClock(clock);
   }
 
   @After
@@ -212,6 +220,8 @@ public class GrpcRemoteDownloaderTest {
                 .isEqualTo(
                     FetchBlobRequest.newBuilder()
                         .setDigestFunction(DIGEST_UTIL.getDigestFunction())
+                        .setOldestContentAccepted(
+                            Timestamps.fromMillis(clock.advance(Duration.ofHours(1))))
                         .addUris("http://example.com/content.txt")
                         .build());
             responseObserver.onNext(
@@ -470,6 +480,31 @@ public class GrpcRemoteDownloaderTest {
                     Qualifier.newBuilder()
                         .setName("checksum.sri")
                         .setValue("sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="))
+                .addQualifiers(
+                    Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
+                .build());
+  }
+
+  @Test
+  public void testFetchBlobRequest_withoutChecksum() throws Exception {
+    FetchBlobRequest request =
+        GrpcRemoteDownloader.newFetchBlobRequest(
+            "instance name",
+            false,
+            ImmutableList.of(new URI("http://example.com/").toURL()),
+            Optional.<Checksum>empty(),
+            "canonical ID",
+            DIGEST_UTIL.getDigestFunction(),
+            ImmutableMap.of(),
+            StaticCredentials.EMPTY);
+
+    assertThat(request)
+        .isEqualTo(
+            FetchBlobRequest.newBuilder()
+                .setInstanceName("instance name")
+                .setDigestFunction(DIGEST_UTIL.getDigestFunction())
+                .setOldestContentAccepted(Timestamps.fromMillis(clock.advance(Duration.ofHours(1))))
+                .addUris("http://example.com/")
                 .addQualifiers(
                     Qualifier.newBuilder().setName("bazel.canonical_id").setValue("canonical ID"))
                 .build());
