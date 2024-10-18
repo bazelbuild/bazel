@@ -15,6 +15,7 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.devtools.build.lib.rules.repository.RepositoryDelegatorFunction.VENDOR_DIRECTORY;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.CharStreams;
 import com.google.common.io.LineProcessor;
@@ -23,6 +24,7 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.io.InconsistentFilesystemException;
 import com.google.devtools.build.lib.pkgcache.PathPackageLocator;
 import com.google.devtools.build.lib.rules.repository.RepositoryDirectoryValue;
+import com.google.devtools.build.lib.skyframe.RepoFileFunction.BadRepoFileException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.lib.vfs.RootedPath;
@@ -44,9 +46,12 @@ import javax.annotation.Nullable;
  */
 public class IgnoredPackagePrefixesFunction implements SkyFunction {
   private final PathFragment ignoredPackagePrefixesFile;
+  private final boolean useRepoFile;
 
-  public IgnoredPackagePrefixesFunction(PathFragment ignoredPackagePrefixesFile) {
+  public IgnoredPackagePrefixesFunction(
+      PathFragment ignoredPackagePrefixesFile, boolean useRepoFile) {
     this.ignoredPackagePrefixesFile = ignoredPackagePrefixesFile;
+    this.useRepoFile = useRepoFile;
   }
 
   public static void getIgnoredPackagePrefixes(
@@ -71,64 +76,110 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
   }
 
   @Nullable
+  private ImmutableList<String> computeIgnoredPatterns(
+      Environment env, RepositoryName repositoryName)
+      throws IgnoredPatternsFunctionException, InterruptedException {
+
+    if (!useRepoFile) {
+      return ImmutableList.of();
+    }
+
+    try {
+      RepoFileValue repoFileValue =
+          (RepoFileValue)
+              env.getValueOrThrow(
+                  RepoFileValue.key(repositoryName), IOException.class, BadRepoFileException.class);
+
+      if (env.valuesMissing()) {
+        return null;
+      }
+
+      return repoFileValue.ignoredDirectories();
+    } catch (IOException e) {
+      throw new IgnoredPatternsFunctionException(e);
+    } catch (BadRepoFileException e) {
+      throw new IgnoredPatternsFunctionException(e);
+    }
+  }
+
+  @Nullable
+  private ImmutableSet<PathFragment> computeIgnoredPrefixes(
+      Environment env, RepositoryName repositoryName)
+      throws IgnoredPatternsFunctionException, InterruptedException {
+    if (ignoredPackagePrefixesFile.equals(PathFragment.EMPTY_FRAGMENT)) {
+      return ImmutableSet.of();
+    }
+
+    ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder = ImmutableSet.builder();
+    PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    if (repositoryName.isMain()) {
+      PathFragment vendorDir = null;
+      if (VENDOR_DIRECTORY.get(env).isPresent()) {
+        vendorDir = VENDOR_DIRECTORY.get(env).get().asFragment();
+      }
+
+      for (Root packagePathEntry : pkgLocator.getPathEntries()) {
+        PathFragment workspaceRoot = packagePathEntry.asPath().asFragment();
+        if (vendorDir != null && vendorDir.startsWith(workspaceRoot)) {
+          ignoredPackagePrefixesBuilder.add(vendorDir.relativeTo(workspaceRoot));
+        }
+
+        RootedPath rootedPatternFile =
+            RootedPath.toRootedPath(packagePathEntry, ignoredPackagePrefixesFile);
+        FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
+        if (patternFileValue == null) {
+          return null;
+        }
+        if (patternFileValue.isFile()) {
+          getIgnoredPackagePrefixes(rootedPatternFile, ignoredPackagePrefixesBuilder);
+          break;
+        }
+      }
+    } else {
+      // Make sure the repository is fetched.
+      RepositoryDirectoryValue repositoryValue =
+          (RepositoryDirectoryValue) env.getValue(RepositoryDirectoryValue.key(repositoryName));
+      if (repositoryValue == null) {
+        return null;
+      }
+      if (repositoryValue.repositoryExists()) {
+        RootedPath rootedPatternFile =
+            RootedPath.toRootedPath(
+                Root.fromPath(repositoryValue.getPath()), ignoredPackagePrefixesFile);
+        FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
+        if (patternFileValue == null) {
+          return null;
+        }
+        if (patternFileValue.isFile()) {
+          getIgnoredPackagePrefixes(rootedPatternFile, ignoredPackagePrefixesBuilder);
+        }
+      }
+    }
+
+    return ignoredPackagePrefixesBuilder.build();
+  }
+
+  @Nullable
   @Override
   public SkyValue compute(SkyKey key, Environment env)
       throws IgnoredPatternsFunctionException, InterruptedException {
     RepositoryName repositoryName = (RepositoryName) key.argument();
 
-    ImmutableSet.Builder<PathFragment> ignoredPackagePrefixesBuilder = ImmutableSet.builder();
-    if (!ignoredPackagePrefixesFile.equals(PathFragment.EMPTY_FRAGMENT)) {
-      PathPackageLocator pkgLocator = PrecomputedValue.PATH_PACKAGE_LOCATOR.get(env);
-      if (env.valuesMissing()) {
-        return null;
-      }
-
-      if (repositoryName.isMain()) {
-        PathFragment vendorDir = null;
-        if (VENDOR_DIRECTORY.get(env).isPresent()) {
-          vendorDir = VENDOR_DIRECTORY.get(env).get().asFragment();
-        }
-
-        for (Root packagePathEntry : pkgLocator.getPathEntries()) {
-          PathFragment workspaceRoot = packagePathEntry.asPath().asFragment();
-          if (vendorDir != null && vendorDir.startsWith(workspaceRoot)) {
-            ignoredPackagePrefixesBuilder.add(vendorDir.relativeTo(workspaceRoot));
-          }
-
-          RootedPath rootedPatternFile =
-              RootedPath.toRootedPath(packagePathEntry, ignoredPackagePrefixesFile);
-          FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
-          if (patternFileValue == null) {
-            return null;
-          }
-          if (patternFileValue.isFile()) {
-            getIgnoredPackagePrefixes(rootedPatternFile, ignoredPackagePrefixesBuilder);
-            break;
-          }
-        }
-      } else {
-        // Make sure the repository is fetched.
-        RepositoryDirectoryValue repositoryValue =
-            (RepositoryDirectoryValue) env.getValue(RepositoryDirectoryValue.key(repositoryName));
-        if (repositoryValue == null) {
-          return null;
-        }
-        if (repositoryValue.repositoryExists()) {
-          RootedPath rootedPatternFile =
-              RootedPath.toRootedPath(
-                  Root.fromPath(repositoryValue.getPath()), ignoredPackagePrefixesFile);
-          FileValue patternFileValue = (FileValue) env.getValue(FileValue.key(rootedPatternFile));
-          if (patternFileValue == null) {
-            return null;
-          }
-          if (patternFileValue.isFile()) {
-            getIgnoredPackagePrefixes(rootedPatternFile, ignoredPackagePrefixesBuilder);
-          }
-        }
-      }
+    ImmutableList<String> ignoredPatterns = computeIgnoredPatterns(env, repositoryName);
+    if (env.valuesMissing()) {
+      return null;
     }
 
-    return IgnoredPackagePrefixesValue.of(ignoredPackagePrefixesBuilder.build());
+    ImmutableSet<PathFragment> ignoredPrefixes = computeIgnoredPrefixes(env, repositoryName);
+    if (env.valuesMissing()) {
+      return null;
+    }
+
+    return IgnoredPackagePrefixesValue.of(ignoredPrefixes, ignoredPatterns);
   }
 
   private static final class PathFragmentLineProcessor
@@ -170,6 +221,14 @@ public class IgnoredPackagePrefixesFunction implements SkyFunction {
     }
 
     public IgnoredPatternsFunctionException(InvalidIgnorePathException e) {
+      super(e, Transience.PERSISTENT);
+    }
+
+    public IgnoredPatternsFunctionException(IOException e) {
+      super(e, Transience.TRANSIENT);
+    }
+
+    public IgnoredPatternsFunctionException(BadRepoFileException e) {
       super(e, Transience.PERSISTENT);
     }
   }
