@@ -47,6 +47,7 @@ import com.google.devtools.build.lib.skyframe.RecursiveFilesystemTraversalValue.
 import com.google.devtools.build.lib.skyframe.serialization.VisibleForSerialization;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
 import com.google.devtools.build.lib.util.Fingerprint;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.Dirent;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.Path;
@@ -109,13 +110,22 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
 
       /** The filesystem told us inconsistent information. */
       INCONSISTENT_FILESYSTEM,
+
+      /** The filesystem threw a {@link DetailedIOException}. */
+      DETAILED_IO_EXCEPTION,
     }
 
     private final RecursiveFilesystemTraversalException.Type type;
 
+    RecursiveFilesystemTraversalException(String message, DetailedIOException cause) {
+      super(message, cause);
+      this.type = RecursiveFilesystemTraversalException.Type.DETAILED_IO_EXCEPTION;
+    }
+
     RecursiveFilesystemTraversalException(
         String message, RecursiveFilesystemTraversalException.Type type) {
       super(message);
+      checkArgument(type != Type.DETAILED_IO_EXCEPTION);
       this.type = type;
     }
 
@@ -250,6 +260,12 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
           String.format(
               "Error while traversing directory %s: %s",
               traversal.root().getRelativePart(), e.getMessage());
+
+      if (e instanceof DetailedIOException detailedException) {
+        throw new RecursiveFilesystemTraversalFunctionException(
+            new RecursiveFilesystemTraversalException(message, detailedException));
+      }
+
       // Trying to stat the starting point of this root may have failed with a symlink cycle or
       // trying to get a package lookup value may have failed due to a symlink cycle.
       RecursiveFilesystemTraversalException.Type exceptionType =

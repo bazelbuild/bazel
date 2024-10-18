@@ -375,6 +375,12 @@ public final class ArtifactFunction implements SkyFunction {
               String.format(
                   "Generated conflict in source tree: %s %s %s", artifact, fileValue, request),
               e);
+        // TODO: b/7075837 - This code path is possible when BAZEL_TRACK_SOURCE_DIRECTORIES is set.
+        case DETAILED_IO_EXCEPTION:
+          throw new IllegalStateException(
+              String.format(
+                  "%s: %s %s %s", e.getCause().getMessage(), artifact, fileValue, request),
+              e);
       }
       throw new IllegalStateException("Can't get here", e);
     }
