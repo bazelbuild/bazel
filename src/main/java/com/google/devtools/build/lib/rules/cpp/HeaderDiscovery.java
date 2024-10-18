@@ -68,7 +68,7 @@ final class HeaderDiscovery {
       Artifact sourceFile,
       boolean shouldValidateInclusions,
       Collection<Path> dependencies,
-      List<Path> permittedSystemIncludePrefixes,
+      List<PathFragment> builtinIncludePrefixes,
       NestedSet<Artifact> allowedDerivedInputs,
       Path execRoot,
       ArtifactResolver artifactResolver,
@@ -102,7 +102,7 @@ final class HeaderDiscovery {
         sourceFile,
         shouldValidateInclusions,
         dependencies,
-        permittedSystemIncludePrefixes,
+        builtinIncludePrefixes,
         regularDerivedArtifacts,
         treeArtifacts,
         execRoot,
@@ -116,7 +116,7 @@ final class HeaderDiscovery {
       Artifact sourceFile,
       boolean shouldValidateInclusions,
       Collection<Path> dependencies,
-      List<Path> permittedSystemIncludePrefixes,
+      List<PathFragment> builtinIncludePrefixes,
       Map<PathFragment, Artifact> regularDerivedArtifacts,
       Map<PathFragment, SpecialArtifact> treeArtifacts,
       Path execRoot,
@@ -157,7 +157,7 @@ final class HeaderDiscovery {
       PathFragment execPathFragment = execPath.asFragment();
       if (execPathFragment.isAbsolute()) {
         // Absolute includes from system paths are ignored.
-        if (FileSystemUtils.startsWithAny(execPath, permittedSystemIncludePrefixes)) {
+        if (FileSystemUtils.startsWithAny(execPathFragment, builtinIncludePrefixes)) {
           continue;
         }
         if (execPath.startsWith(execRoot)
@@ -178,6 +178,13 @@ final class HeaderDiscovery {
           continue;
         }
       }
+
+      // recheck builtin matching to account for (potentially) relative builtin
+      // includes that will now match against relativized path fragments
+      if (FileSystemUtils.startsWithAny(execPathFragment, builtinIncludePrefixes)) {
+        continue;
+      }
+
       Artifact artifact = regularDerivedArtifacts.get(execPathFragment);
       if (artifact == null) {
         Optional<PackageIdentifier> pkgId =
