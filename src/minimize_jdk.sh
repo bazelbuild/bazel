@@ -64,9 +64,6 @@ if [[ "$UNAME" =~ msys_nt* ]]; then
   sed -i.bak 's|<\/asmv3:windowsSettings>|<activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage></asmv3:windowsSettings>|' java.manifest
   "$MT" -nologo -manifest java.manifest -outputresource:reduced/bin/java.exe
 
-  "$MT" -nologo -inputresource:reduced/bin/java.exe -out:java.manifest
-  cat java.manifest
-
   cp $DOCS legal/java.base/ASSEMBLY_EXCEPTION \
     reduced/
   # These are necessary for --host_jvm_debug to work.
