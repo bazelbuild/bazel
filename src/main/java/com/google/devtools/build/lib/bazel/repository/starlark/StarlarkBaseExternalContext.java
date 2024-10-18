@@ -909,11 +909,13 @@ When <code>sha256</code> or <code>integrity</code> is user specified, setting an
             named = true,
             doc =
                 """
-                A directory prefix to strip from the extracted files.
-                Many archives contain a top-level directory that contains all files in the \
-                archive. Instead of needing to specify this prefix over and over in the \
-                <code>build_file</code>, this field can be used to strip it from extracted \
-                files. This parameter was previously named <code>stripPrefix</code>.
+                A directory prefix to strip from the extracted files. Many archives contain a
+                top-level directory that contains all files in the archive. Instead of needing to
+                specify this prefix over and over in the <code>build_file</code>, this field can
+                be used to strip it from extracted files.
+
+                <p>For compatibility, this parameter may also be used under the deprecated name
+                <code>stripPrefix</code>.
                 """),
         @Param(
             name = "allow_fail",
@@ -1004,8 +1006,9 @@ the same path on case-insensitive filesystems.
     ImmutableList<URL> urls =
         getUrls(
             url,
-            /*ensureNonEmpty=*/ !allowFail,
-            /*checksumGiven=*/ !Strings.isNullOrEmpty(sha256) || !Strings.isNullOrEmpty(integrity));
+            /* ensureNonEmpty= */ !allowFail,
+            /* checksumGiven= */ !Strings.isNullOrEmpty(sha256)
+                || !Strings.isNullOrEmpty(integrity));
     Optional<Checksum> checksum;
     RepositoryFunctionException checksumValidation = null;
     try {
@@ -1153,11 +1156,15 @@ the same path on case-insensitive filesystems.
             defaultValue = "''",
             named = true,
             doc =
-                "a directory prefix to strip from the extracted files."
-                    + "\nMany archives contain a top-level directory that contains all files in the"
-                    + " archive. Instead of needing to specify this prefix over and over in the"
-                    + " <code>build_file</code>, this field can be used to strip it from extracted"
-                    + " files. This parameter was previously named <code>stripPrefix</code>."),
+                """
+                a directory prefix to strip from the extracted files. Many archives contain a
+                top-level directory that contains all files in the archive. Instead of needing to
+                specify this prefix over and over in the <code>build_file</code>, this field can be
+                used to strip it from extracted files.
+
+                <p>For compatibility, this parameter may also be used under the deprecated name
+                <code>stripPrefix</code>.
+                """),
         @Param(
             name = "rename_files",
             defaultValue = "{}",
@@ -1274,17 +1281,17 @@ the same path on case-insensitive filesystems.
     }
   }
 
-  private String renamedStripPrefix(
-      String method, String stripPrefix, String oldStripPrefix)
+  private String renamedStripPrefix(String method, String stripPrefix, String oldStripPrefix)
       throws EvalException {
     if (oldStripPrefix.isEmpty()) {
-        return stripPrefix;
+      return stripPrefix;
     }
     if (stripPrefix.isEmpty()) {
-        return oldStripPrefix;
+      return oldStripPrefix;
     }
     throw Starlark.errorf(
-        "%s() got multiple values for parameter 'strip_prefix' (via compatibility alias 'stripPrefix')",
+        "%s() got multiple values for parameter 'strip_prefix' (via compatibility alias"
+            + " 'stripPrefix')",
         method);
   }
 
