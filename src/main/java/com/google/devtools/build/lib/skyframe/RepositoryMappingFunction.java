@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.skyframe;
 
+import static java.util.stream.Collectors.toMap;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.devtools.build.lib.bazel.bzlmod.BazelDepGraphValue;
 import com.google.devtools.build.lib.bazel.bzlmod.Module;
@@ -28,6 +30,7 @@ import com.google.devtools.build.lib.packages.BuildFileContainsErrorsException;
 import com.google.devtools.build.lib.packages.Package;
 import com.google.devtools.build.lib.packages.RuleClassProvider;
 import com.google.devtools.build.lib.packages.semantics.BuildLanguageOptions;
+import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.skyframe.SkyFunction;
 import com.google.devtools.build.skyframe.SkyFunctionException;
 import com.google.devtools.build.skyframe.SkyKey;
@@ -35,12 +38,14 @@ import com.google.devtools.build.skyframe.SkyValue;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.stream.Collectors;
+import java.util.Set;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.StarlarkSemantics;
 
 /** {@link SkyFunction} for {@link RepositoryMappingValue}s. */
 public class RepositoryMappingFunction implements SkyFunction {
+  public static final PrecomputedValue.Precomputed<Map<RepositoryName, PathFragment>>
+      REPOSITORY_OVERRIDES = new PrecomputedValue.Precomputed<>("repository_overrides");
   private final RuleClassProvider ruleClassProvider;
 
   public RepositoryMappingFunction(RuleClassProvider ruleClassProvider) {
@@ -58,6 +63,7 @@ public class RepositoryMappingFunction implements SkyFunction {
     RepositoryName repositoryName = ((RepositoryMappingValue.Key) skyKey).repoName();
     boolean enableBzlmod = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_BZLMOD);
     boolean enableWorkspace = starlarkSemantics.getBool(BuildLanguageOptions.ENABLE_WORKSPACE);
+    Set<RepositoryName> repositoryOverrides = REPOSITORY_OVERRIDES.get(env).keySet();
 
     if (!enableBzlmod && !enableWorkspace) {
       throw new RepositoryMappingFunctionException(
@@ -126,9 +132,9 @@ public class RepositoryMappingFunction implements SkyFunction {
                         entry.getValue().getAssociatedRule() != null
                             && !entry.getValue().getAssociatedRule().getRuleClass().equals("bind"))
                 .collect(
-                    Collectors.toMap(
+                    toMap(
                         Entry::getKey, entry -> RepositoryName.createUnvalidated(entry.getKey())));
-        return computeForBazelModuleRepo(repositoryName, bazelDepGraphValue)
+        return computeForBazelModuleRepo(repositoryName, bazelDepGraphValue, repositoryOverrides)
             .get()
             // For the transitional period, we need to map the workspace name to the main repo.
             .withAdditionalMappings(
@@ -140,7 +146,7 @@ public class RepositoryMappingFunction implements SkyFunction {
 
       // Try and see if this is a repo generated from a Bazel module.
       Optional<RepositoryMappingValue> mappingValue =
-          computeForBazelModuleRepo(repositoryName, bazelDepGraphValue);
+          computeForBazelModuleRepo(repositoryName, bazelDepGraphValue, repositoryOverrides);
       if (mappingValue.isPresent()) {
         return repositoryName.isMain()
             ? mappingValue.get().withCachedInverseMap()
@@ -162,6 +168,15 @@ public class RepositoryMappingFunction implements SkyFunction {
             RepositoryMapping.create(repoMappingEntriesValue.getEntries(), repositoryName),
             repoMappingEntriesValue.getModuleKey().name(),
             repoMappingEntriesValue.getModuleKey().version());
+      }
+
+      if (!enableWorkspace) {
+        // If a repo is overridden without a previous definition, it uses the main repo's mapping.
+        if (REPOSITORY_OVERRIDES.get(env).containsKey(repositoryName)) {
+          return computeForBazelModuleRepo(
+                  RepositoryName.MAIN, bazelDepGraphValue, repositoryOverrides)
+              .get();
+        }
       }
     }
 
@@ -196,17 +211,23 @@ public class RepositoryMappingFunction implements SkyFunction {
    *     Optional.empty().
    */
   private Optional<RepositoryMappingValue> computeForBazelModuleRepo(
-      RepositoryName repositoryName, BazelDepGraphValue bazelDepGraphValue) {
+      RepositoryName repositoryName,
+      BazelDepGraphValue bazelDepGraphValue,
+      Set<RepositoryName> repositoryOverrides) {
     ModuleKey moduleKey = bazelDepGraphValue.getCanonicalRepoNameLookup().get(repositoryName);
     if (moduleKey == null) {
       return Optional.empty();
     }
+    RepositoryMapping repoMapping = bazelDepGraphValue.getFullRepoMapping(moduleKey);
+    if (repositoryName.isMain()) {
+      repoMapping =
+          repoMapping.withAdditionalMappings(
+              repositoryOverrides.stream().collect(toMap(RepositoryName::getName, name -> name)));
+    }
     Module module = bazelDepGraphValue.getDepGraph().get(moduleKey);
     return Optional.of(
         RepositoryMappingValue.createForBzlmodRepo(
-            bazelDepGraphValue.getFullRepoMapping(moduleKey),
-            module.getName(),
-            module.getVersion()));
+            repoMapping, module.getName(), module.getVersion()));
   }
 
   /**

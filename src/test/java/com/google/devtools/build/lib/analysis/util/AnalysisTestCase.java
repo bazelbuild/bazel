@@ -77,6 +77,7 @@ import com.google.devtools.build.lib.skyframe.BazelSkyframeExecutorConstants;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetAndData;
 import com.google.devtools.build.lib.skyframe.ConfiguredTargetKey;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
+import com.google.devtools.build.lib.skyframe.RepositoryMappingFunction;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutor;
 import com.google.devtools.build.lib.skyframe.SkyframeExecutorRepositoryHelpersHolder;
 import com.google.devtools.build.lib.skyframe.TargetPatternPhaseValue;
@@ -244,7 +245,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
                     PrecomputedValue.injected(
                         ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
                     PrecomputedValue.injected(
-                        RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
+                        RepositoryMappingFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
                     PrecomputedValue.injected(
                         RepositoryDelegatorFunction.FORCE_FETCH,
                         RepositoryDelegatorFunction.FORCE_FETCH_DISABLED),
@@ -289,7 +290,7 @@ public abstract class AnalysisTestCase extends FoundationTestCase {
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.RESOLVED_FILE_INSTEAD_OF_WORKSPACE, Optional.empty()),
             PrecomputedValue.injected(
-                RepositoryDelegatorFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
+                RepositoryMappingFunction.REPOSITORY_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(ModuleFileFunction.MODULE_OVERRIDES, ImmutableMap.of()),
             PrecomputedValue.injected(
                 RepositoryDelegatorFunction.FORCE_FETCH,

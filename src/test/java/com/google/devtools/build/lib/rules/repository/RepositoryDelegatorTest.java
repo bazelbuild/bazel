@@ -270,7 +270,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
             differencer);
     overrideDirectory = scratch.dir("/foo");
     scratch.file("/foo/WORKSPACE");
-    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
+    RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(differencer, ImmutableMap.of());
     RepositoryDelegatorFunction.IS_VENDOR_COMMAND.set(differencer, false);
     RepositoryDelegatorFunction.VENDOR_DIRECTORY.set(differencer, Optional.empty());
     RepositoryDelegatorFunction.FORCE_FETCH.set(
@@ -296,7 +296,7 @@ public class RepositoryDelegatorTest extends FoundationTestCase {
 
   @Test
   public void testOverride() throws Exception {
-    RepositoryDelegatorFunction.REPOSITORY_OVERRIDES.set(
+    RepositoryMappingFunction.REPOSITORY_OVERRIDES.set(
         differencer,
         ImmutableMap.of(RepositoryName.createUnvalidated("foo"), overrideDirectory.asFragment()));
 
