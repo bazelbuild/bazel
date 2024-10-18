@@ -92,6 +92,7 @@ import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
+import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
 import com.google.devtools.build.lib.util.StringUtil;
@@ -122,6 +123,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Type;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -1065,24 +1067,43 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       shutdownDone = true;
       signalHandler.uninstall();
       ExecRequest request = result.getExecRequest();
-      String[] argv = new String[request.getArgvCount()];
-      Charset processBuilderCharset = Charset.forName(System.getProperty("sun.jnu.encoding"));
-      for (int i = 0; i < argv.length; i++) {
-        argv[i] = request.getArgv(i).toString(processBuilderCharset);
-      }
 
-      String workingDirectory = request.getWorkingDirectory().toString(processBuilderCharset);
+      // On Unix, the raw bytes of the arguments obtained from the `java` launcher binary are
+      // passed through as is and the launcher always uses sun.jnu.encoding.
+      // On Windows, RunCommand reencodes the arguments to UTF-8 before creating ExecRequest since
+      // the native client unconditionally uses UTF-8 when executing it.
+      Charset javaNativeCharset = Charset.forName(System.getProperty("sun.jnu.encoding"));
+      Charset blazeClientArgCharset =
+          OS.getCurrent() == OS.WINDOWS ? StandardCharsets.UTF_8 : javaNativeCharset;
+      String[] argv = new String[request.getArgvCount()];
+      for (int i = 0; i < argv.length; i++) {
+        argv[i] = request.getArgv(i).toString(blazeClientArgCharset);
+      }
+      // The working directory is ultimately obtained from the --client_cwd command option and has
+      // thus round-tripped through UTF-8 encoding in the gRPC request.
+      String workingDirectory = request.getWorkingDirectory().toStringUtf8();
       try {
         ProcessBuilder process =
             new ProcessBuilder().command(argv).directory(new File(workingDirectory)).inheritIO();
+
+        // We don't know what the encoding of the environment variables is as they may originate
+        // from source files, which we read as raw bytes. If they are ASCII, it doesn't matter. If
+        // the native Java locale is some variant of Latin-1, we can pass them through as raw bytes.
+        // In all other relevant cases, the native Java locale will probably be UTF-8, which is a
+        // safe assumption for source files.
+        for (int i = 0; i < request.getEnvironmentVariableToClearCount(); i++) {
+          process
+              .environment()
+              .remove(request.getEnvironmentVariableToClear(i).toString(javaNativeCharset));
+        }
 
         for (int i = 0; i < request.getEnvironmentVariableCount(); i++) {
           EnvironmentVariable variable = request.getEnvironmentVariable(i);
           process
               .environment()
               .put(
-                  variable.getName().toString(processBuilderCharset),
-                  variable.getValue().toString(processBuilderCharset));
+                  variable.getName().toString(javaNativeCharset),
+                  variable.getValue().toString(javaNativeCharset));
         }
 
         return process.start().waitFor();
