@@ -853,7 +853,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                     System.err.printf(
                         "raw arg passed to main (%s): %s%n",
                         arg, Arrays.toString(arg.getBytes(ISO_8859_1))))
-            .map(StringUtil::reencodeJavaToInternal)
+            .map(StringUtil::platformStringToInternalString)
             .peek(
                 arg ->
                     System.err.printf(

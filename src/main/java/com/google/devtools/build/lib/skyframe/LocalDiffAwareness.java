@@ -105,7 +105,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
         }
       }
       Path watchRoot =
-          Path.of(StringUtil.reencodeInternalToJava(resolvedPathEntryFragment.getPathString()));
+          Path.of(StringUtil.internalStringToPlatformString(resolvedPathEntryFragment.getPathString()));
       // On OSX uses FsEvents due to https://bugs.openjdk.java.net/browse/JDK-7133447
       if (OS.getCurrent() == OS.DARWIN) {
         return new MacOSXFsEventsDiffAwareness(watchRoot);
@@ -206,7 +206,7 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
       }
       PathFragment relativePath =
           PathFragment.create(
-              StringUtil.reencodeJavaToInternal(watchRoot.relativize(modifiedPath).toString()));
+              StringUtil.platformStringToInternalString(watchRoot.relativize(modifiedPath).toString()));
       if (!relativePath.isEmpty()) {
         resultBuilder.modify(relativePath);
       }

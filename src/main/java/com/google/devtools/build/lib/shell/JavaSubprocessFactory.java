@@ -156,7 +156,7 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   @Override
   public Subprocess create(SubprocessBuilder params) throws IOException {
     ProcessBuilder builder = new ProcessBuilder();
-    builder.command(Lists.transform(params.getArgv(), StringUtil::reencodeInternalToJava));
+    builder.command(Lists.transform(params.getArgv(), StringUtil::internalStringToPlatformString));
     if (params.getEnv() != null) {
       builder.environment().clear();
       params
@@ -166,8 +166,8 @@ public class JavaSubprocessFactory implements SubprocessFactory {
                   builder
                       .environment()
                       .put(
-                          StringUtil.reencodeInternalToJava(key),
-                          StringUtil.reencodeInternalToJava(value)));
+                          StringUtil.internalStringToPlatformString(key),
+                          StringUtil.internalStringToPlatformString(value)));
     }
 
     builder.redirectOutput(getRedirect(params.getStdout(), params.getStdoutFile()));

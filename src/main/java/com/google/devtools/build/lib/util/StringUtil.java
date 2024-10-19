@@ -143,23 +143,25 @@ public class StringUtil {
    * Reencodes a string using Bazel's internal raw byte encoding into the equivalent representation
    * for Java stdlib functions, if necessary.
    */
-  public static String reencodeInternalToJava(String s) {
-    return needsReencodeForJava(s) ? new String(s.getBytes(ISO_8859_1), UTF_8) : s;
+  public static String internalStringToPlatformString(String s) {
+    return needsReencodeForPlatform(s) ? new String(s.getBytes(ISO_8859_1), UTF_8) : s;
   }
 
   /**
    * Reencodes a string obtained from Java stdlib functions into Bazel's internal raw byte encoding,
    * if necessary.
    */
-  public static String reencodeJavaToInternal(String s) {
-    return needsReencodeForJava(s) ? new String(s.getBytes(UTF_8), ISO_8859_1) : s;
+  public static String platformStringToInternalString(String s) {
+    return needsReencodeForPlatform(s) ? new String(s.getBytes(UTF_8), ISO_8859_1) : s;
   }
 
-  public static String toInternalString(ByteString bytes) {
-    return OS.getCurrent() == OS.WINDOWS ? reencodeJavaToInternal(bytes.toString(SUN_JNU_ENCODING)) : bytes.toString(ISO_8859_1);
+  public static String platformBytesToInternalString(ByteString bytes) {
+    return OS.getCurrent() == OS.WINDOWS
+        ? platformStringToInternalString(bytes.toString(SUN_JNU_ENCODING))
+        : bytes.toString(ISO_8859_1);
   }
 
-  private static boolean needsReencodeForJava(String s) {
+  private static boolean needsReencodeForPlatform(String s) {
     // The comparisons below are expected to be constant-folded by the JIT.
     if (BAZEL_UNICODE_STRINGS) {
       return false;

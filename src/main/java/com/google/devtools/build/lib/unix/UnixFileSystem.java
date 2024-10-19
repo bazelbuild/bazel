@@ -526,7 +526,7 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
   }
 
   private static File createJavaIoFile(PathFragment path) {
-    return new File(StringUtil.reencodeInternalToJava(path.getPathString()));
+    return new File(StringUtil.internalStringToPlatformString(path.getPathString()));
   }
 
   @Override
