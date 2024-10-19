@@ -21,6 +21,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
+import com.google.protobuf.ByteString;
 import java.nio.charset.Charset;
 import java.util.Collection;
 import java.util.Iterator;
@@ -152,6 +153,10 @@ public class StringUtil {
    */
   public static String reencodeJavaToInternal(String s) {
     return needsReencodeForJava(s) ? new String(s.getBytes(UTF_8), ISO_8859_1) : s;
+  }
+
+  public static String toInternalString(ByteString bytes) {
+    return OS.getCurrent() == OS.WINDOWS ? bytes.toStringUtf8() : bytes.toString(ISO_8859_1);
   }
 
   private static boolean needsReencodeForJava(String s) {

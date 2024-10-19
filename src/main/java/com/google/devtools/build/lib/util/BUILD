@@ -319,6 +319,7 @@ java_library(
         ":os",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//third_party:guava",
+        "@protobuf//:protobuf_java",
     ],
 )
 
