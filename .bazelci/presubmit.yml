@@ -11,7 +11,7 @@ tasks:
       # We need to keep --test_tag_filters here for the bazel-diff integration.
       - "--test_tag_filters=-no_windows,-slow"
       - "--flaky_test_attempts=1"
-      - "--test_filter=test_consistent_command_line_encoding"
+      - "--test_filter=test_consistent_*_encoding"
     test_targets:
       - "//src/test/shell/integration:run_test"
     include_json_profile:
