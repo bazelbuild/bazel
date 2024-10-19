@@ -156,7 +156,7 @@ public class StringUtil {
   }
 
   public static String toInternalString(ByteString bytes) {
-    return OS.getCurrent() == OS.WINDOWS ? bytes.toStringUtf8() : bytes.toString(ISO_8859_1);
+    return OS.getCurrent() == OS.WINDOWS ? reencodeJavaToInternal(bytes.toString(SUN_JNU_ENCODING)) : bytes.toString(ISO_8859_1);
   }
 
   private static boolean needsReencodeForJava(String s) {
