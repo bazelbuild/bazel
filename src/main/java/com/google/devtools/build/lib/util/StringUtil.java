@@ -143,7 +143,7 @@ public class StringUtil {
    * for Java stdlib functions, if necessary.
    */
   public static String reencodeInternalToJava(String s) {
-    return canSkipJavaReencode(s) ? s : new String(s.getBytes(ISO_8859_1), UTF_8);
+    return needsReencodeForJava(s) ? new String(s.getBytes(ISO_8859_1), UTF_8) : s;
   }
 
   /**
@@ -151,24 +151,24 @@ public class StringUtil {
    * if necessary.
    */
   public static String reencodeJavaToInternal(String s) {
-    return canSkipJavaReencode(s) ? s : new String(s.getBytes(UTF_8), ISO_8859_1);
+    return needsReencodeForJava(s) ? new String(s.getBytes(UTF_8), ISO_8859_1) : s;
   }
 
-  private static boolean canSkipJavaReencode(String s) {
+  private static boolean needsReencodeForJava(String s) {
     // The comparisons below are expected to be constant-folded by the JIT.
     if (BAZEL_UNICODE_STRINGS) {
-      return true;
+      return false;
     }
     if (SUN_JNI_ENCODING == US_ASCII) {
-      return true;
+      return false;
     }
     if (SUN_JNI_ENCODING == ISO_8859_1 && OS.getCurrent() != OS.WINDOWS) {
-      return true;
+      return false;
     }
     if (SUN_JNI_ENCODING == UTF_8 || SUN_JNI_ENCODING == ISO_8859_1) {
-      return StringUnsafe.getInstance().isAscii(s);
+      return !StringUnsafe.getInstance().isAscii(s);
     }
-    return false;
+    return true;
   }
 
   /**
