@@ -17,8 +17,6 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.nio.charset.StandardCharsets.UTF_16;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -575,7 +573,12 @@ public class RunCommand implements BlazeCommand {
         includeResidue
             ? runCommandLine.getArgs(shExecutable)
             : runCommandLine.getArgsWithoutResidue(shExecutable);
-    return args.stream().map(s -> ByteString.copyFrom(s, ISO_8859_1)).collect(toImmutableList());
+    return args.stream()
+        .peek(
+            arg ->
+                System.err.printf("arg (%s): %s%n", arg, Arrays.toString(arg.getBytes(ISO_8859_1))))
+        .map(s -> ByteString.copyFrom(s, ISO_8859_1))
+        .collect(toImmutableList());
   }
 
   private BlazeCommandResult handleScriptPath(

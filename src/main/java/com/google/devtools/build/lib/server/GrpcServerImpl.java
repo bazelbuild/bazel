@@ -594,9 +594,11 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
 
       try {
         // Transform args into Bazel's internal string representation.
-        ImmutableList<String> args = request.getArgList().stream()
-            .map(arg -> arg.toString(StandardCharsets.ISO_8859_1))
-            .collect(ImmutableList.toImmutableList());
+        ImmutableList<String> args =
+            request.getArgList().stream()
+                .peek(arg -> System.err.printf("raw arg passed to server: %s%n", arg))
+                .map(arg -> arg.toString(StandardCharsets.ISO_8859_1))
+                .collect(ImmutableList.toImmutableList());
 
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());
         logger.atInfo().log("%s", SafeRequestLogging.getRequestLogString(args));

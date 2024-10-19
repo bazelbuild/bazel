@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.util.DetailedExitCode.DetailedExitCodeComparator.chooseMoreImportantWithFirstIfTie;
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -845,7 +846,20 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   @SuppressWarnings("SystemExitOutsideMain")
   public static void main(Iterable<Class<? extends BlazeModule>> moduleClasses, String[] args) {
     // Transform args into Bazel's internal string representation.
-    args = Arrays.stream(args).map(StringUtil::reencodeJavaToInternal).toArray(String[]::new);
+    args =
+        Arrays.stream(args)
+            .peek(
+                arg ->
+                    System.err.printf(
+                        "raw arg passed to main (%s): %s%n",
+                        arg, Arrays.toString(arg.getBytes(ISO_8859_1))))
+            .map(StringUtil::reencodeJavaToInternal)
+            .peek(
+                arg ->
+                    System.err.printf(
+                        "converted arg passed to main (%s): %s%n",
+                        arg, Arrays.toString(arg.getBytes(ISO_8859_1))))
+            .toArray(String[]::new);
 
     setupUncaughtHandlerAtStartup(args);
     List<BlazeModule> modules = createModules(moduleClasses);
