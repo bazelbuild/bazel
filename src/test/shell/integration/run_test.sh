@@ -226,7 +226,69 @@ EOF
 
   bazel --batch run //foo -- "$arg" > output \
     || fail "${PRODUCT_NAME} run failed (--batch)."
+
   bazel --batch test //foo:foo_test --test_arg="$arg" --test_output=errors \
+    || fail "${PRODUCT_NAME} test failed (--batch)"
+}
+
+function test_consistent_env_var_encoding {
+  if "$is_windows"; then
+    # äöüÄÖÜß in UTF8
+    local env=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
+  else
+    # äöüÄÖÜß🌱 in UTF8
+    local env=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
+  fi
+
+  mkdir -p foo || fail "mkdir foo failed"
+  cat > foo/BUILD <<EOF
+sh_binary(
+    name = "foo",
+    srcs = ["foo.sh"],
+    env = {
+        "FIXED_KEY": "fixed_value_$env",
+    },
+    env_inherit = [
+        "INHERITED_KEY",
+    ],
+)
+sh_test(
+    name = "foo_test",
+    srcs = ["foo.sh"],
+    env = {
+        "FIXED_KEY": "fixed_value_$env",
+    },
+    env_inherit = [
+        "INHERITED_KEY",
+    ],
+)
+EOF
+  cat > foo/foo.sh <<EOF
+echo "FIXED_KEY:"
+echo "got : \${FIXED_KEY}"
+echo "want: fixed_value_$env"
+test "\${FIXED_KEY}" = "fixed_value_$env"
+echo "INHERITED_KEY:"
+echo "got : \${INHERITED_KEY}"
+echo "want: inherited_value_$env"
+test "\${INHERITED_KEY}" = "inherited_value_$env"
+EOF
+  chmod +x foo/foo.sh
+
+  env INHERITED_KEY="inherited_value_$env" \
+    bazel run //foo \
+    || fail "${PRODUCT_NAME} run failed."
+
+  env INHERITED_KEY="inherited_value_$env" \
+    bazel test //foo:foo_test --test_output=errors \
+    || fail "${PRODUCT_NAME} test failed"
+
+  env INHERITED_KEY="inherited_value_$env" \
+    bazel --batch run //foo \
+    || fail "${PRODUCT_NAME} run failed (--batch)."
+
+  env INHERITED_KEY="inherited_value_$env" \
+    bazel --batch test //foo:foo_test --test_output=errors \
     || fail "${PRODUCT_NAME} test failed (--batch)"
 }
 
