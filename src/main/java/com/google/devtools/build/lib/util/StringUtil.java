@@ -171,41 +171,6 @@ public class StringUtil {
     return false;
   }
 
-  public static String toInternal(String s, Charset sourceEncoding) {
-    if (BAZEL_UNICODE_STRINGS) {
-      return s;
-    }
-    if (sourceEncoding == US_ASCII) {
-      return s;
-    }
-    if (sourceEncoding == UTF_8 && StringUnsafe.getInstance().isAscii(s)) {
-      return s;
-    }
-    if (OS.getCurrent() == OS.LINUX && SUN_JNI_ENCODING == ISO_8859_1) {
-      return new String(s.getBytes(sourceEncoding), ISO_8859_1);
-    } else {
-      return new String(s.getBytes(SUN_JNI_ENCODING), ISO_8859_1);
-    }
-  }
-
-
-  public static String fromInternal(String s, Charset targetEncoding) {
-    if (BAZEL_UNICODE_STRINGS) {
-      return s;
-    }
-    if (targetEncoding == US_ASCII) {
-      return s;
-    }
-    if (targetEncoding == UTF_8 && StringUnsafe.getInstance().isAscii(s)) {
-      return s;
-    }
-    if (OS.getCurrent() == OS.LINUX && SUN_JNI_ENCODING == ISO_8859_1) {
-      return new String(s.getBytes(ISO_8859_1), targetEncoding);
-    } else {
-      return new String(s.getBytes(ISO_8859_1), SUN_JNI_ENCODING);
-    }
-  }
-
   /**
    * Decode a String that might actually be UTF-8, in which case each input character will be
    * treated as a byte.

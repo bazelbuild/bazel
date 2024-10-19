@@ -90,9 +90,7 @@ import com.google.devtools.build.lib.server.FailureDetails.RunCommand.Code;
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
-import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.OptionsUtils;
-import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -577,18 +575,7 @@ public class RunCommand implements BlazeCommand {
         includeResidue
             ? runCommandLine.getArgs(shExecutable)
             : runCommandLine.getArgsWithoutResidue(shExecutable);
-    // At this point args contains strings that have been obtained from the JVM's default native
-    // encoding by turning their raw bytes into an ISO-8859-1 string. On Unix, this allows a round
-    // trip back to the original bytes regardless of that encoding, but on Windows the client always
-    // expects the result to be UTF-8.
-    if (OS.getCurrent() == OS.WINDOWS) {
-      return args.stream()
-          .map(StringUtil::reencodeInternalToJava)
-          .map(ByteString::copyFromUtf8)
-          .collect(toImmutableList());
-    } else {
-      return args.stream().map(s -> ByteString.copyFrom(s, ISO_8859_1)).collect(toImmutableList());
-    }
+    return args.stream().map(s -> ByteString.copyFrom(s, ISO_8859_1)).collect(toImmutableList());
   }
 
   private BlazeCommandResult handleScriptPath(
