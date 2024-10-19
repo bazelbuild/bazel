@@ -131,7 +131,7 @@ public class StringUtil {
    * encoding for file paths and command-line arguments, e.g. on macOS (always UTF-8). When
    * interoperating with Java APIs, we thus need to reencode paths to the JVM's native encoding.
    */
-  private static final Charset SUN_JNI_ENCODING =
+  private static final Charset SUN_JNU_ENCODING =
       Charset.forName(System.getProperty("sun.jnu.encoding"));
 
   // This only exists for RemoteWorker, which directly uses the RE APIs UTF-8-encoded string with
@@ -164,13 +164,13 @@ public class StringUtil {
     if (BAZEL_UNICODE_STRINGS) {
       return false;
     }
-    if (SUN_JNI_ENCODING == US_ASCII) {
+    if (SUN_JNU_ENCODING == US_ASCII) {
       return false;
     }
-    if (SUN_JNI_ENCODING == ISO_8859_1 && OS.getCurrent() != OS.WINDOWS) {
+    if (SUN_JNU_ENCODING == ISO_8859_1 && OS.getCurrent() != OS.WINDOWS) {
       return false;
     }
-    if (SUN_JNI_ENCODING == UTF_8 || SUN_JNI_ENCODING == ISO_8859_1) {
+    if (SUN_JNU_ENCODING == UTF_8 || SUN_JNU_ENCODING == ISO_8859_1) {
       return !StringUnsafe.getInstance().isAscii(s);
     }
     return true;
