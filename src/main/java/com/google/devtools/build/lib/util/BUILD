@@ -316,6 +316,7 @@ java_library(
         "StringUtilities.java",
     ],
     deps = [
+        ":os",
         "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//third_party:guava",
     ],

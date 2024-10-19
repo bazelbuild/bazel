@@ -135,7 +135,7 @@ public class StringUtil {
 
   // This only exists for RemoteWorker, which directly uses the RE APIs UTF-8-encoded string with
   // the JavaIoFileSystem and thus shouldn't be subject to any reencoding.
-  private static final boolean USE_UTF_8_FOR_STRINGS =
+  private static final boolean BAZEL_UNICODE_STRINGS =
       Boolean.getBoolean("bazel.internal.UseUtf8ForStrings");
 
   /**
@@ -143,7 +143,7 @@ public class StringUtil {
    * for Java stdlib functions, if necessary.
    */
   public static String reencodeInternalToJava(String s) {
-    return canSkipJavaReencode(s) ? s : new String(s.getBytes(ISO_8859_1), SUN_JNI_ENCODING);
+    return canSkipJavaReencode(s) ? s : new String(s.getBytes(ISO_8859_1), UTF_8);
   }
 
   /**
@@ -151,21 +151,59 @@ public class StringUtil {
    * if necessary.
    */
   public static String reencodeJavaToInternal(String s) {
-    return canSkipJavaReencode(s) ? s : new String(s.getBytes(SUN_JNI_ENCODING), ISO_8859_1);
+    return canSkipJavaReencode(s) ? s : new String(s.getBytes(UTF_8), ISO_8859_1);
   }
 
   private static boolean canSkipJavaReencode(String s) {
     // The comparisons below are expected to be constant-folded by the JIT.
-    if (USE_UTF_8_FOR_STRINGS) {
+    if (BAZEL_UNICODE_STRINGS) {
       return true;
     }
-    if (SUN_JNI_ENCODING == ISO_8859_1 || SUN_JNI_ENCODING == US_ASCII) {
+    if (SUN_JNI_ENCODING == US_ASCII) {
       return true;
     }
-    if (SUN_JNI_ENCODING == UTF_8) {
+    if (SUN_JNI_ENCODING == ISO_8859_1 && OS.getCurrent() != OS.WINDOWS) {
+      return true;
+    }
+    if (SUN_JNI_ENCODING == UTF_8 || SUN_JNI_ENCODING == ISO_8859_1) {
       return StringUnsafe.getInstance().isAscii(s);
     }
     return false;
+  }
+
+  public static String toInternal(String s, Charset sourceEncoding) {
+    if (BAZEL_UNICODE_STRINGS) {
+      return s;
+    }
+    if (sourceEncoding == US_ASCII) {
+      return s;
+    }
+    if (sourceEncoding == UTF_8 && StringUnsafe.getInstance().isAscii(s)) {
+      return s;
+    }
+    if (OS.getCurrent() == OS.LINUX && SUN_JNI_ENCODING == ISO_8859_1) {
+      return new String(s.getBytes(sourceEncoding), ISO_8859_1);
+    } else {
+      return new String(s.getBytes(SUN_JNI_ENCODING), ISO_8859_1);
+    }
+  }
+
+
+  public static String fromInternal(String s, Charset targetEncoding) {
+    if (BAZEL_UNICODE_STRINGS) {
+      return s;
+    }
+    if (targetEncoding == US_ASCII) {
+      return s;
+    }
+    if (targetEncoding == UTF_8 && StringUnsafe.getInstance().isAscii(s)) {
+      return s;
+    }
+    if (OS.getCurrent() == OS.LINUX && SUN_JNI_ENCODING == ISO_8859_1) {
+      return new String(s.getBytes(ISO_8859_1), targetEncoding);
+    } else {
+      return new String(s.getBytes(ISO_8859_1), SUN_JNI_ENCODING);
+    }
   }
 
   /**
