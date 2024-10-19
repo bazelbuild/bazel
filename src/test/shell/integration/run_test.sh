@@ -218,10 +218,6 @@ test "\$1" = '$arg'
 EOF
   chmod +x foo/foo.sh
 
-  bazel info 2>&1
-  "C:/Program Files (x86)/Windows Kits/10/bin/10.0.19041.0/x64/mt.exe" -nologo -inputresource:C:/b/bazeltest_install_base/embedded_tools/jdk/bin/java.exe -out:java.manifest
-  cat java.manifest
-
   bazel run //foo -- "$arg" > output \
     || fail "${PRODUCT_NAME} run failed."
 
