@@ -28,6 +28,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
 #include <memory>
 #include <mutex>  // NOLINT
 #include <set>
@@ -944,6 +945,7 @@ string GetEnv(const string& name) {
 
   unique_ptr<char[]> value(new char[size]);
   ::GetEnvironmentVariableA(name.c_str(), value.get(), size);
+  std::cout << "GetEnv(" << name << "): " << value.get() << std::endl;
   return string(value.get());
 }
 
