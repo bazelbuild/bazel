@@ -161,6 +161,10 @@ public class StringUtil {
         : bytes.toString(ISO_8859_1);
   }
 
+  public static String internalBytesToPlatformString(ByteString bytes) {
+    return internalStringToPlatformString(bytes.toString(ISO_8859_1));
+  }
+
   private static boolean needsReencodeForPlatform(String s) {
     // The comparisons below are expected to be constant-folded by the JIT.
     if (BAZEL_UNICODE_STRINGS) {
