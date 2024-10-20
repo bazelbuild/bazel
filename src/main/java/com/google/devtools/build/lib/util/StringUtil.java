@@ -174,10 +174,7 @@ public class StringUtil {
     if (SUN_JNU_ENCODING == ISO_8859_1 && OS.getCurrent() != OS.WINDOWS) {
       return false;
     }
-    if (SUN_JNU_ENCODING == UTF_8 || SUN_JNU_ENCODING == ISO_8859_1) {
-      return !StringUnsafe.getInstance().isAscii(s);
-    }
-    return true;
+    return !StringUnsafe.getInstance().isAscii(s);
   }
 
   /**
