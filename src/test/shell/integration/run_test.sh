@@ -292,6 +292,43 @@ EOF
     || fail "${PRODUCT_NAME} test failed (--batch)"
 }
 
+function test_consistent_working_directory_encoding {
+  if "$is_windows"; then
+    # äöüÄÖÜß in UTF8
+    local workspace_name=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F')
+  else
+    # äöüÄÖÜß🌱 in UTF8
+    local workspace_name=$(echo -e '\xC3\xA4\xC3\xB6\xC3\xBC\xC3\x84\xC3\x96\xC3\x9C\xC3\x9F\xF0\x9F\x8C\xB1')
+  fi
+
+  mkdir -p "$workspace_name" || fail "mkdir $workspace_name failed"
+  cd "$workspace_name" || fail "cd $workspace_name failed"
+  setup_module_dot_bazel
+
+  mkdir -p foo || fail "mkdir foo failed"
+  cat > foo/BUILD <<EOF
+sh_binary(
+    name = "foo",
+    srcs = ["foo.sh"],
+)
+EOF
+  cat > foo/foo.sh <<EOF
+echo "        got: \${BUILD_WORKING_DIRECTORY}"
+echo "want suffix: /$workspace_name/foo/subdir_$workspace_name"
+[[ "\${BUILD_WORKING_DIRECTORY}" == *"/$workspace_name/foo/subdir_$workspace_name" ]]
+EOF
+  chmod +x foo/foo.sh
+
+  mkdir -p "foo/subdir_$workspace_name"
+  cd "foo/subdir_$workspace_name" || fail "cd foo/subdir_$workspace_name failed"
+
+  bazel run //foo \
+    || fail "${PRODUCT_NAME} run failed."
+
+  bazel --batch run //foo \
+    || fail "${PRODUCT_NAME} run failed (--batch)."
+}
+
 # Tests bazel run with --color=no on a failed build does not produce color.
 function test_no_color_on_failed_run() {
   mkdir -p x || fail "mkdir failed"
