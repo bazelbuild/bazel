@@ -1083,6 +1083,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       shutdownDone = true;
       signalHandler.uninstall();
       ExecRequest request = result.getExecRequest();
+      System.err.println(request);
 
       // On Unix, the raw bytes of the arguments obtained from the `java` launcher binary are
       // passed through as is and the launcher always uses sun.jnu.encoding.
