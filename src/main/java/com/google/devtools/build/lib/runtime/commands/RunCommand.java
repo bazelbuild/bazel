@@ -17,7 +17,6 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -76,7 +75,6 @@ import com.google.devtools.build.lib.pkgcache.LoadingFailedException;
 import com.google.devtools.build.lib.runtime.BlazeCommand;
 import com.google.devtools.build.lib.runtime.BlazeCommandResult;
 import com.google.devtools.build.lib.runtime.BlazeServerStartupOptions;
-import com.google.devtools.build.lib.runtime.ClientOptions;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.server.CommandProtos;
@@ -102,8 +100,6 @@ import com.google.devtools.common.options.OptionsParser;
 import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.protobuf.ByteString;
 import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collection;
@@ -302,24 +298,6 @@ public class RunCommand implements BlazeCommand {
     if (runOptions.scriptPath != null) {
       return handleScriptPath(runOptions, execRequest, runCommandLine, env, builtTargets);
     }
-    options
-        .getOptions(ClientOptions.class)
-        .clientEnv
-        .forEach(
-            entry ->
-                System.err.printf(
-                    "env %s: %s %s (%s)%n",
-                    entry.getKey(),
-                    Arrays.toString(entry.getValue().getBytes(StandardCharsets.ISO_8859_1)),
-                    Arrays.toString(
-                        entry
-                            .getValue()
-                            .getBytes(Charset.forName(System.getProperty("sun.jnu.encoding")))),
-                    new String(
-                        entry
-                            .getValue()
-                            .getBytes(
-                                Charset.forName(System.getProperty("sun.jnu.encoding"), UTF_8)))));
     if (runOptions.runBuiltTarget) {
       env.getReporter()
           .handle(Event.info(null, "Running command line: " + runCommandLine.getPrettyArgs()));
