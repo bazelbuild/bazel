@@ -156,9 +156,7 @@ public class StringUtil {
   }
 
   public static String platformBytesToInternalString(ByteString bytes) {
-    return OS.getCurrent() == OS.WINDOWS
-        ? platformStringToInternalString(bytes.toString(SUN_JNU_ENCODING))
-        : bytes.toString(ISO_8859_1);
+    return bytes.toString(ISO_8859_1);
   }
 
   public static String internalBytesToPlatformString(ByteString bytes) {

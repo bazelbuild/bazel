@@ -20,8 +20,9 @@
 #include "src/main/cpp/option_processor.h"
 #include "src/main/cpp/startup_options.h"
 #include "src/main/cpp/workspace_layout.h"
+#include "src/main/cpp/util/strings.h"
 
-int main(int argc, char **argv) {
+int main(int argc, const char **argv) {
   uint64_t start_time = blaze::GetMillisecondsMonotonic();
   std::unique_ptr<blaze::WorkspaceLayout> workspace_layout(
       new blaze::WorkspaceLayout());
@@ -32,3 +33,19 @@ int main(int argc, char **argv) {
                                                 std::move(startup_options)),
                      start_time);
 }
+
+#ifdef _WIN32
+// Define wmain to support Unicode command line arguments on Windows
+// regardless of the current code page.
+int wmain(int argc, wchar_t **argv) {
+  std::vector<std::string> args;
+  for (int i = 0; i < argc; ++i) {
+    args.push_back(blaze_util::WstringToCstring(argv[i]));
+  }
+  std::vector<const char *> c_args;
+  for (const std::string &arg : args) {
+    c_args.push_back(arg.c_str());
+  }
+  return main(c_args.size(), c_args.data());
+}
+#endif

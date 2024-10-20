@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.runtime.commands;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.devtools.build.lib.runtime.Command.BuildPhase.EXECUTES;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -314,7 +315,11 @@ public class RunCommand implements BlazeCommand {
                         entry
                             .getValue()
                             .getBytes(Charset.forName(System.getProperty("sun.jnu.encoding")))),
-                    entry.getValue()));
+                    new String(
+                        entry
+                            .getValue()
+                            .getBytes(
+                                Charset.forName(System.getProperty("sun.jnu.encoding"), UTF_8)))));
     if (runOptions.runBuiltTarget) {
       env.getReporter()
           .handle(Event.info(null, "Running command line: " + runCommandLine.getPrettyArgs()));
