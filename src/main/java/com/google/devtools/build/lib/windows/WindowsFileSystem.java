@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.attribute.DosFileAttributes;
+import java.util.concurrent.TimeUnit;
 
 /** File system implementation for Windows. */
 @ThreadSafe
@@ -183,7 +184,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
           @Override
           public long getLastModifiedTime() {
-            return attributes.lastModifiedTime().toMillis();
+            return attributes.lastModifiedTime().to(TimeUnit.NANOSECONDS);
           }
 
           @Override
@@ -193,7 +194,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
 
           @Override
           public long getNodeId() {
-            // TODO(bazel-team): Consider making use of attributes.fileKey().
+            // attributes.fileKey() returns null in JDK 23 and earlier.
             return -1;
           }
 

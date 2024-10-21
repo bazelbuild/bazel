@@ -32,6 +32,8 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import javax.annotation.Nullable;
 
 /**
@@ -477,19 +479,18 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
 
           @Override
           public long getLastModifiedTime() {
-            return attributes.lastModifiedTime().toMillis();
+            return attributes.lastModifiedTime().to(TimeUnit.NANOSECONDS);
           }
 
           @Override
           public long getLastChangeTime() {
-            // This is the best we can do with Java NIO...
-            return attributes.lastModifiedTime().toMillis();
+            // There is no Java API for this, so we return the same as lastModifiedTime.
+            return attributes.lastModifiedTime().to(TimeUnit.NANOSECONDS);
           }
 
           @Override
           public long getNodeId() {
-            // TODO(bazel-team): Consider making use of attributes.fileKey().
-            return -1;
+            return Objects.hashCode(attributes.fileKey());
           }
         };
 
