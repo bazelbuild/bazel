@@ -35,6 +35,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
@@ -525,13 +526,19 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
     }
   }
 
-  private static File createJavaIoFile(PathFragment path) {
+  @Override
+  protected File getIoFile(PathFragment path) {
     return new File(StringUtil.internalStringToPlatformString(path.getPathString()));
   }
 
   @Override
+  protected java.nio.file.Path getNioPath(PathFragment path) {
+    return Paths.get(StringUtil.internalStringToPlatformString(path.getPathString()));
+  }
+
+  @Override
   protected InputStream createFileInputStream(PathFragment path) throws IOException {
-    return new FileInputStream(createJavaIoFile(path));
+    return new FileInputStream(StringUtil.internalStringToPlatformString(path.getPathString()));
   }
 
   @Override
