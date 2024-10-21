@@ -22,7 +22,7 @@
 #include "src/main/cpp/workspace_layout.h"
 #include "src/main/cpp/util/strings.h"
 
-int main(int argc, const char **argv) {
+int main_impl(int argc, char **argv) {
   uint64_t start_time = blaze::GetMillisecondsMonotonic();
   std::unique_ptr<blaze::WorkspaceLayout> workspace_layout(
       new blaze::WorkspaceLayout());
@@ -42,10 +42,12 @@ int wmain(int argc, wchar_t **argv) {
   for (int i = 0; i < argc; ++i) {
     args.push_back(blaze_util::WstringToCstring(argv[i]));
   }
-  std::vector<const char *> c_args;
+  std::vector<char *> c_args;
   for (const std::string &arg : args) {
-    c_args.push_back(arg.c_str());
+    c_args.push_back(const_cast<char *>(arg.c_str()));
   }
-  return main(c_args.size(), c_args.data());
+  return main_impl(c_args.size(), c_args.data());
 }
+#else
+int main(int argc, char **argv) { return main_impl(argc, argv); }
 #endif
