@@ -52,6 +52,7 @@ public class StringEncodingTest {
 
     // Roundtripping raw bytes through the internal encoding requires Linux and a Latin-1 locale.
     assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
+    System.err.println(System.getenv());
     assertThat(Charset.forName(System.getProperty("sun.jnu.encoding")))
         .isEqualTo(StandardCharsets.ISO_8859_1);
 

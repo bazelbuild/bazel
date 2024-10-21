@@ -108,6 +108,7 @@ function test_special_chars() {
   setup_module_dot_bazel
 
   touch BUILD
+  bazel info
   bazel build --watchfs //... &> "$TEST_log" || fail "Expected success."
   expect_not_log "Hello, Unicode!"
 
