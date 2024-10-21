@@ -844,21 +844,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
   @SuppressWarnings("SystemExitOutsideMain")
   public static void main(Iterable<Class<? extends BlazeModule>> moduleClasses, String[] args) {
     // Transform args into Bazel's internal string representation.
-    args =
-        Arrays.stream(args)
-            .peek(
-                arg ->
-                    System.err.printf(
-                        "raw arg passed to main (%s): %s%n",
-                        arg, Arrays.toString(arg.getBytes(ISO_8859_1))))
-            .map(StringEncoding::platformToInternal)
-            .peek(
-                arg ->
-                    System.err.printf(
-                        "converted arg passed to main (%s): %s%n",
-                        arg, Arrays.toString(arg.getBytes(ISO_8859_1))))
-            .toArray(String[]::new);
-
+    args = Arrays.stream(args).map(StringEncoding::platformToInternal).toArray(String[]::new);
     setupUncaughtHandlerAtStartup(args);
     List<BlazeModule> modules = createModules(moduleClasses);
     // blaze.cc will put --batch first if the user set it.

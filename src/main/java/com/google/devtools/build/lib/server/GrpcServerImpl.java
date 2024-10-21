@@ -598,7 +598,6 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         // Transform args into Bazel's internal string representation.
         ImmutableList<String> args =
             request.getArgList().stream()
-                .peek(arg -> System.err.printf("raw arg passed to server: %s%n", arg))
                 .map(GrpcServerImpl::platformBytesToInternalString)
                 .collect(ImmutableList.toImmutableList());
 
