@@ -368,7 +368,7 @@ public final class ArtifactFunction implements SkyFunction {
         case CANNOT_CROSS_PACKAGE_BOUNDARY:
           throw new IllegalStateException(
               String.format(
-                  "Package boundary mode was cross: %s %s %s" + artifact, fileValue, request),
+                  "Package boundary mode was cross: %s %s %s", artifact, fileValue, request),
               e);
         case GENERATED_PATH_CONFLICT:
           throw new IllegalStateException(
