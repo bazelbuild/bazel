@@ -55,7 +55,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     long startTime = Profiler.nanoTimeMaybe();
     try {
       return WindowsFileOperations.deletePath(
-          StringEncoding.internalStringToPlatformString(path.getPathString()));
+          StringEncoding.internalToPlatform(path.getPathString()));
     } catch (java.nio.file.DirectoryNotEmptyException e) {
       throw new IOException(path.getPathString() + ERR_DIRECTORY_NOT_EMPTY, e);
     } catch (java.nio.file.AccessDeniedException e) {
@@ -106,7 +106,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     WindowsFileOperations.ReadSymlinkOrJunctionResult result =
         WindowsFileOperations.readSymlinkOrJunction(nioPath.toString());
     if (result.getStatus() == WindowsFileOperations.ReadSymlinkOrJunctionResult.Status.OK) {
-      return PathFragment.create(StringEncoding.platformStringToInternalString(result.getResult()));
+      return PathFragment.create(StringEncoding.platformToInternal(result.getResult()));
     }
     if (result.getStatus() == WindowsFileOperations.ReadSymlinkOrJunctionResult.Status.NOT_A_LINK) {
       throw new NotASymlinkException(path);

@@ -21,7 +21,7 @@ import static com.google.devtools.build.lib.remote.util.RxFutures.toCompletable;
 import static com.google.devtools.build.lib.remote.util.RxFutures.toSingle;
 import static com.google.devtools.build.lib.remote.util.RxUtils.mergeBulkTransfer;
 import static com.google.devtools.build.lib.remote.util.RxUtils.toTransferResult;
-import static com.google.devtools.build.lib.util.StringEncoding.reencodeInternalToUtf8;
+import static com.google.devtools.build.lib.util.StringEncoding.internalToUnicode;
 import static java.util.Comparator.comparing;
 import static java.util.Comparator.naturalOrder;
 import static java.util.Comparator.reverseOrder;
@@ -326,8 +326,8 @@ public class UploadManifest {
   private void addFileSymbolicLink(Path file, PathFragment target) {
     OutputSymlink outputSymlink =
         OutputSymlink.newBuilder()
-            .setPath(reencodeInternalToUtf8(remotePathResolver.localPathToOutputPath(file)))
-            .setTarget(reencodeInternalToUtf8(target.toString()))
+            .setPath(internalToUnicode(remotePathResolver.localPathToOutputPath(file)))
+            .setTarget(internalToUnicode(target.toString()))
             .build();
     result.addOutputFileSymlinks(outputSymlink);
     result.addOutputSymlinks(outputSymlink);
@@ -336,8 +336,8 @@ public class UploadManifest {
   private void addDirectorySymbolicLink(Path file, PathFragment target) {
     OutputSymlink outputSymlink =
         OutputSymlink.newBuilder()
-            .setPath(reencodeInternalToUtf8(remotePathResolver.localPathToOutputPath(file)))
-            .setTarget(reencodeInternalToUtf8(target.toString()))
+            .setPath(internalToUnicode(remotePathResolver.localPathToOutputPath(file)))
+            .setTarget(internalToUnicode(target.toString()))
             .build();
     result.addOutputDirectorySymlinks(outputSymlink);
     result.addOutputSymlinks(outputSymlink);
@@ -346,7 +346,7 @@ public class UploadManifest {
   private void addFile(Digest digest, Path file) {
     result
         .addOutputFilesBuilder()
-        .setPath(reencodeInternalToUtf8(remotePathResolver.localPathToOutputPath(file)))
+        .setPath(internalToUnicode(remotePathResolver.localPathToOutputPath(file)))
         .setDigest(digest)
         .setIsExecutable(true);
 
@@ -549,7 +549,7 @@ public class UploadManifest {
 
     result
         .addOutputDirectoriesBuilder()
-        .setPath(reencodeInternalToUtf8(remotePathResolver.localPathToOutputPath(dir)))
+        .setPath(internalToUnicode(remotePathResolver.localPathToOutputPath(dir)))
         .setTreeDigest(treeDigest)
         .setIsTopologicallySorted(true);
 

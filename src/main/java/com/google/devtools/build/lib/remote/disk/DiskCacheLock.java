@@ -59,7 +59,7 @@ public final class DiskCacheLock implements AutoCloseable {
     FileChannel channel =
         FileChannel.open(
             // Correctly handle non-ASCII paths by converting from the internal string encoding.
-            java.nio.file.Path.of(StringEncoding.internalStringToPlatformString(path.getPathString())),
+            java.nio.file.Path.of(StringEncoding.internalToPlatform(path.getPathString())),
             StandardOpenOption.READ,
             StandardOpenOption.WRITE,
             StandardOpenOption.CREATE);

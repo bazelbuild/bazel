@@ -528,17 +528,17 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected File getIoFile(PathFragment path) {
-    return new File(StringEncoding.internalStringToPlatformString(path.getPathString()));
+    return new File(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
   @Override
   protected java.nio.file.Path getNioPath(PathFragment path) {
-    return Paths.get(StringEncoding.internalStringToPlatformString(path.getPathString()));
+    return Paths.get(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
   @Override
   protected InputStream createFileInputStream(PathFragment path) throws IOException {
-    return new FileInputStream(StringEncoding.internalStringToPlatformString(path.getPathString()));
+    return new FileInputStream(StringEncoding.internalToPlatform(path.getPathString()));
   }
 
   @Override

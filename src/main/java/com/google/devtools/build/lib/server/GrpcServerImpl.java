@@ -568,8 +568,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       // UTF-8 won't do because we want to be able to pass arbitrary binary strings.
       startupOptions.add(
           new Pair<>(
-              StringEncoding.platformBytesToInternalString(option.getSource()),
-              StringEncoding.platformBytesToInternalString(option.getOption())));
+              StringEncoding.platformToInternal(option.getSource()),
+              StringEncoding.platformToInternal(option.getOption())));
     }
 
     commandManager.preemptEligibleCommands();
@@ -599,7 +599,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         ImmutableList<String> args =
             request.getArgList().stream()
                 .peek(arg -> System.err.printf("raw arg passed to server: %s%n", arg))
-                .map(StringEncoding::platformBytesToInternalString)
+                .map(StringEncoding::platformToInternal)
                 .collect(ImmutableList.toImmutableList());
 
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());

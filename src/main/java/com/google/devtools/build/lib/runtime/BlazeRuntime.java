@@ -850,7 +850,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                     System.err.printf(
                         "raw arg passed to main (%s): %s%n",
                         arg, Arrays.toString(arg.getBytes(ISO_8859_1))))
-            .map(StringEncoding::platformStringToInternalString)
+            .map(StringEncoding::platformToInternal)
             .peek(
                 arg ->
                     System.err.printf(
@@ -1084,10 +1084,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       String[] argv = new String[request.getArgvCount()];
       for (int i = 0; i < argv.length; i++) {
-        argv[i] = StringEncoding.internalBytesToPlatformString(request.getArgv(i));
+        argv[i] = StringEncoding.internalToPlatform(request.getArgv(i));
       }
-      String workingDirectory =
-          StringEncoding.internalBytesToPlatformString(request.getWorkingDirectory());
+      String workingDirectory = StringEncoding.internalToPlatform(request.getWorkingDirectory());
       try {
         ProcessBuilder process =
             new ProcessBuilder().command(argv).directory(new File(workingDirectory)).inheritIO();
@@ -1095,9 +1094,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         for (int i = 0; i < request.getEnvironmentVariableToClearCount(); i++) {
           process
               .environment()
-              .remove(
-                  StringEncoding.internalBytesToPlatformString(
-                      request.getEnvironmentVariableToClear(i)));
+              .remove(StringEncoding.internalToPlatform(request.getEnvironmentVariableToClear(i)));
         }
 
         for (int i = 0; i < request.getEnvironmentVariableCount(); i++) {
@@ -1105,8 +1102,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           process
               .environment()
               .put(
-                  StringEncoding.internalBytesToPlatformString(variable.getName()),
-                  StringEncoding.internalBytesToPlatformString(variable.getValue()));
+                  StringEncoding.internalToPlatform(variable.getName()),
+                  StringEncoding.internalToPlatform(variable.getValue()));
         }
 
         return process.start().waitFor();

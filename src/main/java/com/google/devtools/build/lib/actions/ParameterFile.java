@@ -168,7 +168,7 @@ public class ParameterFile {
     CharsetEncoder encoder = UTF_8.newEncoder();
     StringUnsafe stringUnsafe = StringUnsafe.getInstance();
     for (String line : arguments) {
-      if (!StringEncoding.reencodeInternalToUtf8(line).equals(line)) {
+      if (!StringEncoding.internalToUnicode(line).equals(line)) {
         // We successfully decoded line from utf8 - meaning it was already encoded as utf8.
         // We do not want to double-encode.
         outputStream.write(stringUnsafe.getByteArray(line));

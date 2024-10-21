@@ -168,10 +168,9 @@ public abstract class CompressedTarFunction implements Decompressor {
    */
   private static String toRawBytesString(String name) {
     // Marked strings are already encoded in ISO-8859-1. Other strings originate from PAX headers
-    // and are thus encoded in UTF-8, which we need to transform to ISO-8859-1 (Bazel's internal
-    // encoding of path strings).
+    // and are thus Unicode.
     return MarkedIso88591Charset.getRawBytesStringIfMarked(name)
-        .orElseGet(() -> StringEncoding.reencodeUtf8ToInternal(name));
+        .orElseGet(() -> StringEncoding.unicodeToInternal(name));
   }
 
   /** A provider of {@link MarkedIso88591Charset}s. */

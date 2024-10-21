@@ -19,7 +19,7 @@ java_binary(
     name = "worker",
     jvm_flags = [
         # Disables functionality in StringUtil that relies on Bazel's own internal string representation.
-        "-Dbazel.internal.UseUtf8ForStrings=true",
+        "-Dbazel.internal.UnicodeStringss=true",
     ],
     main_class = "com.google.devtools.build.remote.worker.RemoteWorker",
     visibility = ["//visibility:public"],

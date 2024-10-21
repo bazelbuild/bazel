@@ -35,7 +35,7 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
   @Override
   public Subprocess create(SubprocessBuilder builder) throws IOException {
     List<String> argv =
-        Lists.transform(builder.getArgv(), StringEncoding::internalStringToPlatformString);
+        Lists.transform(builder.getArgv(), StringEncoding::internalToPlatform);
 
     // DO NOT quote argv0, createProcess will do it for us.
     String argv0 = processArgv0(argv.get(0));
@@ -159,9 +159,9 @@ public class WindowsSubprocessFactory implements SubprocessFactory {
         continue;
       }
       result
-          .append(StringEncoding.internalStringToPlatformString(entry.getKey()))
+          .append(StringEncoding.internalToPlatform(entry.getKey()))
           .append("=")
-          .append(StringEncoding.internalStringToPlatformString(entry.getValue()))
+          .append(StringEncoding.internalToPlatform(entry.getValue()))
           .append("\0");
     }
 
