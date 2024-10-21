@@ -165,16 +165,13 @@ public class ParameterFile {
   private static void writeContentUtf8(OutputStream outputStream, Iterable<String> arguments)
       throws IOException {
     for (String line : arguments) {
-      if (StringEncoding.internalToUnicode(line).equals(line)) {
-        // We successfully decoded line from utf8 - meaning it was already encoded as utf8.
-        // We do not want to double-encode.
+      String unicodeLine = StringEncoding.internalToUnicode(line);
+      if (unicodeLine == line) {
+        // No reencoding from internal to Unicode was necessary, so the string is ASCII only and its
+        // raw bytes can be written as is.
         outputStream.write(StringUnsafe.getInstance().getByteArray(line));
       } else {
-        ByteBuffer encodedBytes = UTF_8.newEncoder().encode(CharBuffer.wrap(line));
-        outputStream.write(
-            encodedBytes.array(),
-            encodedBytes.arrayOffset(),
-            encodedBytes.arrayOffset() + encodedBytes.limit());
+        outputStream.write(unicodeLine.getBytes(UTF_8));
       }
       outputStream.write('\n');
     }
