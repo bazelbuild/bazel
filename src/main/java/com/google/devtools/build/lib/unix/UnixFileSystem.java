@@ -22,7 +22,7 @@ import com.google.devtools.build.lib.profiler.ProfilerTask;
 import com.google.devtools.build.lib.unix.NativePosixFiles.Dirents;
 import com.google.devtools.build.lib.unix.NativePosixFiles.ReadTypes;
 import com.google.devtools.build.lib.util.Blocker;
-import com.google.devtools.build.lib.util.StringUtil;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.AbstractFileSystemWithCustomStat;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.Dirent;
@@ -528,17 +528,17 @@ public class UnixFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected File getIoFile(PathFragment path) {
-    return new File(StringUtil.internalStringToPlatformString(path.getPathString()));
+    return new File(StringEncoding.internalStringToPlatformString(path.getPathString()));
   }
 
   @Override
   protected java.nio.file.Path getNioPath(PathFragment path) {
-    return Paths.get(StringUtil.internalStringToPlatformString(path.getPathString()));
+    return Paths.get(StringEncoding.internalStringToPlatformString(path.getPathString()));
   }
 
   @Override
   protected InputStream createFileInputStream(PathFragment path) throws IOException {
-    return new FileInputStream(StringUtil.internalStringToPlatformString(path.getPathString()));
+    return new FileInputStream(StringEncoding.internalStringToPlatformString(path.getPathString()));
   }
 
   @Override

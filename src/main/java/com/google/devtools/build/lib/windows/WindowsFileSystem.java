@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.util.StringUtil;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.DigestHashFunction;
 import com.google.devtools.build.lib.vfs.FileStatus;
 import com.google.devtools.build.lib.vfs.JavaIoFileSystem;
@@ -55,7 +55,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     long startTime = Profiler.nanoTimeMaybe();
     try {
       return WindowsFileOperations.deletePath(
-          StringUtil.internalStringToPlatformString(path.getPathString()));
+          StringEncoding.internalStringToPlatformString(path.getPathString()));
     } catch (java.nio.file.DirectoryNotEmptyException e) {
       throw new IOException(path.getPathString() + ERR_DIRECTORY_NOT_EMPTY, e);
     } catch (java.nio.file.AccessDeniedException e) {
@@ -106,7 +106,7 @@ public class WindowsFileSystem extends JavaIoFileSystem {
     WindowsFileOperations.ReadSymlinkOrJunctionResult result =
         WindowsFileOperations.readSymlinkOrJunction(nioPath.toString());
     if (result.getStatus() == WindowsFileOperations.ReadSymlinkOrJunctionResult.Status.OK) {
-      return PathFragment.create(StringUtil.platformStringToInternalString(result.getResult()));
+      return PathFragment.create(StringEncoding.platformStringToInternalString(result.getResult()));
     }
     if (result.getStatus() == WindowsFileOperations.ReadSymlinkOrJunctionResult.Status.NOT_A_LINK) {
       throw new NotASymlinkException(path);

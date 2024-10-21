@@ -15,7 +15,7 @@ package com.google.devtools.build.lib.remote.disk;
 
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.devtools.build.lib.util.StringUtil;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.Path;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
@@ -59,7 +59,7 @@ public final class DiskCacheLock implements AutoCloseable {
     FileChannel channel =
         FileChannel.open(
             // Correctly handle non-ASCII paths by converting from the internal string encoding.
-            java.nio.file.Path.of(StringUtil.internalStringToPlatformString(path.getPathString())),
+            java.nio.file.Path.of(StringEncoding.internalStringToPlatformString(path.getPathString())),
             StandardOpenOption.READ,
             StandardOpenOption.WRITE,
             StandardOpenOption.CREATE);

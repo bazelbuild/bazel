@@ -16,7 +16,7 @@ package com.google.devtools.build.lib.shell;
 
 import com.google.common.collect.Lists;
 import com.google.devtools.build.lib.shell.SubprocessBuilder.StreamAction;
-import com.google.devtools.build.lib.util.StringUtil;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -156,7 +156,7 @@ public class JavaSubprocessFactory implements SubprocessFactory {
   @Override
   public Subprocess create(SubprocessBuilder params) throws IOException {
     ProcessBuilder builder = new ProcessBuilder();
-    builder.command(Lists.transform(params.getArgv(), StringUtil::internalStringToPlatformString));
+    builder.command(Lists.transform(params.getArgv(), StringEncoding::internalStringToPlatformString));
     if (params.getEnv() != null) {
       builder.environment().clear();
       params
@@ -166,8 +166,8 @@ public class JavaSubprocessFactory implements SubprocessFactory {
                   builder
                       .environment()
                       .put(
-                          StringUtil.internalStringToPlatformString(key),
-                          StringUtil.internalStringToPlatformString(value)));
+                          StringEncoding.internalStringToPlatformString(key),
+                          StringEncoding.internalStringToPlatformString(value)));
     }
 
     builder.redirectOutput(getRedirect(params.getStdout(), params.getStdoutFile()));

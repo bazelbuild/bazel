@@ -49,7 +49,7 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.StringUtil;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -568,8 +568,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       // UTF-8 won't do because we want to be able to pass arbitrary binary strings.
       startupOptions.add(
           new Pair<>(
-              StringUtil.platformBytesToInternalString(option.getSource()),
-              StringUtil.platformBytesToInternalString(option.getOption())));
+              StringEncoding.platformBytesToInternalString(option.getSource()),
+              StringEncoding.platformBytesToInternalString(option.getOption())));
     }
 
     commandManager.preemptEligibleCommands();
@@ -599,7 +599,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         ImmutableList<String> args =
             request.getArgList().stream()
                 .peek(arg -> System.err.printf("raw arg passed to server: %s%n", arg))
-                .map(StringUtil::platformBytesToInternalString)
+                .map(StringEncoding::platformBytesToInternalString)
                 .collect(ImmutableList.toImmutableList());
 
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());

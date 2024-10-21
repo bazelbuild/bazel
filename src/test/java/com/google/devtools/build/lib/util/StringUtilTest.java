@@ -16,8 +16,8 @@ package com.google.devtools.build.lib.util;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.util.StringUtil.joinEnglishList;
 import static com.google.devtools.build.lib.util.StringUtil.joinEnglishListSingleQuoted;
-import static com.google.devtools.build.lib.util.StringUtil.reencodeUtf8ToInternal;
-import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToUtf8;
+import static com.google.devtools.build.lib.util.StringEncoding.reencodeUtf8ToInternal;
+import static com.google.devtools.build.lib.util.StringEncoding.reencodeInternalToUtf8;
 
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;

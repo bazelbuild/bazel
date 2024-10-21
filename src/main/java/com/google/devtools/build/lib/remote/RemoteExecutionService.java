@@ -27,8 +27,8 @@ import static com.google.devtools.build.lib.remote.util.Utils.getInMemoryOutputP
 import static com.google.devtools.build.lib.remote.util.Utils.grpcAwareErrorMessage;
 import static com.google.devtools.build.lib.remote.util.Utils.shouldUploadLocalResultsToRemoteCache;
 import static com.google.devtools.build.lib.remote.util.Utils.waitForBulkTransfer;
-import static com.google.devtools.build.lib.util.StringUtil.reencodeUtf8ToInternal;
-import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToUtf8;
+import static com.google.devtools.build.lib.util.StringEncoding.reencodeInternalToUtf8;
+import static com.google.devtools.build.lib.util.StringEncoding.reencodeUtf8ToInternal;
 import static java.util.Collections.min;
 
 import build.bazel.remote.execution.v2.Action;

@@ -20,7 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.cmdline.IgnoredSubdirectories;
 import com.google.devtools.build.lib.util.OS;
-import com.google.devtools.build.lib.util.StringUtil;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.ModifiedFileSet;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
@@ -105,7 +105,9 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
         }
       }
       Path watchRoot =
-          Path.of(StringUtil.internalStringToPlatformString(resolvedPathEntryFragment.getPathString()));
+          Path.of(
+              StringEncoding.internalStringToPlatformString(
+                  resolvedPathEntryFragment.getPathString()));
       // On OSX uses FsEvents due to https://bugs.openjdk.java.net/browse/JDK-7133447
       if (OS.getCurrent() == OS.DARWIN) {
         return new MacOSXFsEventsDiffAwareness(watchRoot);
@@ -206,7 +208,8 @@ public abstract class LocalDiffAwareness implements DiffAwareness {
       }
       PathFragment relativePath =
           PathFragment.create(
-              StringUtil.platformStringToInternalString(watchRoot.relativize(modifiedPath).toString()));
+              StringEncoding.platformStringToInternalString(
+                  watchRoot.relativize(modifiedPath).toString()));
       if (!relativePath.isEmpty()) {
         resultBuilder.modify(relativePath);
       }

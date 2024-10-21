@@ -310,16 +310,23 @@ java_library(
 )
 
 java_library(
+    name = "string_encoding",
+    srcs = ["StringEncoding.java"],
+    deps = [
+        ":os",
+        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
+        "@protobuf//:protobuf_java",
+    ],
+)
+
+java_library(
     name = "string",
     srcs = [
         "StringUtil.java",
         "StringUtilities.java",
     ],
     deps = [
-        ":os",
-        "//src/main/java/com/google/devtools/build/lib/unsafe:string",
         "//third_party:guava",
-        "@protobuf//:protobuf_java",
     ],
 )
 

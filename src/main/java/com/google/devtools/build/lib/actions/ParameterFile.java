@@ -21,7 +21,7 @@ import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.devtools.build.lib.util.FileType;
 import com.google.devtools.build.lib.util.GccParamFileEscaper;
 import com.google.devtools.build.lib.util.ShellEscaper;
-import com.google.devtools.build.lib.util.StringUtil;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.WindowsParamFileEscaper;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import java.io.BufferedOutputStream;
@@ -168,11 +168,10 @@ public class ParameterFile {
     CharsetEncoder encoder = UTF_8.newEncoder();
     StringUnsafe stringUnsafe = StringUnsafe.getInstance();
     for (String line : arguments) {
-      byte[] bytes = stringUnsafe.getByteArray(line);
-      if (!StringUtil.reencodeInternalToUtf8(line).equals(line)) {
+      if (!StringEncoding.reencodeInternalToUtf8(line).equals(line)) {
         // We successfully decoded line from utf8 - meaning it was already encoded as utf8.
         // We do not want to double-encode.
-        outputStream.write(bytes);
+        outputStream.write(stringUnsafe.getByteArray(line));
       } else {
         ByteBuffer encodedBytes = encoder.encode(CharBuffer.wrap(line));
         outputStream.write(

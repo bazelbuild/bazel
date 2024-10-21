@@ -19,7 +19,7 @@ import com.google.devtools.build.lib.clock.JavaClock;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
 import com.google.devtools.build.lib.profiler.Profiler;
 import com.google.devtools.build.lib.profiler.ProfilerTask;
-import com.google.devtools.build.lib.util.StringUtil;
+import com.google.devtools.build.lib.util.StringEncoding;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -66,7 +66,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
 
   @Override
   protected File getIoFile(PathFragment path) {
-    return new File(StringUtil.internalStringToPlatformString(path.getPathString()));
+    return new File(StringEncoding.internalStringToPlatformString(path.getPathString()));
   }
 
   /**
@@ -79,7 +79,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
    */
   @Override
   protected java.nio.file.Path getNioPath(PathFragment path) {
-    return Paths.get(StringUtil.internalStringToPlatformString(path.getPathString()));
+    return Paths.get(StringEncoding.internalStringToPlatformString(path.getPathString()));
   }
 
   private LinkOption[] linkOpts(boolean followSymlinks) {
@@ -103,7 +103,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     } finally {
       profiler.logSimpleTask(startTime, ProfilerTask.VFS_DIR, file.getPath());
     }
-    return Lists.transform(Arrays.asList(entries), StringUtil::platformStringToInternalString);
+    return Lists.transform(Arrays.asList(entries), StringEncoding::platformStringToInternalString);
   }
 
   @Override
@@ -285,7 +285,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     try {
       Files.createSymbolicLink(
           nioPath,
-          Paths.get(StringUtil.internalStringToPlatformString(targetFragment.getSafePathString())));
+          Paths.get(StringEncoding.internalStringToPlatformString(targetFragment.getSafePathString())));
     } catch (java.nio.file.FileAlreadyExistsException e) {
       throw new IOException(linkPath + ERR_FILE_EXISTS, e);
     } catch (java.nio.file.AccessDeniedException e) {
@@ -301,7 +301,7 @@ public class JavaIoFileSystem extends AbstractFileSystemWithCustomStat {
     long startTime = Profiler.nanoTimeMaybe();
     try {
       String link = Files.readSymbolicLink(nioPath).toString();
-      return PathFragment.create(StringUtil.platformStringToInternalString(link));
+      return PathFragment.create(StringEncoding.platformStringToInternalString(link));
     } catch (java.nio.file.NotLinkException e) {
       throw new NotASymlinkException(path, e);
     } catch (java.nio.file.NoSuchFileException e) {

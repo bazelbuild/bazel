@@ -96,7 +96,7 @@ import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.LoggingUtil;
 import com.google.devtools.build.lib.util.Pair;
 import com.google.devtools.build.lib.util.ProcessUtils;
-import com.google.devtools.build.lib.util.StringUtil;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.TestType;
 import com.google.devtools.build.lib.util.ThreadUtils;
 import com.google.devtools.build.lib.util.io.OutErr;
@@ -850,7 +850,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
                     System.err.printf(
                         "raw arg passed to main (%s): %s%n",
                         arg, Arrays.toString(arg.getBytes(ISO_8859_1))))
-            .map(StringUtil::platformStringToInternalString)
+            .map(StringEncoding::platformStringToInternalString)
             .peek(
                 arg ->
                     System.err.printf(
@@ -1084,10 +1084,10 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       String[] argv = new String[request.getArgvCount()];
       for (int i = 0; i < argv.length; i++) {
-        argv[i] = StringUtil.internalBytesToPlatformString(request.getArgv(i));
+        argv[i] = StringEncoding.internalBytesToPlatformString(request.getArgv(i));
       }
       String workingDirectory =
-          StringUtil.internalBytesToPlatformString(request.getWorkingDirectory());
+          StringEncoding.internalBytesToPlatformString(request.getWorkingDirectory());
       try {
         ProcessBuilder process =
             new ProcessBuilder().command(argv).directory(new File(workingDirectory)).inheritIO();
@@ -1096,7 +1096,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           process
               .environment()
               .remove(
-                  StringUtil.internalBytesToPlatformString(
+                  StringEncoding.internalBytesToPlatformString(
                       request.getEnvironmentVariableToClear(i)));
         }
 
@@ -1105,8 +1105,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           process
               .environment()
               .put(
-                  StringUtil.internalBytesToPlatformString(variable.getName()),
-                  StringUtil.internalBytesToPlatformString(variable.getValue()));
+                  StringEncoding.internalBytesToPlatformString(variable.getName()),
+                  StringEncoding.internalBytesToPlatformString(variable.getValue()));
         }
 
         return process.start().waitFor();

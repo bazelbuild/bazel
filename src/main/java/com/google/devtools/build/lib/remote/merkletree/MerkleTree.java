@@ -13,7 +13,7 @@
 // limitations under the License.
 package com.google.devtools.build.lib.remote.merkletree;
 
-import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToUtf8;
+import static com.google.devtools.build.lib.util.StringEncoding.reencodeInternalToUtf8;
 
 import build.bazel.remote.execution.v2.Digest;
 import build.bazel.remote.execution.v2.Directory;

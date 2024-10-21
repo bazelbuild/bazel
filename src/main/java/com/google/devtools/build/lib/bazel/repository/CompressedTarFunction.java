@@ -20,7 +20,7 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import com.google.auto.service.AutoService;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.bazel.repository.DecompressorValue.Decompressor;
-import com.google.devtools.build.lib.util.StringUtil;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -171,7 +171,7 @@ public abstract class CompressedTarFunction implements Decompressor {
     // and are thus encoded in UTF-8, which we need to transform to ISO-8859-1 (Bazel's internal
     // encoding of path strings).
     return MarkedIso88591Charset.getRawBytesStringIfMarked(name)
-        .orElseGet(() -> StringUtil.reencodeUtf8ToInternal(name));
+        .orElseGet(() -> StringEncoding.reencodeUtf8ToInternal(name));
   }
 
   /** A provider of {@link MarkedIso88591Charset}s. */

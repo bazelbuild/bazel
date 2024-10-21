@@ -22,7 +22,7 @@ import com.google.common.io.ByteSource;
 import com.google.common.io.ByteStreams;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ConditionallyThreadSafe;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.ThreadSafe;
-import com.google.devtools.build.lib.util.StringUtil;
+import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.errorprone.annotations.InlineMe;
 import java.io.IOException;
 import java.io.InputStream;
@@ -250,7 +250,7 @@ public class FileSystemUtils {
     // the internal representation.
     // https://github.com/openjdk/jdk/blob/285385247aaa262866697ed848040f05f4d94988/src/java.base/share/native/libjava/System.c#L121
     return PathFragment.create(
-        StringUtil.platformStringToInternalString(System.getProperty("user.dir", "/")));
+        StringEncoding.platformStringToInternalString(System.getProperty("user.dir", "/")));
   }
 
   /**
