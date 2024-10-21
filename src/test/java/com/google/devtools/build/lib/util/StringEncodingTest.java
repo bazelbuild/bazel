@@ -11,7 +11,6 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
-import com.google.protobuf.ByteString;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.nio.ByteBuffer;
@@ -37,18 +36,6 @@ public class StringEncodingTest {
     } else {
       assertThat(roundtripped).isEqualTo(s);
     }
-  }
-
-  @Test
-  public void testPlatformToInternal_ByteString(
-      @TestParameter({"ascii", "äöüÄÖÜß", "🌱", "羅勒罗勒学名"}) String s) {
-    ByteString bytes = ByteString.copyFromUtf8(s);
-    String internal = platformToInternal(bytes);
-    // In the internal encoding, raw bytes are encoded as Latin-1.
-    assertThat(StringUnsafe.getInstance().getCoder(internal)).isEqualTo(StringUnsafe.LATIN1);
-    String roundtripped =
-        internalToPlatform(ByteString.copyFrom(internal, StandardCharsets.ISO_8859_1));
-    assertThat(roundtripped).isEqualTo(s);
   }
 
   @Test

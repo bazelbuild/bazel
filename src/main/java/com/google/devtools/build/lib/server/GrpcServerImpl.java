@@ -14,6 +14,8 @@
 
 package com.google.devtools.build.lib.server;
 
+import static java.nio.charset.StandardCharsets.ISO_8859_1;
+
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -49,7 +51,6 @@ import com.google.devtools.build.lib.util.ExitCode;
 import com.google.devtools.build.lib.util.InterruptedFailureDetails;
 import com.google.devtools.build.lib.util.OS;
 import com.google.devtools.build.lib.util.Pair;
-import com.google.devtools.build.lib.util.StringEncoding;
 import com.google.devtools.build.lib.util.io.CommandExtensionReporter;
 import com.google.devtools.build.lib.util.io.OutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
@@ -138,7 +139,6 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         idleServerTasks,
         slowInterruptMessageSuffix);
   }
-
 
   @VisibleForTesting
   enum StreamType {
@@ -568,8 +568,8 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
       // UTF-8 won't do because we want to be able to pass arbitrary binary strings.
       startupOptions.add(
           new Pair<>(
-              StringEncoding.platformToInternal(option.getSource()),
-              StringEncoding.platformToInternal(option.getOption())));
+              platformBytesToInternalString(option.getSource()),
+              platformBytesToInternalString(option.getOption())));
     }
 
     commandManager.preemptEligibleCommands();
@@ -599,7 +599,7 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         ImmutableList<String> args =
             request.getArgList().stream()
                 .peek(arg -> System.err.printf("raw arg passed to server: %s%n", arg))
-                .map(StringEncoding::platformToInternal)
+                .map(GrpcServerImpl::platformBytesToInternalString)
                 .collect(ImmutableList.toImmutableList());
 
         InvocationPolicy policy = InvocationPolicyParser.parsePolicy(request.getInvocationPolicy());
@@ -745,5 +745,9 @@ public class GrpcServerImpl extends CommandServerGrpc.CommandServerImplBase impl
         .setMessage(message)
         .setGrpcServer(GrpcServer.newBuilder().setCode(detailedCode))
         .build();
+  }
+
+  private static String platformBytesToInternalString(ByteString bytes) {
+    return bytes.toString(ISO_8859_1);
   }
 }

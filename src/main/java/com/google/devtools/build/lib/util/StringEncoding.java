@@ -4,7 +4,6 @@ import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
-import com.google.protobuf.ByteString;
 import java.nio.charset.Charset;
 
 public final class StringEncoding {
@@ -17,20 +16,12 @@ public final class StringEncoding {
     return needsReencodeForPlatform(s) ? new String(s.getBytes(ISO_8859_1), UTF_8) : s;
   }
 
-  public static String internalToPlatform(ByteString bytes) {
-    return internalToPlatform(bytes.toString(ISO_8859_1));
-  }
-
   /**
    * Reencodes a string obtained from Java stdlib functions into Bazel's internal raw byte encoding,
    * if necessary.
    */
   public static String platformToInternal(String s) {
     return needsReencodeForPlatform(s) ? new String(s.getBytes(UTF_8), ISO_8859_1) : s;
-  }
-
-  public static String platformToInternal(ByteString bytes) {
-    return bytes.toString(ISO_8859_1);
   }
 
   public static String internalToUnicode(String s) {

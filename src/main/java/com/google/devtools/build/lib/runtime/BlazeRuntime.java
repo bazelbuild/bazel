@@ -118,6 +118,7 @@ import com.google.devtools.common.options.OptionsParsingResult;
 import com.google.devtools.common.options.OptionsProvider;
 import com.google.devtools.common.options.TriState;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
+import com.google.protobuf.ByteString;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -1084,9 +1085,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
       String[] argv = new String[request.getArgvCount()];
       for (int i = 0; i < argv.length; i++) {
-        argv[i] = StringEncoding.internalToPlatform(request.getArgv(i));
+        argv[i] = internalBytesToPlatformString(request.getArgv(i));
       }
-      String workingDirectory = StringEncoding.internalToPlatform(request.getWorkingDirectory());
+      String workingDirectory = internalBytesToPlatformString(request.getWorkingDirectory());
       try {
         ProcessBuilder process =
             new ProcessBuilder().command(argv).directory(new File(workingDirectory)).inheritIO();
@@ -1094,7 +1095,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
         for (int i = 0; i < request.getEnvironmentVariableToClearCount(); i++) {
           process
               .environment()
-              .remove(StringEncoding.internalToPlatform(request.getEnvironmentVariableToClear(i)));
+              .remove(internalBytesToPlatformString(request.getEnvironmentVariableToClear(i)));
         }
 
         for (int i = 0; i < request.getEnvironmentVariableCount(); i++) {
@@ -1102,8 +1103,8 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           process
               .environment()
               .put(
-                  StringEncoding.internalToPlatform(variable.getName()),
-                  StringEncoding.internalToPlatform(variable.getValue()));
+                  internalBytesToPlatformString(variable.getName()),
+                  internalBytesToPlatformString(variable.getValue()));
         }
 
         return process.start().waitFor();
@@ -1822,5 +1823,9 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
           Filesystem.Code.SERVER_PID_TXT_FILE_READ_FAILURE,
           new IOException(e));
     }
+  }
+
+  private static String internalBytesToPlatformString(ByteString bytes) {
+    return StringEncoding.internalToPlatform(bytes.toString(ISO_8859_1));
   }
 }
