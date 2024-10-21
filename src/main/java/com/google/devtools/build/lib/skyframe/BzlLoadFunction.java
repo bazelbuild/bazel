@@ -53,6 +53,7 @@ import com.google.devtools.build.lib.skyframe.StarlarkBuiltinsFunction.BuiltinsF
 import com.google.devtools.build.lib.util.DetailedExitCode;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.util.Pair;
+import com.google.devtools.build.lib.vfs.DetailedIOException;
 import com.google.devtools.build.lib.vfs.PathFragment;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.RecordingSkyFunctionEnvironment;
@@ -1631,13 +1632,22 @@ public class BzlLoadFunction implements SkyFunction {
           errorMessage, detailedExitCode, cause, Transience.PERSISTENT);
     }
 
-    static BzlLoadFailedException errorReadingBzl(
-        PathFragment file, BzlCompileFunction.FailedIOException cause) {
-      String errorMessage =
-          String.format(
-              "Encountered error while reading extension file '%s': %s", file, cause.getMessage());
-      return new BzlLoadFailedException(errorMessage, Code.IO_ERROR, cause, cause.getTransience());
+  static BzlLoadFailedException errorReadingBzl(
+      PathFragment file, BzlCompileFunction.FailedIOException cause) {
+    String errorMessage =
+        String.format(
+            "Encountered error while reading extension file '%s': %s", file, cause.getMessage());
+
+    if (cause.getCause() instanceof DetailedIOException detailedException) {
+      return new BzlLoadFailedException(
+          errorMessage,
+          detailedException.getDetailedExitCode(),
+          detailedException,
+          detailedException.getTransience());
     }
+
+    return new BzlLoadFailedException(errorMessage, Code.IO_ERROR, cause, cause.getTransience());
+  }
 
     static BzlLoadFailedException noBuildFile(Label file, @Nullable String reason) {
       if (reason != null) {

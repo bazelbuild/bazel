@@ -253,7 +253,8 @@ public final class BzlmodRepoRuleFunction implements SkyFunction {
           keys,
           starlarkSemantics,
           null,
-          /* checkVisibility= */ false);
+          /* checkVisibility= */ false,
+          BazelSkyframeExecutorConstants.ACTION_ON_FILESYSTEM_ERROR_CODE_LOADING_BZL_FILE);
     } catch (NoSuchPackageException e) {
       throw new BzlmodRepoRuleFunctionException(e, Transience.PERSISTENT);
     }

@@ -76,6 +76,7 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
       @Nullable BzlLoadFunction bzlLoadFunctionForInlining,
       @Nullable PackageProgressReceiver packageProgress,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
+      ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile,
       boolean shouldUseRepoDotBazel,
       Function<SkyKey, ThreadStateReceiver> threadStateReceiverFactoryForMetrics,
       AtomicReference<Semaphore> cpuBoundSemaphore) {
@@ -87,6 +88,7 @@ final class PackageFunctionWithMultipleGlobDeps extends PackageFunction {
         bzlLoadFunctionForInlining,
         packageProgress,
         actionOnIOExceptionReadingBuildFile,
+        actionOnFilesystemErrorCodeLoadingBzlFile,
         shouldUseRepoDotBazel,
         threadStateReceiverFactoryForMetrics,
         cpuBoundSemaphore);

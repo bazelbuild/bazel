@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.devtools.build.lib.packages.BuildFileName;
 import com.google.devtools.build.lib.repository.ExternalPackageHelper;
+import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnFilesystemErrorCodeLoadingBzlFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -58,12 +59,18 @@ public class BazelSkyframeExecutorConstants {
       ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE =
           ActionOnIOExceptionReadingBuildFile.UseOriginalIOException.INSTANCE;
 
+  public static final ActionOnFilesystemErrorCodeLoadingBzlFile
+      ACTION_ON_FILESYSTEM_ERROR_CODE_LOADING_BZL_FILE =
+          ActionOnFilesystemErrorCodeLoadingBzlFile.ALWAYS_USE_PACKAGE_LOADING_CODE;
+
   public static final boolean USE_REPO_DOT_BAZEL = true;
 
   public static SequencedSkyframeExecutor.Builder newBazelSkyframeExecutorBuilder() {
     return SequencedSkyframeExecutor.builder()
         .setIgnoredPackagePrefixesFunction(IGNORED_PACKAGE_PREFIXES_FUNCTION)
         .setActionOnIOExceptionReadingBuildFile(ACTION_ON_IO_EXCEPTION_READING_BUILD_FILE)
+        .setActionOnFilesystemErrorCodeLoadingBzlFile(
+            ACTION_ON_FILESYSTEM_ERROR_CODE_LOADING_BZL_FILE)
         .setShouldUseRepoDotBazel(USE_REPO_DOT_BAZEL)
         .setCrossRepositoryLabelViolationStrategy(CROSS_REPOSITORY_LABEL_VIOLATION_STRATEGY)
         .setBuildFilesByPriority(BUILD_FILES_BY_PRIORITY)

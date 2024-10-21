@@ -201,6 +201,7 @@ import com.google.devtools.build.lib.skyframe.ExternalFilesHelper.FileType;
 import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.ImmutableBatchDirtyResult;
 import com.google.devtools.build.lib.skyframe.FilesystemValueChecker.XattrProviderOverrider;
 import com.google.devtools.build.lib.skyframe.MetadataConsumerForMetrics.FilesMetricConsumer;
+import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnFilesystemErrorCodeLoadingBzlFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.ActionOnIOExceptionReadingBuildFile;
 import com.google.devtools.build.lib.skyframe.PackageFunction.GlobbingStrategy;
 import com.google.devtools.build.lib.skyframe.PackageLookupFunction.CrossRepositoryLabelViolationStrategy;
@@ -436,6 +437,8 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
 
   private final ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile;
 
+  private final ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile;
+
   private final boolean shouldUseRepoDotBazel;
 
   private final boolean shouldUnblockCpuWorkWhenFetchingDeps;
@@ -556,6 +559,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
       ImmutableList<BuildFileName> buildFilesByPriority,
       ExternalPackageHelper externalPackageHelper,
       ActionOnIOExceptionReadingBuildFile actionOnIOExceptionReadingBuildFile,
+      ActionOnFilesystemErrorCodeLoadingBzlFile actionOnFilesystemErrorCodeLoadingBzlFile,
       boolean shouldUseRepoDotBazel,
       boolean shouldUnblockCpuWorkWhenFetchingDeps,
       @Nullable PackageProgressReceiver packageProgress,
@@ -614,6 +618,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     this.buildFilesByPriority = buildFilesByPriority;
     this.externalPackageHelper = externalPackageHelper;
     this.actionOnIOExceptionReadingBuildFile = actionOnIOExceptionReadingBuildFile;
+    this.actionOnFilesystemErrorCodeLoadingBzlFile = actionOnFilesystemErrorCodeLoadingBzlFile;
     this.shouldUseRepoDotBazel = shouldUseRepoDotBazel;
     this.packageProgress = packageProgress;
     this.configuredTargetProgress = configuredTargetProgress;
@@ -694,6 +699,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
             .setBzlLoadFunctionForInlining(bzlLoadFunctionForInliningPackageAndWorkspaceNodes)
             .setPackageProgress(packageProgress)
             .setActionOnIOExceptionReadingBuildFile(actionOnIOExceptionReadingBuildFile)
+            .setActionOnFilesystemErrorCodeLoadingBzlFile(actionOnFilesystemErrorCodeLoadingBzlFile)
             .setShouldUseRepoDotBazel(shouldUseRepoDotBazel)
             .setGlobbingStrategy(getGlobbingStrategy())
             .setThreadStateReceiverFactoryForMetrics(skyKeyStateReceiver::makeThreadStateReceiver)

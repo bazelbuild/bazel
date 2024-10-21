@@ -360,7 +360,8 @@ public class WorkspaceFileFunction implements SkyFunction {
               keys.build(),
               starlarkSemantics,
               bzlLoadFunctionForInlining,
-              /* checkVisibility= */ true);
+              /* checkVisibility= */ true,
+              BazelSkyframeExecutorConstants.ACTION_ON_FILESYSTEM_ERROR_CODE_LOADING_BZL_FILE);
     } catch (NoSuchPackageException e) {
       throw new WorkspaceFileFunctionException(e, Transience.PERSISTENT);
     }
