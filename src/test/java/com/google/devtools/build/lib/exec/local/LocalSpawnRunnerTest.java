@@ -345,8 +345,8 @@ public class LocalSpawnRunnerTest {
         new ParamFileActionInput(
             PathFragment.create("some/dir/params"),
             ImmutableList.of("--foo", "--bar"),
-            ParameterFileType.UNQUOTED,
-            UTF_8);
+            ParameterFileType.UNQUOTED
+        );
     Spawn spawn =
         new SpawnBuilder("/bin/echo", "Hi!")
             .withInput(paramFileActionInput)

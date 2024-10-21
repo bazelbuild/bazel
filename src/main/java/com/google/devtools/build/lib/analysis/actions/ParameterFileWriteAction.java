@@ -117,7 +117,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
   public String getStringContents()
       throws CommandLineExpansionException, InterruptedException, IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream();
-    ParameterFile.writeParameterFile(out, getArguments(), type, ISO_8859_1);
+    ParameterFile.writeParameterFile(out, getArguments(), type);
     return out.toString(ISO_8859_1);
   }
 
@@ -164,7 +164,7 @@ public final class ParameterFileWriteAction extends AbstractFileWriteAction {
 
     @Override
     public void writeOutputFile(OutputStream out) throws IOException {
-      ParameterFile.writeParameterFile(out, arguments, type, ISO_8859_1);
+      ParameterFile.writeParameterFile(out, arguments, type);
     }
   }
 
