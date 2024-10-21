@@ -3,8 +3,10 @@ package com.google.devtools.build.lib.util;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Preconditions;
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import java.nio.charset.Charset;
+import java.util.Arrays;
 
 public final class StringEncoding {
 
@@ -13,7 +15,15 @@ public final class StringEncoding {
    * for Java stdlib functions, if necessary.
    */
   public static String internalToPlatform(String s) {
-    return needsReencodeForPlatform(s) ? new String(s.getBytes(ISO_8859_1), UTF_8) : s;
+    if (!needsReencodeForPlatform(s)) {
+      return s;
+    }
+    Preconditions.checkArgument(
+        StringUnsafe.getInstance().getCoder(s) == StringUnsafe.LATIN1,
+        "Expected internal string, got: %s (%s)",
+        s,
+        Arrays.toString(StringUnsafe.getInstance().getByteArray(s)));
+    return new String(s.getBytes(ISO_8859_1), UTF_8);
   }
 
   /**
@@ -25,7 +35,15 @@ public final class StringEncoding {
   }
 
   public static String internalToUnicode(String s) {
-    return needsReencodeForUnicode(s) ? new String(s.getBytes(ISO_8859_1), UTF_8) : s;
+    if (!needsReencodeForUnicode(s)) {
+      return s;
+    }
+    Preconditions.checkArgument(
+        StringUnsafe.getInstance().getCoder(s) == StringUnsafe.LATIN1,
+        "Expected internal string, got: %s (%s)",
+        s,
+        Arrays.toString(StringUnsafe.getInstance().getByteArray(s)));
+    return new String(s.getBytes(ISO_8859_1), UTF_8);
   }
 
   public static String unicodeToInternal(String s) {
