@@ -66,7 +66,6 @@ import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.collect.nestedset.ArtifactNestedSetKey;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.exec.SpawnExecException;
-import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.KeepGoingOption;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.ActionRewinding;
@@ -161,7 +160,7 @@ public class RewindingTestsHelper {
     this.lostOutputsModule = createLostOutputsModule();
   }
 
-  public final BlazeModule getLostOutputsModule() {
+  public final LostImportantOutputHandlerModule getLostOutputsModule() {
     return lostOutputsModule;
   }
 
@@ -205,6 +204,10 @@ public class RewindingTestsHelper {
 
   public final ImmutableList<String> getExecutedSpawnDescriptions() {
     return spawnController.getExecutedSpawnDescriptions();
+  }
+
+  public final void clearExecutedSpawnDescriptions() {
+    spawnController.clearExecutedSpawnDescriptions();
   }
 
   public final void addSpawnShim(String spawnDescription, SpawnShim spawnShim) {
@@ -588,7 +591,7 @@ public class RewindingTestsHelper {
     testCase.buildTarget("//test:rule1");
     assertThat(getExecutedSpawnDescriptions()).containsExactly("Executing genrule //test:rule1");
 
-    spawnController.clearExecutedSpawnDescriptions();
+    clearExecutedSpawnDescriptions();
     // The first time rule2 is executed, the execution strategy fails, saying that rule2's input
     // file is missing.
     addSpawnShim(

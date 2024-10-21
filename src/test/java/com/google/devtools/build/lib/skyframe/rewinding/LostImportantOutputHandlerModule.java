@@ -54,9 +54,15 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
 
   private final Set<String> pathsToConsiderLost = Sets.newConcurrentHashSet();
   private final Function<byte[], String> digestFn;
+  private boolean outputHandlerEnabled = true;
 
   protected LostImportantOutputHandlerModule(Function<byte[], String> digestFn) {
     this.digestFn = checkNotNull(digestFn);
+  }
+
+  /** Controls whether an {@link ImportantOutputHandler} will be installed. */
+  public final void setOutputHandlerEnabled(boolean enabled) {
+    outputHandlerEnabled = enabled;
   }
 
   final void addLostOutput(String execPath) {
@@ -72,7 +78,9 @@ public class LostImportantOutputHandlerModule extends BlazeModule {
       ModuleActionContextRegistry.Builder registryBuilder,
       CommandEnvironment env,
       BuildRequest buildRequest) {
-    registryBuilder.register(ImportantOutputHandler.class, createOutputHandler(env));
+    if (outputHandlerEnabled) {
+      registryBuilder.register(ImportantOutputHandler.class, createOutputHandler(env));
+    }
   }
 
   @ForOverride
