@@ -31,7 +31,6 @@ import java.io.OutputStreamWriter;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.Charset;
-import java.nio.charset.CharsetEncoder;
 
 /**
  * Support for parameter file generation (as used by gcc and other tools, e.g.
@@ -165,15 +164,13 @@ public class ParameterFile {
    */
   private static void writeContentUtf8(OutputStream outputStream, Iterable<String> arguments)
       throws IOException {
-    CharsetEncoder encoder = UTF_8.newEncoder();
-    StringUnsafe stringUnsafe = StringUnsafe.getInstance();
     for (String line : arguments) {
-      if (!StringEncoding.internalToUnicode(line).equals(line)) {
+      if (StringEncoding.internalToUnicode(line).equals(line)) {
         // We successfully decoded line from utf8 - meaning it was already encoded as utf8.
         // We do not want to double-encode.
-        outputStream.write(stringUnsafe.getByteArray(line));
+        outputStream.write(StringUnsafe.getInstance().getByteArray(line));
       } else {
-        ByteBuffer encodedBytes = encoder.encode(CharBuffer.wrap(line));
+        ByteBuffer encodedBytes = UTF_8.newEncoder().encode(CharBuffer.wrap(line));
         outputStream.write(
             encodedBytes.array(),
             encodedBytes.arrayOffset(),
