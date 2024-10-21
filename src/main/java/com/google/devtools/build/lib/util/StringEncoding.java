@@ -56,7 +56,7 @@ public final class StringEncoding {
       Boolean.getBoolean("bazel.internal.UnicodeStringss");
 
   private static boolean needsReencodeForPlatform(String s) {
-    if (SUN_JNU_ENCODING == ISO_8859_1 && OS.getCurrent() != OS.WINDOWS) {
+    if (SUN_JNU_ENCODING == ISO_8859_1 && OS.getCurrent() == OS.LINUX) {
       return false;
     }
     return needsReencodeForUnicode(s);

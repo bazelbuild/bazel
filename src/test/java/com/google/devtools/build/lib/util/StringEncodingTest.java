@@ -63,10 +63,9 @@ public class StringEncodingTest {
                 .onMalformedInput(CodingErrorAction.REPORT)
                 .decode(ByteBuffer.wrap(rawBytes)));
 
-    // Roundtripping raw bytes through the internal encoding requires Unix and a Latin-1 locale.
-    assume().that(OS.getCurrent()).isNotEqualTo(OS.WINDOWS);
-    assume()
-        .that(Charset.forName(System.getProperty("sun.jnu.encoding")))
+    // Roundtripping raw bytes through the internal encoding requires Linux and a Latin-1 locale.
+    assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
+    assertThat(Charset.forName(System.getProperty("sun.jnu.encoding")))
         .isEqualTo(StandardCharsets.ISO_8859_1);
 
     String platform = new String(rawBytes, ISO_8859_1);
