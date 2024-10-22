@@ -15,6 +15,7 @@
 package com.google.devtools.build.lib.worker;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.devtools.build.lib.util.StringUtil.reencodeInternalToExternal;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Stopwatch;
@@ -57,7 +58,6 @@ import com.google.devtools.build.lib.sandbox.SandboxHelpers.SandboxOutputs;
 import com.google.devtools.build.lib.server.FailureDetails;
 import com.google.devtools.build.lib.server.FailureDetails.FailureDetail;
 import com.google.devtools.build.lib.server.FailureDetails.Worker.Code;
-import com.google.devtools.build.lib.util.StringUtil;
 import com.google.devtools.build.lib.util.io.FileOutErr;
 import com.google.devtools.build.lib.vfs.FileSystemUtils;
 import com.google.devtools.build.lib.vfs.Path;
@@ -277,7 +277,7 @@ final class WorkerSpawnRunner implements SpawnRunner {
 
       requestBuilder
           .addInputsBuilder()
-          .setPath(StringUtil.reencodeInternalToExternal(input.getExecPathString()))
+          .setPath(reencodeInternalToExternal(input.getExecPathString()))
           .setDigest(digest);
     }
     if (workerOptions.workerVerbose) {
