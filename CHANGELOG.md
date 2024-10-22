@@ -1,3 +1,19 @@
+## Release 7.4.0 (2024-10-22)
+
+```
+
+Release Notes:
+
+```
+
+## Release 7.3.2 (2024-10-01)
+
+```
+
+Release Notes:
+
+```
+
 ## Release 7.3.1 (2024-08-19)
 
 ```
