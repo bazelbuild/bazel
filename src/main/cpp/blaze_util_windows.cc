@@ -976,7 +976,10 @@ void SetEnv(const string& name, const string& value) {
                             blaze_util::CstringToWstring(value).c_str());
 }
 
-void UnsetEnv(const string& name) { SetEnv(name, ""); }
+void UnsetEnv(const string& name) {
+  ::SetEnvironmentVariableW(blaze_util::CstringToWstring(name).c_str(),
+                            nullptr);
+}
 
 bool WarnIfStartedFromDesktop() {
   // GetConsoleProcessList returns:
