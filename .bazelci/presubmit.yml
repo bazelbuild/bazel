@@ -64,6 +64,7 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - sudo localedef -i en_US -f ISO-8859-1 en_US.ISO-8859-1
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -100,6 +101,7 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - sudo localedef -i en_US -f ISO-8859-1 en_US.ISO-8859-1
     build_flags:
       - "--config=ci-linux"
     build_targets:
@@ -119,6 +121,7 @@ tasks:
     shell_commands:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
+      - sudo localedef -i en_US -f ISO-8859-1 en_US.ISO-8859-1
     build_flags:
       - "--config=ci-linux"
     build_targets:
