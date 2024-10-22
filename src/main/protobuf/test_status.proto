@@ -58,6 +58,7 @@ message TestCase {
     PASSED = 0;
     FAILED = 1;
     ERROR = 2;
+    SKIPPED = 3;
   }
 
   repeated TestCase child = 1;
