@@ -89,6 +89,7 @@ public final class UiEventHandlerStdOutAndStdErrTest {
         new UiEventHandler(
             outErr,
             uiOptions,
+            false,
             new ManualClock(),
             new EventBus(),
             /* workspacePathFragment= */ null,

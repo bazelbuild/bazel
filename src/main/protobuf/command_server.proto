@@ -43,6 +43,10 @@ message RunRequest {
   // the server will return an error immediately.
   bool block_for_lock = 3;
 
+  // Whether the server should restrict itself to emitting only errors on the
+  // console.
+  bool quiet = 9;
+
   // A simple description of the client for reporting purposes. This value is
   // required.
   string client_description = 4;

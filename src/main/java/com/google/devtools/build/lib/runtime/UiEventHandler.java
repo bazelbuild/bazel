@@ -166,6 +166,7 @@ public final class UiEventHandler implements EventHandler {
   public UiEventHandler(
       OutErr outErr,
       UiOptions options,
+      boolean quiet,
       Clock clock,
       EventBus eventBus,
       @Nullable PathFragment workspacePathFragment,
@@ -177,7 +178,7 @@ public final class UiEventHandler implements EventHandler {
         OutErr.create(
             new FullyBufferedOutputStream(outErr.getOutputStream()),
             new FullyBufferedOutputStream(outErr.getErrorStream()));
-    this.quiet = options.quiet;
+    this.quiet = quiet;
     this.cursorControl = options.useCursorControl();
     this.terminal = new AnsiTerminal(this.outErr.getErrorStream());
     this.showProgress = options.showProgress;
