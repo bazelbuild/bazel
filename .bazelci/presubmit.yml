@@ -65,7 +65,7 @@ tasks:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - sudo apt update
-      - sudo install locales
+      - sudo apt install locales
       - sudo localedef -i en_US -f ISO-8859-1 en_US.ISO-8859-1
     build_flags:
       - "--config=ci-linux"
@@ -104,7 +104,7 @@ tasks:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - sudo apt update
-      - sudo install locales
+      - sudo apt install locales
       - sudo localedef -i en_US -f ISO-8859-1 en_US.ISO-8859-1
     build_flags:
       - "--config=ci-linux"
@@ -126,7 +126,7 @@ tasks:
       - rm -rf $HOME/bazeltest
       - mkdir $HOME/bazeltest
       - sudo apt update
-      - sudo install locales
+      - sudo apt install locales
       - sudo localedef -i en_US -f ISO-8859-1 en_US.ISO-8859-1
     build_flags:
       - "--config=ci-linux"
