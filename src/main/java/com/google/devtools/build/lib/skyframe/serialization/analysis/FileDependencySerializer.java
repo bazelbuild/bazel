@@ -32,11 +32,14 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.BundledFileSystem;
 import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.FileKey;
+import com.google.devtools.build.lib.skyframe.NestedFileSystemOperationNodes;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
+import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.skyframe.serialization.StringKey;
-import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataReference.DirectoryInvalidationDataReference;
 import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataReference.FileInvalidationDataReference;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataReference.ListingInvalidationDataReference;
+import com.google.devtools.build.lib.skyframe.serialization.analysis.InvalidationDataReference.NodeInvalidationDataReference;
 import com.google.devtools.build.lib.skyframe.serialization.proto.DirectoryListingInvalidationData;
 import com.google.devtools.build.lib.skyframe.serialization.proto.FileInvalidationData;
 import com.google.devtools.build.lib.skyframe.serialization.proto.Symlink;
@@ -45,22 +48,25 @@ import com.google.devtools.build.lib.vfs.RootedPath;
 import com.google.devtools.build.skyframe.InMemoryGraph;
 import com.google.devtools.build.skyframe.InMemoryNodeEntry;
 import com.google.devtools.build.skyframe.Version;
+import com.google.protobuf.CodedOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.TreeSet;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
 /** Records {@link FileKey} and {@link DirectoryListingKey} invalidation information. */
 final class FileDependencySerializer {
-
   private final VersionNumberExtractor versionExtractor;
   private final InMemoryGraph graph;
   private final FingerprintValueService fingerprintValueService;
 
   private final ConcurrentHashMap<FileKey, FileInvalidationDataReference> fileReferences =
       new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<DirectoryListingKey, DirectoryInvalidationDataReference>
+  private final ConcurrentHashMap<DirectoryListingKey, ListingInvalidationDataReference>
       directoryReferences = new ConcurrentHashMap<>();
 
   interface VersionNumberExtractor {
@@ -171,15 +177,14 @@ final class FileDependencySerializer {
   }
 
   @Nullable // null if `key` isn't relevant to invalidation
-  DirectoryInvalidationDataReference registerDependency(DirectoryListingKey key) {
+  ListingInvalidationDataReference registerDependency(DirectoryListingKey key) {
     RootedPath rootedPath = key.argument();
     if (rootedPath.getRoot().getFileSystem() instanceof BundledFileSystem) {
       return null; // This directory doesn't change.
     }
 
-    DirectoryInvalidationDataReference reference =
-        directoryReferences.computeIfAbsent(
-            key, unused -> new DirectoryInvalidationDataReference());
+    ListingInvalidationDataReference reference =
+        directoryReferences.computeIfAbsent(key, unused -> new ListingInvalidationDataReference());
     // Uses double-checked locking to determine ownership of `reference`.
     if (reference.getCacheKey() != null) {
       return reference;
@@ -215,6 +220,59 @@ final class FileDependencySerializer {
               ? writeStatus
               : Futures.whenAllSucceed(fileReference, writeStatus)
                   .call(() -> null, directExecutor()));
+      writeStatusSet = true;
+    } finally {
+      if (!writeStatusSet) {
+        reference.setUnexpectedlyUnsetError();
+      }
+    }
+    return reference;
+  }
+
+  /**
+   * Registers a dependency on the set of transitive dependencies represented by {@code node}.
+   *
+   * <p>Uploads the result to the {@link #fingerprintValueService}.
+   *
+   * @return an reference having a non-null {@link NodeInvalidationDataReference#getCacheKey} or
+   *     null. In particular, never returns {@link NodeInvalidationDataReference#EMPTY}.
+   */
+  @Nullable // null if `node` isn't relevant to invalidation
+  NodeInvalidationDataReference registerDependency(NestedFileSystemOperationNodes node) {
+    var reference = (NodeInvalidationDataReference) node.getSerializationScratch();
+    if (reference != null) {
+      return reference == NodeInvalidationDataReference.EMPTY ? null : reference;
+    }
+
+    byte[] nodeBytes;
+    var writeStatuses = new ArrayList<ListenableFuture<Void>>();
+    synchronized (node) {
+      reference = (NodeInvalidationDataReference) node.getSerializationScratch();
+      if (reference != null) {
+        return reference == NodeInvalidationDataReference.EMPTY ? null : reference;
+      }
+      // If this is reached, this thread must call `node.setSerializationScratch` to comply with the
+      // double-checked locking contract.
+
+      nodeBytes = computeNodeBytes(node, writeStatuses);
+      if (nodeBytes == null) {
+        node.setSerializationScratch(NodeInvalidationDataReference.EMPTY);
+        return null;
+      }
+
+      reference =
+          NodeInvalidationDataReference.create(fingerprintValueService.fingerprint(nodeBytes));
+      node.setSerializationScratch(reference);
+    }
+
+    // This thread owns completion of the future associated with `reference`.
+    boolean writeStatusSet = false;
+    try {
+      writeStatuses.add(fingerprintValueService.put(reference.getCacheKey(), nodeBytes));
+      reference.setWriteStatus(
+          writeStatuses.size() == 1
+              ? writeStatuses.get(0)
+              : Futures.whenAllSucceed(writeStatuses).call(() -> null, directExecutor()));
       writeStatusSet = true;
     } finally {
       if (!writeStatusSet) {
@@ -286,6 +344,94 @@ final class FileDependencySerializer {
       }
       parentRootedPath = resolvedSymlinkPath.getParentDirectory();
       link = symlinkValue.getSymlinkTarget();
+    }
+  }
+
+  /**
+   * Computes a canonical byte representation of a {@code node}.
+   *
+   * <p>Logically, a node is a set of string file or listing keys, as described at {@link
+   * FileInvalidationData} and {@link DirectoryListingInvalidationData}, respectively, and a set of
+   * {@link NestedFileSystemOperationNodes} fingerprints. The byte representation is specified as
+   * follows.
+   *
+   * <ol>
+   *   <li>The count of file keys, as a proto-encoded int.
+   *   <li>The count of listing keys, as a proto-encoded int.
+   *   <li>The count of nested nodes, as a proto-encoded int.
+   *   <li>Sorted and deduplicated, proto-encoded strings of the file keys.
+   *   <li>Sorted and deduplicated, proto-encoded strings of the listing keys.
+   *   <li>The fingerprints of the {@link NestedFileSystemOperationNodes} byte representations.
+   * </ol>
+   *
+   * <p>More compact formats are possible, but this reduces the complexity of the deserializer.
+   *
+   * @param writeStatuses output parameter collecting transitive write statuses
+   */
+  @Nullable // null if there were no transitive dependencies relevant to invalidation
+  private byte[] computeNodeBytes(
+      NestedFileSystemOperationNodes node, List<ListenableFuture<Void>> writeStatuses) {
+    // Makes no assumptions about the ordering or multiplicity of node dependencies. Sorts and
+    // deduplicates them to make them canonical.
+    var fileKeys = new TreeSet<String>();
+    var listingKeys = new TreeSet<String>();
+    var nodeKeys = new TreeSet<PackedFingerprint>();
+    for (int i = 0; i < node.count(); i++) {
+      switch (node.get(i)) {
+        case FileKey fileKey:
+          FileInvalidationDataReference fileReference = registerDependency(fileKey);
+          if (fileReference != null) {
+            fileKeys.add(checkNotNull(fileReference.getCacheKey(), node));
+            writeStatuses.add(fileReference);
+          }
+          break;
+        case DirectoryListingKey listingKey:
+          ListingInvalidationDataReference listingReference = registerDependency(listingKey);
+          if (listingReference != null) {
+            listingKeys.add(checkNotNull(listingReference.getCacheKey(), node));
+            writeStatuses.add(listingReference);
+          }
+          break;
+        case NestedFileSystemOperationNodes nestedKeys:
+          NodeInvalidationDataReference nodeReference = registerDependency(nestedKeys);
+          if (nodeReference != null) {
+            nodeKeys.add(checkNotNull(nodeReference.getCacheKey(), node));
+            writeStatuses.add(nodeReference);
+          }
+          break;
+      }
+    }
+    if (writeStatuses.isEmpty()) {
+      return null; // Nothing in the transitive closure of `node` is relevant to invalidation.
+    }
+
+    // TODO: b/364831651 - there are multiple ways that result could become unary here, even if
+    // `node` always has at least 2 children. The following may reduce child count.
+    // 1. TreeSet deduplication.
+    // 2. null references.
+    // 3. NestedFileSystemOperationNodes with the same fingerprints.
+    // It may be worth special casing to avoid the additional wrapper if the result is unary.
+
+    try {
+      var bytesOut = new ByteArrayOutputStream();
+      var codedOut = CodedOutputStream.newInstance(bytesOut);
+      codedOut.writeInt32NoTag(fileKeys.size());
+      codedOut.writeInt32NoTag(listingKeys.size());
+      codedOut.writeInt32NoTag(nodeKeys.size());
+      for (String key : fileKeys) {
+        codedOut.writeStringNoTag(key);
+      }
+      for (String key : listingKeys) {
+        codedOut.writeStringNoTag(key);
+      }
+      for (PackedFingerprint fp : nodeKeys) {
+        fp.writeTo(codedOut);
+      }
+      codedOut.flush();
+      bytesOut.flush();
+      return bytesOut.toByteArray();
+    } catch (IOException e) {
+      throw new AssertionError("Unexpected IOException from ByteArrayOutputStream", e);
     }
   }
 

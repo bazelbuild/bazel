@@ -13,5 +13,10 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe;
 
-/** A {@link FileKey} or {@link DirectoryListingKey}. */
-public sealed interface FileSystemOperationNode permits FileKey, DirectoryListingKey {}
+/**
+ * Represents either a single file system operation or a nested set thereof.
+ *
+ * <p>If the set is unary, it is represented without a wrapper.
+ */
+public sealed interface FileSystemOperationNode
+    permits FileKey, DirectoryListingKey, NestedFileSystemOperationNodes {}

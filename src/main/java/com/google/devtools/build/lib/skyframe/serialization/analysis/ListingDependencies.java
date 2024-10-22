@@ -18,12 +18,11 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import com.google.common.collect.ImmutableSet;
 
 /** Type representing a directory listing operation. */
-final class DirectoryListingDependencies
-    implements FileDependencyDeserializer.GetDirectoryListingDependenciesResult,
-        FileSystemDependencies {
+final class ListingDependencies
+    implements FileDependencyDeserializer.GetListingDependenciesResult, FileSystemDependencies {
   private final FileDependencies realDirectory;
 
-  DirectoryListingDependencies(FileDependencies realDirectory) {
+  ListingDependencies(FileDependencies realDirectory) {
     this.realDirectory = realDirectory;
   }
 

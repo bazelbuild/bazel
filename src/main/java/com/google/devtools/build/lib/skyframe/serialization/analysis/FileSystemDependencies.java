@@ -14,12 +14,14 @@
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
 /**
- * Union type for {@link FileDependencies} and {@link DirectoryListingDependencies}.
+ * Union type for {@link FileDependencies}, {@link ListingDependencies} and {@link
+ * NestedDependencies}.
  *
- * <p>At a structural level these two classes are very similar and {@link
- * DirectoryListingDependencies} could be modeled plainly as {@link FileDependencies}. The crucial
- * difference is that {@link FileDependencies#containsMatch(ImmutableSet<String>)} takes a set of
- * files and {@link DirectoryListingDependencies#matchesAnyDirectories(ImmutableSet<String>)} takes
- * a set of directory names so the two types are deliberately separated.
+ * <p>At a structural level {@link FileDependencies} and {@link ListingDependencies} are very
+ * similar. {@link ListingDependencies} could be modeled plainly as {@link FileDependencies}. The
+ * crucial difference is that {@link FileDependencies#containsMatch(ImmutableSet<String>)} takes a
+ * set of files and {@link ListingDependencies#matchesAnyDirectories(ImmutableSet<String>)} takes a
+ * set of directory names so the two types are deliberately separated.
  */
-sealed interface FileSystemDependencies permits FileDependencies, DirectoryListingDependencies {}
+sealed interface FileSystemDependencies
+    permits FileDependencies, ListingDependencies, NestedDependencies {}

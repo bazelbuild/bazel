@@ -13,35 +13,42 @@
 // limitations under the License.
 package com.google.devtools.build.lib.skyframe.serialization.analysis;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.util.concurrent.AbstractFuture;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.devtools.build.lib.skyframe.serialization.PackedFingerprint;
 import com.google.devtools.build.lib.vfs.RootedPath;
 import javax.annotation.Nullable;
 
 /**
- * Future representing transitive write status for file or directory invalidation data.
+ * Future representing the transitive write status of invalidation data.
  *
- * <p>The client should perform double-checked locking to populate some of the metadata by testing
- * {@link #getCacheKey} for nullness. If it is null outside of the lock, and null again inside the
- * lock, the caller must call either one of the {@code populate} methods depending on the subclass.
+ * <p>In the case of {@link FileInvalidationDataReference} and {@link
+ * ListingInvalidationDataReference}, the client should perform double-checked locking to populate
+ * the metadata by testing {@link #getCacheKey} for nullness. If it is null outside of the lock, and
+ * null again inside the lock, the caller must call one of the {@code populate} methods depending on
+ * the subclass.
+ *
+ * <p>For {@link NodeInvalidationDataReference}, the metadata is assigned at construction.
  */
-sealed class InvalidationDataReference extends AbstractFuture<Void>
+sealed class InvalidationDataReference<T> extends AbstractFuture<Void>
     permits InvalidationDataReference.FileInvalidationDataReference,
-        InvalidationDataReference.DirectoryInvalidationDataReference {
-  private volatile String cacheKey;
+        InvalidationDataReference.ListingInvalidationDataReference,
+        InvalidationDataReference.NodeInvalidationDataReference {
+  private volatile T cacheKey;
 
   @Nullable // null when uninitialized
-  String getCacheKey() {
+  final T getCacheKey() {
     return cacheKey;
   }
 
-  void setWriteStatus(ListenableFuture<Void> writeStatus) {
+  final void setWriteStatus(ListenableFuture<Void> writeStatus) {
     checkState(setFuture(writeStatus), "already set %s", this);
   }
 
-  void setUnexpectedlyUnsetError() {
+  final void setUnexpectedlyUnsetError() {
     checkState(
         setException(
             new IllegalStateException(
@@ -49,11 +56,12 @@ sealed class InvalidationDataReference extends AbstractFuture<Void>
                     + " FileDependencySerializer")));
   }
 
-  void setCacheKeyForSubclasses(String cacheKey) {
+  final void setCacheKeyForSubclasses(T cacheKey) {
     this.cacheKey = cacheKey;
   }
 
-  static final class FileInvalidationDataReference extends InvalidationDataReference {
+  /** Future transitive write status for {@link com.google.devtools.build.lib.skyframe.FileKey}. */
+  static final class FileInvalidationDataReference extends InvalidationDataReference<String> {
     private long mtsv;
     private RootedPath realPath;
 
@@ -89,9 +97,41 @@ sealed class InvalidationDataReference extends AbstractFuture<Void>
     }
   }
 
-  static final class DirectoryInvalidationDataReference extends InvalidationDataReference {
+  /**
+   * Future transitive write status for {@link
+   * com.google.devtools.build.lib.skyframe.DirectoryListingKey}.
+   */
+  static final class ListingInvalidationDataReference extends InvalidationDataReference<String> {
     void populate(String cacheKey) {
       setCacheKeyForSubclasses(cacheKey);
+    }
+  }
+
+  /**
+   * Future transitive write status of {@link
+   * com.google.devtools.build.lib.skyframe.NestedFileSystemOperationNodes}.
+   *
+   * <p>{@link #getCacheKey} is null only for {@link #EMPTY}.
+   */
+  static final class NodeInvalidationDataReference
+      extends InvalidationDataReference<PackedFingerprint> {
+    /* In contrast to the above two implementations, there's no distinct populate phase because
+     * this class does not need to be constructed inside a computeIfAbsent callback.
+     */
+
+    /**
+     * A no-data sentinel value.
+     *
+     * <p>Occurs if none of the transitive node inputs are relevant to invalidation.
+     */
+    static final NodeInvalidationDataReference EMPTY = new NodeInvalidationDataReference(null);
+
+    static NodeInvalidationDataReference create(PackedFingerprint key) {
+      return new NodeInvalidationDataReference(checkNotNull(key));
+    }
+
+    private NodeInvalidationDataReference(PackedFingerprint key) {
+      setCacheKeyForSubclasses(key);
     }
   }
 }

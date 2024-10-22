@@ -36,7 +36,8 @@ import java.nio.ByteOrder;
  * @param lo the lower 64-bits of the fingerprint
  * @param hi the upper 64-bits of the fingerprint
  */
-public record PackedFingerprint(long lo, long hi) implements KeyBytesProvider {
+public record PackedFingerprint(long lo, long hi)
+    implements KeyBytesProvider, Comparable<PackedFingerprint> {
   @VisibleForTesting static final int BYTES = 16;
 
   /**
@@ -106,6 +107,15 @@ public record PackedFingerprint(long lo, long hi) implements KeyBytesProvider {
   @Override
   public int hashCode() {
     return (int) lo;
+  }
+
+  @Override
+  public int compareTo(PackedFingerprint o) {
+    int result = Long.compare(hi, o.hi);
+    if (result == 0) {
+      return Long.compare(lo, o.lo);
+    }
+    return result;
   }
 
   /** Changes all 0 bytes of {@code input} into 1. */
