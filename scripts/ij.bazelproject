@@ -27,3 +27,5 @@ targets:
   -//src/test/shell/bazel:all_tests
 
 java_language_level: 21
+
+workspace_type: java
