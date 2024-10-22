@@ -1,3 +1,60 @@
+## Release 9.0.0-pre.20241016.1 (2024-10-22)
+
+```
+Baseline: 253fedc5d5adbb6015735b31103be584e2125d5b
+```
+
+Incompatible changes:
+
+  - With the default Unix toolchain on macOS, binaries now use
+    `@rpath` to find their `.dylib` dependencies. This is required to
+    fix issues where tools run during the build couldn't find their
+    dynamic dependencies.
+  - The flag `--incompatible_disallow_empty_glob` now defaults to
+    true.
+
+Important changes:
+
+  - Native android_sdk is no longer available within Bazel. Use
+    https://github.com/bazelbuild/rules_android
+  - Add the
+    --incompatible_simplify_unconditional_selects_in_rule_attrs
+    option to simplify configurable rule attributes which contain
+    only unconditional selects; for example, if ["a"] +
+    select("//conditions:default", ["b"]) is assigned to a rule
+    attribute, it is stored as ["a", "b"].
+  - `--incompatible_disallow_unsound_directory_outputs` is deleted.
+  - `--incompatible_remote_symlinks` and
+    `--incompatible_remote_dangling_symlinks` are deleted.
+  - The default value of
+    `--experimental_remote_cache_eviction_retries` is changed to `5`.
+  - If --proto:rule_classes flag is enabled, query proto output will
+    contain rule class definitions in Stardoc proto format.
+  - Non-singleton target visibility lists can now contain
+    "//visibility:public" and "//visibility:private" elements; the
+    result is appropriately simplified when assigned to an attribute:
+    ["//foo:__subpackages__", "//visibility:public"] is saved as
+    ["//visibility:public"], ["//foo:__subpackages__",
+    "//visibility:private"] is saved as ["//foo:__subpackages__"],
+    and for consistency's sake, an empty target visibility list [] is
+    saved as ["//visibility:private"].
+  - Symbolic Macros -- and with them, Finalizers and the new
+    Macro-Aware Visibility model -- are now generally available
+    (`--experimental_enable_first_class_macros` now defaults to
+    true). Trivial `select()` values are automatically unwrapped
+    (`--incompatible_simplify_unconditional_selects_in_rule_attrs`
+    now defaults to true).
+  - Moved all Bazel Android tool and action code to rules_android.
+  - Add conlyopts and cxxopts attributes to cc rules
+  - `@bazel_tools//tools/android` no longer exists. Use
+    https://github.com/bazelbuild/rules_android instead.
+  - Bazel now supports all characters in the rlocation and target
+    paths of runfiles and can be run from workspaces with a space in
+    their full path.
+  - The Python six library is no longer part of @external_tools.
+
+This release contains contributions from many people at Google, as well as Alessandro Patti, Benjamin Peterson, CaerusKaru, Dennis van den Berg, dependabot[bot], Fabian Meumertzheim, Fredrik Medley, hvd, Keith Smiley, Maria, Mislav Mandaric, Tomasz Pasternak, Xavier Bonaventura, Xdng Yng, Xùdōng Yáng.
+
 ## Release 8.0.0-pre.20240925.4 (2024-10-03)
 
 ```
