@@ -250,7 +250,7 @@ class WindowsOsPathPolicy implements OsPathPolicy {
   public String postProcessPathStringForExecution(String callablePathString) {
     // On Windows, .bat scripts (and possibly others) cannot be executed with forward slashes in
     // the path. Since backslashes are the standard path separator on Windows, we replace all
-    // forward slashes with backslashes instead trying to enumerate these special cases.
+    // forward slashes with backslashes instead of trying to enumerate these special cases.
     return callablePathString.replace('/', '\\');
   }
 }
