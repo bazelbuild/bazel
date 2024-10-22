@@ -16,17 +16,19 @@ import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(TestParameterInjector.class)
 public class StringEncodingTest {
 
+  public static final Charset SUN_JNU_ENCODING =
+      Charset.forName(System.getProperty("sun.jnu.encoding"));
+
   @Test
   public void testPlatformToInternal(
       @TestParameter({"ascii", "äöüÄÖÜß", "🌱", "羅勒罗勒学名"}) String s) {
-    assume().that(canEncode(s, Charset.forName(System.getProperty("sun.jnu.encoding")))).isTrue();
+    assume().that(canEncode(s, SUN_JNU_ENCODING)).isTrue();
 
     String internal = platformToInternal(s);
     // In the internal encoding, raw bytes are encoded as Latin-1.
@@ -47,9 +49,7 @@ public class StringEncodingTest {
 
     // Roundtripping raw bytes through the internal encoding requires Linux and a Latin-1 locale.
     assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
-    System.err.println(System.getenv());
-    assertThat(Charset.forName(System.getProperty("sun.jnu.encoding")))
-        .isEqualTo(StandardCharsets.ISO_8859_1);
+    assertThat(SUN_JNU_ENCODING).isEqualTo(ISO_8859_1);
 
     String platform = new String(rawBytes, ISO_8859_1);
     String internal = platformToInternal(platform);
