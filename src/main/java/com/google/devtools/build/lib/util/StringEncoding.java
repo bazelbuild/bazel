@@ -23,7 +23,7 @@ public final class StringEncoding {
         "Expected internal string, got: %s (%s)",
         s,
         Arrays.toString(StringUnsafe.getInstance().getByteArray(s)));
-    return new String(s.getBytes(ISO_8859_1), UTF_8);
+    return new String(StringUnsafe.getInstance().getByteArray(s), UTF_8);
   }
 
   /**
@@ -43,7 +43,7 @@ public final class StringEncoding {
         "Expected internal string, got: %s (%s)",
         s,
         Arrays.toString(StringUnsafe.getInstance().getByteArray(s)));
-    return new String(s.getBytes(ISO_8859_1), UTF_8);
+    return new String(StringUnsafe.getInstance().getByteArray(s), UTF_8);
   }
 
   public static String unicodeToInternal(String s) {

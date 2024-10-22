@@ -8,15 +8,14 @@ import static com.google.devtools.build.lib.util.StringEncoding.platformToIntern
 import static com.google.devtools.build.lib.util.StringEncoding.unicodeToInternal;
 import static java.nio.charset.StandardCharsets.ISO_8859_1;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.junit.Assert.assertThrows;
 
 import com.google.devtools.build.lib.unsafe.StringUnsafe;
 import com.google.testing.junit.testparameterinjector.TestParameter;
 import com.google.testing.junit.testparameterinjector.TestParameterInjector;
 import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
 import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
-import java.nio.charset.CodingErrorAction;
 import java.nio.charset.StandardCharsets;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,6 +26,8 @@ public class StringEncodingTest {
   @Test
   public void testPlatformToInternal(
       @TestParameter({"ascii", "äöüÄÖÜß", "🌱", "羅勒罗勒学名"}) String s) {
+    assume().that(canEncode(s, Charset.forName(System.getProperty("sun.jnu.encoding")))).isTrue();
+
     String internal = platformToInternal(s);
     // In the internal encoding, raw bytes are encoded as Latin-1.
     assertThat(StringUnsafe.getInstance().getCoder(internal)).isEqualTo(StringUnsafe.LATIN1);
@@ -42,13 +43,7 @@ public class StringEncodingTest {
   public void testPlatformToInternal_rawBytesRoundtrip() {
     // Not valid UTF-8
     byte[] rawBytes = new byte[] {0x00, 0x7F, (byte) 0x80, (byte) 0xFE, (byte) 0xFF};
-    assertThrows(
-        CharacterCodingException.class,
-        () ->
-            UTF_8
-                .newDecoder()
-                .onMalformedInput(CodingErrorAction.REPORT)
-                .decode(ByteBuffer.wrap(rawBytes)));
+    assertThat(canDecode(rawBytes, UTF_8)).isFalse();
 
     // Roundtripping raw bytes through the internal encoding requires Linux and a Latin-1 locale.
     assume().that(OS.getCurrent()).isEqualTo(OS.LINUX);
@@ -73,6 +68,24 @@ public class StringEncodingTest {
       assertThat(roundtripped).isSameInstanceAs(s);
     } else {
       assertThat(roundtripped).isEqualTo(s);
+    }
+  }
+
+  private static boolean canEncode(String s, Charset charset) {
+    try {
+      charset.newEncoder().encode(CharBuffer.wrap(s));
+      return true;
+    } catch (CharacterCodingException e) {
+      return false;
+    }
+  }
+
+  private static boolean canDecode(byte[] bytes, Charset charset) {
+    try {
+      charset.newDecoder().decode(ByteBuffer.wrap(bytes));
+      return true;
+    } catch (CharacterCodingException e) {
+      return false;
     }
   }
 }
