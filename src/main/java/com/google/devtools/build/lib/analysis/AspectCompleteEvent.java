@@ -18,6 +18,8 @@ import static com.google.devtools.build.lib.buildeventstream.BuildEventIdUtil.co
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
+import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.CompletionContext;
 import com.google.devtools.build.lib.actions.EventReportingArtifacts;
 import com.google.devtools.build.lib.analysis.TopLevelArtifactHelper.ArtifactsInOutputGroup;
@@ -116,6 +118,17 @@ public final class AspectCompleteEvent
 
   public CompletionContext getCompletionContext() {
     return completionContext;
+  }
+
+  public Iterable<Artifact> getLegacyFilteredImportantArtifacts() {
+    NestedSetBuilder<Artifact> builder = NestedSetBuilder.stableOrder();
+    for (ArtifactsInOutputGroup artifactsInOutputGroup : artifactOutputGroups.values()) {
+      if (artifactsInOutputGroup.areImportant()) {
+        builder.addTransitive(artifactsInOutputGroup.getArtifacts());
+      }
+    }
+    // An aspect could potentially return a source artifact if it added it to its provider.
+    return Iterables.filter(builder.build().toList(), (artifact) -> !artifact.isSourceArtifact());
   }
 
   @Override
