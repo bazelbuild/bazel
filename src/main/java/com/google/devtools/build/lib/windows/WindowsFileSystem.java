@@ -139,6 +139,11 @@ public class WindowsFileSystem extends JavaIoFileSystem {
   }
 
   @Override
+  protected boolean isSymbolicLink(PathFragment path) {
+    return fileIsSymbolicLink(getIoFile(path));
+  }
+
+  @Override
   protected FileStatus stat(PathFragment path, boolean followSymlinks) throws IOException {
     File file = getIoFile(path);
     final DosFileAttributes attributes;
