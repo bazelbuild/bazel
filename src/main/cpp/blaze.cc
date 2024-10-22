@@ -259,6 +259,7 @@ class BlazeServer final {
   const int connect_timeout_secs_;
   const bool batch_;
   const bool block_for_lock_;
+  const bool quiet_;
   const bool preemptible_;
   const blaze_util::Path output_base_;
 };
@@ -1563,6 +1564,7 @@ BlazeServer::BlazeServer(const StartupOptions &startup_options)
       connect_timeout_secs_(startup_options.connect_timeout_secs),
       batch_(startup_options.batch),
       block_for_lock_(startup_options.block_for_lock),
+      quiet_(startup_options.quiet),
       preemptible_(startup_options.preemptible),
       output_base_(startup_options.output_base) {
   pipe_.reset(blaze_util::CreatePipe());
@@ -1832,6 +1834,7 @@ unsigned int BlazeServer::Communicate(
   command_server::RunRequest request;
   request.set_cookie(request_cookie_);
   request.set_block_for_lock(block_for_lock_);
+  request.set_quiet(quiet_);
   request.set_preemptible(preemptible_);
   request.set_client_description("pid=" + blaze::GetProcessIdAsString());
   for (const string &arg : arg_vector) {
