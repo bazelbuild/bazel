@@ -18,6 +18,7 @@ You can find available Bazel releases on our [release page](/release).
 Bazel community members maintain these packages. The Bazel team doesn't
 officially support them. Contact the package maintainers for support.
 
+*   [Alpine Linux](https://pkgs.alpinelinux.org/packages?name=bazel*&branch=edge&repo=&arch=&origin=&flagged=&maintainer=){: .external} 
 *   [Arch Linux][arch]{: .external}
 *   [Debian](https://qa.debian.org/developer.php?email=team%2Bbazel%40tracker.debian.org){: .external}
 *   [FreeBSD](https://www.freshports.org/devel/bazel){: .external}
