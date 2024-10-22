@@ -32,7 +32,6 @@ using ::testing::Not;
 // like `[INFO 11:22:33.444 filename:134] message`
 // but should not be used for more fine grained testing.
 using ::testing::MatchesRegex;
-using ::testing::ContainsRegex;
 
 class LoggingTest : public ::testing::Test {
  protected:
