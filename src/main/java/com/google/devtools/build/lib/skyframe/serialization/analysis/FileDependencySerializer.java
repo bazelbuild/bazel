@@ -30,7 +30,8 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.devtools.build.lib.actions.FileStateValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider.BundledFileSystem;
-import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
+import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
+import com.google.devtools.build.lib.skyframe.FileKey;
 import com.google.devtools.build.lib.skyframe.serialization.FingerprintValueService;
 import com.google.devtools.build.lib.skyframe.serialization.KeyBytesProvider;
 import com.google.devtools.build.lib.skyframe.serialization.StringKey;
@@ -50,16 +51,16 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 
-/** Records {@link FileValue.Key} and {@link DirectoryListingValue.Key} invalidation information. */
+/** Records {@link FileKey} and {@link DirectoryListingKey} invalidation information. */
 final class FileDependencySerializer {
 
   private final VersionNumberExtractor versionExtractor;
   private final InMemoryGraph graph;
   private final FingerprintValueService fingerprintValueService;
 
-  private final ConcurrentHashMap<FileValue.Key, FileInvalidationDataReference> fileReferences =
+  private final ConcurrentHashMap<FileKey, FileInvalidationDataReference> fileReferences =
       new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<DirectoryListingValue.Key, DirectoryInvalidationDataReference>
+  private final ConcurrentHashMap<DirectoryListingKey, DirectoryInvalidationDataReference>
       directoryReferences = new ConcurrentHashMap<>();
 
   interface VersionNumberExtractor {
@@ -86,7 +87,7 @@ final class FileDependencySerializer {
    * persisted.
    */
   @Nullable // null if `key` isn't relevant to invalidation
-  FileInvalidationDataReference registerDependency(FileValue.Key key) {
+  FileInvalidationDataReference registerDependency(FileKey key) {
     RootedPath rootedPath = key.argument();
     if (rootedPath.getRoot().getFileSystem() instanceof BundledFileSystem) {
       return null; // This file doesn't change.
@@ -170,7 +171,7 @@ final class FileDependencySerializer {
   }
 
   @Nullable // null if `key` isn't relevant to invalidation
-  DirectoryInvalidationDataReference registerDependency(DirectoryListingValue.Key key) {
+  DirectoryInvalidationDataReference registerDependency(DirectoryListingKey key) {
     RootedPath rootedPath = key.argument();
     if (rootedPath.getRoot().getFileSystem() instanceof BundledFileSystem) {
       return null; // This directory doesn't change.

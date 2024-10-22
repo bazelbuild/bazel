@@ -135,6 +135,7 @@ java_library(
         ":execution_finished_event",
         ":file_function",
         ":fileset_entry_function",
+        ":filesystem_keys",
         ":filesystem_value_checker",
         ":glob_descriptor",
         ":glob_function",
@@ -1354,11 +1355,9 @@ java_library(
     deps = [
         ":directory_listing_state_value",
         ":dirents",
-        ":sky_functions",
+        ":filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/concurrent",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
-        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
@@ -1370,6 +1369,7 @@ java_library(
     deps = [
         ":directory_listing_value",
         ":directory_tree_digest_value",
+        ":filesystem_keys",
         "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/util",
         "//src/main/java/com/google/devtools/build/lib/vfs",
@@ -1497,6 +1497,22 @@ java_library(
         "//src/main/java/com/google/devtools/build/lib/actions:fileset_output_symlink",
         "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
         "//third_party:guava",
+    ],
+)
+
+java_library(
+    name = "filesystem_keys",
+    srcs = [
+        "DirectoryListingKey.java",
+        "FileKey.java",
+        "FileSystemOperationNode.java",
+    ],
+    deps = [
+        ":sky_functions",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization:visible-for-serialization",
+        "//src/main/java/com/google/devtools/build/lib/skyframe/serialization/autocodec",
+        "//src/main/java/com/google/devtools/build/lib/vfs",
+        "//src/main/java/com/google/devtools/build/skyframe:skyframe-objects",
     ],
 )
 
@@ -2183,6 +2199,7 @@ java_library(
         ":detailed_exceptions",
         ":directory_listing_value",
         ":dirents",
+        ":filesystem_keys",
         ":package_lookup_value",
         ":sky_functions",
         ":tree_artifact_value",
@@ -3226,7 +3243,6 @@ java_library(
     srcs = ["NodeDroppingInconsistencyReceiver.java"],
     deps = [
         ":sky_functions",
-        "//src/main/java/com/google/devtools/build/lib/actions:file_metadata",
         "//src/main/java/com/google/devtools/build/lib/rules/genquery:genquery_package_providers",
         "//src/main/java/com/google/devtools/build/lib/vfs",
         "//src/main/java/com/google/devtools/build/skyframe",

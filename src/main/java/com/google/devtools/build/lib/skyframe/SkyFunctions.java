@@ -45,6 +45,9 @@ public final class SkyFunctions {
   public static final SkyFunctionName STARLARK_BUILTINS =
       SkyFunctionName.createHermetic("STARLARK_BUILTINS");
   public static final SkyFunctionName BZL_LOAD = SkyFunctionName.createHermetic("BZL_LOAD");
+  // Depends non-hermetically on package path, but that is under the control of a flag, so use
+  // semi-hermetic.
+  public static final SkyFunctionName FILE = SkyFunctionName.createSemiHermetic("FILE");
   public static final SkyFunctionName GLOB = SkyFunctionName.createHermetic("GLOB");
   public static final SkyFunctionName GLOBS = SkyFunctionName.createHermetic("GLOBS");
   public static final SkyFunctionName PACKAGE = SkyFunctionName.createHermetic("PACKAGE");

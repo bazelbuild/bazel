@@ -96,7 +96,7 @@ public final class DirectoryTreeDigestFunction implements SkyFunction {
   private static ImmutableList<Pair<RootedPath, FileValue>> getFileValues(
       Environment env, ImmutableSet<String> sortedDirents, RootedPath rootedPath)
       throws InterruptedException {
-    ImmutableSet<FileValue.Key> fileValueKeys =
+    ImmutableSet<FileKey> fileValueKeys =
         sortedDirents.stream()
             .map(
                 dirent ->

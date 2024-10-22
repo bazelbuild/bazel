@@ -31,6 +31,7 @@ import com.google.devtools.build.lib.cmdline.LabelValidator;
 import com.google.devtools.build.lib.cmdline.RepositoryName;
 import com.google.devtools.build.lib.skyframe.ActionEnvironmentFunction;
 import com.google.devtools.build.lib.skyframe.ClientEnvironmentValue;
+import com.google.devtools.build.lib.skyframe.DirectoryListingKey;
 import com.google.devtools.build.lib.skyframe.DirectoryListingValue;
 import com.google.devtools.build.lib.skyframe.DirectoryTreeDigestValue;
 import com.google.devtools.build.lib.skyframe.PrecomputedValue;
@@ -461,7 +462,7 @@ public abstract class RepoRecordedInput implements Comparable<RepoRecordedInput>
       }
       try {
         return oldValue.equals(
-            getDirentsMarkerValue(((DirectoryListingValue.Key) skyKey).argument().asPath()));
+            getDirentsMarkerValue(((DirectoryListingKey) skyKey).argument().asPath()));
       } catch (IOException e) {
         return false;
       }

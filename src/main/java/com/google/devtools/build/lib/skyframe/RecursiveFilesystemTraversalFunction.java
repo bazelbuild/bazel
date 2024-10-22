@@ -732,7 +732,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
       if (value == null) {
         continue;
       }
-      if (key instanceof FileValue.Key fileKey) {
+      if (key instanceof FileKey fileKey) {
         FileInfo fileInfo =
             toFileInfo(
                 fileKey.argument(),

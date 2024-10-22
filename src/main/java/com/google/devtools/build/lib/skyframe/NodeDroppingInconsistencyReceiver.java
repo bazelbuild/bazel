@@ -15,7 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 
 import com.google.common.collect.ImmutableMap;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.rules.genquery.GenQueryDirectPackageProviderFactory;
 import com.google.devtools.build.lib.vfs.FileStateKey;
 import com.google.devtools.build.skyframe.GraphInconsistencyReceiver;
@@ -42,7 +41,7 @@ public final class NodeDroppingInconsistencyReceiver implements GraphInconsisten
   private final boolean skymeldInconsistenciesExpected;
   private static final ImmutableMap<SkyFunctionName, SkyFunctionName> EXPECTED_MISSING_CHILDREN =
       ImmutableMap.of(
-          FileValue.FILE, FileStateKey.FILE_STATE,
+          SkyFunctions.FILE, FileStateKey.FILE_STATE,
           SkyFunctions.DIRECTORY_LISTING, SkyFunctions.DIRECTORY_LISTING_STATE,
           SkyFunctions.CONFIGURED_TARGET, GenQueryDirectPackageProviderFactory.GENQUERY_SCOPE);
 

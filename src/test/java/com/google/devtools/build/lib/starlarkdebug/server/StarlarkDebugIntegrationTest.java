@@ -21,13 +21,13 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.buildtool.BuildResult;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.events.EventCollector;
 import com.google.devtools.build.lib.events.EventKind;
 import com.google.devtools.build.lib.runtime.BlazeRuntime;
+import com.google.devtools.build.lib.skyframe.SkyFunctions;
 import com.google.devtools.build.lib.starlarkdebug.module.StarlarkDebuggerModule;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.Breakpoint;
 import com.google.devtools.build.lib.starlarkdebugging.StarlarkDebuggingProtos.DebugRequest;
@@ -137,7 +137,7 @@ public class StarlarkDebugIntegrationTest extends BuildIntegrationTestCase {
     Set<String> deletedFiles = ConcurrentHashMap.newKeySet();
     injectListenerAtStartOfNextBuild(
         (key, type, order, context) -> {
-          if (Objects.equals(key.functionName(), FileValue.FILE)
+          if (Objects.equals(key.functionName(), SkyFunctions.FILE)
               && Objects.equals(context, Reason.INVALIDATION)) {
             deletedFiles.add(((RootedPath) key.argument()).getRootRelativePath().getPathString());
           }

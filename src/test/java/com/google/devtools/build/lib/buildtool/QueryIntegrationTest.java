@@ -22,7 +22,6 @@ import static org.junit.Assert.fail;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Maps;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
 import com.google.devtools.build.lib.buildtool.util.BuildIntegrationTestCase;
 import com.google.devtools.build.lib.events.EventKind;
@@ -68,6 +67,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
@@ -1011,7 +1011,7 @@ public class QueryIntegrationTest extends BuildIntegrationTestCase {
             NotifyingHelper.makeNotifyingTransformer(
                 (key, type, order, context) -> {
                   if (order == NotifyingHelper.Order.BEFORE
-                      && FileValue.FILE.equals(key.functionName())) {
+                      && Objects.equals(key.functionName(), SkyFunctions.FILE)) {
                     if (!((RootedPath) key.argument())
                         .getRootRelativePath()
                         .endsWith(depPackageBuild)) {

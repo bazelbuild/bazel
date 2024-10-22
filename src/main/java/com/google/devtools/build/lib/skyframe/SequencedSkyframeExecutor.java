@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.ActionKeyContext;
 import com.google.devtools.build.lib.actions.ActionLookupData;
 import com.google.devtools.build.lib.actions.ActionLookupKey;
 import com.google.devtools.build.lib.actions.CommandLineExpansionException;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.RemoteArtifactChecker;
 import com.google.devtools.build.lib.analysis.AnalysisOptions;
 import com.google.devtools.build.lib.analysis.AspectValue;
@@ -237,12 +236,12 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
     return new SequencedSkyframeProgressReceiver();
   }
 
-  /** A {@link SkyframeProgressReceiver} tracks dirty {@link FileValue.Key}s. */
+  /** A {@link SkyframeProgressReceiver} tracks dirty {@link FileKey}s. */
   protected class SequencedSkyframeProgressReceiver extends SkyframeProgressReceiver {
     @Override
     public void dirtied(SkyKey skyKey, DirtyType dirtyType) {
       super.dirtied(skyKey, dirtyType);
-      if (skyKey instanceof FileValue.Key) {
+      if (skyKey instanceof FileKey) {
         incrementalBuildMonitor.reportInvalidatedFileValue();
       }
     }
@@ -335,7 +334,7 @@ public class SequencedSkyframeExecutor extends SkyframeExecutor {
   private static final ImmutableSet<SkyFunctionName> PACKAGE_LOCATOR_DEPENDENT_VALUES =
       ImmutableSet.of(
           FileStateKey.FILE_STATE,
-          FileValue.FILE,
+          SkyFunctions.FILE,
           SkyFunctions.DIRECTORY_LISTING_STATE,
           SkyFunctions.PREPARE_DEPS_OF_PATTERN,
           SkyFunctions.TARGET_PATTERN,

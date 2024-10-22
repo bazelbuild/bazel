@@ -77,7 +77,6 @@ import com.google.devtools.build.lib.actions.DiscoveredModulesPruner;
 import com.google.devtools.build.lib.actions.EnvironmentalExecException;
 import com.google.devtools.build.lib.actions.Executor;
 import com.google.devtools.build.lib.actions.FileStateValue;
-import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetOutputTree;
 import com.google.devtools.build.lib.actions.InputMetadataProvider;
 import com.google.devtools.build.lib.actions.MapBasedActionGraph;
@@ -649,7 +648,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
     map.put(
         FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
         new FileSymlinkInfiniteExpansionUniquenessFunction());
-    map.put(FileValue.FILE, new FileFunction(pkgLocator, directories));
+    map.put(SkyFunctions.FILE, new FileFunction(pkgLocator, directories));
     map.put(SkyFunctions.DIRECTORY_LISTING, new DirectoryListingFunction());
     map.put(SkyFunctions.DIRECTORY_TREE_DIGEST, new DirectoryTreeDigestFunction());
     map.put(
@@ -3076,7 +3075,7 @@ public abstract class SkyframeExecutor implements WalkableGraphFactory {
         @Nullable GroupedDeps directDeps) {
       if (heuristicallyDropNodes) {
         Object argument = skyKey.argument();
-        if (skyKey.functionName().equals(FileValue.FILE)) {
+        if (skyKey.functionName().equals(SkyFunctions.FILE)) {
           checkArgument(
               argument instanceof RootedPath,
               "FILE SkyKey (%s) does not have a RootedPath typed argument (%s)",

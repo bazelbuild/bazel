@@ -182,7 +182,7 @@ public class FileFunctionTest {
                 .put(
                     FileSymlinkInfiniteExpansionUniquenessFunction.NAME,
                     new FileSymlinkInfiniteExpansionUniquenessFunction())
-                .put(FileValue.FILE, new FileFunction(pkgLocatorRef, directories))
+                .put(SkyFunctions.FILE, new FileFunction(pkgLocatorRef, directories))
                 .put(SkyFunctions.PACKAGE, PackageFunction.newBuilder().build())
                 .put(
                     SkyFunctions.PACKAGE_LOOKUP,
