@@ -73,6 +73,7 @@ import com.google.devtools.build.lib.query2.query.output.OutputFormatter;
 import com.google.devtools.build.lib.query2.query.output.OutputFormatters;
 import com.google.devtools.build.lib.runtime.BlazeModule.ModuleFileSystem;
 import com.google.devtools.build.lib.runtime.CommandDispatcher.LockingMode;
+import com.google.devtools.build.lib.runtime.CommandDispatcher.UiVerbosity;
 import com.google.devtools.build.lib.runtime.proto.InvocationPolicyOuterClass.InvocationPolicy;
 import com.google.devtools.build.lib.server.CommandProtos.EnvironmentVariable;
 import com.google.devtools.build.lib.server.CommandProtos.ExecRequest;
@@ -1007,12 +1008,12 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
 
     BlazeRuntime runtime;
     InvocationPolicy policy;
+    BlazeServerStartupOptions startupOptions;
+
     try {
       runtime = newRuntime(modules, commandLineOptions.getStartupArgs(), null);
-      policy =
-          InvocationPolicyParser.parsePolicy(
-              runtime.startupOptionsProvider.getOptions(BlazeServerStartupOptions.class)
-                  .invocationPolicy);
+      startupOptions = runtime.startupOptionsProvider.getOptions(BlazeServerStartupOptions.class);
+      policy = InvocationPolicyParser.parsePolicy(startupOptions.invocationPolicy);
     } catch (OptionsParsingException e) {
       OutErr.SYSTEM_OUT_ERR.printErrLn(e.getMessage());
       return ExitCode.COMMAND_LINE_ERROR.getNumericExitCode();
@@ -1040,6 +1041,7 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
               commandLineOptions.getOtherArgs(),
               OutErr.SYSTEM_OUT_ERR,
               LockingMode.ERROR_OUT,
+              startupOptions.quiet ? UiVerbosity.QUIET : UiVerbosity.NORMAL,
               "batch client",
               runtime.clock.currentTimeMillis(),
               Optional.of(startupOptionsFromCommandLine.build()),

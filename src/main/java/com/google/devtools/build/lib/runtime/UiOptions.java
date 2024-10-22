@@ -128,14 +128,6 @@ public class UiOptions extends OptionsBase {
   }
 
   @Option(
-      name = "quiet",
-      defaultValue = "false",
-      documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
-      effectTags = {OptionEffectTag.UNKNOWN},
-      help = "If set, Bazel prints as little output as possible.")
-  public boolean quiet;
-
-  @Option(
       name = "show_progress",
       defaultValue = "true",
       documentationCategory = OptionDocumentationCategory.UNCATEGORIZED,
