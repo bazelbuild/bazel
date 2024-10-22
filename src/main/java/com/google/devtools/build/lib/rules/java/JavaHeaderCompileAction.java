@@ -77,6 +77,7 @@ import javax.annotation.Nullable;
 public final class JavaHeaderCompileAction extends SpawnAction {
 
   private static final String DIRECT_CLASSPATH_MNEMONIC = "Turbine";
+  private static final String PROGRESS_MESSAGE_PREFIX = "Compiling Java headers";
 
   private final boolean insertDependencies;
   private final boolean inMemoryJdeps;
@@ -445,8 +446,7 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               .withAdditionalFixedVariables(utf8Environment);
 
       OnDemandString progressMessage =
-          new ProgressMessage(
-              /* prefix= */ "Compiling Java headers",
+          new JavaHeaderCompileProgressMessage(
               /* output= */ outputJar,
               /* sourceFiles= */ sourceFiles,
               /* sourceJars= */ sourceJars,
@@ -627,6 +627,22 @@ public final class JavaHeaderCompileAction extends SpawnAction {
               /* dependencyArtifacts= */ compileTimeDependencyArtifacts,
               /* outputDepsProto= */ outputDepsProto,
               /* classpathMode= */ classpathMode));
+    }
+
+    private static class JavaHeaderCompileProgressMessage extends ProgressMessage {
+
+      public JavaHeaderCompileProgressMessage(
+          Artifact output,
+          ImmutableSet<Artifact> sourceFiles,
+          ImmutableList<Artifact> sourceJars,
+          JavaPluginData plugins) {
+        super(output, sourceFiles, sourceJars, plugins);
+      }
+
+      @Override
+      String prefix() {
+        return PROGRESS_MESSAGE_PREFIX;
+      }
     }
   }
 }

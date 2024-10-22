@@ -508,38 +508,37 @@ public final class JavaCompileAction extends AbstractAction implements CommandAc
     return progressMessage.toString();
   }
 
-  static class ProgressMessage extends OnDemandString {
+  abstract static class ProgressMessage extends OnDemandString {
 
-    private final String prefix;
     private final Artifact output;
-    private final ImmutableSet<Artifact> sourceFiles;
-    private final ImmutableList<Artifact> sourceJars;
-    private final JavaPluginData plugins;
+    private final int sourceFiles;
+    private final int sourceJars;
+    private final NestedSet<String> processorClasses;
 
     ProgressMessage(
-        String prefix,
         Artifact output,
         ImmutableSet<Artifact> sourceFiles,
         ImmutableList<Artifact> sourceJars,
         JavaPluginData plugins) {
-      this.prefix = prefix;
       this.output = output;
-      this.sourceFiles = sourceFiles;
-      this.sourceJars = sourceJars;
-      this.plugins = plugins;
+      this.sourceFiles = sourceFiles.size();
+      this.sourceJars = sourceJars.size();
+      this.processorClasses = plugins.processorClasses();
     }
+
+    abstract String prefix();
 
     @Override
     public String toString() {
-      StringBuilder sb = new StringBuilder(prefix);
+      StringBuilder sb = new StringBuilder(prefix());
       sb.append(' ');
       sb.append(output.prettyPrint());
       sb.append(" (");
       boolean first = true;
-      first = appendCount(sb, first, sourceFiles.size(), "source file");
-      appendCount(sb, first, sourceJars.size(), "source jar");
+      first = appendCount(sb, first, sourceFiles, "source file");
+      appendCount(sb, first, sourceJars, "source jar");
       sb.append(")");
-      appendProcessorNames(sb, plugins.processorClasses());
+      appendProcessorNames(sb, processorClasses);
       return sb.toString();
     }
 

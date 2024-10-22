@@ -51,6 +51,7 @@ import javax.annotation.Nullable;
 public final class JavaCompileActionBuilder {
 
   private static final String JACOCO_INSTRUMENTATION_PROCESSOR = "jacoco";
+  private static final String PROGRESS_MESSAGE_PREFIX = "Building";
 
   static final String MNEMONIC = "Javac";
 
@@ -245,8 +246,7 @@ public final class JavaCompileActionBuilder {
         /* compilationType= */ JavaCompileAction.CompilationType.JAVAC,
         /* owner= */ ruleContext.getActionOwner(execGroup),
         /* tools= */ tools,
-        /* progressMessage= */ new ProgressMessage(
-            /* prefix= */ "Building",
+        /* progressMessage= */ new JavaCompileProgressMessage(
             /* output= */ outputs.output(),
             /* sourceFiles= */ sourceFiles,
             /* sourceJars= */ sourceJars,
@@ -493,5 +493,21 @@ public final class JavaCompileActionBuilder {
 
   public void setManifestOutput(Artifact manifestOutput) {
     this.manifestOutput = manifestOutput;
+  }
+
+  private static class JavaCompileProgressMessage extends ProgressMessage {
+
+    public JavaCompileProgressMessage(
+        Artifact output,
+        ImmutableSet<Artifact> sourceFiles,
+        ImmutableList<Artifact> sourceJars,
+        JavaPluginData plugins) {
+      super(output, sourceFiles, sourceJars, plugins);
+    }
+
+    @Override
+    String prefix() {
+      return PROGRESS_MESSAGE_PREFIX;
+    }
   }
 }
