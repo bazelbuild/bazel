@@ -17,6 +17,7 @@ package com.google.devtools.build.lib.rules.objc;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.actions.util.ActionsTestUtil.getFirstArtifactEndingWith;
+import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuiltins;
 
 import com.google.common.base.Joiner;
@@ -76,8 +77,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
 
   private static final Provider.Key APPLE_EXECUTABLE_BINARY_PROVIDER_KEY =
       new StarlarkProvider.Key(
-          keyForBuiltins(
-              Label.parseCanonicalUnchecked("@_builtins//:common/objc/linking_support.bzl")),
+          keyForBuild(
+              Label.parseCanonicalUnchecked(
+                  TestConstants.TOOLS_REPOSITORY + "//test_starlark:apple_binary_starlark.bzl")),
           "AppleExecutableBinaryInfo");
 
   @Before
@@ -304,6 +306,9 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
         "    '//command_line_option:grte_top',",
         "    '//command_line_option:platforms',",
         "]",
+        "AppleExecutableBinaryInfo = provider(",
+        "    fields = ['binary', 'cc_info'],",
+        "    )",
         "def _command_line_options(*, environment_arch = None, platform_type, settings):",
         "    cpu = ('darwin_' + environment_arch if platform_type == 'macos'",
         "            else platform_type + '_' +  environment_arch)",
@@ -362,7 +367,7 @@ public abstract class ObjcRuleTestCase extends BuildViewTestCase {
             + " '@loader_path/Frameworks'])",
         "    if ctx.attr.bundle_loader:",
         "        bundle_loader = ctx.attr.bundle_loader",
-        "        bundle_loader_file = bundle_loader[apple_common.AppleExecutableBinary].binary",
+        "        bundle_loader_file = bundle_loader[AppleExecutableBinaryInfo].binary",
         "        all_avoid_deps.append(bundle_loader)",
         "        linkopts.extend(['-bundle_loader', bundle_loader_file.path])",
         "        link_inputs.append(bundle_loader_file)",
