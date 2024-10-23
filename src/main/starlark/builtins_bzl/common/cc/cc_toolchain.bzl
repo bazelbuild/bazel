@@ -14,6 +14,7 @@
 
 """Starlark implementation of cc_toolchain rule."""
 
+load(":common/cc/cc_common.bzl", "cc_common")
 load(":common/cc/cc_helper.bzl", "cc_helper")
 load(":common/cc/cc_toolchain_provider_helper.bzl", "get_cc_toolchain_provider")
 load(":common/cc/fdo/fdo_context.bzl", "create_fdo_context")
@@ -133,9 +134,14 @@ def _cc_toolchain_impl(ctx):
     cc_toolchain = get_cc_toolchain_provider(ctx, attributes)
     if cc_toolchain == None:
         fail("This should never happen")
-    template_variable_info = TemplateVariableInfo(
-        cc_toolchain._additional_make_variables | cc_helper.get_toolchain_global_make_variables(cc_toolchain),
+    feature_configuration = cc_common.configure_features(
+        ctx = ctx,
+        cc_toolchain = cc_toolchain,
+        requested_features = ctx.features,
+        unsupported_features = ctx.disabled_features,
     )
+    template_vars = cc_toolchain._additional_make_variables | cc_helper.get_toolchain_global_make_variables(cc_toolchain) | cc_helper.get_cc_flags_make_variable(ctx, feature_configuration, cc_toolchain)
+    template_variable_info = TemplateVariableInfo(template_vars)
     toolchain = ToolchainInfo(
         cc = cc_toolchain,
         # Add a clear signal that this is a CcToolchainProvider, since just "cc" is
