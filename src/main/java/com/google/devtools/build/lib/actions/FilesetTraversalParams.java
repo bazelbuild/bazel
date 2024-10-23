@@ -36,29 +36,6 @@ import javax.annotation.Nullable;
  */
 public interface FilesetTraversalParams {
 
-  /** Desired behavior if the traversal hits a directory with a BUILD file, i.e. a subpackage. */
-  enum PackageBoundaryMode {
-    /** The traversal should recurse into the directory, optionally reporting a warning. */
-    CROSS,
-
-    // TODO(bazel-team): deprecate CROSS and REPORT_ERROR in favor of DONT_CROSS. Clean up the depot
-    // and lock down the semantics of FilesetEntry.srcdir to only accept other Filesets or BUILD
-    // files of a package, in which case also require an explicit list of files.
-    /** The traversal should not recurse into the directory but silently skip it. */
-    DONT_CROSS,
-
-    /** The traversal should not recurse into the directory and report an error. */
-    REPORT_ERROR;
-
-    public static PackageBoundaryMode forStrictFilesetFlag(boolean flagEnabled) {
-      return flagEnabled ? REPORT_ERROR : CROSS;
-    }
-
-    public void fingerprint(Fingerprint fp) {
-      fp.addInt(ordinal());
-    }
-  }
-
   /**
    * The root directory of a {@link DirectTraversal}.
    *
@@ -173,9 +150,6 @@ public interface FilesetTraversalParams {
     /** Returns true if the root points to a generated file, symlink or directory. */
     public abstract boolean isGenerated();
 
-    /** Returns the desired behavior when the traversal hits a subpackage. */
-    public abstract PackageBoundaryMode getPackageBoundaryMode();
-
     /** Returns whether Filesets treat outputs in a strict manner, assuming regular files. */
     public abstract boolean isStrictFilesetOutput();
 
@@ -193,18 +167,16 @@ public interface FilesetTraversalParams {
       fp.addBoolean(isGenerated());
       fp.addBoolean(isStrictFilesetOutput());
       fp.addBoolean(permitDirectories());
-      getPackageBoundaryMode().fingerprint(fp);
       return fp.digestAndReset();
     }
 
     static DirectTraversal getDirectTraversal(
         DirectTraversalRoot root,
-        PackageBoundaryMode packageBoundaryMode,
         boolean isStrictFilesetOutput,
         boolean permitSourceDirectories,
         boolean isGenerated) {
       return new AutoValue_FilesetTraversalParams_DirectTraversal(
-          root, isGenerated, packageBoundaryMode, isStrictFilesetOutput, permitSourceDirectories);
+          root, isGenerated, isStrictFilesetOutput, permitSourceDirectories);
     }
   }
 

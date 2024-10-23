@@ -18,7 +18,6 @@ import com.google.auto.value.extension.memoized.Memoized;
 import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Ordering;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
-import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.cmdline.Label;
 import com.google.devtools.build.lib.util.Fingerprint;
 import com.google.devtools.build.lib.vfs.PathFragment;
@@ -45,7 +44,6 @@ public final class FilesetTraversalParamsFactory {
       Label ownerLabel,
       Artifact fileToTraverse,
       PathFragment destPath,
-      PackageBoundaryMode pkgBoundaryMode,
       boolean strictFilesetOutput,
       boolean permitDirectories) {
     return DirectoryTraversalParams.getDirectoryTraversalParams(
@@ -53,7 +51,6 @@ public final class FilesetTraversalParamsFactory {
         DirectTraversalRoot.forFileOrDirectory(fileToTraverse),
         destPath,
         null,
-        pkgBoundaryMode,
         strictFilesetOutput,
         permitDirectories,
         !fileToTraverse.isSourceArtifact());
@@ -117,13 +114,12 @@ public final class FilesetTraversalParamsFactory {
         DirectTraversalRoot root,
         PathFragment destPath,
         @Nullable Set<String> excludes,
-        PackageBoundaryMode pkgBoundaryMode,
         boolean strictFilesetOutput,
         boolean permitDirectories,
         boolean isGenerated) {
       DirectTraversal traversal =
           DirectTraversal.getDirectTraversal(
-              root, pkgBoundaryMode, strictFilesetOutput, permitDirectories, isGenerated);
+              root, strictFilesetOutput, permitDirectories, isGenerated);
       return new AutoValue_FilesetTraversalParamsFactory_DirectoryTraversalParams(
           ownerLabelForErrorMessages, destPath, getOrderedExcludes(excludes), traversal);
     }

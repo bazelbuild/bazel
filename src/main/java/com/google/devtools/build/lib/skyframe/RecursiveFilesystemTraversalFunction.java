@@ -31,7 +31,6 @@ import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.HasDigest;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
-import com.google.devtools.build.lib.events.Event;
 import com.google.devtools.build.lib.io.FileSymlinkException;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionException;
 import com.google.devtools.build.lib.io.FileSymlinkInfiniteExpansionUniquenessFunction;
@@ -92,7 +91,7 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
     public enum Type {
       /**
        * The traversal encountered a subdirectory with a BUILD file but is not allowed to recurse
-       * into it. See {@code PackageBoundaryMode#REPORT_ERROR}.
+       * into it.
        */
       CANNOT_CROSS_PACKAGE_BOUNDARY,
 
@@ -225,27 +224,15 @@ public final class RecursiveFilesystemTraversalFunction implements SkyFunction {
         // with a source package. We can't handle that, bail out.
         throw createGeneratedPathConflictException(traversal);
       } else if (pkgLookupResult.isPackage() && !traversal.skipTestingForSubpackage()) {
-        // The traversal was requested for a directory that defines a package.
+        // The traversal was requested for a directory that defines a package which we should not
+        // traverse and should complain loudly (display an error).
         String msg =
             traversal.errorInfo()
                 + " crosses package boundary into package rooted at "
                 + traversal.root().getRelativePart().getPathString();
-        switch (traversal.crossPkgBoundaries()) {
-          case CROSS:
-            // We are free to traverse the subpackage but we need to display a warning.
-            env.getListener().handle(Event.warn(null, msg));
-            break;
-          case DONT_CROSS:
-            // We cannot traverse the subpackage and should skip it silently. Return empty results.
-            return RecursiveFilesystemTraversalValue.EMPTY;
-          case REPORT_ERROR:
-            // We cannot traverse the subpackage and should complain loudly (display an error).
-            throw new RecursiveFilesystemTraversalFunctionException(
-                new RecursiveFilesystemTraversalException(
-                    msg, RecursiveFilesystemTraversalException.Type.CANNOT_CROSS_PACKAGE_BOUNDARY));
-          default:
-            throw new IllegalStateException(traversal.toString());
-        }
+        throw new RecursiveFilesystemTraversalFunctionException(
+            new RecursiveFilesystemTraversalException(
+                msg, RecursiveFilesystemTraversalException.Type.CANNOT_CROSS_PACKAGE_BOUNDARY));
       }
 
       // We are free to traverse this directory.

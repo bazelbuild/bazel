@@ -15,8 +15,6 @@ package com.google.devtools.build.lib.skyframe;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode.CROSS;
-import static com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode.DONT_CROSS;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
@@ -28,7 +26,6 @@ import com.google.devtools.build.lib.actions.Artifact;
 import com.google.devtools.build.lib.actions.ArtifactRoot;
 import com.google.devtools.build.lib.actions.FilesetOutputSymlink;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams;
-import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.actions.FilesetTraversalParamsFactory;
 import com.google.devtools.build.lib.actions.util.ActionsTestUtil;
 import com.google.devtools.build.lib.analysis.BlazeDirectories;
@@ -231,7 +228,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* ownerLabel= */ label("//foo"),
             /* fileToTraverse= */ file,
             PathFragment.create("output-name"),
-            /* pkgBoundaryMode= */ DONT_CROSS,
             /* strictFilesetOutput= */ false,
             /* permitDirectories= */ false);
     assertSymlinksCreatedInOrder(params, symlink("output-name", file));
@@ -249,7 +245,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* ownerLabel= */ label("//foo"),
             /* fileToTraverse= */ dir,
             PathFragment.create("output-name"),
-            /* pkgBoundaryMode= */ DONT_CROSS,
             /* strictFilesetOutput= */ false,
             /* permitDirectories= */ true);
     assertSymlinksCreatedInOrder(
@@ -267,7 +262,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* ownerLabel= */ label("//foo"),
             /* fileToTraverse= */ dir,
             PathFragment.create("output-name"),
-            /* pkgBoundaryMode= */ DONT_CROSS,
             /* strictFilesetOutput= */ false,
             /* permitDirectories= */ false);
 
@@ -292,7 +286,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* ownerLabel= */ label("//foo"),
             /* fileToTraverse= */ linkName,
             PathFragment.create("output-name"),
-            /* pkgBoundaryMode= */ DONT_CROSS,
             /* strictFilesetOutput= */ false,
             /* permitDirectories= */ false);
     assertSymlinksCreatedInOrder(params); // expect empty results
@@ -306,7 +299,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             /* ownerLabel= */ label("//foo"),
             /* fileToTraverse= */ path,
             PathFragment.create("output-name"),
-            /* pkgBoundaryMode= */ DONT_CROSS,
             /* strictFilesetOutput= */ false,
             /* permitDirectories= */ false);
     assertSymlinksCreatedInOrder(params); // expect empty results
@@ -408,7 +400,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             .put("ownerLabel", notPartOfFingerprint("//bar"))
             .put("fileToTraverse", partOfFingerprint("foo/file.a", "bar/file.b"))
             .put("destPath", partOfFingerprint("out1", "out2"))
-            .put("pkgBoundaryMode", partOfFingerprint(CROSS, DONT_CROSS))
             .put("strictFilesetOutput", partOfFingerprint(true, false))
             .put("permitDirectories", partOfFingerprint(true, false))
             .buildOrThrow()) {
@@ -418,7 +409,6 @@ public final class FilesetEntryFunctionTest extends FoundationTestCase {
             label((String) kwArgs.get("ownerLabel")),
             getSourceArtifact((String) kwArgs.get("fileToTraverse")),
             PathFragment.create((String) kwArgs.get("destPath")),
-            (PackageBoundaryMode) kwArgs.get("pkgBoundaryMode"),
             (Boolean) kwArgs.get("strictFilesetOutput"),
             (Boolean) kwArgs.get("permitDirectories"));
       }

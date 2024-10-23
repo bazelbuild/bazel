@@ -33,7 +33,6 @@ import com.google.devtools.build.lib.actions.Artifact.TreeFileArtifact;
 import com.google.devtools.build.lib.actions.FileArtifactValue;
 import com.google.devtools.build.lib.actions.FileValue;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
-import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.actions.MiddlemanAction;
 import com.google.devtools.build.lib.actions.RunfilesArtifactValue;
 import com.google.devtools.build.lib.bugreport.BugReport;
@@ -368,7 +367,7 @@ public final class ArtifactFunction implements SkyFunction {
         case CANNOT_CROSS_PACKAGE_BOUNDARY:
           throw new IllegalStateException(
               String.format(
-                  "Package boundary mode was cross: %s %s %s", artifact, fileValue, request),
+                  "Cannot cross package boundary: %s %s %s", artifact, fileValue, request),
               e);
         case GENERATED_PATH_CONFLICT:
           throw new IllegalStateException(
@@ -676,11 +675,6 @@ public final class ArtifactFunction implements SkyFunction {
     @Override
     protected boolean isRootGenerated() {
       return false;
-    }
-
-    @Override
-    protected PackageBoundaryMode crossPkgBoundaries() {
-      return PackageBoundaryMode.CROSS;
     }
 
     @Override

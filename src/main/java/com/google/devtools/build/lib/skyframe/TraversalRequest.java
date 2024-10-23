@@ -16,7 +16,6 @@ package com.google.devtools.build.lib.skyframe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.MoreObjects;
 import com.google.devtools.build.lib.actions.FilesetTraversalParams.DirectTraversalRoot;
-import com.google.devtools.build.lib.actions.FilesetTraversalParams.PackageBoundaryMode;
 import com.google.devtools.build.lib.vfs.Root;
 import com.google.devtools.build.skyframe.ExecutionPhaseSkyKey;
 import com.google.devtools.build.skyframe.SkyFunctionName;
@@ -36,9 +35,6 @@ public abstract class TraversalRequest implements ExecutionPhaseSkyKey {
    * lookup for them is skipped.
    */
   protected abstract boolean isRootGenerated();
-
-  /** Whether the traversal should descend into directories that are roots of subpackages. */
-  protected abstract PackageBoundaryMode crossPkgBoundaries();
 
   /** Whether Fileset assumes that output artifacts are regular files. */
   protected abstract boolean strictOutputFiles();
@@ -105,7 +101,6 @@ public abstract class TraversalRequest implements ExecutionPhaseSkyKey {
     return MoreObjects.toStringHelper(this)
         .add("root", root())
         .add("isRootGenerated", isRootGenerated())
-        .add("crossPkgBoundaries", crossPkgBoundaries())
         .add("strictOutputFiles", strictOutputFiles())
         .add("skipTestingForSubpackage", skipTestingForSubpackage())
         .add("errorInfo", errorInfo())

@@ -350,8 +350,8 @@ function test_track_directory_crossing_package() {
   touch foo/dir/subdir/BUILD
   echo "filegroup(name = 'foo', srcs = ['dir'])" > foo/BUILD
   bazel --host_jvm_args=-DBAZEL_TRACK_SOURCE_DIRECTORIES=1 build //foo \
-      >& "$TEST_log" || fail "Expected success"
-  expect_log "WARNING: Directory artifact foo/dir crosses package boundary into"
+      >& "$TEST_log" && fail "Expected fail"
+  expect_log "Directory artifact foo/dir crosses package boundary into"
 }
 
 # Regression test for https://github.com/bazelbuild/bazel/issues/14723
