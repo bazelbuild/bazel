@@ -62,7 +62,7 @@ public final class StringEncoding {
   // This only exists for RemoteWorker, which directly uses the RE APIs UTF-8-encoded string with
   // the JavaIoFileSystem and thus shouldn't be subject to any reencoding.
   private static final boolean BAZEL_UNICODE_STRINGS =
-      Boolean.getBoolean("bazel.internal.UnicodeStringss");
+      Boolean.getBoolean("bazel.internal.UnicodeStrings");
 
   private static boolean needsReencodeForPlatform(String s) {
     if (SUN_JNU_ENCODING == ISO_8859_1 && OS.getCurrent() == OS.LINUX) {
