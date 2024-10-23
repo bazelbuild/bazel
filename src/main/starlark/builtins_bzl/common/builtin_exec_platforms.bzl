@@ -153,13 +153,9 @@ bazel_fragments["AndroidConfiguration.Options"] = fragment(
         "//command_line_option:experimental_objc_provider_from_linked",
     ],
     outputs = [
-        "//command_line_option:android hwasan",
-        "//command_line_option:fat_apk_cpu",
         "//command_line_option:Android configuration distinguisher",
     ],
     func = lambda settings: {
-        "//command_line_option:android hwasan": False,
-        "//command_line_option:fat_apk_cpu": [],
         "//command_line_option:Android configuration distinguisher": "main",
     },
 )
