@@ -59,17 +59,17 @@ darwin)
   ;;
 esac
 
-if $is_macos; then
-  export LC_ALL="UTF-8"
-  [[ "$(locale charmap)" == "UTF-8" ]] || fail "Failed to set a UTF-8 locale"
-elif $is_windows; then
+if [ $is_macos ] || [ $is_windows ]; then
   export LC_ALL="en_US.UTF-8"
   [[ "$(locale charmap)" == "UTF-8" ]] || fail "Failed to set a UTF-8 locale"
 else
   # On Linux, test with a Latin-1 locale, which is forced by the Bazel client
   # at runtime if available.
   export LC_ALL="en_US.ISO-8859-1"
-  [[ "$(locale charmap)" == "ISO-8859-1" ]] || fail "Failed to set a Latin-1 locale"
+  if [[ ! "$(locale charmap)" == "ISO-8859-1" ]]; then
+    echo "WARNING: Failed to set a ISO-8859-1 locale, falling back to UTF-8"
+    export LC_ALL="en_US.UTF-8"
+  fi
 fi
 
 #### HELPER FUNCTIONS ##################################################
