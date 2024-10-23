@@ -47,11 +47,30 @@ source "$(rlocation "io_bazel/src/test/shell/integration_test_setup.sh")" \
 case "$(uname -s | tr [:upper:] [:lower:])" in
 msys*|mingw*|cygwin*)
   declare -r is_windows=true
+  declare -r is_macos=false
+  ;;
+darwin)
+  declare -r is_windows=false
+  declare -r is_macos=true
   ;;
 *)
   declare -r is_windows=false
+  declare -r is_macos=false
   ;;
 esac
+
+if $is_macos; then
+  export LC_ALL="UTF-8"
+  [[ "$(locale charmap)" == "UTF-8" ]] || fail "Failed to set a UTF-8 locale"
+elif $is_windows; then
+  export LC_ALL="en_US.UTF-8"
+  [[ "$(locale charmap)" == "UTF-8" ]] || fail "Failed to set a UTF-8 locale"
+else
+  # On Linux, test with a Latin-1 locale, which is forced by the Bazel client
+  # at runtime if available.
+  export LC_ALL="en_US.ISO-8859-1"
+  [[ "$(locale charmap)" == "ISO-8859-1" ]] || fail "Failed to set a Latin-1 locale"
+fi
 
 #### HELPER FUNCTIONS ##################################################
 
