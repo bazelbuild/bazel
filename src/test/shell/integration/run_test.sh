@@ -218,13 +218,13 @@ test "\$1" = '$arg'
 EOF
   chmod +x foo/foo.sh
 
-  bazel run //foo -- "$arg" > output \
+  bazel run //foo -- "$arg"  >> $TEST_log 2>&1 \
     || fail "${PRODUCT_NAME} run failed."
 
   bazel test //foo:foo_test --test_arg="$arg" --test_output=errors \
     || fail "${PRODUCT_NAME} test failed"
 
-  bazel --batch run //foo -- "$arg" > output \
+  bazel --batch run //foo -- "$arg" >> $TEST_log 2>&1 \
     || fail "${PRODUCT_NAME} run failed (--batch)."
 
   bazel --batch test //foo:foo_test --test_arg="$arg" --test_output=errors \
@@ -276,7 +276,7 @@ EOF
   chmod +x foo/foo.sh
 
   env INHERITED_KEY="inherited_value_$env" \
-    bazel run //foo \
+    bazel run //foo > output \
     || fail "${PRODUCT_NAME} run failed."
 
   env INHERITED_KEY="inherited_value_$env" \
@@ -284,7 +284,7 @@ EOF
     || fail "${PRODUCT_NAME} test failed"
 
   env INHERITED_KEY="inherited_value_$env" \
-    bazel --batch run //foo \
+    bazel --batch run //foo > output \
     || fail "${PRODUCT_NAME} run failed (--batch)."
 
   env INHERITED_KEY="inherited_value_$env" \
@@ -322,7 +322,7 @@ EOF
   mkdir -p "foo/subdir_$workspace_name"
   cd "foo/subdir_$workspace_name" || fail "cd foo/subdir_$workspace_name failed"
 
-  bazel run //foo \
+  bazel run //foo > output \
     || fail "${PRODUCT_NAME} run failed."
 
   bazel --batch run //foo \
