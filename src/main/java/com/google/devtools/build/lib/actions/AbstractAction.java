@@ -273,18 +273,31 @@ public abstract class AbstractAction extends ActionKeyComputer implements Action
     }
   }
 
+  @Nullable
   @Override
   public Artifact getPrimaryInput() {
     // The default behavior is to return the first input artifact.
     // Call through the method, not the field, because it may be overridden.
-    return Iterables.getFirst(getInputs().toList(), null);
+    return getFirstOrNull(getInputs());
   }
 
-  public Artifact getOriginalPrimaryInput() {
+  @Nullable
+  private Artifact getOriginalPrimaryInput() {
     // The default behavior is to return the first input artifact of the original input list (before
     // input discovery).
     // Call through the method, not the field, because it may be overridden.
-    return Iterables.getFirst(getOriginalInputs().toList(), null);
+    return getFirstOrNull(getOriginalInputs());
+  }
+
+  @Nullable
+  private static Artifact getFirstOrNull(NestedSet<Artifact> inputs) {
+    if (inputs.isEmpty()) {
+      return null;
+    } else if (inputs.isSingleton()) {
+      return inputs.getSingleton();
+    } else {
+      return inputs.toList().getFirst();
+    }
   }
 
   @Override

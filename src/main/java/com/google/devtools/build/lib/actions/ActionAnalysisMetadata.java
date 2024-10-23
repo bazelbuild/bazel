@@ -194,13 +194,12 @@ public interface ActionAnalysisMetadata {
   ImmutableSet<Artifact> getMandatoryOutputs();
 
   /**
-   * Returns the "primary" input of this action, if applicable.
+   * Returns the "primary" input of this action, or {@code null} if this action has no inputs.
    *
    * <p>For example, a C++ compile action would return the .cc file which is being compiled,
    * irrespective of the other inputs.
-   *
-   * <p>May return null.
    */
+  @Nullable
   Artifact getPrimaryInput();
 
   /**
