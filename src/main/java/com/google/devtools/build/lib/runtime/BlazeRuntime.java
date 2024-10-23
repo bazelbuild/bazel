@@ -1067,7 +1067,6 @@ public final class BlazeRuntime implements BugReport.BlazeRuntimeInterface {
       shutdownDone = true;
       signalHandler.uninstall();
       ExecRequest request = result.getExecRequest();
-      System.err.println(request);
 
       String[] argv = new String[request.getArgvCount()];
       for (int i = 0; i < argv.length; i++) {
