@@ -235,25 +235,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
                 + "'off' means that all libraries will be linked in mostly static mode.")
     public DynamicMode dynamicMode;
 
-    // TODO(bazel-team): Maybe merge this with --android_cpu above.
-    // TODO(blaze-configurability): Mark this as deprecated in favor of --android_platforms.
-    @Option(
-        name = "fat_apk_cpu",
-        converter = Converters.CommaSeparatedOptionSetConverter.class,
-        defaultValue = "armeabi-v7a",
-        documentationCategory = OptionDocumentationCategory.OUTPUT_PARAMETERS,
-        effectTags = {
-          OptionEffectTag.AFFECTS_OUTPUTS,
-          OptionEffectTag.LOADING_AND_ANALYSIS,
-          OptionEffectTag.LOSES_INCREMENTAL_STATE,
-        },
-        help =
-            "Setting this option enables fat APKs, which contain native binaries for all "
-                + "specified target architectures, e.g., --fat_apk_cpu=x86,armeabi-v7a. If this "
-                + "flag is specified, then --android_cpu is ignored for dependencies of "
-                + "android_binary rules.")
-    public List<String> fatApkCpus;
-
     @Option(
         name = "android_platforms",
         converter = LabelOrderedSetConverter.class,
@@ -713,15 +694,6 @@ public class AndroidConfiguration extends Fragment implements AndroidConfigurati
             "If enabled, direct usage of the native Android rules is disabled. Please use the"
                 + " Starlark Android rules from https://github.com/bazelbuild/rules_android")
     public boolean disableNativeAndroidRules;
-
-    @Option(
-        name = "android hwasan", // Space is so that this cannot be set on the command line
-        defaultValue = "false",
-        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
-        effectTags = {OptionEffectTag.LOADING_AND_ANALYSIS},
-        metadataTags = {OptionMetadataTag.INTERNAL},
-        help = "Whether HWASAN is enabled.")
-    public boolean hwasan;
 
     @Option(
         name = "experimental_filter_r_jars_from_android_test",

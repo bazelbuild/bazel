@@ -25,6 +25,7 @@ import com.google.devtools.build.lib.runtime.BlazeModule;
 import com.google.devtools.build.lib.runtime.Command;
 import com.google.devtools.build.lib.runtime.CommandEnvironment;
 import com.google.devtools.build.lib.util.ResourceFileLoader;
+import com.google.devtools.common.options.Converters;
 import com.google.devtools.common.options.Option;
 import com.google.devtools.common.options.OptionDocumentationCategory;
 import com.google.devtools.common.options.OptionEffectTag;
@@ -424,6 +425,16 @@ public final class BazelRulesModule extends BlazeModule {
         help = "No-op",
         deprecationWarning = ANDROID_FLAG_DEPRECATION)
     public boolean incompatibleUseToolchainResolution;
+
+    @Option(
+        name = "fat_apk_cpu",
+        converter = Converters.CommaSeparatedOptionSetConverter.class,
+        defaultValue = "armeabi-v7a",
+        documentationCategory = OptionDocumentationCategory.UNDOCUMENTED,
+        effectTags = {OptionEffectTag.NO_OP},
+        help = "No-op",
+        deprecationWarning = ANDROID_FLAG_DEPRECATION)
+    public List<String> fatApkCpus;
   }
 
   /**
