@@ -608,6 +608,38 @@ EOF
   fi
 }
 
+function test_run_env() {
+  local -r pkg="pkg${LINENO}"
+  mkdir -p "${pkg}"
+  cat > "$pkg/BUILD" <<'EOF'
+sh_binary(
+  name = "foo",
+  srcs = ["foo.sh"],
+  env = {
+    "FROMBUILD": "1",
+    "OVERRIDDEN_RUN_ENV": "2",
+  }
+)
+EOF
+  cat > "$pkg/foo.sh" <<'EOF'
+#!/bin/bash
+
+set -euo pipefail
+
+echo "FROMBUILD: '$FROMBUILD'"
+echo "OVERRIDDEN_RUN_ENV: '$OVERRIDDEN_RUN_ENV'"
+echo "RUN_ENV_ONLY: '$RUN_ENV_ONLY'"
+EOF
+
+  chmod +x "$pkg/foo.sh"
+
+  bazel run --run_env=OVERRIDDEN_RUN_ENV=FOO --run_env=RUN_ENV_ONLY=BAR "//$pkg:foo" >"$TEST_log" || fail "expected run to succeed"
+
+  expect_log "FROMBUILD: '1'"
+  expect_log "OVERRIDDEN_RUN_ENV: 'FOO'"
+  expect_log "RUN_ENV_ONLY: 'BAR'"
+}
+
 # Usage: assert_starts_with PREFIX STRING_TO_CHECK.
 # Asserts that `$1` is a prefix of `$2`.
 function assert_starts_with() {
