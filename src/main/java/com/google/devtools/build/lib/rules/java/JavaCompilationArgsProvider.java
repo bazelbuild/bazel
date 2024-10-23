@@ -16,22 +16,17 @@ package com.google.devtools.build.lib.rules.java;
 
 import com.google.auto.value.AutoValue;
 import com.google.devtools.build.lib.actions.Artifact;
-import com.google.devtools.build.lib.analysis.FileProvider;
-import com.google.devtools.build.lib.analysis.TransitiveInfoCollection;
 import com.google.devtools.build.lib.collect.nestedset.Depset;
 import com.google.devtools.build.lib.collect.nestedset.Depset.TypeException;
 import com.google.devtools.build.lib.collect.nestedset.NestedSet;
 import com.google.devtools.build.lib.collect.nestedset.NestedSetBuilder;
 import com.google.devtools.build.lib.collect.nestedset.Order;
 import com.google.devtools.build.lib.concurrent.ThreadSafety.Immutable;
-import com.google.devtools.build.lib.packages.RuleClass.ConfiguredTargetFactory.RuleErrorException;
 import com.google.devtools.build.lib.packages.StructImpl;
 import com.google.devtools.build.lib.rules.java.JavaInfo.JavaInfoInternalProvider;
 import com.google.devtools.build.lib.skyframe.serialization.autocodec.SerializationConstant;
-import com.google.devtools.build.lib.util.FileType;
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import java.util.Iterator;
-import java.util.Optional;
 import javax.annotation.Nullable;
 import net.starlark.java.eval.EvalException;
 
@@ -106,40 +101,6 @@ public abstract class JavaCompilationArgsProvider implements JavaInfoInternalPro
    * collecting their transitive closure of deps, do not need to provide dependency artifacts.
    */
   public abstract NestedSet<Artifact> getCompileTimeJavaDependencyArtifacts();
-
-  /**
-   * Returns a {@link JavaCompilationArgsProvider} for the given {@link TransitiveInfoCollection}s.
-   *
-   * <p>If the given targets have a {@link JavaCompilationArgsProvider}, the information from that
-   * provider will be returned. Otherwise, any jar files provided by the targets will be wrapped in
-   * the returned provider.
-   *
-   * @deprecated The handling of raw jar files is present for legacy compatibility. All new
-   *     Java-based rules should require their dependencies to provide {@link
-   *     JavaCompilationArgsProvider}, and that precompiled jar files be wrapped in {@code
-   *     java_import}. New rules should not use this method, and existing rules should be cleaned up
-   *     to disallow jar files in their deps.
-   */
-  // TODO(b/11285003): disallow jar files in deps, require java_import instead
-  @Deprecated
-  public static JavaCompilationArgsProvider legacyFromTargets(
-      Iterable<? extends TransitiveInfoCollection> infos) throws RuleErrorException {
-    Builder argsBuilder = builder();
-    for (TransitiveInfoCollection info : infos) {
-      Optional<JavaCompilationArgsProvider> provider = JavaInfo.getCompilationArgsProvider(info);
-      if (provider.isPresent()) {
-        argsBuilder.addExports(provider.get());
-      } else {
-        NestedSet<Artifact> filesToBuild = info.getProvider(FileProvider.class).getFilesToBuild();
-        for (Artifact jar : FileType.filter(filesToBuild.toList(), JavaSemantics.JAR)) {
-          argsBuilder
-              .addRuntimeJar(jar)
-              .addDirectCompileTimeJar(/* interfaceJar= */ jar, /* fullJar= */ jar);
-        }
-      }
-    }
-    return argsBuilder.build();
-  }
 
   /** Enum to specify transitive compilation args traversal */
   public enum ClasspathType {
