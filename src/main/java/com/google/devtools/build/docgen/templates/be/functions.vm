@@ -529,7 +529,7 @@ There are several important limitations and caveats:
   <li>
     The "**" wildcard has one corner case: the pattern
     <code>"**"</code> doesn't match the package's directory path. That is to
-    say, <code>glob(["**"], exclude_directories = 0)</code> matches all files
+    say, <code>glob(["**"], exclude_directories = False)</code> matches all files
     and directories transitively strictly under the current package's directory
     (but of course not going into directories of subpackages - see the previous
     note about that).

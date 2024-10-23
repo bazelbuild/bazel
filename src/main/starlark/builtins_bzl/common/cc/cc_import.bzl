@@ -194,7 +194,7 @@ cc_import(
   static_library = "libmylib.a",
   # If alwayslink is turned on,
   # libmylib.a will be forcely linked into any binary that depends on it.
-  # alwayslink = 1,
+  # alwayslink = True,
 )
 </code></pre>
 
@@ -243,7 +243,7 @@ cc_import(
   interface_library = "libmylib.ifso", # Or we can also use libmylib.so as its own interface library
   # libmylib.so is provided by system environment, for example it can be found in LD_LIBRARY_PATH.
   # This indicates that Bazel is not responsible for making libmylib.so available.
-  system_provided = 1,
+  system_provided = True,
 )
 </code></pre>
 
@@ -256,7 +256,7 @@ cc_import(
   interface_library = "mylib.lib",
   # mylib.dll is provided by system environment, for example it can be found in PATH.
   # This indicates that Bazel is not responsible for making mylib.dll available.
-  system_provided = 1,
+  system_provided = True,
 )
 </code></pre>
 
@@ -290,7 +290,7 @@ cc_binary(
   name = "first",
   srcs = ["first.cc"],
   deps = [":mylib"],
-  linkstatic = 1, # default value
+  linkstatic = True, # default value
 )
 
 # second will link to libmylib.so (or libmylib.lib)
@@ -298,7 +298,7 @@ cc_binary(
   name = "second",
   srcs = ["second.cc"],
   deps = [":mylib"],
-  linkstatic = 0,
+  linkstatic = False,
 )
 </code></pre>
 
