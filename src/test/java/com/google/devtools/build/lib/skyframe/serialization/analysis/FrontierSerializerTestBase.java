@@ -492,6 +492,48 @@ active_directories = { "default": ["foo"] }
     assertThat(graph.getIfPresent(ctKeyOfLabel.apply("//bar:I"))).isNull();
   }
 
+  @Test
+  public void undoneNodesFromIncrementalChanges_ignoredForSerialization() throws Exception {
+    setupScenarioWithConfiguredTargets();
+
+    write(
+        "foo/PROJECT.scl",
+        """
+active_directories = { "default": ["foo"] }
+""");
+
+    addOptions("--experimental_remote_analysis_cache_mode=upload");
+    buildTarget("//foo:A");
+
+    var serializedConfiguredTargetCount =
+        getCommandEnvironment()
+            .getRemoteAnalysisCachingEventListener()
+            .getSkyfunctionCounts()
+            .count(SkyFunctions.CONFIGURED_TARGET);
+
+    // Make a small change to the //foo:A's dep graph by cutting the dep on //foo:D.
+    // By changing this file, //foo:D will be invalidated as a transitive reverse dependency, but
+    // because evaluating //foo:A no longer needs //foo:D's value, it will remain as an un-done
+    // value. FrontierSerializer will try to mark //foo:D as active because it's in 'foo', but
+    // realizes that it's not done, so it will be ignored.
+    write(
+        "foo/BUILD",
+        """
+filegroup(name = "A", srcs = [":B", "//bar:C"])      # unchanged.
+filegroup(name = "B", srcs = ["//bar:E", "//bar:F"]) # changed: cut dep on D.
+filegroup(name = "D", srcs = ["//bar:H"])            # unchanged.
+filegroup(name = "G")                                # unchanged.
+""");
+
+    // This will pass only if FrontierSerializer only processes nodes that have finished evaluating.
+    buildTarget("//foo:A");
+    // //bar:H is not serialized because it was only reachable from //foo:D, so we expect
+    // exactly one fewer serialized CT.
+    assertThat(
+            getCommandEnvironment().getRemoteAnalysisCachingEventListener().getSkyfunctionCounts())
+        .hasCount(SkyFunctions.CONFIGURED_TARGET, serializedConfiguredTargetCount - 1);
+  }
+
   protected void setupScenarioWithConfiguredTargets() throws Exception {
     // ┌───────┐     ┌───────┐
     // │ bar:C │ ◀── │ foo:A │

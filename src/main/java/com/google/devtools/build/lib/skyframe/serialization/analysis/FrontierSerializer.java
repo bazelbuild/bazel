@@ -268,6 +268,17 @@ public final class FrontierSerializer {
     }
 
     InMemoryNodeEntry node = checkNotNull(graph.getIfPresent(root), root);
+    if (!node.isDone()) {
+      // This node was marked dirty or changed in the most recent build, but its value was not
+      // necessary by any node in that evaluation, so it was never evaluated. Because this node was
+      // never evaluated, it doesn't need to be added to the active set -- it is essentially
+      // disconnected from the current graph evaluation.
+      //
+      // However, this node's direct deps may still be frontier candidates, but only if they are
+      // reachable from another active node, and candidate selection will be handled by them.
+      return;
+    }
+
     for (SkyKey dep : node.getDirectDeps()) {
       if (!(dep instanceof ActionLookupKey child)) {
         continue;
