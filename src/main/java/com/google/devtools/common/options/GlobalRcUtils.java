@@ -28,7 +28,12 @@ final class GlobalRcUtils {
             && option.getOrigin().getSource().equals("client")) {
           return true;
         }
+        if (option.getOrigin().getSource() != null
+            && option.getOrigin().getSource().equals("Invocation policy")) {
+          return true;
+        }
         return false;
       };
-  // LINT.ThenChange(//src/main/cpp/option_processor.cc)
+  // LINT.ThenChange(//src/main/cpp/option_processor.cc,
+  // src/main/java/com/google/devtools/common/options/InvocationPolicyEnforcer.java
 }

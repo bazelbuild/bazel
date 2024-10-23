@@ -2641,6 +2641,22 @@ public final class OptionsParserTest {
     assertThat(parser.getUserOptions()).containsExactly("--foo");
   }
 
+  @Test
+  public void testOptionsParser_getUserOptions_excludesInvocationPolicy() throws Exception {
+    OptionsParser parser =
+        OptionsParser.builder()
+            .optionsClasses(ExpandingOptions.class, ExpandingOptionsFallback.class)
+            .build();
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> "Invocation policy", ImmutableList.of("--foo"), null);
+    assertThat(parser.getUserOptions()).isEmpty();
+
+    parser.parseWithSourceFunction(
+        PriorityCategory.RC_FILE, o -> ".bazelrc", ImmutableList.of("--foo"), null);
+
+    assertThat(parser.getUserOptions()).containsExactly("--foo");
+  }
+
   private static OptionInstanceOrigin createInvocationPolicyOrigin() {
     return createInvocationPolicyOrigin(/*implicitDependent=*/ null, /*expandedFrom=*/ null);
   }
