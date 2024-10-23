@@ -14,6 +14,7 @@
 
 package com.google.devtools.build.lib.analysis.starlark;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Multimaps.toMultimap;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
@@ -21,6 +22,7 @@ import static com.google.devtools.build.lib.skyframe.BzlLoadValue.keyForBuild;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Maps;
@@ -29,6 +31,8 @@ import com.google.devtools.build.lib.analysis.ConfiguredRuleClassProvider;
 import com.google.devtools.build.lib.analysis.ConfiguredTarget;
 import com.google.devtools.build.lib.analysis.PlatformOptions;
 import com.google.devtools.build.lib.analysis.RequiredConfigFragmentsProvider;
+import com.google.devtools.build.lib.analysis.config.BuildConfigurationValue;
+import com.google.devtools.build.lib.analysis.config.BuildOptions;
 import com.google.devtools.build.lib.analysis.config.CoreOptions;
 import com.google.devtools.build.lib.analysis.config.OutputPathMnemonicComputer;
 import com.google.devtools.build.lib.analysis.config.transitions.ConfigurationTransition;
@@ -49,7 +53,6 @@ import com.google.devtools.build.lib.testutil.TestRuleClassProvider;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import net.starlark.java.eval.Dict;
 import net.starlark.java.eval.Starlark;
 import net.starlark.java.eval.StarlarkInt;
@@ -637,16 +640,29 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
         """
         load("//myinfo:myinfo.bzl", "MyInfo")
 
+        def _flag_impl(ctx):
+            pass
+
+        string_flag = rule(
+            implementation = _flag_impl,
+            build_setting = config.string(flag = True),
+        )
+
+        string_list_flag = rule(
+            implementation = _flag_impl,
+            build_setting = config.string_list(flag = True),
+        )
+
         def transition_func(settings, attr):
             transitions = []
-            for cpu in settings["//command_line_option:fat_apk_cpu"]:
-                transitions.append({"//command_line_option:cpu": cpu})
+            for val in settings["//test/starlark:source"]:
+                transitions.append({"//test/starlark:dest": val})
             return transitions
 
         my_transition = transition(
             implementation = transition_func,
-            inputs = ["//command_line_option:fat_apk_cpu"],
-            outputs = ["//command_line_option:cpu"],
+            inputs = ["//test/starlark:source"],
+            outputs = ["//test/starlark:dest"],
         )
 
         def impl(ctx):
@@ -663,7 +679,17 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     scratch.file(
         "test/starlark/BUILD",
         """
-        load("//test/starlark:my_rule.bzl", "my_rule")
+        load("//test/starlark:my_rule.bzl", "my_rule", "string_list_flag", "string_flag")
+
+        string_list_flag(
+            name = "source",
+            build_setting_default = [],
+        )
+
+        string_flag(
+            name = "dest",
+            build_setting_default = "",
+        )
 
         my_rule(
             name = "test",
@@ -682,18 +708,25 @@ public final class StarlarkAttrTransitionProviderTest extends BuildViewTestCase 
     getAnalysisMock().ccSupport().setupCcToolchainConfigForCpu(mockToolsConfig, "armeabi-v7a");
     writeReadSettingsTestFiles();
 
-    useConfiguration("--fat_apk_cpu=k8,armeabi-v7a");
+    useConfiguration("--//test/starlark:source=first,second");
     ConfiguredTarget target = getConfiguredTarget("//test/starlark:test");
 
     @SuppressWarnings("unchecked")
     Dict<String, ConfiguredTarget> splitDep =
         (Dict<String, ConfiguredTarget>) getMyInfoFromTarget(target).getValue("attr_dep");
     assertThat(splitDep.size()).isEqualTo(2);
-    List<String> cpus =
+    ImmutableSet<String> values =
         splitDep.values().stream()
-            .map(ct -> getConfiguration(ct).getCpu())
-            .collect(Collectors.toList());
-    assertThat(cpus).containsExactly("k8", "armeabi-v7a");
+            .map(this::getConfiguration)
+            .map(BuildConfigurationValue::getOptions)
+            .map(
+                options ->
+                    (String)
+                        options
+                            .getStarlarkOptions()
+                            .get(Label.parseCanonicalUnchecked("//test/starlark:dest")))
+            .collect(toImmutableSet());
+    assertThat(values).containsExactly("first", "second");
   }
 
   private void writeOptionConversionTestFiles() throws Exception {
